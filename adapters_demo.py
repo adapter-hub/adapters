@@ -2,7 +2,7 @@ import torch
 
 from transformers.modeling_bert import BertModel
 from combine_adapters import copy_adapter_weights
-from transformers.Adapters import *
+from transformers.adapter import *
 
 
 def is_output_equal(model1, model2, adapters=None, iterations=1, input_shape=(1, 128)):
