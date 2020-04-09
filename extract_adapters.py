@@ -17,12 +17,13 @@ MODELS = {
 }
 
 
-def _get_save_path(model, save_root, model_prefix, adapter_type, name, flat):
+def _get_save_path(model, save_root, model_prefix, adapter_type, name, version, flat):
     # Calculate the hash
     h = get_config_hash(model.adapter_save_config(adapter_type))
     if not flat:
-        save_dir_base = join(save_root, adapter_type + "-" + name)
-        save_dir = join(save_dir_base, h)
+        save_dir = join(save_root, adapter_type + "-" + name, h)
+        if version:
+            save_dir = join(save_dir, str(version))
         makedirs(save_dir, exist_ok=True)
     else:
         # Build the output folder name
@@ -32,17 +33,17 @@ def _get_save_path(model, save_root, model_prefix, adapter_type, name, flat):
     return save_dir
 
 
-def save_all_adapters(model, save_root, prefix, flat=False):
+def save_all_adapters(model, save_root, prefix, version=None, flat=False):
     # task adapters
     if hasattr(model.config, 'adapters'):
         for task_name in model.config.adapters:
-            save_path = _get_save_path(model, save_root, prefix, 'task', task_name, flat)
+            save_path = _get_save_path(model, save_root, prefix, 'task', task_name, version, flat)
             print("Saving {} adapter to {}...".format(task_name, save_path))
             model.save_adapter(save_path, task_name)
     # language adapters
     if hasattr(model.config, 'language_adapters'):
         for lang_name in model.config.language_adapters:
-            save_path = _get_save_path(model, save_root, prefix, 'lang', lang_name, flat)
+            save_path = _get_save_path(model, save_root, prefix, 'lang', lang_name, version, flat)
             print("Saving {} adapter to {}...".format(lang_name, save_path))
             model.save_language_adapter(save_path, lang_name)
 
@@ -55,6 +56,7 @@ if __name__ == "__main__":
     parser.add_argument("--load-path", type=str, help="Path of the directory containing the model to be loaded.")
     parser.add_argument("--save-path", type=str,
                         help="Path of the directory where the adapters will be saved. Sub-directories are created for all adapters.")
+    parser.add_argument("--ver", type=int, default=None, help="Version number of the saved adapters.")
     parser.add_argument("--flat", action="store_true")
 
     args = parser.parse_args()
@@ -63,4 +65,4 @@ if __name__ == "__main__":
     print("Loading {} from {}...".format(model_cls.__name__, args.load_path))
     model = model_cls.from_pretrained(args.load_path)
 
-    save_all_adapters(model, args.save_path, args.model, args.flat)
+    save_all_adapters(model, args.save_path, args.model, args.ver, args.flat)

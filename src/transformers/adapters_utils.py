@@ -28,7 +28,7 @@ def remote_file_exists(url):
     return r.status_code == 200
 
 
-def find_matching_config_path(url, config):
+def find_matching_config_path(url, config, version=None):
     # if there is a module saved in the root dir just use this
     if remote_file_exists(urljoin(url, CONFIG_NAME)):
         logger.info("found a default pretrained adapter at {}".format(url))
@@ -38,7 +38,15 @@ def find_matching_config_path(url, config):
         assert config['config'], "Multiple adapter configs available. Specify a configuration in advance."
         config_hash = get_config_hash(config)
         if remote_file_exists(urljoin(url, config_hash, "")):
-            resolved_path = urljoin(url, config_hash, "")
+            # if we specified a version, search if it's available
+            if version:
+                if remote_file_exists(urljoin(url, config_hash, str(version), "")):
+                    resolved_path = urljoin(url, config_hash, str(version), "")
+                else:
+                    resolved_path = urljoin(url, config_hash, "")
+                    logger.warn("version {} of adapter not found, falling back to default".format(version))
+            else:
+                resolved_path = urljoin(url, config_hash, "")
             logger.info("found matching pretrained adapter at {}".format(resolved_path))
             return resolved_path
         else:

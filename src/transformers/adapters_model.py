@@ -1,5 +1,6 @@
 import logging
-from os.path import isdir, isfile, join
+from os import mkdir
+from os.path import isdir, isfile, join, exists
 import torch
 import json
 from transformers.file_utils import is_remote_url, get_from_cache, torch_cache_home
@@ -96,7 +97,10 @@ class AdaptersModelMixin:
         self._save_adapter(save_directory, config_dict)
 
     def _save_adapter(self, save_directory, config_dict):
-        assert isdir(save_directory), "Saving path should be a directory where adapter and configuration can be saved."
+        if not exists(save_directory):
+            mkdir(save_directory)
+        else:
+            assert isdir(save_directory), "Saving path should be a directory where adapter and configuration can be saved."
 
         # Save the adapter configuration
         output_config_file = join(save_directory, CONFIG_NAME)
@@ -111,7 +115,7 @@ class AdaptersModelMixin:
         torch.save(adapter_state_dict, output_file)
         logger.info("Adapter weights saved in {}".format(output_file))
 
-    def load_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG, **kwargs):
+    def load_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG, version=None, **kwargs):
         """Loads a pre-trained pytorch task adapter from an adapter configuration.
 
         Args:
@@ -123,7 +127,7 @@ class AdaptersModelMixin:
         cache_dir = kwargs.pop("cache_dir", ADAPTER_CACHE)
 
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
-        weights_file, config_file = self._resolve_adapter_path(adapter_name_or_path, 'task', default_config)
+        weights_file, config_file = self._resolve_adapter_path(adapter_name_or_path, 'task', default_config, version)
 
         # Load config of adapter
         config = self._load_adapter_config(config_file, cache_dir=cache_dir, **kwargs)
@@ -139,7 +143,7 @@ class AdaptersModelMixin:
 
         return self._load_adapter_weights(weights_file, config, cache_dir=cache_dir, **kwargs)
 
-    def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG, **kwargs):
+    def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG, version=None, **kwargs):
         """Loads a pre-trained pytorch language adapter from an adapter configuration.
 
         Args:
@@ -151,7 +155,7 @@ class AdaptersModelMixin:
         cache_dir = kwargs.pop("cache_dir", ADAPTER_CACHE)
 
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
-        weights_file, config_file = self._resolve_adapter_path(adapter_name_or_path, 'lang', default_config)
+        weights_file, config_file = self._resolve_adapter_path(adapter_name_or_path, 'lang', default_config, version)
 
         # Load config of adapter
         config = self._load_adapter_config(config_file, cache_dir=cache_dir, **kwargs)
@@ -236,22 +240,22 @@ class AdaptersModelMixin:
 
         return missing_adapter_keys, unexpected_keys
 
-    def _resolve_adapter_path(self, adapter_name_or_path, adapter_type, default_config):
+    def _resolve_adapter_path(self, adapter_name_or_path, adapter_type, default_config, version):
         assert default_config in ADAPTER_CONFIG_MAP, "Specified default config is invalid."
         # task adapter with identifier
         if adapter_type == 'task' and adapter_name_or_path in PRETRAINED_TASK_ADAPTER_MAP:
             config = self.adapter_save_config('task', default_config=ADAPTER_CONFIG_MAP[default_config])
-            resolved_path = find_matching_config_path(PRETRAINED_TASK_ADAPTER_MAP[adapter_name_or_path], config)
+            resolved_path = find_matching_config_path(PRETRAINED_TASK_ADAPTER_MAP[adapter_name_or_path], config, version)
             return urljoin(resolved_path, WEIGHTS_NAME), urljoin(resolved_path, CONFIG_NAME)
         # language adapter with identifier
         elif adapter_type == 'lang' and adapter_name_or_path in PRETRAINED_LANG_ADAPTER_MAP:
             config = self.adapter_save_config('lang', default_config=ADAPTER_CONFIG_MAP[default_config])
-            resolved_path = find_matching_config_path(PRETRAINED_LANG_ADAPTER_MAP[adapter_name_or_path], config)
+            resolved_path = find_matching_config_path(PRETRAINED_LANG_ADAPTER_MAP[adapter_name_or_path], config, version)
             return urljoin(resolved_path, WEIGHTS_NAME), urljoin(resolved_path, CONFIG_NAME)
         # url of a folder containing pretrained adapters
         elif is_remote_url(adapter_name_or_path):
             config = self.adapter_save_config(adapter_type, default_config=ADAPTER_CONFIG_MAP[default_config])
-            resolved_path = find_matching_config_path(adapter_name_or_path, config)
+            resolved_path = find_matching_config_path(adapter_name_or_path, config, version)
             return urljoin(resolved_path, WEIGHTS_NAME), urljoin(resolved_path, CONFIG_NAME)
         # path to a local folder saved using save_adapter() or save_language_adapter()
         elif isdir(adapter_name_or_path):
