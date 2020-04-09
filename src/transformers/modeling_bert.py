@@ -351,6 +351,12 @@ class BertSelfOutput(nn.Module):
             task_names = tasks if isinstance(tasks, list) else tasks.split('_')
             if self.config.adapter_config['attention_type'] == 'tok-lvl':
                 layer = BertAdapterAttention(self.config)
+            elif self.config.adapter_config['attention_type'] == 'sent-lvl':
+                layer = AdapterWeightingSentLvl(self.config, len(task_names))
+            elif self.config.adapter_config['attention_type'] == 'sent-lvl-dynamic':
+                layer = AdapterWeightingSentLvlDynamic(self.config, len(task_names))
+            elif self.config.adapter_config['attention_type'] == 'static':
+                layer = SimpleAdapterWeightingStatic(self.config, len(task_names))
             else:
                 raise Exception('Unknown attention type: {}'.format(self.config.adapter_config['attention_type']))
 
@@ -379,10 +385,6 @@ class BertSelfOutput(nn.Module):
 
     def disable_adapters(self):
         self.adapters_enabled = False
-
-
-
-
 
     def add_language_adapter(self, task_name):
         if self.config.language_adapter_config['MH_Adapter']:
@@ -472,8 +474,6 @@ class BertSelfOutput(nn.Module):
                     attn_name = attn_name_new
 
                 hidden_states = self.bert_adapter_att[attn_name](hidden_states, down_list, layer_output_list, attention_mask)
-
-
 
                 if self.config.adapter_config['new_attention_norm']:
                     hidden_states = self.attention_layer_norm(hidden_states + input_tensor)
@@ -606,6 +606,14 @@ class BertOutput(nn.Module):
             task_names = tasks if isinstance(tasks, list) or isinstance(tasks, tuple) else tasks.split('_')
             if self.config.adapter_config['attention_type'] == 'tok-lvl':
                 layer = BertAdapterAttention(self.config)
+            elif self.config.adapter_config['attention_type'] == 'sent-lvl':
+                layer = AdapterWeightingSentLvl(self.config, len(task_names))
+            elif self.config.adapter_config['attention_type'] == 'sent-lvl-dynamic':
+                layer = AdapterWeightingSentLvlDynamic(self.config, len(task_names))
+            elif self.config.adapter_config['attention_type'] == 'static':
+                layer = SimpleAdapterWeightingStatic(self.config, len(task_names))
+            elif self.config.adapter_config['attention_type'] == 'sent-lvl-fusion':
+                layer = AdapterFusionSentLvlDynamic(self.config, len(task_names))
 
             else:
                 raise Exception('Unknown attention type: {}'.format(self.config.adapter_config['attention_type']))
@@ -680,7 +688,6 @@ class BertOutput(nn.Module):
                     for param in self.language_attention_layer_norm.parameters():
                         param.requires_grad = True
 
-
     def forward(self, hidden_states, input_tensor, attention_mask, tasks=None, language=None):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
@@ -716,81 +723,80 @@ class BertOutput(nn.Module):
 
             used_adapter = True
 
-
-        if hasattr(self.config, 'adapter_config')  and self.config.adapter_config['Output_Adapter'] and self.adapters_enabled:
+        if hasattr(self.config, 'adapter_config') and self.config.adapter_config['Output_Adapter'] and self.adapters_enabled:
             if tasks is None:
                 raise Exception('No tasks given, but adapters are active. Deactivate adapters?')
 
-            # if self.config.adapter_config['residual_before_ln']:
-            #     residual = hidden_states * 1.0
-            #
-            # if hasattr(self.config, 'fusion_config') and self.config.fusion_config['query_before_ln']:
-            #     query = hidden_states * 1.0
+            if self.config.adapter_config['residual_before_ln']:
+                residual = hidden_states * 1.0
 
-            # if self.config.adapter_config['original_ln_before']:
-            #     hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            if hasattr(self.config, 'fusion_config') and self.config.fusion_config['query_before_ln']:
+                query = hidden_states * 1.0
 
-            # if not self.config.adapter_config['residual_before_ln']:
-            # residual = hidden_states * 1.0
+            if self.config.adapter_config['original_ln_before']:
+                hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            # if  hasattr(self.config, 'fusion_config') and not self.config.fusion_config['query_before_ln']:
-            #     query = hidden_states * 1.0
+            if not self.config.adapter_config['residual_before_ln']:
+                residual = hidden_states * 1.0
 
-            # if len(tasks) > 1:
-            #     # we use adapter attention
-            #     layer_output_list, down_list, up_list = [], [], []
-            #     # down_list, up_list = [], []
-            #     for task in tasks:
-            #         intermediate_output, adapter_attention, down, up = self.layer_adapters[task](
-            #             hidden_states, residual_input=residual
-            #         )
-            #         layer_output_list.append(intermediate_output)
-            #
-            #         # up = self.LayerNorm(intermediate_output )
-            #         # up = self.LayerNorm(up )
-            #
-            #         down_list.append(down)
-            #         up_list.append(up)
-            #
-            #     layer_output_list = torch.stack(layer_output_list)
-            #     layer_output_list = layer_output_list.permute(1, 2, 0, 3)
-            #     down_list = torch.stack(down_list)
-            #     down_list = down_list.permute(1, 2, 0, 3)
-            #     up_list = torch.stack(up_list)
-            #     up_list = up_list.permute(1, 2, 0, 3)
-            #
-            #     attn_name = '_'.join(tasks)
-            #     if attn_name not in self.bert_adapter_att:
-            #         attn_name_new = list(self.bert_adapter_att.keys())[0]
-            #         # logging.root.warn('{} not in attention layers. Using other attention layer {} instead'.format(
-            #         #     attn_name,
-            #         #     attn_name_new
-            #         # ))
-            #         attn_name = attn_name_new
-            #
-            #     hidden_states = self.bert_adapter_att[attn_name](query, up_list, up_list, residual=residual, attention_mask=attention_mask)
-            #
-            #     # hidden_states = self.bert_adapter_att[attn_name](query, down_list, up_list, residual=residual, attention_mask=attention_mask)
-            #
-            #     # hidden_states += residual
-            #
-            #     # hidden_states = up_list[:,:,0] + residual
-            #     # hidden_states = layer_output_list[:,:,0]
-            #
-            #     if self.config.adapter_config['new_attention_norm']:
-            #         hidden_states = self.attention_layer_norm(hidden_states + input_tensor)
-            #     else:
-            #         hidden_states = self.LayerNorm(hidden_states + input_tensor)
-            # else:
-            # we use only one task adapter without attention
-            hidden_states, adapter_attention, down, up = self.layer_adapters[tasks[0]](
-                hidden_states,
-                residual_input=residual
-            )
-            # if self.config.adapter_config['original_ln_after']:
-            # hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            if  hasattr(self.config, 'fusion_config') and not self.config.fusion_config['query_before_ln']:
+                query = hidden_states * 1.0
 
+            if len(tasks) > 1:
+                # we use adapter attention
+                layer_output_list, down_list, up_list = [], [], []
+                # down_list, up_list = [], []
+                for task in tasks:
+                    intermediate_output, adapter_attention, down, up = self.layer_adapters[task](
+                        hidden_states, residual_input=residual
+                    )
+                    layer_output_list.append(intermediate_output)
+                    # up = self.LayerNorm(intermediate_output )
+                    # up = self.LayerNorm(up )
+                    down_list.append(down)
+                    up_list.append(up)
+
+                layer_output_list = torch.stack(layer_output_list)
+                layer_output_list = layer_output_list.permute(1, 2, 0, 3)
+                down_list = torch.stack(down_list)
+                down_list = down_list.permute(1, 2, 0, 3)
+                up_list = torch.stack(up_list)
+                up_list = up_list.permute(1, 2, 0, 3)
+
+                attn_name = '_'.join(tasks)
+                if attn_name not in self.bert_adapter_att:
+                    attn_name_new = list(self.bert_adapter_att.keys())[0]
+                    # logging.root.warn('{} not in attention layers. Using other attention layer {} instead'.format(
+                    #     attn_name,
+                    #     attn_name_new
+                    # ))
+                    attn_name = attn_name_new
+
+                hidden_states = self.bert_adapter_att[attn_name](query, up_list, up_list, residual=residual, attention_mask=attention_mask)
+
+                # hidden_states = self.bert_adapter_att[attn_name](query, down_list, up_list, residual=residual, attention_mask=attention_mask)
+
+                # hidden_states += residual
+
+                # hidden_states = up_list[:,:,0] + residual
+                # hidden_states = layer_output_list[:,:,0]
+
+                if self.config.adapter_config['new_attention_norm']:
+                    hidden_states = self.attention_layer_norm(hidden_states + input_tensor)
+                else:
+                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            else:
+                # we use only one task adapter without attention
+                hidden_states, adapter_attention, down, up = self.layer_adapters[tasks[0]](
+                    hidden_states,
+                    residual_input=residual
+                )
+                if self.config.adapter_config['original_ln_after']:
+                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
+
+                # hidden_states = self.LayerNorm(hidden_states + input_tensor)
             used_adapter = True
+        else:
             hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
 
@@ -832,7 +838,6 @@ class BertLayer(nn.Module):
         self.attention.output.enable_adapters(unfreeze_adapters, unfreeze_attention)
         self.output.enable_adapters(unfreeze_adapters, unfreeze_attention)
 
-
     def add_language_adapter(self, task_name):
         self.attention.output.add_language_adapter(task_name)
         self.output.add_language_adapter(task_name)
@@ -852,7 +857,8 @@ class BertLayer(nn.Module):
         head_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
-        tasks=None, language=None,
+        tasks=None,
+        language=None,
     ):
         self_attention_outputs = self.attention(hidden_states, attention_mask, head_mask, tasks=tasks,)
         attention_output = self_attention_outputs[0]
@@ -914,7 +920,8 @@ class BertEncoder(nn.Module):
         head_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
-        tasks=None, language=None
+        tasks=None,
+        language=None
     ):
         all_hidden_states = ()
         all_attentions = ()
@@ -1137,6 +1144,14 @@ class BertModel(BertPreTrainedModel, AdaptersModelMixin):
         self.pooler = BertPooler(config)
         self.prediction_heads = nn.ModuleDict(dict())
 
+        if hasattr(config, 'adapters'):
+            for task in config.adapters:
+                self.add_adapter(task)
+
+        if hasattr(config, 'language_adapters'):
+            for lang in config.language_adapters:
+                self.add_language_adapter(lang)
+
         self.inv_lang_adap = None
         if hasattr(self.config, 'language_adapters'):
             for language in self.config.language_adapters:
@@ -1273,19 +1288,29 @@ class BertModel(BertPreTrainedModel, AdaptersModelMixin):
             self.config.prediction_heads[task_name]['activation_function'] = None
             self.config.prediction_heads[task_name]['qa_examples'] = None
 
-    def add_adapter(self, task_name ):
+    def add_adapter(self, task_name):
         """See BertModel.add_adapter
 
         :param type: either bapna or houlsby
         """
         self.encoder.add_adapter(task_name)
+        if not hasattr(self.config, 'adapters'):
+            self.config.adapters = []
+            self.config.adapters.append(task_name)
+        elif task_name not in self.config.adapters:
+            self.config.adapters.append(task_name)
 
-    def add_language_adapter(self, language_name ):
+    def add_language_adapter(self, language_name):
         """See BertModel.add_adapter
 
         :param type: either bapna or houlsby
         """
         self.encoder.add_language_adapter(language_name)
+        if not hasattr(self.config, 'language_adapters'):
+            self.config.language_adapters = []
+            self.config.language_adapters.append(language_name)
+        elif language_name not in self.config.language_adapters:
+            self.config.language_adapters.append(language_name)
 
     def add_attention_layer(self, task_names):
         """See BertModel.add_attention_layer"""
