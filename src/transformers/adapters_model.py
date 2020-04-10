@@ -46,20 +46,67 @@ DEFAULT_ADAPTER_CONFIG = 'pfeiffer'
 class AdaptersModelMixin:
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
-    def adapter_state_dict(self, task_name):
+    def set_adapter_config(self, adapter_config):
+        """Sets the adapter configuration of the task adapters.
+
+        Args:
+            adapter_config (str or dict): adapter configuration, can be either:
+                - a string identifying a pre-defined adapter configuration
+                - a dictionary representing the adapter configuration
+        """
+        if hasattr(self.config, "adapters"):
+            assert len(self.config.adapters) < 1, "Can only set new config if no adapters have been added."
+
+        if isinstance(adapter_config, dict):
+            self.config.adapter_config = adapter_config
+        elif adapter_config in ADAPTER_CONFIG_MAP:
+            self.config.adapter_config = ADAPTER_CONFIG_MAP[adapter_config]
+        else:
+            raise ValueError("Unable to identify {} as a valid adapter config.".format(adapter_config))
+        self.config.adapters = []
+
+    def set_language_adapter_config(self, adapter_config):
+        """Sets the adapter configuration of the language adapters.
+
+        Args:
+            config (str or dict): adapter configuration, can be either:
+                - a string identifying a pre-defined adapter configuration
+                - a dictionary representing the adapter configuration
+        """
+        if hasattr(self.config, "language_adapters"):
+            assert len(self.config.language_adapters) < 1, "Can only set new config if no adapters have been added."
+
+        if isinstance(adapter_config, dict):
+            self.config.adapter_config = adapter_config
+        elif adapter_config in ADAPTER_CONFIG_MAP:
+            self.config.language_adapter_config = ADAPTER_CONFIG_MAP[adapter_config]
+        else:
+            raise ValueError("Unable to identify {} as a valid adapter config.".format(adapter_config))
+        self.config.language_adapters = []
+
+    def adapter_state_dict(self, adapter_type, adapter_name):
         """Returns a dictionary containing the whole state of the specified task adapter.
 
         Args:
             task_name (str): the name of the task adapter
         """
-        # TODO we have a problem if the model contains adapters of different types w. the same name
-        return {k:v for (k,v) in self.state_dict().items() if 'adapters.{}'.format(task_name) in k}
+        is_part = self._get_params_check_func(adapter_type, adapter_name)
+        return {k: v for (k, v) in self.state_dict().items() if is_part(k)}
+
+    # TODO temporary workaround. replace with a better solution after changeing module item names.
+    def _get_params_check_func(self, adapter_type, adapter_name):
+        if adapter_type == 'task':
+            return lambda x: 'adapters.{}'.format(adapter_name) in x and 'language' not in x
+        elif adapter_type == 'lang':
+            return lambda x: 'adapters.{}'.format(adapter_name) in x and 'language' in x
+        else:
+            raise ValueError("Invalid adapter type {}".format(adapter_type))
 
     def adapter_save_config(self, adapter_type, name=None, default_config=None):
         config_dict = {
             'type': adapter_type,
             'model': self.__class__.__name__, 'hidden_size': self.config.hidden_size
-            }
+        }
         if name:
             config_dict['name'] = name
         if adapter_type == 'task':
@@ -109,7 +156,7 @@ class AdaptersModelMixin:
         logger.info("Configuration saved in {}".format(output_config_file))
 
         # Get the state of all adapter modules for this task
-        adapter_state_dict = self.adapter_state_dict(config_dict['name'])
+        adapter_state_dict = self.adapter_state_dict(config_dict['type'], config_dict['name'])
         # Save the adapter weights
         output_file = join(save_directory, WEIGHTS_NAME)
         torch.save(adapter_state_dict, output_file)
@@ -210,10 +257,10 @@ class AdaptersModelMixin:
         # If the adapter is not part of the model, add it
         name = config['name']
         if config['type'] == 'task':
-            if not name in self.config.adapters:
+            if name not in self.config.adapters:
                 self.add_adapter(name)
         elif config['type'] == 'lang':
-            if not name in self.config.language_adapters:
+            if name not in self.config.language_adapters:
                 self.add_language_adapter(name)
 
         # Load the weights of the adapter
@@ -225,8 +272,8 @@ class AdaptersModelMixin:
         # Add the weights to the model
         missing_keys, unexpected_keys = self.load_state_dict(adapter_state_dict, strict=False)
 
-        # TODO we have a problem if the model contains adapters of different types w. the same name
-        missing_adapter_keys = [k for k in missing_keys if 'adapters.{}'.format(config['name']) in k]
+        params_check = self._get_params_check_func(config['type'], config['name'])
+        missing_adapter_keys = [k for k in missing_keys if params_check(k)]
         if len(missing_adapter_keys) > 0:
             logger.warn(
                 "Some adapter weights could not be found in loaded weights file: {}".format(
@@ -242,19 +289,21 @@ class AdaptersModelMixin:
 
     def _resolve_adapter_path(self, adapter_name_or_path, adapter_type, default_config, version):
         assert default_config in ADAPTER_CONFIG_MAP, "Specified default config is invalid."
+        config = self.adapter_save_config('task', default_config=ADAPTER_CONFIG_MAP[default_config])
         # task adapter with identifier
         if adapter_type == 'task' and adapter_name_or_path in PRETRAINED_TASK_ADAPTER_MAP:
-            config = self.adapter_save_config('task', default_config=ADAPTER_CONFIG_MAP[default_config])
-            resolved_path = find_matching_config_path(PRETRAINED_TASK_ADAPTER_MAP[adapter_name_or_path], config, version)
+            resolved_path = find_matching_config_path(
+                PRETRAINED_TASK_ADAPTER_MAP[adapter_name_or_path], config, version
+            )
             return urljoin(resolved_path, WEIGHTS_NAME), urljoin(resolved_path, CONFIG_NAME)
         # language adapter with identifier
         elif adapter_type == 'lang' and adapter_name_or_path in PRETRAINED_LANG_ADAPTER_MAP:
-            config = self.adapter_save_config('lang', default_config=ADAPTER_CONFIG_MAP[default_config])
-            resolved_path = find_matching_config_path(PRETRAINED_LANG_ADAPTER_MAP[adapter_name_or_path], config, version)
+            resolved_path = find_matching_config_path(
+                PRETRAINED_LANG_ADAPTER_MAP[adapter_name_or_path], config, version
+            )
             return urljoin(resolved_path, WEIGHTS_NAME), urljoin(resolved_path, CONFIG_NAME)
         # url of a folder containing pretrained adapters
         elif is_remote_url(adapter_name_or_path):
-            config = self.adapter_save_config(adapter_type, default_config=ADAPTER_CONFIG_MAP[default_config])
             resolved_path = find_matching_config_path(adapter_name_or_path, config, version)
             return urljoin(resolved_path, WEIGHTS_NAME), urljoin(resolved_path, CONFIG_NAME)
         # path to a local folder saved using save_adapter() or save_language_adapter()
