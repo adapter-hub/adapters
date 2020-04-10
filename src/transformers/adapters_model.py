@@ -43,8 +43,11 @@ ADAPTER_CONFIG_MAP = {
 DEFAULT_ADAPTER_CONFIG = 'pfeiffer'
 
 
-class AdaptersModelMixin:
+class ModelAdaptersMixin:
     """Mixin for transformer models adding support for loading/ saving adapters."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def set_adapter_config(self, adapter_config):
         """Sets the adapter configuration of the task adapters.

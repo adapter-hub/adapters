@@ -4,6 +4,7 @@ import math
 # TODO not sure if this is right...
 from torch.nn import LayerNorm as BertLayerNorm
 
+
 class Activation_Function_Class(nn.Module):
     """Implementation of the gelu activation function.
         For information: OpenAI GPT's gelu is slightly different (and gives slightly different results):
@@ -216,64 +217,64 @@ class BertAdapterAttention(nn.Module):
         return context_layer
 
 
-# class AdapterWeightingSentLvl(nn.Module):
-#     def __init__(self, config, n_tasks):
-#         super(AdapterWeightingSentLvl, self).__init__()
-#         self.dense = nn.Linear(int(config.hidden_size), n_tasks)
-#
-#     def forward(self, query, key, value):
-#         query_sent = torch.mean(query, dim=1)
-#         scores = self.dense(query_sent)
-#         probs = nn.Softmax(dim=-1)(scores)
-#
-#         weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
-#         result = torch.sum(weighted_value, dim=2)
-#
-#         return result
+class AdapterWeightingSentLvl(nn.Module):
+    def __init__(self, config, n_tasks):
+        super(AdapterWeightingSentLvl, self).__init__()
+        self.dense = nn.Linear(int(config.hidden_size), n_tasks)
+
+    def forward(self, query, key, value):
+        query_sent = torch.mean(query, dim=1)
+        scores = self.dense(query_sent)
+        probs = nn.Softmax(dim=-1)(scores)
+
+        weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
+        result = torch.sum(weighted_value, dim=2)
+
+        return result
 
 
-# class AdapterWeightingSentLvlDynamic(nn.Module):
-#     def __init__(self, config, n_tasks):
-#         super(AdapterWeightingSentLvlDynamic, self).__init__()
-#         self.dense = nn.Linear(int(config.hidden_size) // config.adapter_config['reduction_factor'], 1)
-#
-#         self.T = 50.0
-#
-#         self.reduction = self.T / 1000.0
-#
-#     def forward(self, query, key, value, attention_mask):
-#
-#         try:
-#             attention_mask = (attention_mask == 0).float().to(key.device).squeeze()
-#             length = torch.sum(attention_mask, dim=1)
-#         except:
-#             attention_mask = attention_mask.unsqueeze(1)
-#             attention_mask = (attention_mask == 0).float().to(key.device)
-#
-#             length = torch.sum(attention_mask, dim=1)
-#
-#         attention_mask = attention_mask[:,:,None,None].repeat((1,1,key.size()[-2], key.size()[-1]))
-#
-#         key = key * attention_mask
-#
-#         key_sent = torch.sum(key, dim=1) / length[:,None,None].repeat(1,key.size()[-2], key.size()[-1])
-#
-#         # key_sent = torch.mean(key, dim=1)
-#         scores = self.dense(key_sent)
-#         scores_t = scores.transpose(-2, -1)
-#         probs = nn.Softmax(dim=-1)(scores_t / self.T)
-#         # attention_scores = attention_scores + attention_mask
-#         #weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
-#         #result = torch.sum(weighted_value, dim=2)
-#
-#         # with open('probabilities.txt', 'a') as f:
-#         #     for b in probs.data.numpy():
-#         #         f.write('\t'.join([str(e) for e in b[0]]) + '\n')
-#
-#         self.T = max(self.T - self.reduction, 1.0)
-#
-#         result = torch.squeeze(torch.matmul(probs.unsqueeze(2), value), dim=2)
-#         return result
+class AdapterWeightingSentLvlDynamic(nn.Module):
+    def __init__(self, config, n_tasks):
+        super(AdapterWeightingSentLvlDynamic, self).__init__()
+        self.dense = nn.Linear(int(config.hidden_size) // config.adapter_config['reduction_factor'], 1)
+
+        self.T = 50.0
+
+        self.reduction = self.T / 1000.0
+
+    def forward(self, query, key, value, attention_mask):
+
+        try:
+            attention_mask = (attention_mask == 0).float().to(key.device).squeeze()
+            length = torch.sum(attention_mask, dim=1)
+        except:
+            attention_mask = attention_mask.unsqueeze(1)
+            attention_mask = (attention_mask == 0).float().to(key.device)
+
+            length = torch.sum(attention_mask, dim=1)
+
+        attention_mask = attention_mask[:,:,None,None].repeat((1,1,key.size()[-2], key.size()[-1]))
+
+        key = key * attention_mask
+
+        key_sent = torch.sum(key, dim=1) / length[:,None,None].repeat(1,key.size()[-2], key.size()[-1])
+
+        # key_sent = torch.mean(key, dim=1)
+        scores = self.dense(key_sent)
+        scores_t = scores.transpose(-2, -1)
+        probs = nn.Softmax(dim=-1)(scores_t / self.T)
+        # attention_scores = attention_scores + attention_mask
+        #weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
+        #result = torch.sum(weighted_value, dim=2)
+
+        # with open('probabilities.txt', 'a') as f:
+        #     for b in probs.data.numpy():
+        #         f.write('\t'.join([str(e) for e in b[0]]) + '\n')
+
+        self.T = max(self.T - self.reduction, 1.0)
+
+        result = torch.squeeze(torch.matmul(probs.unsqueeze(2), value), dim=2)
+        return result
 
 
 class AdapterFusionSentLvlDynamic(nn.Module):
@@ -373,7 +374,6 @@ class AdapterFusionSentLvlDynamic(nn.Module):
         return result
 
 
-
 # class AdapterWeightingSentLvlDynamic(nn.Module):
 #     def __init__(self, config, n_tasks):
 #         super(AdapterWeightingSentLvlDynamic, self).__init__()
@@ -407,9 +407,8 @@ class SimpleAdapterWeightingStatic(nn.Module):
 
 
 if __name__ == '__main__':
-    adapter = Adapter(50, add_layer_norm=True )
+    adapter = Adapter(50)
 
-    batch = torch.rand(16,50)
+    batch = torch.rand(16, 50)
 
     print(adapter(batch))
-

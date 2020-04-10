@@ -40,7 +40,7 @@ def model_diff(model1, model2):
     return [s for s in params1 if s not in params2], [s for s in params2 if s not in params1]
 
 
-def _print_params(model):
+def print_params(model):
     for s, _ in model.named_parameters():
         print(s)
 
@@ -72,7 +72,7 @@ def run_adapter_test():
     assert is_model_equal(bert_add_new, bert_sst)
     assert is_model_equal(bert_add_new, bert_add_old)
 
-    _print_params(bert_add_new)
+    print_params(bert_add_new)
 
 
 def run_adapter_download_test():
