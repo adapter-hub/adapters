@@ -674,3 +674,31 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             self.config.prediction_heads[task_name]['layers'] = 1
             self.config.prediction_heads[task_name]['activation_function'] = None
             self.config.prediction_heads[task_name]['qa_examples'] = None
+
+    def task_forward(self, task, outputs, sequence_output, valid_ids, device):
+        if task['task_type'] == 'classification':
+            outputs = self.prediction_heads[task['name']](outputs[0][:, 0, :])
+
+        elif task['task_type'] == 'qa':
+            outputs = self.prediction_heads[task['name']](outputs[0][:, 0, :])
+            outputs = outputs.view(-1, task['qa_examples'])
+            # outputs = outputs.squeeze(-1).view(-1,task['qa_examples'])
+
+        elif task['task_type'] == 'tagging':
+            batch_size, max_len, feat_dim = sequence_output.shape
+            valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32).to(device)
+            for i in range(batch_size):
+                jj = -1
+                for j in range(max_len):
+                    if valid_ids[i][j].item() == 1:
+                        jj += 1
+                        valid_output[i][jj] = sequence_output[i][j]
+            # sequence_output = self.dropout(valid_output)
+            # outputs = self.classifier(sequence_output)
+            outputs = self.prediction_heads[task['name']](sequence_output)
+
+        elif task['task_type'] == 'extractive_qa':
+            sequence_output = outputs[0]
+            outputs = self.prediction_heads[task['name']](sequence_output)
+
+        return outputs

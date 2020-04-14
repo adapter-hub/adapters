@@ -4,7 +4,7 @@ from os.path import isdir, isfile, join, exists
 import torch
 import json
 from transformers.file_utils import is_remote_url, get_from_cache, torch_cache_home
-from .adapters_utils import find_matching_config_path, urljoin, CONFIG_NAME, WEIGHTS_NAME
+from .adapters_utils import find_matching_config_path, urljoin, CONFIG_NAME, WEIGHTS_NAME, HEAD_WEIGHTS_NAME
 
 
 logger = logging.getLogger(__name__)
@@ -102,10 +102,12 @@ class ModelAdaptersMixin:
             return lambda x: 'adapters.{}'.format(adapter_name) in x and 'language' not in x
         elif adapter_type == 'lang':
             return lambda x: 'adapters.{}'.format(adapter_name) in x and 'language' in x
+        elif adapter_type == 'head':
+            return lambda x: 'prediction_heads.{}'.format(adapter_name) in x
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
-    def adapter_save_config(self, adapter_type, name=None, default_config=None):
+    def adapter_save_config(self, adapter_type, name=None, default_config=None, with_head=False):
         config_dict = {
             'type': adapter_type,
             'model': self.__class__.__name__, 'hidden_size': self.config.hidden_size
@@ -118,9 +120,11 @@ class ModelAdaptersMixin:
             config_dict['config'] = getattr(self.config, "language_adapter_config", default_config)
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
+        if with_head:
+            config_dict['prediction_head'] = self.config.prediction_heads[name]
         return config_dict
 
-    def save_adapter(self, save_directory, task_name):
+    def save_adapter(self, save_directory, task_name, save_head=False):
         """Saves a task adapter and its configuration file to a directory, so that it can be reloaded
         using the `model.load_adapter()` method.
 
@@ -130,10 +134,10 @@ class ModelAdaptersMixin:
         """
         assert task_name in self.config.adapters, "No task adapter with the given name is part of this model."
 
-        config_dict = self.adapter_save_config('task', task_name)
-        self._save_adapter(save_directory, config_dict)
+        config_dict = self.adapter_save_config('task', task_name, with_head=save_head)
+        self._save_adapter(save_directory, config_dict, save_head)
 
-    def save_language_adapter(self, save_directory, language_name):
+    def save_language_adapter(self, save_directory, language_name, save_head=False):
         """Saves a language adapter and its configuration file to a directory, so that it can be reloaded
         using the `model.load_adapter()` method.
 
@@ -143,10 +147,10 @@ class ModelAdaptersMixin:
         """
         assert language_name in self.config.language_adapters, "No language adapter with the given name is part of this model."
 
-        config_dict = self.adapter_save_config('lang', language_name)
-        self._save_adapter(save_directory, config_dict)
+        config_dict = self.adapter_save_config('lang', language_name, with_head=save_head)
+        self._save_adapter(save_directory, config_dict, save_head)
 
-    def _save_adapter(self, save_directory, config_dict):
+    def _save_adapter(self, save_directory, config_dict, save_head):
         if not exists(save_directory):
             mkdir(save_directory)
         else:
@@ -165,7 +169,15 @@ class ModelAdaptersMixin:
         torch.save(adapter_state_dict, output_file)
         logger.info("Adapter weights saved in {}".format(output_file))
 
-    def load_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG, version=None, **kwargs):
+        # optionally save the prediction head in a separate file
+        if save_head:
+            heads_state_dict = self.adapter_state_dict('head', config_dict['name'])
+            output_file = join(save_directory, HEAD_WEIGHTS_NAME)
+            torch.save(heads_state_dict, output_file)
+            logger.info("Prediction head weights saved in {}".format(output_file))
+
+    def load_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
+                     version=None, load_head=False, **kwargs):
         """Loads a pre-trained pytorch task adapter from an adapter configuration.
 
         Args:
@@ -191,9 +203,20 @@ class ModelAdaptersMixin:
             for k,v in config['config'].items():
                 assert self.config.adapter_config[k] == v, "Adapter configurations have to be equal."
 
-        return self._load_adapter_weights(weights_file, config, cache_dir=cache_dir, **kwargs)
+        # If the adapter is not part of the model, add it
+        if config['name'] not in self.config.adapters:
+            self.add_adapter(config['name'])
 
-    def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG, version=None, **kwargs):
+        self._load_adapter_weights(weights_file, config['type'], config['name'], cache_dir=cache_dir, **kwargs)
+
+        # Optionally, load the weights of the prediction head
+        if load_head:
+            # TODO still a bit hacky
+            head_file = weights_file.replace(WEIGHTS_NAME, HEAD_WEIGHTS_NAME)
+            self._load_adapter_head(head_file, config, cache_dir=cache_dir, **kwargs)
+
+    def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
+                              version=None, load_head=False, **kwargs):
         """Loads a pre-trained pytorch language adapter from an adapter configuration.
 
         Args:
@@ -219,7 +242,33 @@ class ModelAdaptersMixin:
             for k,v in config['config'].items():
                 assert self.config.language_adapter_config[k] == v, "Adapter configurations have to be equal."
 
-        return self._load_adapter_weights(weights_file, config, cache_dir=cache_dir, **kwargs)
+        # If the adapter is not part of the model, add it
+        if config['name'] not in self.config.language_adapters:
+            self.add_language_adapter(config['name'])
+
+        self._load_adapter_weights(weights_file, config['type'], config['name'], cache_dir=cache_dir, **kwargs)
+
+        # Optionally, load the weights of the prediction head
+        if load_head:
+            # TODO still a bit hacky
+            head_file = weights_file.replace(WEIGHTS_NAME, HEAD_WEIGHTS_NAME)
+            self._load_adapter_head(head_file, config, cache_dir=cache_dir, **kwargs)
+
+    def _load_adapter_head(self, head_file, config, **kwargs):
+        """Loads a prediction head for an adapter.
+        """
+        assert 'prediction_head' in config, "Loaded adapter has no prediction head included."
+        head_config = config['prediction_head']
+
+        # Add the prediction head to the model
+        # TODO check the case when prediction head is already present
+        self.add_prediction_head(
+            config['name'], nr_labels=head_config['nr_labels'],
+            task_type=head_config['task_type'], layers=head_config['layers'],
+            activation_function=head_config['activation_function'], qa_examples=head_config['qa_examples']
+        )
+
+        return self._load_adapter_weights(head_file, 'head', config['name'], **kwargs)
 
     def _load_adapter_config(self, resolved_file, **kwargs):
         """Loads an adapter configuration.
@@ -242,7 +291,7 @@ class ModelAdaptersMixin:
 
         return adapter_config
 
-    def _load_adapter_weights(self, resolved_file, config, **kwargs):
+    def _load_adapter_weights(self, resolved_file, adapter_type, adapter_name, **kwargs):
         """Loads adapter weights.
         """
         # If necessary, download the weights or load them from cache
@@ -257,15 +306,6 @@ class ModelAdaptersMixin:
             weights_file = resolved_file
             logger.info("loading weights file {}".format(weights_file))
 
-        # If the adapter is not part of the model, add it
-        name = config['name']
-        if config['type'] == 'task':
-            if name not in self.config.adapters:
-                self.add_adapter(name)
-        elif config['type'] == 'lang':
-            if name not in self.config.language_adapters:
-                self.add_language_adapter(name)
-
         # Load the weights of the adapter
         try:
             adapter_state_dict = torch.load(weights_file, map_location="cpu")
@@ -275,7 +315,7 @@ class ModelAdaptersMixin:
         # Add the weights to the model
         missing_keys, unexpected_keys = self.load_state_dict(adapter_state_dict, strict=False)
 
-        params_check = self._get_params_check_func(config['type'], config['name'])
+        params_check = self._get_params_check_func(adapter_type, adapter_name)
         missing_adapter_keys = [k for k in missing_keys if params_check(k)]
         if len(missing_adapter_keys) > 0:
             logger.warn(

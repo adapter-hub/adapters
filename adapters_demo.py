@@ -56,7 +56,7 @@ def run_adapter_test():
     bert_add_new = BertModel.from_pretrained("bert-base-uncased")
 
     # save the SST adapter to the file system
-    bert_sst.save_adapter(ADAPTER_DIR + "sst", "sst")
+    bert_sst.save_adapter(ADAPTER_DIR + "sst", "sst", save_head=True)
 
     # add SST adapter to BERT using old method
     bert_add_old.config.adapters = []
@@ -64,7 +64,7 @@ def run_adapter_test():
     copy_adapter_weights(bert_sst, bert_add_old)
 
     # add SST adapter to BERT by loading the previously saved
-    bert_add_new.load_adapter(ADAPTER_DIR + "sst")
+    bert_add_new.load_adapter(ADAPTER_DIR + "sst", load_head=True)
 
     # check equality
     assert is_output_equal(bert_add_new, bert_sst, adapters=['sst'])

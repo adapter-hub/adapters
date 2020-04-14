@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 CONFIG_NAME = "adapter_config.json"
 WEIGHTS_NAME = "pytorch_adapter.bin"
+HEAD_WEIGHTS_NAME = "pytorch_adapter_head.bin"
 
 
 def urljoin(*args):
