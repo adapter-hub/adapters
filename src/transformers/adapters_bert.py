@@ -3,7 +3,7 @@ from torch import nn
 
 from .adapter import *
 from .invertible_lang_adapters import NICECouplingBlock
-from .adapters_model import ModelAdaptersMixin
+from .adapters_model import ModelAdaptersMixin, DEFAULT_ADAPTER_CONFIG
 
 
 class BertSelfOutputAdaptersMixin:
@@ -13,17 +13,13 @@ class BertSelfOutputAdaptersMixin:
 
         self.attention_adapters = nn.ModuleDict(dict())
         self.attention_adapters_fusion = nn.ModuleDict(dict())
-        self.adapters_enabled = False
         if hasattr(config, 'adapters'):
-            self.adapters_enabled = True
             for task in config.adapters:
                 self.add_adapter(task)
 
         self.language_attention_adapters = nn.ModuleDict(dict())
         self.language_attention_adapters_fusion = nn.ModuleDict(dict())
-        self.language_adapters_enabled = False
         if hasattr(config, 'language_adapters'):
-            self.language_adapters_enabled = True
             for language in config.language_adapters:
                 self.add_language_adapter(language)
 
@@ -60,7 +56,6 @@ class BertSelfOutputAdaptersMixin:
 
     def enable_adapters(self, unfreeze_adapters, unfreeze_attention):
         if self.config.adapter_config['MH_Adapter']:
-            self.adapters_enabled = True
             if unfreeze_adapters:
                 for param in self.attention_adapters.parameters():
                     param.requires_grad = True
@@ -76,19 +71,15 @@ class BertSelfOutputAdaptersMixin:
                     for param in self.attention_layer_norm.parameters():
                         param.requires_grad = True
 
-    def disable_adapters(self):
-        self.adapters_enabled = False
-
     def add_language_adapter(self, task_name):
         if self.config.language_adapter_config['MH_Adapter']:
             self.language_attention_adapters[task_name] = Adapter(input_size=self.config.hidden_size,
-                                                         down_sample=self.config.hidden_size // self.config.language_adapter_config['reduction_factor'],
-                                                         add_layer_norm_before=self.config.language_adapter_config['LN_before'],
-                                                         add_layer_norm_after=self.config.language_adapter_config['LN_after'],
-                                                         non_linearity=self.config.language_adapter_config['non_linearity'],
-                                                         residual_before_ln=self.config.language_adapter_config[
-                                                             'adapter_residual_before_ln']
-                                                         )
+                                                                  down_sample=self.config.hidden_size // self.config.language_adapter_config['reduction_factor'],
+                                                                  add_layer_norm_before=self.config.language_adapter_config['LN_before'],
+                                                                  add_layer_norm_after=self.config.language_adapter_config['LN_after'],
+                                                                  non_linearity=self.config.language_adapter_config['non_linearity'],
+                                                                  residual_before_ln=self.config.language_adapter_config['adapter_residual_before_ln']
+                                                                  )
 
     def add_language_attention_layer(self, tasks):
         """See BertModel.add_attention_layer"""
@@ -106,7 +97,6 @@ class BertSelfOutputAdaptersMixin:
 
     def enable_language_adapters(self, unfreeze_adapters, unfreeze_attention):
         if self.config.language_adapter_config['MH_Adapter']:
-            self.language_adapters_enabled = True
             if unfreeze_adapters:
                 for param in self.language_attention_adapters.parameters():
                     param.requires_grad = True
@@ -122,64 +112,62 @@ class BertSelfOutputAdaptersMixin:
                     for param in self.language_attention_layer_norm.parameters():
                         param.requires_grad = True
 
-    def disable_language_adapters(self):
-        self.language_adapters_enabled = False
-
     def adapters_forward(self, hidden_states, input_tensor, tasks=None):
 
-        if hasattr(self.config, 'adapter_config') and self.config.adapter_config['MH_Adapter'] and self.adapters_enabled:
-            if tasks is None:
-                raise Exception('No tasks given, but adapters are active. Deactivate adapters?')
+        if hasattr(self.config, 'adapter_config') and self.config.adapter_config['MH_Adapter']:
+            # TODO
+            # if tasks is None:
+            #     raise Exception('No tasks given, but adapters are active. Deactivate adapters?')
 
-            if self.config.adapter_config['residual_before_ln']:
-                residual = hidden_states
+            # if self.config.adapter_config['residual_before_ln']:
+            #     residual = hidden_states
 
-            if self.config.adapter_config['original_ln_before']:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            # if self.config.adapter_config['original_ln_before']:
+            #     hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if not self.config.adapter_config['residual_before_ln']:
-                residual = hidden_states
+            # if not self.config.adapter_config['residual_before_ln']:
+            #     residual = hidden_states
 
-            if len(tasks) > 1:
-                # we use adapter attention
-                layer_output_list, down_list = [], []
-                for task in tasks:
-                    intermediate_output, adapter_attention, down = self.layer_adapters[task](
-                        hidden_states, residual_input=residual
-                    )
-                    layer_output_list.append(intermediate_output)
-                    down_list.append(down)
+            # if len(tasks) > 1:
+            #     # we use adapter attention
+            #     layer_output_list, down_list = [], []
+            #     for task in tasks:
+            #         intermediate_output, adapter_attention, down = self.layer_adapters[task](
+            #             hidden_states, residual_input=residual
+            #         )
+            #         layer_output_list.append(intermediate_output)
+            #         down_list.append(down)
 
-                layer_output_list = torch.stack(layer_output_list)
-                layer_output_list = layer_output_list.permute(1, 2, 0, 3)
-                down_list = torch.stack(down_list)
-                down_list = down_list.permute(1, 2, 0, 3)
+            #     layer_output_list = torch.stack(layer_output_list)
+            #     layer_output_list = layer_output_list.permute(1, 2, 0, 3)
+            #     down_list = torch.stack(down_list)
+            #     down_list = down_list.permute(1, 2, 0, 3)
 
-                attn_name = '_'.join(tasks)
-                if attn_name not in self.bert_adapter_att:
-                    attn_name_new = list(self.bert_adapter_att.keys())[0]
-                    # logging.root.warn('{} not in attention layers. Using other attention layer {} instead'.format(
-                    #     attn_name,
-                    #     attn_name_new
-                    # ))
-                    attn_name = attn_name_new
+            #     attn_name = '_'.join(tasks)
+            #     if attn_name not in self.bert_adapter_att:
+            #         attn_name_new = list(self.bert_adapter_att.keys())[0]
+            #         # logging.root.warn('{} not in attention layers. Using other attention layer {} instead'.format(
+            #         #     attn_name,
+            #         #     attn_name_new
+            #         # ))
+            #         attn_name = attn_name_new
 
-                hidden_states = self.bert_adapter_att[attn_name](hidden_states, down_list, layer_output_list, attention_mask)
+            #     hidden_states = self.bert_adapter_att[attn_name](hidden_states, down_list, layer_output_list, attention_mask)
 
-                if self.config.adapter_config['new_attention_norm']:
-                    hidden_states = self.attention_layer_norm(hidden_states + input_tensor)
-                else:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
-            else:
-                # we use only one task adapter without attention
-                hidden_states, adapter_attention, down, up = self.attention_adapters[tasks[0]](
-                    hidden_states,
-                    residual_input=residual
-                )
-                if self.config.adapter_config['original_ln_after']:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            #     if self.config.adapter_config['new_attention_norm']:
+            #         hidden_states = self.attention_layer_norm(hidden_states + input_tensor)
+            #     else:
+            #         hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            # else:
+            #     # we use only one task adapter without attention
+            #     hidden_states, adapter_attention, down, up = self.attention_adapters[tasks[0]](
+            #         hidden_states,
+            #         residual_input=residual
+            #     )
+            #     if self.config.adapter_config['original_ln_after']:
+            #         hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-                # hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         else:
             hidden_states = self.LayerNorm(hidden_states + input_tensor)
@@ -198,21 +186,15 @@ class BertOutputAdaptersMixin:
         self.layer_adapters = nn.ModuleDict(dict())
 
         if hasattr(self.config, 'adapters'):
-            self.adapters_enabled = True
             for task in config.adapters:
                 self.add_adapter(task)
-        else:
-            self.adapters_enabled = False
 
         self.bert_language_adapter_att = nn.ModuleDict(dict())
         self.layer_language_adapters = nn.ModuleDict(dict())
 
         if hasattr(self.config, 'language_adapters'):
-            self.language_adapters_enabled = True
             for language in config.language_adapters:
                 self.add_language_adapter(language)
-        else:
-            self.language_adapters_enabled = False
 
         if hasattr(config, 'fusion_models'):
             for tasks in config.fusion_models:
@@ -251,12 +233,8 @@ class BertOutputAdaptersMixin:
                                                      residual_before_ln=self.config.adapter_config['adapter_residual_before_ln']
                                                      )
 
-    def disable_adapters(self):
-        self.adapters_enabled = False
-
     def enable_adapters(self, unfreeze_adapters, unfreeze_attention):
         if self.config.adapter_config['Output_Adapter']:
-            self.adapters_enabled = True
             if unfreeze_adapters:
                 for param in self.layer_adapters.parameters():
                     param.requires_grad = True
@@ -282,12 +260,8 @@ class BertOutputAdaptersMixin:
                                                               residual_before_ln=self.config.language_adapter_config['adapter_residual_before_ln']
                                                               )
 
-    def disable_language_adapters(self):
-        self.language_adapters_enabled = False
-
     def enable_language_adapters(self, unfreeze_adapters, unfreeze_attention):
         if self.config.language_adapter_config['Output_Adapter']:
-            self.language_adapters_enabled = True
             if unfreeze_adapters:
                 for param in self.layer_language_adapters.parameters():
                     param.requires_grad = True
@@ -307,9 +281,9 @@ class BertOutputAdaptersMixin:
         residual = hidden_states
         hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-        used_adapter = False
+        # used_adapter = False
 
-        if hasattr(self.config, 'language_adapter_config') and self.config.language_adapter_config['Output_Adapter'] and self.language_adapters_enabled :
+        if hasattr(self.config, 'language_adapter_config') and self.config.language_adapter_config['Output_Adapter']:
             # print('trining language adapter')
             if language is None:
                 raise Exception('No language given, but adapters are active. Deactivate adapters?')
@@ -335,7 +309,7 @@ class BertOutputAdaptersMixin:
 
             # used_adapter = True
 
-        if hasattr(self.config, 'adapter_config') and self.config.adapter_config['Output_Adapter'] and self.adapters_enabled:
+        if hasattr(self.config, 'adapter_config') and self.config.adapter_config['Output_Adapter']:
             if tasks is None:
                 raise Exception('No tasks given, but adapters are active. Deactivate adapters?')
 
@@ -432,10 +406,6 @@ class BertLayerAdaptersMixin:
         self.attention.output.add_adapter(task_name)
         self.output.add_adapter(task_name)
 
-    def disable_adapters(self):
-        self.attention.output.disable_adapters()
-        self.output.disable_adapters()
-
     def enable_adapters(self, unfreeze_adapters, unfreeze_attention):
         self.attention.output.enable_adapters(unfreeze_adapters, unfreeze_attention)
         self.output.enable_adapters(unfreeze_adapters, unfreeze_attention)
@@ -443,10 +413,6 @@ class BertLayerAdaptersMixin:
     def add_language_adapter(self, task_name):
         self.attention.output.add_language_adapter(task_name)
         self.output.add_language_adapter(task_name)
-
-    def disable_language_adapters(self):
-        self.attention.output.disable_language_adapters()
-        self.output.disable_language_adapters()
 
     def enable_language_adapters(self, unfreeze_adapters, unfreeze_attention):
         self.attention.output.enable_language_adapters(unfreeze_adapters, unfreeze_attention)
@@ -463,10 +429,6 @@ class BertEncoderAdaptersMixin:
         for layer in self.layer:
             layer.add_adapter(task_name)
 
-    def disable_adapters(self):
-        for layer in self.layer:
-            layer.disable_adapters()
-
     def enable_adapters(self, unfreeze_adapters, unfreeze_attention):
         for layer in self.layer:
             layer.enable_adapters(unfreeze_adapters, unfreeze_attention)
@@ -474,10 +436,6 @@ class BertEncoderAdaptersMixin:
     def add_language_adapter(self, task_name):
         for layer in self.layer:
             layer.add_language_adapter(task_name)
-
-    def disable_language_adapters(self):
-        for layer in self.layer:
-            layer.disable_language_adapters()
 
     def enable_language_adapters(self, unfreeze_adapters, unfreeze_attention):
         for layer in self.layer:
@@ -487,6 +445,8 @@ class BertEncoderAdaptersMixin:
 class BertModelAdaptersMixin(ModelAdaptersMixin):
     def __init__(self, config):
         super().__init__(config)
+        self.model_freezed = False
+
         self.prediction_heads = nn.ModuleDict(dict())
 
         self.inv_lang_adap = None
@@ -503,59 +463,60 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
                                          activation_function=v['activation_function'],
                                          qa_examples=v['qa_examples'])
 
-    def add_adapter(self, task_name):
-        """See BertModel.add_adapter
+    def freeze_model(self, freeze=True, train_adapters=True, train_attention=True):
+        """Freezes all weights of the model to to only train the adapters.
 
-        :param type: either bapna or houlsby
+        Args:
+            freeze (bool): Whether to train only the adapters (True) or fine-tune the full model (False).
+            train_adapters (bool, optional): Whether to keep the adapter weights unfreezed for training. Defaults to True.
+            train_attention (bool, optional): Whether to keep the adapter attention weights unfreezed for training. Defaults to True.
+        """
+        # first freeze/ unfreeze all model weights
+        for param in self.parameters():
+            param.requires_grad = not freeze
+        # now, if needed re-enable adapter weights
+        if freeze:
+            if hasattr(self.config, 'adapter_config'):
+                self.encoder.enable_adapters(train_adapters, train_attention)
+            if hasattr(self.config, 'language_adapter_config'):
+                self.encoder.enable_language_adapters(train_adapters, train_attention)
+        self.model_freezed = freeze
+
+    def add_adapter(self, task_name, default_config=DEFAULT_ADAPTER_CONFIG):
+        """Adds a new task adapter to the model.
+
+        Args:
+            task_name (str): the name of the task
+            default_config (str or dict, optional): the default task adapter config if none is set.
         """
         self.encoder.add_adapter(task_name)
-        if not hasattr(self.config, 'adapters'):
-            self.config.adapters = []
-            self.config.adapters.append(task_name)
-        elif task_name not in self.config.adapters:
+        if not hasattr(self.config, 'adapter_config'):
+            self.set_adapter_config(default_config)
+        # freeze pre-trained model when adding first adapter
+        if not self.model_freezed:
+            self.freeze_model(True)
+        if task_name not in self.config.adapters:
             self.config.adapters.append(task_name)
 
-    def add_language_adapter(self, language_name):
-        """See BertModel.add_adapter
+    def add_language_adapter(self, language_name, default_config=DEFAULT_ADAPTER_CONFIG):
+        """Adds a new language adapter to the model.
 
-        :param type: either bapna or houlsby
+        Args:
+            language_name (str): the name of the language
+            default_config (str or dict, optional): the default language adapter config if none is set.
         """
         self.encoder.add_language_adapter(language_name)
-        if not hasattr(self.config, 'language_adapters'):
-            self.config.language_adapters = []
-            self.config.language_adapters.append(language_name)
-        elif language_name not in self.config.language_adapters:
+        if not hasattr(self.config, 'language_adapter_config'):
+            self.set_adapter_config(default_config)
+        # freeze pre-trained model when adding first adapter
+        if not self.model_freezed:
+            self.freeze_model(True)
+        if language_name not in self.config.language_adapters:
             self.config.language_adapters.append(language_name)
 
     def add_attention_layer(self, task_names):
         """See BertModel.add_attention_layer"""
         self.encoder.add_attention_layer(task_names)
-
-    def enable_adapters(self, unfreeze_adapters=True, unfreeze_attention=True):
-        """Enables the use of adapters. If not enabled, adapters won't be called (default: disabled)
-
-        :param unfreeze_adapters: if set to true, will set requires_grad to true for all params of the adapter
-                                    (including the attention)
-        :param unfreeze_attention: if set to true, will set requires_grad to the adapter attention parameters
-        """
-        self.encoder.enable_adapters(unfreeze_adapters, unfreeze_attention)
-
-    def disable_adapters(self):
-        """Disables adapters. The model will behave just like a regular BERT model without adapters"""
-        self.encoder.disable_adapters()
-
-    def enable_language_adapters(self, unfreeze_adapters=True, unfreeze_attention=True):
-        """Enables the use of adapters. If not enabled, adapters won't be called (default: disabled)
-
-        :param unfreeze_adapters: if set to true, will set requires_grad to true for all params of the adapter
-                                    (including the attention)
-        :param unfreeze_attention: if set to true, will set requires_grad to the adapter attention parameters
-        """
-        self.encoder.enable_language_adapters(unfreeze_adapters, unfreeze_attention)
-
-    def disable_language_adapters(self):
-        """Disables adapters. The model will behave just like a regular BERT model without adapters"""
-        self.encoder.disable_language_adapters()
 
     def add_model_inv_lang_adapter(self, language):
         if not self.inv_lang_adap:

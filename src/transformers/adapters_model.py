@@ -189,10 +189,10 @@ class ModelAdaptersMixin:
         cache_dir = kwargs.pop("cache_dir", ADAPTER_CACHE)
 
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
-        weights_file, config_file = self._resolve_adapter_path(adapter_name_or_path, 'task', default_config, version)
+        resolved_folder = self._resolve_adapter_path(adapter_name_or_path, 'task', default_config, version)
 
         # Load config of adapter
-        config = self._load_adapter_config(config_file, cache_dir=cache_dir, **kwargs)
+        config = self._load_adapter_config(resolved_folder, cache_dir=cache_dir, **kwargs)
         assert config['type'] == 'task', "Loaded adapter has to be a task adapter."
         # If no adapter config is available yet, set to the config of the loaded adapter
         if not hasattr(self.config, "adapter_config"):
@@ -207,13 +207,11 @@ class ModelAdaptersMixin:
         if config['name'] not in self.config.adapters:
             self.add_adapter(config['name'])
 
-        self._load_adapter_weights(weights_file, config['type'], config['name'], cache_dir=cache_dir, **kwargs)
+        self._load_adapter_weights(resolved_folder, config['type'], config['name'], cache_dir=cache_dir, **kwargs)
 
         # Optionally, load the weights of the prediction head
         if load_head:
-            # TODO still a bit hacky
-            head_file = weights_file.replace(WEIGHTS_NAME, HEAD_WEIGHTS_NAME)
-            self._load_adapter_head(head_file, config, cache_dir=cache_dir, **kwargs)
+            self._load_adapter_head(resolved_folder, config, cache_dir=cache_dir, **kwargs)
 
     def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
                               version=None, load_head=False, **kwargs):
@@ -228,10 +226,10 @@ class ModelAdaptersMixin:
         cache_dir = kwargs.pop("cache_dir", ADAPTER_CACHE)
 
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
-        weights_file, config_file = self._resolve_adapter_path(adapter_name_or_path, 'lang', default_config, version)
+        resolved_folder = self._resolve_adapter_path(adapter_name_or_path, 'lang', default_config, version)
 
         # Load config of adapter
-        config = self._load_adapter_config(config_file, cache_dir=cache_dir, **kwargs)
+        config = self._load_adapter_config(resolved_folder, cache_dir=cache_dir, **kwargs)
         assert config['type'] == 'lang', "Loaded adapter has to be a language adapter."
         # If no adapter config is available yet, set to the config of the loaded adapter
         if not hasattr(self.config, "language_adapter_config"):
@@ -246,15 +244,13 @@ class ModelAdaptersMixin:
         if config['name'] not in self.config.language_adapters:
             self.add_language_adapter(config['name'])
 
-        self._load_adapter_weights(weights_file, config['type'], config['name'], cache_dir=cache_dir, **kwargs)
+        self._load_adapter_weights(resolved_folder, config['type'], config['name'], cache_dir=cache_dir, **kwargs)
 
         # Optionally, load the weights of the prediction head
         if load_head:
-            # TODO still a bit hacky
-            head_file = weights_file.replace(WEIGHTS_NAME, HEAD_WEIGHTS_NAME)
-            self._load_adapter_head(head_file, config, cache_dir=cache_dir, **kwargs)
+            self._load_adapter_head(resolved_folder, config, cache_dir=cache_dir, **kwargs)
 
-    def _load_adapter_head(self, head_file, config, **kwargs):
+    def _load_adapter_head(self, resolved_folder, config, **kwargs):
         """Loads a prediction head for an adapter.
         """
         assert 'prediction_head' in config, "Loaded adapter has no prediction head included."
@@ -268,13 +264,16 @@ class ModelAdaptersMixin:
             activation_function=head_config['activation_function'], qa_examples=head_config['qa_examples']
         )
 
-        return self._load_adapter_weights(head_file, 'head', config['name'], **kwargs)
+        return self._load_adapter_weights(
+            resolved_folder, 'head', config['name'], weights_name=HEAD_WEIGHTS_NAME, **kwargs
+        )
 
-    def _load_adapter_config(self, resolved_file, **kwargs):
+    def _load_adapter_config(self, resolved_folder, **kwargs):
         """Loads an adapter configuration.
         """
         # If necessary, download the config or load it from cache
-        if is_remote_url(resolved_file):
+        if is_remote_url(resolved_folder):
+            resolved_file = urljoin(resolved_folder, CONFIG_NAME)
             config_file = get_from_cache(resolved_file, **kwargs)
             if not config_file:
                 raise EnvironmentError(
@@ -282,7 +281,7 @@ class ModelAdaptersMixin:
                 )
             logger.info("loading configuration file {} from cache at {}".format(resolved_file, config_file))
         else:
-            config_file = resolved_file
+            config_file = join(resolved_folder, CONFIG_NAME)
             logger.info("loading configuration file {}".format(config_file))
 
         # Load the config
@@ -291,11 +290,12 @@ class ModelAdaptersMixin:
 
         return adapter_config
 
-    def _load_adapter_weights(self, resolved_file, adapter_type, adapter_name, **kwargs):
+    def _load_adapter_weights(self, resolved_folder, adapter_type, adapter_name, weights_name=WEIGHTS_NAME, **kwargs):
         """Loads adapter weights.
         """
         # If necessary, download the weights or load them from cache
-        if is_remote_url(resolved_file):
+        if is_remote_url(resolved_folder):
+            resolved_file = urljoin(resolved_folder, weights_name)
             weights_file = get_from_cache(resolved_file, **kwargs)
             if not weights_file:
                 raise EnvironmentError(
@@ -303,7 +303,7 @@ class ModelAdaptersMixin:
                 )
             logger.info("loading weights file {} from cache at {}".format(resolved_file, weights_file))
         else:
-            weights_file = resolved_file
+            weights_file = join(resolved_folder, weights_name)
             logger.info("loading weights file {}".format(weights_file))
 
         # Load the weights of the adapter
@@ -335,26 +335,21 @@ class ModelAdaptersMixin:
         config = self.adapter_save_config('task', default_config=ADAPTER_CONFIG_MAP[default_config])
         # task adapter with identifier
         if adapter_type == 'task' and adapter_name_or_path in PRETRAINED_TASK_ADAPTER_MAP:
-            resolved_path = find_matching_config_path(
+            return find_matching_config_path(
                 PRETRAINED_TASK_ADAPTER_MAP[adapter_name_or_path], config, version
             )
-            return urljoin(resolved_path, WEIGHTS_NAME), urljoin(resolved_path, CONFIG_NAME)
         # language adapter with identifier
         elif adapter_type == 'lang' and adapter_name_or_path in PRETRAINED_LANG_ADAPTER_MAP:
-            resolved_path = find_matching_config_path(
+            return find_matching_config_path(
                 PRETRAINED_LANG_ADAPTER_MAP[adapter_name_or_path], config, version
             )
-            return urljoin(resolved_path, WEIGHTS_NAME), urljoin(resolved_path, CONFIG_NAME)
         # url of a folder containing pretrained adapters
         elif is_remote_url(adapter_name_or_path):
-            resolved_path = find_matching_config_path(adapter_name_or_path, config, version)
-            return urljoin(resolved_path, WEIGHTS_NAME), urljoin(resolved_path, CONFIG_NAME)
+            return find_matching_config_path(adapter_name_or_path, config, version)
         # path to a local folder saved using save_adapter() or save_language_adapter()
         elif isdir(adapter_name_or_path):
             if isfile(join(adapter_name_or_path, WEIGHTS_NAME)) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
-                weights_file = join(adapter_name_or_path, WEIGHTS_NAME)
-                config_file = join(adapter_name_or_path, CONFIG_NAME)
-                return weights_file, config_file
+                return adapter_name_or_path
             else:
                 raise EnvironmentError(
                     "No file {} or no file {} found in directory {}".format(

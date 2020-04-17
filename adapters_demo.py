@@ -7,12 +7,6 @@ from combine_adapters import copy_adapter_weights
 def is_output_equal(model1, model2, adapters=None, iterations=1, input_shape=(1, 128)):
     """Checks whether the output of two models is equal given random input."""
     results = []
-    if adapters:
-        model1.enable_adapters()
-        model2.enable_adapters()
-    else:
-        model1.disable_adapters()
-        model2.disable_adapters()
     for _ in range(iterations):
         # create some random input
         in_data = torch.randint(1000, input_shape, dtype=torch.long)
@@ -101,5 +95,5 @@ if __name__ == "__main__":
     MODEL_DIR = "../data/Adapters_16_Bert_Base/"
     ADAPTER_DIR = "../data/adapters/"
 
-    # run_adapter_test()
-    run_adapter_download_test()
+    run_adapter_test()
+    # run_adapter_download_test()
