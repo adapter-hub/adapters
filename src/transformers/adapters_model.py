@@ -16,6 +16,7 @@ PRETRAINED_TASK_ADAPTER_MAP = {
     "csqa": "http://adapter-hub.webredirect.org/task-csqa/",
     "hellaswag": "http://adapter-hub.webredirect.org/task-hellaswag/",
     "sst": "http://adapter-hub.webredirect.org/task-sst/",
+    "multinli": "http://adapter-hub.webredirect.org/task-multinli/",
     "dummy": "http://adapter-hub.webredirect.org/task-dummy/"
 }
 

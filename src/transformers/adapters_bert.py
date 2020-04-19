@@ -637,11 +637,17 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             self.config.prediction_heads[task_name]['qa_examples'] = None
 
     def task_forward(self, task, outputs, sequence_output, valid_ids, device):
+        if isinstance(task, str):
+            task_name = task
+            task = self.config.prediction_heads[task]
+        else:
+            task_name = task['name']
+
         if task['task_type'] == 'classification':
-            outputs = self.prediction_heads[task['name']](outputs[0][:, 0, :])
+            outputs = self.prediction_heads[task_name](outputs[0][:, 0, :])
 
         elif task['task_type'] == 'qa':
-            outputs = self.prediction_heads[task['name']](outputs[0][:, 0, :])
+            outputs = self.prediction_heads[task_name](outputs[0][:, 0, :])
             outputs = outputs.view(-1, task['qa_examples'])
             # outputs = outputs.squeeze(-1).view(-1,task['qa_examples'])
 
@@ -656,10 +662,10 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
                         valid_output[i][jj] = sequence_output[i][j]
             # sequence_output = self.dropout(valid_output)
             # outputs = self.classifier(sequence_output)
-            outputs = self.prediction_heads[task['name']](sequence_output)
+            outputs = self.prediction_heads[task_name](sequence_output)
 
         elif task['task_type'] == 'extractive_qa':
             sequence_output = outputs[0]
-            outputs = self.prediction_heads[task['name']](sequence_output)
+            outputs = self.prediction_heads[task_name](sequence_output)
 
         return outputs

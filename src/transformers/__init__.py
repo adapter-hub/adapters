@@ -152,6 +152,20 @@ if is_sklearn_available():
     from .data import glue_compute_metrics, xnli_compute_metrics
 
 
+# Adapters
+if is_torch_available():
+    from .adapters_model import (
+        ADAPTER_CACHE,
+        PRETRAINED_TASK_ADAPTER_MAP,
+        PRETRAINED_LANG_ADAPTER_MAP,
+        ADAPTER_CONFIG_MAP,
+        DEFAULT_ADAPTER_CONFIG,
+        ModelAdaptersMixin
+    )
+    
+    # TODO add more
+
+
 # Modeling
 if is_torch_available():
     from .modeling_utils import PreTrainedModel, prune_layer, Conv1D, top_k_top_p_filtering
