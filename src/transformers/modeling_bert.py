@@ -265,12 +265,15 @@ class BertSelfAttention(nn.Module):
         return outputs
 
 
-class BertSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
+class BertSelfOutput(nn.Module, BertSelfOutputAdaptersMixin):
     def __init__(self, config):
-        super().__init__(config)
+        super().__init__()
+        self.config = config
+
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states, input_tensor, tasks=None):
         hidden_states = self.dense(hidden_states)
@@ -341,12 +344,15 @@ class BertIntermediate(nn.Module):
         return hidden_states
 
 
-class BertOutput(BertOutputAdaptersMixin, nn.Module):
+class BertOutput(nn.Module, BertOutputAdaptersMixin):
     def __init__(self, config):
-        super().__init__(config)
+        super().__init__()
+        self.config = config
+
         self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
         self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states, input_tensor, attention_mask, tasks=None, language=None):
         hidden_states = self.dense(hidden_states)
@@ -604,7 +610,7 @@ BERT_INPUTS_DOCSTRING = r"""
     "The bare Bert Model transformer outputting raw hidden-states without any specific head on top.",
     BERT_START_DOCSTRING,
 )
-class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
+class BertModel(BertPreTrainedModel, BertModelAdaptersMixin):
     """
 
     The model can behave as an encoder (with only self-attention) as well
@@ -628,6 +634,8 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         self.embeddings = BertEmbeddings(config)
         self.encoder = BertEncoder(config)
         self.pooler = BertPooler(config)
+
+        self._init_adapter_modules()
 
         self.init_weights()
 

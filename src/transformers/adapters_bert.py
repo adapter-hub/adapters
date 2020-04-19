@@ -7,20 +7,17 @@ from .adapters_model import ModelAdaptersMixin, DEFAULT_ADAPTER_CONFIG
 
 
 class BertSelfOutputAdaptersMixin:
-    def __init__(self, config):
-        super().__init__()
-        self.config = config
-
+    def _init_adapter_modules(self):
         self.attention_adapters = nn.ModuleDict(dict())
         self.attention_adapters_fusion = nn.ModuleDict(dict())
-        if hasattr(config, 'adapters'):
-            for task in config.adapters:
+        if hasattr(self.config, 'adapters'):
+            for task in self.config.adapters:
                 self.add_adapter(task)
 
         self.language_attention_adapters = nn.ModuleDict(dict())
         self.language_attention_adapters_fusion = nn.ModuleDict(dict())
-        if hasattr(config, 'language_adapters'):
-            for language in config.language_adapters:
+        if hasattr(self.config, 'language_adapters'):
+            for language in self.config.language_adapters:
                 self.add_language_adapter(language)
 
     def add_adapter(self, task_name):
@@ -176,9 +173,7 @@ class BertSelfOutputAdaptersMixin:
 
 
 class BertOutputAdaptersMixin:
-    def __init__(self, config):
-        super().__init__()
-        self.config = config
+    def _init_adapter_modules(self):
 
         # self.bert_adapter_att = BertAdapterAttention(config)
         # self.bert_adapter_att = SimpleAdapterWeightingSentLvl(config)
@@ -186,18 +181,18 @@ class BertOutputAdaptersMixin:
         self.layer_adapters = nn.ModuleDict(dict())
 
         if hasattr(self.config, 'adapters'):
-            for task in config.adapters:
+            for task in self.config.adapters:
                 self.add_adapter(task)
 
         self.bert_language_adapter_att = nn.ModuleDict(dict())
         self.layer_language_adapters = nn.ModuleDict(dict())
 
         if hasattr(self.config, 'language_adapters'):
-            for language in config.language_adapters:
+            for language in self.config.language_adapters:
                 self.add_language_adapter(language)
 
-        if hasattr(config, 'fusion_models'):
-            for tasks in config.fusion_models:
+        if hasattr(self.config, 'fusion_models'):
+            for tasks in self.config.fusion_models:
                 self.add_attention_layer(tasks)
 
     def add_attention_layer(self, tasks):
@@ -443,8 +438,7 @@ class BertEncoderAdaptersMixin:
 
 
 class BertModelAdaptersMixin(ModelAdaptersMixin):
-    def __init__(self, config):
-        super().__init__(config)
+    def _init_adapter_modules(self):
         self.model_freezed = False
 
         self.prediction_heads = nn.ModuleDict(dict())
