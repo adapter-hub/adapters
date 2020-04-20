@@ -182,10 +182,12 @@ class ModelAdaptersMixin:
         """Loads a pre-trained pytorch task adapter from an adapter configuration.
 
         Args:
-            adapter_name_or_path (str): path to a directory containing adapter weights saved using `model.saved_adapter()`
-
-        Returns:
-            (dict, dict): tuple containing missing_adapter_keys and unexpected_keys
+            adapter_name_or_path (str): can be either:
+                - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
+                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
+            default_config (str, optional): The identifier of the adapter configuration to be used if no config is set.
+            version (int, optional): The version of the adapter to be loaded.
+            load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
         cache_dir = kwargs.pop("cache_dir", ADAPTER_CACHE)
 
@@ -197,11 +199,10 @@ class ModelAdaptersMixin:
         assert config['type'] == 'task', "Loaded adapter has to be a task adapter."
         # If no adapter config is available yet, set to the config of the loaded adapter
         if not hasattr(self.config, "adapter_config"):
-            self.config.adapter_config = config['config']
-            self.config.adapters = []
+            self.set_adapter_config(config['config'])
         # Otherwise, check that loaded config is equal to the config of this model.
         else:
-            for k,v in config['config'].items():
+            for k, v in config['config'].items():
                 assert self.config.adapter_config[k] == v, "Adapter configurations have to be equal."
 
         # If the adapter is not part of the model, add it
@@ -219,10 +220,12 @@ class ModelAdaptersMixin:
         """Loads a pre-trained pytorch language adapter from an adapter configuration.
 
         Args:
-            adapter_name_or_path (str): path to a directory containing adapter weights saved using `model.saved_adapter()`
-
-        Returns:
-            (dict, dict): tuple containing missing_adapter_keys and unexpected_keys
+            adapter_name_or_path (str): can be either:
+                - the identifier of a pre-trained language adapter to be loaded from Adapter Hub
+                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
+            default_config (str, optional): The identifier of the adapter configuration to be used if no config is set.
+            version (int, optional): The version of the adapter to be loaded.
+            load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
         cache_dir = kwargs.pop("cache_dir", ADAPTER_CACHE)
 
@@ -234,11 +237,10 @@ class ModelAdaptersMixin:
         assert config['type'] == 'lang', "Loaded adapter has to be a language adapter."
         # If no adapter config is available yet, set to the config of the loaded adapter
         if not hasattr(self.config, "language_adapter_config"):
-            self.config.language_adapter_config = config['config']
-            self.config.language_adapters = []
+            self.set_language_adapter_config(config['config'])
         # Otherwise, check that loaded config is equal to the config of this model.
         else:
-            for k,v in config['config'].items():
+            for k, v in config['config'].items():
                 assert self.config.language_adapter_config[k] == v, "Adapter configurations have to be equal."
 
         # If the adapter is not part of the model, add it

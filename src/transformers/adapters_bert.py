@@ -7,6 +7,8 @@ from .adapters_model import ModelAdaptersMixin, DEFAULT_ADAPTER_CONFIG
 
 
 class BertSelfOutputAdaptersMixin:
+    """Adds adapters to the BertSelfOutput module.
+    """
     def _init_adapter_modules(self):
         self.attention_adapters = nn.ModuleDict(dict())
         self.attention_adapters_fusion = nn.ModuleDict(dict())
@@ -173,6 +175,8 @@ class BertSelfOutputAdaptersMixin:
 
 
 class BertOutputAdaptersMixin:
+    """Adds adapters to the BertOutput module.
+    """
     def _init_adapter_modules(self):
 
         # self.bert_adapter_att = BertAdapterAttention(config)
@@ -392,7 +396,8 @@ class BertOutputAdaptersMixin:
 
 
 class BertLayerAdaptersMixin:
-
+    """Adds adapters to the BertLayer module.
+    """
     def add_attention_layer(self, tasks):
         self.attention.output.add_attention_layer(tasks)
         self.output.add_attention_layer(tasks)
@@ -415,7 +420,8 @@ class BertLayerAdaptersMixin:
 
 
 class BertEncoderAdaptersMixin:
-
+    """Adds adapters to the BertEncoder module.
+    """
     def add_attention_layer(self, task_names):
         for layer in self.layer:
             layer.add_attention_layer(task_names)
@@ -438,6 +444,8 @@ class BertEncoderAdaptersMixin:
 
 
 class BertModelAdaptersMixin(ModelAdaptersMixin):
+    """Adds adapters to the BertModel module.
+    """
     def _init_adapter_modules(self):
         self.model_freezed = False
 
@@ -520,8 +528,8 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             self.inv_lang_adap[language].apply(Adapter.init_bert_weights)
 
     def add_prediction_head(self, task, nr_labels=None, task_type=None, layers=None, activation_function=None, qa_examples=None):
-        # if task['name'] not in self.prediction_heads:
-
+        """Adds a new prediction head to the model.
+        """
         if type(task) == str:
             task_name = task
             assert task_type is not None
