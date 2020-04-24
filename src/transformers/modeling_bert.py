@@ -857,6 +857,8 @@ class BertForPreTraining(BertPreTrainedModel):
         inputs_embeds=None,
         masked_lm_labels=None,
         next_sentence_label=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         masked_lm_labels (``torch.LongTensor`` of shape ``(batch_size, sequence_length)``, `optional`, defaults to :obj:`None`):
@@ -914,6 +916,8 @@ class BertForPreTraining(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
 
         sequence_output, pooled_output = outputs[:2]
@@ -959,6 +963,8 @@ class BertForMaskedLM(BertPreTrainedModel):
         encoder_hidden_states=None,
         encoder_attention_mask=None,
         lm_labels=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         masked_lm_labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -1016,6 +1022,8 @@ class BertForMaskedLM(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=encoder_attention_mask,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
 
         sequence_output = outputs[0]
@@ -1067,6 +1075,8 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         next_sentence_label=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         next_sentence_label (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1115,6 +1125,8 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
 
         pooled_output = outputs[1]
@@ -1156,6 +1168,8 @@ class BertForSequenceClassification(BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         labels=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1205,6 +1219,8 @@ class BertForSequenceClassification(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
 
         pooled_output = outputs[1]
@@ -1252,6 +1268,8 @@ class BertForMultipleChoice(BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         labels=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1309,6 +1327,8 @@ class BertForMultipleChoice(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
 
         pooled_output = outputs[1]
@@ -1353,6 +1373,8 @@ class BertForTokenClassification(BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         labels=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -1400,6 +1422,8 @@ class BertForTokenClassification(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
 
         sequence_output = outputs[0]
@@ -1451,6 +1475,8 @@ class BertForQuestionAnswering(BertPreTrainedModel):
         inputs_embeds=None,
         start_positions=None,
         end_positions=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1509,6 +1535,8 @@ class BertForQuestionAnswering(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
 
         sequence_output = outputs[0]

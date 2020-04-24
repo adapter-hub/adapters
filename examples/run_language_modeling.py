@@ -210,7 +210,7 @@ def mask_tokens(inputs: torch.Tensor, tokenizer: PreTrainedTokenizer, args) -> T
     return inputs, labels
 
 
-def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> Tuple[int, float]:
+def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, language=None) -> Tuple[int, float]:
     """ Train the model """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -334,7 +334,7 @@ def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedToke
             inputs = inputs.to(args.device)
             labels = labels.to(args.device)
             model.train()
-            outputs = model(inputs, masked_lm_labels=labels) if args.mlm else model(inputs, labels=labels)
+            outputs = model(inputs, masked_lm_labels=labels, language=language) if args.mlm else model(inputs, labels=labels, language=language)
             loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
             if args.n_gpu > 1:
@@ -404,7 +404,7 @@ def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedToke
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, prefix="") -> Dict:
+def evaluate(args, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, prefix="", language=None) -> Dict:
     # Loop to handle MNLI double evaluation (matched, mis-matched)
     eval_output_dir = args.output_dir
 
@@ -444,7 +444,7 @@ def evaluate(args, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, prefi
         labels = labels.to(args.device)
 
         with torch.no_grad():
-            outputs = model(inputs, masked_lm_labels=labels) if args.mlm else model(inputs, labels=labels)
+            outputs = model(inputs, masked_lm_labels=labels, language=language) if args.mlm else model(inputs, labels=labels, language=language)
             lm_loss = outputs[0]
             eval_loss += lm_loss.mean().item()
         nb_eval_steps += 1
@@ -604,6 +604,9 @@ def main():
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
     parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
+    parser.add_argument("--train_language_adapter", type=str, default=None, help="Train a text language adapter for the given language.")
+    parser.add_argument("--load_pretrained_adapter", action="store_true", help="Load a pre-trained adapter for the language.")
+    parser.add_argument("--adapter_config", type=str, default="pfeiffer", help="Adapter configuration.")
     args = parser.parse_args()
 
     if args.model_type in ["bert", "roberta", "distilbert", "camembert"] and not args.mlm:
@@ -717,6 +720,18 @@ def main():
         logger.info("Training new model from scratch")
         model = AutoModelWithLMHead.from_config(config)
 
+    # Setup adapters
+    language = args.load_language_adapter
+    if language:
+        # get actual model for derived models with heads
+        base_model = getattr(model, model.base_model_prefix, model)
+        # task adapter
+        base_model.set_language_adapter_config(args.adapter_config)
+        if args.load_pretrained_adapter:
+            base_model.load_language_adapter(language)
+        else:
+            base_model.add_language_adapter(language)
+
     model.to(args.device)
 
     if args.local_rank == 0:
@@ -734,7 +749,7 @@ def main():
         if args.local_rank == 0:
             torch.distributed.barrier()
 
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer)
+        global_step, tr_loss = train(args, train_dataset, model, tokenizer, language=language)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
     # Saving best-practices: if you use save_pretrained for the model and tokenizer, you can reload them using from_pretrained()
@@ -776,7 +791,7 @@ def main():
 
             model = AutoModelWithLMHead.from_pretrained(checkpoint)
             model.to(args.device)
-            result = evaluate(args, model, tokenizer, prefix=prefix)
+            result = evaluate(args, model, tokenizer, prefix=prefix, language=language)
             result = dict((k + "_{}".format(global_step), v) for k, v in result.items())
             results.update(result)
 

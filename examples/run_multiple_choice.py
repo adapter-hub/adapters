@@ -80,7 +80,7 @@ def set_seed(args):
         torch.cuda.manual_seed_all(args.seed)
 
 
-def train(args, train_dataset, model, tokenizer):
+def train(args, train_dataset, model, tokenizer, language=None, tasks=None):
     """ Train the model """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -158,6 +158,8 @@ def train(args, train_dataset, model, tokenizer):
                 if args.model_type in ["bert", "xlnet"]
                 else None,  # XLM don't use segment_ids
                 "labels": batch[3],
+                "language": language,
+                "adapter_tasks": tasks,
             }
             outputs = model(**inputs)
             loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
@@ -239,7 +241,7 @@ def train(args, train_dataset, model, tokenizer):
     return global_step, tr_loss / global_step, best_steps
 
 
-def evaluate(args, model, tokenizer, prefix="", test=False):
+def evaluate(args, model, tokenizer, prefix="", test=False, language=None, tasks=None):
     eval_task_names = (args.task_name,)
     eval_outputs_dirs = (args.output_dir,)
 
@@ -279,6 +281,8 @@ def evaluate(args, model, tokenizer, prefix="", test=False):
                     if args.model_type in ["bert", "xlnet"]
                     else None,  # XLM don't use segment_ids
                     "labels": batch[3],
+                    "language": language,
+                    "adapter_tasks": tasks,
                 }
                 outputs = model(**inputs)
                 tmp_eval_loss, logits = outputs[:2]
@@ -510,6 +514,12 @@ def main():
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
     parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
+
+    parser.add_argument("--train_adapter", action="store_true", default=False, help="Train a text task adapter instead of the full model")
+    parser.add_argument("--load_task_adapter", type=str, default="", help="Pre-trained task adapter to be loaded for further training.")
+    parser.add_argument("--load_language_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded.")
+    parser.add_argument("--adapter_config", type=str, default="pfeiffer", help="Adapter configuration.")
+    parser.add_argument("--language_adapter_config", type=str, default=None, help="Language adapter configuration.")
     args = parser.parse_args()
 
     if (
@@ -594,6 +604,27 @@ def main():
         cache_dir=args.cache_dir if args.cache_dir else None,
     )
 
+    # Setup adapters
+    tasks = []
+    language = args.load_language_adapter
+    if args.train_adapter:
+        # get actual model for derived models with heads
+        base_model = getattr(model, model.base_model_prefix, model)
+        # task adapter
+        base_model.set_adapter_config(args.adapter_config)
+        # load a pre-trained adapter for fine-tuning if specified
+        if args.load_task_adapter:
+            base_model.load_adapter(args.load_task_adapter)
+            tasks = base_model.config.adapters
+        # otherwise, add a new adapter
+        else:
+            base_model.add_adapter(args.task_name)
+            tasks = [args.task_name]
+        # language adapter
+        if args.load_language_adapter:
+            base_model.set_language_adapter_config(args.language_adapter_config or args.adapter_config)
+            base_model.load_language_adapter(args.load_language_adapter)
+
     if args.local_rank == 0:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
 
@@ -605,7 +636,7 @@ def main():
     # Training
     if args.do_train:
         train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)
-        global_step, tr_loss, best_steps = train(args, train_dataset, model, tokenizer)
+        global_step, tr_loss, best_steps = train(args, train_dataset, model, tokenizer, language=language, tasks=tasks)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
@@ -649,7 +680,7 @@ def main():
 
             model = model_class.from_pretrained(checkpoint)
             model.to(args.device)
-            result = evaluate(args, model, tokenizer, prefix=prefix)
+            result = evaluate(args, model, tokenizer, prefix=prefix, language=language, tasks=tasks)
             result = dict((k + "_{}".format(global_step), v) for k, v in result.items())
             results.update(result)
 
@@ -667,7 +698,7 @@ def main():
 
             model = model_class.from_pretrained(checkpoint)
             model.to(args.device)
-            result = evaluate(args, model, tokenizer, prefix=prefix, test=True)
+            result = evaluate(args, model, tokenizer, prefix=prefix, test=True, language=language, tasks=tasks)
             result = dict((k + "_{}".format(global_step), v) for k, v in result.items())
             results.update(result)
     if best_steps:

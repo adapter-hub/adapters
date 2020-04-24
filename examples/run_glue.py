@@ -70,7 +70,7 @@ def set_seed(args):
         torch.cuda.manual_seed_all(args.seed)
 
 
-def train(args, train_dataset, model, tokenizer):
+def train(args, train_dataset, model, tokenizer, language=None, tasks=None):
     """ Train the model """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -174,7 +174,7 @@ def train(args, train_dataset, model, tokenizer):
 
             model.train()
             batch = tuple(t.to(args.device) for t in batch)
-            inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3]}
+            inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3], "language": language, "adapter_tasks": tasks}
             if args.model_type != "distilbert":
                 inputs["token_type_ids"] = (
                     batch[2] if args.model_type in ["bert", "xlnet", "albert"] else None
@@ -260,7 +260,7 @@ def train(args, train_dataset, model, tokenizer):
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, model, tokenizer, prefix=""):
+def evaluate(args, model, tokenizer, prefix="", language=None, tasks=None):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
     eval_task_names = ("mnli", "mnli-mm") if args.task_name == "mnli" else (args.task_name,)
     eval_outputs_dirs = (args.output_dir, args.output_dir + "-MM") if args.task_name == "mnli" else (args.output_dir,)
@@ -294,7 +294,7 @@ def evaluate(args, model, tokenizer, prefix=""):
             batch = tuple(t.to(args.device) for t in batch)
 
             with torch.no_grad():
-                inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3]}
+                inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3], "language": language, "adapter_tasks": tasks}
                 if args.model_type != "distilbert":
                     inputs["token_type_ids"] = (
                         batch[2] if args.model_type in ["bert", "xlnet", "albert"] else None
@@ -399,6 +399,21 @@ class ModelArguments:
     cache_dir: Optional[str] = field(
         default=None, metadata={"help": "Where do you want to store the pre-trained models downloaded from s3"}
     )
+    train_adapter: bool = field(
+        default=False, metadata={"help": "Train a text task adapter instead of the full model."}
+    )
+    load_task_adapter: Optional[str] = field(
+        default="", metadata={"help": "Pre-trained task adapter to be loaded for further training."}
+    )
+    load_language_adapter: Optional[str] = field(
+        default=None, metadata={"help": "Pre-trained language adapter to be loaded."}
+    )
+    adapter_config: Optional[str] = field(
+        default="pfeiffer", metadata={"help": "Adapter configuration."}
+    )
+    language_adapter_config: Optional[str] = field(
+        default=None, metadata={"help": "Language adapter configuration."}
+    )
 
 
 @dataclass
@@ -498,6 +513,27 @@ def main():
         cache_dir=args.cache_dir,
     )
 
+    # Setup adapters
+    tasks = []
+    language = args.load_language_adapter
+    if args.train_adapter:
+        # get actual model for derived models with heads
+        base_model = getattr(model, model.base_model_prefix, model)
+        # task adapter
+        base_model.set_adapter_config(args.adapter_config)
+        # load a pre-trained adapter for fine-tuning if specified
+        if args.load_task_adapter:
+            base_model.load_adapter(args.load_task_adapter)
+            tasks = base_model.config.adapters
+        # otherwise, add a new adapter
+        else:
+            base_model.add_adapter(args.task_name)
+            tasks = [args.task_name]
+        # language adapter
+        if args.load_language_adapter:
+            base_model.set_language_adapter_config(args.language_adapter_config or args.adapter_config)
+            base_model.load_language_adapter(args.load_language_adapter)
+
     if args.local_rank == 0:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
 
@@ -508,7 +544,7 @@ def main():
     # Training
     if args.do_train:
         train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer)
+        global_step, tr_loss = train(args, train_dataset, model, tokenizer, language=language, tasks=tasks)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
@@ -551,7 +587,7 @@ def main():
 
             model = AutoModelForSequenceClassification.from_pretrained(checkpoint)
             model.to(args.device)
-            result = evaluate(args, model, tokenizer, prefix=prefix)
+            result = evaluate(args, model, tokenizer, prefix=prefix, language=language, tasks=tasks)
             result = dict((k + "_{}".format(global_step), v) for k, v in result.items())
             results.update(result)
 

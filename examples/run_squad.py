@@ -73,7 +73,7 @@ def to_list(tensor):
     return tensor.detach().cpu().tolist()
 
 
-def train(args, train_dataset, model, tokenizer):
+def train(args, train_dataset, model, tokenizer, language=None, tasks=None):
     """ Train the model """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -187,6 +187,8 @@ def train(args, train_dataset, model, tokenizer):
                 "token_type_ids": batch[2],
                 "start_positions": batch[3],
                 "end_positions": batch[4],
+                "language": language,
+                "adapter_tasks": tasks,
             }
 
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
@@ -269,7 +271,7 @@ def train(args, train_dataset, model, tokenizer):
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, model, tokenizer, prefix=""):
+def evaluate(args, model, tokenizer, prefix="", language=None, tasks=None):
     dataset, examples, features = load_and_cache_examples(args, tokenizer, evaluate=True, output_examples=True)
 
     if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
@@ -302,6 +304,8 @@ def evaluate(args, model, tokenizer, prefix=""):
                 "input_ids": batch[0],
                 "attention_mask": batch[1],
                 "token_type_ids": batch[2],
+                "language": language,
+                "adapter_tasks": tasks,
             }
 
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
@@ -662,6 +666,12 @@ def main():
     parser.add_argument("--server_port", type=str, default="", help="Can be used for distant debugging.")
 
     parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
+
+    parser.add_argument("--train_adapter", action="store_true", default=False, help="Train a text task adapter instead of the full model")
+    parser.add_argument("--load_task_adapter", type=str, default="", help="Pre-trained task adapter to be loaded for further training.")
+    parser.add_argument("--load_language_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded.")
+    parser.add_argument("--adapter_config", type=str, default="pfeiffer", help="Adapter configuration.")
+    parser.add_argument("--language_adapter_config", type=str, default=None, help="Language adapter configuration.")
     args = parser.parse_args()
 
     if args.doc_stride >= args.max_seq_length - args.max_query_length:
@@ -743,6 +753,28 @@ def main():
         cache_dir=args.cache_dir if args.cache_dir else None,
     )
 
+# Setup adapters
+    tasks = []
+    language = args.load_language_adapter
+    if args.train_adapter:
+        # get actual model for derived models with heads
+        base_model = getattr(model, model.base_model_prefix, model)
+        # task adapter
+        base_model.set_adapter_config(args.adapter_config)
+        # load a pre-trained adapter for fine-tuning if specified
+        if args.load_task_adapter:
+            base_model.load_adapter(args.load_task_adapter)
+            tasks = base_model.config.adapters
+        # otherwise, add a new adapter
+        else:
+            task_name = "squad"
+            base_model.add_adapter(task_name)
+            tasks = [task_name]
+        # language adapter
+        if args.load_language_adapter:
+            base_model.set_language_adapter_config(args.language_adapter_config or args.adapter_config)
+            base_model.load_language_adapter(args.load_language_adapter)
+
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
@@ -765,7 +797,7 @@ def main():
     # Training
     if args.do_train:
         train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=False)
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer)
+        global_step, tr_loss = train(args, train_dataset, model, tokenizer, language=language, tasks=tasks)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
     # Save the trained model and the tokenizer
@@ -815,7 +847,7 @@ def main():
             model.to(args.device)
 
             # Evaluate
-            result = evaluate(args, model, tokenizer, prefix=global_step)
+            result = evaluate(args, model, tokenizer, prefix=global_step, language=language, tasks=tasks)
 
             result = dict((k + ("_{}".format(global_step) if global_step else ""), v) for k, v in result.items())
             results.update(result)
