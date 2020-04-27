@@ -601,15 +601,15 @@ def main():
         # get actual model for derived models with heads
         base_model = getattr(model, model.base_model_prefix, model)
         # task adapter
-        base_model.set_adapter_config(args.adapter_config)
+        base_model.set_task_adapter_config(args.adapter_config)
         # load a pre-trained adapter for fine-tuning if specified
         if args.load_task_adapter:
-            base_model.load_adapter(args.load_task_adapter)
-            tasks = base_model.config.adapters
+            base_model.load_task_adapter(args.load_task_adapter)
+            tasks = base_model.config.text_task_adapters
         # otherwise, add a new adapter
         else:
             task_name = "ner"
-            base_model.add_adapter(task_name)
+            base_model.add_task_adapter(task_name)
             tasks = [task_name]
         # language adapter
         if args.load_language_adapter:

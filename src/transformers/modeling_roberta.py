@@ -173,22 +173,22 @@ class RobertaForMaskedLM(BertPreTrainedModel):
         self.lm_head = RobertaLMHead(config)
 
         rev_lang_adap = False
-        if hasattr(config, 'language_adapter_config'):
-            if 'inverse_adapters' in config.language_adapter_config:
-                rev_lang_adap = config.language_adapter_config['inverse_adapters']
+        if hasattr(config, 'text_lang_adapter_config'):
+            if 'inverse_adapters' in config.text_lang_adapter_config:
+                rev_lang_adap = config.text_lang_adapter_config['inverse_adapters']
 
         # rev_lang_adap = False
 
         # # TODO just for testing
         # self.inv_lang_adap = NICECouplingBlock([[768]])
 
-        if rev_lang_adap and hasattr(config, 'language_adapters'):
+        if rev_lang_adap and hasattr(config, 'text_lang_adapters'):
             # self.inv_lang_adap = GLOWCouplingBlock([[768]])
             # self.inv_lang_adap = NICECouplingBlock([[768]])
 
             self.inv_lang_adap = nn.ModuleDict(dict())
 
-            for lang in config.language_adapters:
+            for lang in config.text_lang_adapters:
                 self.inv_lang_adap[lang] = NICECouplingBlock([[768]])
 
         else:
@@ -528,13 +528,13 @@ class RobertaForTokenClassification(BertPreTrainedModel):
 
         # self.inv_lang_adap = NICECouplingBlock([[768]])
 
-        if rev_lang_adap and hasattr(config, 'language_adapters'):
+        if rev_lang_adap and hasattr(config, 'text_lang_adapters'):
             # self.inv_lang_adap = GLOWCouplingBlock([[768]])
             # self.inv_lang_adap = NICECouplingBlock([[768]])
             print('adding inv lang adapters')
             self.inv_lang_adap = nn.ModuleDict(dict())
 
-            for lang in config.language_adapters:
+            for lang in config.text_lang_adapters:
                 self.inv_lang_adap[lang] = NICECouplingBlock([[768]])
 
         else:

@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 from os import mkdir
 from os.path import isdir, isfile, join, exists
 import torch
@@ -24,6 +25,7 @@ PRETRAINED_LANG_ADAPTER_MAP = {
     "xyz": "http://adapter-hub.webredirect.org/lang-xyz/"
 }
 
+# TODO add more default configs here
 ADAPTER_CONFIG_MAP = {
     'pfeiffer': {
         'LN_after': False,
@@ -44,118 +46,111 @@ ADAPTER_CONFIG_MAP = {
 DEFAULT_ADAPTER_CONFIG = 'pfeiffer'
 
 
-class ModelAdaptersMixin:
-    """Mixin for transformer models adding support for loading/ saving adapters."""
+class AdapterType(str, Enum):
+    """Models all currently available model adapter types."""    
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    TEXT_TASK = "text_task"
+    TEXT_LANG = "text_lang"
+    VISION_TASK = "vision_task"
 
-    def set_adapter_config(self, adapter_config):
-        """Sets the adapter configuration of the task adapters.
+    @classmethod
+    def has(cls, value):
+        return value in cls.__members__.values()
+
+
+class AdapterLoader:
+    """A class providing methods for saving and loading adapter modules of a specified type."""
+
+    def __init__(self, model, adapter_type: AdapterType):
+        self.model = model
+        self.adapter_type = adapter_type
+
+    @property
+    def config(self):
+        return getattr(self.model.config, '{}_adapter_config'.format(self.adapter_type), None)
+
+    @config.setter
+    def config(self, value):
+        setattr(self.model.config, '{}_adapter_config'.format(self.adapter_type), value)
+
+    @property
+    def adapter_list(self):
+        return getattr(self.model.config, '{}_adapters'.format(self.adapter_type), [])
+
+    @adapter_list.setter
+    def adapter_list(self, value):
+        setattr(self.model.config, '{}_adapters'.format(self.adapter_type), value)
+
+    def __iter__(self):
+        return self.adapter_list.__iter__()
+
+    def state_dict(self, adapter_name: str):
+        """Returns a dictionary containing the whole state of the specified adapter.
+
+        Args:
+            adapter_name (str): the name of the task adapter
+        """
+        is_part = self._get_params_check_func(self.adapter_type, adapter_name)
+        return {k: v for (k, v) in self.model.state_dict().items() if is_part(k)}
+
+    def _get_params_check_func(self, adapter_type, adapter_name):
+        if adapter_type == 'head':
+            return lambda x: 'prediction_heads.{}'.format(adapter_name) in x
+        elif AdapterType.has(adapter_type):
+            return lambda x: '{}_adapters.{}'.format(adapter_type, adapter_name) in x
+        else:
+            raise ValueError("Invalid adapter type {}".format(adapter_type))
+
+    def set_config(self, adapter_config):
+        """Sets the adapter configuration of this adapter type.
 
         Args:
             adapter_config (str or dict): adapter configuration, can be either:
                 - a string identifying a pre-defined adapter configuration
                 - a dictionary representing the adapter configuration
+                - the path to a file containing the adapter configuration
         """
-        if hasattr(self.config, "adapters"):
-            assert len(self.config.adapters) < 1, "Can only set new config if no adapters have been added."
+        if self.adapter_list:
+            assert len(self.adapter_list) < 1, "Can only set new config if no adapters have been added."
 
         if isinstance(adapter_config, dict):
-            self.config.adapter_config = adapter_config
+            self.config = adapter_config
         elif adapter_config in ADAPTER_CONFIG_MAP:
-            self.config.adapter_config = ADAPTER_CONFIG_MAP[adapter_config]
+            self.config = ADAPTER_CONFIG_MAP[adapter_config]
+        elif isfile(adapter_config):
+            with open(adapter_config, 'r', encoding='utf-8') as f:
+                self.config = json.load(f)
         else:
             raise ValueError("Unable to identify {} as a valid adapter config.".format(adapter_config))
-        self.config.adapters = []
+        self.adapter_list = []
 
-    def set_language_adapter_config(self, adapter_config):
-        """Sets the adapter configuration of the language adapters.
-
-        Args:
-            config (str or dict): adapter configuration, can be either:
-                - a string identifying a pre-defined adapter configuration
-                - a dictionary representing the adapter configuration
-        """
-        if hasattr(self.config, "language_adapters"):
-            assert len(self.config.language_adapters) < 1, "Can only set new config if no adapters have been added."
-
-        if isinstance(adapter_config, dict):
-            self.config.adapter_config = adapter_config
-        elif adapter_config in ADAPTER_CONFIG_MAP:
-            self.config.language_adapter_config = ADAPTER_CONFIG_MAP[adapter_config]
-        else:
-            raise ValueError("Unable to identify {} as a valid adapter config.".format(adapter_config))
-        self.config.language_adapters = []
-
-    def adapter_state_dict(self, adapter_type, adapter_name):
-        """Returns a dictionary containing the whole state of the specified task adapter.
-
-        Args:
-            task_name (str): the name of the task adapter
-        """
-        is_part = self._get_params_check_func(adapter_type, adapter_name)
-        return {k: v for (k, v) in self.state_dict().items() if is_part(k)}
-
-    # TODO temporary workaround. replace with a better solution after changeing module item names.
-    def _get_params_check_func(self, adapter_type, adapter_name):
-        if adapter_type == 'task':
-            return lambda x: 'adapters.{}'.format(adapter_name) in x and 'language' not in x
-        elif adapter_type == 'lang':
-            return lambda x: 'adapters.{}'.format(adapter_name) in x and 'language' in x
-        elif adapter_type == 'head':
-            return lambda x: 'prediction_heads.{}'.format(adapter_name) in x
-        else:
-            raise ValueError("Invalid adapter type {}".format(adapter_type))
-
-    def adapter_save_config(self, adapter_type, name=None, default_config=None, with_head=False):
+    def full_config(self, name=None, default_config=None, with_head=False):
         config_dict = {
-            'type': adapter_type,
-            'model': self.__class__.__name__, 'hidden_size': self.config.hidden_size
+            'type': self.adapter_type,
+            'model': self.model.__class__.__name__, 'hidden_size': self.model.config.hidden_size
         }
         if name:
             config_dict['name'] = name
-        if adapter_type == 'task':
-            config_dict['config'] = getattr(self.config, "adapter_config", default_config)
-        elif adapter_type == 'lang':
-            config_dict['config'] = getattr(self.config, "language_adapter_config", default_config)
-        else:
-            raise ValueError("Invalid adapter type {}".format(adapter_type))
+        config_dict['config'] = self.config or default_config
         if with_head:
-            config_dict['prediction_head'] = self.config.prediction_heads[name]
+            config_dict['prediction_head'] = self.model.config.prediction_heads[name]
         return config_dict
 
-    def save_adapter(self, save_directory, task_name, save_head=False):
-        """Saves a task adapter and its configuration file to a directory, so that it can be reloaded
-        using the `model.load_adapter()` method.
+    def save(self, save_directory, name, save_head=False):
+        """Saves an adapter and its configuration file to a directory, so that it can be reloaded
+        using the `load()` method.
 
         Args:
             save_directory (str): a path to a directory where the adapter will be saved
-            task_name (str): the name of the task adapter to be saved
+            task_name (str): the name of the adapter to be saved
         """
-        assert task_name in self.config.adapters, "No task adapter with the given name is part of this model."
-
-        config_dict = self.adapter_save_config('task', task_name, with_head=save_head)
-        self._save_adapter(save_directory, config_dict, save_head)
-
-    def save_language_adapter(self, save_directory, language_name, save_head=False):
-        """Saves a language adapter and its configuration file to a directory, so that it can be reloaded
-        using the `model.load_adapter()` method.
-
-        Args:
-            save_directory (str): a path to a directory where the adapter will be saved
-            task_name (str): the name of the language adapter to be saved
-        """
-        assert language_name in self.config.language_adapters, "No language adapter with the given name is part of this model."
-
-        config_dict = self.adapter_save_config('lang', language_name, with_head=save_head)
-        self._save_adapter(save_directory, config_dict, save_head)
-
-    def _save_adapter(self, save_directory, config_dict, save_head):
         if not exists(save_directory):
             mkdir(save_directory)
         else:
             assert isdir(save_directory), "Saving path should be a directory where adapter and configuration can be saved."
+        assert name in self.adapter_list, "No adapter of this type with the given name is part of this model."
+
+        config_dict = self.full_config(name, with_head=save_head)
 
         # Save the adapter configuration
         output_config_file = join(save_directory, CONFIG_NAME)
@@ -164,22 +159,15 @@ class ModelAdaptersMixin:
         logger.info("Configuration saved in {}".format(output_config_file))
 
         # Get the state of all adapter modules for this task
-        adapter_state_dict = self.adapter_state_dict(config_dict['type'], config_dict['name'])
+        adapter_state_dict = self.state_dict(config_dict['name'])
         # Save the adapter weights
         output_file = join(save_directory, WEIGHTS_NAME)
         torch.save(adapter_state_dict, output_file)
         logger.info("Adapter weights saved in {}".format(output_file))
 
-        # optionally save the prediction head in a separate file
-        if save_head:
-            heads_state_dict = self.adapter_state_dict('head', config_dict['name'])
-            output_file = join(save_directory, HEAD_WEIGHTS_NAME)
-            torch.save(heads_state_dict, output_file)
-            logger.info("Prediction head weights saved in {}".format(output_file))
-
-    def load_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
-                     version=None, load_head=False, **kwargs):
-        """Loads a pre-trained pytorch task adapter from an adapter configuration.
+    def load(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
+             version=None, load_head=False, **kwargs):
+        """Loads a pre-trained pytorch adapter module from the local file system or a remote location.
 
         Args:
             adapter_name_or_path (str): can be either:
@@ -192,84 +180,41 @@ class ModelAdaptersMixin:
         cache_dir = kwargs.pop("cache_dir", ADAPTER_CACHE)
 
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
-        resolved_folder = self._resolve_adapter_path(adapter_name_or_path, 'task', default_config, version)
+        resolved_folder = self._resolve_adapter_path(adapter_name_or_path, default_config, version)
 
         # Load config of adapter
         config = self._load_adapter_config(resolved_folder, cache_dir=cache_dir, **kwargs)
-        assert config['type'] == 'task', "Loaded adapter has to be a task adapter."
+        assert config['type'] == self.adapter_type, "Loaded adapter has to be a {} adapter.".format(self.adapter_type)
         # If no adapter config is available yet, set to the config of the loaded adapter
-        if not hasattr(self.config, "adapter_config"):
-            self.set_adapter_config(config['config'])
+        if not self.config:
+            self.set_config(config['config'])
         # Otherwise, check that loaded config is equal to the config of this model.
         else:
             for k, v in config['config'].items():
-                assert self.config.adapter_config[k] == v, "Adapter configurations have to be equal."
+                assert self.config[k] == v, "Adapter configurations have to be equal."
 
         # If the adapter is not part of the model, add it
-        if config['name'] not in self.config.adapters:
-            self.add_adapter(config['name'])
+        if config['name'] not in self.adapter_list:
+            self.model.add_adapter(self.adapter_type, config['name'])
 
-        self._load_adapter_weights(resolved_folder, config['type'], config['name'], cache_dir=cache_dir, **kwargs)
+        self._load_adapter_weights(resolved_folder, self.adapter_type, config['name'], cache_dir=cache_dir, **kwargs)
 
         # Optionally, load the weights of the prediction head
         if load_head:
-            self._load_adapter_head(resolved_folder, config, cache_dir=cache_dir, **kwargs)
+            assert 'prediction_head' in config, "Loaded adapter has no prediction head included."
+            head_config = config['prediction_head']
 
-    def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
-                              version=None, load_head=False, **kwargs):
-        """Loads a pre-trained pytorch language adapter from an adapter configuration.
-
-        Args:
-            adapter_name_or_path (str): can be either:
-                - the identifier of a pre-trained language adapter to be loaded from Adapter Hub
-                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
-            default_config (str, optional): The identifier of the adapter configuration to be used if no config is set.
-            version (int, optional): The version of the adapter to be loaded.
-            load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
-        """
-        cache_dir = kwargs.pop("cache_dir", ADAPTER_CACHE)
-
-        # Resolve the weights to be loaded based on the given identifier and the current adapter config
-        resolved_folder = self._resolve_adapter_path(adapter_name_or_path, 'lang', default_config, version)
-
-        # Load config of adapter
-        config = self._load_adapter_config(resolved_folder, cache_dir=cache_dir, **kwargs)
-        assert config['type'] == 'lang', "Loaded adapter has to be a language adapter."
-        # If no adapter config is available yet, set to the config of the loaded adapter
-        if not hasattr(self.config, "language_adapter_config"):
-            self.set_language_adapter_config(config['config'])
-        # Otherwise, check that loaded config is equal to the config of this model.
-        else:
-            for k, v in config['config'].items():
-                assert self.config.language_adapter_config[k] == v, "Adapter configurations have to be equal."
-
-        # If the adapter is not part of the model, add it
-        if config['name'] not in self.config.language_adapters:
-            self.add_language_adapter(config['name'])
-
-        self._load_adapter_weights(resolved_folder, config['type'], config['name'], cache_dir=cache_dir, **kwargs)
-
-        # Optionally, load the weights of the prediction head
-        if load_head:
-            self._load_adapter_head(resolved_folder, config, cache_dir=cache_dir, **kwargs)
-
-    def _load_adapter_head(self, resolved_folder, config, **kwargs):
-        """Loads a prediction head for an adapter.
-        """
-        assert 'prediction_head' in config, "Loaded adapter has no prediction head included."
-        head_config = config['prediction_head']
-
-        # Add the prediction head to the model
-        # TODO check the case when prediction head is already present
-        self.add_prediction_head(
-            config['name'], nr_labels=head_config['nr_labels'],
-            task_type=head_config['task_type'], layers=head_config['layers'],
-            activation_function=head_config['activation_function'], qa_examples=head_config['qa_examples']
-        )
-
-        return self._load_adapter_weights(
-            resolved_folder, 'head', config['name'], weights_name=HEAD_WEIGHTS_NAME, **kwargs
-        )
+            # Add the prediction head to the model
+            # TODO check the case when prediction head is already present
+            self.model.add_prediction_head(
+                config['name'], nr_labels=head_config['nr_labels'],
+                task_type=head_config['task_type'], layers=head_config['layers'],
+                activation_function=head_config['activation_function'], qa_examples=head_config['qa_examples']
+            )
+            # Load the head weights
+            self._load_adapter_weights(
+                resolved_folder, 'head', config['name'], weights_name=HEAD_WEIGHTS_NAME, **kwargs
+            )
 
     def _load_adapter_config(self, resolved_folder, **kwargs):
         """Loads an adapter configuration.
@@ -316,7 +261,7 @@ class ModelAdaptersMixin:
             raise OSError("Unable to load weights from pytorch checkpoint file. ")
 
         # Add the weights to the model
-        missing_keys, unexpected_keys = self.load_state_dict(adapter_state_dict, strict=False)
+        missing_keys, unexpected_keys = self.model.load_state_dict(adapter_state_dict, strict=False)
 
         params_check = self._get_params_check_func(adapter_type, adapter_name)
         missing_adapter_keys = [k for k in missing_keys if params_check(k)]
@@ -333,23 +278,23 @@ class ModelAdaptersMixin:
 
         return missing_adapter_keys, unexpected_keys
 
-    def _resolve_adapter_path(self, adapter_name_or_path, adapter_type, default_config, version):
+    def _resolve_adapter_path(self, adapter_name_or_path, default_config, version):
         assert default_config in ADAPTER_CONFIG_MAP, "Specified default config is invalid."
-        config = self.adapter_save_config('task', default_config=ADAPTER_CONFIG_MAP[default_config])
+        config = self.full_config(self.adapter_type, default_config=ADAPTER_CONFIG_MAP[default_config])
         # task adapter with identifier
-        if adapter_type == 'task' and adapter_name_or_path in PRETRAINED_TASK_ADAPTER_MAP:
+        if self.adapter_type == AdapterType.TEXT_TASK and adapter_name_or_path in PRETRAINED_TASK_ADAPTER_MAP:
             return find_matching_config_path(
                 PRETRAINED_TASK_ADAPTER_MAP[adapter_name_or_path], config, version
             )
         # language adapter with identifier
-        elif adapter_type == 'lang' and adapter_name_or_path in PRETRAINED_LANG_ADAPTER_MAP:
+        elif self.adapter_type == AdapterType.TEXT_LANG and adapter_name_or_path in PRETRAINED_LANG_ADAPTER_MAP:
             return find_matching_config_path(
                 PRETRAINED_LANG_ADAPTER_MAP[adapter_name_or_path], config, version
             )
         # url of a folder containing pretrained adapters
         elif is_remote_url(adapter_name_or_path):
             return find_matching_config_path(adapter_name_or_path, config, version)
-        # path to a local folder saved using save_adapter() or save_language_adapter()
+        # path to a local folder saved using save()
         elif isdir(adapter_name_or_path):
             if isfile(join(adapter_name_or_path, WEIGHTS_NAME)) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
                 return adapter_name_or_path
@@ -360,3 +305,102 @@ class ModelAdaptersMixin:
                 )
         else:
             raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
+
+
+class ModelAdaptersMixin:
+    """Mixin for transformer models adding support for loading/ saving adapters."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.adapters = {
+            t: AdapterLoader(self, t) for t in AdapterType
+        }
+
+    def set_adapter_config(self, adapter_type: AdapterType, adapter_config):
+        if AdapterType.has(adapter_type):
+            self.adapters[adapter_type].set_config(adapter_config)
+        else:
+            raise ValueError("Invalid adapter type {}".format(adapter_type))
+
+    def set_task_adapter_config(self, adapter_config):
+        """Sets the adapter configuration of the task adapters.
+
+        Args:
+            adapter_config (str or dict): adapter configuration, can be either:
+                - a string identifying a pre-defined adapter configuration
+                - a dictionary representing the adapter configuration
+                - the path to a file containing the adapter configuration
+        """
+        self.adapters[AdapterType.TEXT_TASK].set_config(adapter_config)
+
+    def set_language_adapter_config(self, adapter_config):
+        """Sets the adapter configuration of the language adapters.
+
+        Args:
+            config (str or dict): adapter configuration, can be either:
+                - a string identifying a pre-defined adapter configuration
+                - a dictionary representing the adapter configuration
+                - the path to a file containing the adapter configuration
+        """
+        self.adapters[AdapterType.TEXT_LANG].set_config(adapter_config)
+
+    def save_adapter(self, adapter_type, save_directory, adapter_name, save_head=False):
+        if AdapterType.has(adapter_type):
+            self.adapters[adapter_type].save(save_directory, adapter_name, save_head)
+        else:
+            raise ValueError("Invalid adapter type {}".format(adapter_type))
+
+    def save_task_adapter(self, save_directory, task_name, save_head=False):
+        """Saves a task adapter and its configuration file to a directory, so that it can be reloaded
+        using the `model.load_task_adapter()` method.
+
+        Args:
+            save_directory (str): a path to a directory where the adapter will be saved
+            task_name (str): the name of the task adapter to be saved
+        """
+        self.adapters[AdapterType.TEXT_TASK].save(save_directory, task_name, save_head)
+
+    def save_language_adapter(self, save_directory, language_name, save_head=False):
+        """Saves a language adapter and its configuration file to a directory, so that it can be reloaded
+        using the `model.load_language_adapter()` method.
+
+        Args:
+            save_directory (str): a path to a directory where the adapter will be saved
+            task_name (str): the name of the language adapter to be saved
+        """
+        self.adapters[AdapterType.TEXT_LANG].save(save_directory, language_name, save_head)
+
+    def load_adapter(self, adapter_type, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
+                     version=None, load_head=False, **kwargs):
+        if AdapterType.has(adapter_type):
+            self.adapters[adapter_type].load(adapter_name_or_path, default_config, version, load_head, **kwargs)
+        else:
+            raise ValueError("Invalid adapter type {}".format(adapter_type))
+
+    def load_task_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
+                          version=None, load_head=False, **kwargs):
+        """Loads a pre-trained pytorch task adapter from an adapter configuration.
+
+        Args:
+            adapter_name_or_path (str): can be either:
+                - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
+                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
+            default_config (str, optional): The identifier of the adapter configuration to be used if no config is set.
+            version (int, optional): The version of the adapter to be loaded.
+            load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
+        """
+        self.adapters[AdapterType.TEXT_TASK].load(adapter_name_or_path, default_config, version, load_head, **kwargs)
+
+    def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
+                              version=None, load_head=False, **kwargs):
+        """Loads a pre-trained pytorch language adapter from an adapter configuration.
+
+        Args:
+            adapter_name_or_path (str): can be either:
+                - the identifier of a pre-trained language adapter to be loaded from Adapter Hub
+                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
+            default_config (str, optional): The identifier of the adapter configuration to be used if no config is set.
+            version (int, optional): The version of the adapter to be loaded.
+            load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
+        """
+        self.adapters[AdapterType.TEXT_LANG].load(adapter_name_or_path. default_config, version, load_head, **kwargs)

@@ -50,15 +50,15 @@ def run_adapter_test():
     bert_add_new = BertModel.from_pretrained("bert-base-uncased")
 
     # save the SST adapter to the file system
-    bert_sst.save_adapter(ADAPTER_DIR + "sst", "sst", save_head=True)
+    bert_sst.save_task_adapter(ADAPTER_DIR + "sst", "sst", save_head=True)
 
     # add SST adapter to BERT using old method
-    bert_add_old.config.adapters = []
-    bert_add_old.config.adapter_config = bert_sst.config.adapter_config
+    bert_add_old.config.text_task_adapters = []
+    bert_add_old.config.text_task_adapter_config = bert_sst.config.text_task_adapter_config
     copy_adapter_weights(bert_sst, bert_add_old)
 
     # add SST adapter to BERT by loading the previously saved
-    bert_add_new.load_adapter(ADAPTER_DIR + "sst", load_head=True)
+    bert_add_new.load_task_adapter(ADAPTER_DIR + "sst", load_head=True)
 
     # check equality
     assert is_output_equal(bert_add_new, bert_sst, adapters=['sst'])
@@ -77,11 +77,11 @@ def run_adapter_download_test():
 
     # download pretrained adapter
     bert_base = BertModel.from_pretrained("bert-base-uncased")
-    bert_base.load_adapter("sst")
+    bert_base.load_task_adapter("sst")
 
     # check equality
-    for k, v in bert_sst.config.adapter_config.items():
-        assert bert_base.config.adapter_config[k] == v
+    for k, v in bert_sst.config.text_task_adapter_config.items():
+        assert bert_base.config.text_task_adapter_config[k] == v
     assert is_output_equal(bert_sst, bert_base, adapters=['sst'])
     assert is_model_equal(bert_sst, bert_base)
 

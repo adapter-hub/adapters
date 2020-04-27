@@ -13,11 +13,11 @@ def copy_adapter_weights(source, target):
     # source_bert = source[0].bert
     # target_bert = target[0].bert
 
-    if hasattr(source.config, 'adapters'):
-        for task in source.config.adapters:
+    if hasattr(source.config, 'text_task_adapters'):
+        for task in source.config.text_task_adapters:
             logging.root.info('adding {}'.format(task))
-            target.add_adapter(task)
-            target.config.adapters.append(task)
+            target.add_task_adapter(task)
+            target.config.text_task_adapters.append(task)
 
             source_params = [(k, v) for (k, v) in source.named_parameters() if 'adapters.{}'.format(task) in k]
             target_params = [(k, v) for (k, v) in target.named_parameters() if 'adapters.{}'.format(task) in k]
@@ -25,14 +25,14 @@ def copy_adapter_weights(source, target):
             for (source_k, source_v), (target_k, target_v) in zip(source_params, target_params):
                 assert source_k == target_k
                 target_v.data.copy_(source_v.data)
-    if hasattr(source.config, 'language_adapters'):
-        for language in source.config.language_adapters:
+    if hasattr(source.config, 'text_lang_adapters'):
+        for language in source.config.text_lang_adapters:
             logging.root.info('adding {}'.format(language))
             target.add_language_adapter(language)
-            target.config.language_adapters.append(language)
+            target.config.text_lang_adapters.append(language)
 
-            source_params = [(k, v) for (k, v) in source.named_parameters() if 'language_adapters.{}'.format(language) in k]
-            target_params = [(k, v) for (k, v) in target.named_parameters() if 'language_adapters.{}'.format(language) in k]
+            source_params = [(k, v) for (k, v) in source.named_parameters() if 'text_lang_adapters.{}'.format(language) in k]
+            target_params = [(k, v) for (k, v) in target.named_parameters() if 'text_lang_adapters.{}'.format(language) in k]
 
             for (source_k, source_v), (target_k, target_v) in zip(source_params, target_params):
                 assert source_k == target_k

@@ -35,14 +35,14 @@ def _get_save_path(model, save_root, model_prefix, adapter_type, name, version, 
 
 def save_all_adapters(model, save_root, prefix, with_head, version=None, flat=False):
     # task adapters
-    if hasattr(model.config, 'adapters'):
-        for task_name in model.config.adapters:
+    if hasattr(model.config, 'text_task_adapters'):
+        for task_name in model.config.text_task_adapters:
             save_path = _get_save_path(model, save_root, prefix, 'task', task_name, version, flat)
             print("Saving {} adapter to {}...".format(task_name, save_path))
-            model.save_adapter(save_path, task_name, save_head=with_head)
+            model.save_task_adapter(save_path, task_name, save_head=with_head)
     # language adapters
-    if hasattr(model.config, 'language_adapters'):
-        for lang_name in model.config.language_adapters:
+    if hasattr(model.config, 'text_lang_adapters'):
+        for lang_name in model.config.text_lang_adapters:
             save_path = _get_save_path(model, save_root, prefix, 'lang', lang_name, version, flat)
             print("Saving {} adapter to {}...".format(lang_name, save_path))
             model.save_language_adapter(save_path, lang_name, save_head=with_head)

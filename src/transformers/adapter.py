@@ -143,7 +143,8 @@ class BertAdapterAttention(nn.Module):
         self.config = config
         self.output_attentions = config.output_attentions
 
-        self.dense_size = int(config.hidden_size) // config.adapter_config['reduction_factor']
+        # TODO
+        self.dense_size = int(config.hidden_size) // config.text_task_adapter_config['reduction_factor']
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
@@ -236,7 +237,8 @@ class AdapterWeightingSentLvl(nn.Module):
 class AdapterWeightingSentLvlDynamic(nn.Module):
     def __init__(self, config, n_tasks):
         super(AdapterWeightingSentLvlDynamic, self).__init__()
-        self.dense = nn.Linear(int(config.hidden_size) // config.adapter_config['reduction_factor'], 1)
+        # TODO
+        self.dense = nn.Linear(int(config.hidden_size) // config.text_task_adapter_config['reduction_factor'], 1)
 
         self.T = 50.0
 
@@ -281,8 +283,8 @@ class AdapterFusionSentLvlDynamic(nn.Module):
     def __init__(self, config, n_tasks):
         super(AdapterFusionSentLvlDynamic, self).__init__()
         self.config = config
-
-        self.dense_size = int(config.hidden_size) // config.adapter_config['reduction_factor']
+        # TODO
+        self.dense_size = int(config.hidden_size) // config.text_task_adapter_config['reduction_factor']
 
         if not self.config.fusion_config['query'] and \
                 not self.config.fusion_config['key'] and \

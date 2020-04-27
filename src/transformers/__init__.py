@@ -160,6 +160,8 @@ if is_torch_available():
         PRETRAINED_LANG_ADAPTER_MAP,
         ADAPTER_CONFIG_MAP,
         DEFAULT_ADAPTER_CONFIG,
+        AdapterType,
+        AdapterLoader,
         ModelAdaptersMixin
     )
     

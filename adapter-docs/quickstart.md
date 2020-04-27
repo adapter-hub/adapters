@@ -51,7 +51,7 @@ The task prediction head loaded together with the adapter gives us a class label
 ```python
 # load pre-trained task adapter from Adapter Hub
 # with load_head=True given, we also load a pre-trained classification head for this task
-model.load_adapter('sst', load_head=True)
+model.load_task_adapter('sst', load_head=True)
 
 # predict output tensor
 # adapter_tasks specifies the used adapters, task the used prediction head

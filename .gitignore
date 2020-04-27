@@ -146,3 +146,6 @@ debug.env
 
 #ctags
 tags
+
+# scripts
+*.ps1

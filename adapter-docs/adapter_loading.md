@@ -13,12 +13,12 @@ model = BertModel.from_pretrained('bert-base-uncased')
 We can now easily load a pre-trained adapter module from Adapter Hub by its identifier (note that all arguments except for the adapter name are optional):
 
 ```python
-model.load_adapter('sst', default_config='pfeiffer', version=1, load_head=True)
+model.load_task_adapter('sst', default_config='pfeiffer', version=1, load_head=True)
 ```
 
 We will go through what is happening here in a bit more detail:
 
-- By calling the `load_adapter()` method we specify that we want to have a *task* adapter. For other types of adapters, similar
+- By calling the `load_task_adapter()` method we specify that we want to have a *task* adapter. For other types of adapters, similar
 methods with other names are available (e.g. `load_language_adapter()` for *language* adapters; see [Adapter Types](/adapter_types) for more).
 
 - The first argument passed to the method is the name of the adapter we want to load. As we load a task adapter in this case,
@@ -26,14 +26,14 @@ this refers to the name of the task. Using this identifier, the method will auto
 matching our model architecture and our adapter configuration. A list of all available adapter names is accessible via
 `PRETRAINED_TASK_ADAPTER_MAP` or the corresponding equivalents for other adapter types.
 
-- If our model already contains one or more adapters, `load_adapter()` will search for the adapter weights matching the
+- If our model already contains one or more adapters, `load_task_adapter()` will search for the adapter weights matching the
 adapter configuration of the existent adapters. If no adapter has been added so far, we will search for adapter weights
 matching the configuration defined by the `default_config` parameter.
 
 ```eval_rst
 .. tip::
     Instead of using the ``default_config`` parameter of the load method, you can also set the adapter configuration using
-    ``model.set_adapter_config('pfeiffer')`` (or any of its equivalents for other adapter types) before adding the first adapter.
+    ``model.set_task_adapter_config('pfeiffer')`` (or any of its equivalents for other adapter types) before adding the first adapter.
 ```
 
 - There could be multiple versions of the same adapter available. To load a specific version, use the `version` parameter.
