@@ -725,7 +725,7 @@ def main():
     if language:
         # get actual model for derived models with heads
         base_model = getattr(model, model.base_model_prefix, model)
-        # task adapter
+        # language adapter
         base_model.set_language_adapter_config(args.adapter_config)
         if args.load_pretrained_adapter:
             base_model.load_language_adapter(language)

@@ -23,6 +23,7 @@ The main additions on top of *transformers* are:
    installation
    quickstart
    adapter_types
+   adapter_training
 
 .. toctree::
    :maxdepth: 2
