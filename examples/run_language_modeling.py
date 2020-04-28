@@ -40,6 +40,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
     set_seed,
+    AdapterType,
 )
 
 
@@ -115,6 +116,23 @@ class DataTrainingArguments:
     )
 
 
+@dataclass
+class AdapterArguments:
+    """
+    Arguments related to adapter training.
+    """
+
+    train_language_adapter: str = field(
+        default="en", metadata={"help": "Train a text language adapter for the given language."}
+    )
+    load_pretrained_adapter: bool = field(
+        default=False, metadata={"help": "Load a pre-trained adapter for the language."}
+    )
+    adapter_config: Optional[str] = field(
+        default="pfeiffer", metadata={"help": "The adapter configuration."}
+    )
+
+
 def get_dataset(args: DataTrainingArguments, tokenizer: PreTrainedTokenizer, evaluate=False, local_rank=-1):
     file_path = args.eval_data_file if evaluate else args.train_data_file
     if args.line_by_line:
@@ -132,8 +150,8 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
+    model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     if data_args.eval_data_file is None and training_args.do_eval:
         raise ValueError(
@@ -207,6 +225,18 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
+    # Setup adapters
+    language = adapter_args.train_language_adapter
+    if language:
+        # get actual model for derived models with heads
+        base_model = getattr(model, model.base_model_prefix, model)
+        # task adapter
+        base_model.set_adapter_config(AdapterType.text_lang, adapter_args.adapter_config)
+        if adapter_args.load_pretrained_adapter:
+            base_model.load_language_adapter(language)
+        else:
+            base_model.add_language_adapter(language)
+
     if config.model_type in ["bert", "roberta", "distilbert", "camembert"] and not data_args.mlm:
         raise ValueError(
             "BERT and RoBERTa-like models do not have LM heads but masked LM heads. They must be run using the --mlm "
@@ -242,6 +272,7 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         prediction_loss_only=True,
+        lang_adapter=language
     )
 
     # Training

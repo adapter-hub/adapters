@@ -755,7 +755,7 @@ def main():
         cache_dir=args.cache_dir if args.cache_dir else None,
     )
 
-# Setup adapters
+    # Setup adapters
     tasks = []
     language = args.load_language_adapter
     if args.train_adapter:

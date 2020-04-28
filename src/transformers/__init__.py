@@ -144,6 +144,8 @@ from .tokenization_utils import PreTrainedTokenizer
 from .tokenization_xlm import XLMTokenizer
 from .tokenization_xlm_roberta import XLMRobertaTokenizer
 from .tokenization_xlnet import SPIECE_UNDERLINE, XLNetTokenizer
+
+from .adapter_args import AdapterArguments
 from .training_args import TrainingArguments
 
 

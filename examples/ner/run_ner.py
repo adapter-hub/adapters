@@ -33,7 +33,9 @@ from transformers import (
     HfArgumentParser,
     Trainer,
     TrainingArguments,
+    AdapterArguments,
     set_seed,
+    AdapterType,
 )
 from utils_ner import NerDataset, Split, get_labels
 
@@ -93,8 +95,8 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
+    model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     if (
         os.path.exists(training_args.output_dir)
@@ -154,6 +156,27 @@ def main():
         config=config,
         cache_dir=model_args.cache_dir,
     )
+
+    # Setup adapters
+    tasks = []
+    language = adapter_args.load_lang_adapter
+    if adapter_args.train_adapter:
+        # get actual model for derived models with heads
+        base_model = getattr(model, model.base_model_prefix, model)
+        # task adapter
+        base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
+        # load a pre-trained adapter for fine-tuning if specified
+        if adapter_args.load_task_adapter:
+            base_model.load_adapter(AdapterType.text_task, adapter_args.load_task_adapter)
+            tasks = base_model.config.text_task_adapters
+        # otherwise, add a new adapter
+        else:
+            base_model.add_adapter(AdapterType.text_task, "ner")
+            tasks = [data_args.task_name]
+        # language adapter
+        if adapter_args.load_lang_adapter:
+            base_model.set_adapter_config(AdapterType.text_lang, adapter_args.lang_adapter_config or adapter_args.adapter_config)
+            base_model.load_adapter(AdapterType.text_lang, adapter_args.load_lang_adapter)
 
     # Get datasets
     train_dataset = (
@@ -216,6 +239,8 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
+        lang_adapter=language,
+        task_adapters=tasks,
     )
 
     # Training

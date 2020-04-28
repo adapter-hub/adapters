@@ -123,6 +123,8 @@ class Trainer:
         eval_dataset: Optional[Dataset] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         prediction_loss_only=False,
+        lang_adapter=None,
+        task_adapters=None,
     ):
         """
         Trainer is a simple but feature-complete training and eval loop for PyTorch,
@@ -152,6 +154,9 @@ class Trainer:
         # Create output directory if needed
         if self.args.local_rank in [-1, 0]:
             os.makedirs(self.args.output_dir, exist_ok=True)
+        # adapters used
+        self.lang_adapter = lang_adapter
+        self.task_adapters = task_adapters
 
     def get_train_dataloader(self) -> DataLoader:
         if self.train_dataset is None:
@@ -385,7 +390,7 @@ class Trainer:
         for k, v in inputs.items():
             inputs[k] = v.to(self.args.device)
 
-        outputs = model(**inputs)
+        outputs = model(**inputs, language=self.lang_adapter, adapter_tasks=self.task_adapters)
         loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
         if self.args.n_gpu > 1:
@@ -528,7 +533,7 @@ class Trainer:
                 inputs[k] = v.to(self.args.device)
 
             with torch.no_grad():
-                outputs = model(**inputs)
+                outputs = model(**inputs, language=self.lang_adapter, adapter_tasks=self.task_adapters)
                 if has_labels:
                     step_eval_loss, logits = outputs[:2]
                     eval_losses += [step_eval_loss.mean().item()]
