@@ -34,13 +34,13 @@ def _get_save_path(model, save_root, model_prefix, adapter_type, name, version, 
 
 def save_all_adapters(model, save_root, prefix, with_head, version=None, flat=False):
     # task adapters
-    for task_name in model.adapters[AdapterType.TEXT_TASK]:
-        save_path = _get_save_path(model, save_root, prefix, AdapterType.TEXT_TASK, task_name, version, flat)
+    for task_name in model.adapters[AdapterType.text_task]:
+        save_path = _get_save_path(model, save_root, prefix, AdapterType.text_task, task_name, version, flat)
         print("Saving {} adapter to {}...".format(task_name, save_path))
         model.save_task_adapter(save_path, task_name, save_head=with_head)
     # language adapters
-    for lang_name in model.adapters[AdapterType.TEXT_LANG]:
-        save_path = _get_save_path(model, save_root, prefix, AdapterType.TEXT_LANG, lang_name, version, flat)
+    for lang_name in model.adapters[AdapterType.text_lang]:
+        save_path = _get_save_path(model, save_root, prefix, AdapterType.text_lang, lang_name, version, flat)
         print("Saving {} adapter to {}...".format(lang_name, save_path))
         model.save_language_adapter(save_path, lang_name, save_head=with_head)
 

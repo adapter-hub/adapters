@@ -21,7 +21,7 @@ the GLUE dataset. The only main adaption we have to make is to add a new adapter
 # get actual model for derived models with heads
 base_model = getattr(model, model.base_model_prefix, model)
 # task adapter
-base_model.set_task_adapter_config(args.adapter_config)
+base_model.set_adapter_config(AdapterType.text_task, args.adapter_config)
 # load a pre-trained adapter for fine-tuning if specified
 if args.load_task_adapter:
     base_model.load_task_adapter(args.load_task_adapter)

@@ -32,7 +32,7 @@ matching the configuration defined by the `default_config` parameter.
 ```eval_rst
 .. tip::
     Instead of using the ``default_config`` parameter of the load method, you can also set the adapter configuration using
-    ``model.set_task_adapter_config('pfeiffer')`` (or any of its equivalents for other adapter types) before adding the first adapter.
+    ``model.set_adapter_config(AdapterType.text_task, 'pfeiffer')`` (in this case for task adapters) before adding the first adapter.
 ```
 
 - There could be multiple versions of the same adapter available. To load a specific version, use the `version` parameter.

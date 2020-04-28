@@ -498,9 +498,9 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         self.model_freezed = freeze
 
     def add_adapter(self, adapter_type, task_name, default_config=DEFAULT_ADAPTER_CONFIG):
-        if adapter_type == AdapterType.TEXT_TASK:
+        if adapter_type == AdapterType.text_task:
             self.add_task_adapter(task_name, default_config)
-        elif adapter_type == AdapterType.TEXT_LANG:
+        elif adapter_type == AdapterType.text_lang:
             self.add_language_adapter(task_name, default_config)
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
@@ -514,7 +514,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         """
         self.encoder.add_adapter(task_name)
         if not hasattr(self.config, 'text_task_adapter_config'):
-            self.set_task_adapter_config(default_config)
+            self.set_adapter_config(AdapterType.text_task, default_config)
         # freeze pre-trained model when adding first adapter
         if not self.model_freezed:
             self.freeze_model(True)
@@ -530,7 +530,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         """
         self.encoder.add_language_adapter(language_name)
         if not hasattr(self.config, 'text_lang_adapter_config'):
-            self.set_task_adapter_config(default_config)
+            self.set_adapter_config(AdapterType.text_lang, default_config)
         # freeze pre-trained model when adding first adapter
         if not self.model_freezed:
             self.freeze_model(True)

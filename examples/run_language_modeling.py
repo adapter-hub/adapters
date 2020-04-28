@@ -47,6 +47,7 @@ from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
     get_linear_schedule_with_warmup,
+    AdapterType
 )
 
 
@@ -726,7 +727,7 @@ def main():
         # get actual model for derived models with heads
         base_model = getattr(model, model.base_model_prefix, model)
         # language adapter
-        base_model.set_language_adapter_config(args.adapter_config)
+        base_model.set_adapter_config(AdapterType.text_lang, args.adapter_config)
         if args.load_pretrained_adapter:
             base_model.load_language_adapter(language)
         else:

@@ -45,9 +45,9 @@ DEFAULT_ADAPTER_CONFIG = 'pfeiffer'
 class AdapterType(str, Enum):
     """Models all currently available model adapter types."""
 
-    TEXT_TASK = "text_task"
-    TEXT_LANG = "text_lang"
-    VISION_TASK = "vision_task"
+    text_task = "text_task"
+    text_lang = "text_lang"
+    vision_task = "vision_task"
 
     @classmethod
     def has(cls, value):
@@ -313,32 +313,19 @@ class ModelAdaptersMixin:
         return sum([len(m.adapter_list) for m in self.adapters.values()]) > 0
 
     def set_adapter_config(self, adapter_type: AdapterType, adapter_config):
-        if AdapterType.has(adapter_type):
-            self.adapters[adapter_type].set_config(adapter_config)
-        else:
-            raise ValueError("Invalid adapter type {}".format(adapter_type))
-
-    def set_task_adapter_config(self, adapter_config):
-        """Sets the adapter configuration of the task adapters.
+        """Sets the adapter configuration of the specified adapter type.
 
         Args:
+            adapter_type (AdapterType): The adapter type.
             adapter_config (str or dict): adapter configuration, can be either:
                 - a string identifying a pre-defined adapter configuration
                 - a dictionary representing the adapter configuration
                 - the path to a file containing the adapter configuration
         """
-        self.adapters[AdapterType.TEXT_TASK].set_config(adapter_config)
-
-    def set_language_adapter_config(self, adapter_config):
-        """Sets the adapter configuration of the language adapters.
-
-        Args:
-            config (str or dict): adapter configuration, can be either:
-                - a string identifying a pre-defined adapter configuration
-                - a dictionary representing the adapter configuration
-                - the path to a file containing the adapter configuration
-        """
-        self.adapters[AdapterType.TEXT_LANG].set_config(adapter_config)
+        if AdapterType.has(adapter_type):
+            self.adapters[adapter_type].set_config(adapter_config)
+        else:
+            raise ValueError("Invalid adapter type {}".format(adapter_type))
 
     def save_adapter(self, adapter_type, save_directory, adapter_name, save_head=False):
         if AdapterType.has(adapter_type):
@@ -354,7 +341,7 @@ class ModelAdaptersMixin:
             save_directory (str): a path to a directory where the adapter will be saved
             task_name (str): the name of the task adapter to be saved
         """
-        self.adapters[AdapterType.TEXT_TASK].save(save_directory, task_name, save_head)
+        self.adapters[AdapterType.text_task].save(save_directory, task_name, save_head)
 
     def save_language_adapter(self, save_directory, language_name, save_head=False):
         """Saves a language adapter and its configuration file to a directory, so that it can be reloaded
@@ -364,7 +351,7 @@ class ModelAdaptersMixin:
             save_directory (str): a path to a directory where the adapter will be saved
             task_name (str): the name of the language adapter to be saved
         """
-        self.adapters[AdapterType.TEXT_LANG].save(save_directory, language_name, save_head)
+        self.adapters[AdapterType.text_lang].save(save_directory, language_name, save_head)
 
     def load_adapter(self, adapter_type, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
                      version=None, load_head=False, **kwargs):
@@ -385,7 +372,7 @@ class ModelAdaptersMixin:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-        self.adapters[AdapterType.TEXT_TASK].load(adapter_name_or_path, default_config, version, load_head, **kwargs)
+        self.adapters[AdapterType.text_task].load(adapter_name_or_path, default_config, version, load_head, **kwargs)
 
     def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
                               version=None, load_head=False, **kwargs):
@@ -399,4 +386,4 @@ class ModelAdaptersMixin:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-        self.adapters[AdapterType.TEXT_LANG].load(adapter_name_or_path. default_config, version, load_head, **kwargs)
+        self.adapters[AdapterType.text_lang].load(adapter_name_or_path. default_config, version, load_head, **kwargs)

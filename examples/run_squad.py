@@ -38,6 +38,7 @@ from transformers import (
     AutoTokenizer,
     get_linear_schedule_with_warmup,
     squad_convert_examples_to_features,
+    AdapterType
 )
 from transformers.data.metrics.squad_metrics import (
     compute_predictions_log_probs,
@@ -760,7 +761,7 @@ def main():
         # get actual model for derived models with heads
         base_model = getattr(model, model.base_model_prefix, model)
         # task adapter
-        base_model.set_task_adapter_config(args.adapter_config)
+        base_model.set_adapter_config(AdapterType.text_task, args.adapter_config)
         # load a pre-trained adapter for fine-tuning if specified
         if args.load_task_adapter:
             base_model.load_task_adapter(args.load_task_adapter)
@@ -772,7 +773,7 @@ def main():
             tasks = [task_name]
         # language adapter
         if args.load_language_adapter:
-            base_model.set_language_adapter_config(args.language_adapter_config or args.adapter_config)
+            base_model.set_adapter_config(AdapterType.text_lang, args.language_adapter_config or args.adapter_config)
             base_model.load_language_adapter(args.load_language_adapter)
 
     if args.local_rank == 0:
