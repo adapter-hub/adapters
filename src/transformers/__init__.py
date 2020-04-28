@@ -31,6 +31,8 @@ from .benchmark_utils import (
     start_memory_tracing,
     stop_memory_tracing,
 )
+
+# Configurations
 from .configuration_albert import ALBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, AlbertConfig
 from .configuration_auto import ALL_PRETRAINED_CONFIG_ARCHIVE_MAP, CONFIG_MAPPING, AutoConfig
 from .configuration_bart import BartConfig
@@ -39,6 +41,7 @@ from .configuration_camembert import CAMEMBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, Ca
 from .configuration_ctrl import CTRL_PRETRAINED_CONFIG_ARCHIVE_MAP, CTRLConfig
 from .configuration_distilbert import DISTILBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, DistilBertConfig
 from .configuration_electra import ELECTRA_PRETRAINED_CONFIG_ARCHIVE_MAP, ElectraConfig
+from .configuration_encoder_decoder import EncoderDecoderConfig
 from .configuration_flaubert import FLAUBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, FlaubertConfig
 from .configuration_gpt2 import GPT2_PRETRAINED_CONFIG_ARCHIVE_MAP, GPT2Config
 from .configuration_mmbt import MMBTConfig
@@ -46,8 +49,6 @@ from .configuration_openai import OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP, Open
 from .configuration_roberta import ROBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP, RobertaConfig
 from .configuration_t5 import T5_PRETRAINED_CONFIG_ARCHIVE_MAP, T5Config
 from .configuration_transfo_xl import TRANSFO_XL_PRETRAINED_CONFIG_ARCHIVE_MAP, TransfoXLConfig
-
-# Configurations
 from .configuration_utils import PretrainedConfig
 from .configuration_xlm import XLM_PRETRAINED_CONFIG_ARCHIVE_MAP, XLMConfig
 from .configuration_xlm_roberta import XLM_ROBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP, XLMRobertaConfig
@@ -117,10 +118,13 @@ from .pipelines import (
     QuestionAnsweringPipeline,
     SummarizationPipeline,
     TextClassificationPipeline,
+    TextGenerationPipeline,
     TokenClassificationPipeline,
     TranslationPipeline,
     pipeline,
 )
+
+# Tokenizers
 from .tokenization_albert import AlbertTokenizer
 from .tokenization_auto import TOKENIZER_MAPPING, AutoTokenizer
 from .tokenization_bart import BartTokenizer, MBartTokenizer
@@ -136,8 +140,6 @@ from .tokenization_openai import OpenAIGPTTokenizer, OpenAIGPTTokenizerFast
 from .tokenization_roberta import RobertaTokenizer, RobertaTokenizerFast
 from .tokenization_t5 import T5Tokenizer
 from .tokenization_transfo_xl import TransfoXLCorpus, TransfoXLTokenizer, TransfoXLTokenizerFast
-
-# Tokenizers
 from .tokenization_utils import PreTrainedTokenizer
 from .tokenization_xlm import XLMTokenizer
 from .tokenization_xlm_roberta import XLMRobertaTokenizer
@@ -177,6 +179,7 @@ if is_torch_available():
         AutoModelForQuestionAnswering,
         AutoModelWithLMHead,
         AutoModelForTokenClassification,
+        AutoModelForMultipleChoice,
         ALL_PRETRAINED_MODEL_ARCHIVE_MAP,
         MODEL_MAPPING,
         MODEL_FOR_PRETRAINING_MAPPING,
@@ -184,6 +187,7 @@ if is_torch_available():
         MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
         MODEL_FOR_QUESTION_ANSWERING_MAPPING,
         MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
+        MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
     )
 
     from .modeling_bert import (
@@ -279,7 +283,7 @@ if is_torch_available():
         CamembertForQuestionAnswering,
         CAMEMBERT_PRETRAINED_MODEL_ARCHIVE_MAP,
     )
-    from .modeling_encoder_decoder import PreTrainedEncoderDecoder
+    from .modeling_encoder_decoder import EncoderDecoderModel
     from .modeling_t5 import (
         T5PreTrainedModel,
         T5Model,
@@ -335,6 +339,10 @@ if is_torch_available():
         get_linear_schedule_with_warmup,
     )
 
+    # Trainer
+    from .trainer import Trainer, set_seed, torch_distributed_zero_first, EvalPrediction
+    from .data.data_collator import DefaultDataCollator, DataCollator, DataCollatorForLanguageModeling
+    from .data.datasets import GlueDataset, TextDataset, LineByLineTextDataset, GlueDataTrainingArguments
 
 # TensorFlow
 if is_tf_available():
@@ -439,6 +447,7 @@ if is_tf_available():
         TFRobertaForMaskedLM,
         TFRobertaForSequenceClassification,
         TFRobertaForTokenClassification,
+        TFRobertaForQuestionAnswering,
         TF_ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP,
     )
 
@@ -481,6 +490,7 @@ if is_tf_available():
         TFAlbertModel,
         TFAlbertForMaskedLM,
         TFAlbertForSequenceClassification,
+        TFAlbertForQuestionAnswering,
         TF_ALBERT_PRETRAINED_MODEL_ARCHIVE_MAP,
     )
 
