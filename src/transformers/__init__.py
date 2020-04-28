@@ -156,8 +156,7 @@ if is_sklearn_available():
 if is_torch_available():
     from .adapters_model import (
         ADAPTER_CACHE,
-        PRETRAINED_TASK_ADAPTER_MAP,
-        PRETRAINED_LANG_ADAPTER_MAP,
+        ADAPTER_HUB_URL,
         ADAPTER_CONFIG_MAP,
         DEFAULT_ADAPTER_CONFIG,
         AdapterType,

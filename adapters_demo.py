@@ -23,8 +23,10 @@ def is_output_equal(model1, model2, adapters=None, iterations=1, input_shape=(1,
 def is_model_equal(model1, model2):
     """Checks whether all parameters of two models are equal."""
     results = []
-    for param1, param2 in zip(model1.parameters(), model2.parameters()):
-        results.append(torch.equal(param1.data, param2.data))
+    for (n1, p1), (n2, p2) in zip(model1.named_parameters(), model2.named_parameters()):
+        # if not torch.equal(p1.data, p2.data):
+        #     print(n1, n2)
+        results.append(torch.equal(p1.data, p2.data))
     return all(results)
 
 

@@ -23,8 +23,7 @@ methods with other names are available (e.g. `load_language_adapter()` for *lang
 
 - The first argument passed to the method is the name of the adapter we want to load. As we load a task adapter in this case,
 this refers to the name of the task. Using this identifier, the method will automatically resolve the right adapter weights
-matching our model architecture and our adapter configuration. A list of all available adapter names is accessible via
-`PRETRAINED_TASK_ADAPTER_MAP` or the corresponding equivalents for other adapter types.
+matching our model architecture and our adapter configuration.
 
 - If our model already contains one or more adapters, `load_task_adapter()` will search for the adapter weights matching the
 adapter configuration of the existent adapters. If no adapter has been added so far, we will search for adapter weights

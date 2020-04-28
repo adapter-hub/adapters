@@ -455,7 +455,6 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         super().__init__(*args, **kwargs)
 
     def _init_adapter_modules(self):
-        self.model_freezed = False
 
         self.prediction_heads = nn.ModuleDict(dict())
 
@@ -472,6 +471,12 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
                                          layers=v['layers'],
                                          activation_function=v['activation_function'],
                                          qa_examples=v['qa_examples'])
+
+        # freeze model if needed
+        if self.has_adapters():
+            self.freeze_model(True)
+        else:
+            self.model_freezed = False
 
     def freeze_model(self, freeze=True, train_adapters=True, train_attention=True):
         """Freezes all weights of the model to to only train the adapters.

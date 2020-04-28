@@ -2,7 +2,7 @@ import logging
 
 import click
 
-from transformers.modeling_xlm_roberta import XLMRobertaModel
+from convert_model import load_model_from_old_format
 
 
 #
@@ -45,16 +45,16 @@ def copy_adapter_weights(source, target):
 def main(input_paths, model_save_path):
     # we start by copying the first model
 
-    # input_paths = ['data/models_final/csqa/', 'data/models_final/sst_glue/']
-    # model_save_path = 'data/models_final/16_test/'
+    # input_paths = ['../data/adapters_16_bert_base/csqa/', '../data/adapters_16_bert_base/sst/', '../data/adapters_16_bert_base/multinli/']
+    # model_save_path = '../data/adapters_16_bert_base/csqa-multinli-sst/'
 
     print('Base model: {}'.format(input_paths[0]))
-    target = XLMRobertaModel.from_pretrained(input_paths[0])
+    target = load_model_from_old_format(input_paths[0])
 
     # then we copy over the adapters from the other models
     for model_path in input_paths[1:]:
         print('Copying weights: {}'.format(model_path))
-        source = XLMRobertaModel.from_pretrained(model_path)
+        source = load_model_from_old_format(model_path)
         copy_adapter_weights(source=source, target=target)
 
     print('DONE. Saving...')

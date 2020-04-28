@@ -4,8 +4,14 @@ from os import mkdir
 from os.path import isdir, isfile, join, exists
 import torch
 import json
+import re
 from transformers.file_utils import is_remote_url, get_from_cache, torch_cache_home
-from .adapters_utils import find_matching_config_path, urljoin, CONFIG_NAME, WEIGHTS_NAME, HEAD_WEIGHTS_NAME
+from .adapters_utils import (
+    find_matching_config_path,
+    urljoin,
+    CONFIG_NAME, WEIGHTS_NAME, HEAD_WEIGHTS_NAME,
+    ADAPTER_IDENTIFIER_PATTERN
+)
 
 
 logger = logging.getLogger(__name__)
@@ -13,17 +19,7 @@ logger = logging.getLogger(__name__)
 # the download cache
 ADAPTER_CACHE = join(torch_cache_home, "adapters")
 
-PRETRAINED_TASK_ADAPTER_MAP = {
-    "csqa": "http://adapter-hub.webredirect.org/task-csqa/",
-    "hellaswag": "http://adapter-hub.webredirect.org/task-hellaswag/",
-    "sst": "http://adapter-hub.webredirect.org/task-sst/",
-    "multinli": "http://adapter-hub.webredirect.org/task-multinli/",
-    "dummy": "http://adapter-hub.webredirect.org/task-dummy/"
-}
-
-PRETRAINED_LANG_ADAPTER_MAP = {
-    "xyz": "http://adapter-hub.webredirect.org/lang-xyz/"
-}
+ADAPTER_HUB_URL = "http://adapter-hub.webredirect.org/repo/"
 
 # TODO add more default configs here
 ADAPTER_CONFIG_MAP = {
@@ -47,7 +43,7 @@ DEFAULT_ADAPTER_CONFIG = 'pfeiffer'
 
 
 class AdapterType(str, Enum):
-    """Models all currently available model adapter types."""    
+    """Models all currently available model adapter types."""
 
     TEXT_TASK = "text_task"
     TEXT_LANG = "text_lang"
@@ -56,6 +52,9 @@ class AdapterType(str, Enum):
     @classmethod
     def has(cls, value):
         return value in cls.__members__.values()
+
+    def __repr__(self):
+        return self.value
 
 
 class AdapterLoader:
@@ -280,19 +279,9 @@ class AdapterLoader:
 
     def _resolve_adapter_path(self, adapter_name_or_path, default_config, version):
         assert default_config in ADAPTER_CONFIG_MAP, "Specified default config is invalid."
-        config = self.full_config(self.adapter_type, default_config=ADAPTER_CONFIG_MAP[default_config])
-        # task adapter with identifier
-        if self.adapter_type == AdapterType.TEXT_TASK and adapter_name_or_path in PRETRAINED_TASK_ADAPTER_MAP:
-            return find_matching_config_path(
-                PRETRAINED_TASK_ADAPTER_MAP[adapter_name_or_path], config, version
-            )
-        # language adapter with identifier
-        elif self.adapter_type == AdapterType.TEXT_LANG and adapter_name_or_path in PRETRAINED_LANG_ADAPTER_MAP:
-            return find_matching_config_path(
-                PRETRAINED_LANG_ADAPTER_MAP[adapter_name_or_path], config, version
-            )
+        config = self.full_config(default_config=ADAPTER_CONFIG_MAP[default_config])
         # url of a folder containing pretrained adapters
-        elif is_remote_url(adapter_name_or_path):
+        if is_remote_url(adapter_name_or_path):
             return find_matching_config_path(adapter_name_or_path, config, version)
         # path to a local folder saved using save()
         elif isdir(adapter_name_or_path):
@@ -303,6 +292,10 @@ class AdapterLoader:
                     "No file {} or no file {} found in directory {}".format(
                         WEIGHTS_NAME, CONFIG_NAME, adapter_name_or_path)
                 )
+        # matches possible form of identifier in hub
+        elif re.fullmatch(ADAPTER_IDENTIFIER_PATTERN, adapter_name_or_path):
+            url = urljoin(ADAPTER_HUB_URL, self.adapter_type, adapter_name_or_path)
+            return find_matching_config_path(url, config, version)
         else:
             raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
 
@@ -315,6 +308,9 @@ class ModelAdaptersMixin:
         self.adapters = {
             t: AdapterLoader(self, t) for t in AdapterType
         }
+
+    def has_adapters(self):
+        return sum([len(m.adapter_list) for m in self.adapters.values()]) > 0
 
     def set_adapter_config(self, adapter_type: AdapterType, adapter_config):
         if AdapterType.has(adapter_type):

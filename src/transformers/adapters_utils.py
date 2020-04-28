@@ -11,6 +11,8 @@ CONFIG_NAME = "adapter_config.json"
 WEIGHTS_NAME = "pytorch_adapter.bin"
 HEAD_WEIGHTS_NAME = "pytorch_adapter_head.bin"
 
+ADAPTER_IDENTIFIER_PATTERN = r"[a-zA-Z\-_]{2,}"
+
 
 def urljoin(*args):
     return '/'.join([s.strip('/') for s in args])
