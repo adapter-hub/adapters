@@ -309,8 +309,11 @@ class ModelAdaptersMixin:
             t: AdapterLoader(self, t) for t in AdapterType
         }
 
-    def has_adapters(self):
-        return sum([len(m.adapter_list) for m in self.adapters.values()]) > 0
+    def has_adapters(self, adapter_type=None):
+        if not adapter_type:
+            return sum([len(m.adapter_list) for m in self.adapters.values()]) > 0
+        else:
+            return len(self.adapters[adapter_type].adapter_list) > 0
 
     def set_adapter_config(self, adapter_type: AdapterType, adapter_config):
         """Sets the adapter configuration of the specified adapter type.

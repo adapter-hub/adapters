@@ -34,7 +34,8 @@ from .adapters_bert import (
     BertOutputAdaptersMixin,
     BertLayerAdaptersMixin,
     BertEncoderAdaptersMixin,
-    BertModelAdaptersMixin
+    BertModelAdaptersMixin,
+    AdapterType
 )
 
 logger = logging.getLogger(__name__)
@@ -365,9 +366,9 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.attention = BertAttention(config)
-        self.is_decoder = False
-        # if self.is_decoder:
-        #     self.crossattention = BertAttention(config)
+        self.is_decoder = config.is_decoder
+        if self.is_decoder:
+            self.crossattention = BertAttention(config)
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
 
@@ -710,6 +711,11 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         last_hidden_states = outputs[0]  # The last hidden-state is the first element of the output tuple
 
         """
+        # some warnings if we don't use available adapters
+        if not adapter_tasks and self.has_adapters(AdapterType.text_task):
+            logger.warn("No adapter tasks given, but this model has task adapters. Add adapter tasks?")
+        if not language and self.has_adapters(AdapterType.text_lang):
+            logger.warn("No language given, but this model has language adapters. Add language?")
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")

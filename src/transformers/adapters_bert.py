@@ -113,64 +113,66 @@ class BertSelfOutputAdaptersMixin:
                     for param in self.language_attention_layer_norm.parameters():
                         param.requires_grad = True
 
-    def adapters_forward(self, hidden_states, input_tensor, tasks=None):
+    def adapters_forward(self, hidden_states, input_tensor, tasks=None, language=None):
+        adapter_used = False
 
-        if hasattr(self.config, 'text_task_adapter_config') and self.config.text_task_adapter_config['MH_Adapter']:
-            # TODO
-            # if tasks is None:
-            #     raise Exception('No tasks given, but adapters are active. Deactivate adapters?')
+        # Language adapter
+        lang_adapter_config = getattr(self.config, "text_lang_adapter_config", None)
+        if lang_adapter_config and lang_adapter_config['MH_Adapter'] and language:
+            adapter_used = True
 
-            # if self.config.text_task_adapter_config['residual_before_ln']:
-            #     residual = hidden_states
+            if lang_adapter_config['residual_before_ln']:
+                residual = hidden_states * 1.0
 
-            # if self.config.text_task_adapter_config['original_ln_before']:
-            #     hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            if lang_adapter_config['original_ln_before']:
+                hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            # if not self.config.text_task_adapter_config['residual_before_ln']:
-            #     residual = hidden_states
+            if lang_adapter_config['residual_before_ln']:
+                residual = hidden_states * 1.0
 
-            # if len(tasks) > 1:
-            #     # we use adapter attention
-            #     layer_output_list, down_list = [], []
-            #     for task in tasks:
-            #         intermediate_output, adapter_attention, down = self.layer_adapters[task](
-            #             hidden_states, residual_input=residual
-            #         )
-            #         layer_output_list.append(intermediate_output)
-            #         down_list.append(down)
+            hidden_states, adapter_attention, down, up = self.attention_text_lang_adapters[language](
+                hidden_states,
+                residual_input=residual
+            )
+            if lang_adapter_config['original_ln_after']:
+                hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            #     layer_output_list = torch.stack(layer_output_list)
-            #     layer_output_list = layer_output_list.permute(1, 2, 0, 3)
-            #     down_list = torch.stack(down_list)
-            #     down_list = down_list.permute(1, 2, 0, 3)
+        # Task adapters
+        task_adapter_config = getattr(self.config, "text_task_adapter_config", None)
+        if task_adapter_config and task_adapter_config['MH_Adapter'] and tasks:
+            adapter_used = True
 
-            #     attn_name = '_'.join(tasks)
-            #     if attn_name not in self.bert_adapter_att:
-            #         attn_name_new = list(self.bert_adapter_att.keys())[0]
-            #         # logging.root.warn('{} not in attention layers. Using other attention layer {} instead'.format(
-            #         #     attn_name,
-            #         #     attn_name_new
-            #         # ))
-            #         attn_name = attn_name_new
+            if task_adapter_config['residual_before_ln']:
+                residual = hidden_states * 1.0
 
-            #     hidden_states = self.bert_adapter_att[attn_name](hidden_states, down_list, layer_output_list, attention_mask)
+            if hasattr(self.config, 'fusion_config') and self.config.fusion_config['query_before_ln']:
+                query = hidden_states * 1.0
 
-            #     if self.config.text_task_adapter_config['new_attention_norm']:
-            #         hidden_states = self.attention_layer_norm(hidden_states + input_tensor)
-            #     else:
-            #         hidden_states = self.LayerNorm(hidden_states + input_tensor)
-            # else:
-            #     # we use only one task adapter without attention
-            #     hidden_states, adapter_attention, down, up = self.attention_text_task_adapters[tasks[0]](
-            #         hidden_states,
-            #         residual_input=residual
-            #     )
-            #     if self.config.text_task_adapter_config['original_ln_after']:
-            #         hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            if task_adapter_config['original_ln_before']:
+                hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            if task_adapter_config['residual_before_ln']:
+                residual = hidden_states * 1.0
 
-        else:
+            if hasattr(self.config, 'fusion_config') and not self.config.fusion_config['query_before_ln']:
+                query = hidden_states * 1.0
+
+            # if we have multiple tasks, use fusion
+            if len(tasks) > 1:
+                # TODO see BertOutput module
+                raise NotImplementedError()
+                
+            # otherwise, only use one task adapter without attention
+            else:
+                hidden_states, adapter_attention, down, up = self.attention_text_task_adapters[tasks[0]](
+                    hidden_states,
+                    residual_input=residual
+                )
+                if task_adapter_config['original_ln_after']:
+                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
+
+        # In case we haven't used any adapter
+        if not adapter_used:
             hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         return hidden_states
@@ -281,58 +283,52 @@ class BertOutputAdaptersMixin:
                         param.requires_grad = True
 
     def adapters_forward(self, hidden_states, input_tensor, attention_mask, tasks=None, language=None):
-        residual = hidden_states
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        adapter_used = False
 
-        # used_adapter = False
+        # Language adapter
+        lang_adapter_config = getattr(self.config, "text_lang_adapter_config", None)
+        if lang_adapter_config and lang_adapter_config['Output_Adapter'] and language:
+            adapter_used = True
 
-        if hasattr(self.config, 'text_lang_adapter_config') and self.config.text_lang_adapter_config['Output_Adapter']:
-            # print('trining language adapter')
-            if language is None:
-                raise Exception('No language given, but adapters are active. Deactivate adapters?')
+            if lang_adapter_config['residual_before_ln']:
+                residual = hidden_states * 1.0
 
-            # if self.config.text_lang_adapter_config['residual_before_ln']:
-            #     residual = hidden_states * 1.0
+            if lang_adapter_config['original_ln_before']:
+                hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            # if self.config.text_lang_adapter_config['original_ln_before']:
-            # hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            if lang_adapter_config['residual_before_ln']:
+                residual = hidden_states * 1.0
 
-            # if not self.config.text_lang_adapter_config['residual_before_ln']:
-            # residual = hidden_states * 1.0
-
-            # else:
-            # we use only one task adapter without attention
             hidden_states, adapter_attention, down, up = self.layer_text_lang_adapters[language](
                 hidden_states,
                 residual_input=residual
             )
-            residual = hidden_states
-            # if self.config.text_lang_adapter_config['original_ln_after']:
-            hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            if lang_adapter_config['original_ln_after']:
+                hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            # used_adapter = True
+        # Task adapters
+        task_adapter_config = getattr(self.config, "text_task_adapter_config", None)
+        if task_adapter_config and task_adapter_config['Output_Adapter'] and tasks:
+            adapter_used = True
 
-        if hasattr(self.config, 'text_task_adapter_config') and self.config.text_task_adapter_config['Output_Adapter']:
-            if tasks is None:
-                raise Exception('No tasks given, but adapters are active. Deactivate adapters?')
-
-            if self.config.text_task_adapter_config['residual_before_ln']:
+            if task_adapter_config['residual_before_ln']:
                 residual = hidden_states * 1.0
 
             if hasattr(self.config, 'fusion_config') and self.config.fusion_config['query_before_ln']:
                 query = hidden_states * 1.0
 
-            if self.config.text_task_adapter_config['original_ln_before']:
+            if task_adapter_config['original_ln_before']:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if not self.config.text_task_adapter_config['residual_before_ln']:
+            if task_adapter_config['residual_before_ln']:
                 residual = hidden_states * 1.0
 
             if hasattr(self.config, 'fusion_config') and not self.config.fusion_config['query_before_ln']:
                 query = hidden_states * 1.0
 
+            # if we have multiple tasks, use fusion
+            # TODO ?
             if len(tasks) > 1:
-                # we use adapter attention
                 layer_output_list, down_list, up_list = [], [], []
                 # down_list, up_list = [], []
                 for task in tasks:
@@ -374,27 +370,18 @@ class BertOutputAdaptersMixin:
                     hidden_states = self.attention_layer_norm(hidden_states + input_tensor)
                 else:
                     hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            # otherwise, only use one task adapter without attention
             else:
-                # we use only one task adapter without attention
                 hidden_states, adapter_attention, down, up = self.layer_text_task_adapters[tasks[0]](
                     hidden_states,
                     residual_input=residual
                 )
-                if self.config.text_task_adapter_config['original_ln_after']:
+                if task_adapter_config['original_ln_after']:
                     hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-                # hidden_states = self.LayerNorm(hidden_states + input_tensor)
-            # used_adapter = True
-        else:
+        # In case we haven't used any adapter
+        if not adapter_used:
             hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        # if used_adapter:
-        #     hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-            # hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        # if not self.config.text_lang_adapter_config['Output_Adapter'] and not (hasattr(self.config, 'text_task_adapter_config')  and self.config.text_task_adapter_config['Output_Adapter']):
-        #     hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         return hidden_states
 
