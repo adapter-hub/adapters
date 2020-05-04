@@ -21,6 +21,8 @@ def urljoin(*args):
 def get_config_hash(*configs):
     h = sha1()
     for config in configs:
+        # only hash non-empty/ true items
+        config = {k: v for (k, v) in config.items() if v}
         dict_str = json.dumps(config, sort_keys=True)
         h.update(dict_str.encode(encoding='utf-8'))
     return h.hexdigest()
