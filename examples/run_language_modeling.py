@@ -122,11 +122,14 @@ class AdapterArguments:
     Arguments related to adapter training.
     """
 
-    train_language_adapter: str = field(
-        default="en", metadata={"help": "Train a text language adapter for the given language."}
+    language: str = field(
+        default="en", metadata={"help": "The training language."}
     )
-    load_pretrained_adapter: bool = field(
-        default=False, metadata={"help": "Load a pre-trained adapter for the language."}
+    train_adapter: bool = field(
+        default=False, metadata={"help": "Train a text language adapter for the given language."}
+    )
+    load_lang_adapter: Optional[str] = field(
+        default=None, metadata={"help": "Pre-trained language adapter to be loaded."}
     )
     adapter_config: Optional[str] = field(
         default="pfeiffer", metadata={"help": "The adapter configuration."}
@@ -226,16 +229,18 @@ def main():
     model.resize_token_embeddings(len(tokenizer))
 
     # Setup adapters
-    language = adapter_args.train_language_adapter
-    if language:
+    language = adapter_args.language
+    if adapter_args.train_adapter:
         # get actual model for derived models with heads
         base_model = getattr(model, model.base_model_prefix, model)
-        # task adapter
+        # language adapter
         base_model.set_adapter_config(AdapterType.text_lang, adapter_args.adapter_config)
-        if adapter_args.load_pretrained_adapter:
-            base_model.load_language_adapter(language)
+        if adapter_args.load_lang_adapter:
+            base_model.load_adapter(AdapterType.text_task, adapter_args.load_lang_adapter, load_as=language)
         else:
-            base_model.add_language_adapter(language)
+            base_model.add_adapter(AdapterType.text_lang, language)
+        # enable adapter training
+        base_model.train_language_adapter()
 
     if config.model_type in ["bert", "roberta", "distilbert", "camembert"] and not data_args.mlm:
         raise ValueError(

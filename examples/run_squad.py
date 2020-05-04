@@ -759,23 +759,23 @@ def main():
     tasks = []
     language = args.load_language_adapter
     if args.train_adapter:
+        tasks = ["squad"]
         # get actual model for derived models with heads
         base_model = getattr(model, model.base_model_prefix, model)
         # task adapter
         base_model.set_adapter_config(AdapterType.text_task, args.adapter_config)
         # load a pre-trained adapter for fine-tuning if specified
         if args.load_task_adapter:
-            base_model.load_task_adapter(args.load_task_adapter)
-            tasks = base_model.config.text_task_adapters
+            base_model.load_task_adapter(args.load_task_adapter, load_as=tasks[0])
         # otherwise, add a new adapter
         else:
-            task_name = "squad"
-            base_model.add_task_adapter(task_name)
-            tasks = [task_name]
+            base_model.add_task_adapter(tasks[0])
         # language adapter
         if args.load_language_adapter:
             base_model.set_adapter_config(AdapterType.text_lang, args.language_adapter_config or args.adapter_config)
             base_model.load_language_adapter(args.load_language_adapter)
+        # enable adapter training
+        base_model.train_task_adapter()
 
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab

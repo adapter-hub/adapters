@@ -100,6 +100,14 @@ class AdapterLoader:
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
+    def _rename_params(self, state_dict, old_name, new_name):
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            new_k = k.replace('_adapters.{}'.format(old_name), '_adapters.{}'.format(new_name)) \
+                     .replace('prediction_heads.{}'.format(old_name), 'prediction_heads.{}'.format(new_name))
+            new_state_dict[new_k] = v
+        return new_state_dict
+
     def set_config(self, adapter_config):
         """Sets the adapter configuration of this adapter type.
 
@@ -165,7 +173,7 @@ class AdapterLoader:
         logger.info("Adapter weights saved in {}".format(output_file))
 
     def load(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
-             version=None, load_head=False, **kwargs):
+             version=None, load_head=False, load_as=None, **kwargs):
         """Loads a pre-trained pytorch adapter module from the local file system or a remote location.
 
         Args:
@@ -192,11 +200,12 @@ class AdapterLoader:
             for k, v in config['config'].items():
                 assert self.config[k] == v, "Adapter configurations have to be equal."
 
+        adapter_name = load_as or config['name']
         # If the adapter is not part of the model, add it
-        if config['name'] not in self.adapter_list:
-            self.model.add_adapter(self.adapter_type, config['name'])
+        if adapter_name not in self.adapter_list:
+            self.model.add_adapter(self.adapter_type, adapter_name)
 
-        self._load_adapter_weights(resolved_folder, self.adapter_type, config['name'], cache_dir=cache_dir, **kwargs)
+        self._load_adapter_weights(resolved_folder, self.adapter_type, config['name'], load_as=load_as, cache_dir=cache_dir, **kwargs)
 
         # Optionally, load the weights of the prediction head
         if load_head:
@@ -206,13 +215,13 @@ class AdapterLoader:
             # Add the prediction head to the model
             # TODO check the case when prediction head is already present
             self.model.add_prediction_head(
-                config['name'], nr_labels=head_config['nr_labels'],
+                adapter_name, nr_labels=head_config['nr_labels'],
                 task_type=head_config['task_type'], layers=head_config['layers'],
                 activation_function=head_config['activation_function'], qa_examples=head_config['qa_examples']
             )
             # Load the head weights
             self._load_adapter_weights(
-                resolved_folder, 'head', config['name'], weights_name=HEAD_WEIGHTS_NAME, **kwargs
+                resolved_folder, 'head', config['name'], weights_name=HEAD_WEIGHTS_NAME, load_as=load_as, **kwargs
             )
 
     def _load_adapter_config(self, resolved_folder, **kwargs):
@@ -237,7 +246,7 @@ class AdapterLoader:
 
         return adapter_config
 
-    def _load_adapter_weights(self, resolved_folder, adapter_type, adapter_name, weights_name=WEIGHTS_NAME, **kwargs):
+    def _load_adapter_weights(self, resolved_folder, adapter_type, adapter_name, weights_name=WEIGHTS_NAME, load_as=None, **kwargs):
         """Loads adapter weights.
         """
         # If necessary, download the weights or load them from cache
@@ -258,6 +267,11 @@ class AdapterLoader:
             adapter_state_dict = torch.load(weights_file, map_location="cpu")
         except Exception:
             raise OSError("Unable to load weights from pytorch checkpoint file. ")
+
+        # Rename weights if needed
+        if load_as:
+            adapter_state_dict = self._rename_params(adapter_state_dict, adapter_name, load_as)
+            adapter_name = load_as
 
         # Add the weights to the model
         missing_keys, unexpected_keys = self.model.load_state_dict(adapter_state_dict, strict=False)
@@ -357,14 +371,14 @@ class ModelAdaptersMixin:
         self.adapters[AdapterType.text_lang].save(save_directory, language_name, save_head)
 
     def load_adapter(self, adapter_type, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
-                     version=None, load_head=False, **kwargs):
+                     version=None, load_head=False, load_as=None, **kwargs):
         if AdapterType.has(adapter_type):
-            self.adapters[adapter_type].load(adapter_name_or_path, default_config, version, load_head, **kwargs)
+            self.adapters[adapter_type].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
     def load_task_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
-                          version=None, load_head=False, **kwargs):
+                          version=None, load_head=False, load_as=None, **kwargs):
         """Loads a pre-trained pytorch task adapter from an adapter configuration.
 
         Args:
@@ -375,10 +389,10 @@ class ModelAdaptersMixin:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-        self.adapters[AdapterType.text_task].load(adapter_name_or_path, default_config, version, load_head, **kwargs)
+        self.adapters[AdapterType.text_task].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
 
     def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
-                              version=None, load_head=False, **kwargs):
+                              version=None, load_head=False, load_as=None, **kwargs):
         """Loads a pre-trained pytorch language adapter from an adapter configuration.
 
         Args:
@@ -389,4 +403,4 @@ class ModelAdaptersMixin:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-        self.adapters[AdapterType.text_lang].load(adapter_name_or_path. default_config, version, load_head, **kwargs)
+        self.adapters[AdapterType.text_lang].load(adapter_name_or_path. default_config, version, load_head, load_as, **kwargs)

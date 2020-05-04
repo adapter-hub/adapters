@@ -30,13 +30,16 @@ if args.load_task_adapter:
 else:
     base_model.add_task_adapter(args.task_name)
     tasks = [args.task_name]
+# enable adapter training
+base_model.train_task_adapter()
 ```
 
 ```eval_rst
 .. important::
-    By calling the ``add_task_adapter()`` method, all remaining weights of the model will be freezed automatically so
-    only the adapter weights will be updated during training. In case you want to finetune the full model, you
-    can unfreeze all model weights by calling ``freeze_model(False)`` after adding the adapter.
+    The most crucial step when training an adapter module is to freeze all weights in the model except for those of the
+    adapter. In the previous snippet, this is achieved by calling the ``train_task_adapter()`` method which disables training
+    of all weights outside the task adapter. In case you want to unfreeze all model weights later on, you can use
+    ``freeze_model(False)``.
 ```
 
 Besides this, we only have to make sure that the task we want to train is always passed as input to the `forward()` method
@@ -69,12 +72,10 @@ python run_glue_tpu.py \
   --data_dir $GLUE_DIR/$TASK_NAME \
   --max_seq_length 128 \
   --train_batch_size 32 \
-  --learning_rate 3e-5 \
+  --learning_rate 1e-4 \
   --num_train_epochs 3.0 \
   --output_dir /tmp/$TASK_NAME \
   --overwrite_output_dir \
-  --logging_steps 50 \
-  --save_steps 200 \
   --train_adapter \
   --adapter_config pfeiffer
 ```
