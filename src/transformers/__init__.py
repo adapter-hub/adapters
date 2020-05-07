@@ -147,7 +147,9 @@ from .tokenization_xlm_roberta import XLMRobertaTokenizer
 from .tokenization_xlnet import SPIECE_UNDERLINE, XLNetTokenizer
 
 from .adapter_args import AdapterArguments
+from .trainer_utils import EvalPrediction
 from .training_args import TrainingArguments
+from .training_args_tf import TFTrainingArguments
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -329,6 +331,7 @@ if is_torch_available():
         ElectraForPreTraining,
         ElectraForMaskedLM,
         ElectraForTokenClassification,
+        ElectraPreTrainedModel,
         ElectraModel,
         load_tf_weights_in_electra,
         ELECTRA_PRETRAINED_MODEL_ARCHIVE_MAP,
@@ -517,6 +520,9 @@ if is_tf_available():
 
     # Optimization
     from .optimization_tf import WarmUp, create_optimizer, AdamWeightDecay, GradientAccumulator
+
+    # Trainer
+    from .trainer_tf import TFTrainer
 
 
 if not is_tf_available() and not is_torch_available():
