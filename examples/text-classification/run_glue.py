@@ -68,7 +68,7 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, GlueDataTrainingArguments, TrainingArguments, AdapterArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
 
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -142,18 +142,19 @@ def main():
         tasks = [data_args.task_name]
         # get actual model for derived models with heads
         base_model = getattr(model, model.base_model_prefix, model)
-        # task adapter
-        base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
-        # load a pre-trained adapter for fine-tuning if specified
-        if adapter_args.load_task_adapter:
-            base_model.load_adapter(AdapterType.text_task, adapter_args.load_task_adapter, load_as=tasks[0])
-        # otherwise, add a new adapter
-        else:
-            base_model.add_adapter(AdapterType.text_task, tasks[0])
-        # language adapter
-        if adapter_args.load_lang_adapter:
+        # task adapter - only add if not existing
+        if data_args.task_name not in base_model.adapters[AdapterType.text_task]:
+            base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
+            # load a pre-trained adapter for fine-tuning if specified
+            if adapter_args.load_task_adapter:
+                base_model.load_adapter(AdapterType.text_task, adapter_args.load_task_adapter, load_as=tasks[0])
+            # otherwise, add a new adapter
+            else:
+                base_model.add_adapter(AdapterType.text_task, tasks[0])
+        # language adapter - only add if not existing
+        if language and language not in base_model.adapters[AdapterType.text_lang]:
             base_model.set_adapter_config(AdapterType.text_lang, adapter_args.lang_adapter_config or adapter_args.adapter_config)
-            base_model.load_adapter(AdapterType.text_lang, adapter_args.load_lang_adapter)
+            base_model.load_adapter(AdapterType.text_lang, language)
         # enable adapter training
         base_model.train_task_adapter()
 

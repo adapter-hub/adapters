@@ -762,18 +762,19 @@ def main():
         tasks = ["squad"]
         # get actual model for derived models with heads
         base_model = getattr(model, model.base_model_prefix, model)
-        # task adapter
-        base_model.set_adapter_config(AdapterType.text_task, args.adapter_config)
-        # load a pre-trained adapter for fine-tuning if specified
-        if args.load_task_adapter:
-            base_model.load_task_adapter(args.load_task_adapter, load_as=tasks[0])
-        # otherwise, add a new adapter
-        else:
-            base_model.add_task_adapter(tasks[0])
-        # language adapter
-        if args.load_language_adapter:
+        # task adapter - only add if not existing
+        if tasks[0] not in base_model.adapters[AdapterType.text_task]:
+            base_model.set_adapter_config(AdapterType.text_task, args.adapter_config)
+            # load a pre-trained adapter for fine-tuning if specified
+            if args.load_task_adapter:
+                base_model.load_task_adapter(args.load_task_adapter, load_as=tasks[0])
+            # otherwise, add a new adapter
+            else:
+                base_model.add_task_adapter(tasks[0])
+        # language adapter - only add if not existing
+        if language and language not in base_model.adapters[AdapterType.text_lang]:
             base_model.set_adapter_config(AdapterType.text_lang, args.language_adapter_config or args.adapter_config)
-            base_model.load_language_adapter(args.load_language_adapter)
+            base_model.load_language_adapter(language)
         # enable adapter training
         base_model.train_task_adapter()
 
