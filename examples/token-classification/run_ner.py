@@ -171,7 +171,7 @@ def main():
         # get actual model for derived models with heads
         base_model = getattr(model, model.base_model_prefix, model)
         # task adapter - only add if not existing
-        if data_args.task_name not in base_model.adapters[AdapterType.text_task]:
+        if data_args.task_name not in base_model.config.adapter_config.adapter_list(AdapterType.text_task):
             base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
             # load a pre-trained adapter for fine-tuning if specified
             if adapter_args.load_task_adapter:
@@ -180,7 +180,7 @@ def main():
             else:
                 base_model.add_adapter(AdapterType.text_task, tasks[0])
         # language adapter - only add if not existing
-        if language and language not in base_model.adapters[AdapterType.text_lang]:
+        if language and language not in base_model.config.adapter_config.adapter_list(AdapterType.text_lang):
             base_model.set_adapter_config(AdapterType.text_lang, adapter_args.lang_adapter_config or adapter_args.adapter_config)
             base_model.load_adapter(AdapterType.text_lang, language)
         # enable adapter training

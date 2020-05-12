@@ -6,6 +6,7 @@ import torch.nn as nn
 
 
 def subnet_fc(c_in, c_out):
+    # TODO activation param -> Activation_Function_Class -> relu default
     return nn.Sequential(nn.Linear(c_in, c_in//2), nn.ReLU(),
                          nn.Linear(c_in//2,  c_out))
 
@@ -19,7 +20,7 @@ class NICECouplingBlock(nn.Module):
         super().__init__()
 
         channels = dims_in[0][0]
-        self.split_len1 = channels // 2
+        self.split_len1 = channels // 2 # TODO hyperparam reduction
         self.split_len2 = channels - channels // 2
 
         assert all([dims_c[i][1:] == dims_in[0][1:] for i in range(len(dims_c))]), \

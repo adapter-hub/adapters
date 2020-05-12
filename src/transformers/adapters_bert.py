@@ -15,46 +15,50 @@ class BertSelfOutputAdaptersMixin:
         self.attention_text_lang_adapters = nn.ModuleDict(dict())
         self.language_attention_adapters_fusion = nn.ModuleDict(dict())
 
-    def add_adapter(self, adapter_type: AdapterType, task_name: str):
-        if self.config.text_task_adapter_config['MH_Adapter']:
+    def add_adapter(self, adapter_type: AdapterType, adapter_name: str):
+        adapter_config = self.config.adapter_config.get(adapter_name)
+        if adapter_config and adapter_config['MH_Adapter']:
             adapter = Adapter(input_size=self.config.hidden_size,
-                              down_sample=self.config.hidden_size // self.config.text_task_adapter_config['reduction_factor'],
-                              add_layer_norm_before=self.config.text_task_adapter_config['LN_before'],
-                              add_layer_norm_after=self.config.text_task_adapter_config['LN_after'],
-                              non_linearity=self.config.text_task_adapter_config['non_linearity'],
-                              residual_before_ln=self.config.text_task_adapter_config[
-                                  'adapter_residual_before_ln']
+                              down_sample=self.config.hidden_size // adapter_config['reduction_factor'],
+                              add_layer_norm_before=adapter_config['LN_before'],
+                              add_layer_norm_after=adapter_config['LN_after'],
+                              non_linearity=adapter_config['non_linearity'],
+                              residual_before_ln=adapter_config['adapter_residual_before_ln']
                               )
             if adapter_type == AdapterType.text_task:
-                self.attention_text_task_adapters[task_name] = adapter
+                self.attention_text_task_adapters[adapter_name] = adapter
             elif adapter_type == AdapterType.text_lang:
-                self.attention_text_lang_adapters[task_name] = adapter
+                self.attention_text_lang_adapters[adapter_name] = adapter
             else:
                 raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
 
     def add_attention_layer(self, tasks):
         """See BertModel.add_attention_layer"""
-        if self.config.text_task_adapter_config['MH_Adapter']:
+        # TODO this assumes a common adapter config
+        adapter_config = self.config.adapter_config.get_default(AdapterType.text_task)
+        if adapter_config['MH_Adapter']:
             task_names = tasks if isinstance(tasks, list) else tasks.split('_')
-            if self.config.text_task_adapter_config['attention_type'] == 'tok-lvl':
+            if adapter_config['attention_type'] == 'tok-lvl':
                 layer = BertAdapterAttention(self.config)
-            elif self.config.text_task_adapter_config['attention_type'] == 'sent-lvl':
+            elif adapter_config['attention_type'] == 'sent-lvl':
                 layer = AdapterWeightingSentLvl(self.config, len(task_names))
-            elif self.config.text_task_adapter_config['attention_type'] == 'sent-lvl-dynamic':
+            elif adapter_config['attention_type'] == 'sent-lvl-dynamic':
                 layer = AdapterWeightingSentLvlDynamic(self.config, len(task_names))
-            elif self.config.text_task_adapter_config['attention_type'] == 'static':
+            elif adapter_config['attention_type'] == 'static':
                 layer = SimpleAdapterWeightingStatic(self.config, len(task_names))
             else:
-                raise Exception('Unknown attention type: {}'.format(self.config.text_task_adapter_config['attention_type']))
+                raise Exception('Unknown attention type: {}'.format(adapter_config['attention_type']))
 
             self.attention_adapters_fusion['_'.join(task_names)] = layer
 
-            if self.config.text_task_adapter_config['new_attention_norm']:
+            if adapter_config['new_attention_norm']:
                 self.attention_layer_norm = BertLayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
 
     def enable_adapters(self, adapter_type: AdapterType, unfreeze_adapters: bool, unfreeze_attention: bool):
         # TODO cleanup?
-        if self.config.text_task_adapter_config['MH_Adapter']:
+        # TODO this assumes a common adapter config
+        adapter_config = self.config.adapter_config.get_default(adapter_type)
+        if adapter_config and adapter_config['MH_Adapter']:
             if adapter_type == AdapterType.text_task:
                 if unfreeze_adapters:
                     for param in self.attention_text_task_adapters.parameters():
@@ -67,7 +71,7 @@ class BertSelfOutputAdaptersMixin:
                         for param in adap.adapter_attention.parameters():
                             param.requires_grad = True
 
-                    if self.config.text_task_adapter_config['new_attention_norm']:
+                    if adapter_config['new_attention_norm']:
                         for param in self.attention_layer_norm.parameters():
                             param.requires_grad = True
             elif adapter_type == AdapterType.text_lang:
@@ -82,7 +86,7 @@ class BertSelfOutputAdaptersMixin:
                         for param in adap.language_adapter_attention.parameters():
                             param.requires_grad = True
 
-                    if self.config.text_lang_adapter_config['new_attention_norm']:
+                    if adapter_config['new_attention_norm']:
                         for param in self.language_attention_layer_norm.parameters():
                             param.requires_grad = True
             else:
@@ -90,23 +94,25 @@ class BertSelfOutputAdaptersMixin:
 
     def add_language_attention_layer(self, tasks):
         """See BertModel.add_attention_layer"""
-        if self.config.text_lang_adapter_config['MH_Adapter']:
+        # TODO this assumes a common adapter config
+        adapter_config = self.config.adapter_config.get_default(AdapterType.text_lang)
+        if adapter_config['MH_Adapter']:
             task_names = tasks if isinstance(tasks, list) else tasks.split('_')
-            if self.config.text_lang_adapter_config['attention_type'] == 'tok-lvl':
+            if adapter_config['attention_type'] == 'tok-lvl':
                 layer = BertAdapterAttention(self.config)
             else:
-                raise Exception('Unknown attention type: {}'.format(self.config.text_task_adapter_config['attention_type']))
+                raise Exception('Unknown attention type: {}'.format(adapter_config['attention_type']))
 
             self.language_attention_adapters_fusion['_'.join(task_names)] = layer
 
-            if self.config.text_lang_adapter_config['new_attention_norm']:
+            if adapter_config['new_attention_norm']:
                 self.language_attention_layer_norm = BertLayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
 
     def adapters_forward(self, hidden_states, input_tensor, tasks=None, language=None):
         adapter_used = False
 
         # Language adapter
-        lang_adapter_config = getattr(self.config, "text_lang_adapter_config", None)
+        lang_adapter_config = self.config.adapter_config.get(language)
         if lang_adapter_config and language in self.attention_text_lang_adapters:
             adapter_used = True
 
@@ -127,7 +133,8 @@ class BertSelfOutputAdaptersMixin:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         # Task adapters
-        task_adapter_config = getattr(self.config, "text_task_adapter_config", None)
+        # TODO this assumes a common adapter config
+        task_adapter_config = self.config.adapter_config.get_default(AdapterType.text_task)
         # filter tasks that are available in this module
         tasks = [t for t in tasks if t in self.attention_text_task_adapters]
         if task_adapter_config and tasks:
@@ -182,46 +189,51 @@ class BertOutputAdaptersMixin:
 
     def add_attention_layer(self, tasks):
         """See BertModel.add_attention_layer"""
-        if self.config.text_task_adapter_config['Output_Adapter']:
+        # TODO this assumes a common adapter config
+        adapter_config = self.config.adapter_config.get_default(AdapterType.text_task)
+        if adapter_config['Output_Adapter']:
             task_names = tasks if isinstance(tasks, list) or isinstance(tasks, tuple) else tasks.split('_')
-            if self.config.text_task_adapter_config['attention_type'] == 'tok-lvl':
+            if adapter_config['attention_type'] == 'tok-lvl':
                 layer = BertAdapterAttention(self.config)
-            elif self.config.text_task_adapter_config['attention_type'] == 'sent-lvl':
+            elif adapter_config['attention_type'] == 'sent-lvl':
                 layer = AdapterWeightingSentLvl(self.config, len(task_names))
-            elif self.config.text_task_adapter_config['attention_type'] == 'sent-lvl-dynamic':
+            elif adapter_config['attention_type'] == 'sent-lvl-dynamic':
                 layer = AdapterWeightingSentLvlDynamic(self.config, len(task_names))
-            elif self.config.text_task_adapter_config['attention_type'] == 'static':
+            elif adapter_config['attention_type'] == 'static':
                 layer = SimpleAdapterWeightingStatic(self.config, len(task_names))
-            elif self.config.text_task_adapter_config['attention_type'] == 'sent-lvl-fusion':
+            elif adapter_config['attention_type'] == 'sent-lvl-fusion':
                 layer = AdapterFusionSentLvlDynamic(self.config, len(task_names))
 
             else:
-                raise Exception('Unknown attention type: {}'.format(self.config.text_task_adapter_config['attention_type']))
+                raise Exception('Unknown attention type: {}'.format(adapter_config['attention_type']))
 
             self.bert_adapter_att['_'.join(task_names)] = layer
 
-            if self.config.text_task_adapter_config['new_attention_norm']:
+            if adapter_config['new_attention_norm']:
                 self.attention_layer_norm = BertLayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
 
-    def add_adapter(self, adapter_type: AdapterType, task_name: str):
-        if self.config.text_task_adapter_config['Output_Adapter']:
+    def add_adapter(self, adapter_type: AdapterType, adapter_name: str):
+        adapter_config = self.config.adapter_config.get(adapter_name)
+        if adapter_config and adapter_config['Output_Adapter']:
             adapter = Adapter(input_size=self.config.hidden_size,
-                              down_sample=self.config.hidden_size // self.config.text_task_adapter_config['reduction_factor'],
-                              add_layer_norm_before=self.config.text_task_adapter_config['LN_before'],
-                              add_layer_norm_after=self.config.text_task_adapter_config['LN_after'],
-                              non_linearity=self.config.text_task_adapter_config['non_linearity'],
-                              residual_before_ln=self.config.text_task_adapter_config['adapter_residual_before_ln']
+                              down_sample=self.config.hidden_size // adapter_config['reduction_factor'],
+                              add_layer_norm_before=adapter_config['LN_before'],
+                              add_layer_norm_after=adapter_config['LN_after'],
+                              non_linearity=adapter_config['non_linearity'],
+                              residual_before_ln=adapter_config['adapter_residual_before_ln']
                               )
             if adapter_type == AdapterType.text_task:
-                self.layer_text_task_adapters[task_name] = adapter
+                self.layer_text_task_adapters[adapter_name] = adapter
             elif adapter_type == AdapterType.text_lang:
-                self.layer_text_lang_adapters[task_name] = adapter
+                self.layer_text_lang_adapters[adapter_name] = adapter
             else:
                 raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
 
     def enable_adapters(self, adapter_type: AdapterType, unfreeze_adapters: bool, unfreeze_attention: bool):
         # TODO cleanup?
-        if self.config.text_task_adapter_config['Output_Adapter']:
+        # TODO this assumes a common adapter config
+        adapter_config = self.config.adapter_config.get_default(adapter_type)
+        if adapter_config and adapter_config['Output_Adapter']:
             if adapter_type == AdapterType.text_task:
                 if unfreeze_adapters:
                     for param in self.layer_text_task_adapters.parameters():
@@ -234,7 +246,7 @@ class BertOutputAdaptersMixin:
                     for param in self.bert_adapter_att.parameters():
                         param.requires_grad = True
 
-                    if self.config.text_task_adapter_config['new_attention_norm']:
+                    if adapter_config['new_attention_norm']:
                         for param in self.attention_layer_norm.parameters():
                             param.requires_grad = True
             elif adapter_type == AdapterType.text_lang:
@@ -249,7 +261,7 @@ class BertOutputAdaptersMixin:
                     for param in self.bert_language_adapter_att.parameters():
                         param.requires_grad = True
 
-                    if self.config.text_lang_adapter_config['new_attention_norm']:
+                    if adapter_config['new_attention_norm']:
                         for param in self.language_attention_layer_norm.parameters():
                             param.requires_grad = True
             else:
@@ -259,7 +271,7 @@ class BertOutputAdaptersMixin:
         adapter_used = False
 
         # Language adapter
-        lang_adapter_config = getattr(self.config, "text_lang_adapter_config", None)
+        lang_adapter_config = self.config.adapter_config.get(language)
         if lang_adapter_config and language in self.layer_text_lang_adapters:
             adapter_used = True
 
@@ -280,7 +292,8 @@ class BertOutputAdaptersMixin:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         # Task adapters
-        task_adapter_config = getattr(self.config, "text_task_adapter_config", None)
+        # TODO this assumes a common adapter config
+        task_adapter_config = self.config.adapter_config.get_default(AdapterType.text_task)
         # filter tasks that are available in this module
         tasks = [t for t in tasks if t in self.layer_text_task_adapters]
         if task_adapter_config and tasks:
@@ -341,7 +354,7 @@ class BertOutputAdaptersMixin:
                 # hidden_states = up_list[:,:,0] + residual
                 # hidden_states = layer_output_list[:,:,0]
 
-                if self.config.text_task_adapter_config['new_attention_norm']:
+                if task_adapter_config['new_attention_norm']:
                     hidden_states = self.attention_layer_norm(hidden_states + input_tensor)
                 else:
                     hidden_states = self.LayerNorm(hidden_states + input_tensor)
@@ -384,16 +397,15 @@ class BertEncoderAdaptersMixin:
         for layer in self.layer:
             layer.add_attention_layer(task_names)
 
-    def add_adapter(self, adapter_type: AdapterType, task_name: str):
-        if adapter_type == AdapterType.text_task:
-            leave_out = self.config.text_task_adapter_config.get("leave_out", [])
-        elif adapter_type == AdapterType.text_lang:
-            leave_out = self.config.text_lang_adapter_config.get("leave_out", [])
+    def add_adapter(self, adapter_type: AdapterType, adapter_name: str):
+        adapter_config = self.config.adapter_config.get(adapter_name)
+        if adapter_config:
+            leave_out = adapter_config.get("leave_out", [])
         else:
             leave_out = []
         for i, layer in enumerate(self.layer):
             if i not in leave_out:
-                layer.add_adapter(adapter_type, task_name)
+                layer.add_adapter(adapter_type, adapter_name)
 
     def enable_adapters(self, adapter_type: AdapterType, unfreeze_adapters: bool, unfreeze_attention: bool):
         for layer in self.layer:
@@ -414,11 +426,11 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         # TODO ?
         self.inv_lang_adap = None
         # language adapters
-        for language in self.adapters[AdapterType.text_lang]:
+        for language in self.config.adapter_config.adapter_list(AdapterType.text_lang):
             self.add_adapter(AdapterType.text_lang, language)
             self.add_model_inv_lang_adapter(language)
         # task adapters
-        for task in self.adapters[AdapterType.text_task]:
+        for task in self.config.adapter_config.adapter_list(AdapterType.text_task):
             self.add_adapter(AdapterType.text_task, task)
         # fusion
         if hasattr(self.config, 'fusion_models'):
@@ -473,11 +485,10 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             task_name (str): the name of the task
             default_config (str or dict, optional): the default task adapter config if none is set.
         """
-        if not hasattr(self.config, 'text_task_adapter_config'):
-            self.set_adapter_config(AdapterType.text_task, default_config)
+        if not self.config.adapter_config.get_default(AdapterType.text_task):
+            self.config.adapter_config.set_default(AdapterType.text_task, default_config)
+        self.config.adapter_config.add(task_name, AdapterType.text_task)
         self.encoder.add_adapter(AdapterType.text_task, task_name)
-        if task_name not in self.config.text_task_adapters:
-            self.config.text_task_adapters.append(task_name)
 
     def add_language_adapter(self, language_name, default_config=DEFAULT_ADAPTER_CONFIG):
         """Adds a new language adapter to the model.
@@ -486,11 +497,10 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             language_name (str): the name of the language
             default_config (str or dict, optional): the default language adapter config if none is set.
         """
-        if not hasattr(self.config, 'text_lang_adapter_config'):
-            self.set_adapter_config(AdapterType.text_lang, default_config)
+        if not self.config.adapter_config.get_default(AdapterType.text_lang):
+            self.config.adapter_config.set_default(AdapterType.text_lang, default_config)
+        self.config.adapter_config.add(language_name, AdapterType.text_lang)
         self.encoder.add_adapter(AdapterType.text_lang, language_name)
-        if language_name not in self.config.text_lang_adapters:
-            self.config.text_lang_adapters.append(language_name)
 
     def add_attention_layer(self, task_names):
         """See BertModel.add_attention_layer"""

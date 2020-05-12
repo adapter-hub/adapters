@@ -234,7 +234,7 @@ def main():
         # get actual model for derived models with heads
         base_model = getattr(model, model.base_model_prefix, model)
         # language adapter - only add if not existing
-        if language not in base_model.adapters[AdapterType.text_lang]:
+        if language not in base_model.config.adapter_config.adapter_list(AdapterType.text_lang):
             base_model.set_adapter_config(AdapterType.text_lang, adapter_args.adapter_config)
             if adapter_args.load_lang_adapter:
                 base_model.load_adapter(AdapterType.text_task, adapter_args.load_lang_adapter, load_as=language)

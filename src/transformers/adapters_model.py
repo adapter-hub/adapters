@@ -1,5 +1,4 @@
 import logging
-from enum import Enum
 from os import mkdir
 from os.path import isdir, isfile, join, exists
 import torch
@@ -12,6 +11,12 @@ from .adapters_utils import (
     CONFIG_NAME, WEIGHTS_NAME, HEAD_WEIGHTS_NAME,
     ADAPTER_IDENTIFIER_PATTERN
 )
+from .adapters_config import (
+    ADAPTER_CONFIG_MAP,
+    DEFAULT_ADAPTER_CONFIG,
+    AdapterType,
+    AdapterConfig
+)
 
 
 logger = logging.getLogger(__name__)
@@ -21,41 +26,6 @@ ADAPTER_CACHE = join(torch_cache_home, "adapters")
 
 ADAPTER_HUB_URL = "http://adapter-hub.webredirect.org/repo/"
 
-# TODO add more default configs here
-ADAPTER_CONFIG_MAP = {
-    'pfeiffer': {
-        'LN_after': False,
-        'LN_before': False,
-        'MH_Adapter': False,
-        'Output_Adapter': True,
-        'adapter_residual_before_ln': False,
-        'attention_type': 'sent-lvl-dynamic',
-        'new_attention_norm': False,
-        'non_linearity': 'relu',
-        'original_ln_after': True,
-        'original_ln_before': True,
-        'reduction_factor': 16,
-        'residual_before_ln': True
-    }
-}
-
-DEFAULT_ADAPTER_CONFIG = 'pfeiffer'
-
-
-class AdapterType(str, Enum):
-    """Models all currently available model adapter types."""
-
-    text_task = "text_task"
-    text_lang = "text_lang"
-    vision_task = "vision_task"
-
-    @classmethod
-    def has(cls, value):
-        return value in cls.__members__.values()
-
-    def __repr__(self):
-        return self.value
-
 
 class AdapterLoader:
     """A class providing methods for saving and loading adapter modules of a specified type."""
@@ -64,24 +34,14 @@ class AdapterLoader:
         self.model = model
         self.adapter_type = adapter_type
 
+    # TODO remove this
     @property
     def config(self):
-        return getattr(self.model.config, '{}_adapter_config'.format(self.adapter_type), None)
+        return self.model.config.adapter_config.get_default(self.adapter_type)
 
     @config.setter
     def config(self, value):
-        setattr(self.model.config, '{}_adapter_config'.format(self.adapter_type), value)
-
-    @property
-    def adapter_list(self):
-        return getattr(self.model.config, '{}_adapters'.format(self.adapter_type), [])
-
-    @adapter_list.setter
-    def adapter_list(self, value):
-        setattr(self.model.config, '{}_adapters'.format(self.adapter_type), value)
-
-    def __iter__(self):
-        return self.adapter_list.__iter__()
+        self.model.config.adapter_config.set_default(self.adapter_type, value)
 
     def state_dict(self, adapter_name: str):
         """Returns a dictionary containing the whole state of the specified adapter.
@@ -108,29 +68,6 @@ class AdapterLoader:
             new_state_dict[new_k] = v
         return new_state_dict
 
-    def set_config(self, adapter_config):
-        """Sets the adapter configuration of this adapter type.
-
-        Args:
-            adapter_config (str or dict): adapter configuration, can be either:
-                - a string identifying a pre-defined adapter configuration
-                - a dictionary representing the adapter configuration
-                - the path to a file containing the adapter configuration
-        """
-        if self.adapter_list:
-            assert len(self.adapter_list) < 1, "Can only set new config if no adapters have been added."
-
-        if isinstance(adapter_config, dict):
-            self.config = adapter_config
-        elif adapter_config in ADAPTER_CONFIG_MAP:
-            self.config = ADAPTER_CONFIG_MAP[adapter_config]
-        elif isfile(adapter_config):
-            with open(adapter_config, 'r', encoding='utf-8') as f:
-                self.config = json.load(f)
-        else:
-            raise ValueError("Unable to identify {} as a valid adapter config.".format(adapter_config))
-        self.adapter_list = []
-
     def full_config(self, name=None, default_config=None, with_head=False):
         config_dict = {
             'type': self.adapter_type,
@@ -155,7 +92,7 @@ class AdapterLoader:
             mkdir(save_directory)
         else:
             assert isdir(save_directory), "Saving path should be a directory where adapter and configuration can be saved."
-        assert name in self.adapter_list, "No adapter of this type with the given name is part of this model."
+        assert name in self.model.config.adapter_config.adapters, "No adapter of this type with the given name is part of this model."
 
         config_dict = self.full_config(name, with_head=save_head)
 
@@ -194,7 +131,7 @@ class AdapterLoader:
         assert config['type'] == self.adapter_type, "Loaded adapter has to be a {} adapter.".format(self.adapter_type)
         # If no adapter config is available yet, set to the config of the loaded adapter
         if not self.config:
-            self.set_config(config['config'])
+            self.config = config['config']
         # Otherwise, check that loaded config is equal to the config of this model.
         else:
             for k, v in config['config'].items():
@@ -202,7 +139,7 @@ class AdapterLoader:
 
         adapter_name = load_as or config['name']
         # If the adapter is not part of the model, add it
-        if adapter_name not in self.adapter_list:
+        if adapter_name not in self.model.config.adapter_config.adapters:
             self.model.add_adapter(self.adapter_type, adapter_name)
 
         self._load_adapter_weights(resolved_folder, self.adapter_type, config['name'], load_as=load_as, cache_dir=cache_dir, **kwargs)
@@ -317,17 +254,19 @@ class AdapterLoader:
 class ModelAdaptersMixin:
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(config, *args, **kwargs)
+        if not hasattr(config, 'adapter_config'):
+            config.adapter_config = AdapterConfig()
         self.adapters = {
             t: AdapterLoader(self, t) for t in AdapterType
         }
 
     def has_adapters(self, adapter_type=None):
         if not adapter_type:
-            return sum([len(m.adapter_list) for m in self.adapters.values()]) > 0
+            return len(self.config.adapter_config.adapters) > 0
         else:
-            return len(self.adapters[adapter_type].adapter_list) > 0
+            return len(self.config.adapter_config.adapter_list(adapter_type)) > 0
 
     def set_adapter_config(self, adapter_type: AdapterType, adapter_config):
         """Sets the adapter configuration of the specified adapter type.
@@ -340,7 +279,7 @@ class ModelAdaptersMixin:
                 - the path to a file containing the adapter configuration
         """
         if AdapterType.has(adapter_type):
-            self.adapters[adapter_type].set_config(adapter_config)
+            self.config.adapter_config.set_default(adapter_type, adapter_config)
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
