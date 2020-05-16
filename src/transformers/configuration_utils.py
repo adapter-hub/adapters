@@ -23,7 +23,6 @@ import os
 from typing import Dict, Optional, Tuple
 
 from .file_utils import CONFIG_NAME, cached_path, hf_bucket_url, is_remote_url
-from .adapters_config import AdapterConfig
 
 
 logger = logging.getLogger(__name__)
@@ -107,11 +106,6 @@ class PretrainedConfig(object):
 
         # TPU arguments
         self.xla_device = kwargs.pop("xla_device", None)
-
-        # adapter configuration
-        adapter_config_dict = kwargs.pop("adapter_config", None)
-        if adapter_config_dict:
-            self.adapter_config = AdapterConfig(**adapter_config_dict)
 
         # Additional attributes without default values
         for key, value in kwargs.items():
@@ -391,6 +385,8 @@ class PretrainedConfig(object):
         output = copy.deepcopy(self.__dict__)
         if hasattr(self.__class__, "model_type"):
             output["model_type"] = self.__class__.model_type
+        if hasattr(self, "adapter_config"):
+            output["adapter_config"] = self.adapter_config.to_dict()
         return output
 
     def to_json_string(self, use_diff=True):

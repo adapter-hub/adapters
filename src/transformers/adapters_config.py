@@ -1,6 +1,7 @@
 from enum import Enum
 import json
 from os.path import isfile
+import copy
 
 
 # TODO add more default configs here
@@ -42,19 +43,25 @@ class AdapterType(str, Enum):
 class AdapterConfig:
     def __init__(self, **kwargs):
         self.adapters = kwargs.pop("adapters", {})
-        self.default = kwargs.pop("default", {})
+        self.config_map = kwargs.pop("config_map", {})
 
     def adapter_list(self, adapter_type: AdapterType) -> list:
         return [
             k for k, v in self.adapters.items() if v['type'] == adapter_type
         ]
 
+    def get_type(self, adapter_name: str) -> AdapterType:
+        if adapter_name in self.adapters:
+            return self.adapters[adapter_name]['type']
+        else:
+            return None
+
     def get(self, adapter_name: str) -> dict:
         if adapter_name in self.adapters:
             adapter = self.adapters[adapter_name]
             config = adapter['config']
             if not config:
-                config = self.default[adapter['type']]
+                config = self.config_map[adapter['type']]
             elif isinstance(config, str):
                 config = ADAPTER_CONFIG_MAP[config]
             return config
@@ -70,13 +77,13 @@ class AdapterConfig:
             'config': config
         }
 
-    def get_default(self, adapter_type: AdapterType) -> dict:
-        config = self.default.get(adapter_type, None)
+    def get_config(self, adapter_type: AdapterType) -> dict:
+        config = self.config_map.get(adapter_type, None)
         if isinstance(config, str) and config in ADAPTER_CONFIG_MAP:
             return ADAPTER_CONFIG_MAP[config]
         return config
 
-    def set_default(self, adapter_type: AdapterType, config):
+    def set_config(self, adapter_type: AdapterType, config):
         """Sets the adapter configuration of this adapter type.
 
         Args:
@@ -87,9 +94,15 @@ class AdapterConfig:
         """
         assert len(self.adapter_list(adapter_type)) < 1, "Can only set new config if no adapters have been added."
         if isinstance(config, dict) or config in ADAPTER_CONFIG_MAP:
-            self.default[adapter_type] = config
+            self.config_map[adapter_type] = config
         elif isfile(config):
             with open(config, 'r', encoding='utf-8') as f:
-                self.default[adapter_type] = json.load(f)
+                self.config_map[adapter_type] = json.load(f)
         else:
             raise ValueError("Unable to identify {} as a valid adapter config.".format(config))
+
+    def to_dict(self):
+        output_dict = {}
+        output_dict['adapters'] = copy.deepcopy(self.adapters)
+        output_dict['config_map'] = copy.deepcopy(self.config_map)
+        return output_dict

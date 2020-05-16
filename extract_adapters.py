@@ -37,12 +37,12 @@ def save_all_adapters(model, save_root, prefix, with_head, version=None, flat=Fa
     for task_name in model.adapters[AdapterType.text_task]:
         save_path = _get_save_path(model, save_root, prefix, AdapterType.text_task, task_name, version, flat)
         print("Saving {} adapter to {}...".format(task_name, save_path))
-        model.save_task_adapter(save_path, task_name, save_head=with_head)
+        model.save_adapter(save_path, task_name, save_head=with_head)
     # language adapters
     for lang_name in model.adapters[AdapterType.text_lang]:
         save_path = _get_save_path(model, save_root, prefix, AdapterType.text_lang, lang_name, version, flat)
         print("Saving {} adapter to {}...".format(lang_name, save_path))
-        model.save_language_adapter(save_path, lang_name, save_head=with_head)
+        model.save_adapter(save_path, lang_name, save_head=with_head)
 
 
 # python extract_adapters.py --model bert --load-path ../data/Adapters_16_Bert_Base/csqa-multinli-sst --save-path ../data/adapters --from-old

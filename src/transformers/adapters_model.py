@@ -14,8 +14,7 @@ from .adapters_utils import (
 from .adapters_config import (
     ADAPTER_CONFIG_MAP,
     DEFAULT_ADAPTER_CONFIG,
-    AdapterType,
-    AdapterConfig
+    AdapterType
 )
 
 
@@ -37,11 +36,11 @@ class AdapterLoader:
     # TODO remove this
     @property
     def config(self):
-        return self.model.config.adapter_config.get_default(self.adapter_type)
+        return self.model.config.adapter_config.get_config(self.adapter_type)
 
     @config.setter
     def config(self, value):
-        self.model.config.adapter_config.set_default(self.adapter_type, value)
+        self.model.config.adapter_config.set_config(self.adapter_type, value)
 
     def state_dict(self, adapter_name: str):
         """Returns a dictionary containing the whole state of the specified adapter.
@@ -256,8 +255,6 @@ class ModelAdaptersMixin:
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
-        if not hasattr(config, 'adapter_config'):
-            config.adapter_config = AdapterConfig()
         self.adapters = {
             t: AdapterLoader(self, t) for t in AdapterType
         }
@@ -279,35 +276,27 @@ class ModelAdaptersMixin:
                 - the path to a file containing the adapter configuration
         """
         if AdapterType.has(adapter_type):
-            self.config.adapter_config.set_default(adapter_type, adapter_config)
+            self.config.adapter_config.set_config(adapter_type, adapter_config)
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
-    def save_adapter(self, adapter_type, save_directory, adapter_name, save_head=False):
-        if AdapterType.has(adapter_type):
+    def save_adapter(self, save_directory, adapter_name, save_head=False):
+        """Saves an adapter and its configuration file to a directory so that it can be shared
+        or reloaded using `load_adapter()`.
+
+        Args:
+            save_directory (str): Path to a directory where the adapter should be saved.
+            adapter_name (str): Name of the adapter to be saved.
+            save_head (bool, optional): If set to true, save the matching prediction head for this adapter. Defaults to False.
+
+        Raises:
+            ValueError: If the given adapter name is invalid.
+        """
+        adapter_type = self.config.adapter_config.get_type(adapter_name)
+        if adapter_type:
             self.adapters[adapter_type].save(save_directory, adapter_name, save_head)
         else:
-            raise ValueError("Invalid adapter type {}".format(adapter_type))
-
-    def save_task_adapter(self, save_directory, task_name, save_head=False):
-        """Saves a task adapter and its configuration file to a directory, so that it can be reloaded
-        using the `model.load_task_adapter()` method.
-
-        Args:
-            save_directory (str): a path to a directory where the adapter will be saved
-            task_name (str): the name of the task adapter to be saved
-        """
-        self.adapters[AdapterType.text_task].save(save_directory, task_name, save_head)
-
-    def save_language_adapter(self, save_directory, language_name, save_head=False):
-        """Saves a language adapter and its configuration file to a directory, so that it can be reloaded
-        using the `model.load_language_adapter()` method.
-
-        Args:
-            save_directory (str): a path to a directory where the adapter will be saved
-            task_name (str): the name of the language adapter to be saved
-        """
-        self.adapters[AdapterType.text_lang].save(save_directory, language_name, save_head)
+            raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
     def load_adapter(self, adapter_type, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
                      version=None, load_head=False, load_as=None, **kwargs):

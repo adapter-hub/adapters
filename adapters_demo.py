@@ -48,25 +48,17 @@ def run_adapter_test():
     # load BERT with SST adapter included
     bert_sst = BertModel.from_pretrained(MODEL_DIR + "sst")
     # load two default BERTs from huggingface
-    bert_add_old = BertModel.from_pretrained("bert-base-uncased")
     bert_add_new = BertModel.from_pretrained("bert-base-uncased")
 
     # save the SST adapter to the file system
-    bert_sst.save_task_adapter(ADAPTER_DIR + "sst", "sst", save_head=True)
-
-    # add SST adapter to BERT using old method
-    bert_add_old.config.text_task_adapters = []
-    bert_add_old.config.text_task_adapter_config = bert_sst.config.text_task_adapter_config
-    copy_adapter_weights(bert_sst, bert_add_old)
+    bert_sst.save_adapter(ADAPTER_DIR + "sst", "sst", save_head=True)
 
     # add SST adapter to BERT by loading the previously saved
     bert_add_new.load_task_adapter(ADAPTER_DIR + "sst", load_head=True)
 
     # check equality
     assert is_output_equal(bert_add_new, bert_sst, adapters=['sst'])
-    assert is_output_equal(bert_add_new, bert_add_old, adapters=['sst'])
     assert is_model_equal(bert_add_new, bert_sst)
-    assert is_model_equal(bert_add_new, bert_add_old)
 
     print_params(bert_add_new)
 
