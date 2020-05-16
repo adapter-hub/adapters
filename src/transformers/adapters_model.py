@@ -54,6 +54,9 @@ class AdapterLoader:
     def _get_params_check_func(self, adapter_type, adapter_name):
         if adapter_type == 'head':
             return lambda x: 'prediction_heads.{}'.format(adapter_name) in x
+        elif adapter_type == AdapterType.text_lang:
+            return lambda x: '{}_adapters.{}'.format(adapter_type, adapter_name) in x \
+                or 'invertible_lang_adapters.{}'.format(adapter_name) in x
         elif AdapterType.has(adapter_type):
             return lambda x: '{}_adapters.{}'.format(adapter_type, adapter_name) in x
         else:
@@ -331,4 +334,4 @@ class ModelAdaptersMixin:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-        self.adapters[AdapterType.text_lang].load(adapter_name_or_path. default_config, version, load_head, load_as, **kwargs)
+        self.adapters[AdapterType.text_lang].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)

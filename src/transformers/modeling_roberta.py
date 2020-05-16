@@ -26,8 +26,6 @@ from .configuration_roberta import RobertaConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_bert import BertEmbeddings, BertLayerNorm, BertModel, BertPreTrainedModel, gelu
 from .modeling_utils import create_position_ids_from_input_ids
-from .adapter import Adapter
-from .invertible_lang_adapters import *
 
 
 logger = logging.getLogger(__name__)
@@ -172,40 +170,10 @@ class RobertaForMaskedLM(BertPreTrainedModel):
         self.roberta = RobertaModel(config)
         self.lm_head = RobertaLMHead(config)
 
-        rev_lang_adap = False
-        if hasattr(config, 'text_lang_adapter_config'):
-            if 'inverse_adapters' in config.text_lang_adapter_config:
-                rev_lang_adap = config.text_lang_adapter_config['inverse_adapters']
-
-        # rev_lang_adap = False
-
-        # # TODO just for testing
-        # self.inv_lang_adap = NICECouplingBlock([[768]])
-
-        if rev_lang_adap and hasattr(config, 'text_lang_adapters'):
-            # self.inv_lang_adap = GLOWCouplingBlock([[768]])
-            # self.inv_lang_adap = NICECouplingBlock([[768]])
-
-            self.inv_lang_adap = nn.ModuleDict(dict())
-
-            for lang in config.text_lang_adapters:
-                self.inv_lang_adap[lang] = NICECouplingBlock([[768]])
-
-        else:
-            self.inv_lang_adap = None
-
         self.init_weights()
 
     def get_output_embeddings(self):
         return self.lm_head.decoder
-
-    def add_inv_lang_adapter(self, language):
-        if not self.inv_lang_adap:
-            self.inv_lang_adap = nn.ModuleDict(dict())
-        if language not in self.inv_lang_adap:
-            self.inv_lang_adap[language] = NICECouplingBlock([[768]])
-            self.inv_lang_adap[language].apply(Adapter.init_bert_weights)
-
 
     @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING)
     def forward(
@@ -257,12 +225,6 @@ class RobertaForMaskedLM(BertPreTrainedModel):
         loss, prediction_scores = outputs[:2]
 
         """
-
-        inv_lang_mod = None
-
-        if self.inv_lang_adap and language:
-            inv_lang_mod = self.inv_lang_adap[language]
-
         outputs = self.roberta(
             input_ids,
             attention_mask=attention_mask,
@@ -272,10 +234,12 @@ class RobertaForMaskedLM(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             language=language,
             adapter_tasks=tasks,
-            inv_lang_adap = inv_lang_mod,
         )
         sequence_output = outputs[0]
-        prediction_scores = self.lm_head(sequence_output, inv_lang_adap=inv_lang_mod,)
+        prediction_scores = self.lm_head(
+            sequence_output,
+            inv_lang_adapter=self.roberta.get_invertible_lang_adapter(language),
+        )
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
 
@@ -301,16 +265,16 @@ class RobertaLMHead(nn.Module):
         # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
         self.decoder.bias = self.bias
 
-    def forward(self, features, inv_lang_adap =None, **kwargs, ):
+    def forward(self, features, inv_lang_adapter=None, **kwargs):
         x = self.dense(features)
         x = gelu(x)
         x = self.layer_norm(x)
 
-        if inv_lang_adap:
-            x = inv_lang_adap(x, rev=True)
+        if inv_lang_adapter:
+            x = inv_lang_adapter(x, rev=True)
 
         # project back to size of vocabulary with bias
-        x = self.decoder(x) + self.bias
+        x = self.decoder(x)
 
         return x
 
@@ -342,6 +306,8 @@ class RobertaForSequenceClassification(BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         labels=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -388,6 +354,8 @@ class RobertaForSequenceClassification(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
         sequence_output = outputs[0]
         logits = self.classifier(sequence_output)
@@ -435,6 +403,8 @@ class RobertaForMultipleChoice(BertPreTrainedModel):
         position_ids=None,
         head_mask=None,
         inputs_embeds=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -488,6 +458,8 @@ class RobertaForMultipleChoice(BertPreTrainedModel):
             token_type_ids=flat_token_type_ids,
             attention_mask=flat_attention_mask,
             head_mask=head_mask,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
         pooled_output = outputs[1]
 
@@ -522,23 +494,6 @@ class RobertaForTokenClassification(BertPreTrainedModel):
         self.roberta = RobertaModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
-
-        # rev_lang_adap = True
-        rev_lang_adap = False
-
-        # self.inv_lang_adap = NICECouplingBlock([[768]])
-
-        if rev_lang_adap and hasattr(config, 'text_lang_adapters'):
-            # self.inv_lang_adap = GLOWCouplingBlock([[768]])
-            # self.inv_lang_adap = NICECouplingBlock([[768]])
-            print('adding inv lang adapters')
-            self.inv_lang_adap = nn.ModuleDict(dict())
-
-            for lang in config.text_lang_adapters:
-                self.inv_lang_adap[lang] = NICECouplingBlock([[768]])
-
-        else:
-            self.inv_lang_adap = None
 
         self.init_weights()
 
@@ -591,12 +546,6 @@ class RobertaForTokenClassification(BertPreTrainedModel):
         loss, scores = outputs[:2]
 
         """
-        # inv_lang_mod = None
-        #
-        # if self.inv_lang_adap and language:
-        #     inv_lang_mod = self.inv_lang_adap[language]
-        #     #TODO WRONG
-            # inv_lang_mod = self.inv_lang_adap
 
         outputs = self.roberta(
             input_ids,
@@ -607,7 +556,6 @@ class RobertaForTokenClassification(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             adapter_tasks=tasks,
             language=language,
-            # inv_lang_adap=inv_lang_mod,
         )
 
         sequence_output = outputs[0]
@@ -683,6 +631,8 @@ class RobertaForQuestionAnswering(BertPreTrainedModel):
         inputs_embeds=None,
         start_positions=None,
         end_positions=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -741,6 +691,8 @@ class RobertaForQuestionAnswering(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
 
         sequence_output = outputs[0]

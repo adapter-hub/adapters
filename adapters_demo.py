@@ -1,7 +1,6 @@
 import torch
 
-from transformers.modeling_bert import BertModel
-from combine_adapters import copy_adapter_weights
+from transformers import BertModel, RobertaModel
 
 
 def is_output_equal(model1, model2, adapters=None, iterations=1, input_shape=(1, 128)):
@@ -63,6 +62,22 @@ def run_adapter_test():
     print_params(bert_add_new)
 
 
+def run_lang_adapter_test():
+    global roberta
+
+    roberta = RobertaModel.from_pretrained("roberta-base")
+    roberta.add_language_adapter("dummy")
+    roberta.save_adapter(ADAPTER_DIR + "dummy", "dummy")
+
+    roberta2 = RobertaModel.from_pretrained("roberta-base")
+    roberta2.load_language_adapter(ADAPTER_DIR + "dummy")
+
+    assert is_output_equal(roberta, roberta2)
+    assert is_model_equal(roberta, roberta2)
+
+    print_params(roberta2)
+
+
 def run_adapter_download_test():
     global bert_sst
 
@@ -90,4 +105,5 @@ if __name__ == "__main__":
     ADAPTER_DIR = "../data/adapters/"
 
     run_adapter_test()
+    # run_lang_adapter_test()
     # run_adapter_download_test()

@@ -166,11 +166,14 @@ if is_torch_available():
     from .adapters_model import (
         ADAPTER_CACHE,
         ADAPTER_HUB_URL,
+        AdapterLoader,
+        ModelAdaptersMixin,
+    )
+    from .adapters_config import (
         ADAPTER_CONFIG_MAP,
         DEFAULT_ADAPTER_CONFIG,
         AdapterType,
-        AdapterLoader,
-        ModelAdaptersMixin
+        AdapterConfig,
     )
     
     # TODO add more

@@ -18,7 +18,12 @@ ADAPTER_CONFIG_MAP = {
         'original_ln_after': True,
         'original_ln_before': True,
         'reduction_factor': 16,
-        'residual_before_ln': True
+        'residual_before_ln': True,
+        'invertible_adapters': {
+            'block_type': 'nice',
+            'non_linearity': 'relu',
+            'reduction_factor': 2
+        }
     }
 }
 
@@ -62,14 +67,15 @@ class AdapterConfig:
             config = adapter['config']
             if not config:
                 config = self.config_map[adapter['type']]
-            elif isinstance(config, str):
+            if isinstance(config, str):
                 config = ADAPTER_CONFIG_MAP[config]
             return config
         else:
             return None
 
     def add(self, adapter_name: str, adapter_type: AdapterType, config=None):
-        assert adapter_name not in self.adapters, "An adapter with the same name has already been added."
+        if adapter_name in self.adapters:
+            raise ValueError(f"An adapter with the name '{adapter_name}' has already been added.")
         # TODO temporary, remove when multiple adapter configs are supported (!)
         assert config is None, "All adapters of one type must have the same config."
         self.adapters[adapter_name] = {

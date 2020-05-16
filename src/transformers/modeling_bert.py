@@ -490,8 +490,10 @@ class BertLMPredictionHead(nn.Module):
         # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
         self.decoder.bias = self.bias
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, inv_lang_adapter=None):
         hidden_states = self.transform(hidden_states)
+        if inv_lang_adapter:
+            hidden_states = inv_lang_adapter(hidden_states, rev=True)
         hidden_states = self.decoder(hidden_states)
         return hidden_states
 
@@ -501,8 +503,8 @@ class BertOnlyMLMHead(nn.Module):
         super().__init__()
         self.predictions = BertLMPredictionHead(config)
 
-    def forward(self, sequence_output):
-        prediction_scores = self.predictions(sequence_output)
+    def forward(self, sequence_output, inv_lang_adapter=None):
+        prediction_scores = self.predictions(sequence_output, inv_lang_adapter)
         return prediction_scores
 
 
@@ -522,8 +524,8 @@ class BertPreTrainingHeads(nn.Module):
         self.predictions = BertLMPredictionHead(config)
         self.seq_relationship = nn.Linear(config.hidden_size, 2)
 
-    def forward(self, sequence_output, pooled_output):
-        prediction_scores = self.predictions(sequence_output)
+    def forward(self, sequence_output, pooled_output, inv_lang_adapter=None):
+        prediction_scores = self.predictions(sequence_output, inv_lang_adapter)
         seq_relationship_score = self.seq_relationship(pooled_output)
         return prediction_scores, seq_relationship_score
 
@@ -669,8 +671,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         task=None,
         adapter_tasks=None,
         valid_ids=None,
-        language=None,
-        inv_lang_adap=None
+        language=None
     ):
         r"""
     Return:
@@ -762,10 +763,8 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
             input_ids=input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds
         )
 
-        if inv_lang_adap:
-            embedding_output = inv_lang_adap(embedding_output, rev=False)
-        elif self.inv_lang_adap:
-            embedding_output = self.inv_lang_adap[language](embedding_output, rev=False)
+        if language in self.invertible_lang_adapters:
+            embedding_output = self.invertible_lang_adapters[language](embedding_output, rev=False)
 
         encoder_outputs = self.encoder(
             embedding_output,
@@ -881,7 +880,11 @@ class BertForPreTraining(BertPreTrainedModel):
         )
 
         sequence_output, pooled_output = outputs[:2]
-        prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
+        prediction_scores, seq_relationship_score = self.cls(
+            sequence_output,
+            pooled_output,
+            inv_lang_adapter=self.bert.get_invertible_lang_adapter(language),
+        )
 
         outputs = (prediction_scores, seq_relationship_score,) + outputs[
             2:
@@ -987,7 +990,10 @@ class BertForMaskedLM(BertPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+        prediction_scores = self.cls(
+            sequence_output,
+            inv_lang_adapter=self.bert.get_invertible_lang_adapter(language),
+        )
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
 

@@ -2,7 +2,10 @@ import torch
 from torch import nn
 
 from .adapter import *
-from .invertible_lang_adapters import NICECouplingBlock
+from .invertible_lang_adapters import (
+    NICECouplingBlock,
+    GLOWCouplingBlock
+)
 from .adapters_model import ModelAdaptersMixin, AdapterType, DEFAULT_ADAPTER_CONFIG
 
 
@@ -92,22 +95,6 @@ class BertSelfOutputAdaptersMixin:
             else:
                 raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
 
-    def add_language_attention_layer(self, tasks):
-        """See BertModel.add_attention_layer"""
-        # TODO this assumes a common adapter config
-        adapter_config = self.config.adapter_config.get_config(AdapterType.text_lang)
-        if adapter_config['MH_Adapter']:
-            task_names = tasks if isinstance(tasks, list) else tasks.split('_')
-            if adapter_config['attention_type'] == 'tok-lvl':
-                layer = BertAdapterAttention(self.config)
-            else:
-                raise Exception('Unknown attention type: {}'.format(adapter_config['attention_type']))
-
-            self.language_attention_adapters_fusion['_'.join(task_names)] = layer
-
-            if adapter_config['new_attention_norm']:
-                self.language_attention_layer_norm = BertLayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
-
     def adapters_forward(self, hidden_states, input_tensor, tasks=None, language=None):
         adapter_used = False
 
@@ -136,7 +123,8 @@ class BertSelfOutputAdaptersMixin:
         # TODO this assumes a common adapter config
         task_adapter_config = self.config.adapter_config.get_config(AdapterType.text_task)
         # filter tasks that are available in this module
-        tasks = [t for t in tasks if t in self.attention_text_task_adapters]
+        if tasks:
+            tasks = [t for t in tasks if t in self.attention_text_task_adapters]
         if task_adapter_config and tasks:
             adapter_used = True
 
@@ -295,7 +283,8 @@ class BertOutputAdaptersMixin:
         # TODO this assumes a common adapter config
         task_adapter_config = self.config.adapter_config.get_config(AdapterType.text_task)
         # filter tasks that are available in this module
-        tasks = [t for t in tasks if t in self.layer_text_task_adapters]
+        if tasks:
+            tasks = [t for t in tasks if t in self.layer_text_task_adapters]
         if task_adapter_config and tasks:
             adapter_used = True
 
@@ -420,15 +409,13 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         super().__init__(*args, **kwargs)
 
     def _init_adapter_modules(self):
-
+        self.invertible_lang_adapters = nn.ModuleDict(dict())
         self.prediction_heads = nn.ModuleDict(dict())
 
-        # TODO ?
-        self.inv_lang_adap = None
         # language adapters
         for language in self.config.adapter_config.adapter_list(AdapterType.text_lang):
             self.encoder.add_adapter(AdapterType.text_lang, language)
-            self.add_model_inv_lang_adapter(language)
+            self.add_invertible_lang_adapter(language)
         # task adapters
         for task in self.config.adapter_config.adapter_list(AdapterType.text_task):
             self.encoder.add_adapter(AdapterType.text_task, task)
@@ -470,13 +457,15 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         self.freeze_model(True)
         self.encoder.enable_adapters(AdapterType.text_task, True, True)
 
-    def add_adapter(self, adapter_type, task_name, default_config=DEFAULT_ADAPTER_CONFIG):
-        if adapter_type == AdapterType.text_task:
-            self.add_task_adapter(task_name, default_config)
-        elif adapter_type == AdapterType.text_lang:
-            self.add_language_adapter(task_name, default_config)
-        else:
+    def add_adapter(self, adapter_type, adapter_name, default_config=DEFAULT_ADAPTER_CONFIG):
+        if not AdapterType.has(adapter_type):
             raise ValueError("Invalid adapter type {}".format(adapter_type))
+        if not self.config.adapter_config.get_config(adapter_type):
+            self.config.adapter_config.set_config(adapter_type, default_config)
+        self.config.adapter_config.add(adapter_name, adapter_type)
+        self.encoder.add_adapter(adapter_type, adapter_name)
+        if adapter_type == AdapterType.text_lang:
+            self.add_invertible_lang_adapter(adapter_name)
 
     def add_task_adapter(self, task_name, default_config=DEFAULT_ADAPTER_CONFIG):
         """Adds a new task adapter to the model.
@@ -485,10 +474,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             task_name (str): the name of the task
             default_config (str or dict, optional): the default task adapter config if none is set.
         """
-        if not self.config.adapter_config.get_config(AdapterType.text_task):
-            self.config.adapter_config.set_config(AdapterType.text_task, default_config)
-        self.config.adapter_config.add(task_name, AdapterType.text_task)
-        self.encoder.add_adapter(AdapterType.text_task, task_name)
+        self.add_adapter(AdapterType.text_task, task_name, default_config)
 
     def add_language_adapter(self, language_name, default_config=DEFAULT_ADAPTER_CONFIG):
         """Adds a new language adapter to the model.
@@ -497,21 +483,38 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             language_name (str): the name of the language
             default_config (str or dict, optional): the default language adapter config if none is set.
         """
-        if not self.config.adapter_config.get_config(AdapterType.text_lang):
-            self.config.adapter_config.set_config(AdapterType.text_lang, default_config)
-        self.config.adapter_config.add(language_name, AdapterType.text_lang)
-        self.encoder.add_adapter(AdapterType.text_lang, language_name)
+        self.add_adapter(AdapterType.text_lang, language_name, default_config)
+
+    def add_invertible_lang_adapter(self, language):
+        if language in self.invertible_lang_adapters:
+            raise ValueError(f"Model already contains an adapter module for '{language}'.")
+        inv_adap_config = self.config.adapter_config.get(language)['invertible_adapters']
+        if inv_adap_config['block_type'] == 'nice':
+            inv_adap = NICECouplingBlock(
+                [[self.config.hidden_size]],
+                non_linearity=inv_adap_config['non_linearity'],
+                reduction_factor=inv_adap_config['reduction_factor']
+            )
+        elif inv_adap_config['block_type'] == 'glow':
+            inv_adap = GLOWCouplingBlock(
+                [[self.config.hidden_size]],
+                non_linearity=inv_adap_config['non_linearity'],
+                reduction_factor=inv_adap_config['reduction_fector']
+            )
+        else:
+            raise ValueError(f"Invalid invertible adapter type '{inv_adap_config['block_type']}'.")
+        self.invertible_lang_adapters[language] = inv_adap
+        self.invertible_lang_adapters[language].apply(Adapter.init_bert_weights)
+
+    def get_invertible_lang_adapter(self, language):
+        if language in self.invertible_lang_adapters:
+            return self.invertible_lang_adapters[language]
+        else:
+            return None
 
     def add_attention_layer(self, task_names):
         """See BertModel.add_attention_layer"""
         self.encoder.add_attention_layer(task_names)
-
-    def add_model_inv_lang_adapter(self, language):
-        if not self.inv_lang_adap:
-            self.inv_lang_adap = nn.ModuleDict(dict())
-        if language not in self.inv_lang_adap:
-            self.inv_lang_adap[language] = NICECouplingBlock([[768]])
-            self.inv_lang_adap[language].apply(Adapter.init_bert_weights)
 
     def add_prediction_head(self, task, nr_labels=None, task_type=None, layers=None, activation_function=None, qa_examples=None):
         """Adds a new prediction head to the model.
