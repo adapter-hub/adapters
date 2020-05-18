@@ -19,7 +19,7 @@ ADAPTER_CONFIG_MAP = {
         'original_ln_before': True,
         'reduction_factor': 16,
         'residual_before_ln': True,
-        'invertible_adapters': {
+        'invertible_adapter': {
             'block_type': 'nice',
             'non_linearity': 'relu',
             'reduction_factor': 2
@@ -45,7 +45,7 @@ class AdapterType(str, Enum):
         return self.value
 
 
-class AdapterConfig:
+class ModelAdaptersConfig:
     def __init__(self, **kwargs):
         self.adapters = kwargs.pop("adapters", {})
         self.config_map = kwargs.pop("config_map", {})

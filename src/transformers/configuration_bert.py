@@ -19,7 +19,7 @@
 import logging
 
 from .configuration_utils import PretrainedConfig
-from .adapters_config import AdapterConfig
+from .adapters_config import ModelAdaptersConfig
 
 
 logger = logging.getLogger(__name__)
@@ -144,8 +144,8 @@ class BertConfig(PretrainedConfig):
         self.layer_norm_eps = layer_norm_eps
 
         # adapter configuration
-        adapter_config_dict = kwargs.pop("adapter_config", None)
+        adapter_config_dict = kwargs.pop("adapters", None)
         if adapter_config_dict:
-            self.adapter_config = AdapterConfig(**adapter_config_dict)
+            self.adapters = ModelAdaptersConfig(**adapter_config_dict)
         else:
-            self.adapter_config = AdapterConfig()
+            self.adapters = ModelAdaptersConfig()

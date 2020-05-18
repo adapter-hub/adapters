@@ -5,7 +5,7 @@ import argparse
 from transformers import BertModel, RobertaModel, XLMRobertaModel, AdapterType
 from os.path import join
 from os import makedirs
-from transformers.adapters_utils import get_config_hash
+from transformers import get_adapter_config_hash
 from convert_model import load_model_from_old_format
 
 
@@ -16,33 +16,27 @@ MODELS = {
 }
 
 
-def _get_save_path(model, save_root, model_prefix, adapter_type, name, version, flat):
-    # Calculate the hash
-    h = get_config_hash(model.adapters[adapter_type].full_config())
+def _get_save_path(model, save_root, model_prefix, adapter_type, name, id, version, flat):
     if not flat:
-        save_dir = join(save_root, adapter_type, name, h)
+        save_dir = join(save_root, adapter_type, name, id)
         if version:
             save_dir = join(save_dir, str(version))
         makedirs(save_dir, exist_ok=True)
     else:
         # Build the output folder name
-        folder_name = "-".join([model_prefix, str(model.config.hidden_size), adapter_type, name, h[:5]])
+        folder_name = "-".join([model_prefix, str(model.config.hidden_size), adapter_type, name, id[:5]])
         save_dir = join(save_root, folder_name)
         makedirs(save_dir, exist_ok=True)
     return save_dir
 
 
 def save_all_adapters(model, save_root, prefix, with_head, version=None, flat=False):
-    # task adapters
-    for task_name in model.config.adapter_config.adapter_list(AdapterType.text_task):
-        save_path = _get_save_path(model, save_root, prefix, AdapterType.text_task, task_name, version, flat)
-        print("Saving {} adapter to {}...".format(task_name, save_path))
-        model.save_adapter(save_path, task_name, save_head=with_head)
-    # language adapters
-    for lang_name in model.config.adapter_config.adapter_list(AdapterType.text_lang):
-        save_path = _get_save_path(model, save_root, prefix, AdapterType.text_lang, lang_name, version, flat)
-        print("Saving {} adapter to {}...".format(lang_name, save_path))
-        model.save_adapter(save_path, lang_name, save_head=with_head)
+    for name in model.config.adapters.adapters:
+        adapter_type = model.config.adapters.get_type(name)
+        h = get_adapter_config_hash(model.adapters[adapter_type].full_config())
+        save_path = _get_save_path(model, save_root, prefix, adapter_type, name, h, version, flat)
+        print("Saving {} adapter to {}...".format(name, save_path))
+        model.save_adapter(save_path, name, save_head=with_head, meta_dict={'id': h})
 
 
 # python extract_adapters.py --model bert --load-path ../data/Adapters_16_Bert_Base/csqa-multinli-sst --save-path ../data/adapters --from-old

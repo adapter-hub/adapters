@@ -385,8 +385,8 @@ class PretrainedConfig(object):
         output = copy.deepcopy(self.__dict__)
         if hasattr(self.__class__, "model_type"):
             output["model_type"] = self.__class__.model_type
-        if hasattr(self, "adapter_config"):
-            output["adapter_config"] = self.adapter_config.to_dict()
+        if hasattr(self, "adapters"):
+            output["adapters"] = self.adapters.to_dict()
         return output
 
     def to_json_string(self, use_diff=True):

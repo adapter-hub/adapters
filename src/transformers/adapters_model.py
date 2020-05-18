@@ -4,12 +4,13 @@ from os.path import isdir, isfile, join, exists
 import torch
 import json
 import re
-from transformers.file_utils import is_remote_url, get_from_cache, torch_cache_home
+from .file_utils import is_remote_url
 from .adapters_utils import (
-    find_matching_config_path,
-    urljoin,
     CONFIG_NAME, WEIGHTS_NAME, HEAD_WEIGHTS_NAME,
-    ADAPTER_IDENTIFIER_PATTERN
+    ADAPTER_IDENTIFIER_PATTERN,
+    urljoin,
+    download_cached,
+    pull_from_hub,
 )
 from .adapters_config import (
     ADAPTER_CONFIG_MAP,
@@ -19,11 +20,6 @@ from .adapters_config import (
 
 
 logger = logging.getLogger(__name__)
-
-# the download cache
-ADAPTER_CACHE = join(torch_cache_home, "adapters")
-
-ADAPTER_HUB_URL = "http://adapter-hub.webredirect.org/repo/"
 
 
 class AdapterLoader:
@@ -36,11 +32,11 @@ class AdapterLoader:
     # TODO remove this
     @property
     def config(self):
-        return self.model.config.adapter_config.get_config(self.adapter_type)
+        return self.model.config.adapters.get_config(self.adapter_type)
 
     @config.setter
     def config(self, value):
-        self.model.config.adapter_config.set_config(self.adapter_type, value)
+        self.model.config.adapters.set_config(self.adapter_type, value)
 
     def state_dict(self, adapter_name: str):
         """Returns a dictionary containing the whole state of the specified adapter.
@@ -82,7 +78,7 @@ class AdapterLoader:
             config_dict['prediction_head'] = self.model.config.prediction_heads[name]
         return config_dict
 
-    def save(self, save_directory, name, save_head=False):
+    def save(self, save_directory, name, save_head=False, meta_dict=None):
         """Saves an adapter and its configuration file to a directory, so that it can be reloaded
         using the `load()` method.
 
@@ -94,9 +90,12 @@ class AdapterLoader:
             mkdir(save_directory)
         else:
             assert isdir(save_directory), "Saving path should be a directory where adapter and configuration can be saved."
-        assert name in self.model.config.adapter_config.adapters, "No adapter of this type with the given name is part of this model."
+        assert name in self.model.config.adapters.adapters, "No adapter of this type with the given name is part of this model."
 
         config_dict = self.full_config(name, with_head=save_head)
+        # add meta information if given
+        if meta_dict:
+            config_dict['_meta'] = meta_dict
 
         # Save the adapter configuration
         output_config_file = join(save_directory, CONFIG_NAME)
@@ -123,13 +122,12 @@ class AdapterLoader:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-        cache_dir = kwargs.pop("cache_dir", ADAPTER_CACHE)
 
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
-        resolved_folder = self._resolve_adapter_path(adapter_name_or_path, default_config, version)
+        resolved_folder = self._resolve_adapter_path(adapter_name_or_path, default_config, version, **kwargs)
 
         # Load config of adapter
-        config = self._load_adapter_config(resolved_folder, cache_dir=cache_dir, **kwargs)
+        config = self._load_adapter_config(resolved_folder, **kwargs)
         assert config['type'] == self.adapter_type, "Loaded adapter has to be a {} adapter.".format(self.adapter_type)
         # If no adapter config is available yet, set to the config of the loaded adapter
         if not self.config:
@@ -141,10 +139,10 @@ class AdapterLoader:
 
         adapter_name = load_as or config['name']
         # If the adapter is not part of the model, add it
-        if adapter_name not in self.model.config.adapter_config.adapters:
-            self.model.add_adapter(self.adapter_type, adapter_name)
+        if adapter_name not in self.model.config.adapters.adapters:
+            self.model.add_adapter(adapter_name, self.adapter_type)
 
-        self._load_adapter_weights(resolved_folder, self.adapter_type, config['name'], load_as=load_as, cache_dir=cache_dir, **kwargs)
+        self._load_adapter_weights(resolved_folder, self.adapter_type, config['name'], load_as=load_as, **kwargs)
 
         # Optionally, load the weights of the prediction head
         if load_head:
@@ -169,7 +167,7 @@ class AdapterLoader:
         # If necessary, download the config or load it from cache
         if is_remote_url(resolved_folder):
             resolved_file = urljoin(resolved_folder, CONFIG_NAME)
-            config_file = get_from_cache(resolved_file, **kwargs)
+            config_file = download_cached(resolved_file, **kwargs)
             if not config_file:
                 raise EnvironmentError(
                     "Unable to load file from {}. The file might be unavailable.".format(resolved_file)
@@ -191,7 +189,7 @@ class AdapterLoader:
         # If necessary, download the weights or load them from cache
         if is_remote_url(resolved_folder):
             resolved_file = urljoin(resolved_folder, weights_name)
-            weights_file = get_from_cache(resolved_file, **kwargs)
+            weights_file = download_cached(resolved_file, **kwargs)
             if not weights_file:
                 raise EnvironmentError(
                     "Unable to load file from {}. The file might be unavailable.".format(resolved_file)
@@ -230,12 +228,12 @@ class AdapterLoader:
 
         return missing_adapter_keys, unexpected_keys
 
-    def _resolve_adapter_path(self, adapter_name_or_path, default_config, version):
+    def _resolve_adapter_path(self, adapter_name_or_path, default_config, version=None, **kwargs):
         assert default_config in ADAPTER_CONFIG_MAP, "Specified default config is invalid."
         config = self.full_config(default_config=ADAPTER_CONFIG_MAP[default_config])
-        # url of a folder containing pretrained adapters
+        # url of a folder containing pretrained adapters -> try to load from this url
         if is_remote_url(adapter_name_or_path):
-            return find_matching_config_path(adapter_name_or_path, config, version)
+            return adapter_name_or_path
         # path to a local folder saved using save()
         elif isdir(adapter_name_or_path):
             if isfile(join(adapter_name_or_path, WEIGHTS_NAME)) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
@@ -247,8 +245,7 @@ class AdapterLoader:
                 )
         # matches possible form of identifier in hub
         elif re.fullmatch(ADAPTER_IDENTIFIER_PATTERN, adapter_name_or_path):
-            url = urljoin(ADAPTER_HUB_URL, self.adapter_type, adapter_name_or_path)
-            return find_matching_config_path(url, config, version)
+            return pull_from_hub(adapter_name_or_path, config, version=version, **kwargs)
         else:
             raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
 
@@ -264,9 +261,9 @@ class ModelAdaptersMixin:
 
     def has_adapters(self, adapter_type=None):
         if not adapter_type:
-            return len(self.config.adapter_config.adapters) > 0
+            return len(self.config.adapters.adapters) > 0
         else:
-            return len(self.config.adapter_config.adapter_list(adapter_type)) > 0
+            return len(self.config.adapters.adapter_list(adapter_type)) > 0
 
     def set_adapter_config(self, adapter_type: AdapterType, adapter_config):
         """Sets the adapter configuration of the specified adapter type.
@@ -279,11 +276,11 @@ class ModelAdaptersMixin:
                 - the path to a file containing the adapter configuration
         """
         if AdapterType.has(adapter_type):
-            self.config.adapter_config.set_config(adapter_type, adapter_config)
+            self.config.adapters.set_config(adapter_type, adapter_config)
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
-    def save_adapter(self, save_directory, adapter_name, save_head=False):
+    def save_adapter(self, save_directory, adapter_name, save_head=False, meta_dict=None):
         """Saves an adapter and its configuration file to a directory so that it can be shared
         or reloaded using `load_adapter()`.
 
@@ -295,13 +292,13 @@ class ModelAdaptersMixin:
         Raises:
             ValueError: If the given adapter name is invalid.
         """
-        adapter_type = self.config.adapter_config.get_type(adapter_name)
+        adapter_type = self.config.adapters.get_type(adapter_name)
         if adapter_type:
-            self.adapters[adapter_type].save(save_directory, adapter_name, save_head)
+            self.adapters[adapter_type].save(save_directory, adapter_name, save_head, meta_dict)
         else:
             raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
-    def load_adapter(self, adapter_type, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
+    def load_adapter(self, adapter_name_or_path, adapter_type, default_config=DEFAULT_ADAPTER_CONFIG,
                      version=None, load_head=False, load_as=None, **kwargs):
         if AdapterType.has(adapter_type):
             self.adapters[adapter_type].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
