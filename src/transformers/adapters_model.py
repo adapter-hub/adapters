@@ -255,7 +255,7 @@ class ModelAdaptersMixin:
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
-        self.adapters = {
+        self.adapter_loaders = {
             t: AdapterLoader(self, t) for t in AdapterType
         }
 
@@ -294,14 +294,14 @@ class ModelAdaptersMixin:
         """
         adapter_type = self.config.adapters.get_type(adapter_name)
         if adapter_type:
-            self.adapters[adapter_type].save(save_directory, adapter_name, save_head, meta_dict)
+            self.adapter_loaders[adapter_type].save(save_directory, adapter_name, save_head, meta_dict)
         else:
             raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
     def load_adapter(self, adapter_name_or_path, adapter_type, default_config=DEFAULT_ADAPTER_CONFIG,
                      version=None, load_head=False, load_as=None, **kwargs):
         if AdapterType.has(adapter_type):
-            self.adapters[adapter_type].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
+            self.adapter_loaders[adapter_type].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
@@ -317,7 +317,7 @@ class ModelAdaptersMixin:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-        self.adapters[AdapterType.text_task].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
+        self.adapter_loaders[AdapterType.text_task].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
 
     def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
                               version=None, load_head=False, load_as=None, **kwargs):
@@ -331,4 +331,4 @@ class ModelAdaptersMixin:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-        self.adapters[AdapterType.text_lang].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
+        self.adapter_loaders[AdapterType.text_lang].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)

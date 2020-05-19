@@ -8,6 +8,7 @@ from pathlib import Path
 import requests
 import shutil
 import tarfile
+from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 from .file_utils import is_remote_url, get_from_cache, torch_cache_home
 
@@ -19,12 +20,12 @@ WEIGHTS_NAME = "pytorch_adapter.bin"
 HEAD_WEIGHTS_NAME = "pytorch_adapter_head.bin"
 
 ADAPTER_IDENTIFIER_PATTERN = r"[a-zA-Z\-_]{2,}"
-ADAPTER_HUB_URL = "http://adapter-hub.webredirect.org/repo/"
+ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/"
 ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index.json"
 
 # these keys of the adapter config are used to calculate the config hash
-ADAPTER_CONFIG_HASH_KEYS = [
-    'config', 'hidden_size', 'model', 'type'
+ADAPTER_CONFIG_HASH_SECTIONS = [
+    (['hidden_size', 'model', 'type'], 8), (['config'], 16)
 ]
 
 # the download cache
@@ -35,20 +36,30 @@ def urljoin(*args):
     return '/'.join([s.strip('/') for s in args])
 
 
+def _minimize_dict(d):
+    if isinstance(d, dict):
+        return {k: _minimize_dict(v) for (k, v) in d.items() if v}
+    else:
+        return d
+
+
 def get_adapter_config_hash(config):
     """Calculates the hash of a given adapter configuration which is used to identify this configuration.
 
     Returns:
-        str: The SHA-1 hash of the config dict.
+        str: The resulting hash of the given config dict.
     """
-    h = hashlib.sha1()
-    # only hash non-empty/ true items and required keys
-    config = {
-        k: v for (k, v) in config.items() if v and k in ADAPTER_CONFIG_HASH_KEYS
-    }
-    dict_str = json.dumps(config, sort_keys=True)
-    h.update(dict_str.encode(encoding='utf-8'))
-    return h.hexdigest()
+    config_hash = ""
+    for keys, length in ADAPTER_CONFIG_HASH_SECTIONS:
+        config_section = {k: _minimize_dict(v) for (k, v) in config.items() if k in keys}
+        if config_section:
+            dict_str = json.dumps(config_section, sort_keys=True)
+            h = hashlib.sha1()
+            h.update(dict_str.encode(encoding='utf-8'))
+            config_hash += h.hexdigest()[:length]
+        else:
+            config_hash += "x" * length
+    return config_hash
 
 
 def remote_file_exists(url):
@@ -138,6 +149,9 @@ def find_in_index(identifier: str, config: dict):
 
 
 def http_get_json(url):
+    # check if it's a relative url
+    if not urlparse(url).netloc:
+        url = urljoin(ADAPTER_HUB_URL, url)
     response = requests.get(url)
     if response.status_code == 200:
         return response.json()

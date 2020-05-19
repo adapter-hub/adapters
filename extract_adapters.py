@@ -33,7 +33,7 @@ def _get_save_path(model, save_root, model_prefix, adapter_type, name, id, versi
 def save_all_adapters(model, save_root, prefix, with_head, version=None, flat=False):
     for name in model.config.adapters.adapters:
         adapter_type = model.config.adapters.get_type(name)
-        h = get_adapter_config_hash(model.adapters[adapter_type].full_config())
+        h = get_adapter_config_hash(model.adapter_loaders[adapter_type].full_config())
         save_path = _get_save_path(model, save_root, prefix, adapter_type, name, h, version, flat)
         print("Saving {} adapter to {}...".format(name, save_path))
         model.save_adapter(save_path, name, save_head=with_head, meta_dict={'id': h})
