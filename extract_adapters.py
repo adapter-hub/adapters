@@ -6,6 +6,7 @@ from transformers import BertModel, RobertaModel, XLMRobertaModel, AdapterType
 from os.path import join
 from os import makedirs
 from transformers import get_adapter_config_hash
+from transformers.adapters_config import build_full_config
 from convert_model import load_model_from_old_format
 
 
@@ -32,8 +33,8 @@ def _get_save_path(model, save_root, model_prefix, adapter_type, name, id, versi
 
 def save_all_adapters(model, save_root, prefix, with_head, version=None, flat=False):
     for name in model.config.adapters.adapters:
-        adapter_type = model.config.adapters.get_type(name)
-        h = get_adapter_config_hash(model.adapter_loaders[adapter_type].full_config())
+        adapter_config, adapter_type = model.config.adapters.get(name, return_type=True)
+        h = get_adapter_config_hash(build_full_config(adapter_config, adapter_type, model.config))
         save_path = _get_save_path(model, save_root, prefix, adapter_type, name, h, version, flat)
         print("Saving {} adapter to {}...".format(name, save_path))
         model.save_adapter(save_path, name, save_head=with_head, meta_dict={'id': h})

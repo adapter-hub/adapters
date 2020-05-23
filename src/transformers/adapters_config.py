@@ -61,17 +61,21 @@ class ModelAdaptersConfig:
         else:
             return None
 
-    def get(self, adapter_name: str) -> dict:
+    def get(self, adapter_name: str, return_type: bool = False) -> dict:
         if adapter_name in self.adapters:
             adapter = self.adapters[adapter_name]
             config = adapter['config']
+            adapter_type = adapter['type']
             if not config:
                 config = self.config_map[adapter['type']]
             if isinstance(config, str):
                 config = ADAPTER_CONFIG_MAP[config]
-            return config
         else:
-            return None
+            config, adapter_type = None, None
+        if return_type:
+            return config, adapter_type
+        else:
+            return config
 
     def add(self, adapter_name: str, adapter_type: AdapterType, config=None):
         if adapter_name in self.adapters:
@@ -112,3 +116,17 @@ class ModelAdaptersConfig:
         output_dict['adapters'] = copy.deepcopy(self.adapters)
         output_dict['config_map'] = copy.deepcopy(self.config_map)
         return output_dict
+
+
+def build_full_config(adapter_config, adapter_type, model_config, name=None, with_head=False):
+    config_dict = {
+        'type': adapter_type,
+        'model_type': model_config.model_type,
+        'hidden_size': model_config.hidden_size
+    }
+    if name:
+        config_dict['name'] = name
+    config_dict['config'] = adapter_config
+    if with_head:
+        config_dict['prediction_head'] = model_config.prediction_heads[name]
+    return config_dict

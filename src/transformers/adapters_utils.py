@@ -3,14 +3,18 @@ import json
 from filelock import FileLock
 import hashlib
 import os
-from os.path import join
+from os.path import join, isdir, isfile
 from pathlib import Path
+import re
 import requests
 import shutil
 import tarfile
+from typing import Optional, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 from .file_utils import is_remote_url, get_from_cache, torch_cache_home
+from .adapters_config import ADAPTER_CONFIG_MAP, AdapterType, build_full_config
+from .configuration_utils import PretrainedConfig
 
 
 logger = logging.getLogger(__name__)
@@ -21,11 +25,12 @@ HEAD_WEIGHTS_NAME = "pytorch_adapter_head.bin"
 
 ADAPTER_IDENTIFIER_PATTERN = r"[a-zA-Z\-_]{2,}"
 ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/"
-ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index.json"
+ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "dist/adapters_{}.json"
+ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "dist/architectures.json"
 
 # these keys of the adapter config are used to calculate the config hash
 ADAPTER_CONFIG_HASH_SECTIONS = [
-    (['hidden_size', 'model', 'type'], 8), (['config'], 16)
+    (['hidden_size', 'model_type', 'type'], 8), (['config'], 16)
 ]
 
 # the download cache
@@ -80,6 +85,9 @@ def download_cached(url, checksum=None, checksum_algo='sha1', cache_dir=None, fo
     else:
         raise ValueError("Unable to parse '{}' as a URL".format(url))
 
+    if not output_path:
+        return None
+
     # if checksum is given, verify it
     if checksum and checksum_algo:
         h = hashlib.new(checksum_algo)
@@ -120,32 +128,80 @@ def download_cached(url, checksum=None, checksum_algo='sha1', cache_dir=None, fo
     return output_path_extracted
 
 
-def find_in_index(identifier: str, config: dict):
-    index_file = download_cached(ADAPTER_HUB_INDEX_FILE)
+def resolve_adapter_config(config: Union[dict, str]):
+    # already a dict, so we don't have to do anything
+    if isinstance(config, dict):
+        return config
+    # first, look in local map
+    if config in ADAPTER_CONFIG_MAP:
+        return ADAPTER_CONFIG_MAP[config]
+    # now, try to find in hub index
+    index_file = download_cached(ADAPTER_HUB_CONFIG_FILE)
+    if not index_file:
+        raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
+    with open(index_file, 'r') as f:
+        config_index = json.load(f)
+    if config in config_index:
+        return config_index[config]
+    else:
+        raise ValueError("Could not identify '{}' as a valid adapter configuration.".format(config))
+
+
+def _split_identifier(identifier):
+    identifier = identifier.split("@")
+    if len(identifier) > 1:
+        org_name = identifier[1]
+    identifier = identifier[0].split("/")
+    if len(identifier) > 1:
+        subtask = identifier[1]
+    task = identifier[0]
+    return task, subtask, org_name
+
+
+def find_in_index(
+        identifier: str,
+        adapter_config: dict,
+        adapter_type: AdapterType,
+        model_config: PretrainedConfig) -> Optional[str]:
+    config = build_full_config(adapter_config, adapter_config, model_config)
+    index_file = download_cached(ADAPTER_HUB_INDEX_FILE.format(config['type']))
     if not index_file:
         raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
     with open(index_file, 'r') as f:
         adapter_index = json.load(f)
-    if identifier in adapter_index:
-        index_entry = adapter_index[identifier]
-        # now search for an entry matching the given config
-        if config:
-            assert config['config'], "Specify an adapter configuration to search for."
-            config_hash = get_adapter_config_hash(config)
-            if config_hash in index_entry['adapters']:
-                hub_entry = index_entry['adapters'][config_hash]
-                logger.info("Found matching adapter at: {}".format(hub_entry))
-                return hub_entry
-        # we haven't found a perfect match, either because no config was given or the config was not found
-        if 'default' in index_entry:
-            logger.warn("No adapter matching the given config found. Falling back to default.")
-            return index_entry['default']
+    # split into <task>/<subtask>@<org>
+    task, subtask, org = _split_identifier(identifier)
+    # find entry for this task
+    if task in adapter_index:
+        if subtask:
+            # task and subtask matching -> perfect!
+            if subtask in adapter_index[task]:
+                index_entry = adapter_index[task][subtask]
+            # there is no such subtask for this task
+            else:
+                return None
+        # no subtask specified and we only have a single subtask for this task, so just return it
+        elif len(adapter_index[task]) == 1:
+            index_entry = adapter_index[task].values()[0]
+        # there are multiple possible options for this task -> tell the user to be more precise
         else:
-            raise EnvironmentError(
-                "Not matching config found for adapter '{}'. Please give a valid config.".format(identifier)
-            )
+            raise ValueError("Found multiple possible adapters matching '{}'.".format(identifier))
     else:
-        raise EnvironmentError("No adapter with name '{}' was found in the adapter index.".format(identifier))
+        return None
+    # go on with searching a matching config hash in the task entry
+    assert config['config'], "Specify an adapter configuration to search for."
+    config_hash = get_adapter_config_hash(config)
+    if config_hash in index_entry:
+        # now match the org if given
+        version = org or index_entry[config_hash]["default"]
+        hub_entry = index_entry[config_hash].get(version, None)
+        if hub_entry:
+            logger.info("Found matching adapter at: {}".format(hub_entry))
+        return hub_entry
+    else:
+        raise ValueError(
+            "No adapter '{}' found for the current model or configuration.".format(identifier)
+        )
 
 
 def http_get_json(url):
@@ -159,9 +215,19 @@ def http_get_json(url):
         raise EnvironmentError("Failed to get file {}".format(url))
 
 
-def pull_from_hub(adapter_name: str, config: dict, version: str = None, **kwargs):
-    # first, search the correct entry in the index
-    hub_entry_url = find_in_index(adapter_name, config)
+def pull_from_hub(
+        specifier: str,
+        adapter_config: Union[dict, str],
+        adapter_type: AdapterType,
+        model_config: PretrainedConfig,
+        version: str = None,
+        **kwargs) -> str:
+    # resolve config if it's an identifier
+    adapter_config = resolve_adapter_config(adapter_config)
+    # search the correct entry in the index
+    hub_entry_url = find_in_index(specifier, adapter_config, adapter_type, model_config)
+    if not hub_entry_url:
+        raise EnvironmentError("No adapter with name '{}' was found in the adapter index.".format(specifier))
     hub_entry = http_get_json(hub_entry_url)['_meta']
 
     # set version
@@ -169,7 +235,7 @@ def pull_from_hub(adapter_name: str, config: dict, version: str = None, **kwargs
         version = hub_entry['default_version']
     elif version not in hub_entry['files']:
         logger.warn(
-            "Version '{}' of adapter '{}' not found. Falling back to default.".format(version, adapter_name)
+            "Version '{}' of adapter '{}' not found. Falling back to default.".format(version, specifier)
         )
         version = hub_entry['default_version']
     file_entry = hub_entry['files'][version]
@@ -182,3 +248,36 @@ def pull_from_hub(adapter_name: str, config: dict, version: str = None, **kwargs
             "Unable to load file from {}. The file might be unavailable.".format(file_entry['url'])
         )
     return download_path
+
+
+def resolve_adapter_path(
+        adapter_name_or_path,
+        adapter_config: Union[dict, str],
+        adapter_type: AdapterType,
+        model_config: PretrainedConfig,
+        version: str = None,
+        **kwargs) -> str:
+    # url of a folder containing pretrained adapters -> try to load from this url
+    if is_remote_url(adapter_name_or_path):
+        resolved_folder = download_cached(adapter_name_or_path, **kwargs)
+        if not resolved_folder:
+            raise EnvironmentError(
+                "Unable to load file from {}. The file might be unavailable.".format(resolved_folder)
+            )
+        return resolved_folder
+    # path to a local folder saved using save()
+    elif isdir(adapter_name_or_path):
+        if isfile(join(adapter_name_or_path, WEIGHTS_NAME)) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
+            return adapter_name_or_path
+        else:
+            raise EnvironmentError(
+                "No file {} or no file {} found in directory {}".format(
+                    WEIGHTS_NAME, CONFIG_NAME, adapter_name_or_path)
+            )
+    # matches possible form of identifier in hub
+    elif re.fullmatch(ADAPTER_IDENTIFIER_PATTERN, adapter_name_or_path):
+        return pull_from_hub(
+            adapter_name_or_path, adapter_config, adapter_type, model_config, version=version, **kwargs
+        )
+    else:
+        raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))

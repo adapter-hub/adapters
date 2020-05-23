@@ -1,21 +1,16 @@
 import logging
 from os import mkdir
-from os.path import isdir, isfile, join, exists
+from os.path import isdir, join, exists
 import torch
 import json
-import re
-from .file_utils import is_remote_url
 from .adapters_utils import (
     CONFIG_NAME, WEIGHTS_NAME, HEAD_WEIGHTS_NAME,
-    ADAPTER_IDENTIFIER_PATTERN,
-    urljoin,
-    download_cached,
-    pull_from_hub,
+    resolve_adapter_path,
 )
 from .adapters_config import (
-    ADAPTER_CONFIG_MAP,
     DEFAULT_ADAPTER_CONFIG,
-    AdapterType
+    AdapterType,
+    build_full_config,
 )
 
 
@@ -66,18 +61,6 @@ class AdapterLoader:
             new_state_dict[new_k] = v
         return new_state_dict
 
-    def full_config(self, name=None, default_config=None, with_head=False):
-        config_dict = {
-            'type': self.adapter_type,
-            'model': self.model.__class__.__name__, 'hidden_size': self.model.config.hidden_size
-        }
-        if name:
-            config_dict['name'] = name
-        config_dict['config'] = self.config or default_config
-        if with_head:
-            config_dict['prediction_head'] = self.model.config.prediction_heads[name]
-        return config_dict
-
     def save(self, save_directory, name, save_head=False, meta_dict=None):
         """Saves an adapter and its configuration file to a directory, so that it can be reloaded
         using the `load()` method.
@@ -92,7 +75,10 @@ class AdapterLoader:
             assert isdir(save_directory), "Saving path should be a directory where adapter and configuration can be saved."
         assert name in self.model.config.adapters.adapters, "No adapter of this type with the given name is part of this model."
 
-        config_dict = self.full_config(name, with_head=save_head)
+        adapter_config = self.model.config.adapters.get(name)
+        config_dict = build_full_config(
+            adapter_config, self.adapter_type, self.model.config, name=name, with_head=save_head
+        )
         # add meta information if given
         if meta_dict:
             config_dict['_meta'] = meta_dict
@@ -110,7 +96,7 @@ class AdapterLoader:
         torch.save(adapter_state_dict, output_file)
         logger.info("Adapter weights saved in {}".format(output_file))
 
-    def load(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
+    def load(self, adapter_name_or_path, config=None,
              version=None, load_head=False, load_as=None, **kwargs):
         """Loads a pre-trained pytorch adapter module from the local file system or a remote location.
 
@@ -124,10 +110,13 @@ class AdapterLoader:
         """
 
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
-        resolved_folder = self._resolve_adapter_path(adapter_name_or_path, default_config, version, **kwargs)
+        adapter_config = config or self.config
+        resolved_folder = resolve_adapter_path(
+            adapter_name_or_path, adapter_config, self.adapter_type, self.model.config, version, **kwargs
+        )
 
         # Load config of adapter
-        config = self._load_adapter_config(resolved_folder, **kwargs)
+        config = self._load_adapter_config(resolved_folder)
         assert config['type'] == self.adapter_type, "Loaded adapter has to be a {} adapter.".format(self.adapter_type)
         # If no adapter config is available yet, set to the config of the loaded adapter
         if not self.config:
@@ -142,7 +131,7 @@ class AdapterLoader:
         if adapter_name not in self.model.config.adapters.adapters:
             self.model.add_adapter(adapter_name, self.adapter_type)
 
-        self._load_adapter_weights(resolved_folder, self.adapter_type, config['name'], load_as=load_as, **kwargs)
+        self._load_adapter_weights(resolved_folder, self.adapter_type, config['name'], load_as=load_as)
 
         # Optionally, load the weights of the prediction head
         if load_head:
@@ -158,24 +147,14 @@ class AdapterLoader:
             )
             # Load the head weights
             self._load_adapter_weights(
-                resolved_folder, 'head', config['name'], weights_name=HEAD_WEIGHTS_NAME, load_as=load_as, **kwargs
+                resolved_folder, 'head', config['name'], weights_name=HEAD_WEIGHTS_NAME, load_as=load_as
             )
 
-    def _load_adapter_config(self, resolved_folder, **kwargs):
+    def _load_adapter_config(self, resolved_folder):
         """Loads an adapter configuration.
         """
-        # If necessary, download the config or load it from cache
-        if is_remote_url(resolved_folder):
-            resolved_file = urljoin(resolved_folder, CONFIG_NAME)
-            config_file = download_cached(resolved_file, **kwargs)
-            if not config_file:
-                raise EnvironmentError(
-                    "Unable to load file from {}. The file might be unavailable.".format(resolved_file)
-                )
-            logger.info("loading configuration file {} from cache at {}".format(resolved_file, config_file))
-        else:
-            config_file = join(resolved_folder, CONFIG_NAME)
-            logger.info("loading configuration file {}".format(config_file))
+        config_file = join(resolved_folder, CONFIG_NAME)
+        logger.info("loading adapter configuration from {}".format(config_file))
 
         # Load the config
         with open(config_file, 'r', encoding='utf-8') as f:
@@ -183,21 +162,11 @@ class AdapterLoader:
 
         return adapter_config
 
-    def _load_adapter_weights(self, resolved_folder, adapter_type, adapter_name, weights_name=WEIGHTS_NAME, load_as=None, **kwargs):
+    def _load_adapter_weights(self, resolved_folder, adapter_type, adapter_name, weights_name=WEIGHTS_NAME, load_as=None):
         """Loads adapter weights.
         """
-        # If necessary, download the weights or load them from cache
-        if is_remote_url(resolved_folder):
-            resolved_file = urljoin(resolved_folder, weights_name)
-            weights_file = download_cached(resolved_file, **kwargs)
-            if not weights_file:
-                raise EnvironmentError(
-                    "Unable to load file from {}. The file might be unavailable.".format(resolved_file)
-                )
-            logger.info("loading weights file {} from cache at {}".format(resolved_file, weights_file))
-        else:
-            weights_file = join(resolved_folder, weights_name)
-            logger.info("loading weights file {}".format(weights_file))
+        weights_file = join(resolved_folder, weights_name)
+        logger.info("loading adapter weights from {}".format(weights_file))
 
         # Load the weights of the adapter
         try:
@@ -227,27 +196,6 @@ class AdapterLoader:
             )
 
         return missing_adapter_keys, unexpected_keys
-
-    def _resolve_adapter_path(self, adapter_name_or_path, default_config, version=None, **kwargs):
-        assert default_config in ADAPTER_CONFIG_MAP, "Specified default config is invalid."
-        config = self.full_config(default_config=ADAPTER_CONFIG_MAP[default_config])
-        # url of a folder containing pretrained adapters -> try to load from this url
-        if is_remote_url(adapter_name_or_path):
-            return adapter_name_or_path
-        # path to a local folder saved using save()
-        elif isdir(adapter_name_or_path):
-            if isfile(join(adapter_name_or_path, WEIGHTS_NAME)) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
-                return adapter_name_or_path
-            else:
-                raise EnvironmentError(
-                    "No file {} or no file {} found in directory {}".format(
-                        WEIGHTS_NAME, CONFIG_NAME, adapter_name_or_path)
-                )
-        # matches possible form of identifier in hub
-        elif re.fullmatch(ADAPTER_IDENTIFIER_PATTERN, adapter_name_or_path):
-            return pull_from_hub(adapter_name_or_path, config, version=version, **kwargs)
-        else:
-            raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
 
 
 class ModelAdaptersMixin:
@@ -298,14 +246,14 @@ class ModelAdaptersMixin:
         else:
             raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
-    def load_adapter(self, adapter_name_or_path, adapter_type, default_config=DEFAULT_ADAPTER_CONFIG,
+    def load_adapter(self, adapter_name_or_path, adapter_type, config=DEFAULT_ADAPTER_CONFIG,
                      version=None, load_head=False, load_as=None, **kwargs):
         if AdapterType.has(adapter_type):
-            self.adapter_loaders[adapter_type].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
+            self.adapter_loaders[adapter_type].load(adapter_name_or_path, config, version, load_head, load_as, **kwargs)
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
-    def load_task_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
+    def load_task_adapter(self, adapter_name_or_path, config=DEFAULT_ADAPTER_CONFIG,
                           version=None, load_head=False, load_as=None, **kwargs):
         """Loads a pre-trained pytorch task adapter from an adapter configuration.
 
@@ -317,9 +265,9 @@ class ModelAdaptersMixin:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-        self.adapter_loaders[AdapterType.text_task].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
+        self.adapter_loaders[AdapterType.text_task].load(adapter_name_or_path, config, version, load_head, load_as, **kwargs)
 
-    def load_language_adapter(self, adapter_name_or_path, default_config=DEFAULT_ADAPTER_CONFIG,
+    def load_language_adapter(self, adapter_name_or_path, config=DEFAULT_ADAPTER_CONFIG,
                               version=None, load_head=False, load_as=None, **kwargs):
         """Loads a pre-trained pytorch language adapter from an adapter configuration.
 
@@ -331,4 +279,4 @@ class ModelAdaptersMixin:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-        self.adapter_loaders[AdapterType.text_lang].load(adapter_name_or_path, default_config, version, load_head, load_as, **kwargs)
+        self.adapter_loaders[AdapterType.text_lang].load(adapter_name_or_path, config, version, load_head, load_as, **kwargs)
