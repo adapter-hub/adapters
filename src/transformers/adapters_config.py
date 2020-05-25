@@ -2,6 +2,7 @@ from enum import Enum
 import json
 from os.path import isfile
 import copy
+from typing import Optional, Union
 
 
 # TODO add more default configs here
@@ -24,6 +25,20 @@ ADAPTER_CONFIG_MAP = {
             'non_linearity': 'relu',
             'reduction_factor': 2
         }
+    },
+    'houlsby': {
+        "LN_after": False,
+        "LN_before": False,
+        "MH_Adapter": True,
+        "Output_Adapter": True,
+        "adapter_residual_before_ln": False,
+        "attention_type": "sent-lvl-dynamic",
+        "new_attention_norm": False,
+        "non_linearity": "swish",
+        "original_ln_after": True,
+        "original_ln_before": False,
+        "reduction_factor": 16,
+        "residual_before_ln": True,
     }
 }
 
@@ -55,13 +70,13 @@ class ModelAdaptersConfig:
             k for k, v in self.adapters.items() if v['type'] == adapter_type
         ]
 
-    def get_type(self, adapter_name: str) -> AdapterType:
+    def get_type(self, adapter_name: str) -> Optional[AdapterType]:
         if adapter_name in self.adapters:
             return self.adapters[adapter_name]['type']
         else:
             return None
 
-    def get(self, adapter_name: str, return_type: bool = False) -> dict:
+    def get(self, adapter_name: str, return_type: bool = False):
         if adapter_name in self.adapters:
             adapter = self.adapters[adapter_name]
             config = adapter['config']
@@ -93,11 +108,11 @@ class ModelAdaptersConfig:
             return ADAPTER_CONFIG_MAP[config]
         return config
 
-    def set_config(self, adapter_type: AdapterType, config):
-        """Sets the adapter configuration of this adapter type.
+    def set_config(self, adapter_type: AdapterType, config: Union[dict, str]):
+        """Sets the default adapter configuration of the specified adapter type.
 
         Args:
-            adapter_config (str or dict): adapter configuration, can be either:
+            config (str or dict): adapter configuration, can be either:
                 - a string identifying a pre-defined adapter configuration
                 - a dictionary representing the adapter configuration
                 - the path to a file containing the adapter configuration

@@ -5,6 +5,7 @@ import torch
 import json
 from .adapters_utils import (
     CONFIG_NAME, WEIGHTS_NAME, HEAD_WEIGHTS_NAME,
+    resolve_adapter_config,
     resolve_adapter_path,
 )
 from .adapters_config import (
@@ -108,11 +109,13 @@ class AdapterLoader:
             version (int, optional): The version of the adapter to be loaded.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
         """
-
+        # use: given adapter config (can be string) > default config of this type > global default config
+        requested_config = resolve_adapter_config(
+            config or self.config or DEFAULT_ADAPTER_CONFIG
+        )
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
-        adapter_config = config or self.config
         resolved_folder = resolve_adapter_path(
-            adapter_name_or_path, adapter_config, self.adapter_type, self.model.config, version, **kwargs
+            adapter_name_or_path, requested_config, self.adapter_type, self.model.config, version, **kwargs
         )
 
         # Load config of adapter
@@ -121,10 +124,11 @@ class AdapterLoader:
         # If no adapter config is available yet, set to the config of the loaded adapter
         if not self.config:
             self.config = config['config']
-        # Otherwise, check that loaded config is equal to the config of this model.
-        else:
-            for k, v in config['config'].items():
-                assert self.config[k] == v, "Adapter configurations have to be equal."
+        # Check that loaded config is equal to the requested config.
+        for k, v in config['config'].items():
+            assert requested_config[k] == v, "Adapter configurations have to be equal."
+            # TODO: temporary, remove later
+            assert self.config[k] == v
 
         adapter_name = load_as or config['name']
         # If the adapter is not part of the model, add it
@@ -246,14 +250,14 @@ class ModelAdaptersMixin:
         else:
             raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
-    def load_adapter(self, adapter_name_or_path, adapter_type, config=DEFAULT_ADAPTER_CONFIG,
+    def load_adapter(self, adapter_name_or_path, adapter_type, config=None,
                      version=None, load_head=False, load_as=None, **kwargs):
         if AdapterType.has(adapter_type):
             self.adapter_loaders[adapter_type].load(adapter_name_or_path, config, version, load_head, load_as, **kwargs)
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
-    def load_task_adapter(self, adapter_name_or_path, config=DEFAULT_ADAPTER_CONFIG,
+    def load_task_adapter(self, adapter_name_or_path, config=None,
                           version=None, load_head=False, load_as=None, **kwargs):
         """Loads a pre-trained pytorch task adapter from an adapter configuration.
 
@@ -267,7 +271,7 @@ class ModelAdaptersMixin:
         """
         self.adapter_loaders[AdapterType.text_task].load(adapter_name_or_path, config, version, load_head, load_as, **kwargs)
 
-    def load_language_adapter(self, adapter_name_or_path, config=DEFAULT_ADAPTER_CONFIG,
+    def load_language_adapter(self, adapter_name_or_path, config=None,
                               version=None, load_head=False, load_as=None, **kwargs):
         """Loads a pre-trained pytorch language adapter from an adapter configuration.
 

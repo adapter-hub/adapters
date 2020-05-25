@@ -23,7 +23,7 @@ CONFIG_NAME = "adapter_config.json"
 WEIGHTS_NAME = "pytorch_adapter.bin"
 HEAD_WEIGHTS_NAME = "pytorch_adapter_head.bin"
 
-ADAPTER_IDENTIFIER_PATTERN = r"[a-zA-Z\-_]{2,}"
+ADAPTER_IDENTIFIER_PATTERN = r"[a-zA-Z\-_\/@]{2,}"
 ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/"
 ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "dist/adapters_{}.json"
 ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "dist/architectures.json"
@@ -148,6 +148,7 @@ def resolve_adapter_config(config: Union[dict, str]):
 
 
 def _split_identifier(identifier):
+    task, subtask, org_name = None, None, None
     identifier = identifier.split("@")
     if len(identifier) > 1:
         org_name = identifier[1]
@@ -158,12 +159,27 @@ def _split_identifier(identifier):
     return task, subtask, org_name
 
 
+def _dict_extract(d, primary_key, secondary_key=None):
+    for k, v in d.items():
+        if k == primary_key:
+            if secondary_key:
+                if secondary_key in v.keys():
+                    yield v[secondary_key]
+            else:
+                for k, v in v.items():
+                    yield v
+        else:
+            for k, v in v.items():
+                if k == primary_key:
+                    yield v
+
+
 def find_in_index(
         identifier: str,
         adapter_config: dict,
         adapter_type: AdapterType,
         model_config: PretrainedConfig) -> Optional[str]:
-    config = build_full_config(adapter_config, adapter_config, model_config)
+    config = build_full_config(adapter_config, adapter_type, model_config)
     index_file = download_cached(ADAPTER_HUB_INDEX_FILE.format(config['type']))
     if not index_file:
         raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
@@ -171,30 +187,23 @@ def find_in_index(
         adapter_index = json.load(f)
     # split into <task>/<subtask>@<org>
     task, subtask, org = _split_identifier(identifier)
-    # find entry for this task
-    if task in adapter_index:
-        if subtask:
-            # task and subtask matching -> perfect!
-            if subtask in adapter_index[task]:
-                index_entry = adapter_index[task][subtask]
-            # there is no such subtask for this task
-            else:
-                return None
-        # no subtask specified and we only have a single subtask for this task, so just return it
-        elif len(adapter_index[task]) == 1:
-            index_entry = adapter_index[task].values()[0]
-        # there are multiple possible options for this task -> tell the user to be more precise
-        else:
-            raise ValueError("Found multiple possible adapters matching '{}'.".format(identifier))
-    else:
+    # find all entries for this task and subtask
+    entries = list(_dict_extract(adapter_index, task, subtask))
+    if not entries:
+        # we found no matching entry
         return None
+    elif len(entries) == 1:
+        index_entry = entries[0]
+    else:
+        # there are multiple possible options for this identifier
+        raise ValueError("Found multiple possible adapters matching '{}'.".format(identifier))
     # go on with searching a matching config hash in the task entry
     assert config['config'], "Specify an adapter configuration to search for."
     config_hash = get_adapter_config_hash(config)
     if config_hash in index_entry:
         # now match the org if given
         version = org or index_entry[config_hash]["default"]
-        hub_entry = index_entry[config_hash].get(version, None)
+        hub_entry = index_entry[config_hash]['versions'].get(version, None)
         if hub_entry:
             logger.info("Found matching adapter at: {}".format(hub_entry))
         return hub_entry
@@ -242,6 +251,7 @@ def pull_from_hub(
 
     # start downloading
     logger.info("Resolved adapter files at {}.".format(file_entry['url']))
+    # TODO add support for other checksums
     download_path = download_cached(file_entry['url'], checksum=file_entry['sha1'], **kwargs)
     if not download_path:
         raise EnvironmentError(
