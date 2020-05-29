@@ -50,7 +50,6 @@ class AdapterType(str, Enum):
 
     text_task = "text_task"
     text_lang = "text_lang"
-    vision_task = "vision_task"
 
     @classmethod
     def has(cls, value):

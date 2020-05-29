@@ -53,12 +53,12 @@ def pack_saved_adapters(folders, save_root, version="1"):
         with open(zip_name, 'rb') as f:
             h = hashlib.sha1(f.read()).hexdigest()
         file_info = {"url": "TODO", "sha1": h}
-        config['_meta']['files'] = {version: file_info}
-        config['_meta']['default_version'] = version
+        config['files'] = {version: file_info}
+        config['default_version'] = version
         # add empty keys
         for key in META_KEYS:
-            if key not in config['_meta']:
-                config['_meta'][key] = ""
+            if key not in config:
+                config[key] = ""
         with open(join(save_root, "{}.json".format(folder_name)), 'w') as f:
             json.dump(config, f, indent=2, sort_keys=True)
 

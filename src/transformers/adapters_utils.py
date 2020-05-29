@@ -24,9 +24,9 @@ WEIGHTS_NAME = "pytorch_adapter.bin"
 HEAD_WEIGHTS_NAME = "pytorch_adapter_head.bin"
 
 ADAPTER_IDENTIFIER_PATTERN = r"[a-zA-Z\-_\/@]{2,}"
-ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/"
-ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "dist/adapters_{}.json"
-ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "dist/architectures.json"
+ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/dist/"
+ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "adapters_{}.json"
+ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
 
 # these keys of the adapter config are used to calculate the config hash
 ADAPTER_CONFIG_HASH_SECTIONS = [
@@ -237,7 +237,7 @@ def pull_from_hub(
     hub_entry_url = find_in_index(specifier, adapter_config, adapter_type, model_config)
     if not hub_entry_url:
         raise EnvironmentError("No adapter with name '{}' was found in the adapter index.".format(specifier))
-    hub_entry = http_get_json(hub_entry_url)['_meta']
+    hub_entry = http_get_json(hub_entry_url)
 
     # set version
     if not version:

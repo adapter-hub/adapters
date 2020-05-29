@@ -82,7 +82,9 @@ class AdapterLoader:
         )
         # add meta information if given
         if meta_dict:
-            config_dict['_meta'] = meta_dict
+            for k, v in meta_dict.items():
+                if k not in config_dict:
+                    config_dict[k] = v
 
         # Save the adapter configuration
         output_config_file = join(save_directory, CONFIG_NAME)

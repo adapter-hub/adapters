@@ -441,21 +441,28 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             param.requires_grad = not freeze
         self.model_freezed = freeze
 
+    def train_adapter(self, adapter_type: AdapterType):
+        """Sets the model in mode for training the given type of adapter.
+        """
+        if not self.has_adapters(adapter_type):
+            raise ValueError("No adapters of this type available fro training.")
+        self.train()
+        self.freeze_model(True)
+        self.encoder.enable_adapters(adapter_type, True, True)
+        # unfreeze invertible adapters for language adapters
+        if adapter_type == AdapterType.text_lang:
+            for param in self.invertible_lang_adapters.parameters():
+                param.requires_grad = True
+
     def train_language_adapter(self):
         """Sets the model in mode for training language adapters.
         """
-        assert self.has_adapters(AdapterType.text_lang), "No language adapter for training available."
-        self.train()
-        self.freeze_model(True)
-        self.encoder.enable_adapters(AdapterType.text_lang, True, True)
+        self.train_adapter(AdapterType.text_lang)
 
     def train_task_adapter(self):
         """Sets the model in mode for training task adapters.
         """
-        assert self.has_adapters(AdapterType.text_task), "No task adapter for training available."
-        self.train()
-        self.freeze_model(True)
-        self.encoder.enable_adapters(AdapterType.text_task, True, True)
+        self.train_adapter(AdapterType.text_task)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType, default_config=DEFAULT_ADAPTER_CONFIG):
         if not AdapterType.has(adapter_type):
