@@ -549,9 +549,11 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin):
             model_kwargs = kwargs
 
         # Load model
+        model_name = None  # pre-trained model identifier if given
         if pretrained_model_name_or_path is not None:
             if pretrained_model_name_or_path in cls.pretrained_model_archive_map:
                 archive_file = cls.pretrained_model_archive_map[pretrained_model_name_or_path]
+                model_name = pretrained_model_name_or_path
             elif os.path.isdir(pretrained_model_name_or_path):
                 if from_tf and os.path.isfile(os.path.join(pretrained_model_name_or_path, TF_WEIGHTS_NAME + ".index")):
                     # Load from a TF 1.0 checkpoint
@@ -584,6 +586,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin):
                     filename=(TF2_WEIGHTS_NAME if from_tf else WEIGHTS_NAME),
                     use_cdn=use_cdn,
                 )
+                model_name = pretrained_model_name_or_path
 
             # redirect to the cache, if necessary
             try:
@@ -620,6 +623,8 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin):
 
         # Instantiate model.
         model = cls(config, *model_args, **model_kwargs)
+        # set the name of the pretrained model if available
+        model.model_name = model_name
 
         if state_dict is None and not from_tf:
             try:

@@ -55,45 +55,42 @@ class BertSelfOutputAdaptersMixin:
             self.attention_adapters_fusion['_'.join(task_names)] = layer
 
             if adapter_config['new_attention_norm']:
-                self.attention_layer_norm = BertLayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
+                self.attention_layer_norm = nn.LayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
 
     def enable_adapters(self, adapter_type: AdapterType, unfreeze_adapters: bool, unfreeze_attention: bool):
         # TODO cleanup?
-        # TODO this assumes a common adapter config
-        adapter_config = self.config.adapters.get_config(adapter_type)
-        if adapter_config and adapter_config['MH_Adapter']:
-            if adapter_type == AdapterType.text_task:
-                if unfreeze_adapters:
-                    for param in self.attention_text_task_adapters.parameters():
-                        param.requires_grad = True
-                if unfreeze_attention:
-                    for param in self.attention_adapters_fusion.parameters():
-                        param.requires_grad = True
+        if adapter_type == AdapterType.text_task:
+            if unfreeze_adapters:
+                for param in self.attention_text_task_adapters.parameters():
+                    param.requires_grad = True
+            if unfreeze_attention:
+                for param in self.attention_adapters_fusion.parameters():
+                    param.requires_grad = True
 
-                    for adap in self.attention_text_task_adapters.values():
-                        for param in adap.adapter_attention.parameters():
-                            param.requires_grad = True
-
-                    if adapter_config['new_attention_norm']:
-                        for param in self.attention_layer_norm.parameters():
-                            param.requires_grad = True
-            elif adapter_type == AdapterType.text_lang:
-                if unfreeze_adapters:
-                    for param in self.attention_text_lang_adapters.parameters():
-                        param.requires_grad = True
-                if unfreeze_attention:
-                    for param in self.language_attention_adapters_fusion.parameters():
+                for adap in self.attention_text_task_adapters.values():
+                    for param in adap.adapter_attention.parameters():
                         param.requires_grad = True
 
-                    for adap in self.attention_text_lang_adapters.values():
-                        for param in adap.language_adapter_attention.parameters():
-                            param.requires_grad = True
+                if hasattr(self, 'attention_layer_norm'):
+                    for param in self.attention_layer_norm.parameters():
+                        param.requires_grad = True
+        elif adapter_type == AdapterType.text_lang:
+            if unfreeze_adapters:
+                for param in self.attention_text_lang_adapters.parameters():
+                    param.requires_grad = True
+            if unfreeze_attention:
+                for param in self.language_attention_adapters_fusion.parameters():
+                    param.requires_grad = True
 
-                    if adapter_config['new_attention_norm']:
-                        for param in self.language_attention_layer_norm.parameters():
-                            param.requires_grad = True
-            else:
-                raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
+                for adap in self.attention_text_lang_adapters.values():
+                    for param in adap.language_adapter_attention.parameters():
+                        param.requires_grad = True
+
+                if hasattr(self, 'language_attention_layer_norm'):
+                    for param in self.language_attention_layer_norm.parameters():
+                        param.requires_grad = True
+        else:
+            raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
 
     def adapters_forward(self, hidden_states, input_tensor, tasks=None, language=None):
         adapter_used = False
@@ -198,7 +195,7 @@ class BertOutputAdaptersMixin:
             self.bert_adapter_att['_'.join(task_names)] = layer
 
             if adapter_config['new_attention_norm']:
-                self.attention_layer_norm = BertLayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
+                self.attention_layer_norm = nn.LayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
@@ -219,41 +216,38 @@ class BertOutputAdaptersMixin:
 
     def enable_adapters(self, adapter_type: AdapterType, unfreeze_adapters: bool, unfreeze_attention: bool):
         # TODO cleanup?
-        # TODO this assumes a common adapter config
-        adapter_config = self.config.adapters.get_config(adapter_type)
-        if adapter_config and adapter_config['Output_Adapter']:
-            if adapter_type == AdapterType.text_task:
-                if unfreeze_adapters:
-                    for param in self.layer_text_task_adapters.parameters():
-                        param.requires_grad = True
-                if unfreeze_attention:
-                    for adap in self.layer_text_task_adapters.values():
-                        for param in adap.adapter_attention.parameters():
-                            param.requires_grad = True
-
-                    for param in self.bert_adapter_att.parameters():
+        if adapter_type == AdapterType.text_task:
+            if unfreeze_adapters:
+                for param in self.layer_text_task_adapters.parameters():
+                    param.requires_grad = True
+            if unfreeze_attention:
+                for adap in self.layer_text_task_adapters.values():
+                    for param in adap.adapter_attention.parameters():
                         param.requires_grad = True
 
-                    if adapter_config['new_attention_norm']:
-                        for param in self.attention_layer_norm.parameters():
-                            param.requires_grad = True
-            elif adapter_type == AdapterType.text_lang:
-                if unfreeze_adapters:
-                    for param in self.layer_text_lang_adapters.parameters():
-                        param.requires_grad = True
-                if unfreeze_attention:
-                    for adap in self.layer_text_lang_adapters.values():
-                        for param in adap.adapter_attention.parameters():
-                            param.requires_grad = True
+                for param in self.bert_adapter_att.parameters():
+                    param.requires_grad = True
 
-                    for param in self.bert_language_adapter_att.parameters():
+                if hasattr(self, 'attention_layer_norm'):
+                    for param in self.attention_layer_norm.parameters():
+                        param.requires_grad = True
+        elif adapter_type == AdapterType.text_lang:
+            if unfreeze_adapters:
+                for param in self.layer_text_lang_adapters.parameters():
+                    param.requires_grad = True
+            if unfreeze_attention:
+                for adap in self.layer_text_lang_adapters.values():
+                    for param in adap.adapter_attention.parameters():
                         param.requires_grad = True
 
-                    if adapter_config['new_attention_norm']:
-                        for param in self.language_attention_layer_norm.parameters():
-                            param.requires_grad = True
-            else:
-                raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
+                for param in self.bert_language_adapter_att.parameters():
+                    param.requires_grad = True
+
+                if hasattr(self, 'language_attention_layer_norm'):
+                    for param in self.language_attention_layer_norm.parameters():
+                        param.requires_grad = True
+        else:
+            raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
 
     def adapters_forward(self, hidden_states, input_tensor, attention_mask, tasks=None, language=None):
         adapter_used = False
@@ -464,33 +458,32 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         """
         self.train_adapter(AdapterType.text_task)
 
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType, default_config=DEFAULT_ADAPTER_CONFIG):
+    def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         if not AdapterType.has(adapter_type):
             raise ValueError("Invalid adapter type {}".format(adapter_type))
+        # TODO allow different adapter configs
         if not self.config.adapters.get_config(adapter_type):
-            self.config.adapters.set_config(adapter_type, default_config)
+            self.config.adapters.set_config(adapter_type, DEFAULT_ADAPTER_CONFIG)
         self.config.adapters.add(adapter_name, adapter_type)
         self.encoder.add_adapter(adapter_name, adapter_type)
         if adapter_type == AdapterType.text_lang:
             self.add_invertible_lang_adapter(adapter_name)
 
-    def add_task_adapter(self, task_name, default_config=DEFAULT_ADAPTER_CONFIG):
+    def add_task_adapter(self, task_name):
         """Adds a new task adapter to the model.
 
         Args:
             task_name (str): the name of the task
-            default_config (str or dict, optional): the default task adapter config if none is set.
         """
-        self.add_adapter(task_name, AdapterType.text_task, default_config)
+        self.add_adapter(task_name, AdapterType.text_task)
 
-    def add_language_adapter(self, language_name, default_config=DEFAULT_ADAPTER_CONFIG):
+    def add_language_adapter(self, language_name):
         """Adds a new language adapter to the model.
 
         Args:
             language_name (str): the name of the language
-            default_config (str or dict, optional): the default language adapter config if none is set.
         """
-        self.add_adapter(language_name, AdapterType.text_lang, default_config)
+        self.add_adapter(language_name, AdapterType.text_lang)
 
     def add_invertible_lang_adapter(self, language):
         if language in self.invertible_lang_adapters:

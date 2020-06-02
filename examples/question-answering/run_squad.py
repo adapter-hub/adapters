@@ -38,7 +38,8 @@ from transformers import (
     AutoTokenizer,
     get_linear_schedule_with_warmup,
     squad_convert_examples_to_features,
-    AdapterType
+    AdapterType,
+    setup_task_adapter_training,
 )
 from transformers.data.metrics.squad_metrics import (
     compute_predictions_log_probs,
@@ -756,27 +757,10 @@ def main():
     )
 
     # Setup adapters
-    tasks = []
-    language = args.load_language_adapter
-    if args.train_adapter:
-        tasks = ["squad"]
-        # get actual model for derived models with heads
-        base_model = getattr(model, model.base_model_prefix, model)
-        # task adapter - only add if not existing
-        if tasks[0] not in base_model.config.adapters.adapter_list(AdapterType.text_task):
-            base_model.set_adapter_config(AdapterType.text_task, args.adapter_config)
-            # load a pre-trained adapter for fine-tuning if specified
-            if args.load_task_adapter:
-                base_model.load_task_adapter(args.load_task_adapter, load_as=tasks[0])
-            # otherwise, add a new adapter
-            else:
-                base_model.add_task_adapter(tasks[0])
-        # language adapter - only add if not existing
-        if language and language not in base_model.config.adapters.adapter_list(AdapterType.text_lang):
-            base_model.set_adapter_config(AdapterType.text_lang, args.language_adapter_config or args.adapter_config)
-            base_model.load_language_adapter(language)
-        # enable adapter training
-        base_model.train_task_adapter()
+    task_name = "squad"
+    language = args.load_lang_adapter
+    setup_task_adapter_training(model, task_name, args)
+    tasks = [task_name]
 
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab

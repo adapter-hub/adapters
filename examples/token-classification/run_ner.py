@@ -37,6 +37,7 @@ from transformers import (
     AdapterArguments,
     set_seed,
     AdapterType,
+    setup_task_adapter_training,
 )
 from utils_ner import NerDataset, Split, get_labels
 
@@ -164,27 +165,9 @@ def main():
     )
 
     # Setup adapters
-    tasks = []
+    task_name = "ner"
     language = adapter_args.load_lang_adapter
-    if adapter_args.train_adapter:
-        tasks = ["ner"]
-        # get actual model for derived models with heads
-        base_model = getattr(model, model.base_model_prefix, model)
-        # task adapter - only add if not existing
-        if data_args.task_name not in base_model.config.adapters.adapter_list(AdapterType.text_task):
-            base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
-            # load a pre-trained adapter for fine-tuning if specified
-            if adapter_args.load_task_adapter:
-                base_model.load_adapter(adapter_args.load_task_adapter, AdapterType.text_task, load_as=tasks[0])
-            # otherwise, add a new adapter
-            else:
-                base_model.add_adapter(tasks[0], AdapterType.text_task)
-        # language adapter - only add if not existing
-        if language and language not in base_model.config.adapters.adapter_list(AdapterType.text_lang):
-            base_model.set_adapter_config(AdapterType.text_lang, adapter_args.lang_adapter_config or adapter_args.adapter_config)
-            base_model.load_adapter(language, AdapterType.text_lang)
-        # enable adapter training
-        base_model.train_task_adapter()
+    setup_task_adapter_training(model, task_name, adapter_args)
 
     # Get datasets
     train_dataset = (
@@ -246,7 +229,7 @@ def main():
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
         lang_adapter=language,
-        task_adapters=tasks,
+        task_adapters=[task_name],
     )
 
     # Training

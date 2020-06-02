@@ -148,7 +148,7 @@ from .tokenization_xlm import XLMTokenizer
 from .tokenization_xlm_roberta import XLMRobertaTokenizer
 from .tokenization_xlnet import SPIECE_UNDERLINE, XLNetTokenizer
 
-from .adapter_args import AdapterArguments
+from .adapter_training import AdapterArguments, setup_task_adapter_training
 from .trainer_utils import EvalPrediction
 from .training_args import TrainingArguments
 from .training_args_tf import TFTrainingArguments

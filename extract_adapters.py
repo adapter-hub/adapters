@@ -9,30 +9,26 @@ from os.path import join, basename
 from os import makedirs, listdir
 import zipfile
 from transformers import get_adapter_config_hash
-from transformers.adapters_config import build_full_config
 from convert_model import load_model_from_old_format
 
 
-META_KEYS = [
-    'id', 'author', 'email', 'url', 'citation', 'description', 'default_version', 'files', 'task', 'subtask', 'score'
-]
-
-
-def _get_save_path(model, save_root, adapter_type, name, id, version):
+def _get_save_path(model, save_root, adapter_type, name, id):
     # Build the output folder name
-    folder_name = "-".join([adapter_type, name, model.config.model_type, str(model.config.hidden_size), id[8:]])
+    folder_name = "-".join(
+        [adapter_type, name, model.config.model_type, str(model.config.hidden_size), id]
+    )
     save_dir = join(save_root, folder_name)
     makedirs(save_dir, exist_ok=True)
     return save_dir
 
 
-def save_all_adapters(model, save_root, with_head, version=None):
+def save_all_adapters(model, save_root, with_head=False):
     for name in model.config.adapters.adapters:
         adapter_config, adapter_type = model.config.adapters.get(name, return_type=True)
-        h = get_adapter_config_hash(build_full_config(adapter_config, adapter_type, model.config))
-        save_path = _get_save_path(model, save_root, adapter_type, name, h, version)
+        h = get_adapter_config_hash(adapter_config)
+        save_path = _get_save_path(model, save_root, adapter_type, name, h)
         print("Saving {} adapter to {}...".format(name, save_path))
-        model.save_adapter(save_path, name, save_head=with_head, meta_dict={'id': h})
+        model.save_adapter(save_path, name, save_head=with_head, meta_dict={'config_id': h})
         yield save_path
 
 
@@ -52,13 +48,9 @@ def pack_saved_adapters(folders, save_root, version="1"):
         # calculate the hash of the zip file
         with open(zip_name, 'rb') as f:
             h = hashlib.sha1(f.read()).hexdigest()
-        file_info = {"url": "TODO", "sha1": h}
-        config['files'] = {version: file_info}
+        file_info = {"version": version, "url": "TODO", "sha1": h}
+        config['files'] = [file_info]
         config['default_version'] = version
-        # add empty keys
-        for key in META_KEYS:
-            if key not in config:
-                config[key] = ""
         with open(join(save_root, "{}.json".format(folder_name)), 'w') as f:
             json.dump(config, f, indent=2, sort_keys=True)
 
@@ -69,7 +61,7 @@ if __name__ == "__main__":
     parser.add_argument("--load-path", type=str, required=True, help="Path of the directory containing the model to be loaded.")
     parser.add_argument("--save-path", type=str, required=True,
                         help="Path of the directory where the adapters will be saved. Sub-directories are created for all adapters.")
-    parser.add_argument("--ver", type=int, default=None, help="Version number of the saved adapters.")
+    parser.add_argument("--ver", type=int, default="1", help="Version number of the saved adapters.")
     parser.add_argument("--with-head", action="store_true")
     parser.add_argument("--from-old", action="store_true", help="Convert from old adapter format.")
     parser.add_argument("--pack", action="store_true", help="Zip the saved files and create description files.")
@@ -82,7 +74,7 @@ if __name__ == "__main__":
     else:
         model = AutoModel.from_pretrained(args.load_path)
 
-    save_paths = save_all_adapters(model, args.save_path, args.with_head, args.ver)
+    save_paths = list(save_all_adapters(model, args.save_path, args.with_head))
 
     if args.pack:
-        pack_saved_adapters(save_paths, args.save_path, args.ver or "1")
+        pack_saved_adapters(save_paths, args.save_path, args.ver)

@@ -1,8 +1,6 @@
 import torch
 from torch import nn
 import math
-# TODO not sure if this is right...
-from torch.nn import LayerNorm as BertLayerNorm
 
 
 class Activation_Function_Class(nn.Module):
@@ -52,7 +50,7 @@ class Adapter(nn.Module):
 
         # If we want to have a layer norm on input, we add it to seq_list
         if self.add_layer_norm_before:
-            self.adapter_norm_before = BertLayerNorm(self.input_size)
+            self.adapter_norm_before = nn.LayerNorm(self.input_size)
             seq_list.append(self.adapter_norm_before)
 
         # if a downsample size is not passed, we just half the size of the original input
@@ -84,7 +82,7 @@ class Adapter(nn.Module):
         # If we want to have a layer norm on output, we apply it later after a separate residual connection
         # This means that we learn a new output layer norm, which replaces another layer norm learned in the bert layer
         if self.add_layer_norm_after:
-            self.adapter_norm_after = BertLayerNorm(self.input_size)
+            self.adapter_norm_after = nn.LayerNorm(self.input_size)
 
         # if we want to initialize with the bert strategy then this function is called for all the linear layers
         if init_bert_weights:
@@ -126,7 +124,7 @@ class Adapter(nn.Module):
             # module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
             # TODO I set the std to default 0.02, this might need to be changed
             module.weight.data.normal_(mean=0.0, std=0.02)
-        elif isinstance(module, BertLayerNorm):
+        elif isinstance(module, nn.LayerNorm):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:

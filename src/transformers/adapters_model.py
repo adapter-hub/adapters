@@ -100,7 +100,7 @@ class AdapterLoader:
         logger.info("Adapter weights saved in {}".format(output_file))
 
     def load(self, adapter_name_or_path, config=None,
-             version=None, load_head=False, load_as=None, **kwargs):
+             version=None, model_name=None, load_head=False, load_as=None, **kwargs):
         """Loads a pre-trained pytorch adapter module from the local file system or a remote location.
 
         Args:
@@ -116,8 +116,9 @@ class AdapterLoader:
             config or self.config or DEFAULT_ADAPTER_CONFIG
         )
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
+        model_name = self.model.model_name or model_name
         resolved_folder = resolve_adapter_path(
-            adapter_name_or_path, requested_config, self.adapter_type, self.model.config, version, **kwargs
+            adapter_name_or_path, requested_config, self.adapter_type, model_name, version, **kwargs
         )
 
         # Load config of adapter
@@ -136,6 +137,8 @@ class AdapterLoader:
         # If the adapter is not part of the model, add it
         if adapter_name not in self.model.config.adapters.adapters:
             self.model.add_adapter(adapter_name, self.adapter_type)
+        else:
+            logger.warn("Overwriting existing adapter '{}'.".format(adapter_name))
 
         self._load_adapter_weights(resolved_folder, self.adapter_type, config['name'], load_as=load_as)
 
@@ -172,7 +175,6 @@ class AdapterLoader:
         """Loads adapter weights.
         """
         weights_file = join(resolved_folder, weights_name)
-        logger.info("loading adapter weights from {}".format(weights_file))
 
         # Load the weights of the adapter
         try:
@@ -184,6 +186,7 @@ class AdapterLoader:
         if load_as:
             adapter_state_dict = self._rename_params(adapter_state_dict, adapter_name, load_as)
             adapter_name = load_as
+        logger.info("loading adapter weights from {} as '{}'".format(weights_file, adapter_name))
 
         # Add the weights to the model
         missing_keys, unexpected_keys = self.model.load_state_dict(adapter_state_dict, strict=False)
@@ -209,6 +212,7 @@ class ModelAdaptersMixin:
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
+        self.model_name = None
         self.adapter_loaders = {
             t: AdapterLoader(self, t) for t in AdapterType
         }
@@ -253,36 +257,10 @@ class ModelAdaptersMixin:
             raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
     def load_adapter(self, adapter_name_or_path, adapter_type, config=None,
-                     version=None, load_head=False, load_as=None, **kwargs):
+                     version=None, model_name=None, load_head=False, load_as=None, **kwargs):
         if AdapterType.has(adapter_type):
-            self.adapter_loaders[adapter_type].load(adapter_name_or_path, config, version, load_head, load_as, **kwargs)
+            self.adapter_loaders[adapter_type].load(
+                adapter_name_or_path, config, version, model_name, load_head, load_as, **kwargs
+            )
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
-
-    def load_task_adapter(self, adapter_name_or_path, config=None,
-                          version=None, load_head=False, load_as=None, **kwargs):
-        """Loads a pre-trained pytorch task adapter from an adapter configuration.
-
-        Args:
-            adapter_name_or_path (str): can be either:
-                - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
-                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
-            default_config (str, optional): The identifier of the adapter configuration to be used if no config is set.
-            version (int, optional): The version of the adapter to be loaded.
-            load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
-        """
-        self.adapter_loaders[AdapterType.text_task].load(adapter_name_or_path, config, version, load_head, load_as, **kwargs)
-
-    def load_language_adapter(self, adapter_name_or_path, config=None,
-                              version=None, load_head=False, load_as=None, **kwargs):
-        """Loads a pre-trained pytorch language adapter from an adapter configuration.
-
-        Args:
-            adapter_name_or_path (str): can be either:
-                - the identifier of a pre-trained language adapter to be loaded from Adapter Hub
-                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
-            default_config (str, optional): The identifier of the adapter configuration to be used if no config is set.
-            version (int, optional): The version of the adapter to be loaded.
-            load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
-        """
-        self.adapter_loaders[AdapterType.text_lang].load(adapter_name_or_path, config, version, load_head, load_as, **kwargs)

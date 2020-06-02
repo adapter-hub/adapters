@@ -13,8 +13,7 @@ from typing import Optional, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 from .file_utils import is_remote_url, get_from_cache, torch_cache_home
-from .adapters_config import ADAPTER_CONFIG_MAP, AdapterType, build_full_config
-from .configuration_utils import PretrainedConfig
+from .adapters_config import ADAPTER_CONFIG_MAP, AdapterType
 
 
 logger = logging.getLogger(__name__)
@@ -25,13 +24,11 @@ HEAD_WEIGHTS_NAME = "pytorch_adapter_head.bin"
 
 ADAPTER_IDENTIFIER_PATTERN = r"[a-zA-Z\-_\/@]{2,}"
 ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/dist/"
-ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "adapters_{}.json"
+ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index_{}/{}.json"
 ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
 
-# these keys of the adapter config are used to calculate the config hash
-ADAPTER_CONFIG_HASH_SECTIONS = [
-    (['hidden_size', 'model_type', 'type'], 8), (['config'], 16)
-]
+# these keys are ignored when calculating the config hash
+ADAPTER_CONFIG_HASH_IGNORE = []
 
 # the download cache
 ADAPTER_CACHE = join(torch_cache_home, "adapters")
@@ -48,23 +45,19 @@ def _minimize_dict(d):
         return d
 
 
-def get_adapter_config_hash(config):
+def get_adapter_config_hash(config, length=16):
     """Calculates the hash of a given adapter configuration which is used to identify this configuration.
 
     Returns:
         str: The resulting hash of the given config dict.
     """
-    config_hash = ""
-    for keys, length in ADAPTER_CONFIG_HASH_SECTIONS:
-        config_section = {k: _minimize_dict(v) for (k, v) in config.items() if k in keys}
-        if config_section:
-            dict_str = json.dumps(config_section, sort_keys=True)
-            h = hashlib.sha1()
-            h.update(dict_str.encode(encoding='utf-8'))
-            config_hash += h.hexdigest()[:length]
-        else:
-            config_hash += "x" * length
-    return config_hash
+    minimized_config = _minimize_dict(
+        {k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE}
+    )
+    dict_str = json.dumps(minimized_config, sort_keys=True)
+    h = hashlib.sha1()
+    h.update(dict_str.encode(encoding='utf-8'))
+    return h.hexdigest()[:length]
 
 
 def remote_file_exists(url):
@@ -178,9 +171,11 @@ def find_in_index(
         identifier: str,
         adapter_config: dict,
         adapter_type: AdapterType,
-        model_config: PretrainedConfig) -> Optional[str]:
-    config = build_full_config(adapter_config, adapter_type, model_config)
-    index_file = download_cached(ADAPTER_HUB_INDEX_FILE.format(config['type']))
+        model_name: str,
+        strict: bool = True) -> Optional[str]:
+    if not model_name:
+        raise ValueError("Unable to resolve adapter without the name of a model. Please specify model_name.")
+    index_file = download_cached(ADAPTER_HUB_INDEX_FILE.format(adapter_type, model_name))
     if not index_file:
         raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
     with open(index_file, 'r') as f:
@@ -197,9 +192,9 @@ def find_in_index(
     else:
         # there are multiple possible options for this identifier
         raise ValueError("Found multiple possible adapters matching '{}'.".format(identifier))
-    # go on with searching a matching config hash in the task entry
-    assert config['config'], "Specify an adapter configuration to search for."
-    config_hash = get_adapter_config_hash(config)
+    # go on with searching a matching adapter_config hash in the task entry
+    assert adapter_config, "Specify an adapter configuration to search for."
+    config_hash = get_adapter_config_hash(adapter_config)
     if config_hash in index_entry:
         # now match the org if given
         version = org or index_entry[config_hash]["default"]
@@ -207,6 +202,12 @@ def find_in_index(
         if hub_entry:
             logger.info("Found matching adapter at: {}".format(hub_entry))
         return hub_entry
+    # there's only one possible config and we allow matches with different configs
+    elif not strict and len(index_entry) == 1:
+        logger.warn("No matching adapter config found for this specifier, falling back to default.")
+        config_entry = list(index_entry.values())[0]
+        version = org or config_entry["default"]
+        return config_entry['versions'].get(version, None)
     else:
         raise ValueError(
             "No adapter '{}' found for the current model or configuration.".format(identifier)
@@ -228,13 +229,14 @@ def pull_from_hub(
         specifier: str,
         adapter_config: Union[dict, str],
         adapter_type: AdapterType,
-        model_config: PretrainedConfig,
+        model_name: str,
         version: str = None,
+        strict: bool = True,
         **kwargs) -> str:
     # resolve config if it's an identifier
     adapter_config = resolve_adapter_config(adapter_config)
     # search the correct entry in the index
-    hub_entry_url = find_in_index(specifier, adapter_config, adapter_type, model_config)
+    hub_entry_url = find_in_index(specifier, adapter_config, adapter_type, model_name, strict=strict)
     if not hub_entry_url:
         raise EnvironmentError("No adapter with name '{}' was found in the adapter index.".format(specifier))
     hub_entry = http_get_json(hub_entry_url)
@@ -264,7 +266,7 @@ def resolve_adapter_path(
         adapter_name_or_path,
         adapter_config: Union[dict, str],
         adapter_type: AdapterType,
-        model_config: PretrainedConfig,
+        model_name: str,
         version: str = None,
         **kwargs) -> str:
     # url of a folder containing pretrained adapters -> try to load from this url
@@ -287,7 +289,7 @@ def resolve_adapter_path(
     # matches possible form of identifier in hub
     elif re.fullmatch(ADAPTER_IDENTIFIER_PATTERN, adapter_name_or_path):
         return pull_from_hub(
-            adapter_name_or_path, adapter_config, adapter_type, model_config, version=version, **kwargs
+            adapter_name_or_path, adapter_config, adapter_type, model_name, version=version, **kwargs
         )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))

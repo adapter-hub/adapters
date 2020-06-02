@@ -53,7 +53,7 @@ def run_adapter_test():
     bert_sst.save_adapter(ADAPTER_DIR + "sst", "sst", save_head=True)
 
     # add SST adapter to BERT by loading the previously saved
-    bert_add_new.load_task_adapter(ADAPTER_DIR + "sst", load_head=True)
+    bert_add_new.load_adapter(ADAPTER_DIR + "sst", "text_task", load_head=True)
 
     # check equality
     assert is_output_equal(bert_add_new, bert_sst, adapters=['sst'])
@@ -70,7 +70,7 @@ def run_lang_adapter_test():
     roberta.save_adapter(ADAPTER_DIR + "dummy", "dummy")
 
     roberta2 = RobertaModel.from_pretrained("roberta-base")
-    roberta2.load_language_adapter(ADAPTER_DIR + "dummy")
+    roberta2.load_adapter(ADAPTER_DIR + "dummy", "text_lang")
 
     assert is_output_equal(roberta, roberta2)
     assert is_model_equal(roberta, roberta2)
@@ -86,11 +86,11 @@ def run_adapter_download_test():
 
     # download pretrained adapter
     bert_base = BertModel.from_pretrained("bert-base-uncased")
-    bert_base.load_task_adapter("sst")
+    bert_base.load_adapter("sst", "text_task", strict=False)
 
     # check equality
-    for k, v in bert_sst.config.text_task_adapter_config.items():
-        assert bert_base.config.text_task_adapter_config[k] == v
+    for k, v in bert_sst.config.adapters.get("sst").items():
+        assert bert_base.config.adapters.get("sst")[k] == v
     assert is_output_equal(bert_sst, bert_base, adapters=['sst'])
     assert is_model_equal(bert_sst, bert_base)
 
@@ -104,6 +104,6 @@ if __name__ == "__main__":
     MODEL_DIR = "../data/Adapters_16_Bert_Base/"
     ADAPTER_DIR = "../data/adapters/"
 
-    run_adapter_test()
+    # run_adapter_test()
     # run_lang_adapter_test()
     # run_adapter_download_test()
