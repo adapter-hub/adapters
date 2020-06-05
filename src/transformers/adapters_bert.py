@@ -17,6 +17,7 @@ class BertSelfOutputAdaptersMixin:
         self.attention_adapters_fusion = nn.ModuleDict(dict())
         self.attention_text_lang_adapters = nn.ModuleDict(dict())
         self.language_attention_adapters_fusion = nn.ModuleDict(dict())
+        self.language_adapter_attention = nn.ModuleDict(dict())
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
@@ -106,7 +107,7 @@ class BertSelfOutputAdaptersMixin:
             if lang_adapter_config['original_ln_before']:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if lang_adapter_config['residual_before_ln']:
+            if not lang_adapter_config['residual_before_ln']:
                 residual = hidden_states * 1.0
 
             hidden_states, adapter_attention, down, up = self.attention_text_lang_adapters[language](
@@ -134,7 +135,7 @@ class BertSelfOutputAdaptersMixin:
             if task_adapter_config['original_ln_before']:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if task_adapter_config['residual_before_ln']:
+            if not task_adapter_config['residual_before_ln']:
                 residual = hidden_states * 1.0
 
             if hasattr(self.config, 'fusion_config') and not self.config.fusion_config['query_before_ln']:
@@ -263,7 +264,7 @@ class BertOutputAdaptersMixin:
             if lang_adapter_config['original_ln_before']:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if lang_adapter_config['residual_before_ln']:
+            if not lang_adapter_config['residual_before_ln']:
                 residual = hidden_states * 1.0
 
             hidden_states, adapter_attention, down, up = self.layer_text_lang_adapters[language](
@@ -291,7 +292,7 @@ class BertOutputAdaptersMixin:
             if task_adapter_config['original_ln_before']:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if task_adapter_config['residual_before_ln']:
+            if not task_adapter_config['residual_before_ln']:
                 residual = hidden_states * 1.0
 
             if hasattr(self.config, 'fusion_config') and not self.config.fusion_config['query_before_ln']:
@@ -442,7 +443,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             raise ValueError("No adapters of this type available fro training.")
         self.train()
         self.freeze_model(True)
-        self.encoder.enable_adapters(adapter_type, True, True)
+        self.encoder.enable_adapters(adapter_type, True, False)
         # unfreeze invertible adapters for language adapters
         if adapter_type == AdapterType.text_lang:
             for param in self.invertible_lang_adapters.parameters():
