@@ -174,13 +174,15 @@ if is_torch_available():
         DEFAULT_ADAPTER_CONFIG,
         AdapterType,
         ModelAdaptersConfig,
+        get_adapter_config_hash,
     )
     from .adapters_utils import (
         ADAPTER_HUB_URL,
         ADAPTER_HUB_INDEX_FILE,
         ADAPTER_CACHE,
-        get_adapter_config_hash,
         pull_from_hub,
+        resolve_adapter_config,
+        resolve_adapter_path,
     )
     
     # TODO add more

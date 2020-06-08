@@ -13,7 +13,7 @@ from typing import Optional, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 from .file_utils import is_remote_url, get_from_cache, torch_cache_home
-from .adapters_config import ADAPTER_CONFIG_MAP, AdapterType
+from .adapters_config import ADAPTER_CONFIG_MAP, AdapterType, get_adapter_config_hash
 
 
 logger = logging.getLogger(__name__)
@@ -27,37 +27,12 @@ ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/m
 ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index_{}/{}.json"
 ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
 
-# these keys are ignored when calculating the config hash
-ADAPTER_CONFIG_HASH_IGNORE = []
-
 # the download cache
 ADAPTER_CACHE = join(torch_cache_home, "adapters")
 
 
 def urljoin(*args):
     return '/'.join([s.strip('/') for s in args])
-
-
-def _minimize_dict(d):
-    if isinstance(d, dict):
-        return {k: _minimize_dict(v) for (k, v) in d.items() if v}
-    else:
-        return d
-
-
-def get_adapter_config_hash(config, length=16):
-    """Calculates the hash of a given adapter configuration which is used to identify this configuration.
-
-    Returns:
-        str: The resulting hash of the given config dict.
-    """
-    minimized_config = _minimize_dict(
-        {k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE}
-    )
-    dict_str = json.dumps(minimized_config, sort_keys=True)
-    h = hashlib.sha1()
-    h.update(dict_str.encode(encoding='utf-8'))
-    return h.hexdigest()[:length]
 
 
 def remote_file_exists(url):
@@ -121,13 +96,34 @@ def download_cached(url, checksum=None, checksum_algo='sha1', cache_dir=None, fo
     return output_path_extracted
 
 
-def resolve_adapter_config(config: Union[dict, str]):
+def resolve_adapter_config(config: Union[dict, str]) -> dict:
+    """Resolves a given adapter configuration specifier to a full configuration dictionary.
+
+    Args:
+        config (Union[dict, str]): The configuration to resolve. Can be either:
+            - a dictionary: returned without further action
+            - an identifier string available in the local ADAPTER_CONFIG_MAP
+            - the path to a file containing a full adapter configuration
+            - an identifier string available in Adapter-Hub
+
+    Returns:
+        dict: The resolved adapter configuration dictionary.
+    """
     # already a dict, so we don't have to do anything
     if isinstance(config, dict):
         return config
     # first, look in local map
     if config in ADAPTER_CONFIG_MAP:
         return ADAPTER_CONFIG_MAP[config]
+    # load from file system if it's a local file
+    if isfile(config):
+        with open(config, 'r') as f:
+            loaded_config = json.load(f)
+            # search for nested config if the loaded dict has the form of a config saved with an adapter module
+            if 'config' in loaded_config:
+                return loaded_config['config']
+            else:
+                return loaded_config
     # now, try to find in hub index
     index_file = download_cached(ADAPTER_HUB_CONFIG_FILE)
     if not index_file:
@@ -233,6 +229,19 @@ def pull_from_hub(
         version: str = None,
         strict: bool = True,
         **kwargs) -> str:
+    """Downloads a pre-trained adapter module from Adapter-Hub
+
+    Args:
+        specifier (str): A string specifying the adapter to be loaded.
+        adapter_config (Union[dict, str]): The configuration of the adapter to be loaded.
+        adapter_type (AdapterType): The adapter type.
+        model_name (str): The identifier of the pre-trained model for which to load an adapter.
+        version (str, optional): The version of the adapter to be loaded. Defaults to None.
+        strict (bool, optional): If set to True, only allow adapters exactly matching the given config to be loaded. Defaults to True.
+
+    Returns:
+        str: The local path to which the adapter has been downloaded.
+    """
     # resolve config if it's an identifier
     adapter_config = resolve_adapter_config(adapter_config)
     # search the correct entry in the index
@@ -269,6 +278,21 @@ def resolve_adapter_path(
         model_name: str,
         version: str = None,
         **kwargs) -> str:
+    """Resolves the path to a pre-trained adapter module.
+
+    Args:
+        adapter_name_or_path (str): Can be either:
+            - the path to a folder in the file system containing the adapter configuration and weights
+            - an url pointing to a zip folder containing the adapter configuration and weights
+            - a specifier matching a pre-trained adapter uploaded to Adapter-Hub
+        adapter_config (Union[dict, str]): The configuration of the adapter to be loaded.
+        adapter_type (AdapterType): The adapter type.
+        model_name (str): The identifier of the pre-trained model for which to load an adapter.
+        version (str, optional): The version of the adapter to be loaded. Defaults to None.
+
+    Returns:
+        str: The local path from where the adapter module can be loaded.
+    """
     # url of a folder containing pretrained adapters -> try to load from this url
     if is_remote_url(adapter_name_or_path):
         resolved_folder = download_cached(adapter_name_or_path, **kwargs)

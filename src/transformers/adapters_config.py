@@ -3,6 +3,7 @@ import json
 from os.path import isfile
 import copy
 from typing import Optional, Union
+import hashlib
 
 
 # TODO add more default configs here
@@ -44,6 +45,9 @@ ADAPTER_CONFIG_MAP = {
 
 DEFAULT_ADAPTER_CONFIG = 'pfeiffer'
 
+# these keys are ignored when calculating the config hash
+ADAPTER_CONFIG_HASH_IGNORE = []
+
 
 class AdapterType(str, Enum):
     """Models all currently available model adapter types."""
@@ -61,27 +65,27 @@ class AdapterType(str, Enum):
 
 class ModelAdaptersConfig:
     def __init__(self, **kwargs):
+        # adapters maps <name> -> (<type>, <config_name>)
         self.adapters = kwargs.pop("adapters", {})
         self.config_map = kwargs.pop("config_map", {})
 
     def adapter_list(self, adapter_type: AdapterType) -> list:
         return [
-            k for k, v in self.adapters.items() if v['type'] == adapter_type
+            k for k, v in self.adapters.items() if v[0] == adapter_type
         ]
 
     def get_type(self, adapter_name: str) -> Optional[AdapterType]:
         if adapter_name in self.adapters:
-            return self.adapters[adapter_name]['type']
+            return self.adapters[adapter_name][0]
         else:
             return None
 
     def get(self, adapter_name: str, return_type: bool = False):
         if adapter_name in self.adapters:
-            adapter = self.adapters[adapter_name]
-            config = adapter['config']
-            adapter_type = adapter['type']
+            adapter_type, config_name = self.adapters[adapter_name]
+            config = self.config_map.get(config_name, None)
             if not config:
-                config = self.config_map[adapter['type']]
+                config = self.config_map[adapter_type]
             if isinstance(config, str):
                 config = ADAPTER_CONFIG_MAP[config]
         else:
@@ -91,15 +95,18 @@ class ModelAdaptersConfig:
         else:
             return config
 
-    def add(self, adapter_name: str, adapter_type: AdapterType, config=None):
+    def add(self, adapter_name: str, adapter_type: AdapterType, config: Optional[Union[str, dict]] = None):
         if adapter_name in self.adapters:
             raise ValueError(f"An adapter with the name '{adapter_name}' has already been added.")
-        # TODO temporary, remove when multiple adapter configs are supported (!)
-        assert config is None, "All adapters of one type must have the same config."
-        self.adapters[adapter_name] = {
-            'type': adapter_type,
-            'config': config
-        }
+        config_name = config
+        if isinstance(config, str):
+            if config not in ADAPTER_CONFIG_MAP and config not in self.config_map:
+                raise ValueError(f"Invalid adapter config identifier '{config}''")
+        # if it's a dict, compute it's hash and add a new entry to the config map
+        elif isinstance(config, dict):
+            config_name = get_adapter_config_hash(config)
+            self.config_map[config_name] = config
+        self.adapters[adapter_name] = (adapter_type, config_name)
 
     def get_config(self, adapter_type: AdapterType) -> dict:
         config = self.config_map.get(adapter_type, None)
@@ -125,6 +132,20 @@ class ModelAdaptersConfig:
         else:
             raise ValueError("Unable to identify {} as a valid adapter config.".format(config))
 
+    def common_config(self, adapter_names: list) -> Optional[dict]:
+        common_config_name = None
+        for name in adapter_names:
+            _, config_name = self.adapters[name]
+            if common_config_name and common_config_name != config_name:
+                return None
+            common_config_name = config_name
+        if not common_config_name:
+            return None
+        config = self.config_map[common_config_name]
+        if isinstance(config, str):
+            return ADAPTER_CONFIG_MAP[config]
+        return config
+
     def to_dict(self):
         output_dict = {}
         output_dict['adapters'] = copy.deepcopy(self.adapters)
@@ -132,12 +153,36 @@ class ModelAdaptersConfig:
         return output_dict
 
 
-def build_full_config(adapter_config, adapter_type, model_config, name=None, with_head=False):
+def _minimize_dict(d):
+    if isinstance(d, dict):
+        return {k: _minimize_dict(v) for (k, v) in d.items() if v}
+    else:
+        return d
+
+
+def get_adapter_config_hash(config, length=16):
+    """Calculates the hash of a given adapter configuration which is used to identify this configuration.
+
+    Returns:
+        str: The resulting hash of the given config dict.
+    """
+    minimized_config = _minimize_dict(
+        {k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE}
+    )
+    dict_str = json.dumps(minimized_config, sort_keys=True)
+    h = hashlib.sha1()
+    h.update(dict_str.encode(encoding='utf-8'))
+    return h.hexdigest()[:length]
+
+
+def build_full_config(adapter_config, adapter_type, model_config, model_name=None, name=None, with_head=False):
     config_dict = {
         'type': adapter_type,
         'model_type': model_config.model_type,
         'hidden_size': model_config.hidden_size
     }
+    if model_name:
+        config_dict['model_name'] = model_name
     if name:
         config_dict['name'] = name
     config_dict['config'] = adapter_config

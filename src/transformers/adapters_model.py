@@ -78,7 +78,8 @@ class AdapterLoader:
 
         adapter_config = self.model.config.adapters.get(name)
         config_dict = build_full_config(
-            adapter_config, self.adapter_type, self.model.config, name=name, with_head=save_head
+            adapter_config, self.adapter_type, self.model.config,
+            model_name=self.model.model_name, name=name, with_head=save_head
         )
         # add meta information if given
         if meta_dict:
@@ -130,13 +131,11 @@ class AdapterLoader:
         # Check that loaded config is equal to the requested config.
         for k, v in config['config'].items():
             assert requested_config[k] == v, "Adapter configurations have to be equal."
-            # TODO: temporary, remove later
-            assert self.config[k] == v
 
         adapter_name = load_as or config['name']
         # If the adapter is not part of the model, add it
         if adapter_name not in self.model.config.adapters.adapters:
-            self.model.add_adapter(adapter_name, self.adapter_type)
+            self.model.add_adapter(adapter_name, self.adapter_type, config=config['config'])
         else:
             logger.warn("Overwriting existing adapter '{}'.".format(adapter_name))
 
@@ -158,6 +157,7 @@ class AdapterLoader:
             self._load_adapter_weights(
                 resolved_folder, 'head', config['name'], weights_name=HEAD_WEIGHTS_NAME, load_as=load_as
             )
+        return adapter_name
 
     def _load_adapter_config(self, resolved_folder):
         """Loads an adapter configuration.
@@ -259,7 +259,7 @@ class ModelAdaptersMixin:
     def load_adapter(self, adapter_name_or_path, adapter_type, config=None,
                      version=None, model_name=None, load_head=False, load_as=None, **kwargs):
         if AdapterType.has(adapter_type):
-            self.adapter_loaders[adapter_type].load(
+            return self.adapter_loaders[adapter_type].load(
                 adapter_name_or_path, config, version, model_name, load_head, load_as, **kwargs
             )
         else:

@@ -38,10 +38,11 @@ class BertSelfOutputAdaptersMixin:
 
     def add_attention_layer(self, tasks):
         """See BertModel.add_attention_layer"""
-        # TODO this assumes a common adapter config
-        adapter_config = self.config.adapters.get_config(AdapterType.text_task)
+        task_names = tasks if isinstance(tasks, list) else tasks.split('_')
+        adapter_config = self.config.adapters.common_config(task_names)
+        if not adapter_config:
+            raise ValueError("All tasks used in the attention layer must have the same configuration.")
         if adapter_config['MH_Adapter']:
-            task_names = tasks if isinstance(tasks, list) else tasks.split('_')
             if adapter_config['attention_type'] == 'tok-lvl':
                 layer = BertAdapterAttention(self.config)
             elif adapter_config['attention_type'] == 'sent-lvl':
@@ -118,12 +119,12 @@ class BertSelfOutputAdaptersMixin:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         # Task adapters
-        # TODO this assumes a common adapter config
-        task_adapter_config = self.config.adapters.get_config(AdapterType.text_task)
         # filter tasks that are available in this module
         if tasks:
             tasks = [t for t in tasks if t in self.attention_text_task_adapters]
-        if task_adapter_config and tasks:
+        if tasks:
+            # if we have multiple tasks and use fusion, all configs are assumed to be equal
+            task_adapter_config = self.config.adapters.get(tasks[0])
             adapter_used = True
 
             if task_adapter_config['residual_before_ln']:
@@ -175,10 +176,11 @@ class BertOutputAdaptersMixin:
 
     def add_attention_layer(self, tasks):
         """See BertModel.add_attention_layer"""
-        # TODO this assumes a common adapter config
-        adapter_config = self.config.adapters.get_config(AdapterType.text_task)
+        task_names = tasks if isinstance(tasks, list) else tasks.split('_')
+        adapter_config = self.config.adapters.common_config(task_names)
+        if not adapter_config:
+            raise ValueError("All tasks used in the attention layer must have the same configuration.")
         if adapter_config['Output_Adapter']:
-            task_names = tasks if isinstance(tasks, list) or isinstance(tasks, tuple) else tasks.split('_')
             if adapter_config['attention_type'] == 'tok-lvl':
                 layer = BertAdapterAttention(self.config)
             elif adapter_config['attention_type'] == 'sent-lvl':
@@ -275,12 +277,12 @@ class BertOutputAdaptersMixin:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         # Task adapters
-        # TODO this assumes a common adapter config
-        task_adapter_config = self.config.adapters.get_config(AdapterType.text_task)
         # filter tasks that are available in this module
         if tasks:
             tasks = [t for t in tasks if t in self.layer_text_task_adapters]
-        if task_adapter_config and tasks:
+        if tasks:
+            # if we have multiple tasks and use fusion, all configs are assumed to be equal
+            task_adapter_config = self.config.adapters.get(tasks[0])
             adapter_used = True
 
             if task_adapter_config['residual_before_ln']:
@@ -459,32 +461,25 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         """
         self.train_adapter(AdapterType.text_task)
 
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
+    def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
+        """Adds a new adapter module of the specified type to the model.
+
+        Args:
+            adapter_name (str): The name of the adapter module to be added.
+            adapter_type (AdapterType): The adapter type.
+            config (str or dict, optional): The adapter configuration, can be either:
+                - the string identifier of a pre-defined configuration dictionary
+                - a configuration dictionary specifying the full config
+                - if not given, the default configuration for this adapter type will be used
+        """
         if not AdapterType.has(adapter_type):
             raise ValueError("Invalid adapter type {}".format(adapter_type))
-        # TODO allow different adapter configs
         if not self.config.adapters.get_config(adapter_type):
-            self.config.adapters.set_config(adapter_type, DEFAULT_ADAPTER_CONFIG)
-        self.config.adapters.add(adapter_name, adapter_type)
+            self.config.adapters.set_config(adapter_type, config or DEFAULT_ADAPTER_CONFIG)
+        self.config.adapters.add(adapter_name, adapter_type, config=config)
         self.encoder.add_adapter(adapter_name, adapter_type)
         if adapter_type == AdapterType.text_lang:
             self.add_invertible_lang_adapter(adapter_name)
-
-    def add_task_adapter(self, task_name):
-        """Adds a new task adapter to the model.
-
-        Args:
-            task_name (str): the name of the task
-        """
-        self.add_adapter(task_name, AdapterType.text_task)
-
-    def add_language_adapter(self, language_name):
-        """Adds a new language adapter to the model.
-
-        Args:
-            language_name (str): the name of the language
-        """
-        self.add_adapter(language_name, AdapterType.text_lang)
 
     def add_invertible_lang_adapter(self, language):
         if language in self.invertible_lang_adapters:

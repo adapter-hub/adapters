@@ -66,7 +66,7 @@ def run_lang_adapter_test():
     global roberta
 
     roberta = RobertaModel.from_pretrained("roberta-base")
-    roberta.add_language_adapter("dummy")
+    roberta.add_adapter("dummy", "text_lang")
     roberta.save_adapter(ADAPTER_DIR + "dummy", "dummy")
 
     roberta2 = RobertaModel.from_pretrained("roberta-base")
