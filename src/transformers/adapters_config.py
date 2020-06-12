@@ -1,9 +1,13 @@
 from enum import Enum
 import json
+import logging
 from os.path import isfile
 import copy
 from typing import Optional, Union
 import hashlib
+
+
+logger = logging.getLogger(__name__)
 
 
 # TODO add more default configs here
@@ -107,6 +111,7 @@ class ModelAdaptersConfig:
             config_name = get_adapter_config_hash(config)
             self.config_map[config_name] = config
         self.adapters[adapter_name] = (adapter_type, config_name)
+        logger.info(f"Adding adapter '{adapter_name}' of type '{adapter_type}'.")
 
     def get_config(self, adapter_type: AdapterType) -> dict:
         config = self.config_map.get(adapter_type, None)

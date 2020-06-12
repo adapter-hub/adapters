@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import logging
 from os import mkdir
 from os.path import isdir, join, exists
@@ -12,6 +13,7 @@ from .adapters_config import (
     DEFAULT_ADAPTER_CONFIG,
     AdapterType,
     build_full_config,
+    get_adapter_config_hash,
 )
 
 
@@ -19,28 +21,18 @@ logger = logging.getLogger(__name__)
 
 
 class AdapterLoader:
-    """A class providing methods for saving and loading adapter modules of a specified type."""
+    """A class providing methods for saving and loading adapter modules from the Hub, the filesystem or a remote url."""
 
-    def __init__(self, model, adapter_type: AdapterType):
+    def __init__(self, model, adapter_type=None):
         self.model = model
         self.adapter_type = adapter_type
 
-    # TODO remove this
     @property
     def config(self):
         return self.model.config.adapters.get_config(self.adapter_type)
 
-    @config.setter
-    def config(self, value):
-        self.model.config.adapters.set_config(self.adapter_type, value)
-
-    def state_dict(self, adapter_name: str):
-        """Returns a dictionary containing the whole state of the specified adapter.
-
-        Args:
-            adapter_name (str): the name of the task adapter
-        """
-        is_part = self._get_params_check_func(self.adapter_type, adapter_name)
+    def _state_dict(self, adapter_type, adapter_name):
+        is_part = self._get_params_check_func(adapter_type, adapter_name)
         return {k: v for (k, v) in self.model.state_dict().items() if is_part(k)}
 
     def _get_params_check_func(self, adapter_type, adapter_name):
@@ -76,9 +68,9 @@ class AdapterLoader:
             assert isdir(save_directory), "Saving path should be a directory where adapter and configuration can be saved."
         assert name in self.model.config.adapters.adapters, "No adapter of this type with the given name is part of this model."
 
-        adapter_config = self.model.config.adapters.get(name)
+        adapter_config, adapter_type = self.model.config.adapters.get(name, return_type=True)
         config_dict = build_full_config(
-            adapter_config, self.adapter_type, self.model.config,
+            adapter_config, adapter_type, self.model.config,
             model_name=self.model.model_name, name=name, with_head=save_head
         )
         # add meta information if given
@@ -94,7 +86,7 @@ class AdapterLoader:
         logger.info("Configuration saved in {}".format(output_config_file))
 
         # Get the state of all adapter modules for this task
-        adapter_state_dict = self.state_dict(config_dict['name'])
+        adapter_state_dict = self._state_dict(adapter_type, config_dict['name'])
         # Save the adapter weights
         output_file = join(save_directory, WEIGHTS_NAME)
         torch.save(adapter_state_dict, output_file)
@@ -108,9 +100,12 @@ class AdapterLoader:
             adapter_name_or_path (str): can be either:
                 - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
                 - a path to a directory containing adapter weights saved using `model.saved_adapter()`
-            default_config (str, optional): The identifier of the adapter configuration to be used if no config is set.
+                - a URL pointing to a zip folder containing a saved adapter module
+            config (str, optional): The requested configuration of the adapter.
             version (int, optional): The version of the adapter to be loaded.
+            model_name (str, optional): The string identifier of the pre-trained model.
             load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was saved will be used.
         """
         # use: given adapter config (can be string) > default config of this type > global default config
         requested_config = resolve_adapter_config(
@@ -124,22 +119,17 @@ class AdapterLoader:
 
         # Load config of adapter
         config = self._load_adapter_config(resolved_folder)
-        assert config['type'] == self.adapter_type, "Loaded adapter has to be a {} adapter.".format(self.adapter_type)
-        # If no adapter config is available yet, set to the config of the loaded adapter
-        if not self.config:
-            self.config = config['config']
-        # Check that loaded config is equal to the requested config.
-        for k, v in config['config'].items():
-            assert requested_config[k] == v, "Adapter configurations have to be equal."
+        if self.adapter_type:
+            assert config['type'] == self.adapter_type, "Loaded adapter has to be a {} adapter.".format(self.adapter_type)
 
         adapter_name = load_as or config['name']
         # If the adapter is not part of the model, add it
         if adapter_name not in self.model.config.adapters.adapters:
-            self.model.add_adapter(adapter_name, self.adapter_type, config=config['config'])
+            self.model.add_adapter(adapter_name, config['type'], config=config['config'])
         else:
             logger.warn("Overwriting existing adapter '{}'.".format(adapter_name))
 
-        self._load_adapter_weights(resolved_folder, self.adapter_type, config['name'], load_as=load_as)
+        self._load_adapter_weights(resolved_folder, config['type'], config['name'], load_as=load_as)
 
         # Optionally, load the weights of the prediction head
         if load_head:
@@ -207,15 +197,44 @@ class AdapterLoader:
         return missing_adapter_keys, unexpected_keys
 
 
-class ModelAdaptersMixin:
+class ModelAdaptersMixin(ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
-        self.adapter_loaders = {
-            t: AdapterLoader(self, t) for t in AdapterType
-        }
+
+    # These methods have to be implemented by every deriving class:
+
+    @abstractmethod
+    def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
+        """Adds a new adapter module of the specified type to the model.
+
+        Args:
+            adapter_name (str): The name of the adapter module to be added.
+            adapter_type (AdapterType): The adapter type.
+            config (str or dict, optional): The adapter configuration, can be either:
+                - the string identifier of a pre-defined configuration dictionary
+                - a configuration dictionary specifying the full config
+                - if not given, the default configuration for this adapter type will be used
+        """
+        pass
+
+    @abstractmethod
+    def train_adapter(self, adapter_type: AdapterType):
+        """Sets the model in mode for training the given type of adapter.
+        """
+        pass
+
+    def train_language_adapter(self):
+        """Sets the model in mode for training language adapters.
+        """
+        self.train_adapter(AdapterType.text_lang)
+
+    def train_task_adapter(self):
+        """Sets the model in mode for training task adapters.
+        """
+        self.train_adapter(AdapterType.text_task)
 
     def has_adapters(self, adapter_type=None):
         if not adapter_type:
@@ -238,7 +257,7 @@ class ModelAdaptersMixin:
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
-    def save_adapter(self, save_directory, adapter_name, save_head=False, meta_dict=None):
+    def save_adapter(self, save_directory: str, adapter_name: str, save_head=False, meta_dict=None):
         """Saves an adapter and its configuration file to a directory so that it can be shared
         or reloaded using `load_adapter()`.
 
@@ -252,15 +271,58 @@ class ModelAdaptersMixin:
         """
         adapter_type = self.config.adapters.get_type(adapter_name)
         if adapter_type:
-            self.adapter_loaders[adapter_type].save(save_directory, adapter_name, save_head, meta_dict)
+            loader = AdapterLoader(self, adapter_type)
+            loader.save(save_directory, adapter_name, save_head, meta_dict)
         else:
             raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
-    def load_adapter(self, adapter_name_or_path, adapter_type, config=None,
+    def load_adapter(self, adapter_name_or_path, adapter_type=None, config=None,
                      version=None, model_name=None, load_head=False, load_as=None, **kwargs):
-        if AdapterType.has(adapter_type):
-            return self.adapter_loaders[adapter_type].load(
+        """Loads a pre-trained pytorch adapter module from the local file system or a remote location.
+
+        Args:
+            adapter_name_or_path (str): can be either:
+                - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
+                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
+                - a URL pointing to a zip folder containing a saved adapter module
+            adapter_type (AdapterType, optional): The type of adapter to be loaded. If not specified, text_task will be used for adapters loaded from the Hub.
+            config (str, optional): The requested configuration of the adapter. If not specified, will be either:
+                - the default adapter config for the requested adapter if specified
+                - the global default adapter config
+            version (int, optional): The version of the adapter to be loaded.
+            model_name (str, optional): The string identifier of the pre-trained model.
+            load_head (bool, optional): If set to true, load the corresponding prediction head toegether with the adapter. Defaults to False.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was saved will be used.
+        """
+        if AdapterType.has(adapter_type) or not adapter_type:
+            loader = AdapterLoader(self, adapter_type)
+            return loader.load(
                 adapter_name_or_path, config, version, model_name, load_head, load_as, **kwargs
             )
         else:
-            raise ValueError("Invalid adapter type {}".format(adapter_type))
+            raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
+
+    def save_all_adapters(self, save_directory: str, save_head=False, meta_dict=None):
+        """Saves all adapters of this model together with their configuration
+        to subfolders of the given location.
+
+        Args:
+            save_directory (str): Path to a directory where the adapters should be saved.
+        """
+        for name in self.config.adapters.adapters:
+            adapter_config, adapter_type = self.config.adapters.get(name, return_type=True)
+            h = get_adapter_config_hash(adapter_config)
+            save_path = join(save_directory, name)
+            if meta_dict:
+                meta_dict.update({'config_id': h})
+            else:
+                meta_dict = {'config_id': h}
+            self.save_adapter(save_path, name, save_head=save_head, meta_dict=meta_dict)
+
+    def freeze_model(self, freeze=True):
+        """Freezes all weights of the model.
+        """
+        # first freeze/ unfreeze all model weights
+        for param in self.parameters():
+            param.requires_grad = not freeze
+        self.model_freezed = freeze

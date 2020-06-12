@@ -35,6 +35,12 @@ def load_config_from_old_format(model_path):
             new_k = CONFIG_CONVERSION_MAP[k]
             config[new_k] = v
             del config[k]
+    # fix adapters list
+    if 'adapters' in config:
+        for k, v in config['adapters']['adapters'].items():
+            if isinstance(v, dict):
+                new_v = (v['type'], v['config'])
+                config['adapters']['adapters'][k] = new_v
     # load config class
     if "model_type" in config:
         config_class = CONFIG_MAPPING[config["model_type"]]

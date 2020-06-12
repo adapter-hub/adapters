@@ -1,6 +1,7 @@
 import torch
 
-from transformers import BertModel, RobertaModel
+from transformers import BertModel, RobertaModel, AutoModel
+from transformers import AdapterType
 
 
 def is_output_equal(model1, model2, adapters=None, iterations=1, input_shape=(1, 128)):
@@ -35,9 +36,12 @@ def model_diff(model1, model2):
     return [s for s in params1 if s not in params2], [s for s in params2 if s not in params1]
 
 
-def print_params(model):
-    for s, _ in model.named_parameters():
-        print(s)
+def print_params(model, grads=False):
+    for s, param in model.named_parameters():
+        if grads:
+            print("{:80} requires_grad={}".format(s, param.requires_grad))
+        else:
+            print(s)
 
 
 def run_adapter_test():
@@ -53,7 +57,7 @@ def run_adapter_test():
     bert_sst.save_adapter(ADAPTER_DIR + "sst", "sst", save_head=True)
 
     # add SST adapter to BERT by loading the previously saved
-    bert_add_new.load_adapter(ADAPTER_DIR + "sst", "text_task", load_head=True)
+    bert_add_new.load_adapter(ADAPTER_DIR + "sst", load_head=True)
 
     # check equality
     assert is_output_equal(bert_add_new, bert_sst, adapters=['sst'])

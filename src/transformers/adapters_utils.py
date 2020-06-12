@@ -193,8 +193,7 @@ def find_in_index(
     config_hash = get_adapter_config_hash(adapter_config)
     if config_hash in index_entry:
         # now match the org if given
-        version = org or index_entry[config_hash]["default"]
-        hub_entry = index_entry[config_hash]['versions'].get(version, None)
+        hub_entry = _get_matching_version(index_entry[config_hash], org)
         if hub_entry:
             logger.info("Found matching adapter at: {}".format(hub_entry))
         return hub_entry
@@ -202,11 +201,23 @@ def find_in_index(
     elif not strict and len(index_entry) == 1:
         logger.warn("No matching adapter config found for this specifier, falling back to default.")
         config_entry = list(index_entry.values())[0]
-        version = org or config_entry["default"]
-        return config_entry['versions'].get(version, None)
+        return _get_matching_version(config_entry, org)
     else:
         raise ValueError(
             "No adapter '{}' found for the current model or configuration.".format(identifier)
+        )
+
+
+def _get_matching_version(config_entry, org):
+    if org:
+        return config_entry['versions'].get(org, None)
+    elif len(config_entry['versions']) == 1:
+        return list(config_entry['versions'].values())[0]
+    elif 'default' in config_entry:
+        return config_entry['versions']['default']
+    else:
+        raise ValueError(
+            "Multiple adapters with this name are available for this config."
         )
 
 
@@ -242,6 +253,8 @@ def pull_from_hub(
     Returns:
         str: The local path to which the adapter has been downloaded.
     """
+    if not adapter_config or not adapter_type or not model_name:
+        raise ValueError("adapter_config, adapter_type and model_name arguments must be given.")
     # resolve config if it's an identifier
     adapter_config = resolve_adapter_config(adapter_config)
     # search the correct entry in the index
@@ -273,21 +286,22 @@ def pull_from_hub(
 
 def resolve_adapter_path(
         adapter_name_or_path,
-        adapter_config: Union[dict, str],
-        adapter_type: AdapterType,
-        model_name: str,
+        adapter_config: Union[dict, str] = None,
+        adapter_type: AdapterType = AdapterType.text_task,
+        model_name: str = None,
         version: str = None,
         **kwargs) -> str:
     """Resolves the path to a pre-trained adapter module.
+    Note: If attempting to resolve an adapter from the Hub, adapter_config, adapter_type and model_name must be present.
 
     Args:
         adapter_name_or_path (str): Can be either:
             - the path to a folder in the file system containing the adapter configuration and weights
             - an url pointing to a zip folder containing the adapter configuration and weights
             - a specifier matching a pre-trained adapter uploaded to Adapter-Hub
-        adapter_config (Union[dict, str]): The configuration of the adapter to be loaded.
-        adapter_type (AdapterType): The adapter type.
-        model_name (str): The identifier of the pre-trained model for which to load an adapter.
+        adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
+        adapter_type (AdapterType, optional): The adapter type.
+        model_name (str, optional): The identifier of the pre-trained model for which to load an adapter.
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
 
     Returns:
@@ -312,6 +326,8 @@ def resolve_adapter_path(
             )
     # matches possible form of identifier in hub
     elif re.fullmatch(ADAPTER_IDENTIFIER_PATTERN, adapter_name_or_path):
+        if not adapter_type:  # make sure we have set an adapter_type
+            adapter_type = AdapterType.text_task
         return pull_from_hub(
             adapter_name_or_path, adapter_config, adapter_type, model_name, version=version, **kwargs
         )

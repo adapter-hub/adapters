@@ -430,14 +430,6 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
                                          activation_function=v['activation_function'],
                                          qa_examples=v['qa_examples'])
 
-    def freeze_model(self, freeze=True):
-        """Freezes all weights of the model.
-        """
-        # first freeze/ unfreeze all model weights
-        for param in self.parameters():
-            param.requires_grad = not freeze
-        self.model_freezed = freeze
-
     def train_adapter(self, adapter_type: AdapterType):
         """Sets the model in mode for training the given type of adapter.
         """
@@ -450,16 +442,6 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         if adapter_type == AdapterType.text_lang:
             for param in self.invertible_lang_adapters.parameters():
                 param.requires_grad = True
-
-    def train_language_adapter(self):
-        """Sets the model in mode for training language adapters.
-        """
-        self.train_adapter(AdapterType.text_lang)
-
-    def train_task_adapter(self):
-        """Sets the model in mode for training task adapters.
-        """
-        self.train_adapter(AdapterType.text_task)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
         """Adds a new adapter module of the specified type to the model.
