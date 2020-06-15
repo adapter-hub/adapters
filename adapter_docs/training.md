@@ -20,16 +20,15 @@ the GLUE dataset. The only main adaption we have to make is to add a new adapter
 ```python
 # get actual model for derived models with heads
 base_model = getattr(model, model.base_model_prefix, model)
-# task adapter
-base_model.set_adapter_config(AdapterType.text_task, args.adapter_config)
-# load a pre-trained adapter for fine-tuning if specified
-if args.load_task_adapter:
-    base_model.load_task_adapter(args.load_task_adapter)
-    tasks = base_model.config.text_task_adapters
-# otherwise, add a new adapter
-else:
-    base_model.add_task_adapter(args.task_name)
-    tasks = [args.task_name]
+# task adapter - only add if not existing
+if task_name not in base_model.config.adapters.adapter_list(AdapterType.text_task):
+    base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
+    # load a pre-trained adapter for fine-tuning if specified
+    if adapter_args.load_task_adapter:
+        base_model.load_adapter(adapter_args.load_task_adapter, AdapterType.text_task, load_as=task_name)
+    # otherwise, add a new adapter
+    else:
+        base_model.add_adapter(task_name, AdapterType.text_task)
 # enable adapter training
 base_model.train_task_adapter()
 ```
@@ -88,9 +87,23 @@ module for the given GLUE task.
 Training a language adapter is equally straightforward as training a task adapter. Similarly to the steps for task adapters
 described above, we add a language adapter module to an existing model training script. Here, we modified the
 [run_language_modeling.py](https://github.com/adapter-hub/adapter-transformers/blob/master/examples/run_language_modeling.py)
-script.
+script by adding the following code:
 
-Training a language adapter on BERT/RoBERTa then may look like the following:
+```python
+# get actual model for derived models with heads
+base_model = getattr(model, model.base_model_prefix, model)
+# language adapter - only add if not existing
+if language not in base_model.config.adapters.adapter_list(AdapterType.text_lang):
+    base_model.set_adapter_config(AdapterType.text_lang, adapter_args.adapter_config)
+    if adapter_args.load_lang_adapter:
+        base_model.load_adapter(adapter_args.load_lang_adapter, AdapterType.text_lang, load_as=language)
+    else:
+        base_model.add_adapter(language, AdapterType.text_lang)
+# enable adapter training
+base_model.train_language_adapter()
+```
+
+Training a language adapter on BERT then may look like the following:
 
 ```
 export TRAIN_FILE=/path/to/dataset/wiki.train.raw
@@ -104,7 +117,8 @@ python run_language_modeling.py \
     --train_data_file=$TRAIN_FILE \
     --do_eval \
     --eval_data_file=$TEST_FILE \
-    --mlm
-    --train_language_adapter \
+    --mlm \
+    -- language en \
+    --train_adapter \
     --adapter_config pfeiffer
 ```

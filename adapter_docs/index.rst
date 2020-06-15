@@ -6,15 +6,16 @@
 adapter-transformers Documentation
 ================================================
 
-This library is an extension of Huggingface's `transformers <https://huggingface.co/transformers/>`_ library that adds Adapter and AdapterFusion components to
-transformer models.
+``adapter-transformers`` is an extension of Huggingface's `transformers <https://huggingface.co/transformers/>`_ library
+that adds adapter components to transformer models.
 
 The main additions on top of *transformers* are:
 
-- Extension of transformer models by Adapter and AdapterFusion components
+- Extension of transformer models by task and language adapter components
 - Loading and saving of pre-trained adapters
-- *Adapter Hub*, a repository of shared pre-trained adapters
+- `Adapter Hub <https://adapterhub.ml>`_, a repository of shared pre-trained adapters
 
+Currently, we support the PyTorch versions of all models listed in the *Supported Models* section.
 
 .. toctree::
    :maxdepth: 2
@@ -23,26 +24,28 @@ The main additions on top of *transformers* are:
    installation
    quickstart
    adapter_types
-   adapter_training
+   training
 
 .. toctree::
    :maxdepth: 2
    :caption: Adapter Hub
 
-   adapter_loading
-   adapter_sharing
+   loading
+   contributing
 
 .. toctree::
    :maxdepth: 2
    :caption: Adapter-Related Classes
 
-   classes/adapter_module
-   classes/model_adapters_mixin
-   classes/adapters_bert
+   classes/adapter_modules
+   classes/adapter_config
+   classes/adapter_model_mixin
+   classes/adapter_bert
+   classes/adapter_utils
 
 .. toctree::
    :maxdepth: 1
-   :caption: Transformer Models
+   :caption: Supported Models
 
    classes/bert
    classes/roberta
@@ -54,4 +57,3 @@ Indices and tables
 
 * :ref:`genindex`
 * :ref:`modindex`
-* :ref:`search`

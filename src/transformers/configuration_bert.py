@@ -19,7 +19,7 @@
 import logging
 
 from .configuration_utils import PretrainedConfig
-from .adapters_config import ModelAdaptersConfig
+from .adapter_config import ModelAdaptersConfig
 
 
 logger = logging.getLogger(__name__)

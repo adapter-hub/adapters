@@ -165,18 +165,18 @@ if is_sklearn_available():
 
 # Adapters
 if is_torch_available():
-    from .adapters_model import (
+    from .adapter_model_mixin import (
         AdapterLoader,
         ModelAdaptersMixin,
     )
-    from .adapters_config import (
+    from .adapter_config import (
         ADAPTER_CONFIG_MAP,
         DEFAULT_ADAPTER_CONFIG,
         AdapterType,
         ModelAdaptersConfig,
         get_adapter_config_hash,
     )
-    from .adapters_utils import (
+    from .adapter_utils import (
         ADAPTER_HUB_URL,
         ADAPTER_HUB_INDEX_FILE,
         ADAPTER_CACHE,

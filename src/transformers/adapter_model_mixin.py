@@ -4,12 +4,12 @@ from os import mkdir
 from os.path import isdir, join, exists
 import torch
 import json
-from .adapters_utils import (
+from .adapter_utils import (
     CONFIG_NAME, WEIGHTS_NAME, HEAD_WEIGHTS_NAME,
     resolve_adapter_config,
     resolve_adapter_path,
 )
-from .adapters_config import (
+from .adapter_config import (
     DEFAULT_ADAPTER_CONFIG,
     AdapterType,
     build_full_config,

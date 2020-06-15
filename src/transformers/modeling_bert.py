@@ -29,7 +29,7 @@ from .configuration_bert import BertConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_utils import PreTrainedModel, prune_linear_layer
 
-from .adapters_bert import (
+from .adapter_bert import (
     BertSelfOutputAdaptersMixin,
     BertOutputAdaptersMixin,
     BertLayerAdaptersMixin,

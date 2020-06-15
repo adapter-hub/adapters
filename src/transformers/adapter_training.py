@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .adapters_config import AdapterType
+from .adapter_config import AdapterType
 
 
 @dataclass
@@ -28,6 +28,13 @@ class AdapterArguments:
 
 
 def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArguments):
+    """Sets up task adapter training for a given pre-trained model.
+
+    Args:
+        model (PretrainedModel): The model for which to set up task adapter training.
+        task_name (str): The name of the task to train.
+        adapter_args (AdapterArguments): Adapter traininf arguments.
+    """
     language = adapter_args.load_lang_adapter
     if adapter_args.train_adapter:
         # get actual model for derived models with heads

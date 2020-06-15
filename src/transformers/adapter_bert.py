@@ -1,12 +1,8 @@
 import torch
 from torch import nn
 
-from .adapter import *
-from .invertible_lang_adapters import (
-    NICECouplingBlock,
-    GLOWCouplingBlock
-)
-from .adapters_model import ModelAdaptersMixin, AdapterType, DEFAULT_ADAPTER_CONFIG
+from .adapter_modeling import *
+from .adapter_model_mixin import ModelAdaptersMixin, AdapterType, DEFAULT_ADAPTER_CONFIG
 
 
 class BertSelfOutputAdaptersMixin:

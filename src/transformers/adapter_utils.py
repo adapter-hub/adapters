@@ -13,7 +13,7 @@ from typing import Optional, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 from .file_utils import is_remote_url, get_from_cache, torch_cache_home
-from .adapters_config import ADAPTER_CONFIG_MAP, AdapterType, get_adapter_config_hash
+from .adapter_config import ADAPTER_CONFIG_MAP, AdapterType, get_adapter_config_hash
 
 
 logger = logging.getLogger(__name__)

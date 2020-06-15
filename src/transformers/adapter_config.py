@@ -68,6 +68,8 @@ class AdapterType(str, Enum):
 
 
 class ModelAdaptersConfig:
+    """This class manages the setup and configuration of adapter modules in a pre-trained model.
+    """
     def __init__(self, **kwargs):
         # adapters maps <name> -> (<type>, <config_name>)
         self.adapters = kwargs.pop("adapters", {})
