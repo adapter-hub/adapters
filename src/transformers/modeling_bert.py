@@ -715,7 +715,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         """
         # some warnings if we don't use available adapters
         if not adapter_tasks and self.has_adapters(AdapterType.text_task):
-            logger.warn("No adapter tasks given, but this model has task adapters. Add adapter tasks?")
+            logger.warn("There are adapters available but none are passed to model.forward")
         if not language and self.has_adapters(AdapterType.text_lang):
             logger.warn("No language given, but this model has language adapters. Add language?")
 
