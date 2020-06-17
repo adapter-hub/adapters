@@ -54,6 +54,13 @@ class TrainingArguments:
     do_train: bool = field(default=False, metadata={"help": "Whether to run training."})
     do_eval: bool = field(default=False, metadata={"help": "Whether to run eval on the dev set."})
     do_predict: bool = field(default=False, metadata={"help": "Whether to run predictions on the test set."})
+    store_best_model: bool = field(
+        default=False, metadata={"help": "Store the best model. This works in combination with"
+                                         " --evaluate_during_training."}
+    )
+    metric_score: Optional[str] = field(
+        default="accuracy", metadata={"help": "Metric in output for --store_best_model."}
+    )
     evaluate_during_training: bool = field(
         default=False, metadata={"help": "Run evaluation during training at each logging step."},
     )

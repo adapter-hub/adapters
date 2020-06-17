@@ -227,6 +227,10 @@ class Trainer:
             # We'll find a more elegant and not need to do this in the future.
             self.model.config.xla_device = True
 
+        # for finding the best model.
+        # TODO: assumes higher is better
+        self.best_score = 0.0
+
     def get_train_dataloader(self) -> DataLoader:
         if self.train_dataset is None:
             raise ValueError("Trainer: training requires a train_dataset.")
@@ -639,6 +643,9 @@ class Trainer:
         if not isinstance(self.model, PreTrainedModel):
             raise ValueError("Trainer.model appears to not be a PreTrainedModel")
         self.model.save_pretrained(output_dir)
+        if len(self.model.config.adapters.adapters) > 0:
+            for k,v in self.model.config.adapters.adapters.items():
+                self.model.base_model.save_adapter(save_directory=os.path.join(output_dir,k), adapter_name=k, save_head=False, meta_dict=None)
 
         # Good practice: save your training arguments together with the trained model
         torch.save(self.args, os.path.join(output_dir, "training_args.bin"))
@@ -696,6 +703,9 @@ class Trainer:
 
         output = self._prediction_loop(eval_dataloader, description="Evaluation")
 
+        if self.args.store_best_model:
+            self.store_best_model(output)
+
         self._log(output.metrics)
 
         if self.args.tpu_metrics_debug:
@@ -703,6 +713,20 @@ class Trainer:
             xm.master_print(met.metrics_report())
 
         return output.metrics
+
+    def store_best_model(self, output):
+
+        if self.args.metric_score not in output.metrics:
+            raise Exception("Metric %s not in output.\nThe following output was generated: %s", str(self.args.metric_score), str(output))
+
+        if output.metrics[self.args.metric_score] > self.best_score:
+
+            self.best_score = output.metrics[self.args.metric_score]
+            # Save model checkpoint
+            self.save_model(os.path.join(self.args.output_dir, "best_model"))
+            with open(os.path.join(self.args.output_dir, "best_model", "output.txt"), 'w') as f:
+                f.write(str(output.metrics))
+
 
     def predict(self, test_dataset: Dataset) -> PredictionOutput:
         """
