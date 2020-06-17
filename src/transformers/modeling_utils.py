@@ -590,6 +590,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin):
             model_kwargs = kwargs
 
         # Load model
+        model_name = None  # pre-trained model identifier if given
         if pretrained_model_name_or_path is not None:
             if os.path.isdir(pretrained_model_name_or_path):
                 if from_tf and os.path.isfile(os.path.join(pretrained_model_name_or_path, TF_WEIGHTS_NAME + ".index")):
@@ -623,6 +624,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin):
                     filename=(TF2_WEIGHTS_NAME if from_tf else WEIGHTS_NAME),
                     use_cdn=use_cdn,
                 )
+                model_name = pretrained_model_name_or_path
 
             try:
                 # Load from URL or cache if already cached
@@ -653,6 +655,8 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin):
 
         # Instantiate model.
         model = cls(config, *model_args, **model_kwargs)
+        # set the name of the pretrained model if available
+        model.model_name = model_name
 
         if state_dict is None and not from_tf:
             try:

@@ -184,6 +184,8 @@ class RobertaForMaskedLM(BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         masked_lm_labels=None,
+        language=None,
+        tasks=None,
     ):
         r"""
         masked_lm_labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -229,9 +231,14 @@ class RobertaForMaskedLM(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            language=language,
+            adapter_tasks=tasks,
         )
         sequence_output = outputs[0]
-        prediction_scores = self.lm_head(sequence_output)
+        prediction_scores = self.lm_head(
+            sequence_output,
+            inv_lang_adapter=self.roberta.get_invertible_lang_adapter(language),
+        )
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
 
@@ -257,10 +264,13 @@ class RobertaLMHead(nn.Module):
         # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
         self.decoder.bias = self.bias
 
-    def forward(self, features, **kwargs):
+    def forward(self, features, inv_lang_adapter=None, **kwargs):
         x = self.dense(features)
         x = gelu(x)
         x = self.layer_norm(x)
+
+        if inv_lang_adapter:
+            x = inv_lang_adapter(x, rev=True)
 
         # project back to size of vocabulary with bias
         x = self.decoder(x)
@@ -294,6 +304,8 @@ class RobertaForSequenceClassification(BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         labels=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -340,6 +352,8 @@ class RobertaForSequenceClassification(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
         sequence_output = outputs[0]
         logits = self.classifier(sequence_output)
@@ -386,6 +400,8 @@ class RobertaForMultipleChoice(BertPreTrainedModel):
         position_ids=None,
         head_mask=None,
         inputs_embeds=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -439,6 +455,8 @@ class RobertaForMultipleChoice(BertPreTrainedModel):
             token_type_ids=flat_token_type_ids,
             attention_mask=flat_attention_mask,
             head_mask=head_mask,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
         pooled_output = outputs[1]
 
@@ -485,6 +503,8 @@ class RobertaForTokenClassification(BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         labels=None,
+        tasks=None,
+        language=None
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -530,6 +550,8 @@ class RobertaForTokenClassification(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=tasks,
+            language=language,
         )
 
         sequence_output = outputs[0]
@@ -604,6 +626,8 @@ class RobertaForQuestionAnswering(BertPreTrainedModel):
         inputs_embeds=None,
         start_positions=None,
         end_positions=None,
+        adapter_tasks=None,
+        language=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -662,6 +686,8 @@ class RobertaForQuestionAnswering(BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
         )
 
         sequence_output = outputs[0]

@@ -31,7 +31,10 @@ from transformers import (
     HfArgumentParser,
     Trainer,
     TrainingArguments,
+    AdapterArguments,
     set_seed,
+    AdapterType,
+    setup_task_adapter_training,
 )
 from utils_multiple_choice import MultipleChoiceDataset, Split, processors
 
@@ -88,8 +91,8 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
+    model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     if (
         os.path.exists(training_args.output_dir)
@@ -150,6 +153,11 @@ def main():
         cache_dir=model_args.cache_dir,
     )
 
+    # Setup adapters
+    task_name = data_args.task_name
+    language = adapter_args.load_lang_adapter
+    setup_task_adapter_training(model, task_name, adapter_args)
+
     # Get datasets
     train_dataset = (
         MultipleChoiceDataset(
@@ -187,6 +195,8 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
+        lang_adapter=language,
+        task_adapters=[task_name],
     )
 
     # Training

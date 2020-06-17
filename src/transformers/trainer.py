@@ -177,6 +177,8 @@ class Trainer:
         eval_dataset: Optional[Dataset] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         prediction_loss_only=False,
+        lang_adapter=None,
+        task_adapters=None,
         tb_writer: Optional["SummaryWriter"] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = None,
     ):
@@ -218,6 +220,9 @@ class Trainer:
         # Create output directory if needed
         if self.is_world_master():
             os.makedirs(self.args.output_dir, exist_ok=True)
+        # adapters used
+        self.lang_adapter = lang_adapter
+        self.task_adapters = task_adapters
         if is_tpu_available():
             # Set an xla_device flag on the model's config.
             # We'll find a more elegant and not need to do this in the future.
@@ -568,7 +573,7 @@ class Trainer:
         for k, v in inputs.items():
             inputs[k] = v.to(self.args.device)
 
-        outputs = model(**inputs)
+        outputs = model(**inputs, language=self.lang_adapter, adapter_tasks=self.task_adapters)
         loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
         if self.args.n_gpu > 1:
@@ -753,7 +758,7 @@ class Trainer:
                 inputs[k] = v.to(self.args.device)
 
             with torch.no_grad():
-                outputs = model(**inputs)
+                outputs = model(**inputs, language=self.lang_adapter, adapter_tasks=self.task_adapters)
                 if has_labels:
                     step_eval_loss, logits = outputs[:2]
                     eval_losses += [step_eval_loss.mean().item()]

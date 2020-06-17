@@ -34,7 +34,10 @@ from transformers import (
     HfArgumentParser,
     Trainer,
     TrainingArguments,
+    AdapterArguments,
     set_seed,
+    AdapterType,
+    setup_task_adapter_training,
 )
 from utils_ner import NerDataset, Split, get_labels
 
@@ -94,13 +97,13 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, adapter_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
-        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+        model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     if (
         os.path.exists(training_args.output_dir)
@@ -161,6 +164,11 @@ def main():
         cache_dir=model_args.cache_dir,
     )
 
+    # Setup adapters
+    task_name = "ner"
+    language = adapter_args.load_lang_adapter
+    setup_task_adapter_training(model, task_name, adapter_args)
+
     # Get datasets
     train_dataset = (
         NerDataset(
@@ -220,6 +228,8 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
+        lang_adapter=language,
+        task_adapters=[task_name],
     )
 
     # Training

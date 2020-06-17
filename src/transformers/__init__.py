@@ -136,6 +136,8 @@ from .tokenization_utils import PreTrainedTokenizer
 from .tokenization_xlm import XLMTokenizer
 from .tokenization_xlm_roberta import XLMRobertaTokenizer
 from .tokenization_xlnet import SPIECE_UNDERLINE, XLNetTokenizer
+
+from .adapter_training import AdapterArguments, setup_task_adapter_training
 from .trainer_utils import EvalPrediction
 from .training_args import TrainingArguments
 from .training_args_tf import TFTrainingArguments
@@ -146,6 +148,31 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 if is_sklearn_available():
     from .data import glue_compute_metrics, xnli_compute_metrics
+
+
+# Adapters
+if is_torch_available():
+    from .adapter_model_mixin import (
+        AdapterLoader,
+        ModelAdaptersMixin,
+    )
+    from .adapter_config import (
+        ADAPTER_CONFIG_MAP,
+        DEFAULT_ADAPTER_CONFIG,
+        AdapterType,
+        ModelAdaptersConfig,
+        get_adapter_config_hash,
+    )
+    from .adapter_utils import (
+        ADAPTER_HUB_URL,
+        ADAPTER_HUB_INDEX_FILE,
+        ADAPTER_CACHE,
+        pull_from_hub,
+        resolve_adapter_config,
+        resolve_adapter_path,
+    )
+    
+    # TODO add more
 
 
 # Modeling
