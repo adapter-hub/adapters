@@ -182,17 +182,11 @@ def get_adapter_config_hash(config, length=16):
     return h.hexdigest()[:length]
 
 
-def build_full_config(adapter_config, adapter_type, model_config, model_name=None, name=None, with_head=False):
+def build_full_config(adapter_config, model_config, **kwargs):
     config_dict = {
-        'type': adapter_type,
         'model_type': model_config.model_type,
         'hidden_size': model_config.hidden_size
     }
-    if model_name:
-        config_dict['model_name'] = model_name
-    if name:
-        config_dict['name'] = name
+    config_dict.update(kwargs)
     config_dict['config'] = adapter_config
-    if with_head:
-        config_dict['prediction_head'] = model_config.prediction_heads[name]
     return config_dict

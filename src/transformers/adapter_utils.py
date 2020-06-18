@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 CONFIG_NAME = "adapter_config.json"
 WEIGHTS_NAME = "pytorch_adapter.bin"
-HEAD_WEIGHTS_NAME = "pytorch_adapter_head.bin"
+HEAD_CONFIG_NAME = "head_config.json"
+HEAD_WEIGHTS_NAME = "pytorch_model_head.bin"
 
 ADAPTER_IDENTIFIER_PATTERN = r"[a-zA-Z\-_\/@]{2,}"
 ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/dist/"
