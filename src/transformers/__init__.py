@@ -170,6 +170,10 @@ if is_torch_available():
         ModelAdaptersMixin,
     )
     from .adapter_config import (
+        InvertibleAdapterConfig,
+        AdapterConfig,
+        PfeifferConfig,
+        HoulsbyConfig,
         ADAPTER_CONFIG_MAP,
         DEFAULT_ADAPTER_CONFIG,
         AdapterType,
