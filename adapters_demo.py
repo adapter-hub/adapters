@@ -3,6 +3,8 @@ import torch
 from transformers import BertModel, RobertaModel, AutoModel
 from transformers import AdapterType
 
+from convert_model import load_model_from_old_format
+
 
 def is_output_equal(model1, model2, adapters=None, iterations=1, input_shape=(1, 128)):
     """Checks whether the output of two models is equal given random input."""
@@ -49,7 +51,7 @@ def run_adapter_test():
     global bert_sst
 
     # load BERT with SST adapter included
-    bert_sst = BertModel.from_pretrained(MODEL_DIR + "sst")
+    bert_sst = load_model_from_old_format(MODEL_DIR + "sst")
     # load two default BERTs from huggingface
     bert_add_new = BertModel.from_pretrained("bert-base-uncased")
 
@@ -86,7 +88,7 @@ def run_adapter_download_test():
     global bert_sst
 
     # load BERT with SST adapter included
-    bert_sst = BertModel.from_pretrained(MODEL_DIR + "sst")
+    bert_sst = load_model_from_old_format(MODEL_DIR + "sst")
 
     # download pretrained adapter
     bert_base = BertModel.from_pretrained("bert-base-uncased")
