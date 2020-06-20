@@ -276,10 +276,10 @@ class BertSelfOutput(nn.Module, BertSelfOutputAdaptersMixin):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self._init_adapter_modules()
 
-    def forward(self, hidden_states, input_tensor, tasks=None):
+    def forward(self, hidden_states, input_tensor, tasks=None, language=None):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapters_forward(hidden_states, input_tensor, tasks)
+        hidden_states = self.adapters_forward(hidden_states, input_tensor, tasks=tasks, language=language)
         return hidden_states
 
 
@@ -320,12 +320,13 @@ class BertAttention(nn.Module):
         head_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
-        tasks=None
+        tasks=None,
+        language=None,
     ):
         self_outputs = self.self(
             hidden_states, attention_mask, head_mask, encoder_hidden_states, encoder_attention_mask
         )
-        attention_output = self.output(self_outputs[0], hidden_states, tasks=tasks)
+        attention_output = self.output(self_outputs[0], hidden_states, tasks=tasks, language=language)
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
         return outputs
 
@@ -382,7 +383,7 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
         tasks=None,
         language=None,
     ):
-        self_attention_outputs = self.attention(hidden_states, attention_mask, head_mask, tasks=tasks,)
+        self_attention_outputs = self.attention(hidden_states, attention_mask, head_mask, tasks=tasks, language=language)
         attention_output = self_attention_outputs[0]
         outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
 

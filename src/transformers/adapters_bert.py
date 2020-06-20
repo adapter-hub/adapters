@@ -102,20 +102,19 @@ class BertSelfOutputAdaptersMixin:
             adapter_used = True
 
             if lang_adapter_config['residual_before_ln']:
-                residual = hidden_states * 1.0
+                residual = hidden_states.clone()
 
             if lang_adapter_config['original_ln_before']:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
             if not lang_adapter_config['residual_before_ln']:
-                residual = hidden_states * 1.0
+                residual = hidden_states.clone()
 
             hidden_states, adapter_attention, down, up = self.attention_text_lang_adapters[language](
                 hidden_states,
                 residual_input=residual
             )
-            if lang_adapter_config['original_ln_after']:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
+
 
         # Task adapters
         # TODO this assumes a common adapter config
@@ -127,19 +126,19 @@ class BertSelfOutputAdaptersMixin:
             adapter_used = True
 
             if task_adapter_config['residual_before_ln']:
-                residual = hidden_states * 1.0
+                residual = hidden_states.clone()
 
             if hasattr(self.config, 'fusion_config') and self.config.fusion_config['query_before_ln']:
-                query = hidden_states * 1.0
+                query = hidden_states.clone()
 
             if task_adapter_config['original_ln_before']:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
             if not task_adapter_config['residual_before_ln']:
-                residual = hidden_states * 1.0
+                residual = hidden_states.clone()
 
             if hasattr(self.config, 'fusion_config') and not self.config.fusion_config['query_before_ln']:
-                query = hidden_states * 1.0
+                query = hidden_states.clone()
 
             # if we have multiple tasks, use fusion
             if len(tasks) > 1:
@@ -152,11 +151,12 @@ class BertSelfOutputAdaptersMixin:
                     hidden_states,
                     residual_input=residual
                 )
-                if task_adapter_config['original_ln_after']:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-        # In case we haven't used any adapter
-        if not adapter_used:
+
+        # In case we haven't used any adapter or we have a original_ln_after set for any adapter
+        if not adapter_used or \
+                (lang_adapter_config and lang_adapter_config['original_ln_after']) or \
+                (task_adapter_config and task_adapter_config['original_ln_after']):
             hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         return hidden_states
@@ -259,20 +259,19 @@ class BertOutputAdaptersMixin:
             adapter_used = True
 
             if lang_adapter_config['residual_before_ln']:
-                residual = hidden_states * 1.0
+                residual = hidden_states.clone()
 
             if lang_adapter_config['original_ln_before']:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
             if not lang_adapter_config['residual_before_ln']:
-                residual = hidden_states * 1.0
+                residual = hidden_states.clone()
 
             hidden_states, adapter_attention, down, up = self.layer_text_lang_adapters[language](
                 hidden_states,
                 residual_input=residual
             )
-            if lang_adapter_config['original_ln_after']:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
+
 
         # Task adapters
         # TODO this assumes a common adapter config
@@ -284,19 +283,19 @@ class BertOutputAdaptersMixin:
             adapter_used = True
 
             if task_adapter_config['residual_before_ln']:
-                residual = hidden_states * 1.0
+                residual = hidden_states.clone()
 
             if hasattr(self.config, 'fusion_config') and self.config.fusion_config['query_before_ln']:
-                query = hidden_states * 1.0
+                query = hidden_states.clone()
 
             if task_adapter_config['original_ln_before']:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
             if not task_adapter_config['residual_before_ln']:
-                residual = hidden_states * 1.0
+                residual = hidden_states.clone()
 
             if hasattr(self.config, 'fusion_config') and not self.config.fusion_config['query_before_ln']:
-                query = hidden_states * 1.0
+                query = hidden_states.clone()
 
             # if we have multiple tasks, use fusion
             # TODO ?
@@ -348,11 +347,13 @@ class BertOutputAdaptersMixin:
                     hidden_states,
                     residual_input=residual
                 )
-                if task_adapter_config['original_ln_after']:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
+
 
         # In case we haven't used any adapter
-        if not adapter_used:
+        # In case we haven't used any adapter or we have a original_ln_after set for any adapter
+        if not adapter_used or \
+                (lang_adapter_config and lang_adapter_config['original_ln_after']) or \
+                (task_adapter_config and task_adapter_config['original_ln_after']):
             hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         return hidden_states
