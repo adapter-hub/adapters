@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 import logging
 import json
 from filelock import FileLock
@@ -111,7 +112,7 @@ def resolve_adapter_config(config: Union[dict, str]) -> dict:
         dict: The resolved adapter configuration dictionary.
     """
     # already a dict, so we don't have to do anything
-    if isinstance(config, dict):
+    if isinstance(config, Mapping):
         return config
     # first, look in local map
     if config in ADAPTER_CONFIG_MAP:

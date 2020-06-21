@@ -1,50 +1,115 @@
+from collections.abc import Mapping
+from dataclasses import dataclass, field, asdict, is_dataclass
 from enum import Enum
 import json
 import logging
 from os.path import isfile
 import copy
-from typing import Optional, Union
+from typing import Optional, Union, List
 import hashlib
 
 
 logger = logging.getLogger(__name__)
 
 
-# TODO add more default configs here
+@dataclass(frozen=True)
+class InvertibleAdapterConfig(Mapping):
+    block_type: str
+    non_linearity: str
+    reduction_factor: int
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __iter__(self):
+        return iter(self.__dict__)
+
+    def __len__(self):
+        return len(self.__dict__)
+
+
+@dataclass(frozen=True)
+class AdapterConfig(Mapping):
+    """Base class that models the architecture of an adapter."""
+    original_ln_before: bool
+    original_ln_after: bool
+    residual_before_ln: bool
+    adapter_residual_before_ln: bool
+    ln_before: bool
+    ln_after: bool
+    mh_adapter: bool
+    output_adapter: bool
+    non_linearity: str
+    reduction_factor: int
+    invertible_adapter: Optional[InvertibleAdapterConfig] = None
+    leave_out: List[int] = field(default_factory=list)
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __iter__(self):
+        return iter(self.__dict__)
+
+    def __len__(self):
+        return len(self.__dict__)
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, config):
+        # remove all invalid keys
+        valid_dict = {}
+        for k, v in config.items():
+            if k in cls.__annotations__:
+                valid_dict[k] = v
+        return cls(**valid_dict)
+
+
+@dataclass(frozen=True)
+class PfeifferConfig(AdapterConfig):
+    """
+    The adapter architecture proposed by Pfeiffer et. al., 2020.
+    Described in https://arxiv.org/pdf/2005.00247.pdf.
+    """
+    original_ln_before: bool = True
+    original_ln_after: bool = True
+    residual_before_ln: bool = True
+    adapter_residual_before_ln: bool = False
+    ln_before: bool = False
+    ln_after: bool = False
+    mh_adapter: bool = False
+    output_adapter: bool = True
+    non_linearity: str = 'relu'
+    reduction_factor: int = 16
+    invertible_adapter: Optional[dict] = InvertibleAdapterConfig(
+        block_type='nice',
+        non_linearity='relu',
+        reduction_factor=2
+    )
+
+
+@dataclass(frozen=True)
+class HoulsbyConfig(AdapterConfig):
+    """
+    The adapter architecture proposed by Houlsby et. al., 2019.
+    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    """
+    original_ln_before: bool = False
+    original_ln_after: bool = True
+    residual_before_ln: bool = True
+    adapter_residual_before_ln: bool = False
+    ln_before: bool = False
+    ln_after: bool = False
+    mh_adapter: bool = True
+    output_adapter: bool = True
+    non_linearity: str = 'swish'
+    reduction_factor: int = 16
+
+
 ADAPTER_CONFIG_MAP = {
-    'pfeiffer': {
-        'LN_after': False,
-        'LN_before': False,
-        'MH_Adapter': False,
-        'Output_Adapter': True,
-        'adapter_residual_before_ln': False,
-        'attention_type': 'sent-lvl-dynamic',
-        'new_attention_norm': False,
-        'non_linearity': 'relu',
-        'original_ln_after': True,
-        'original_ln_before': True,
-        'reduction_factor': 16,
-        'residual_before_ln': True,
-        'invertible_adapter': {
-            'block_type': 'nice',
-            'non_linearity': 'relu',
-            'reduction_factor': 2
-        }
-    },
-    'houlsby': {
-        "LN_after": False,
-        "LN_before": False,
-        "MH_Adapter": True,
-        "Output_Adapter": True,
-        "adapter_residual_before_ln": False,
-        "attention_type": "sent-lvl-dynamic",
-        "new_attention_norm": False,
-        "non_linearity": "swish",
-        "original_ln_after": True,
-        "original_ln_before": False,
-        "reduction_factor": 16,
-        "residual_before_ln": True,
-    }
+    'pfeiffer': PfeifferConfig(),
+    'houlsby': HoulsbyConfig()
 }
 
 DEFAULT_ADAPTER_CONFIG = 'pfeiffer'
@@ -161,7 +226,7 @@ class ModelAdaptersConfig:
 
 
 def _minimize_dict(d):
-    if isinstance(d, dict):
+    if isinstance(d, Mapping):
         return {k: _minimize_dict(v) for (k, v) in d.items() if v}
     else:
         return d
@@ -188,5 +253,8 @@ def build_full_config(adapter_config, model_config, **kwargs):
         'hidden_size': model_config.hidden_size
     }
     config_dict.update(kwargs)
-    config_dict['config'] = adapter_config
+    if is_dataclass(adapter_config):
+        config_dict['config'] = adapter_config.to_dict()
+    else:
+        config_dict['config'] = adapter_config
     return config_dict

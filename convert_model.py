@@ -5,7 +5,14 @@ import json
 from os.path import abspath, join
 import torch
 import sys
-from transformers import AutoModel, CONFIG_MAPPING, CONFIG_NAME, WEIGHTS_NAME, AdapterType
+from transformers import (
+    AutoModel,
+    CONFIG_MAPPING,
+    CONFIG_NAME,
+    WEIGHTS_NAME,
+    AdapterType,
+    AdapterConfig,
+)
 
 
 WEIGHTS_CONVERSION_MAP = {
@@ -67,6 +74,13 @@ def load_config_from_old_format(model_path):
                 conf_object.adapters.add(task, AdapterType.text_task)
             del conf_object.text_task_adapter_config
             del conf_object.text_task_adapters
+        # convert config names to lower case
+        for name, config in conf_object.adapters.config_map.items():
+            new_config = {}
+            for k, v in config.items():
+                new_k = k.lower()
+                new_config[new_k] = v
+            conf_object.adapters.config_map[name] = AdapterConfig.from_dict(new_config)
         return conf_object
     else:
         raise ValueError("Unknown model config class.")

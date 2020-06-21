@@ -30,13 +30,14 @@ from .modeling_tf_utils import TFPreTrainedModel, TFSharedEmbeddings, shape_list
 
 logger = logging.getLogger(__name__)
 
-TF_T5_PRETRAINED_MODEL_ARCHIVE_MAP = {
-    "t5-small": "https://cdn.huggingface.co/t5-small-tf_model.h5",
-    "t5-base": "https://cdn.huggingface.co/t5-base-tf_model.h5",
-    "t5-large": "https://cdn.huggingface.co/t5-large-tf_model.h5",
-    "t5-3b": "https://cdn.huggingface.co/t5-3b-tf_model.h5",
-    "t5-11b": "https://cdn.huggingface.co/t5-11b-tf_model.h5",
-}
+TF_T5_PRETRAINED_MODEL_ARCHIVE_LIST = [
+    "t5-small",
+    "t5-base",
+    "t5-large",
+    "t5-3b",
+    "t5-11b",
+    # See all T5 models at https://huggingface.co/models?filter=t5
+]
 
 ####################################################
 # TF 2.0 Models are constructed using Keras imperative API by sub-classing
@@ -682,7 +683,7 @@ class TFT5MainLayer(tf.keras.layers.Layer):
                 # layer_outputs = hidden-states, (self-attention weights), (self-attention position bias), (cross-attention weights), (cross-attention position bias)
                 position_bias = layer_outputs[3 if self.output_attentions else 2]
                 if self.is_decoder and encoder_hidden_states is not None:
-                    encoder_decoder_position_bias = layer_outputs[4 if self.output_attentions else 3]
+                    encoder_decoder_position_bias = layer_outputs[5 if self.output_attentions else 3]
             # append next layer key value states
             present_key_value_states = present_key_value_states + (present_key_value_state,)
 
@@ -720,7 +721,6 @@ class TFT5PreTrainedModel(TFPreTrainedModel):
     """
 
     config_class = T5Config
-    pretrained_model_archive_map = TF_T5_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "transformer"
 
     @property

@@ -29,11 +29,11 @@ class BertSelfOutputAdaptersMixin:
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config and adapter_config['MH_Adapter']:
+        if adapter_config and adapter_config['mh_adapter']:
             adapter = Adapter(input_size=self.config.hidden_size,
                               down_sample=self.config.hidden_size // adapter_config['reduction_factor'],
-                              add_layer_norm_before=adapter_config['LN_before'],
-                              add_layer_norm_after=adapter_config['LN_after'],
+                              add_layer_norm_before=adapter_config['ln_before'],
+                              add_layer_norm_after=adapter_config['ln_after'],
                               non_linearity=adapter_config['non_linearity'],
                               residual_before_ln=adapter_config['adapter_residual_before_ln']
                               )
@@ -50,7 +50,7 @@ class BertSelfOutputAdaptersMixin:
         adapter_config = self.config.adapters.common_config(task_names)
         if not adapter_config:
             raise ValueError("All tasks used in the attention layer must have the same configuration.")
-        if adapter_config['MH_Adapter']:
+        if adapter_config['mh_adapter']:
             if adapter_config['attention_type'] == 'tok-lvl':
                 layer = BertAdapterAttention(self.config)
             elif adapter_config['attention_type'] == 'sent-lvl':
@@ -188,7 +188,7 @@ class BertOutputAdaptersMixin:
         adapter_config = self.config.adapters.common_config(task_names)
         if not adapter_config:
             raise ValueError("All tasks used in the attention layer must have the same configuration.")
-        if adapter_config['Output_Adapter']:
+        if adapter_config['output_adapter']:
             if adapter_config['attention_type'] == 'tok-lvl':
                 layer = BertAdapterAttention(self.config)
             elif adapter_config['attention_type'] == 'sent-lvl':
@@ -210,11 +210,11 @@ class BertOutputAdaptersMixin:
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config and adapter_config['Output_Adapter']:
+        if adapter_config and adapter_config['output_adapter']:
             adapter = Adapter(input_size=self.config.hidden_size,
                               down_sample=self.config.hidden_size // adapter_config['reduction_factor'],
-                              add_layer_norm_before=adapter_config['LN_before'],
-                              add_layer_norm_after=adapter_config['LN_after'],
+                              add_layer_norm_before=adapter_config['ln_before'],
+                              add_layer_norm_after=adapter_config['ln_after'],
                               non_linearity=adapter_config['non_linearity'],
                               residual_before_ln=adapter_config['adapter_residual_before_ln']
                               )

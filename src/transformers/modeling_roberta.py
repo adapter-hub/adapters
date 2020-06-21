@@ -31,14 +31,15 @@ from .modeling_utils import create_position_ids_from_input_ids
 
 logger = logging.getLogger(__name__)
 
-ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP = {
-    "roberta-base": "https://cdn.huggingface.co/roberta-base-pytorch_model.bin",
-    "roberta-large": "https://cdn.huggingface.co/roberta-large-pytorch_model.bin",
-    "roberta-large-mnli": "https://cdn.huggingface.co/roberta-large-mnli-pytorch_model.bin",
-    "distilroberta-base": "https://cdn.huggingface.co/distilroberta-base-pytorch_model.bin",
-    "roberta-base-openai-detector": "https://cdn.huggingface.co/roberta-base-openai-detector-pytorch_model.bin",
-    "roberta-large-openai-detector": "https://cdn.huggingface.co/roberta-large-openai-detector-pytorch_model.bin",
-}
+ROBERTA_PRETRAINED_MODEL_ARCHIVE_LIST = [
+    "roberta-base",
+    "roberta-large",
+    "roberta-large-mnli",
+    "distilroberta-base",
+    "roberta-base-openai-detector",
+    "roberta-large-openai-detector",
+    # See all RoBERTa models at https://huggingface.co/models?filter=roberta
+]
 
 
 class RobertaEmbeddings(BertEmbeddings):
@@ -96,7 +97,7 @@ ROBERTA_START_DOCSTRING = r"""
 
 ROBERTA_INPUTS_DOCSTRING = r"""
     Args:
-        input_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`):
+        input_ids (:obj:`torch.LongTensor` of shape :obj:`{0}`):
             Indices of input sequence tokens in the vocabulary.
 
             Indices can be obtained using :class:`transformers.RobertaTokenizer`.
@@ -104,19 +105,19 @@ ROBERTA_INPUTS_DOCSTRING = r"""
             :func:`transformers.PreTrainedTokenizer.encode_plus` for details.
 
             `What are input IDs? <../glossary.html#input-ids>`__
-        attention_mask (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
+        attention_mask (:obj:`torch.FloatTensor` of shape :obj:`{0}`, `optional`, defaults to :obj:`None`):
             Mask to avoid performing attention on padding token indices.
             Mask values selected in ``[0, 1]``:
             ``1`` for tokens that are NOT MASKED, ``0`` for MASKED tokens.
 
             `What are attention masks? <../glossary.html#attention-mask>`__
-        token_type_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
+        token_type_ids (:obj:`torch.LongTensor` of shape :obj:`{0}`, `optional`, defaults to :obj:`None`):
             Segment token indices to indicate first and second portions of the inputs.
             Indices are selected in ``[0, 1]``: ``0`` corresponds to a `sentence A` token, ``1``
             corresponds to a `sentence B` token
 
             `What are token type IDs? <../glossary.html#token-type-ids>`_
-        position_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
+        position_ids (:obj:`torch.LongTensor` of shape :obj:`{0}`, `optional`, defaults to :obj:`None`):
             Indices of positions of each input sequence tokens in the position embeddings.
             Selected in the range ``[0, config.max_position_embeddings - 1]``.
 
@@ -143,7 +144,6 @@ class RobertaModel(BertModel):
     """
 
     config_class = RobertaConfig
-    pretrained_model_archive_map = ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "roberta"
 
     def __init__(self, config):
@@ -162,7 +162,6 @@ class RobertaModel(BertModel):
 @add_start_docstrings("""RoBERTa Model with a `language modeling` head on top. """, ROBERTA_START_DOCSTRING)
 class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     config_class = RobertaConfig
-    pretrained_model_archive_map = ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "roberta"
 
     def __init__(self, config):
@@ -176,7 +175,7 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def get_output_embeddings(self):
         return self.lm_head.decoder
 
-    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING.format("(batch_size, sequence_length)"))
     def forward(
         self,
         input_ids=None,
@@ -287,7 +286,6 @@ class RobertaLMHead(nn.Module):
 )
 class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     config_class = RobertaConfig
-    pretrained_model_archive_map = ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "roberta"
 
     def __init__(self, config):
@@ -297,7 +295,7 @@ class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrain
         self.roberta = RobertaModel(config)
         self.classifier = RobertaClassificationHead(config)
 
-    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING.format("(batch_size, sequence_length)"))
     def forward(
         self,
         input_ids=None,
@@ -382,7 +380,6 @@ class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrain
 )
 class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     config_class = RobertaConfig
-    pretrained_model_archive_map = ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "roberta"
 
     def __init__(self, config):
@@ -394,7 +391,7 @@ class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel)
 
         self.init_weights()
 
-    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING.format("(batch_size, num_choices, sequence_length)"))
     def forward(
         self,
         input_ids=None,
@@ -485,7 +482,6 @@ class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel)
 )
 class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     config_class = RobertaConfig
-    pretrained_model_archive_map = ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "roberta"
 
     def __init__(self, config):
@@ -498,7 +494,7 @@ class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedM
 
         self.init_weights()
 
-    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING.format("(batch_size, sequence_length)"))
     def forward(
         self,
         input_ids=None,
@@ -609,7 +605,6 @@ class RobertaClassificationHead(nn.Module):
 )
 class RobertaForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     config_class = RobertaConfig
-    pretrained_model_archive_map = ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "roberta"
 
     def __init__(self, config):
@@ -621,7 +616,7 @@ class RobertaForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedMod
 
         self.init_weights()
 
-    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING.format("(batch_size, sequence_length)"))
     def forward(
         self,
         input_ids,
