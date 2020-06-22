@@ -76,11 +76,12 @@ def load_config_from_old_format(model_path):
             del conf_object.text_task_adapters
         # convert config names to lower case
         for name, config in conf_object.adapters.config_map.items():
-            new_config = {}
-            for k, v in config.items():
-                new_k = k.lower()
-                new_config[new_k] = v
-            conf_object.adapters.config_map[name] = AdapterConfig.from_dict(new_config)
+            if isinstance(config, dict):
+                new_config = {}
+                for k, v in config.items():
+                    new_k = k.lower()
+                    new_config[new_k] = v
+                conf_object.adapters.config_map[name] = AdapterConfig.from_dict(new_config)
         return conf_object
     else:
         raise ValueError("Unknown model config class.")

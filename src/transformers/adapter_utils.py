@@ -1,20 +1,22 @@
-from collections.abc import Mapping
-import logging
-import json
-from filelock import FileLock
 import hashlib
+import json
+import logging
 import os
-from os.path import join, isdir, isfile
-from pathlib import Path
 import re
-import requests
 import shutil
 import tarfile
-from typing import Optional, Union
+from collections.abc import Mapping
+from os.path import isdir, isfile, join
+from pathlib import Path
+from typing import Callable, Optional, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
-from .file_utils import is_remote_url, get_from_cache, torch_cache_home
+
+import requests
+from filelock import FileLock
+
 from .adapter_config import ADAPTER_CONFIG_MAP, AdapterType, get_adapter_config_hash
+from .file_utils import get_from_cache, is_remote_url, torch_cache_home
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,17 @@ ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
 
 # the download cache
 ADAPTER_CACHE = join(torch_cache_home, "adapters")
+
+
+def inherit_doc(cls):
+    for name, func in vars(cls).items():
+        if isinstance(func, Callable) and not func.__doc__:
+            for parent in cls.__bases__:
+                parfunc = getattr(parent, name, None)
+                if parfunc and getattr(parfunc, '__doc__', None):
+                    func.__doc__ = parfunc.__doc__
+                    break
+    return cls
 
 
 def urljoin(*args):

@@ -1,17 +1,12 @@
 import logging
+
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
+from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
+from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import *
-from .adapter_model_mixin import (
-    ModelAdaptersMixin,
-    ModelWithHeadsAdaptersMixin,
-)
-from .adapter_config import (
-    AdapterType,
-    DEFAULT_ADAPTER_CONFIG,
-)
 
 
 logger = logging.getLogger(__name__)
@@ -509,7 +504,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         # add modules for heads in config
         if hasattr(self.config, 'prediction_heads'):
             for head_name in self.config.prediction_heads:
-                self._add_prediction_head_module(head_name)
+                self.add_prediction_head_module(head_name)
 
     def set_active_task(self, task_name):
         if task_name in self.config.adapters.adapter_list(AdapterType.text_task):
@@ -535,7 +530,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             'layers': layers,
             'activation_function': activation_function
         }
-        self._add_prediction_head(head_name, config, overwrite_ok)
+        self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_multiple_choice_head(
         self,
@@ -551,7 +546,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             'layers': layers,
             'activation_function': activation_function
         }
-        self._add_prediction_head(head_name, config, overwrite_ok)
+        self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_tagging_head(
         self,
@@ -567,9 +562,9 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             'layers': layers,
             'activation_function': activation_function
         }
-        self._add_prediction_head(head_name, config, overwrite_ok)
+        self.add_prediction_head(head_name, config, overwrite_ok)
 
-    def _add_prediction_head(
+    def add_prediction_head(
         self,
         head_name,
         config,
