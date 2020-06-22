@@ -510,16 +510,16 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         if task_name in self.config.adapters.adapter_list(AdapterType.text_task):
             self.active_task_adapters = [task_name]
         else:
-            logger.warn("No task adapter for task_name '{}' available.".format(task_name))
+            logger.warning("No task adapter for task_name '{}' available.".format(task_name))
         if task_name in self.config.prediction_heads:
             self.active_head = task_name
         else:
-            logger.warn("No prediction head for task_name '{}' available.".format(task_name))
+            logger.warning("No prediction head for task_name '{}' available.".format(task_name))
 
     def add_classification_head(
         self,
         head_name,
-        num_labels,
+        num_labels=2,
         layers=2,
         activation_function='tanh',
         overwrite_ok=False,
@@ -535,7 +535,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     def add_multiple_choice_head(
         self,
         head_name,
-        num_choices,
+        num_choices=2,
         layers=2,
         activation_function='tanh',
         overwrite_ok=False,
@@ -551,7 +551,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     def add_tagging_head(
         self,
         head_name,
-        num_labels,
+        num_labels=2,
         layers=1,
         activation_function='tanh',
         overwrite_ok=False,

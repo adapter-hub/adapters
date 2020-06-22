@@ -174,7 +174,7 @@ class ModelAdaptersConfig:
             if config not in ADAPTER_CONFIG_MAP and config not in self.config_map:
                 raise ValueError(f"Invalid adapter config identifier '{config}''")
         # if it's a dict, compute it's hash and add a new entry to the config map
-        elif isinstance(config, dict):
+        elif isinstance(config, Mapping):
             config_name = get_adapter_config_hash(config)
             self.config_map[config_name] = config
         self.adapters[adapter_name] = (adapter_type, config_name)
@@ -196,7 +196,7 @@ class ModelAdaptersConfig:
                 - the path to a file containing the adapter configuration
         """
         assert len(self.adapter_list(adapter_type)) < 1, "Can only set new config if no adapters have been added."
-        if isinstance(config, dict) or config in ADAPTER_CONFIG_MAP:
+        if isinstance(config, Mapping) or config in ADAPTER_CONFIG_MAP:
             self.config_map[adapter_type] = config
         elif isfile(config):
             with open(config, 'r', encoding='utf-8') as f:

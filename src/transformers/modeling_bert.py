@@ -25,20 +25,20 @@ from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from .activations import gelu, gelu_new, swish
+from .adapter_bert import (
+    BertEncoderAdaptersMixin,
+    BertLayerAdaptersMixin,
+    BertModelAdaptersMixin,
+    BertModelHeadsMixin,
+    BertOutputAdaptersMixin,
+    BertSelfOutputAdaptersMixin,
+)
+from .adapter_config import AdapterType
+from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .configuration_bert import BertConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_utils import PreTrainedModel, prune_linear_layer
 
-from .adapter_config import AdapterType
-from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
-from .adapter_bert import (
-    BertSelfOutputAdaptersMixin,
-    BertOutputAdaptersMixin,
-    BertLayerAdaptersMixin,
-    BertEncoderAdaptersMixin,
-    BertModelAdaptersMixin,
-    BertModelHeadsMixin,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -715,9 +715,9 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         """
         # some warnings if we don't use available adapters
         if not adapter_tasks and self.has_adapters(AdapterType.text_task):
-            logger.warn("There are adapters available but none are passed to model.forward")
+            logger.warning("There are adapters available but none are passed to model.forward")
         if not language and self.has_adapters(AdapterType.text_lang):
-            logger.warn("No language given, but this model has language adapters. Add language?")
+            logger.warning("No language given, but this model has language adapters. Add language?")
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")

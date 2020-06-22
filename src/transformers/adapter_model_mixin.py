@@ -95,12 +95,12 @@ class WeightsLoader(ABC):
 
         missing_keys = [k for k in missing_keys if filter_func(k)]
         if len(missing_keys) > 0:
-            logger.warn(
+            logger.warning(
                 "Some module weights could not be found in loaded weights file: {}".format(
                     ', '.join(missing_keys))
             )
         if len(unexpected_keys) > 0:
-            logger.warn(
+            logger.warning(
                 "Some weights of the state_dict could not be loaded into model: {}".format(
                     ', '.join(unexpected_keys))
             )
@@ -228,7 +228,7 @@ class AdapterLoader(WeightsLoader):
         if adapter_name not in self.model.config.adapters.adapters:
             self.model.add_adapter(adapter_name, config['type'], config=config['config'])
         else:
-            logger.warn("Overwriting existing adapter '{}'.".format(adapter_name))
+            logger.warning("Overwriting existing adapter '{}'.".format(adapter_name))
 
         # Load adapter weights
         filter_func = self._get_params_check_func(config['type'], config['name'])
