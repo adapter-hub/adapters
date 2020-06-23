@@ -1,8 +1,8 @@
 import torch
 from torch import nn
 
+from .adapter_model_mixin import DEFAULT_ADAPTER_CONFIG, AdapterType, ModelAdaptersMixin
 from .adapter_modeling import *
-from .adapter_model_mixin import ModelAdaptersMixin, AdapterType, DEFAULT_ADAPTER_CONFIG
 
 
 class BertSelfOutputAdaptersMixin:
@@ -94,25 +94,26 @@ class BertSelfOutputAdaptersMixin:
         adapter_used = False
 
         # Language adapter
-        lang_adapter_config = self.config.adapters.get(language)
-        if lang_adapter_config and language in self.attention_text_lang_adapters:
-            adapter_used = True
+        if language:
+            lang_adapter_config = self.config.adapters.get(language)
+            if lang_adapter_config and language in self.attention_text_lang_adapters:
+                adapter_used = True
 
-            if lang_adapter_config['residual_before_ln']:
-                residual = hidden_states
+                if lang_adapter_config['residual_before_ln']:
+                    residual = hidden_states
 
-            if lang_adapter_config['original_ln_before']:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
+                if lang_adapter_config['original_ln_before']:
+                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if not lang_adapter_config['residual_before_ln']:
-                residual = hidden_states
+                if not lang_adapter_config['residual_before_ln']:
+                    residual = hidden_states
 
-            hidden_states, adapter_attention, down, up = self.attention_text_lang_adapters[language](
-                hidden_states,
-                residual_input=residual
-            )
-            if lang_adapter_config['original_ln_after']:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
+                hidden_states, adapter_attention, down, up = self.attention_text_lang_adapters[language](
+                    hidden_states,
+                    residual_input=residual
+                )
+                if lang_adapter_config['original_ln_after']:
+                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         # Task adapters
         # filter tasks that are available in this module
@@ -252,25 +253,26 @@ class BertOutputAdaptersMixin:
         adapter_used = False
 
         # Language adapter
-        lang_adapter_config = self.config.adapters.get(language)
-        if lang_adapter_config and language in self.layer_text_lang_adapters:
-            adapter_used = True
+        if language:
+            lang_adapter_config = self.config.adapters.get(language)
+            if lang_adapter_config and language in self.layer_text_lang_adapters:
+                adapter_used = True
 
-            if lang_adapter_config['residual_before_ln']:
-                residual = hidden_states
+                if lang_adapter_config['residual_before_ln']:
+                    residual = hidden_states
 
-            if lang_adapter_config['original_ln_before']:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
+                if lang_adapter_config['original_ln_before']:
+                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if not lang_adapter_config['residual_before_ln']:
-                residual = hidden_states
+                if not lang_adapter_config['residual_before_ln']:
+                    residual = hidden_states
 
-            hidden_states, adapter_attention, down, up = self.layer_text_lang_adapters[language](
-                hidden_states,
-                residual_input=residual
-            )
-            if lang_adapter_config['original_ln_after']:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
+                hidden_states, adapter_attention, down, up = self.layer_text_lang_adapters[language](
+                    hidden_states,
+                    residual_input=residual
+                )
+                if lang_adapter_config['original_ln_after']:
+                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         # Task adapters
         # filter tasks that are available in this module

@@ -1,0 +1,36 @@
+name: Tests
+
+on:
+  push:
+    branches: [ 'master' ]
+  pull_request:
+    branches: [ 'master' ]
+
+jobs:
+  check_code_quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - name: Install
+        run: |
+          sudo pip install pathlib
+          sudo pip install .[torch,quality]
+      - name: Check Quality
+        run: |
+          make quality
+  run_tests_torch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - name: Install
+        run: |
+          sudo pip install .[sklearn,torch,testing]
+      - name: Test
+        run: |
+          make test
