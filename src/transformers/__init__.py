@@ -147,6 +147,7 @@ if is_sklearn_available():
 if is_torch_available():
     from .adapter_training import AdapterArguments, setup_task_adapter_training
     from .adapter_model_mixin import (
+        WeightsLoaderHelper,
         WeightsLoader,
         AdapterLoader,
         PredictionHeadLoader,

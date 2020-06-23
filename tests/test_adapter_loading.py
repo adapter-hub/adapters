@@ -148,3 +148,27 @@ class PredictionHeadModelTest(unittest.TestCase):
                 self.assertEqual(len(output1), len(output2))
                 self.assertTrue(torch.equal(output1[0], output2[0]))
                 self.assertEqual(3, output1[0].size()[1])
+
+    def test_adapter_with_head_load_as(self):
+        for model_class in self.model_classes:
+            model1, model2 = create_twin_models(model_class)
+
+            with self.subTest(model_class=model_class):
+                name = "dummy"
+                model1.add_adapter(name, AdapterType.text_task)
+                model1.add_classification_head(name, num_labels=3)
+                model1.set_active_task(name)
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    model1.save_adapter(temp_dir, name)
+
+                    # reload using a different name
+                    model2.load_adapter(temp_dir, load_as="new_name")
+                    model2.set_active_task("new_name")
+
+                # check equal output
+                in_data = ids_tensor((1, 128), 1000)
+                output1 = model1(in_data)
+                output2 = model2(in_data)
+                self.assertEqual(len(output1), len(output2))
+                self.assertTrue(torch.equal(output1[0], output2[0]))
+                self.assertEqual(3, output1[0].size()[1])

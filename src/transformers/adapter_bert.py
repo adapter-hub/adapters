@@ -506,7 +506,13 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             for head_name in self.config.prediction_heads:
                 self.add_prediction_head_module(head_name)
 
-    def set_active_task(self, task_name):
+    def set_active_task(self, task_name: str):
+        """Sets the task adapter and/ or prediction head which should be used by default in a forward pass.
+        If no adapter or prediction with the given name is found, no module of the respective type will be activated.
+
+        Args:
+            task_name (str): The name of the task adapter and/ or prediction head.
+        """
         if task_name in self.config.adapters.adapter_list(AdapterType.text_task):
             self.active_task_adapters = [task_name]
         else:
@@ -573,6 +579,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         if head_name not in self.config.prediction_heads or overwrite_ok:
             self.config.prediction_heads[head_name] = config
 
+            logger.info(f"Adding head '{head_name}' with config {config}.")
             self._add_prediction_head_module(head_name)
             self.active_head = head_name
 
