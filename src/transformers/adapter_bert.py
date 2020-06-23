@@ -530,6 +530,15 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         activation_function='tanh',
         overwrite_ok=False,
     ):
+        """Adds a sequence classification head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            num_labels (int, optional): Number of classification labels. Defaults to 2.
+            layers (int, optional): Number of layers. Defaults to 2.
+            activation_function (str, optional): Activation function. Defaults to 'tanh'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
         config = {
             'head_type': 'classification',
             'num_labels': num_labels,
@@ -546,6 +555,15 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         activation_function='tanh',
         overwrite_ok=False,
     ):
+        """Adds a multiple choice head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            num_choices (int, optional): Number of choices. Defaults to 2.
+            layers (int, optional): Number of layers. Defaults to 2.
+            activation_function (str, optional): Activation function. Defaults to 'tanh'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
         config = {
             'head_type': 'multiple_choice',
             'num_choices': num_choices,
@@ -562,6 +580,15 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         activation_function='tanh',
         overwrite_ok=False,
     ):
+        """Adds a token classification head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            num_labels (int, optional): Number of classification labels. Defaults to 2.
+            layers (int, optional): Number of layers. Defaults to 1.
+            activation_function (str, optional): Activation function. Defaults to 'tanh'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
         config = {
             'head_type': 'tagging',
             'num_labels': num_labels,
@@ -624,7 +651,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         if head['head_type'] == 'classification':
             logits = self.heads[head_name](sequence_output[:, 0])
 
-            outputs = (logits,) + outputs[2:]  # add hidden states and attention if they are here
+            outputs = (logits,) + outputs[2:]
             if labels is not None:
                 if head['num_labels'] == 1:
                     #  We are doing regression
@@ -639,7 +666,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             logits = self.heads[head_name](sequence_output[:, 0])
             logits = logits.view(-1, head['num_choices'])
 
-            outputs = (logits,) + outputs[2:]  # add hidden states and attention if they are here
+            outputs = (logits,) + outputs[2:]
             if labels is not None:
                 loss_fct = CrossEntropyLoss()
                 loss = loss_fct(logits, labels)
@@ -648,7 +675,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         elif head['head_type'] == 'tagging':
             logits = self.heads[head_name](sequence_output)
 
-            outputs = (logits,) + outputs[2:]  # add hidden states and attention if they are here
+            outputs = (logits,) + outputs[2:]
             if labels is not None:
                 loss_fct = CrossEntropyLoss()
                 # Only keep active parts of the loss
@@ -662,10 +689,6 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 else:
                     loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
                 outputs = (loss,) + outputs
-
-        # TODO
-        # elif task['head_type'] == 'extractive_qa':
-        #     logits = self.prediction_heads[task_name](sequence_output)
 
         else:
             raise ValueError("Unknown head_type '{}'".format(head['head_type']))

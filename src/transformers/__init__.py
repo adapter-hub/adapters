@@ -270,6 +270,7 @@ if is_torch_available():
     from .modeling_roberta import (
         RobertaForMaskedLM,
         RobertaModel,
+        RobertaModelWithHeads,
         RobertaForSequenceClassification,
         RobertaForMultipleChoice,
         RobertaForTokenClassification,

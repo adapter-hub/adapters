@@ -22,6 +22,7 @@ import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
+from .adapter_bert import BertModelHeadsMixin
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .configuration_roberta import RobertaConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
@@ -157,6 +158,64 @@ class RobertaModel(BertModel):
 
     def set_input_embeddings(self, value):
         self.embeddings.word_embeddings = value
+
+
+@add_start_docstrings(
+    """Bert Model transformer with the option to add multiple flexible heads on top.""",
+    ROBERTA_START_DOCSTRING,
+)
+class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
+    config_class = RobertaConfig
+    base_model_prefix = "roberta"
+
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.roberta = RobertaModel(config)
+
+        self._init_head_modules()
+
+        self.init_weights()
+
+    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING.format("(batch_size, sequence_length)"))
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        adapter_tasks=None,
+        language=None,
+        head=None,
+    ):
+        input_ids = input_ids.view(-1, input_ids.size(-1))
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
+        position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+
+        adapter_tasks = adapter_tasks or self.active_task_adapters
+        outputs = self.roberta(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
+        )
+
+        outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            attention_mask=attention_mask,
+            labels=labels,
+        )
+
+        return outputs
 
 
 @add_start_docstrings("""RoBERTa Model with a `language modeling` head on top. """, ROBERTA_START_DOCSTRING)

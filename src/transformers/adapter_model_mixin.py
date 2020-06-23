@@ -316,7 +316,7 @@ class AdapterLoader(WeightsLoader):
             logger.warning("Overwriting existing adapter '{}'.".format(adapter_name))
 
         # Load adapter weights
-        filter_func = self.filter_func(config["name"])
+        filter_func = self.filter_func(adapter_name)
         rename_func = self.rename_func(config["name"], adapter_name)
         self.weights_helper.load_weights(resolved_folder, filter_func, rename_func=rename_func)
 
@@ -420,16 +420,16 @@ class PredictionHeadLoader(WeightsLoader):
                         f"Model class '{config['model_class']}' of found prediction head does not match current model class."
                     )
                 else:
-                    logger.warn("No matching prediction head found in '{}'".format(save_directory))
+                    logger.warning("No matching prediction head found in '{}'".format(save_directory))
                     return None, None
             if hasattr(self.model.config, "prediction_heads"):
                 head_name = load_as or config["name"]
                 if head_name in self.model.config.prediction_heads:
-                    logger.warn("Overwriting existing head '{}'".format(head_name))
+                    logger.warning("Overwriting existing head '{}'".format(head_name))
                 self.model.add_prediction_head(head_name, config["config"], overwrite_ok=True)
 
         # Load head weights
-        filter_func = self.filter_func(config["name"])
+        filter_func = self.filter_func(head_name)
         if load_as:
             rename_func = self.rename_func(config["name"], load_as)
         else:

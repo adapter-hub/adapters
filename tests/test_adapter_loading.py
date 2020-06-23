@@ -4,7 +4,15 @@ import unittest
 
 import torch
 
-from transformers import ADAPTER_CONFIG_MAP, AdapterType, BertModel, BertModelWithHeads, RobertaModel, XLMRobertaModel
+from transformers import (
+    ADAPTER_CONFIG_MAP,
+    AdapterType,
+    BertModel,
+    BertModelWithHeads,
+    RobertaModel,
+    RobertaModelWithHeads,
+    XLMRobertaModel,
+)
 
 from .test_modeling_common import ids_tensor
 from .utils import require_torch
@@ -81,7 +89,7 @@ class AdapterModelTest(unittest.TestCase):
 @require_torch
 class PredictionHeadModelTest(unittest.TestCase):
 
-    model_classes = [BertModelWithHeads]
+    model_classes = [BertModelWithHeads, RobertaModelWithHeads]
 
     def run_prediction_head_test(self, model, compare_model, head_name, input_shape=(1, 128), output_shape=(1, 2)):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -106,7 +114,7 @@ class PredictionHeadModelTest(unittest.TestCase):
         for model_class in self.model_classes:
             model1, model2 = create_twin_models(model_class)
 
-            with self.subTest(model_class=model_class):
+            with self.subTest(model_class=model_class.__name__):
                 model1.add_classification_head("dummy")
                 self.run_prediction_head_test(model1, model2, "dummy")
 
@@ -114,7 +122,7 @@ class PredictionHeadModelTest(unittest.TestCase):
         for model_class in self.model_classes:
             model1, model2 = create_twin_models(model_class)
 
-            with self.subTest(model_class=model_class):
+            with self.subTest(model_class=model_class.__name__):
                 model1.add_multiple_choice_head("dummy")
                 self.run_prediction_head_test(model1, model2, "dummy", input_shape=(2, 128))
 
@@ -122,7 +130,7 @@ class PredictionHeadModelTest(unittest.TestCase):
         for model_class in self.model_classes:
             model1, model2 = create_twin_models(model_class)
 
-            with self.subTest(model_class=model_class):
+            with self.subTest(model_class=model_class.__name__):
                 model1.add_tagging_head("dummy")
                 self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128, 2))
 
@@ -130,7 +138,7 @@ class PredictionHeadModelTest(unittest.TestCase):
         for model_class in self.model_classes:
             model1, model2 = create_twin_models(model_class)
 
-            with self.subTest(model_class=model_class):
+            with self.subTest(model_class=model_class.__name__):
                 name = "dummy"
                 model1.add_adapter(name, AdapterType.text_task)
                 model1.add_classification_head(name, num_labels=3)
@@ -153,7 +161,7 @@ class PredictionHeadModelTest(unittest.TestCase):
         for model_class in self.model_classes:
             model1, model2 = create_twin_models(model_class)
 
-            with self.subTest(model_class=model_class):
+            with self.subTest(model_class=model_class.__name__):
                 name = "dummy"
                 model1.add_adapter(name, AdapterType.text_task)
                 model1.add_classification_head(name, num_labels=3)
