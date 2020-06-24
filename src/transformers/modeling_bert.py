@@ -25,18 +25,20 @@ from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from .activations import gelu, gelu_new, swish
+from .adapter_bert import (
+    BertEncoderAdaptersMixin,
+    BertLayerAdaptersMixin,
+    BertModelAdaptersMixin,
+    BertModelHeadsMixin,
+    BertOutputAdaptersMixin,
+    BertSelfOutputAdaptersMixin,
+)
+from .adapter_config import AdapterType
+from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .configuration_bert import BertConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_utils import PreTrainedModel, prune_linear_layer
 
-from .adapter_bert import (
-    BertSelfOutputAdaptersMixin,
-    BertOutputAdaptersMixin,
-    BertLayerAdaptersMixin,
-    BertEncoderAdaptersMixin,
-    BertModelAdaptersMixin,
-    AdapterType
-)
 
 logger = logging.getLogger(__name__)
 
@@ -668,9 +670,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         inputs_embeds=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
-        task=None,
         adapter_tasks=None,
-        valid_ids=None,
         language=None
     ):
         r"""
@@ -715,9 +715,9 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         """
         # some warnings if we don't use available adapters
         if not adapter_tasks and self.has_adapters(AdapterType.text_task):
-            logger.warn("There are adapters available but none are passed to model.forward")
+            logger.warning("There are adapters available but none are passed to model.forward")
         if not language and self.has_adapters(AdapterType.text_lang):
-            logger.warn("No language given, but this model has language adapters. Add language?")
+            logger.warning("No language given, but this model has language adapters. Add language?")
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
@@ -780,10 +780,62 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
             1:
         ]  # add hidden_states and attentions if they are here
 
-        if task:
-            outputs = self.task_forward(task, outputs, sequence_output, valid_ids, device)
-
         return outputs  # sequence_output, pooled_output, (hidden_states), (attentions)
+
+
+@add_start_docstrings(
+    """Bert Model transformer with the option to add multiple flexible heads on top.""",
+    BERT_START_DOCSTRING,
+)
+class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.bert = BertModel(config)
+
+        self._init_head_modules()
+
+        self.init_weights()
+
+    @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        adapter_tasks=None,
+        language=None,
+        head=None,
+    ):
+        input_ids = input_ids.view(-1, input_ids.size(-1))
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
+        position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+
+        adapter_tasks = adapter_tasks or self.active_task_adapters
+        outputs = self.bert(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            adapter_tasks=adapter_tasks,
+            language=language,
+        )
+
+        outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            attention_mask=attention_mask,
+            labels=labels,
+        )
+
+        return outputs
 
 
 @add_start_docstrings(
@@ -791,7 +843,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
     a `next sentence prediction (classification)` head. """,
     BERT_START_DOCSTRING,
 )
-class BertForPreTraining(BertPreTrainedModel):
+class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -899,7 +951,7 @@ class BertForPreTraining(BertPreTrainedModel):
 
 
 @add_start_docstrings("""Bert Model with a `language modeling` head on top. """, BERT_START_DOCSTRING)
-class BertForMaskedLM(BertPreTrainedModel):
+class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1042,7 +1094,7 @@ class BertForMaskedLM(BertPreTrainedModel):
 @add_start_docstrings(
     """Bert Model with a `next sentence prediction (classification)` head on top. """, BERT_START_DOCSTRING,
 )
-class BertForNextSentencePrediction(BertPreTrainedModel):
+class BertForNextSentencePrediction(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1134,7 +1186,7 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
     the pooled output) e.g. for GLUE tasks. """,
     BERT_START_DOCSTRING,
 )
-class BertForSequenceClassification(BertPreTrainedModel):
+class BertForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1235,7 +1287,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
     the pooled output and a softmax) e.g. for RocStories/SWAG tasks. """,
     BERT_START_DOCSTRING,
 )
-class BertForMultipleChoice(BertPreTrainedModel):
+class BertForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1342,7 +1394,7 @@ class BertForMultipleChoice(BertPreTrainedModel):
     the hidden-states output) e.g. for Named-Entity-Recognition (NER) tasks. """,
     BERT_START_DOCSTRING,
 )
-class BertForTokenClassification(BertPreTrainedModel):
+class BertForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1444,7 +1496,7 @@ class BertForTokenClassification(BertPreTrainedModel):
     layers on top of the hidden-states output to compute `span start logits` and `span end logits`). """,
     BERT_START_DOCSTRING,
 )
-class BertForQuestionAnswering(BertPreTrainedModel):
+class BertForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels

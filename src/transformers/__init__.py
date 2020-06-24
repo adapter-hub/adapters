@@ -62,7 +62,6 @@ from .data import (
     xnli_processors,
     xnli_tasks_num_labels,
 )
-
 # Files and general utilities
 from .file_utils import (
     CONFIG_NAME,
@@ -80,10 +79,8 @@ from .file_utils import (
     is_torch_available,
 )
 from .hf_argparser import HfArgumentParser
-
 # Model Cards
 from .modelcard import ModelCard
-
 # TF 2.0 <=> PyTorch conversion utilities
 from .modeling_tf_pytorch_utils import (
     convert_tf_weight_name_to_pt_weight_name,
@@ -94,7 +91,6 @@ from .modeling_tf_pytorch_utils import (
     load_tf2_model_in_pytorch_model,
     load_tf2_weights_in_pytorch_model,
 )
-
 # Pipelines
 from .pipelines import (
     CsvPipelineDataFormat,
@@ -113,7 +109,6 @@ from .pipelines import (
     TranslationPipeline,
     pipeline,
 )
-
 # Tokenizers
 from .tokenization_albert import AlbertTokenizer
 from .tokenization_auto import TOKENIZER_MAPPING, AutoTokenizer
@@ -136,8 +131,6 @@ from .tokenization_utils import PreTrainedTokenizer
 from .tokenization_xlm import XLMTokenizer
 from .tokenization_xlm_roberta import XLMRobertaTokenizer
 from .tokenization_xlnet import SPIECE_UNDERLINE, XLNetTokenizer
-
-from .adapter_training import AdapterArguments, setup_task_adapter_training
 from .trainer_utils import EvalPrediction
 from .training_args import TrainingArguments
 from .training_args_tf import TFTrainingArguments
@@ -152,9 +145,14 @@ if is_sklearn_available():
 
 # Adapters
 if is_torch_available():
+    from .adapter_training import AdapterArguments, setup_task_adapter_training
     from .adapter_model_mixin import (
+        WeightsLoaderHelper,
+        WeightsLoader,
         AdapterLoader,
+        PredictionHeadLoader,
         ModelAdaptersMixin,
+        ModelWithHeadsAdaptersMixin,
     )
     from .adapter_config import (
         InvertibleAdapterConfig,
@@ -202,6 +200,7 @@ if is_torch_available():
     from .modeling_bert import (
         BertPreTrainedModel,
         BertModel,
+        BertModelWithHeads,
         BertForPreTraining,
         BertForMaskedLM,
         BertForNextSentencePrediction,
@@ -271,6 +270,7 @@ if is_torch_available():
     from .modeling_roberta import (
         RobertaForMaskedLM,
         RobertaModel,
+        RobertaModelWithHeads,
         RobertaForSequenceClassification,
         RobertaForMultipleChoice,
         RobertaForTokenClassification,

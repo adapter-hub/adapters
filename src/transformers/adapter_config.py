@@ -1,12 +1,12 @@
-from collections.abc import Mapping
-from dataclasses import dataclass, field, asdict, is_dataclass
-from enum import Enum
+import copy
+import hashlib
 import json
 import logging
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, field, is_dataclass
+from enum import Enum
 from os.path import isfile
-import copy
-from typing import Optional, Union, List
-import hashlib
+from typing import List, Optional, Union
 
 
 logger = logging.getLogger(__name__)
@@ -174,7 +174,7 @@ class ModelAdaptersConfig:
             if config not in ADAPTER_CONFIG_MAP and config not in self.config_map:
                 raise ValueError(f"Invalid adapter config identifier '{config}''")
         # if it's a dict, compute it's hash and add a new entry to the config map
-        elif isinstance(config, dict):
+        elif isinstance(config, Mapping):
             config_name = get_adapter_config_hash(config)
             self.config_map[config_name] = config
         self.adapters[adapter_name] = (adapter_type, config_name)
@@ -196,7 +196,7 @@ class ModelAdaptersConfig:
                 - the path to a file containing the adapter configuration
         """
         assert len(self.adapter_list(adapter_type)) < 1, "Can only set new config if no adapters have been added."
-        if isinstance(config, dict) or config in ADAPTER_CONFIG_MAP:
+        if isinstance(config, Mapping) or config in ADAPTER_CONFIG_MAP:
             self.config_map[adapter_type] = config
         elif isfile(config):
             with open(config, 'r', encoding='utf-8') as f:
@@ -247,20 +247,14 @@ def get_adapter_config_hash(config, length=16):
     return h.hexdigest()[:length]
 
 
-def build_full_config(adapter_config, adapter_type, model_config, model_name=None, name=None, with_head=False):
+def build_full_config(adapter_config, model_config, **kwargs):
     config_dict = {
-        'type': adapter_type,
         'model_type': model_config.model_type,
         'hidden_size': model_config.hidden_size
     }
-    if model_name:
-        config_dict['model_name'] = model_name
-    if name:
-        config_dict['name'] = name
+    config_dict.update(kwargs)
     if is_dataclass(adapter_config):
         config_dict['config'] = adapter_config.to_dict()
     else:
         config_dict['config'] = adapter_config
-    if with_head:
-        config_dict['prediction_head'] = model_config.prediction_heads[name]
     return config_dict

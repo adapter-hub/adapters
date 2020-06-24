@@ -1,8 +1,15 @@
+import logging
+
 import torch
 from torch import nn
+from torch.nn import CrossEntropyLoss, MSELoss
 
+from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
+from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import *
-from .adapter_model_mixin import ModelAdaptersMixin, AdapterType, DEFAULT_ADAPTER_CONFIG
+
+
+logger = logging.getLogger(__name__)
 
 
 class BertSelfOutputAdaptersMixin:
@@ -403,7 +410,6 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
 
     def _init_adapter_modules(self):
         self.invertible_lang_adapters = nn.ModuleDict(dict())
-        self.prediction_heads = nn.ModuleDict(dict())
 
         # language adapters
         for language in self.config.adapters.adapter_list(AdapterType.text_lang):
@@ -416,15 +422,6 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         if hasattr(self.config, 'fusion_models'):
             for tasks in self.config.fusion_models:
                 self.add_attention_layer(tasks)
-        # prediction heads
-        if hasattr(self.config, 'prediction_heads'):
-            for k, v in self.config.prediction_heads.items():
-                self.add_prediction_head(task=k,
-                                         nr_labels=v['nr_labels'],
-                                         task_type=v['task_type'],
-                                         layers=v['layers'],
-                                         activation_function=v['activation_function'],
-                                         qa_examples=v['qa_examples'])
 
     def train_adapter(self, adapter_type: AdapterType):
         """Sets the model in mode for training the given type of adapter.
@@ -490,147 +487,210 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         """See BertModel.add_attention_layer"""
         self.encoder.add_attention_layer(task_names)
 
-    def add_prediction_head(self, task, nr_labels=None, task_type=None, layers=None, activation_function=None, qa_examples=None):
-        """Adds a new prediction head to the model.
+
+class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
+    """Adds heads to a Bert-based module.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.active_task_adapters = []
+        self.active_head = None
+
+    def _init_head_modules(self):
+        self.config.prediction_heads = {}
+        self.heads = nn.ModuleDict(dict())
+        # add modules for heads in config
+        if hasattr(self.config, 'prediction_heads'):
+            for head_name in self.config.prediction_heads:
+                self.add_prediction_head_module(head_name)
+
+    def set_active_task(self, task_name: str):
+        """Sets the task adapter and/ or prediction head which should be used by default in a forward pass.
+        If no adapter or prediction with the given name is found, no module of the respective type will be activated.
+
+        Args:
+            task_name (str): The name of the task adapter and/ or prediction head.
         """
-        if type(task) == str:
-            task_name = task
-            assert task_type is not None
+        if task_name in self.config.adapters.adapter_list(AdapterType.text_task):
+            self.active_task_adapters = [task_name]
+        else:
+            logger.warning("No task adapter for task_name '{}' available.".format(task_name))
+        if task_name in self.config.prediction_heads:
+            self.active_head = task_name
+        else:
+            logger.warning("No prediction head for task_name '{}' available.".format(task_name))
+
+    def add_classification_head(
+        self,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function='tanh',
+        overwrite_ok=False,
+    ):
+        """Adds a sequence classification head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            num_labels (int, optional): Number of classification labels. Defaults to 2.
+            layers (int, optional): Number of layers. Defaults to 2.
+            activation_function (str, optional): Activation function. Defaults to 'tanh'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        config = {
+            'head_type': 'classification',
+            'num_labels': num_labels,
+            'layers': layers,
+            'activation_function': activation_function
+        }
+        self.add_prediction_head(head_name, config, overwrite_ok)
+
+    def add_multiple_choice_head(
+        self,
+        head_name,
+        num_choices=2,
+        layers=2,
+        activation_function='tanh',
+        overwrite_ok=False,
+    ):
+        """Adds a multiple choice head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            num_choices (int, optional): Number of choices. Defaults to 2.
+            layers (int, optional): Number of layers. Defaults to 2.
+            activation_function (str, optional): Activation function. Defaults to 'tanh'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        config = {
+            'head_type': 'multiple_choice',
+            'num_choices': num_choices,
+            'layers': layers,
+            'activation_function': activation_function
+        }
+        self.add_prediction_head(head_name, config, overwrite_ok)
+
+    def add_tagging_head(
+        self,
+        head_name,
+        num_labels=2,
+        layers=1,
+        activation_function='tanh',
+        overwrite_ok=False,
+    ):
+        """Adds a token classification head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            num_labels (int, optional): Number of classification labels. Defaults to 2.
+            layers (int, optional): Number of layers. Defaults to 1.
+            activation_function (str, optional): Activation function. Defaults to 'tanh'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        config = {
+            'head_type': 'tagging',
+            'num_labels': num_labels,
+            'layers': layers,
+            'activation_function': activation_function
+        }
+        self.add_prediction_head(head_name, config, overwrite_ok)
+
+    def add_prediction_head(
+        self,
+        head_name,
+        config,
+        overwrite_ok=False,
+    ):
+        if head_name not in self.config.prediction_heads or overwrite_ok:
+            self.config.prediction_heads[head_name] = config
+
+            logger.info(f"Adding head '{head_name}' with config {config}.")
+            self._add_prediction_head_module(head_name)
+            self.active_head = head_name
 
         else:
-            task_name = task['name'].lower()
-            task_type = task['task_type'].lower()
-            nr_labels = task['data'].get_nr_labels()
-            layers = task['nr_layers']
-            activation_function = task['activation_function'].lower()
-            qa_examples = task['qa_examples']
+            raise ValueError(
+                f"Model already contains a head with name '{head_name}'. Use overwrite_ok=True to force overwrite."
+            )
 
-        if task_type in ['classification', 'tagging']:
-            self.__add_classication_head__(task_name=task_name,
-                                           nr_labels=nr_labels,
-                                           layers=layers,
-                                           activation_function=activation_function,
-                                           qa_examples=None)
-        elif task_type == 'qa':
-            self.__add_qa_head__(task_name=task_name,
-                                 layers=layers,
-                                 activation_function=activation_function,
-                                 qa_examples=qa_examples,
-                                 nr_labels=None)
+    def _add_prediction_head_module(self, head_name):
+        head_config = self.config.prediction_heads.get(head_name)
 
-        elif task_type == 'extractive_qa':
-            # TODO: Check number of labels
-            self.__add_squad_head__(task_name=task_name, layers=layers,
-                                    activation_function=activation_function,
-                                    qa_examples=None,
-                                    nr_labels=2)
-
-    def __add_classication_head__(self, task_name, nr_labels, layers, activation_function, qa_examples=None):
         pred_head = []
-
-        for l in range(layers):
+        for l in range(head_config['layers']):
             pred_head.append(nn.Dropout(self.config.hidden_dropout_prob))
-            if l < layers - 1:
+            if l < head_config['layers'] - 1:
                 pred_head.append(nn.Linear(self.config.hidden_size, self.config.hidden_size))
-                pred_head.append(Activation_Function_Class(activation_function))
+                pred_head.append(Activation_Function_Class(head_config['activation_function']))
             else:
-                pred_head.append(nn.Linear(self.config.hidden_size, nr_labels))
+                if 'num_labels' in head_config:
+                    pred_head.append(nn.Linear(self.config.hidden_size, head_config['num_labels']))
+                else:  # used for multiple_choice head
+                    pred_head.append(nn.Linear(self.config.hidden_size, 1))
 
-        self.prediction_heads[task_name] = nn.Sequential(*pred_head)
+        self.heads[head_name] = nn.Sequential(*pred_head)
 
-        self.prediction_heads[task_name].apply(Adapter.init_bert_weights)
+        self.heads[head_name].apply(self._init_weights)
+        self.heads[head_name].train(self.training)  # make sure training mode is consistent
 
-        if not hasattr(self.config, 'prediction_heads'):
-            self.config.prediction_heads = {}
-        if task_name not in self.config.prediction_heads:
-            self.config.prediction_heads[task_name] = {}
-            self.config.prediction_heads[task_name]['task_type'] = 'classification'
-            self.config.prediction_heads[task_name]['nr_labels'] = nr_labels
-            self.config.prediction_heads[task_name]['layers'] = layers
-            self.config.prediction_heads[task_name]['activation_function'] = activation_function
-            self.config.prediction_heads[task_name]['qa_examples'] = None
+    def forward_head(self, outputs, head_name=None, attention_mask=None, labels=None):
+        head_name = head_name or self.active_head
+        if not head_name:
+            logger.warn("No prediction head is used.")
+            return outputs
 
-    def __add_qa_head__(self, task_name, layers, activation_function, qa_examples, nr_labels=None):
+        if head_name not in self.config.prediction_heads:
+            raise ValueError("Unknown head_name '{}'".format(head_name))
 
-        pred_head = []
+        head = self.config.prediction_heads[head_name]
 
-        for l in range(layers):
-            pred_head.append(nn.Dropout(self.config.hidden_dropout_prob))
-            if l < layers - 1:
-                pred_head.append(nn.Linear(self.config.hidden_size, self.config.hidden_size))
-                pred_head.append(Activation_Function_Class(activation_function))
-            else:
-                pred_head.append(nn.Linear(self.config.hidden_size, 1))
+        sequence_output = outputs[0]
 
-        self.prediction_heads[task_name] = nn.Sequential(*pred_head)
+        if head['head_type'] == 'classification':
+            logits = self.heads[head_name](sequence_output[:, 0])
 
-        self.prediction_heads[task_name].apply(Adapter.init_bert_weights)
+            outputs = (logits,) + outputs[2:]
+            if labels is not None:
+                if head['num_labels'] == 1:
+                    #  We are doing regression
+                    loss_fct = MSELoss()
+                    loss = loss_fct(logits.view(-1), labels.view(-1))
+                else:
+                    loss_fct = CrossEntropyLoss()
+                    loss = loss_fct(logits.view(-1, head['num_labels']), labels.view(-1))
+                outputs = (loss,) + outputs
 
-        if not hasattr(self.config, 'prediction_heads'):
-            self.config.prediction_heads = {}
-        if task_name not in self.config.prediction_heads:
-            self.config.prediction_heads[task_name] = {}
-            self.config.prediction_heads[task_name]['task_type'] = 'qa'
-            self.config.prediction_heads[task_name]['qa_examples'] = qa_examples
-            self.config.prediction_heads[task_name]['layers'] = layers
-            self.config.prediction_heads[task_name]['activation_function'] = activation_function
-            self.config.prediction_heads[task_name]['nr_labels'] = None
+        elif head['head_type'] == 'multiple_choice':
+            logits = self.heads[head_name](sequence_output[:, 0])
+            logits = logits.view(-1, head['num_choices'])
 
-    def __add_squad_head__(self, task_name, layers, activation_function, qa_examples, nr_labels=None):
-        pred_head = []
+            outputs = (logits,) + outputs[2:]
+            if labels is not None:
+                loss_fct = CrossEntropyLoss()
+                loss = loss_fct(logits, labels)
+                outputs = (loss,) + outputs
 
-        # for l in range(layers):
-        #     pred_head.append(nn.Dropout(self.config.hidden_dropout_prob))
-        #     if l < layers - 1:
-        #         pred_head.append(nn.Linear(self.config.hidden_size, self.config.hidden_size))
-        #         pred_head.append(Activation_Function_Class(activation_function))
-        #     else:
-        #         pred_head.append(nn.Linear(self.config.hidden_size, nr_labels))
-        pred_head.append(nn.Linear(self.config.hidden_size, nr_labels))
-        self.prediction_heads[task_name] = nn.Sequential(*pred_head)
+        elif head['head_type'] == 'tagging':
+            logits = self.heads[head_name](sequence_output)
 
-        self.prediction_heads[task_name].apply(Adapter.init_bert_weights)
+            outputs = (logits,) + outputs[2:]
+            if labels is not None:
+                loss_fct = CrossEntropyLoss()
+                # Only keep active parts of the loss
+                if attention_mask is not None:
+                    active_loss = attention_mask.view(-1) == 1
+                    active_logits = logits.view(-1, self.num_labels)
+                    active_labels = torch.where(
+                        active_loss, labels.view(-1), torch.tensor(loss_fct.ignore_index).type_as(labels)
+                    )
+                    loss = loss_fct(active_logits, active_labels)
+                else:
+                    loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+                outputs = (loss,) + outputs
 
-        if not hasattr(self.config, 'prediction_heads'):
-            self.config.prediction_heads = {}
-        if task_name not in self.config.prediction_heads:
-            self.config.prediction_heads[task_name] = {}
-            self.config.prediction_heads[task_name]['task_type'] = 'extractive_qa'
-            self.config.prediction_heads[task_name]['nr_labels'] = 2
-            self.config.prediction_heads[task_name]['layers'] = 1
-            self.config.prediction_heads[task_name]['activation_function'] = None
-            self.config.prediction_heads[task_name]['qa_examples'] = None
-
-    def task_forward(self, task, outputs, sequence_output, valid_ids, device):
-        if isinstance(task, str):
-            task_name = task
-            task = self.config.prediction_heads[task]
         else:
-            task_name = task['name']
+            raise ValueError("Unknown head_type '{}'".format(head['head_type']))
 
-        if task['task_type'] == 'classification':
-            outputs = self.prediction_heads[task_name](outputs[0][:, 0, :])
-
-        elif task['task_type'] == 'qa':
-            outputs = self.prediction_heads[task_name](outputs[0][:, 0, :])
-            outputs = outputs.view(-1, task['qa_examples'])
-            # outputs = outputs.squeeze(-1).view(-1,task['qa_examples'])
-
-        elif task['task_type'] == 'tagging':
-            batch_size, max_len, feat_dim = sequence_output.shape
-            valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32).to(device)
-            for i in range(batch_size):
-                jj = -1
-                for j in range(max_len):
-                    if valid_ids[i][j].item() == 1:
-                        jj += 1
-                        valid_output[i][jj] = sequence_output[i][j]
-            # sequence_output = self.dropout(valid_output)
-            # outputs = self.classifier(sequence_output)
-            outputs = self.prediction_heads[task_name](sequence_output)
-
-        elif task['task_type'] == 'extractive_qa':
-            sequence_output = outputs[0]
-            outputs = self.prediction_heads[task_name](sequence_output)
-
-        return outputs
+        return outputs  # (loss), logits, (hidden_states), (attentions)

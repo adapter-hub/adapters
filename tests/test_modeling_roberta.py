@@ -28,6 +28,7 @@ if is_torch_available():
     from transformers import (
         RobertaConfig,
         RobertaModel,
+        RobertaModelWithHeads,
         RobertaForMaskedLM,
         RobertaForSequenceClassification,
         RobertaForTokenClassification,
@@ -40,7 +41,7 @@ if is_torch_available():
 @require_torch
 class RobertaModelTest(ModelTesterMixin, unittest.TestCase):
 
-    all_model_classes = (RobertaForMaskedLM, RobertaModel) if is_torch_available() else ()
+    all_model_classes = (RobertaForMaskedLM, RobertaModel, RobertaModelWithHeads) if is_torch_available() else ()
 
     class RobertaModelTester(object):
         def __init__(

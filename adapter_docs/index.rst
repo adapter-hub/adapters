@@ -25,6 +25,7 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    quickstart
    adapter_types
    training
+   extending
 
 .. toctree::
    :maxdepth: 2
@@ -39,9 +40,10 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
 
    classes/adapter_modules
    classes/adapter_config
-   classes/adapter_model_mixin
-   classes/adapter_bert
+   classes/model_mixins
+   classes/bert_mixins
    classes/adapter_utils
+   classes/weights_loaders
 
 .. toctree::
    :maxdepth: 1
