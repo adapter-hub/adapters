@@ -95,20 +95,19 @@ class Adapter(nn.Module):
         attention = self.adapter_attention(down)
         up = self.adapter_up(down)
 
-        # output = x + up
-        # if residual_input is not None:
-        #     output += residual_input
-
         output = up
 
+        # todo add brief documentation what that means
         if self.residual_before_ln:
-            output += residual_input
+            output = output + residual_input
 
+        # todo add brief documentation what that means
         if self.add_layer_norm_after:
             output = self.adapter_norm_after(output)
 
+        # todo add brief documentation what that means
         if not self.residual_before_ln:
-            output += residual_input
+            output = output + residual_input
 
         return output, attention, down, up
 
@@ -174,7 +173,7 @@ class BertAdapterAttention(nn.Module):
     def forward(self, query, key, value, residual, attention_mask=None):
 
         if self.config.fusion_config['residual_before']:
-            value += residual[:,:,None,:].repeat(1,1,value.size(2),1)
+            value = value + residual[:,:,None,:].repeat(1,1,value.size(2),1)
 
         if self.config.fusion_config['query']:
             query_layer = self.query(query)
@@ -211,7 +210,7 @@ class BertAdapterAttention(nn.Module):
         # context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value), dim=2)
 
         if not self.config.fusion_config['residual_before']:
-            context_layer += residual
+            context_layer = context_layer + residual
 
         return context_layer
 
