@@ -31,6 +31,7 @@ class InvertibleAdapterConfig(Mapping):
 @dataclass(frozen=True)
 class AdapterConfig(Mapping):
     """Base class that models the architecture of an adapter."""
+
     original_ln_before: bool
     original_ln_after: bool
     residual_before_ln: bool
@@ -72,6 +73,7 @@ class PfeifferConfig(AdapterConfig):
     The adapter architecture proposed by Pfeiffer et. al., 2020.
     Described in https://arxiv.org/pdf/2005.00247.pdf.
     """
+
     original_ln_before: bool = True
     original_ln_after: bool = True
     residual_before_ln: bool = True
@@ -80,12 +82,10 @@ class PfeifferConfig(AdapterConfig):
     ln_after: bool = False
     mh_adapter: bool = False
     output_adapter: bool = True
-    non_linearity: str = 'relu'
+    non_linearity: str = "relu"
     reduction_factor: int = 16
     invertible_adapter: Optional[dict] = InvertibleAdapterConfig(
-        block_type='nice',
-        non_linearity='relu',
-        reduction_factor=2
+        block_type="nice", non_linearity="relu", reduction_factor=2
     )
 
 
@@ -95,6 +95,7 @@ class HoulsbyConfig(AdapterConfig):
     The adapter architecture proposed by Houlsby et. al., 2019.
     Described in https://arxiv.org/pdf/1902.00751.pdf.
     """
+
     original_ln_before: bool = False
     original_ln_after: bool = True
     residual_before_ln: bool = True
@@ -103,16 +104,13 @@ class HoulsbyConfig(AdapterConfig):
     ln_after: bool = False
     mh_adapter: bool = True
     output_adapter: bool = True
-    non_linearity: str = 'swish'
+    non_linearity: str = "swish"
     reduction_factor: int = 16
 
 
-ADAPTER_CONFIG_MAP = {
-    'pfeiffer': PfeifferConfig(),
-    'houlsby': HoulsbyConfig()
-}
+ADAPTER_CONFIG_MAP = {"pfeiffer": PfeifferConfig(), "houlsby": HoulsbyConfig()}
 
-DEFAULT_ADAPTER_CONFIG = 'pfeiffer'
+DEFAULT_ADAPTER_CONFIG = "pfeiffer"
 
 # these keys are ignored when calculating the config hash
 ADAPTER_CONFIG_HASH_IGNORE = []
@@ -135,15 +133,14 @@ class AdapterType(str, Enum):
 class ModelAdaptersConfig:
     """This class manages the setup and configuration of adapter modules in a pre-trained model.
     """
+
     def __init__(self, **kwargs):
         # adapters maps <name> -> (<type>, <config_name>)
         self.adapters = kwargs.pop("adapters", {})
         self.config_map = kwargs.pop("config_map", {})
 
     def adapter_list(self, adapter_type: AdapterType) -> list:
-        return [
-            k for k, v in self.adapters.items() if v[0] == adapter_type
-        ]
+        return [k for k, v in self.adapters.items() if v[0] == adapter_type]
 
     def get_type(self, adapter_name: str) -> Optional[AdapterType]:
         if adapter_name in self.adapters:
@@ -199,7 +196,7 @@ class ModelAdaptersConfig:
         if isinstance(config, Mapping) or config in ADAPTER_CONFIG_MAP:
             self.config_map[adapter_type] = config
         elif isfile(config):
-            with open(config, 'r', encoding='utf-8') as f:
+            with open(config, "r", encoding="utf-8") as f:
                 self.config_map[adapter_type] = json.load(f)
         else:
             raise ValueError("Unable to identify {} as a valid adapter config.".format(config))
@@ -220,8 +217,8 @@ class ModelAdaptersConfig:
 
     def to_dict(self):
         output_dict = {}
-        output_dict['adapters'] = copy.deepcopy(self.adapters)
-        output_dict['config_map'] = copy.deepcopy(self.config_map)
+        output_dict["adapters"] = copy.deepcopy(self.adapters)
+        output_dict["config_map"] = copy.deepcopy(self.config_map)
         return output_dict
 
 
@@ -238,23 +235,18 @@ def get_adapter_config_hash(config, length=16):
     Returns:
         str: The resulting hash of the given config dict.
     """
-    minimized_config = _minimize_dict(
-        {k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE}
-    )
+    minimized_config = _minimize_dict({k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE})
     dict_str = json.dumps(minimized_config, sort_keys=True)
     h = hashlib.sha1()
-    h.update(dict_str.encode(encoding='utf-8'))
+    h.update(dict_str.encode(encoding="utf-8"))
     return h.hexdigest()[:length]
 
 
 def build_full_config(adapter_config, model_config, **kwargs):
-    config_dict = {
-        'model_type': model_config.model_type,
-        'hidden_size': model_config.hidden_size
-    }
+    config_dict = {"model_type": model_config.model_type, "hidden_size": model_config.hidden_size}
     config_dict.update(kwargs)
     if is_dataclass(adapter_config):
-        config_dict['config'] = adapter_config.to_dict()
+        config_dict["config"] = adapter_config.to_dict()
     else:
-        config_dict['config'] = adapter_config
+        config_dict["config"] = adapter_config
     return config_dict

@@ -24,6 +24,7 @@ from typing import Dict, Optional
 import numpy as np
 
 from transformers import (
+    AdapterArguments,
     AutoConfig,
     AutoModelForMultipleChoice,
     AutoTokenizer,
@@ -31,9 +32,7 @@ from transformers import (
     HfArgumentParser,
     Trainer,
     TrainingArguments,
-    AdapterArguments,
     set_seed,
-    AdapterType,
     setup_task_adapter_training,
 )
 from utils_multiple_choice import MultipleChoiceDataset, Split, processors

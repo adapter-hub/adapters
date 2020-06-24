@@ -161,8 +161,7 @@ class RobertaModel(BertModel):
 
 
 @add_start_docstrings(
-    """Bert Model transformer with the option to add multiple flexible heads on top.""",
-    ROBERTA_START_DOCSTRING,
+    """Bert Model transformer with the option to add multiple flexible heads on top.""", ROBERTA_START_DOCSTRING,
 )
 class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
     config_class = RobertaConfig
@@ -208,12 +207,7 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
             language=language,
         )
 
-        outputs = self.forward_head(
-            outputs,
-            head_name=head,
-            attention_mask=attention_mask,
-            labels=labels,
-        )
+        outputs = self.forward_head(outputs, head_name=head, attention_mask=attention_mask, labels=labels,)
 
         return outputs
 
@@ -296,8 +290,7 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         )
         sequence_output = outputs[0]
         prediction_scores = self.lm_head(
-            sequence_output,
-            inv_lang_adapter=self.roberta.get_invertible_lang_adapter(language),
+            sequence_output, inv_lang_adapter=self.roberta.get_invertible_lang_adapter(language),
         )
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
@@ -564,7 +557,7 @@ class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedM
         inputs_embeds=None,
         labels=None,
         tasks=None,
-        language=None
+        language=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):

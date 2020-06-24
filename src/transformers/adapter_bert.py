@@ -6,7 +6,17 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
-from .adapter_modeling import *
+from .adapter_modeling import (
+    Activation_Function_Class,
+    Adapter,
+    AdapterFusionSentLvlDynamic,
+    AdapterWeightingSentLvl,
+    AdapterWeightingSentLvlDynamic,
+    BertAdapterAttention,
+    GLOWCouplingBlock,
+    NICECouplingBlock,
+    SimpleAdapterWeightingStatic,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -15,6 +25,7 @@ logger = logging.getLogger(__name__)
 class BertSelfOutputAdaptersMixin:
     """Adds adapters to the BertSelfOutput module.
     """
+
     def _init_adapter_modules(self):
         self.attention_text_task_adapters = nn.ModuleDict(dict())
         self.attention_adapters_fusion = nn.ModuleDict(dict())
@@ -24,14 +35,15 @@ class BertSelfOutputAdaptersMixin:
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config and adapter_config['mh_adapter']:
-            adapter = Adapter(input_size=self.config.hidden_size,
-                              down_sample=self.config.hidden_size // adapter_config['reduction_factor'],
-                              add_layer_norm_before=adapter_config['ln_before'],
-                              add_layer_norm_after=adapter_config['ln_after'],
-                              non_linearity=adapter_config['non_linearity'],
-                              residual_before_ln=adapter_config['adapter_residual_before_ln']
-                              )
+        if adapter_config and adapter_config["mh_adapter"]:
+            adapter = Adapter(
+                input_size=self.config.hidden_size,
+                down_sample=self.config.hidden_size // adapter_config["reduction_factor"],
+                add_layer_norm_before=adapter_config["ln_before"],
+                add_layer_norm_after=adapter_config["ln_after"],
+                non_linearity=adapter_config["non_linearity"],
+                residual_before_ln=adapter_config["adapter_residual_before_ln"],
+            )
             if adapter_type == AdapterType.text_task:
                 self.attention_text_task_adapters[adapter_name] = adapter
             elif adapter_type == AdapterType.text_lang:
@@ -41,25 +53,25 @@ class BertSelfOutputAdaptersMixin:
 
     def add_attention_layer(self, tasks):
         """See BertModel.add_attention_layer"""
-        task_names = tasks if isinstance(tasks, list) else tasks.split('_')
+        task_names = tasks if isinstance(tasks, list) else tasks.split("_")
         adapter_config = self.config.adapters.common_config(task_names)
         if not adapter_config:
             raise ValueError("All tasks used in the attention layer must have the same configuration.")
-        if adapter_config['mh_adapter']:
-            if adapter_config['attention_type'] == 'tok-lvl':
+        if adapter_config["mh_adapter"]:
+            if adapter_config["attention_type"] == "tok-lvl":
                 layer = BertAdapterAttention(self.config)
-            elif adapter_config['attention_type'] == 'sent-lvl':
+            elif adapter_config["attention_type"] == "sent-lvl":
                 layer = AdapterWeightingSentLvl(self.config, len(task_names))
-            elif adapter_config['attention_type'] == 'sent-lvl-dynamic':
+            elif adapter_config["attention_type"] == "sent-lvl-dynamic":
                 layer = AdapterWeightingSentLvlDynamic(self.config, len(task_names))
-            elif adapter_config['attention_type'] == 'static':
+            elif adapter_config["attention_type"] == "static":
                 layer = SimpleAdapterWeightingStatic(self.config, len(task_names))
             else:
-                raise Exception('Unknown attention type: {}'.format(adapter_config['attention_type']))
+                raise Exception("Unknown attention type: {}".format(adapter_config["attention_type"]))
 
-            self.attention_adapters_fusion['_'.join(task_names)] = layer
+            self.attention_adapters_fusion["_".join(task_names)] = layer
 
-            if adapter_config['new_attention_norm']:
+            if adapter_config["new_attention_norm"]:
                 self.attention_layer_norm = nn.LayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
 
     def enable_adapters(self, adapter_type: AdapterType, unfreeze_adapters: bool, unfreeze_attention: bool):
@@ -76,7 +88,7 @@ class BertSelfOutputAdaptersMixin:
                     for param in adap.adapter_attention.parameters():
                         param.requires_grad = True
 
-                if hasattr(self, 'attention_layer_norm'):
+                if hasattr(self, "attention_layer_norm"):
                     for param in self.attention_layer_norm.parameters():
                         param.requires_grad = True
         elif adapter_type == AdapterType.text_lang:
@@ -91,7 +103,7 @@ class BertSelfOutputAdaptersMixin:
                     for param in adap.language_adapter_attention.parameters():
                         param.requires_grad = True
 
-                if hasattr(self, 'language_attention_layer_norm'):
+                if hasattr(self, "language_attention_layer_norm"):
                     for param in self.language_attention_layer_norm.parameters():
                         param.requires_grad = True
         else:
@@ -106,20 +118,19 @@ class BertSelfOutputAdaptersMixin:
             if lang_adapter_config and language in self.attention_text_lang_adapters:
                 adapter_used = True
 
-                if lang_adapter_config['residual_before_ln']:
+                if lang_adapter_config["residual_before_ln"]:
                     residual = hidden_states
 
-                if lang_adapter_config['original_ln_before']:
+                if lang_adapter_config["original_ln_before"]:
                     hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-                if not lang_adapter_config['residual_before_ln']:
+                if not lang_adapter_config["residual_before_ln"]:
                     residual = hidden_states
 
                 hidden_states, adapter_attention, down, up = self.attention_text_lang_adapters[language](
-                    hidden_states,
-                    residual_input=residual
+                    hidden_states, residual_input=residual
                 )
-                if lang_adapter_config['original_ln_after']:
+                if lang_adapter_config["original_ln_after"]:
                     hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         # Task adapters
@@ -131,33 +142,32 @@ class BertSelfOutputAdaptersMixin:
             task_adapter_config = self.config.adapters.get(tasks[0])
             adapter_used = True
 
-            if task_adapter_config['residual_before_ln']:
+            if task_adapter_config["residual_before_ln"]:
                 residual = hidden_states
 
-            if hasattr(self.config, 'fusion_config') and self.config.fusion_config['query_before_ln']:
-                query = hidden_states
+            # if hasattr(self.config, "fusion_config") and self.config.fusion_config["query_before_ln"]:
+            #     query = hidden_states
 
-            if task_adapter_config['original_ln_before']:
+            if task_adapter_config["original_ln_before"]:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if not task_adapter_config['residual_before_ln']:
+            if not task_adapter_config["residual_before_ln"]:
                 residual = hidden_states
 
-            if hasattr(self.config, 'fusion_config') and not self.config.fusion_config['query_before_ln']:
-                query = hidden_states
+            # if hasattr(self.config, "fusion_config") and not self.config.fusion_config["query_before_ln"]:
+            #     query = hidden_states
 
             # if we have multiple tasks, use fusion
             if len(tasks) > 1:
                 # TODO see BertOutput module
                 raise NotImplementedError()
-                
+
             # otherwise, only use one task adapter without attention
             else:
                 hidden_states, adapter_attention, down, up = self.attention_text_task_adapters[tasks[0]](
-                    hidden_states,
-                    residual_input=residual
+                    hidden_states, residual_input=residual
                 )
-                if task_adapter_config['original_ln_after']:
+                if task_adapter_config["original_ln_after"]:
                     hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         # In case we haven't used any adapter
@@ -170,6 +180,7 @@ class BertSelfOutputAdaptersMixin:
 class BertOutputAdaptersMixin:
     """Adds adapters to the BertOutput module.
     """
+
     def _init_adapter_modules(self):
         # self.bert_adapter_att = BertAdapterAttention(config)
         # self.bert_adapter_att = SimpleAdapterWeightingSentLvl(config)
@@ -180,40 +191,41 @@ class BertOutputAdaptersMixin:
 
     def add_attention_layer(self, tasks):
         """See BertModel.add_attention_layer"""
-        task_names = tasks if isinstance(tasks, list) else tasks.split('_')
+        task_names = tasks if isinstance(tasks, list) else tasks.split("_")
         adapter_config = self.config.adapters.common_config(task_names)
         if not adapter_config:
             raise ValueError("All tasks used in the attention layer must have the same configuration.")
-        if adapter_config['output_adapter']:
-            if adapter_config['attention_type'] == 'tok-lvl':
+        if adapter_config["output_adapter"]:
+            if adapter_config["attention_type"] == "tok-lvl":
                 layer = BertAdapterAttention(self.config)
-            elif adapter_config['attention_type'] == 'sent-lvl':
+            elif adapter_config["attention_type"] == "sent-lvl":
                 layer = AdapterWeightingSentLvl(self.config, len(task_names))
-            elif adapter_config['attention_type'] == 'sent-lvl-dynamic':
+            elif adapter_config["attention_type"] == "sent-lvl-dynamic":
                 layer = AdapterWeightingSentLvlDynamic(self.config, len(task_names))
-            elif adapter_config['attention_type'] == 'static':
+            elif adapter_config["attention_type"] == "static":
                 layer = SimpleAdapterWeightingStatic(self.config, len(task_names))
-            elif adapter_config['attention_type'] == 'sent-lvl-fusion':
+            elif adapter_config["attention_type"] == "sent-lvl-fusion":
                 layer = AdapterFusionSentLvlDynamic(self.config, len(task_names))
 
             else:
-                raise Exception('Unknown attention type: {}'.format(adapter_config['attention_type']))
+                raise Exception("Unknown attention type: {}".format(adapter_config["attention_type"]))
 
-            self.bert_adapter_att['_'.join(task_names)] = layer
+            self.bert_adapter_att["_".join(task_names)] = layer
 
-            if adapter_config['new_attention_norm']:
+            if adapter_config["new_attention_norm"]:
                 self.attention_layer_norm = nn.LayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config and adapter_config['output_adapter']:
-            adapter = Adapter(input_size=self.config.hidden_size,
-                              down_sample=self.config.hidden_size // adapter_config['reduction_factor'],
-                              add_layer_norm_before=adapter_config['ln_before'],
-                              add_layer_norm_after=adapter_config['ln_after'],
-                              non_linearity=adapter_config['non_linearity'],
-                              residual_before_ln=adapter_config['adapter_residual_before_ln']
-                              )
+        if adapter_config and adapter_config["output_adapter"]:
+            adapter = Adapter(
+                input_size=self.config.hidden_size,
+                down_sample=self.config.hidden_size // adapter_config["reduction_factor"],
+                add_layer_norm_before=adapter_config["ln_before"],
+                add_layer_norm_after=adapter_config["ln_after"],
+                non_linearity=adapter_config["non_linearity"],
+                residual_before_ln=adapter_config["adapter_residual_before_ln"],
+            )
             if adapter_type == AdapterType.text_task:
                 self.layer_text_task_adapters[adapter_name] = adapter
             elif adapter_type == AdapterType.text_lang:
@@ -235,7 +247,7 @@ class BertOutputAdaptersMixin:
                 for param in self.bert_adapter_att.parameters():
                     param.requires_grad = True
 
-                if hasattr(self, 'attention_layer_norm'):
+                if hasattr(self, "attention_layer_norm"):
                     for param in self.attention_layer_norm.parameters():
                         param.requires_grad = True
         elif adapter_type == AdapterType.text_lang:
@@ -250,7 +262,7 @@ class BertOutputAdaptersMixin:
                 for param in self.bert_language_adapter_att.parameters():
                     param.requires_grad = True
 
-                if hasattr(self, 'language_attention_layer_norm'):
+                if hasattr(self, "language_attention_layer_norm"):
                     for param in self.language_attention_layer_norm.parameters():
                         param.requires_grad = True
         else:
@@ -265,20 +277,19 @@ class BertOutputAdaptersMixin:
             if lang_adapter_config and language in self.layer_text_lang_adapters:
                 adapter_used = True
 
-                if lang_adapter_config['residual_before_ln']:
+                if lang_adapter_config["residual_before_ln"]:
                     residual = hidden_states
 
-                if lang_adapter_config['original_ln_before']:
+                if lang_adapter_config["original_ln_before"]:
                     hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-                if not lang_adapter_config['residual_before_ln']:
+                if not lang_adapter_config["residual_before_ln"]:
                     residual = hidden_states
 
                 hidden_states, adapter_attention, down, up = self.layer_text_lang_adapters[language](
-                    hidden_states,
-                    residual_input=residual
+                    hidden_states, residual_input=residual
                 )
-                if lang_adapter_config['original_ln_after']:
+                if lang_adapter_config["original_ln_after"]:
                     hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         # Task adapters
@@ -290,19 +301,19 @@ class BertOutputAdaptersMixin:
             task_adapter_config = self.config.adapters.get(tasks[0])
             adapter_used = True
 
-            if task_adapter_config['residual_before_ln']:
+            if task_adapter_config["residual_before_ln"]:
                 residual = hidden_states
 
-            if hasattr(self.config, 'fusion_config') and self.config.fusion_config['query_before_ln']:
+            if hasattr(self.config, "fusion_config") and self.config.fusion_config["query_before_ln"]:
                 query = hidden_states
 
-            if task_adapter_config['original_ln_before']:
+            if task_adapter_config["original_ln_before"]:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if not task_adapter_config['residual_before_ln']:
+            if not task_adapter_config["residual_before_ln"]:
                 residual = hidden_states
 
-            if hasattr(self.config, 'fusion_config') and not self.config.fusion_config['query_before_ln']:
+            if hasattr(self.config, "fusion_config") and not self.config.fusion_config["query_before_ln"]:
                 query = hidden_states
 
             # if we have multiple tasks, use fusion
@@ -327,7 +338,7 @@ class BertOutputAdaptersMixin:
                 up_list = torch.stack(up_list)
                 up_list = up_list.permute(1, 2, 0, 3)
 
-                attn_name = '_'.join(tasks)
+                attn_name = "_".join(tasks)
                 if attn_name not in self.bert_adapter_att:
                     attn_name_new = list(self.bert_adapter_att.keys())[0]
                     # logging.root.warn('{} not in attention layers. Using other attention layer {} instead'.format(
@@ -336,7 +347,9 @@ class BertOutputAdaptersMixin:
                     # ))
                     attn_name = attn_name_new
 
-                hidden_states = self.bert_adapter_att[attn_name](query, up_list, up_list, residual=residual, attention_mask=attention_mask)
+                hidden_states = self.bert_adapter_att[attn_name](
+                    query, up_list, up_list, residual=residual, attention_mask=attention_mask
+                )
 
                 # hidden_states = self.bert_adapter_att[attn_name](query, down_list, up_list, residual=residual, attention_mask=attention_mask)
 
@@ -345,17 +358,16 @@ class BertOutputAdaptersMixin:
                 # hidden_states = up_list[:,:,0] + residual
                 # hidden_states = layer_output_list[:,:,0]
 
-                if task_adapter_config['new_attention_norm']:
+                if task_adapter_config["new_attention_norm"]:
                     hidden_states = self.attention_layer_norm(hidden_states + input_tensor)
                 else:
                     hidden_states = self.LayerNorm(hidden_states + input_tensor)
             # otherwise, only use one task adapter without attention
             else:
                 hidden_states, adapter_attention, down, up = self.layer_text_task_adapters[tasks[0]](
-                    hidden_states,
-                    residual_input=residual
+                    hidden_states, residual_input=residual
                 )
-                if task_adapter_config['original_ln_after']:
+                if task_adapter_config["original_ln_after"]:
                     hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         # In case we haven't used any adapter
@@ -368,6 +380,7 @@ class BertOutputAdaptersMixin:
 class BertLayerAdaptersMixin:
     """Adds adapters to the BertLayer module.
     """
+
     def add_attention_layer(self, tasks):
         self.attention.output.add_attention_layer(tasks)
         self.output.add_attention_layer(tasks)
@@ -384,6 +397,7 @@ class BertLayerAdaptersMixin:
 class BertEncoderAdaptersMixin:
     """Adds adapters to the BertEncoder module.
     """
+
     def add_attention_layer(self, task_names):
         for layer in self.layer:
             layer.add_attention_layer(task_names)
@@ -421,7 +435,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         for task in self.config.adapters.adapter_list(AdapterType.text_task):
             self.encoder.add_adapter(task, AdapterType.text_task)
         # fusion
-        if hasattr(self.config, 'fusion_models'):
+        if hasattr(self.config, "fusion_models"):
             for tasks in self.config.fusion_models:
                 self.add_attention_layer(tasks)
 
@@ -461,18 +475,18 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
     def add_invertible_lang_adapter(self, language):
         if language in self.invertible_lang_adapters:
             raise ValueError(f"Model already contains an adapter module for '{language}'.")
-        inv_adap_config = self.config.adapters.get(language)['invertible_adapter']
-        if inv_adap_config['block_type'] == 'nice':
+        inv_adap_config = self.config.adapters.get(language)["invertible_adapter"]
+        if inv_adap_config["block_type"] == "nice":
             inv_adap = NICECouplingBlock(
                 [[self.config.hidden_size]],
-                non_linearity=inv_adap_config['non_linearity'],
-                reduction_factor=inv_adap_config['reduction_factor']
+                non_linearity=inv_adap_config["non_linearity"],
+                reduction_factor=inv_adap_config["reduction_factor"],
             )
-        elif inv_adap_config['block_type'] == 'glow':
+        elif inv_adap_config["block_type"] == "glow":
             inv_adap = GLOWCouplingBlock(
                 [[self.config.hidden_size]],
-                non_linearity=inv_adap_config['non_linearity'],
-                reduction_factor=inv_adap_config['reduction_fector']
+                non_linearity=inv_adap_config["non_linearity"],
+                reduction_factor=inv_adap_config["reduction_fector"],
             )
         else:
             raise ValueError(f"Invalid invertible adapter type '{inv_adap_config['block_type']}'.")
@@ -504,7 +518,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.config.prediction_heads = {}
         self.heads = nn.ModuleDict(dict())
         # add modules for heads in config
-        if hasattr(self.config, 'prediction_heads'):
+        if hasattr(self.config, "prediction_heads"):
             for head_name in self.config.prediction_heads:
                 self.add_prediction_head_module(head_name)
 
@@ -525,12 +539,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             logger.warning("No prediction head for task_name '{}' available.".format(task_name))
 
     def add_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function='tanh',
-        overwrite_ok=False,
+        self, head_name, num_labels=2, layers=2, activation_function="tanh", overwrite_ok=False,
     ):
         """Adds a sequence classification head on top of the model.
 
@@ -542,20 +551,15 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
         """
         config = {
-            'head_type': 'classification',
-            'num_labels': num_labels,
-            'layers': layers,
-            'activation_function': activation_function
+            "head_type": "classification",
+            "num_labels": num_labels,
+            "layers": layers,
+            "activation_function": activation_function,
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_multiple_choice_head(
-        self,
-        head_name,
-        num_choices=2,
-        layers=2,
-        activation_function='tanh',
-        overwrite_ok=False,
+        self, head_name, num_choices=2, layers=2, activation_function="tanh", overwrite_ok=False,
     ):
         """Adds a multiple choice head on top of the model.
 
@@ -567,20 +571,15 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
         """
         config = {
-            'head_type': 'multiple_choice',
-            'num_choices': num_choices,
-            'layers': layers,
-            'activation_function': activation_function
+            "head_type": "multiple_choice",
+            "num_choices": num_choices,
+            "layers": layers,
+            "activation_function": activation_function,
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_tagging_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=1,
-        activation_function='tanh',
-        overwrite_ok=False,
+        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False,
     ):
         """Adds a token classification head on top of the model.
 
@@ -592,18 +591,15 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
         """
         config = {
-            'head_type': 'tagging',
-            'num_labels': num_labels,
-            'layers': layers,
-            'activation_function': activation_function
+            "head_type": "tagging",
+            "num_labels": num_labels,
+            "layers": layers,
+            "activation_function": activation_function,
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_prediction_head(
-        self,
-        head_name,
-        config,
-        overwrite_ok=False,
+        self, head_name, config, overwrite_ok=False,
     ):
         if head_name not in self.config.prediction_heads or overwrite_ok:
             self.config.prediction_heads[head_name] = config
@@ -621,14 +617,14 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         head_config = self.config.prediction_heads.get(head_name)
 
         pred_head = []
-        for l in range(head_config['layers']):
+        for l in range(head_config["layers"]):
             pred_head.append(nn.Dropout(self.config.hidden_dropout_prob))
-            if l < head_config['layers'] - 1:
+            if l < head_config["layers"] - 1:
                 pred_head.append(nn.Linear(self.config.hidden_size, self.config.hidden_size))
-                pred_head.append(Activation_Function_Class(head_config['activation_function']))
+                pred_head.append(Activation_Function_Class(head_config["activation_function"]))
             else:
-                if 'num_labels' in head_config:
-                    pred_head.append(nn.Linear(self.config.hidden_size, head_config['num_labels']))
+                if "num_labels" in head_config:
+                    pred_head.append(nn.Linear(self.config.hidden_size, head_config["num_labels"]))
                 else:  # used for multiple_choice head
                     pred_head.append(nn.Linear(self.config.hidden_size, 1))
 
@@ -650,23 +646,23 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
 
         sequence_output = outputs[0]
 
-        if head['head_type'] == 'classification':
+        if head["head_type"] == "classification":
             logits = self.heads[head_name](sequence_output[:, 0])
 
             outputs = (logits,) + outputs[2:]
             if labels is not None:
-                if head['num_labels'] == 1:
+                if head["num_labels"] == 1:
                     #  We are doing regression
                     loss_fct = MSELoss()
                     loss = loss_fct(logits.view(-1), labels.view(-1))
                 else:
                     loss_fct = CrossEntropyLoss()
-                    loss = loss_fct(logits.view(-1, head['num_labels']), labels.view(-1))
+                    loss = loss_fct(logits.view(-1, head["num_labels"]), labels.view(-1))
                 outputs = (loss,) + outputs
 
-        elif head['head_type'] == 'multiple_choice':
+        elif head["head_type"] == "multiple_choice":
             logits = self.heads[head_name](sequence_output[:, 0])
-            logits = logits.view(-1, head['num_choices'])
+            logits = logits.view(-1, head["num_choices"])
 
             outputs = (logits,) + outputs[2:]
             if labels is not None:
@@ -674,7 +670,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 loss = loss_fct(logits, labels)
                 outputs = (loss,) + outputs
 
-        elif head['head_type'] == 'tagging':
+        elif head["head_type"] == "tagging":
             logits = self.heads[head_name](sequence_output)
 
             outputs = (logits,) + outputs[2:]
@@ -693,6 +689,6 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 outputs = (loss,) + outputs
 
         else:
-            raise ValueError("Unknown head_type '{}'".format(head['head_type']))
+            raise ValueError("Unknown head_type '{}'".format(head["head_type"]))
 
         return outputs  # (loss), logits, (hidden_states), (attentions)

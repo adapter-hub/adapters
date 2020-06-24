@@ -27,6 +27,7 @@ from seqeval.metrics import f1_score, precision_score, recall_score
 from torch import nn
 
 from transformers import (
+    AdapterArguments,
     AutoConfig,
     AutoModelForTokenClassification,
     AutoTokenizer,
@@ -34,9 +35,7 @@ from transformers import (
     HfArgumentParser,
     Trainer,
     TrainingArguments,
-    AdapterArguments,
     set_seed,
-    AdapterType,
     setup_task_adapter_training,
 )
 from utils_ner import NerDataset, Split, get_labels
@@ -101,7 +100,9 @@ def main():
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args, adapter_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, adapter_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
         model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
