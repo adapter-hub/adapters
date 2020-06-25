@@ -40,14 +40,14 @@ def inherit_doc(cls):
         if isinstance(func, Callable) and not func.__doc__:
             for parent in cls.__bases__:
                 parfunc = getattr(parent, name, None)
-                if parfunc and getattr(parfunc, '__doc__', None):
+                if parfunc and getattr(parfunc, "__doc__", None):
                     func.__doc__ = parfunc.__doc__
                     break
     return cls
 
 
 def urljoin(*args):
-    return '/'.join([s.strip('/') for s in args])
+    return "/".join([s.strip("/") for s in args])
 
 
 def remote_file_exists(url):
@@ -55,7 +55,7 @@ def remote_file_exists(url):
     return r.status_code == 200
 
 
-def download_cached(url, checksum=None, checksum_algo='sha1', cache_dir=None, force_extract=False, **kwargs):
+def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, force_extract=False, **kwargs):
     if not cache_dir:
         cache_dir = ADAPTER_CACHE
     if isinstance(url, Path):
@@ -74,7 +74,7 @@ def download_cached(url, checksum=None, checksum_algo='sha1', cache_dir=None, fo
     # if checksum is given, verify it
     if checksum and checksum_algo:
         h = hashlib.new(checksum_algo)
-        with open(output_path, 'rb') as f:
+        with open(output_path, "rb") as f:
             h.update(f.read())
         calculated_checksum = h.hexdigest()
         if calculated_checksum != checksum.lower():
@@ -132,18 +132,18 @@ def resolve_adapter_config(config: Union[dict, str]) -> dict:
         return ADAPTER_CONFIG_MAP[config]
     # load from file system if it's a local file
     if isfile(config):
-        with open(config, 'r') as f:
+        with open(config, "r") as f:
             loaded_config = json.load(f)
             # search for nested config if the loaded dict has the form of a config saved with an adapter module
-            if 'config' in loaded_config:
-                return loaded_config['config']
+            if "config" in loaded_config:
+                return loaded_config["config"]
             else:
                 return loaded_config
     # now, try to find in hub index
     index_file = download_cached(ADAPTER_HUB_CONFIG_FILE)
     if not index_file:
         raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
-    with open(index_file, 'r') as f:
+    with open(index_file, "r") as f:
         config_index = json.load(f)
     if config in config_index:
         return config_index[config]
@@ -179,17 +179,14 @@ def _dict_extract(d, primary_key, secondary_key=None):
 
 
 def find_in_index(
-        identifier: str,
-        adapter_config: dict,
-        adapter_type: AdapterType,
-        model_name: str,
-        strict: bool = True) -> Optional[str]:
+    identifier: str, adapter_config: dict, adapter_type: AdapterType, model_name: str, strict: bool = True
+) -> Optional[str]:
     if not model_name:
         raise ValueError("Unable to resolve adapter without the name of a model. Please specify model_name.")
     index_file = download_cached(ADAPTER_HUB_INDEX_FILE.format(adapter_type, model_name))
     if not index_file:
         raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
-    with open(index_file, 'r') as f:
+    with open(index_file, "r") as f:
         adapter_index = json.load(f)
     # split into <task>/<subtask>@<org>
     task, subtask, org = _split_identifier(identifier)
@@ -218,22 +215,18 @@ def find_in_index(
         config_entry = list(index_entry.values())[0]
         return _get_matching_version(config_entry, org)
     else:
-        raise ValueError(
-            "No adapter '{}' found for the current model or configuration.".format(identifier)
-        )
+        raise ValueError("No adapter '{}' found for the current model or configuration.".format(identifier))
 
 
 def _get_matching_version(config_entry, org):
     if org:
-        return config_entry['versions'].get(org, None)
-    elif len(config_entry['versions']) == 1:
-        return list(config_entry['versions'].values())[0]
-    elif 'default' in config_entry:
-        return config_entry['versions']['default']
+        return config_entry["versions"].get(org, None)
+    elif len(config_entry["versions"]) == 1:
+        return list(config_entry["versions"].values())[0]
+    elif "default" in config_entry:
+        return config_entry["versions"]["default"]
     else:
-        raise ValueError(
-            "Multiple adapters with this name are available for this config."
-        )
+        raise ValueError("Multiple adapters with this name are available for this config.")
 
 
 def http_get_json(url):
@@ -248,13 +241,14 @@ def http_get_json(url):
 
 
 def pull_from_hub(
-        specifier: str,
-        adapter_config: Union[dict, str],
-        adapter_type: AdapterType,
-        model_name: str,
-        version: str = None,
-        strict: bool = True,
-        **kwargs) -> str:
+    specifier: str,
+    adapter_config: Union[dict, str],
+    adapter_type: AdapterType,
+    model_name: str,
+    version: str = None,
+    strict: bool = True,
+    **kwargs
+) -> str:
     """Downloads a pre-trained adapter module from Adapter-Hub
 
     Args:
@@ -280,32 +274,29 @@ def pull_from_hub(
 
     # set version
     if not version:
-        version = hub_entry['default_version']
-    elif version not in hub_entry['files']:
-        logger.warn(
-            "Version '{}' of adapter '{}' not found. Falling back to default.".format(version, specifier)
-        )
-        version = hub_entry['default_version']
-    file_entry = hub_entry['files'][version]
+        version = hub_entry["default_version"]
+    elif version not in hub_entry["files"]:
+        logger.warn("Version '{}' of adapter '{}' not found. Falling back to default.".format(version, specifier))
+        version = hub_entry["default_version"]
+    file_entry = hub_entry["files"][version]
 
     # start downloading
-    logger.info("Resolved adapter files at {}.".format(file_entry['url']))
+    logger.info("Resolved adapter files at {}.".format(file_entry["url"]))
     # TODO add support for other checksums
-    download_path = download_cached(file_entry['url'], checksum=file_entry['sha1'], **kwargs)
+    download_path = download_cached(file_entry["url"], checksum=file_entry["sha1"], **kwargs)
     if not download_path:
-        raise EnvironmentError(
-            "Unable to load file from {}. The file might be unavailable.".format(file_entry['url'])
-        )
+        raise EnvironmentError("Unable to load file from {}. The file might be unavailable.".format(file_entry["url"]))
     return download_path
 
 
 def resolve_adapter_path(
-        adapter_name_or_path,
-        adapter_config: Union[dict, str] = None,
-        adapter_type: AdapterType = AdapterType.text_task,
-        model_name: str = None,
-        version: str = None,
-        **kwargs) -> str:
+    adapter_name_or_path,
+    adapter_config: Union[dict, str] = None,
+    adapter_type: AdapterType = AdapterType.text_task,
+    model_name: str = None,
+    version: str = None,
+    **kwargs
+) -> str:
     """Resolves the path to a pre-trained adapter module.
     Note: If attempting to resolve an adapter from the Hub, adapter_config, adapter_type and model_name must be present.
 
@@ -337,14 +328,13 @@ def resolve_adapter_path(
         else:
             raise EnvironmentError(
                 "No file {} or no file {} found in directory {}".format(
-                    WEIGHTS_NAME, CONFIG_NAME, adapter_name_or_path)
+                    WEIGHTS_NAME, CONFIG_NAME, adapter_name_or_path
+                )
             )
     # matches possible form of identifier in hub
     elif re.fullmatch(ADAPTER_IDENTIFIER_PATTERN, adapter_name_or_path):
         if not adapter_type:  # make sure we have set an adapter_type
             adapter_type = AdapterType.text_task
-        return pull_from_hub(
-            adapter_name_or_path, adapter_config, adapter_type, model_name, version=version, **kwargs
-        )
+        return pull_from_hub(adapter_name_or_path, adapter_config, adapter_type, model_name, version=version, **kwargs)
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))

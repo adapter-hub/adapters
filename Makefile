@@ -18,6 +18,14 @@ style:
 test:
 	python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
+test-reduced:
+	python -m pytest -n auto --dist=loadfile -s -v\
+		--ignore-glob='tests/test_tokenization*'\
+		--ignore-glob='tests/test_pipelines*'\
+		--ignore-glob='tests/test_hf*'\
+		--ignore-glob='tests/test_doc*'\
+		./tests/
+
 # Run tests for examples
 
 test-examples:

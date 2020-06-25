@@ -37,9 +37,8 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoTokenizer,
     get_linear_schedule_with_warmup,
-    squad_convert_examples_to_features,
-    AdapterType,
     setup_task_adapter_training,
+    squad_convert_examples_to_features,
 )
 from transformers.data.metrics.squad_metrics import (
     compute_predictions_log_probs,
@@ -668,9 +667,18 @@ def main():
 
     parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
 
-    parser.add_argument("--train_adapter", action="store_true", default=False, help="Train a text task adapter instead of the full model")
-    parser.add_argument("--load_task_adapter", type=str, default="", help="Pre-trained task adapter to be loaded for further training.")
-    parser.add_argument("--load_language_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded.")
+    parser.add_argument(
+        "--train_adapter",
+        action="store_true",
+        default=False,
+        help="Train a text task adapter instead of the full model",
+    )
+    parser.add_argument(
+        "--load_task_adapter", type=str, default="", help="Pre-trained task adapter to be loaded for further training."
+    )
+    parser.add_argument(
+        "--load_language_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded."
+    )
     parser.add_argument("--adapter_config", type=str, default="pfeiffer", help="Adapter configuration.")
     parser.add_argument("--language_adapter_config", type=str, default=None, help="Language adapter configuration.")
     args = parser.parse_args()
