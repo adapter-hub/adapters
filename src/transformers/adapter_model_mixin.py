@@ -358,7 +358,7 @@ class PredictionHeadLoader(WeightsLoader):
                     if self.error_on_missing:
                         raise ValueError(f"Unknown head_name '{name}'.")
                     else:
-                        logger.warn(f"No prediction head with name '{name}' available.")
+                        logger.info(f"No prediction head with name '{name}' available.")
                         return
             else:
                 # we haven't found a prediction head configuration, so we assume there is only one (unnamed) head
@@ -405,7 +405,7 @@ class PredictionHeadLoader(WeightsLoader):
             if self.error_on_missing:
                 raise ValueError("Loading path should be a directory where the head is saved.")
             else:
-                logger.warn("No matching prediction head found in '{}'".format(save_directory))
+                logger.info("No matching prediction head found in '{}'".format(save_directory))
                 return None, None
 
         head_name = None
@@ -420,7 +420,7 @@ class PredictionHeadLoader(WeightsLoader):
                         f"Model class '{config['model_class']}' of found prediction head does not match current model class."
                     )
                 else:
-                    logger.warning("No matching prediction head found in '{}'".format(save_directory))
+                    logger.info("No matching prediction head found in '{}'".format(save_directory))
                     return None, None
             if hasattr(self.model.config, "prediction_heads"):
                 head_name = load_as or config["name"]
@@ -663,7 +663,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     ):
         if with_head:
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
-        super().save_adapter(
+        self.base_model.save_adapter(
             save_directory, adapter_name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
         )
 
@@ -681,7 +681,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     ) -> str:
         if with_head:
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
-        super().load_adapter(
+        self.base_model.load_adapter(
             adapter_name_or_path,
             adapter_type=adapter_type,
             config=config,
@@ -701,6 +701,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     ):
         if with_head:
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
-        super().save_all_adapters(
+        self.base_model.save_all_adapters(
             save_directory, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
         )

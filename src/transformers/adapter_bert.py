@@ -532,7 +532,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         if language_name in self.config.adapters.adapter_list(AdapterType.text_lang):
             self.active_language_adapter = language_name
         else:
-            logger.warning("No language adapter with name '{}' available.".format(language_name))
+            logger.info("No language adapter with name '{}' available.".format(language_name))
 
     def set_active_task(self, task_name: str):
         """Sets the task adapter and/ or prediction head which should be used by default in a forward pass.
@@ -544,11 +544,11 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         if task_name in self.config.adapters.adapter_list(AdapterType.text_task):
             self.active_task_adapters = [task_name]
         else:
-            logger.warning("No task adapter for task_name '{}' available.".format(task_name))
+            logger.info("No task adapter for task_name '{}' available.".format(task_name))
         if task_name in self.config.prediction_heads:
             self.active_head = task_name
         else:
-            logger.warning("No prediction head for task_name '{}' available.".format(task_name))
+            logger.info("No prediction head for task_name '{}' available.".format(task_name))
 
     def add_classification_head(
         self, head_name, num_labels=2, layers=2, activation_function="tanh", overwrite_ok=False,
