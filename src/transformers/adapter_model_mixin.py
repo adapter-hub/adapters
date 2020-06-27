@@ -591,7 +591,9 @@ class ModelAdaptersMixin(ABC):
         else:
             raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
 
-    def save_all_adapters(self, save_directory: str, meta_dict=None):
+    def save_all_adapters(
+        self, save_directory: str, meta_dict: dict = None, custom_weights_loaders: List[WeightsLoader] = [],
+    ):
         """Saves all adapters of this model together with their configuration
         to subfolders of the given location.
 
@@ -606,7 +608,7 @@ class ModelAdaptersMixin(ABC):
                 meta_dict.update({"config_id": h})
             else:
                 meta_dict = {"config_id": h}
-            self.save_adapter(save_path, name, meta_dict=meta_dict)
+            self.save_adapter(save_path, name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders)
 
     def freeze_model(self, freeze=True):
         """Freezes all weights of the model.
@@ -688,4 +690,17 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             load_as=load_as,
             custom_weights_loaders=custom_weights_loaders,
             **kwargs,
+        )
+
+    def save_all_adapters(
+        self,
+        save_directory: str,
+        with_head: bool = True,
+        meta_dict: dict = None,
+        custom_weights_loaders: List[WeightsLoader] = [],
+    ):
+        if with_head:
+            custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
+        super().save_all_adapters(
+            save_directory, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
         )

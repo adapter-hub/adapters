@@ -511,6 +511,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.active_language_adapter = None
         self.active_task_adapters = []
         self.active_head = None
 
@@ -521,6 +522,17 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         if hasattr(self.config, "prediction_heads"):
             for head_name in self.config.prediction_heads:
                 self.add_prediction_head_module(head_name)
+
+    def set_active_language(self, language_name: str):
+        """Sets the language adapter which should be used by default in a forward pass.
+
+        Args:
+            language_name (str): The name of the language adapter.
+        """
+        if language_name in self.config.adapters.adapter_list(AdapterType.text_lang):
+            self.active_language_adapter = language_name
+        else:
+            logger.warning("No language adapter with name '{}' available.".format(language_name))
 
     def set_active_task(self, task_name: str):
         """Sets the task adapter and/ or prediction head which should be used by default in a forward pass.

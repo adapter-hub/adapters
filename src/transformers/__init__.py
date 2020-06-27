@@ -187,6 +187,7 @@ if is_torch_available():
     from .modeling_utils import PreTrainedModel, prune_layer, Conv1D, top_k_top_p_filtering, apply_chunking_to_forward
     from .modeling_auto import (
         AutoModel,
+        AutoModelWithHeads,
         AutoModelForPreTraining,
         AutoModelForSequenceClassification,
         AutoModelForQuestionAnswering,
@@ -322,6 +323,7 @@ if is_torch_available():
     from .modeling_xlm_roberta import (
         XLMRobertaForMaskedLM,
         XLMRobertaModel,
+        XLMRobertaModelWithHeads,
         XLMRobertaForMultipleChoice,
         XLMRobertaForSequenceClassification,
         XLMRobertaForTokenClassification,
