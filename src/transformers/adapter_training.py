@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+from .adapter_bert import BertModelHeadsMixin
 from .adapter_config import AdapterType
 
 
@@ -52,3 +53,8 @@ def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArgu
             base_model.load_adapter(language, AdapterType.text_lang)
         # enable adapter training
         base_model.train_task_adapter()
+    # set adapters as default if possible
+    if isinstance(model, BertModelHeadsMixin):
+        if language:
+            model.set_active_language(language)
+        model.set_active_task(task_name)

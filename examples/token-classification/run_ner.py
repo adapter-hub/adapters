@@ -229,6 +229,7 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
+        is_training_adapter=adapter_args.train_adapter,
         lang_adapter=language,
         task_adapters=[task_name],
     )

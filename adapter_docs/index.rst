@@ -25,6 +25,7 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    quickstart
    adapter_types
    training
+   prediction_heads
    extending
 
 .. toctree::

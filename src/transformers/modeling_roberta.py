@@ -161,7 +161,7 @@ class RobertaModel(BertModel):
 
 
 @add_start_docstrings(
-    """Bert Model transformer with the option to add multiple flexible heads on top.""", ROBERTA_START_DOCSTRING,
+    """Roberta Model transformer with the option to add multiple flexible heads on top.""", ROBERTA_START_DOCSTRING,
 )
 class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
     config_class = RobertaConfig
@@ -195,6 +195,7 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
         position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
 
+        language = language or self.active_language_adapter
         adapter_tasks = adapter_tasks or self.active_task_adapters
         outputs = self.roberta(
             input_ids,
