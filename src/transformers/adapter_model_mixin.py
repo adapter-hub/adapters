@@ -75,7 +75,38 @@ class WeightsLoaderHelper:
             loaded_config = json.load(f)
         return loaded_config
 
-    def load_weights(self, save_directory, filter_func, rename_func=None):
+    @staticmethod
+    def _load_module_state_dict(module, state_dict, start_prefix=""):
+        missing_keys = []
+        unexpected_keys = []
+        error_msgs = []
+
+        # copy state_dict so _load_from_state_dict can modify it
+        metadata = getattr(state_dict, "_metadata", None)
+        state_dict = state_dict.copy()
+        if metadata is not None:
+            state_dict._metadata = metadata
+
+        def load(module, prefix=""):
+            local_metadata = {} if metadata is None else metadata.get(prefix[:-1], {})
+            module._load_from_state_dict(
+                state_dict, prefix, local_metadata, True, missing_keys, unexpected_keys, error_msgs
+            )
+            for name, child in module._modules.items():
+                if child is not None:
+                    load(child, prefix + name + ".")
+
+        load(module, prefix=start_prefix)
+
+        if len(error_msgs) > 0:
+            raise RuntimeError(
+                "Error(s) in loading state_dict for {}:\n\t{}".format(
+                    module.__class__.__name__, "\n\t".join(error_msgs)
+                )
+            )
+        return missing_keys, unexpected_keys
+
+    def load_weights(self, save_directory, filter_func, rename_func=None, loading_info=None, in_base_model=False):
         weights_file = join(save_directory, self.weights_name)
         # Load the weights of the adapter
         try:
@@ -90,7 +121,18 @@ class WeightsLoaderHelper:
         logger.info("Loading module weights from {}".format(weights_file))
 
         # Add the weights to the model
-        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict, strict=False)
+        # Make sure we are able to load base models as well as derived models (with heads)
+        start_prefix = ""
+        model_to_load = self.model
+        has_prefix_module = any(s.startswith(self.model.base_model_prefix) for s in state_dict.keys())
+        if not hasattr(self.model, self.model.base_model_prefix) and has_prefix_module:
+            start_prefix = self.model.base_model_prefix + "."
+        if in_base_model and hasattr(self.model, self.model.base_model_prefix) and not has_prefix_module:
+            model_to_load = self.model.base_model
+
+        missing_keys, unexpected_keys = self._load_module_state_dict(
+            model_to_load, state_dict, start_prefix=start_prefix
+        )
 
         missing_keys = [k for k in missing_keys if filter_func(k)]
         if len(missing_keys) > 0:
@@ -101,6 +143,14 @@ class WeightsLoaderHelper:
             logger.warning(
                 "Some weights of the state_dict could not be loaded into model: {}".format(", ".join(unexpected_keys))
             )
+
+        if isinstance(loading_info, dict):
+            if "missing_keys" not in loading_info:
+                loading_info["missing_keys"] = []
+            if "unexpected_keys" not in loading_info:
+                loading_info["unexpected_keys"] = []
+            loading_info["missing_keys"].extend(missing_keys)
+            loading_info["unexpected_keys"].extend(unexpected_keys)
 
         return missing_keys, unexpected_keys
 
@@ -174,7 +224,7 @@ class WeightsLoader(ABC):
         filter_func = self.filter_func(name)
         self.weights_helper.save_weights(save_directory, filter_func)
 
-    def load(self, save_directory, load_as=None, **kwargs) -> Tuple[str, str]:
+    def load(self, save_directory, load_as=None, loading_info=None, **kwargs) -> Tuple[str, str]:
         """Loads the module weights from the given directory.
         Override this method for additional loading actions. If adding the loaded weights
         to the model passed to the loader class requires adding additional modules, this method should also perform the
@@ -200,7 +250,9 @@ class WeightsLoader(ABC):
             rename_func = self.rename_func(config["name"], load_as)
         else:
             rename_func = None
-        self.weights_helper.load_weights(save_directory, filter_func, rename_func=rename_func)
+        self.weights_helper.load_weights(
+            save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
+        )
 
         return save_directory, load_as or config["name"]
 
@@ -274,7 +326,16 @@ class AdapterLoader(WeightsLoader):
         filter_func = self.filter_func(config_dict["name"])
         self.weights_helper.save_weights(save_directory, filter_func)
 
-    def load(self, adapter_name_or_path, config=None, version=None, model_name=None, load_as=None, **kwargs):
+    def load(
+        self,
+        adapter_name_or_path,
+        config=None,
+        version=None,
+        model_name=None,
+        load_as=None,
+        loading_info=None,
+        **kwargs
+    ):
         """Loads a pre-trained pytorch adapter module from the local file system or a remote location.
 
         Args:
@@ -318,7 +379,9 @@ class AdapterLoader(WeightsLoader):
         # Load adapter weights
         filter_func = self.filter_func(adapter_name)
         rename_func = self.rename_func(config["name"], adapter_name)
-        self.weights_helper.load_weights(resolved_folder, filter_func, rename_func=rename_func)
+        self.weights_helper.load_weights(
+            resolved_folder, filter_func, rename_func=rename_func, loading_info=loading_info, in_base_model=True
+        )
 
         return resolved_folder, adapter_name
 
@@ -390,7 +453,7 @@ class PredictionHeadLoader(WeightsLoader):
         filter_func = self.filter_func(name)
         self.weights_helper.save_weights(save_directory, filter_func)
 
-    def load(self, save_directory, load_as=None):
+    def load(self, save_directory, load_as=None, loading_info=None):
         """Loads a prediction head module from the given directory.
 
         Args:
@@ -434,7 +497,9 @@ class PredictionHeadLoader(WeightsLoader):
             rename_func = self.rename_func(config["name"], load_as)
         else:
             rename_func = None
-        self.weights_helper.load_weights(save_directory, filter_func, rename_func=rename_func)
+        self.weights_helper.load_weights(
+            save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
+        )
 
         return save_directory, head_name
 
@@ -586,7 +651,7 @@ class ModelAdaptersMixin(ABC):
             # load additional custom weights
             if custom_weights_loaders:
                 for weights_loader in custom_weights_loaders:
-                    weights_loader.load(load_dir, load_as=load_as)
+                    weights_loader.load(load_dir, load_as=load_as, loading_info=kwargs.get("loading_info", None))
             return load_name
         else:
             raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
@@ -625,7 +690,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
-        self.model_name = None
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
         """Adds a new adapter module of the specified type to the model.
@@ -663,7 +727,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     ):
         if with_head:
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
-        self.base_model.save_adapter(
+        super().save_adapter(
             save_directory, adapter_name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
         )
 
@@ -681,7 +745,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     ) -> str:
         if with_head:
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
-        self.base_model.load_adapter(
+        super().load_adapter(
             adapter_name_or_path,
             adapter_type=adapter_type,
             config=config,
@@ -701,6 +765,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     ):
         if with_head:
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
-        self.base_model.save_all_adapters(
+        super().save_all_adapters(
             save_directory, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
         )

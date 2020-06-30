@@ -180,3 +180,54 @@ class PredictionHeadModelTest(unittest.TestCase):
                 self.assertEqual(len(output1), len(output2))
                 self.assertTrue(torch.equal(output1[0], output2[0]))
                 self.assertEqual(3, output1[0].size()[1])
+
+
+@require_torch
+class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
+    def test_loading_adapter_weights_with_prefix(self):
+        model_base, model_with_head_base = create_twin_models(BertModel)
+
+        model_with_head = BertModelWithHeads(model_with_head_base.config)
+        model_with_head.bert = model_with_head_base
+
+        model_with_head.add_adapter("dummy", AdapterType.text_task)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_with_head.save_adapter(temp_dir, "dummy")
+
+            loading_info = {}
+            model_base.load_adapter(temp_dir, loading_info=loading_info)
+
+        self.assertEqual(0, len(loading_info["missing_keys"]))
+        self.assertEqual(0, len(loading_info["unexpected_keys"]))
+
+        # check equal output
+        in_data = ids_tensor((1, 128), 1000)
+        output1 = model_with_head(in_data)
+        output2 = model_base(in_data)
+        self.assertEqual(len(output1), len(output2))
+        self.assertTrue(torch.equal(output1[0], output2[0]))
+
+    def test_loading_adapter_weights_without_prefix(self):
+        model_base, model_with_head_base = create_twin_models(BertModel)
+
+        model_with_head = BertModelWithHeads(model_with_head_base.config)
+        model_with_head.bert = model_with_head_base
+
+        model_base.add_adapter("dummy", AdapterType.text_task)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_base.save_adapter(temp_dir, "dummy")
+
+            loading_info = {}
+            model_with_head.load_adapter(temp_dir, loading_info=loading_info)
+
+        self.assertEqual(0, len(loading_info["missing_keys"]))
+        self.assertEqual(0, len(loading_info["unexpected_keys"]))
+
+        # check equal output
+        in_data = ids_tensor((1, 128), 1000)
+        output1 = model_with_head(in_data)
+        output2 = model_base(in_data)
+        self.assertEqual(len(output1), len(output2))
+        self.assertTrue(torch.equal(output1[0], output2[0]))
