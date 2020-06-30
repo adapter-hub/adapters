@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class InvertibleAdapterConfig(Mapping):
     block_type: str
     non_linearity: str
-    reduction_factor: int
+    bottleneck_size: int
 
     def __getitem__(self, key):
         return self.__dict__[key]
@@ -41,7 +41,7 @@ class AdapterConfig(Mapping):
     mh_adapter: bool
     output_adapter: bool
     non_linearity: str
-    reduction_factor: int
+    bottleneck_size: int
     invertible_adapter: Optional[InvertibleAdapterConfig] = None
     leave_out: List[int] = field(default_factory=list)
 
@@ -83,9 +83,9 @@ class PfeifferConfig(AdapterConfig):
     mh_adapter: bool = False
     output_adapter: bool = True
     non_linearity: str = "relu"
-    reduction_factor: int = 16
+    bottleneck_size: int = 48
     invertible_adapter: Optional[dict] = InvertibleAdapterConfig(
-        block_type="nice", non_linearity="relu", reduction_factor=2
+        block_type="nice", non_linearity="relu", bottleneck_size=384
     )
 
 
@@ -105,7 +105,7 @@ class HoulsbyConfig(AdapterConfig):
     mh_adapter: bool = True
     output_adapter: bool = True
     non_linearity: str = "swish"
-    reduction_factor: int = 16
+    bottleneck_size: int = 48
 
 
 ADAPTER_CONFIG_MAP = {"pfeiffer": PfeifferConfig(), "houlsby": HoulsbyConfig()}

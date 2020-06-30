@@ -429,12 +429,12 @@ class SimpleAdapterWeightingStatic(nn.Module):
         return result
 
 
-def get_subnet_constructor(non_linearity, reduction_factor):
+def get_subnet_constructor(non_linearity, bottleneck_size):
     def subnet(dims_in, dims_out):
         return nn.Sequential(
-            nn.Linear(dims_in, dims_in // reduction_factor),
+            nn.Linear(dims_in, bottleneck_size),
             Activation_Function_Class(non_linearity),
-            nn.Linear(dims_in // reduction_factor, dims_out),
+            nn.Linear(bottleneck_size, dims_out),
         )
 
     return subnet
@@ -443,7 +443,7 @@ def get_subnet_constructor(non_linearity, reduction_factor):
 class NICECouplingBlock(nn.Module):
     """Coupling Block following the NICE design."""
 
-    def __init__(self, dims_in, dims_c=[], non_linearity="relu", reduction_factor=2):
+    def __init__(self, dims_in, dims_c=[], non_linearity="relu", bottleneck_size=384):
         super().__init__()
 
         channels = dims_in[0][0]
@@ -456,7 +456,7 @@ class NICECouplingBlock(nn.Module):
         self.conditional = len(dims_c) > 0
         condition_length = sum([dims_c[i][0] for i in range(len(dims_c))])
 
-        subnet_constructor = get_subnet_constructor(non_linearity, reduction_factor)
+        subnet_constructor = get_subnet_constructor(non_linearity, bottleneck_size)
         self.F = subnet_constructor(self.split_len2 + condition_length, self.split_len1)
         self.G = subnet_constructor(self.split_len1 + condition_length, self.split_len2)
 
@@ -493,7 +493,7 @@ class GLOWCouplingBlock(nn.Module):
     clamp:              Soft clamping for the multiplicative component. The amplification or attenuation
                         of each input dimension can be at most ±exp(clamp)."""
 
-    def __init__(self, dims_in, dims_c=[], non_linearity="relu", reduction_factor=2, clamp=5.0):
+    def __init__(self, dims_in, dims_c=[], non_linearity="relu", bottleneck_size=384, clamp=5.0):
         super().__init__()
 
         channels = dims_in[0][0]
@@ -511,7 +511,7 @@ class GLOWCouplingBlock(nn.Module):
         self.conditional = len(dims_c) > 0
         condition_length = sum([dims_c[i][0] for i in range(len(dims_c))])
 
-        subnet_constructor = get_subnet_constructor(non_linearity, reduction_factor)
+        subnet_constructor = get_subnet_constructor(non_linearity, bottleneck_size)
         self.s1 = subnet_constructor(self.split_len1 + condition_length, self.split_len2 * 2)
         self.s2 = subnet_constructor(self.split_len2 + condition_length, self.split_len1 * 2)
 

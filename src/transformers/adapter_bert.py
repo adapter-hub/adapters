@@ -38,7 +38,7 @@ class BertSelfOutputAdaptersMixin:
         if adapter_config and adapter_config["mh_adapter"]:
             adapter = Adapter(
                 input_size=self.config.hidden_size,
-                down_sample=self.config.hidden_size // adapter_config["reduction_factor"],
+                down_sample=adapter_config["bottleneck_size"],
                 add_layer_norm_before=adapter_config["ln_before"],
                 add_layer_norm_after=adapter_config["ln_after"],
                 non_linearity=adapter_config["non_linearity"],
@@ -220,7 +220,7 @@ class BertOutputAdaptersMixin:
         if adapter_config and adapter_config["output_adapter"]:
             adapter = Adapter(
                 input_size=self.config.hidden_size,
-                down_sample=self.config.hidden_size // adapter_config["reduction_factor"],
+                down_sample=adapter_config["bottleneck_size"],
                 add_layer_norm_before=adapter_config["ln_before"],
                 add_layer_norm_after=adapter_config["ln_after"],
                 non_linearity=adapter_config["non_linearity"],
@@ -480,13 +480,13 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             inv_adap = NICECouplingBlock(
                 [[self.config.hidden_size]],
                 non_linearity=inv_adap_config["non_linearity"],
-                reduction_factor=inv_adap_config["reduction_factor"],
+                bottleneck_size=inv_adap_config["bottleneck_size"],
             )
         elif inv_adap_config["block_type"] == "glow":
             inv_adap = GLOWCouplingBlock(
                 [[self.config.hidden_size]],
                 non_linearity=inv_adap_config["non_linearity"],
-                reduction_factor=inv_adap_config["reduction_fector"],
+                bottleneck_size=inv_adap_config["bottleneck_size"],
             )
         else:
             raise ValueError(f"Invalid invertible adapter type '{inv_adap_config['block_type']}'.")
