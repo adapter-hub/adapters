@@ -6,6 +6,7 @@ import re
 import shutil
 import tarfile
 from collections.abc import Mapping
+from enum import Enum
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
 from typing import Callable, Optional, Union
@@ -15,7 +16,6 @@ from zipfile import ZipFile, is_zipfile
 import requests
 from filelock import FileLock
 
-from .adapter_config import ADAPTER_CONFIG_MAP, AdapterType, get_adapter_config_hash
 from .file_utils import get_from_cache, is_remote_url, torch_cache_home
 
 
@@ -33,6 +33,43 @@ ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
 
 # the download cache
 ADAPTER_CACHE = join(torch_cache_home, "adapters")
+
+# these keys are ignored when calculating the config hash
+ADAPTER_CONFIG_HASH_IGNORE = []
+
+
+class AdapterType(str, Enum):
+    """Models all currently available model adapter types."""
+
+    text_task = "text_task"
+    text_lang = "text_lang"
+
+    @classmethod
+    def has(cls, value):
+        return value in cls.__members__.values()
+
+    def __repr__(self):
+        return self.value
+
+
+def _minimize_dict(d):
+    if isinstance(d, Mapping):
+        return {k: _minimize_dict(v) for (k, v) in d.items() if v}
+    else:
+        return d
+
+
+def get_adapter_config_hash(config, length=16):
+    """Calculates the hash of a given adapter configuration which is used to identify this configuration.
+
+    Returns:
+        str: The resulting hash of the given config dict.
+    """
+    minimized_config = _minimize_dict({k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE})
+    dict_str = json.dumps(minimized_config, sort_keys=True)
+    h = hashlib.sha1()
+    h.update(dict_str.encode(encoding="utf-8"))
+    return h.hexdigest()[:length]
 
 
 def inherit_doc(cls):
@@ -114,13 +151,13 @@ def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, fo
     return output_path_extracted
 
 
-def resolve_adapter_config(config: Union[dict, str]) -> dict:
+def resolve_adapter_config(config: Union[dict, str], local_map=None, **kwargs) -> dict:
     """Resolves a given adapter configuration specifier to a full configuration dictionary.
 
     Args:
         config (Union[dict, str]): The configuration to resolve. Can be either:
             - a dictionary: returned without further action
-            - an identifier string available in the local ADAPTER_CONFIG_MAP
+            - an identifier string available in local_map
             - the path to a file containing a full adapter configuration
             - an identifier string available in Adapter-Hub
 
@@ -131,8 +168,8 @@ def resolve_adapter_config(config: Union[dict, str]) -> dict:
     if isinstance(config, Mapping):
         return config
     # first, look in local map
-    if config in ADAPTER_CONFIG_MAP:
-        return ADAPTER_CONFIG_MAP[config]
+    if local_map and config in local_map:
+        return local_map[config]
     # load from file system if it's a local file
     if isfile(config):
         with open(config, "r") as f:
@@ -143,7 +180,7 @@ def resolve_adapter_config(config: Union[dict, str]) -> dict:
             else:
                 return loaded_config
     # now, try to find in hub index
-    index_file = download_cached(ADAPTER_HUB_CONFIG_FILE)
+    index_file = download_cached(ADAPTER_HUB_CONFIG_FILE, **kwargs)
     if not index_file:
         raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
     with open(index_file, "r") as f:

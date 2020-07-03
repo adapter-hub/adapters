@@ -166,11 +166,11 @@ if is_torch_available():
         HoulsbyConfig,
         ADAPTER_CONFIG_MAP,
         DEFAULT_ADAPTER_CONFIG,
-        AdapterType,
         ModelAdaptersConfig,
-        get_adapter_config_hash,
     )
     from .adapter_utils import (
+        AdapterType,
+        get_adapter_config_hash,
         ADAPTER_HUB_URL,
         ADAPTER_HUB_INDEX_FILE,
         ADAPTER_CACHE,
