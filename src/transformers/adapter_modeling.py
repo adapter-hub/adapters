@@ -144,9 +144,9 @@ class Adapter(nn.Module):
             module.bias.data.zero_()
 
 
-class BertAdapterAttention(nn.Module):
+class BertFusion(nn.Module):
     def __init__(self, config):
-        super(BertAdapterAttention, self).__init__()
+        super(BertFusion, self).__init__()
         # if config.hidden_size % config.num_attention_heads != 0:
         #     raise ValueError(
         #         "The hidden size (%d) is not a multiple of the number of attention "
