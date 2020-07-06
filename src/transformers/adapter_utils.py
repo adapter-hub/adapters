@@ -6,7 +6,7 @@ import re
 import shutil
 import tarfile
 from collections.abc import Mapping
-from os.path import isdir, isfile, join
+from os.path import basename, isdir, isfile, join
 from pathlib import Path
 from typing import Callable, Optional, Union
 from urllib.parse import urlparse
@@ -26,7 +26,7 @@ WEIGHTS_NAME = "pytorch_adapter.bin"
 HEAD_CONFIG_NAME = "head_config.json"
 HEAD_WEIGHTS_NAME = "pytorch_model_head.bin"
 
-ADAPTER_IDENTIFIER_PATTERN = r"[a-zA-Z\-_\/@]{2,}"
+ADAPTER_IDENTIFIER_PATTERN = r"[0-9a-zA-Z\-_\/@]{2,}"
 ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/dist/"
 ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index_{}/{}.json"
 ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
@@ -99,8 +99,11 @@ def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, fo
         os.makedirs(output_path_extracted)
         if is_zipfile(output_path):
             with ZipFile(output_path, "r") as zip_file:
-                zip_file.extractall(output_path_extracted)
-                zip_file.close()
+                # we want to extract all files into a flat folder structure (i.e. no subfolders)
+                for file in zip_file.namelist():
+                    file_data = zip_file.read(file)
+                    with open(join(output_path_extracted, basename(file)), "wb") as f:
+                        f.write(file_data)
         elif tarfile.is_tarfile(output_path):
             tar_file = tarfile.open(output_path)
             tar_file.extractall(output_path_extracted)
