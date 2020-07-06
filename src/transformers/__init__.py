@@ -136,8 +136,6 @@ from .tokenization_utils import PreTrainedTokenizer
 from .tokenization_xlm import XLMTokenizer
 from .tokenization_xlm_roberta import XLMRobertaTokenizer
 from .tokenization_xlnet import SPIECE_UNDERLINE, XLNetTokenizer
-
-from .adapter_training import AdapterArguments, setup_task_adapter_training
 from .trainer_utils import EvalPrediction
 from .training_args import TrainingArguments
 from .training_args_tf import TFTrainingArguments
@@ -152,9 +150,14 @@ if is_sklearn_available():
 
 # Adapters
 if is_torch_available():
+    from .adapter_training import AdapterArguments, setup_task_adapter_training
     from .adapter_model_mixin import (
+        WeightsLoaderHelper,
+        WeightsLoader,
         AdapterLoader,
+        PredictionHeadLoader,
         ModelAdaptersMixin,
+        ModelWithHeadsAdaptersMixin,
     )
     from .adapter_config import (
         InvertibleAdapterConfig,
@@ -175,7 +178,7 @@ if is_torch_available():
         resolve_adapter_config,
         resolve_adapter_path,
     )
-    
+
     # TODO add more
 
 
@@ -184,6 +187,7 @@ if is_torch_available():
     from .modeling_utils import PreTrainedModel, prune_layer, Conv1D, top_k_top_p_filtering, apply_chunking_to_forward
     from .modeling_auto import (
         AutoModel,
+        AutoModelWithHeads,
         AutoModelForPreTraining,
         AutoModelForSequenceClassification,
         AutoModelForQuestionAnswering,
@@ -202,6 +206,7 @@ if is_torch_available():
     from .modeling_bert import (
         BertPreTrainedModel,
         BertModel,
+        BertModelWithHeads,
         BertForPreTraining,
         BertForMaskedLM,
         BertForNextSentencePrediction,
@@ -271,6 +276,7 @@ if is_torch_available():
     from .modeling_roberta import (
         RobertaForMaskedLM,
         RobertaModel,
+        RobertaModelWithHeads,
         RobertaForSequenceClassification,
         RobertaForMultipleChoice,
         RobertaForTokenClassification,
@@ -317,6 +323,7 @@ if is_torch_available():
     from .modeling_xlm_roberta import (
         XLMRobertaForMaskedLM,
         XLMRobertaModel,
+        XLMRobertaModelWithHeads,
         XLMRobertaForMultipleChoice,
         XLMRobertaForSequenceClassification,
         XLMRobertaForTokenClassification,

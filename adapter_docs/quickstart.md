@@ -13,7 +13,7 @@ storing (e.g. `save_adapter()`) are added to the model classes. In the following
     `the 'Usage' section in Huggingface's documentation <https://huggingface.co/transformers/usage.html>`_.
 ```
 
-## Quick Tour: Pre-Trained BERT
+## Quick Tour: Use a pre-trained adapter
 
 The following example shows the usage of a basic pre-trained transformer model with adapters.
 Our goal here is to predict the sentiment of a given sentence.
@@ -23,7 +23,7 @@ We use BERT in this example, so we first load a pre-trained `BertTokenizer` to e
 
 ```python
 import torch
-from transformers import BertTokenizer, BertModel
+from transformers import BertTokenizer, BertModelWithHeads
 
 # output more information
 import logging
@@ -41,7 +41,8 @@ token_ids = tokenizer.convert_tokens_to_ids(tokenized_sentence)
 input_tensor = torch.tensor([token_ids])
 
 # load pre-trained BERT model from Huggingface
-model = BertModel.from_pretrained('bert-base-uncased')
+# the `BertModelWithHeads` class supports adding flexible prediction heads
+model = BertModelWithHeads.from_pretrained('bert-base-uncased')
 ```
 
 Having loaded the model, we now add a pre-trained task adapter that is useful to our task from Adapter Hub.
@@ -50,12 +51,14 @@ The task prediction head loaded together with the adapter gives us a class label
 
 ```python
 # load pre-trained task adapter from Adapter Hub
-# with load_head=True given, we also load a pre-trained classification head for this task
-model.load_adapter('sst', load_head=True)
+# with with_head=True given, we also load a pre-trained classification head for this task
+model.load_adapter('sst', with_head=True)
+
+# activate the adapter we just loaded, so that it is used in every forward pass
+model.set_active_task('sst')
 
 # predict output tensor
-# adapter_tasks specifies the used adapters, task the used prediction head
-outputs = model(input_tensor, adapter_tasks=['sst'], task='sst')
+outputs = model(input_tensor)
 
 # retrieve the predicted class label
 predicted = torch.argmax(outputs[0]).item()

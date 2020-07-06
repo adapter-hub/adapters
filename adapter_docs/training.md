@@ -13,24 +13,31 @@ pip install -r ./examples/requirements.txt
 
 ## Train a Task Adapter
 
-Training a task adapter module on a dataset only requires minor modifications from training the full model. Suppose we
-have an existing script for training a transformer, here we will use the `run_glue.py` example script for training on
-the GLUE dataset. The only main adaption we have to make is to add a new adapter module after the model is instantiated:
+Training a task adapter module on a dataset only requires minor modifications from training the full model. Suppose we have an existing script for training a transformer, here we will use the `run_glue.py` example script for training on the GLUE dataset.
+
+In our example, we replaced the built-in `AutoModelForSequenceClassification` class with the `AutoModelWithHeads` class introduced by `adapter-transformers` (learn more about prediction heads [here](prediction_heads.md)). Therefore, the model instantiation changed to:
 
 ```python
-# get actual model for derived models with heads
-base_model = getattr(model, model.base_model_prefix, model)
+model = AutoModelWithHeads.from_pretrained(
+        model_args.model_name_or_path,
+        config=config,
+)
+model.add_classification_head(data_args.task_name, num_labels=num_labels)
+```
+
+The only main adaption we have to make now is to add a new adapter module:
+
+```python
 # task adapter - only add if not existing
-if task_name not in base_model.config.adapters.adapter_list(AdapterType.text_task):
-    base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
-    # load a pre-trained adapter for fine-tuning if specified
-    if adapter_args.load_task_adapter:
-        base_model.load_adapter(adapter_args.load_task_adapter, AdapterType.text_task, load_as=task_name)
-    # otherwise, add a new adapter
-    else:
-        base_model.add_adapter(task_name, AdapterType.text_task)
+if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
+    # add a new adapter
+    model.add_adapter(
+        task_name,
+        AdapterType.text_task
+        config=adapter_args.adapter_config
+    )
 # enable adapter training
-base_model.train_task_adapter()
+model.train_task_adapter()
 ```
 
 ```eval_rst
@@ -41,20 +48,16 @@ base_model.train_task_adapter()
     ``freeze_model(False)``.
 ```
 
-Besides this, we only have to make sure that the task we want to train is always passed as input to the `forward()` method
-of the model (via the `adapter_tasks` parameter):
+Besides this, we only have to make sure that the task adapter and preddiction head are activated so that they are used in every forward pass:
 
 ```python
-inputs = {
-    "input_ids": input_ids, "attention_mask": attention_mask, "labels": labels,
-    "adapter_tasks": tasks
-}
-outputs = model(**inputs)
+model.set_active_task(data_args.task_name)
 ```
 
-You can find the full version of the modified training script for GLUE at
-[run_glue.py](https://github.com/adapter-hub/adapter-transformers/blob/master/examples/run_glue.py)
-in the *examples* folder of our repository.
+The rest of the training procedure does not require any further changes in code.
+
+You can find the full version of the modified training script for GLUE at [run_glue_wh.py](https://github.com/adapter-hub/adapter-transformers/blob/master/examples/run_glue_wh.py) in the *examples* folder of our repository.
+We also adapted various other example scripts (e.g. `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
 
 To start adapter training on a GLUE task, you can run something similar to:
 
@@ -62,25 +65,23 @@ To start adapter training on a GLUE task, you can run something similar to:
 export GLUE_DIR=/path/to/glue
 export TASK_NAME=MNLI
 
-python run_glue_tpu.py \
-  --model_type bert \
+python run_glue_wh.py \
   --model_name_or_path bert-base-cased \
   --task_name $TASK_NAME \
   --do_train \
   --do_eval \
   --data_dir $GLUE_DIR/$TASK_NAME \
   --max_seq_length 128 \
-  --train_batch_size 32 \
+  --per_device_train_batch_size 32 \
   --learning_rate 1e-4 \
-  --num_train_epochs 3.0 \
+  --num_train_epochs 10.0 \
   --output_dir /tmp/$TASK_NAME \
   --overwrite_output_dir \
   --train_adapter \
   --adapter_config pfeiffer
 ```
 
-The important flag here is `--train_adapter` which switches from fine-tuning the full model to training an adapter
-module for the given GLUE task.
+The important flag here is `--train_adapter` which switches from fine-tuning the full model to training an adapter module for the given GLUE task.
 
 ## Train a Language Adapter
 
@@ -95,10 +96,7 @@ base_model = getattr(model, model.base_model_prefix, model)
 # language adapter - only add if not existing
 if language not in base_model.config.adapters.adapter_list(AdapterType.text_lang):
     base_model.set_adapter_config(AdapterType.text_lang, adapter_args.adapter_config)
-    if adapter_args.load_lang_adapter:
-        base_model.load_adapter(adapter_args.load_lang_adapter, AdapterType.text_lang, load_as=language)
-    else:
-        base_model.add_adapter(language, AdapterType.text_lang)
+    base_model.add_adapter(language, AdapterType.text_lang)
 # enable adapter training
 base_model.train_language_adapter()
 ```

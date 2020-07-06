@@ -1,6 +1,7 @@
+import math
+
 import torch
 from torch import nn
-import math
 
 
 class Activation_Function_Class(nn.Module):
@@ -9,24 +10,29 @@ class Activation_Function_Class(nn.Module):
         0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
         Also see https://arxiv.org/abs/1606.08415
     """
+
     def __init__(self, hidden_act):
 
-        if hidden_act.lower() == 'relu':
+        if hidden_act.lower() == "relu":
             self.f = nn.functional.relu
-        elif hidden_act.lower() == 'tanh':
+        elif hidden_act.lower() == "tanh":
             self.f = torch.tanh
-        elif hidden_act.lower() == 'swish':
+        elif hidden_act.lower() == "swish":
+
             def swish(x):
                 return x * torch.nn.functional.sigmoid(x)
+
             self.f = swish
-        elif hidden_act.lower() == 'gelu':
+        elif hidden_act.lower() == "gelu":
+
             def gelu_new(x):
                 """ Implementation of the gelu activation function currently in Google Bert repo (identical to OpenAI GPT).
                     Also see https://arxiv.org/abs/1606.08415
                 """
                 return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
+
             self.f = gelu_new
-        elif hidden_act.lower() == 'leakyrelu':
+        elif hidden_act.lower() == "leakyrelu":
             self.f = nn.functional.leaky_relu
 
         super().__init__()
@@ -36,8 +42,16 @@ class Activation_Function_Class(nn.Module):
 
 
 class Adapter(nn.Module):
-    def __init__(self, input_size, down_sample=None, non_linearity = 'relu', init_bert_weights=True,
-                 add_layer_norm_before=True, add_layer_norm_after=False, residual_before_ln=True):
+    def __init__(
+        self,
+        input_size,
+        down_sample=None,
+        non_linearity="relu",
+        init_bert_weights=True,
+        add_layer_norm_before=True,
+        add_layer_norm_after=False,
+        residual_before_ln=True,
+    ):
         super().__init__()
 
         self.input_size = input_size
@@ -90,7 +104,7 @@ class Adapter(nn.Module):
             self.adapter_attention.apply(self.init_bert_weights)
             self.adapter_up.apply(self.init_bert_weights)
 
-    def forward(self, x, residual_input): #, residual_input=None):
+    def forward(self, x, residual_input):  # , residual_input=None):
         down = self.adapter_down(x)
         attention = self.adapter_attention(down)
         up = self.adapter_up(down)
@@ -141,7 +155,7 @@ class BertAdapterAttention(nn.Module):
         self.output_attentions = config.output_attentions
 
         # TODO
-        self.dense_size = int(config.hidden_size) // config.text_task_adapter_config['reduction_factor']
+        self.dense_size = int(config.hidden_size) // config.text_task_adapter_config["reduction_factor"]
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
@@ -149,21 +163,23 @@ class BertAdapterAttention(nn.Module):
 
         self.reduction = self.T / 1000.0
 
-        if not self.config.fusion_config['query'] and \
-                not self.config.fusion_config['key'] and \
-                not self.config.fusion_config['value']:
+        if (
+            not self.config.fusion_config["query"]
+            and not self.config.fusion_config["key"]
+            and not self.config.fusion_config["value"]
+        ):
             self.dense = nn.Linear(self.dense_size, 1)
 
-        if self.config.fusion_config['query'] :
-            self.query = nn.Linear(int(config.hidden_size) , self.dense_size)
+        if self.config.fusion_config["query"]:
+            self.query = nn.Linear(int(config.hidden_size), self.dense_size)
 
-        if self.config.fusion_config['key'] :
+        if self.config.fusion_config["key"]:
             self.key = nn.Linear(self.dense_size, self.dense_size)
 
-        if self.config.fusion_config['value'] :
-            self.value =  nn.Linear(int(config.hidden_size), int(config.hidden_size))
+        if self.config.fusion_config["value"]:
+            self.value = nn.Linear(int(config.hidden_size), int(config.hidden_size))
 
-        if self.config.fusion_config['temperature']:
+        if self.config.fusion_config["temperature"]:
             self.T = 50.0
         else:
             self.T = 1.0
@@ -172,28 +188,27 @@ class BertAdapterAttention(nn.Module):
 
     def forward(self, query, key, value, residual, attention_mask=None):
 
-        if self.config.fusion_config['residual_before']:
-            value = value + residual[:,:,None,:].repeat(1,1,value.size(2),1)
+        if self.config.fusion_config["residual_before"]:
+            value = value + residual[:, :, None, :].repeat(1, 1, value.size(2), 1)
 
-        if self.config.fusion_config['query']:
+        if self.config.fusion_config["query"]:
             query_layer = self.query(query)
         else:
             query_layer = query
 
-        if  self.config.fusion_config['key'] :
+        if self.config.fusion_config["key"]:
             key_layer = self.key(key)
         else:
             key_layer = key
 
-        if self.config.fusion_config['value']:
+        if self.config.fusion_config["value"]:
             # key/value have dims => batch, toks, number-of-adapters, feats
             value_layer = self.value(value)
         else:
             value_layer = value
 
-
         # Take the dot product between "query" and "key" to get the raw attention scores.
-        attention_scores = torch.squeeze(torch.matmul(query_layer.unsqueeze(2), key_layer.transpose(-2,-1)), dim = 2)
+        attention_scores = torch.squeeze(torch.matmul(query_layer.unsqueeze(2), key_layer.transpose(-2, -1)), dim=2)
 
         # Normalize the attention scores to probabilities.
         # attention_probs = nn.Softmax(dim=-1)(attention_scores)
@@ -206,10 +221,10 @@ class BertAdapterAttention(nn.Module):
         attention_probs = self.dropout(attention_probs)
 
         # use the value layer or not TODO this is currently hardcoded
-        context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value_layer),dim=2)
+        context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value_layer), dim=2)
         # context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value), dim=2)
 
-        if not self.config.fusion_config['residual_before']:
+        if not self.config.fusion_config["residual_before"]:
             context_layer = context_layer + residual
 
         return context_layer
@@ -235,7 +250,7 @@ class AdapterWeightingSentLvlDynamic(nn.Module):
     def __init__(self, config, n_tasks):
         super(AdapterWeightingSentLvlDynamic, self).__init__()
         # TODO
-        self.dense = nn.Linear(int(config.hidden_size) // config.text_task_adapter_config['reduction_factor'], 1)
+        self.dense = nn.Linear(int(config.hidden_size) // config.text_task_adapter_config["reduction_factor"], 1)
 
         self.T = 50.0
 
@@ -246,25 +261,25 @@ class AdapterWeightingSentLvlDynamic(nn.Module):
         try:
             attention_mask = (attention_mask == 0).float().to(key.device).squeeze()
             length = torch.sum(attention_mask, dim=1)
-        except:
+        except Exception:
             attention_mask = attention_mask.unsqueeze(1)
             attention_mask = (attention_mask == 0).float().to(key.device)
 
             length = torch.sum(attention_mask, dim=1)
 
-        attention_mask = attention_mask[:,:,None,None].repeat((1,1,key.size()[-2], key.size()[-1]))
+        attention_mask = attention_mask[:, :, None, None].repeat((1, 1, key.size()[-2], key.size()[-1]))
 
         key = key * attention_mask
 
-        key_sent = torch.sum(key, dim=1) / length[:,None,None].repeat(1,key.size()[-2], key.size()[-1])
+        key_sent = torch.sum(key, dim=1) / length[:, None, None].repeat(1, key.size()[-2], key.size()[-1])
 
         # key_sent = torch.mean(key, dim=1)
         scores = self.dense(key_sent)
         scores_t = scores.transpose(-2, -1)
         probs = nn.Softmax(dim=-1)(scores_t / self.T)
         # attention_scores = attention_scores + attention_mask
-        #weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
-        #result = torch.sum(weighted_value, dim=2)
+        # weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
+        # result = torch.sum(weighted_value, dim=2)
 
         # with open('probabilities.txt', 'a') as f:
         #     for b in probs.data.numpy():
@@ -281,29 +296,30 @@ class AdapterFusionSentLvlDynamic(nn.Module):
         super(AdapterFusionSentLvlDynamic, self).__init__()
         self.config = config
         # TODO
-        self.dense_size = int(config.hidden_size) // config.text_task_adapter_config['reduction_factor']
+        self.dense_size = int(config.hidden_size) // config.text_task_adapter_config["reduction_factor"]
 
-        if not self.config.fusion_config['query'] and \
-                not self.config.fusion_config['key'] and \
-                not self.config.fusion_config['value']:
+        if (
+            not self.config.fusion_config["query"]
+            and not self.config.fusion_config["key"]
+            and not self.config.fusion_config["value"]
+        ):
             self.dense = nn.Linear(self.dense_size, 1)
 
-        if self.config.fusion_config['query'] :
-            self.query = nn.Linear(int(config.hidden_size) , self.dense_size)
+        if self.config.fusion_config["query"]:
+            self.query = nn.Linear(int(config.hidden_size), self.dense_size)
 
-        if self.config.fusion_config['key'] :
+        if self.config.fusion_config["key"]:
             self.key = nn.Linear(self.dense_size, self.dense_size)
 
-        if self.config.fusion_config['value'] :
-            self.value =  nn.Linear(int(config.hidden_size), int(config.hidden_size))
+        if self.config.fusion_config["value"]:
+            self.value = nn.Linear(int(config.hidden_size), int(config.hidden_size))
 
-        if self.config.fusion_config['temperature']:
+        if self.config.fusion_config["temperature"]:
             self.T = 50.0
         else:
             self.T = 1.0
 
         self.reduction = self.T / 1000.0
-
 
     def forward(self, query, key, value, attention_mask):
 
@@ -313,39 +329,45 @@ class AdapterFusionSentLvlDynamic(nn.Module):
 
         # attention_mask = attention_mask[:,:,None,None].repeat((1,1,key.size()[-2], key.size()[-1]))
 
-        key = key * attention_mask[:,:,None,None].repeat((1,1,key.size()[-2], key.size()[-1]))
-        key_sent = torch.sum(key, dim=1) / length[:,None,None].repeat(1,key.size()[-2], key.size()[-1])
+        key = key * attention_mask[:, :, None, None].repeat((1, 1, key.size()[-2], key.size()[-1]))
+        key_sent = torch.sum(key, dim=1) / length[:, None, None].repeat(1, key.size()[-2], key.size()[-1])
 
-        if  self.config.fusion_config['query'] and \
-                not self.config.fusion_config['key'] and \
-                not self.config.fusion_config['value']:
-            query = query * attention_mask[:,:,None].repeat((1,1, query.size()[-1]))
-            query_sent = torch.sum(query, dim=1) / length[:,None].repeat(1, query.size()[-1])
+        if (
+            self.config.fusion_config["query"]
+            and not self.config.fusion_config["key"]
+            and not self.config.fusion_config["value"]
+        ):
+            query = query * attention_mask[:, :, None].repeat((1, 1, query.size()[-1]))
+            query_sent = torch.sum(query, dim=1) / length[:, None].repeat(1, query.size()[-1])
             query_enc = self.query(query_sent)
             scores_t = torch.matmul(key_sent, query_enc[:, :, None]).squeeze(-1)
             probs = nn.Softmax(dim=-1)(scores_t / self.T)
 
             # result = torch.squeeze(torch.matmul(probs, value), dim=2)
-            result = torch.squeeze(torch.matmul(probs[:,None,None,:], value))
+            result = torch.squeeze(torch.matmul(probs[:, None, None, :], value))
         #     {'MR': {'devacc': 77.53, 'acc': 76.7, 'ndev': 9596, 'ntest': 9596}}
-        if self.config.fusion_config['query'] and \
-                self.config.fusion_config['key'] and \
-                not self.config.fusion_config['value']:
-            query = query * attention_mask[:,:,None].repeat((1,1, query.size()[-1]))
-            query_sent = torch.sum(query, dim=1) / length[:,None].repeat(1, query.size()[-1])
+        if (
+            self.config.fusion_config["query"]
+            and self.config.fusion_config["key"]
+            and not self.config.fusion_config["value"]
+        ):
+            query = query * attention_mask[:, :, None].repeat((1, 1, query.size()[-1]))
+            query_sent = torch.sum(query, dim=1) / length[:, None].repeat(1, query.size()[-1])
             query_enc = self.query(query_sent)
             key_enc = self.key(key_sent)
             scores_t = torch.matmul(key_enc, query_enc[:, :, None]).squeeze(-1)
             probs = nn.Softmax(dim=-1)(scores_t / self.T)
 
             # result = torch.squeeze(torch.matmul(probs, value), dim=2)
-            result = torch.squeeze(torch.matmul(probs[:,None,None,:], value))
+            result = torch.squeeze(torch.matmul(probs[:, None, None, :], value))
 
-        if self.config.fusion_config['query'] and \
-                 self.config.fusion_config['key'] and \
-                 self.config.fusion_config['value']:
-            query = query * attention_mask[:,:,None].repeat((1,1, query.size()[-1]))
-            query_sent = torch.sum(query, dim=1) / length[:,None].repeat(1, query.size()[-1])
+        if (
+            self.config.fusion_config["query"]
+            and self.config.fusion_config["key"]
+            and self.config.fusion_config["value"]
+        ):
+            query = query * attention_mask[:, :, None].repeat((1, 1, query.size()[-1]))
+            query_sent = torch.sum(query, dim=1) / length[:, None].repeat(1, query.size()[-1])
             query_enc = self.query(query_sent)
             key_enc = self.key(key_sent)
             value_enc = self.value(value)
@@ -353,11 +375,13 @@ class AdapterFusionSentLvlDynamic(nn.Module):
             probs = nn.Softmax(dim=-1)(scores_t / self.T)
 
             # result = torch.squeeze(torch.matmul(probs, value), dim=2)
-            result = torch.squeeze(torch.matmul(probs[:,None,None,:], value_enc))
+            result = torch.squeeze(torch.matmul(probs[:, None, None, :], value_enc))
 
-        if not self.config.fusion_config['query'] and \
-                not self.config.fusion_config['key'] and \
-                not self.config.fusion_config['value']:
+        if (
+            not self.config.fusion_config["query"]
+            and not self.config.fusion_config["key"]
+            and not self.config.fusion_config["value"]
+        ):
             # key_sent = torch.mean(key, dim=1)
             scores = self.dense(key_sent)
             scores_t = scores.transpose(-2, -1)
@@ -365,8 +389,8 @@ class AdapterFusionSentLvlDynamic(nn.Module):
             probs = nn.Softmax(dim=-1)(scores_t / self.T)
             result = torch.squeeze(torch.matmul(probs.unsqueeze(2), value), dim=2)
         # attention_scores = attention_scores + attention_mask
-        #weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
-        #result = torch.sum(weighted_value, dim=2)
+        # weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
+        # result = torch.sum(weighted_value, dim=2)
 
         self.T = max(self.T - self.reduction, 1.0)
 
@@ -410,24 +434,26 @@ def get_subnet_constructor(non_linearity, reduction_factor):
         return nn.Sequential(
             nn.Linear(dims_in, dims_in // reduction_factor),
             Activation_Function_Class(non_linearity),
-            nn.Linear(dims_in // reduction_factor, dims_out)
+            nn.Linear(dims_in // reduction_factor, dims_out),
         )
+
     return subnet
 
 
 class NICECouplingBlock(nn.Module):
-    '''Coupling Block following the NICE design.'''
+    """Coupling Block following the NICE design."""
 
-    def __init__(self, dims_in, dims_c=[], non_linearity='relu', reduction_factor=2):
+    def __init__(self, dims_in, dims_c=[], non_linearity="relu", reduction_factor=2):
         super().__init__()
 
         channels = dims_in[0][0]
         self.split_len1 = channels // 2
         self.split_len2 = channels - channels // 2
 
-        assert all([dims_c[i][1:] == dims_in[0][1:] for i in range(len(dims_c))]), \
-            "Dimensions of input and one or more conditions don't agree."
-        self.conditional = (len(dims_c) > 0)
+        assert all(
+            [dims_c[i][1:] == dims_in[0][1:] for i in range(len(dims_c))]
+        ), "Dimensions of input and one or more conditions don't agree."
+        self.conditional = len(dims_c) > 0
         condition_length = sum([dims_c[i][0] for i in range(len(dims_c))])
 
         subnet_constructor = get_subnet_constructor(non_linearity, reduction_factor)
@@ -437,8 +463,7 @@ class NICECouplingBlock(nn.Module):
     def forward(self, x, c=[], rev=False):
         # x1, x2 = (x[0].narrow(1, 0, self.split_len1),
         #           x[0].narrow(1, self.split_len1, self.split_len2))
-        x1, x2 = (x[:, :, :self.split_len1],
-                  x[:, :, self.split_len1:])
+        x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1 :])
         if not rev:
             x2_c = torch.cat([x2, *c], 1) if self.conditional else x2
             y1 = x1 + self.F(x2_c)
@@ -462,13 +487,13 @@ class NICECouplingBlock(nn.Module):
 
 
 class GLOWCouplingBlock(nn.Module):
-    '''Coupling Block following the GLOW design. The only difference to the RealNVP coupling blocks,
+    """Coupling Block following the GLOW design. The only difference to the RealNVP coupling blocks,
     is the fact that it uses a single subnetwork to jointly predict [s_i, t_i], instead of two separate
     subnetworks. This reduces computational cost and speeds up learning.
     clamp:              Soft clamping for the multiplicative component. The amplification or attenuation
-                        of each input dimension can be at most ±exp(clamp).'''
+                        of each input dimension can be at most ±exp(clamp)."""
 
-    def __init__(self, dims_in, dims_c=[], non_linearity='relu', reduction_factor=2, clamp=5.):
+    def __init__(self, dims_in, dims_c=[], non_linearity="relu", reduction_factor=2, clamp=5.0):
         super().__init__()
 
         channels = dims_in[0][0]
@@ -480,14 +505,15 @@ class GLOWCouplingBlock(nn.Module):
         self.max_s = math.exp(clamp)
         self.min_s = math.exp(-clamp)
 
-        assert all([tuple(dims_c[i][1:]) == tuple(dims_in[0][1:]) for i in range(len(dims_c))]), \
-            F"Dimensions of input and one or more conditions don't agree: {dims_c} vs {dims_in}."
-        self.conditional = (len(dims_c) > 0)
+        assert all(
+            [tuple(dims_c[i][1:]) == tuple(dims_in[0][1:]) for i in range(len(dims_c))]
+        ), f"Dimensions of input and one or more conditions don't agree: {dims_c} vs {dims_in}."
+        self.conditional = len(dims_c) > 0
         condition_length = sum([dims_c[i][0] for i in range(len(dims_c))])
 
         subnet_constructor = get_subnet_constructor(non_linearity, reduction_factor)
-        self.s1 = subnet_constructor(self.split_len1 + condition_length, self.split_len2*2)
-        self.s2 = subnet_constructor(self.split_len2 + condition_length, self.split_len1*2)
+        self.s1 = subnet_constructor(self.split_len1 + condition_length, self.split_len2 * 2)
+        self.s2 = subnet_constructor(self.split_len2 + condition_length, self.split_len1 * 2)
 
     def e(self, s):
         return torch.exp(self.clamp * 0.636 * torch.atan(s / self.clamp))
@@ -499,8 +525,7 @@ class GLOWCouplingBlock(nn.Module):
         # x1, x2 = (x[0].narrow(1, 0, self.split_len1),
         #           x[0].narrow(1, self.split_len1, self.split_len2))
 
-        x1,x2 = (x[:,:,:self.split_len1],
-                 x[:,:,self.split_len1:])
+        x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1 :])
 
         if not rev:
             # r2 = self.s2(torch.cat([x2, *c], 1) if self.conditional else x2)
@@ -509,21 +534,23 @@ class GLOWCouplingBlock(nn.Module):
             y1 = self.e(s2) * x1 + t2
 
             r1 = self.s1(torch.cat([y1, *c], 1) if self.conditional else y1)
-            s1, t1 = r1[:, :self.split_len2], r1[:, self.split_len2:]
+            s1, t1 = r1[:, : self.split_len2], r1[:, self.split_len2 :]
             y2 = self.e(s1) * x2 + t1
-            self.last_jac = (  torch.sum(self.log_e(s1), dim=tuple(range(1, self.ndims+1)))
-                             + torch.sum(self.log_e(s2), dim=tuple(range(1, self.ndims+1))))
+            self.last_jac = torch.sum(self.log_e(s1), dim=tuple(range(1, self.ndims + 1))) + torch.sum(
+                self.log_e(s2), dim=tuple(range(1, self.ndims + 1))
+            )
 
-        else: # names of x and y are swapped!
+        else:  # names of x and y are swapped!
             r1 = self.s1(torch.cat([x1, *c], 1) if self.conditional else x1)
-            s1, t1 = r1[:, :self.split_len2], r1[:, self.split_len2:]
+            s1, t1 = r1[:, : self.split_len2], r1[:, self.split_len2 :]
             y2 = (x2 - t1) / self.e(s1)
 
             r2 = self.s2(torch.cat([y2, *c], 1) if self.conditional else y2)
-            s2, t2 = r2[:, :self.split_len1], r2[:, self.split_len1:]
+            s2, t2 = r2[:, : self.split_len1], r2[:, self.split_len1 :]
             y1 = (x1 - t2) / self.e(s2)
-            self.last_jac = (- torch.sum(self.log_e(s1), dim=tuple(range(1, self.ndims+1)))
-                             - torch.sum(self.log_e(s2), dim=tuple(range(1, self.ndims+1))))
+            self.last_jac = -torch.sum(self.log_e(s1), dim=tuple(range(1, self.ndims + 1))) - torch.sum(
+                self.log_e(s2), dim=tuple(range(1, self.ndims + 1))
+            )
 
         return [torch.cat((y1, y2), 1)]
 
@@ -534,7 +561,7 @@ class GLOWCouplingBlock(nn.Module):
         return input_dims
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     adapter = Adapter(50)
 
     batch = torch.rand(16, 50)

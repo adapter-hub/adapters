@@ -24,6 +24,7 @@ from typing import Dict, Optional
 import numpy as np
 
 from transformers import (
+    AdapterArguments,
     AutoConfig,
     AutoModelForMultipleChoice,
     AutoTokenizer,
@@ -31,9 +32,7 @@ from transformers import (
     HfArgumentParser,
     Trainer,
     TrainingArguments,
-    AdapterArguments,
     set_seed,
-    AdapterType,
     setup_task_adapter_training,
 )
 from utils_multiple_choice import MultipleChoiceDataset, Split, processors
@@ -195,6 +194,7 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
+        is_training_adapter=adapter_args.train_adapter,
         lang_adapter=language,
         task_adapters=[task_name],
     )

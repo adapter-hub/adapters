@@ -29,6 +29,7 @@ from typing import Optional
 from transformers import (
     CONFIG_MAPPING,
     MODEL_WITH_LM_HEAD_MAPPING,
+    AdapterType,
     AutoConfig,
     AutoModelWithLMHead,
     AutoTokenizer,
@@ -40,7 +41,6 @@ from transformers import (
     Trainer,
     TrainingArguments,
     set_seed,
-    AdapterType,
 )
 
 
@@ -122,18 +122,14 @@ class AdapterArguments:
     Arguments related to adapter training.
     """
 
-    language: str = field(
-        default="en", metadata={"help": "The training language."}
-    )
+    language: str = field(default="en", metadata={"help": "The training language."})
     train_adapter: bool = field(
         default=False, metadata={"help": "Train a text language adapter for the given language."}
     )
     load_lang_adapter: Optional[str] = field(
         default=None, metadata={"help": "Pre-trained language adapter to be loaded."}
     )
-    adapter_config: Optional[str] = field(
-        default="pfeiffer", metadata={"help": "The adapter configuration."}
-    )
+    adapter_config: Optional[str] = field(default="pfeiffer", metadata={"help": "The adapter configuration."})
 
 
 def get_dataset(args: DataTrainingArguments, tokenizer: PreTrainedTokenizer, evaluate=False):
@@ -269,7 +265,8 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         prediction_loss_only=True,
-        lang_adapter=language
+        is_training_adapter=adapter_args.train_adapter,
+        lang_adapter=language,
     )
 
     # Training

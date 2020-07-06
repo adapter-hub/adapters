@@ -177,6 +177,7 @@ class Trainer:
         eval_dataset: Optional[Dataset] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         prediction_loss_only=False,
+        is_training_adapter: bool = False,
         lang_adapter=None,
         task_adapters=None,
         tb_writer: Optional["SummaryWriter"] = None,
@@ -221,6 +222,7 @@ class Trainer:
         if self.is_world_master():
             os.makedirs(self.args.output_dir, exist_ok=True)
         # adapters used
+        self.is_training_adapter = is_training_adapter
         self.lang_adapter = lang_adapter
         self.task_adapters = task_adapters
         if is_tpu_available():
@@ -549,7 +551,10 @@ class Trainer:
         if self.tb_writer:
             self.tb_writer.close()
 
-        logger.info("\n\nTraining completed. Do not forget to share your model on huggingface.co/models =)\n\n")
+        if self.is_training_adapter:
+            logger.info("\n\nTraining completed. Do not forget to share your adapters on https://adapterhub.ml =)\n\n")
+        else:
+            logger.info("\n\nTraining completed. Do not forget to share your model on huggingface.co/models =)\n\n")
         return TrainOutput(self.global_step, tr_loss / self.global_step)
 
     def _log(self, logs: Dict[str, float], iterator: Optional[tqdm] = None) -> None:
@@ -632,7 +637,10 @@ class Trainer:
             raise ValueError("Trainer.model appears to not be a PreTrainedModel")
 
         xm.rendezvous("saving_checkpoint")
-        self.model.save_pretrained(output_dir)
+        if self.is_training_adapter:
+            self.model.save_all_adapters(output_dir)
+        else:
+            self.model.save_pretrained(output_dir)
 
     def _save(self, output_dir: Optional[str] = None):
         output_dir = output_dir if output_dir is not None else self.args.output_dir
@@ -642,7 +650,10 @@ class Trainer:
         # They can then be reloaded using `from_pretrained()`
         if not isinstance(self.model, PreTrainedModel):
             raise ValueError("Trainer.model appears to not be a PreTrainedModel")
-        self.model.save_pretrained(output_dir)
+        if self.is_training_adapter:
+            self.model.save_all_adapters(output_dir)
+        else:
+            self.model.save_pretrained(output_dir)
 
         # Good practice: save your training arguments together with the trained model
         torch.save(self.args, os.path.join(output_dir, "training_args.bin"))

@@ -38,6 +38,7 @@ if is_torch_available():
         BertConfig,
         BERT_PRETRAINED_MODEL_ARCHIVE_LIST,
         top_k_top_p_filtering,
+        ModelWithHeadsAdaptersMixin,
     )
 
 
@@ -557,7 +558,7 @@ class ModelTesterMixin:
             model = model_class(config)
             base_model_prefix = model.base_model_prefix
 
-            if hasattr(model, base_model_prefix):
+            if hasattr(model, base_model_prefix) and not isinstance(model, ModelWithHeadsAdaptersMixin):
                 with tempfile.TemporaryDirectory() as temp_dir_name:
                     model.base_model.save_pretrained(temp_dir_name)
                     model, loading_info = model_class.from_pretrained(temp_dir_name, output_loading_info=True)

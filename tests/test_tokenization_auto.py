@@ -34,7 +34,7 @@ from .utils import DUMMY_UNKWOWN_IDENTIFIER, SMALL_MODEL_IDENTIFIER, slow  # noq
 
 
 class AutoTokenizerTest(unittest.TestCase):
-    # @slow
+    @slow
     def test_tokenizer_from_pretrained(self):
         logging.basicConfig(level=logging.INFO)
         for model_name in (x for x in BERT_PRETRAINED_CONFIG_ARCHIVE_MAP.keys() if "japanese" not in x):

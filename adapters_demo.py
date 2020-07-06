@@ -1,6 +1,10 @@
 import torch
+from pytorch_model_summary import summary
 
-from transformers import BertModel, RobertaModel, AutoModel
+from transformers import (
+    BertModel, BertConfig, RobertaModel, AutoModel,
+    BertForSequenceClassification, BertModelWithHeads
+)
 from transformers import AdapterType
 
 from convert_model import load_model_from_old_format
@@ -11,7 +15,7 @@ def is_output_equal(model1, model2, adapters=None, iterations=1, input_shape=(1,
     results = []
     for _ in range(iterations):
         # create some random input
-        in_data = torch.randint(1000, input_shape, dtype=torch.long)
+        in_data = torch.randint(0, 1000, input_shape, dtype=torch.long)
         if adapters:
             output1 = model1(in_data, adapter_tasks=adapters)[0]
             output2 = model2(in_data, adapter_tasks=adapters)[0]
@@ -46,6 +50,10 @@ def print_params(model, grads=False):
             print(s)
 
 
+def print_summary(model, input_shape=(1, 128), max_depth=2):
+    print(summary(model, torch.zeros(input_shape, dtype=torch.long), max_depth=max_depth))
+
+
 def run_adapter_test():
     ### A little demo checking the correctness of adapter saving/ loading ###
     global bert_sst
@@ -56,10 +64,10 @@ def run_adapter_test():
     bert_add_new = BertModel.from_pretrained("bert-base-uncased")
 
     # save the SST adapter to the file system
-    bert_sst.save_adapter(ADAPTER_DIR + "sst", "sst", save_head=True)
+    bert_sst.save_adapter(ADAPTER_DIR + "sst", "sst")
 
     # add SST adapter to BERT by loading the previously saved
-    bert_add_new.load_adapter(ADAPTER_DIR + "sst", load_head=True)
+    bert_add_new.load_adapter(ADAPTER_DIR + "sst")
 
     # check equality
     assert is_output_equal(bert_add_new, bert_sst, adapters=['sst'])
@@ -82,6 +90,38 @@ def run_lang_adapter_test():
     assert is_model_equal(roberta, roberta2)
 
     print_params(roberta2)
+
+
+def run_flex_head_test():
+    global bert_with_head, bert_with_head2
+
+    bert_with_head = BertModelWithHeads.from_pretrained("bert-base-uncased")
+    bert_with_head.add_classification_head("dummy", 2)
+    bert_with_head.save_head(ADAPTER_DIR + "dummy_head", "dummy")
+
+    bert_with_head2 = BertModelWithHeads.from_pretrained("bert-base-uncased")
+    bert_with_head2.load_head(ADAPTER_DIR + "dummy_head")
+    bert_with_head2.active_head = "dummy"
+
+    assert is_model_equal(bert_with_head, bert_with_head2)
+    assert is_output_equal(bert_with_head, bert_with_head2)
+
+    print_summary(bert_with_head2)
+
+
+def run_hf_head_test():
+    global bert_for_seq_class, bert_for_seq_class2
+
+    bert_for_seq_class = BertForSequenceClassification.from_pretrained("bert-base-uncased")
+    bert_for_seq_class.save_head(ADAPTER_DIR + "seq_class_head")
+
+    bert_for_seq_class2 = BertForSequenceClassification.from_pretrained("bert-base-uncased")
+    bert_for_seq_class2.load_head(ADAPTER_DIR + "seq_class_head")
+
+    assert is_model_equal(bert_for_seq_class, bert_for_seq_class2)
+    assert is_output_equal(bert_for_seq_class, bert_for_seq_class2)
+
+    print_summary(bert_for_seq_class2)
 
 
 def run_adapter_download_test():
@@ -112,4 +152,6 @@ if __name__ == "__main__":
 
     # run_adapter_test()
     # run_lang_adapter_test()
+    # run_flex_head_test()
+    # run_hf_head_test()
     # run_adapter_download_test()

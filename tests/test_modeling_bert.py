@@ -27,6 +27,7 @@ if is_torch_available():
     from transformers import (
         BertConfig,
         BertModel,
+        BertModelWithHeads,
         BertForMaskedLM,
         BertForNextSentencePrediction,
         BertForPreTraining,
@@ -406,6 +407,7 @@ class BertModelTest(ModelTesterMixin, unittest.TestCase):
     all_model_classes = (
         (
             BertModel,
+            BertModelWithHeads,
             BertForMaskedLM,
             BertForNextSentencePrediction,
             BertForPreTraining,

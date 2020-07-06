@@ -25,14 +25,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
-from transformers import (
-    AdapterArguments,
-    AutoConfig,
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-    EvalPrediction,
-    GlueDataset,
-)
+from transformers import AdapterArguments, AutoConfig, AutoModelWithHeads, AutoTokenizer, EvalPrediction, GlueDataset
 from transformers import GlueDataTrainingArguments as DataTrainingArguments
 from transformers import (
     HfArgumentParser,
@@ -136,17 +129,16 @@ def main():
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
     )
-    model = AutoModelForSequenceClassification.from_pretrained(
+    model = AutoModelWithHeads.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
         cache_dir=model_args.cache_dir,
     )
+    model.add_classification_head(data_args.task_name, num_labels=num_labels)
 
     # Setup adapters
-    task_name = data_args.task_name
-    language = adapter_args.load_lang_adapter
-    setup_task_adapter_training(model, task_name, adapter_args)
+    setup_task_adapter_training(model, data_args.task_name, adapter_args)
 
     # Get datasets
     train_dataset = GlueDataset(data_args, tokenizer=tokenizer) if training_args.do_train else None
@@ -168,8 +160,6 @@ def main():
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
         is_training_adapter=adapter_args.train_adapter,
-        lang_adapter=language,
-        task_adapters=[task_name],
     )
 
     # Training
