@@ -516,12 +516,12 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.active_head = None
 
     def _init_head_modules(self):
-        self.config.prediction_heads = {}
+        if not hasattr(self.config, "prediction_heads"):
+            self.config.prediction_heads = {}
         self.heads = nn.ModuleDict(dict())
         # add modules for heads in config
-        if hasattr(self.config, "prediction_heads"):
-            for head_name in self.config.prediction_heads:
-                self.add_prediction_head_module(head_name)
+        for head_name in self.config.prediction_heads:
+            self._add_prediction_head_module(head_name)
 
     def set_active_language(self, language_name: str):
         """Sets the language adapter which should be used by default in a forward pass.
