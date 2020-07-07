@@ -52,7 +52,7 @@ def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArgu
             )
             base_model.load_adapter(language, AdapterType.text_lang)
         # enable adapter training
-        base_model.train_task_adapter()
+        base_model.train_adapter([task_name])
     # set adapters as default if possible
     if isinstance(model, BertModelHeadsMixin):
         if language:

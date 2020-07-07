@@ -552,20 +552,12 @@ class ModelAdaptersMixin(ABC):
         self.add_adapter(adapter_name, AdapterType.text_task, config=config)
 
     @abstractmethod
-    def train_adapter(self, adapter_type: AdapterType):
+    def train_adapter(self, adapter_names: list):
         """Sets the model in mode for training the given type of adapter.
         """
         pass
 
-    def train_language_adapter(self):
-        """Sets the model in mode for training language adapters.
-        """
-        self.train_adapter(AdapterType.text_lang)
 
-    def train_task_adapter(self):
-        """Sets the model in mode for training task adapters.
-        """
-        self.train_adapter(AdapterType.text_task)
 
     def has_adapters(self, adapter_type=None):
         if not adapter_type:
@@ -704,10 +696,10 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         """
         self.base_model.add_adapter(adapter_name, adapter_type, config)
 
-    def train_adapter(self, adapter_type: AdapterType):
+    def train_adapter(self, adapter_names: list):
         """Sets the model in mode for training the given type of adapter.
         """
-        self.base_model.train_adapter(adapter_type)
+        self.base_model.train_adapter(adapter_names)
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)
