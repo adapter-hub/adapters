@@ -181,6 +181,20 @@ class PredictionHeadModelTest(unittest.TestCase):
                 self.assertTrue(torch.equal(output1[0], output2[0]))
                 self.assertEqual(3, output1[0].size()[1])
 
+    def test_load_full_model(self):
+        for model_class in self.model_classes:
+            with self.subTest(model_class=model_class.__name__):
+                model = model_class(model_class.config_class())
+                model.add_tagging_head("dummy")
+                true_config = model.config.prediction_heads
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    # save
+                    model.save_pretrained(temp_dir)
+                    # reload
+                    model = model_class.from_pretrained(temp_dir)
+                self.assertIn("dummy", model.config.prediction_heads)
+                self.assertDictEqual(true_config, model.config.prediction_heads)
+
 
 @require_torch
 class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
