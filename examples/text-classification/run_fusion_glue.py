@@ -68,7 +68,7 @@ class ModelArguments:
         default=None, metadata={"help": "Where do you want to store the pretrained models downloaded from s3"}
     )
 
-
+# --per_gpu_train_batch_size 2 --learning_rate 0.0001 --weight_decay 0.01 --do_train --do_eval --output_dir data_models/glue_fusion_testing/ --model_name_or_path bert-base-uncased --overwrite_output_dir --save_steps 1000 --logging_steps 1000 --task_name SST-2 --train_adapter --data_dir ./dev/adapter-transformers/glue_data/SST-2/ --adapter_config houlsby --evaluate_during_training
 def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
@@ -144,9 +144,32 @@ def main():
     )
 
     # Setup adapters
-    task_name = data_args.task_name
-    language = adapter_args.language
-    setup_task_adapter_training(model, task_name, adapter_args)
+    # task_name = data_args.task_name
+    # language = adapter_args.language
+    # setup_task_adapter_training(model, task_name, adapter_args)
+    from transformers.adapter_config import AdapterType
+    base_model = getattr(model, model.base_model_prefix, model)
+    base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
+
+    from transformers.adapter_config import PfeifferConfig, HoulsbyConfig
+    model.load_adapter("sentiment/sst@example-org", "text_task", config=PfeifferConfig())
+    model.load_adapter("sts/mrpc@calpt", "text_task", config=PfeifferConfig())
+
+    model.config.fusion_config = {}
+    model.config.fusion_config['key'] = True
+    model.config.fusion_config['query'] = True
+    model.config.fusion_config['query_before_ln'] = False
+    model.config.fusion_config['regularization'] = True
+    model.config.fusion_config['residual_before'] = False
+    model.config.fusion_config['temperature'] = False
+    model.config.fusion_config['value'] = True
+    model.config.fusion_config['value_before_softmax'] = True
+    model.config.fusion_config['value_initialized'] = True
+
+    adapter_names = [['sst', 'mrpc']]
+    model.bert.add_fusion_layer(adapter_names[0])
+    model.bert.train_fusion(adapter_names[0])
+    model.cuda()
 
     # Get datasets
     train_dataset = GlueDataset(data_args, tokenizer=tokenizer) if training_args.do_train else None
@@ -160,13 +183,15 @@ def main():
             preds = np.squeeze(p.predictions)
         return glue_compute_metrics(data_args.task_name, preds, p.label_ids)
 
-    if adapter_args.train_adapter:
-        if language:
-            adapter_names = [[language],[task_name]]
-        else:
-            adapter_names = [[task_name]]
-    else:
-        adapter_names = None
+    # if adapter_args.train_adapter:
+    #     if language:
+    #         adapter_names = [[language],[task_name]]
+    #     else:
+    #         adapter_names = [[task_name]]
+    # else:
+    #     adapter_names = None
+
+
 
     # Initialize our Trainer
     trainer = Trainer(

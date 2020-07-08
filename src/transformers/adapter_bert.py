@@ -22,6 +22,28 @@ from .adapter_modeling import (
 logger = logging.getLogger(__name__)
 
 
+def get_fusion_regularization_loss(model):
+    if hasattr(model, 'base_model'):
+        model = model.base_model
+    elif hasattr(model, 'encoder'):
+        pass
+    else:
+        raise Exception('Model not passed correctly, please pass a transformer model with an encoder')
+
+    reg_loss = 0.0
+    target = torch.zeros((model.config.hidden_size,model.config.hidden_size)).fill_diagonal_(1.0).to(model.device)
+    for k, v in model.encoder.layer._modules.items():
+
+        for _, layer_fusion in v.output.layer_fusion.items():
+            if hasattr(layer_fusion, 'value'):
+                reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+        for _, layer_fusion in v.attention.output.attention_adapters_fusion.items():
+            if hasattr(layer_fusion, 'value'):
+                reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+    return reg_loss
+
 class BertSelfOutputAdaptersMixin:
     """Adds adapters to the BertSelfOutput module.
     """
@@ -220,7 +242,7 @@ class BertSelfOutputAdaptersMixin:
                                                          adapter_stack=adapter_stack)
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
-            if last_config["original_ln_before"]:
+            if last_config["original_ln_after"]:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         else:
@@ -430,7 +452,7 @@ class BertOutputAdaptersMixin:
                                                          adapter_stack=adapter_stack)
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
-            if last_config["original_ln_before"]:
+            if last_config["original_ln_after"]:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         else:

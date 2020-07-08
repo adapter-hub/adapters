@@ -24,7 +24,7 @@ from .modeling_utils import PreTrainedModel
 from .optimization import AdamW, get_linear_schedule_with_warmup
 from .trainer_utils import PREFIX_CHECKPOINT_DIR, EvalPrediction, PredictionOutput, TrainOutput
 from .training_args import TrainingArguments, is_tpu_available
-
+from .adapter_bert import get_fusion_regularization_loss
 
 try:
     from apex import amp
@@ -178,8 +178,7 @@ class Trainer:
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         prediction_loss_only=False,
         is_training_adapter: bool = False,
-        lang_adapter=None,
-        task_adapters=None,
+        adapter_names=None,
         tb_writer: Optional["SummaryWriter"] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = None,
     ):
@@ -223,8 +222,7 @@ class Trainer:
             os.makedirs(self.args.output_dir, exist_ok=True)
         # adapters used
         self.is_training_adapter = is_training_adapter
-        self.lang_adapter = lang_adapter
-        self.task_adapters = task_adapters
+        self.adapter_names = adapter_names
         if is_tpu_available():
             # Set an xla_device flag on the model's config.
             # We'll find a more elegant and not need to do this in the future.
@@ -482,6 +480,11 @@ class Trainer:
                     len(epoch_iterator) <= self.args.gradient_accumulation_steps
                     and (step + 1) == len(epoch_iterator)
                 ):
+
+                    if hasattr(model.config, 'fusion_config'):
+                        fusion_reg_loss = get_fusion_regularization_loss(model)
+                        fusion_reg_loss.backward()
+
                     if self.args.fp16:
                         torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), self.args.max_grad_norm)
                     else:
@@ -578,7 +581,7 @@ class Trainer:
         for k, v in inputs.items():
             inputs[k] = v.to(self.args.device)
 
-        outputs = model(**inputs, language=self.lang_adapter, adapter_tasks=self.task_adapters)
+        outputs = model(**inputs, adapter_names=self.adapter_names)
         loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
         if self.args.n_gpu > 1:
@@ -769,7 +772,7 @@ class Trainer:
                 inputs[k] = v.to(self.args.device)
 
             with torch.no_grad():
-                outputs = model(**inputs, language=self.lang_adapter, adapter_tasks=self.task_adapters)
+                outputs = model(**inputs, adapter_names=self.adapter_names)
                 if has_labels:
                     step_eval_loss, logits = outputs[:2]
                     eval_losses += [step_eval_loss.mean().item()]

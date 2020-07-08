@@ -22,6 +22,9 @@ class AdapterArguments:
     )
     adapter_config: Optional[str] = field(default="pfeiffer", metadata={"help": "Adapter configuration."})
     lang_adapter_config: Optional[str] = field(default=None, metadata={"help": "Language adapter configuration."})
+    language: Optional[str] = field(
+        default=None, metadata={"help": "The adapter name of the loaded language adapter, e.g. 'en' for english."}
+    )
 
 
 def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArguments):
@@ -50,7 +53,13 @@ def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArgu
             base_model.set_adapter_config(
                 AdapterType.text_lang, adapter_args.lang_adapter_config or adapter_args.adapter_config
             )
-            base_model.load_adapter(language, AdapterType.text_lang)
+            # TODO CLIFTON: correctly set how language adapters need to be set
+            from transformers.adapter_config import PfeifferConfig, HoulsbyConfig
+            if adapter_args.adapter_config == 'houlsby':
+                lconfig = HoulsbyConfig(non_linearity='gelu', reduction_factor=2)
+            elif adapter_args.adapter_config == 'pfeiffer':
+                lconfig = PfeifferConfig(non_linearity='gelu', reduction_factor=2)
+
         # enable adapter training
         base_model.train_adapter([task_name])
     # set adapters as default if possible

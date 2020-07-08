@@ -208,6 +208,8 @@ class ModelAdaptersConfig:
             if common_config_name and common_config_name != config_name:
                 return None
             common_config_name = config_name
+            # TODO this is a hack @calpt please fix
+            return self.config_map[config_name]
         if not common_config_name:
             return None
         config = self.config_map[common_config_name]
