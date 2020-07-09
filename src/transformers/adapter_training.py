@@ -59,7 +59,10 @@ def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArgu
                 lconfig = HoulsbyConfig(non_linearity='gelu', reduction_factor=2)
             elif adapter_args.adapter_config == 'pfeiffer':
                 lconfig = PfeifferConfig(non_linearity='gelu', reduction_factor=2)
-
+            model.load_adapter(adapter_args.load_lang_adapter,
+                               AdapterType.lang_task,
+                               config=lconfig,
+                               load_as=adapter_args.language)
         # enable adapter training
         base_model.train_adapter([task_name])
     # set adapters as default if possible
