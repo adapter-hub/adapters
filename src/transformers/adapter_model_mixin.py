@@ -346,7 +346,8 @@ class AdapterLoader(WeightsLoader):
             config (str, optional): The requested configuration of the adapter.
             version (str, optional): The version of the adapter to be loaded.
             model_name (str, optional): The string identifier of the pre-trained model.
-            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was saved will be used.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
+             saved will be used.
 
         Returns:
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
@@ -480,7 +481,8 @@ class PredictionHeadLoader(WeightsLoader):
             if self.model.__class__.__name__ != config["model_class"]:
                 if self.error_on_missing:
                     raise ValueError(
-                        f"Model class '{config['model_class']}' of found prediction head does not match current model class."
+                        f"Model class '{config['model_class']}' of found prediction head does not match current "
+                        f"model class."
                     )
                 else:
                     logger.info("No matching prediction head found in '{}'".format(save_directory))
@@ -557,8 +559,6 @@ class ModelAdaptersMixin(ABC):
         """
         pass
 
-
-
     def has_adapters(self, adapter_type=None):
         if not adapter_type:
             return len(self.config.adapters.adapters) > 0
@@ -626,13 +626,16 @@ class ModelAdaptersMixin(ABC):
                 - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
                 - a path to a directory containing adapter weights saved using `model.saved_adapter()`
                 - a URL pointing to a zip folder containing a saved adapter module
-            adapter_type (AdapterType, optional): The type of adapter to be loaded. If not specified, text_task will be used for adapters loaded from the Hub.
-            config (dict or str, optional): The requested configuration of the adapter. If not specified, will be either:
+            adapter_type (AdapterType, optional): The type of adapter to be loaded. If not specified, text_task will be
+                    used for adapters loaded from the Hub.
+            config (dict or str, optional): The requested configuration of the adapter.
+                If not specified, will be either:
                 - the default adapter config for the requested adapter if specified
                 - the global default adapter config
             version (str, optional): The version of the adapter to be loaded.
             model_name (str, optional): The string identifier of the pre-trained model.
-            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was saved will be used.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
+                    saved will be used.
 
         Returns:
             str: The name with which the adapter was added to the model.

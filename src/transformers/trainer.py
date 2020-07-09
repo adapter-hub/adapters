@@ -19,12 +19,13 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler, Sampler, SequentialSampler
 from tqdm.auto import tqdm, trange
 
+from .adapter_bert import get_fusion_regularization_loss
 from .data.data_collator import DataCollator, DefaultDataCollator
 from .modeling_utils import PreTrainedModel
 from .optimization import AdamW, get_linear_schedule_with_warmup
 from .trainer_utils import PREFIX_CHECKPOINT_DIR, EvalPrediction, PredictionOutput, TrainOutput
 from .training_args import TrainingArguments, is_tpu_available
-from .adapter_bert import get_fusion_regularization_loss
+
 
 try:
     from apex import amp
@@ -481,7 +482,7 @@ class Trainer:
                     and (step + 1) == len(epoch_iterator)
                 ):
 
-                    if hasattr(model.config, 'fusion_config'):
+                    if hasattr(model.config, "fusion_config"):
                         fusion_reg_loss = get_fusion_regularization_loss(model)
                         fusion_reg_loss.backward()
 

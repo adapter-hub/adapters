@@ -13,7 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Finetuning the library models for sequence classification on GLUE (Bert, XLM, XLNet, RoBERTa, Albert, XLM-RoBERTa)."""
+""" Finetuning the library models for sequence classification on GLUE
+ (Bert, XLM, XLNet, RoBERTa, Albert, XLM-RoBERTa)."""
 
 
 import dataclasses
@@ -92,7 +93,8 @@ def main():
         and not training_args.overwrite_output_dir
     ):
         raise ValueError(
-            f"Output directory ({training_args.output_dir}) already exists and is not empty. Use --overwrite_output_dir to overcome."
+            f"Output directory ({training_args.output_dir}) already exists and is not empty. "
+            f"Use --overwrite_output_dir to overcome."
         )
 
     # Setup logging
@@ -162,7 +164,7 @@ def main():
 
     if adapter_args.train_adapter:
         if language:
-            adapter_names = [[language],[task_name]]
+            adapter_names = [[language], [task_name]]
         else:
             adapter_names = [[task_name]]
     else:

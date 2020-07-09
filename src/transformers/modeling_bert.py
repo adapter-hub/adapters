@@ -282,9 +282,9 @@ class BertSelfOutput(nn.Module, BertSelfOutputAdaptersMixin):
     def forward(self, hidden_states, input_tensor, attention_mask=None, adapter_names=None):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapters_forward(hidden_states, input_tensor,
-                                              attention_mask=attention_mask,
-                                              adapter_names=adapter_names)
+        hidden_states = self.adapters_forward(
+            hidden_states, input_tensor, attention_mask=attention_mask, adapter_names=adapter_names
+        )
         return hidden_states
 
 
@@ -330,7 +330,9 @@ class BertAttention(nn.Module):
         self_outputs = self.self(
             hidden_states, attention_mask, head_mask, encoder_hidden_states, encoder_attention_mask
         )
-        attention_output = self.output(self_outputs[0], hidden_states, attention_mask=attention_mask, adapter_names=adapter_names)
+        attention_output = self.output(
+            self_outputs[0], hidden_states, attention_mask=attention_mask, adapter_names=adapter_names
+        )
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
         return outputs
 
@@ -398,9 +400,7 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
             outputs = outputs + cross_attention_outputs[1:]  # add cross attentions if we output attention weights
 
         intermediate_output = self.intermediate(attention_output)
-        layer_output = self.output(
-            intermediate_output, attention_output, attention_mask, adapter_names=adapter_names
-        )
+        layer_output = self.output(intermediate_output, attention_output, attention_mask, adapter_names=adapter_names)
         outputs = (layer_output,) + outputs
         return outputs
 
@@ -719,7 +719,9 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
 
         """
         # some warnings if we don't use available adapters
-        if not adapter_names and (self.has_adapters(AdapterType.text_task) or self.has_adapters(AdapterType.text_lang)):
+        if not adapter_names and (
+            self.has_adapters(AdapterType.text_task) or self.has_adapters(AdapterType.text_lang)
+        ):
             logger.warning("There are adapters available but none are passed to model.forward")
 
         if input_ids is not None and inputs_embeds is not None:

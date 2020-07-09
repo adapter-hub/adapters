@@ -408,7 +408,8 @@ def evaluate(args, model, tokenizer, prefix="", adapter_names=None):
 
 def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=False):
     if args.local_rank not in [-1, 0] and not evaluate:
-        # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        # Make sure only the first process in distributed training process the dataset,
+        # and the others will use the cache
         torch.distributed.barrier()
 
     # Load data features from cache or dataset file
@@ -468,7 +469,8 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
             torch.save({"features": features, "dataset": dataset, "examples": examples}, cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
-        # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        # Make sure only the first process in distributed training process the dataset, and the others
+        #  will use the cache
         torch.distributed.barrier()
 
     if output_examples:
@@ -628,7 +630,8 @@ def main():
         "--lang_id",
         default=0,
         type=int,
-        help="language id of input for language-specific xlm models (see tokenization_xlm.PRETRAINED_INIT_CONFIGURATION)",
+        help="language id of input for language-specific xlm models "
+        "(see tokenization_xlm.PRETRAINED_INIT_CONFIGURATION)",
     )
 
     parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
@@ -677,9 +680,7 @@ def main():
     parser.add_argument(
         "--load_language_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded."
     )
-    parser.add_argument(
-        "--language", type=str, default=None, help="Adapter name of the loaded language adapter."
-    )
+    parser.add_argument("--language", type=str, default=None, help="Adapter name of the loaded language adapter.")
     parser.add_argument("--adapter_config", type=str, default="pfeiffer", help="Adapter configuration.")
     parser.add_argument("--language_adapter_config", type=str, default=None, help="Language adapter configuration.")
     args = parser.parse_args()
@@ -769,7 +770,7 @@ def main():
     setup_task_adapter_training(model, task_name, args)
     if args.train_adapter:
         if language:
-            adapter_names = [[language],[task_name]]
+            adapter_names = [[language], [task_name]]
         else:
             adapter_names = [[task_name]]
     else:
@@ -783,9 +784,9 @@ def main():
 
     logger.info("Training/evaluation parameters %s", args)
 
-    # Before we do anything with models, we want to ensure that we get fp16 execution of torch.einsum if args.fp16 is set.
-    # Otherwise it'll default to "promote" mode, and we'll get fp32 operations. Note that running `--fp16_opt_level="O2"` will
-    # remove the need for this code, but it is still valid.
+    # Before we do anything with models, we want to ensure that we get fp16 execution of torch.einsum if
+    # args.fp16 is set.Otherwise it'll default to "promote" mode, and we'll get fp32 operations.
+    # Note that running `--fp16_opt_level="O2"` will remove the need for this code, but it is still valid.
     if args.fp16:
         try:
             import apex

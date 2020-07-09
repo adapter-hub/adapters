@@ -154,53 +154,51 @@ class BertFusion(nn.Module):
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
-
-        if not self.config.fusion_config['query'] and \
-                not self.config.fusion_config['key'] and \
-                not self.config.fusion_config['value']:
+        if (
+            not self.config.fusion_config["query"]
+            and not self.config.fusion_config["key"]
+            and not self.config.fusion_config["value"]
+        ):
             self.dense = nn.Linear(self.dense_size, 1)
 
-        if self.config.fusion_config['query']:
+        if self.config.fusion_config["query"]:
             self.query = nn.Linear(int(config.hidden_size), self.dense_size)
             self.query.apply(Adapter.init_bert_weights)
 
-        if self.config.fusion_config['key']:
+        if self.config.fusion_config["key"]:
             self.key = nn.Linear(self.dense_size, self.dense_size)
             self.key.apply(Adapter.init_bert_weights)
 
-        if self.config.fusion_config['value']:
+        if self.config.fusion_config["value"]:
             self.value = nn.Linear(int(config.hidden_size), int(config.hidden_size), bias=False)
             self.value.apply(Adapter.init_bert_weights)
-            if self.config.fusion_config['value_initialized']:
+            if self.config.fusion_config["value_initialized"]:
                 self.value.weight.data = (
-                            torch.zeros(int(config.hidden_size), int(config.hidden_size)) + 0.000001).fill_diagonal_(
-                    1.0)
+                    torch.zeros(int(config.hidden_size), int(config.hidden_size)) + 0.000001
+                ).fill_diagonal_(1.0)
 
-
-        if self.config.fusion_config['temperature']:
+        if self.config.fusion_config["temperature"]:
             self.T = 50.0
         else:
             self.T = 1.0
         self.reduction = self.T / 1000.0
 
-
-
     def forward(self, query, key, value, residual, attention_mask=None):
 
-        if self.config.fusion_config['residual_before']:
+        if self.config.fusion_config["residual_before"]:
             value += residual[:, :, None, :].repeat(1, 1, value.size(2), 1)
 
-        if self.config.fusion_config['query']:
+        if self.config.fusion_config["query"]:
             query_layer = self.query(query)
         else:
             query_layer = query
 
-        if self.config.fusion_config['key']:
+        if self.config.fusion_config["key"]:
             key_layer = self.key(key)
         else:
             key_layer = key
 
-        if self.config.fusion_config['value'] and self.config.fusion_config['value_before_softmax']:
+        if self.config.fusion_config["value"] and self.config.fusion_config["value_before_softmax"]:
             # key/value have dims => batch, toks, number-of-adapters, feats
             value_layer = self.value(value)
         else:
@@ -220,13 +218,13 @@ class BertFusion(nn.Module):
 
         context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value_layer), dim=2)
 
-        if self.config.fusion_config['value'] and not self.config.fusion_config['value_before_softmax']:
+        if self.config.fusion_config["value"] and not self.config.fusion_config["value_before_softmax"]:
             # key/value have dims => batch, toks, number-of-adapters, feats
             context_layer = self.value(context_layer)
         else:
             context_layer = context_layer
 
-        if not self.config.fusion_config['residual_before']:
+        if not self.config.fusion_config["residual_before"]:
             context_layer += residual
 
         return context_layer

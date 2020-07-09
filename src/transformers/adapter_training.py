@@ -55,14 +55,14 @@ def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArgu
             )
             # TODO CLIFTON: correctly set how language adapters need to be set
             from transformers.adapter_config import PfeifferConfig, HoulsbyConfig
-            if adapter_args.adapter_config == 'houlsby':
-                lconfig = HoulsbyConfig(non_linearity='gelu', reduction_factor=2)
-            elif adapter_args.adapter_config == 'pfeiffer':
-                lconfig = PfeifferConfig(non_linearity='gelu', reduction_factor=2)
-            model.load_adapter(adapter_args.load_lang_adapter,
-                               AdapterType.lang_task,
-                               config=lconfig,
-                               load_as=adapter_args.language)
+
+            if adapter_args.adapter_config == "houlsby":
+                lconfig = HoulsbyConfig(non_linearity="gelu", reduction_factor=2)
+            elif adapter_args.adapter_config == "pfeiffer":
+                lconfig = PfeifferConfig(non_linearity="gelu", reduction_factor=2)
+            model.load_adapter(
+                adapter_args.load_lang_adapter, AdapterType.lang_task, config=lconfig, load_as=adapter_args.language
+            )
         # enable adapter training
         base_model.train_adapter([task_name])
     # set adapters as default if possible

@@ -13,7 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Finetuning the library models for sequence classification on GLUE (Bert, XLM, XLNet, RoBERTa, Albert, XLM-RoBERTa)."""
+""" Finetuning the library models for sequence classification on
+GLUE (Bert, XLM, XLNet, RoBERTa, Albert, XLM-RoBERTa)."""
 
 
 import dataclasses
@@ -68,7 +69,13 @@ class ModelArguments:
         default=None, metadata={"help": "Where do you want to store the pretrained models downloaded from s3"}
     )
 
-# --per_gpu_train_batch_size 2 --learning_rate 0.0001 --weight_decay 0.01 --do_train --do_eval --output_dir data_models/glue_fusion_testing/ --model_name_or_path bert-base-uncased --overwrite_output_dir --save_steps 1000 --logging_steps 1000 --task_name SST-2 --train_adapter --data_dir ./dev/adapter-transformers/glue_data/SST-2/ --adapter_config houlsby --evaluate_during_training
+
+# --per_gpu_train_batch_size 2 --learning_rate 0.0001 --weight_decay 0.01 --do_train --do_eval
+# --output_dir data_models/glue_fusion_testing/ --model_name_or_path bert-base-uncased --overwrite_output_dir
+# --save_steps 1000 --logging_steps 1000 --task_name SST-2 --train_adapter
+# --data_dir ./dev/adapter-transformers/glue_data/SST-2/ --adapter_config houlsby --evaluate_during_training
+
+
 def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
@@ -92,7 +99,8 @@ def main():
         and not training_args.overwrite_output_dir
     ):
         raise ValueError(
-            f"Output directory ({training_args.output_dir}) already exists and is not empty. Use --overwrite_output_dir to overcome."
+            f"Output directory ({training_args.output_dir}) already exists and is not empty."
+            f" Use --overwrite_output_dir to overcome."
         )
 
     # Setup logging
@@ -148,25 +156,27 @@ def main():
     # language = adapter_args.language
     # setup_task_adapter_training(model, task_name, adapter_args)
     from transformers.adapter_config import AdapterType
+
     base_model = getattr(model, model.base_model_prefix, model)
     base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
 
     from transformers.adapter_config import PfeifferConfig, HoulsbyConfig
+
     model.load_adapter("sentiment/sst@example-org", "text_task", config=PfeifferConfig())
     model.load_adapter("sts/mrpc@calpt", "text_task", config=PfeifferConfig())
 
     model.config.fusion_config = {}
-    model.config.fusion_config['key'] = True
-    model.config.fusion_config['query'] = True
-    model.config.fusion_config['query_before_ln'] = False
-    model.config.fusion_config['regularization'] = True
-    model.config.fusion_config['residual_before'] = False
-    model.config.fusion_config['temperature'] = False
-    model.config.fusion_config['value'] = True
-    model.config.fusion_config['value_before_softmax'] = True
-    model.config.fusion_config['value_initialized'] = True
+    model.config.fusion_config["key"] = True
+    model.config.fusion_config["query"] = True
+    model.config.fusion_config["query_before_ln"] = False
+    model.config.fusion_config["regularization"] = True
+    model.config.fusion_config["residual_before"] = False
+    model.config.fusion_config["temperature"] = False
+    model.config.fusion_config["value"] = True
+    model.config.fusion_config["value_before_softmax"] = True
+    model.config.fusion_config["value_initialized"] = True
 
-    adapter_names = [['sst', 'mrpc']]
+    adapter_names = [["sst", "mrpc"]]
     model.bert.add_fusion_layer(adapter_names[0])
     model.bert.train_fusion(adapter_names[0])
     model.cuda()
@@ -190,8 +200,6 @@ def main():
     #         adapter_names = [[task_name]]
     # else:
     #     adapter_names = None
-
-
 
     # Initialize our Trainer
     trainer = Trainer(
