@@ -3,7 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 from os import mkdir
 from os.path import exists, isdir, isfile, join
-from typing import Callable, List, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import torch
 
@@ -585,7 +585,7 @@ class ModelAdaptersMixin(ABC):
         save_directory: str,
         adapter_name: str,
         meta_dict: dict = None,
-        custom_weights_loaders: List[WeightsLoader] = [],
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """Saves an adapter and its configuration file to a directory so that it can be shared
         or reloaded using `load_adapter()`.
@@ -616,7 +616,7 @@ class ModelAdaptersMixin(ABC):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
-        custom_weights_loaders: List[WeightsLoader] = [],
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         **kwargs
     ) -> str:
         """Loads a pre-trained pytorch adapter module from the local file system or a remote location.
@@ -718,9 +718,11 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         adapter_name: str,
         with_head: bool = True,
         meta_dict: dict = None,
-        custom_weights_loaders: List[WeightsLoader] = [],
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         if with_head:
+            if custom_weights_loaders is None:
+                custom_weights_loaders = []
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
         super().save_adapter(
             save_directory, adapter_name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
@@ -735,10 +737,12 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         model_name: str = None,
         load_as: str = None,
         with_head: bool = True,
-        custom_weights_loaders: List[WeightsLoader] = [],
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         **kwargs
     ) -> str:
         if with_head:
+            if custom_weights_loaders is None:
+                custom_weights_loaders = []
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
         super().load_adapter(
             adapter_name_or_path,
@@ -756,9 +760,11 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         save_directory: str,
         with_head: bool = True,
         meta_dict: dict = None,
-        custom_weights_loaders: List[WeightsLoader] = [],
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         if with_head:
+            if custom_weights_loaders is None:
+                custom_weights_loaders = []
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
         super().save_all_adapters(
             save_directory, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
