@@ -9,7 +9,6 @@ from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import (
     Activation_Function_Class,
     Adapter,
-    AdapterFusionSentLvlDynamic,
     BertFusion,
     GLOWCouplingBlock,
     NICECouplingBlock,
