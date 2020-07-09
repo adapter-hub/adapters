@@ -43,7 +43,7 @@ from transformers import (
     glue_output_modes,
     glue_tasks_num_labels,
     set_seed,
-    setup_task_adapter_training,
+    # setup_task_adapter_training,
 )
 
 
@@ -160,7 +160,8 @@ def main():
     base_model = getattr(model, model.base_model_prefix, model)
     base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
 
-    from transformers.adapter_config import PfeifferConfig, HoulsbyConfig
+    from transformers.adapter_config import PfeifferConfig
+    # from transformers.adapter_config import  HoulsbyConfig
 
     model.load_adapter("sentiment/sst@example-org", "text_task", config=PfeifferConfig())
     model.load_adapter("sts/mrpc@calpt", "text_task", config=PfeifferConfig())
