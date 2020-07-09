@@ -186,8 +186,7 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         labels=None,
-        adapter_tasks=None,
-        language=None,
+        adapter_names=None,
         head=None,
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
@@ -195,8 +194,8 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
         position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
 
-        language = language or self.active_language_adapter
-        adapter_tasks = adapter_tasks or self.active_task_adapters
+        adapter_names = adapter_names or self.active_adapter_names
+
         outputs = self.roberta(
             input_ids,
             attention_mask=attention_mask,
@@ -204,8 +203,7 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
-            adapter_tasks=adapter_tasks,
-            language=language,
+            adapter_names=adapter_names,
         )
 
         outputs = self.forward_head(outputs, head_name=head, attention_mask=attention_mask, labels=labels,)

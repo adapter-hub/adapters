@@ -612,8 +612,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.active_language_adapter = None
-        self.active_task_adapters = []
+        self.active_adapter_names = None
         self.active_head = None
 
     def _init_head_modules(self):
@@ -624,32 +623,39 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         for head_name in self.config.prediction_heads:
             self._add_prediction_head_module(head_name)
 
-    def set_active_language(self, language_name: str):
-        """Sets the language adapter which should be used by default in a forward pass.
-
-        Args:
-            language_name (str): The name of the language adapter.
-        """
-        if language_name in self.config.adapters.adapter_list(AdapterType.text_lang):
-            self.active_language_adapter = language_name
-        else:
-            logger.info("No language adapter with name '{}' available.".format(language_name))
-
-    def set_active_task(self, task_name: str):
+    def set_active_adapters(self, adapter_names: list):
         """Sets the task adapter and/ or prediction head which should be used by default in a forward pass.
         If no adapter or prediction with the given name is found, no module of the respective type will be activated.
 
         Args:
             task_name (str): The name of the task adapter and/ or prediction head.
         """
-        if task_name in self.config.adapters.adapter_list(AdapterType.text_task):
-            self.active_task_adapters = [task_name]
-        else:
-            logger.info("No task adapter for task_name '{}' available.".format(task_name))
-        if task_name in self.config.prediction_heads:
-            self.active_head = task_name
-        else:
-            logger.info("No prediction head for task_name '{}' available.".format(task_name))
+
+        if isinstance(adapter_names, str):
+            adapter_names = [[adapter_names]]
+        elif isinstance(adapter_names, list):
+            if isinstance(adapter_names[0], str):
+                adapter_names = [adapter_names]
+        if not isinstance(adapter_names[0][0], str):
+            raise ValueError("Adapter names %s not set correctly", str(adapter_names))
+
+        new_adapter_names = []
+
+        for stack in adapter_names:
+            new_adapter_names.append([])
+            for adapter_name in stack:
+                if adapter_name in self.config.adapters.adapter_list(AdapterType.text_task) \
+                        or adapter_name in self.config.adapters.adapter_list(AdapterType.text_lang):
+                    new_adapter_names[-1].append(adapter_name)
+                else:
+                    logger.info("No task adapter for task_name '{}' available. Removing it.".format(adapter_name))
+                if adapter_name in self.config.prediction_heads:
+                    self.active_head = adapter_name
+                else:
+                    logger.info("No prediction head for task_name '{}' available.".format(adapter_name))
+        if len(new_adapter_names[0]) == 0:
+            new_adapter_names = None
+        self.active_adapter_names = new_adapter_names
 
     def add_classification_head(
         self, head_name, num_labels=2, layers=2, activation_function="tanh", overwrite_ok=False,

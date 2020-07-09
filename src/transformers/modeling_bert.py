@@ -767,8 +767,17 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         )
 
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if adapter_names[0][0] in self.invertible_lang_adapters:
-            embedding_output = self.invertible_lang_adapters[adapter_names[0][0]](embedding_output, rev=False)
+        if adapter_names is not None and len(adapter_names) > 0:
+            if isinstance(adapter_names, str):
+                adapter_names = [[adapter_names]]
+            elif isinstance(adapter_names, list):
+                if isinstance(adapter_names[0], str):
+                    adapter_names = [adapter_names]
+            if not isinstance(adapter_names[0][0], str):
+                raise ValueError("Adapter names %s not set correctly", str(adapter_names))
+
+            if adapter_names[0][0] in self.invertible_lang_adapters:
+                embedding_output = self.invertible_lang_adapters[adapter_names[0][0]](embedding_output, rev=False)
 
         encoder_outputs = self.encoder(
             embedding_output,
@@ -819,8 +828,7 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
         position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
 
-        # language = language or self.active_language_adapter
-        # adapter_tasks = adapter_tasks or self.active_task_adapters
+        adapter_names = adapter_names or self.active_adapter_names
         outputs = self.bert(
             input_ids,
             attention_mask=attention_mask,
