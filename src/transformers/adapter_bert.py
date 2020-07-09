@@ -6,13 +6,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
-from .adapter_modeling import (
-    Activation_Function_Class,
-    Adapter,
-    BertFusion,
-    GLOWCouplingBlock,
-    NICECouplingBlock,
-)
+from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion, GLOWCouplingBlock, NICECouplingBlock
 
 
 logger = logging.getLogger(__name__)

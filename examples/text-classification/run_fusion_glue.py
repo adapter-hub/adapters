@@ -26,7 +26,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
-from transformers import (
+from transformers import (  # setup_task_adapter_training,
     AdapterArguments,
     AutoConfig,
     AutoModelForSequenceClassification,
@@ -43,7 +43,6 @@ from transformers import (
     glue_output_modes,
     glue_tasks_num_labels,
     set_seed,
-    # setup_task_adapter_training,
 )
 
 
@@ -161,6 +160,7 @@ def main():
     base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
 
     from transformers.adapter_config import PfeifferConfig
+
     # from transformers.adapter_config import  HoulsbyConfig
 
     model.load_adapter("sentiment/sst@example-org", "text_task", config=PfeifferConfig())
