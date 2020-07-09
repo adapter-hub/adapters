@@ -10,12 +10,9 @@ from .adapter_modeling import (
     Activation_Function_Class,
     Adapter,
     AdapterFusionSentLvlDynamic,
-    AdapterWeightingSentLvl,
-    AdapterWeightingSentLvlDynamic,
     BertFusion,
     GLOWCouplingBlock,
     NICECouplingBlock,
-    SimpleAdapterWeightingStatic,
 )
 
 
