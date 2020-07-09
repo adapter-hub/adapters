@@ -167,7 +167,7 @@ def main():
 
     # Setup adapters
     task_name = "ner"
-    language = adapter_args.load_lang_adapter
+    language = adapter_args.language
     setup_task_adapter_training(model, task_name, adapter_args)
     if adapter_args.train_adapter:
         if language:
