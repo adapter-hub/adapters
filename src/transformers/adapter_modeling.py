@@ -154,9 +154,6 @@ class BertFusion(nn.Module):
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
-        self.T = 50.0
-
-        self.reduction = self.T / 1000.0
 
         if not self.config.fusion_config['query'] and \
                 not self.config.fusion_config['key'] and \
@@ -178,20 +175,15 @@ class BertFusion(nn.Module):
                 self.value.weight.data = (
                             torch.zeros(int(config.hidden_size), int(config.hidden_size)) + 0.000001).fill_diagonal_(
                     1.0)
-                # self.value.weight.data = (torch.zeros(int(config.hidden_size), int(config.hidden_size)) + 0.0001).fill_diagonal_(1.0)
-                # self.value.weight.data = (torch.zeros(int(config.hidden_size), int(config.hidden_size)) + 0.000).fill_diagonal_(1.0)
-            # self.value.weight.data = (torch.zeros(int(config.hidden_size), int(config.hidden_size)) ).fill_diagonal_(1.0)
+
 
         if self.config.fusion_config['temperature']:
             self.T = 50.0
         else:
             self.T = 1.0
-
         self.reduction = self.T / 1000.0
 
-        # (torch.zeros(5, 5) + 0.0001).fill_diagonal_(1.0)
 
-        # if init_bert_weights:
 
     def forward(self, query, key, value, residual, attention_mask=None):
 
@@ -217,25 +209,16 @@ class BertFusion(nn.Module):
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.squeeze(torch.matmul(query_layer.unsqueeze(2), key_layer.transpose(-2, -1)), dim=2)
 
-        # This is actually dropping out entire tokens to attend to, which might
-        # seem a bit unusual, but is taken from the original Transformer paper.
         attention_scores = self.dropout(attention_scores)
 
         # Normalize the attention scores to probabilities.
-        # attention_probs = nn.Softmax(dim=-1)(attention_scores)
         attention_probs = nn.Softmax(dim=-1)(attention_scores / self.T)
-
-        # attention_probs = torch.zeros_like(attention_probs)
-        # attention_probs[:, :, 0] = 1.0
+        self.T = max(self.T - self.reduction, 1.0)
 
         if not self.training:
             self.recent_attention = attention_probs.detach().cpu().numpy()
 
-        self.T = max(self.T - self.reduction, 1.0)
-
-        # use the value layer or not TODO this is currently hardcoded
         context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value_layer), dim=2)
-        # context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value), dim=2)
 
         if self.config.fusion_config['value'] and not self.config.fusion_config['value_before_softmax']:
             # key/value have dims => batch, toks, number-of-adapters, feats
@@ -247,67 +230,6 @@ class BertFusion(nn.Module):
             context_layer += residual
 
         return context_layer
-
-
-class AdapterWeightingSentLvl(nn.Module):
-    def __init__(self, config, n_tasks):
-        super(AdapterWeightingSentLvl, self).__init__()
-        self.dense = nn.Linear(int(config.hidden_size), n_tasks)
-
-    def forward(self, query, key, value):
-        query_sent = torch.mean(query, dim=1)
-        scores = self.dense(query_sent)
-        probs = nn.Softmax(dim=-1)(scores)
-
-        weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
-        result = torch.sum(weighted_value, dim=2)
-
-        return result
-
-
-class AdapterWeightingSentLvlDynamic(nn.Module):
-    def __init__(self, config, n_tasks):
-        super(AdapterWeightingSentLvlDynamic, self).__init__()
-        # TODO
-        self.dense = nn.Linear(int(config.hidden_size) // config.text_task_adapter_config["reduction_factor"], 1)
-
-        self.T = 50.0
-
-        self.reduction = self.T / 1000.0
-
-    def forward(self, query, key, value, attention_mask):
-
-        try:
-            attention_mask = (attention_mask == 0).float().to(key.device).squeeze()
-            length = torch.sum(attention_mask, dim=1)
-        except Exception:
-            attention_mask = attention_mask.unsqueeze(1)
-            attention_mask = (attention_mask == 0).float().to(key.device)
-
-            length = torch.sum(attention_mask, dim=1)
-
-        attention_mask = attention_mask[:, :, None, None].repeat((1, 1, key.size()[-2], key.size()[-1]))
-
-        key = key * attention_mask
-
-        key_sent = torch.sum(key, dim=1) / length[:, None, None].repeat(1, key.size()[-2], key.size()[-1])
-
-        # key_sent = torch.mean(key, dim=1)
-        scores = self.dense(key_sent)
-        scores_t = scores.transpose(-2, -1)
-        probs = nn.Softmax(dim=-1)(scores_t / self.T)
-        # attention_scores = attention_scores + attention_mask
-        # weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
-        # result = torch.sum(weighted_value, dim=2)
-
-        # with open('probabilities.txt', 'a') as f:
-        #     for b in probs.data.numpy():
-        #         f.write('\t'.join([str(e) for e in b[0]]) + '\n')
-
-        self.T = max(self.T - self.reduction, 1.0)
-
-        result = torch.squeeze(torch.matmul(probs.unsqueeze(2), value), dim=2)
-        return result
 
 
 class AdapterFusionSentLvlDynamic(nn.Module):
@@ -412,38 +334,6 @@ class AdapterFusionSentLvlDynamic(nn.Module):
         # result = torch.sum(weighted_value, dim=2)
 
         self.T = max(self.T - self.reduction, 1.0)
-
-        return result
-
-
-# class AdapterWeightingSentLvlDynamic(nn.Module):
-#     def __init__(self, config, n_tasks):
-#         super(AdapterWeightingSentLvlDynamic, self).__init__()
-#         self.dense = nn.Linear(int(config.hidden_size) // 2, 1)
-#
-#     def forward(self, query, key, value):
-#         key_sent = torch.mean(key, dim=1)
-#         scores = self.dense(key_sent)
-#         scores_t = scores.transpose(-2, -1)
-#         probs = nn.Softmax(dim=-1)(scores_t)
-#
-#         #weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
-#         #result = torch.sum(weighted_value, dim=2)
-#
-#         result = torch.squeeze(torch.matmul(probs.unsqueeze(2), value), dim=2)
-#         return result
-
-
-class SimpleAdapterWeightingStatic(nn.Module):
-    def __init__(self, config, n_tasks):
-        super(SimpleAdapterWeightingStatic, self).__init__()
-        self.weights = nn.Parameter(torch.ones(n_tasks), requires_grad=True)
-
-    def forward(self, query, key, value):
-        probs = nn.Softmax()(self.weights)
-
-        weighted_value = torch.reshape(probs, [1, 1, -1, 1]) * value
-        result = torch.sum(weighted_value, dim=2)
 
         return result
 
