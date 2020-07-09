@@ -266,7 +266,7 @@ def main():
         eval_dataset=eval_dataset,
         prediction_loss_only=True,
         is_training_adapter=adapter_args.train_adapter,
-        lang_adapter=language,
+        adapter_names=[[language]],
     )
 
     # Training

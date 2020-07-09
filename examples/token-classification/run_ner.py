@@ -169,6 +169,13 @@ def main():
     task_name = "ner"
     language = adapter_args.load_lang_adapter
     setup_task_adapter_training(model, task_name, adapter_args)
+    if adapter_args.train_adapter:
+        if language:
+            adapter_names = [[language],[task_name]]
+        else:
+            adapter_names = [[task_name]]
+    else:
+        adapter_names = None
 
     # Get datasets
     train_dataset = (
@@ -230,8 +237,7 @@ def main():
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
         is_training_adapter=adapter_args.train_adapter,
-        lang_adapter=language,
-        task_adapters=[task_name],
+        adapter_names=adapter_names,
     )
 
     # Training
