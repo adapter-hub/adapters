@@ -2,11 +2,11 @@ import copy
 import json
 import logging
 from collections.abc import Mapping
-from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass
+from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass, replace
 from os.path import isfile
 from typing import List, Optional, Union
 
-from .adapter_utils import AdapterType, get_adapter_config_hash, resolve_adapter_config
+from .adapter_utils import AdapterType, DataclassJSONEncoder, get_adapter_config_hash, resolve_adapter_config
 
 
 logger = logging.getLogger(__name__)
@@ -78,6 +78,9 @@ class AdapterConfig(Mapping):
 
     def to_dict(self):
         return asdict(self)
+
+    def replace(self, **changes):
+        return replace(self, **changes)
 
     @classmethod
     def from_dict(cls, config):
@@ -247,7 +250,8 @@ class ModelAdaptersConfig:
     def to_dict(self):
         output_dict = {}
         output_dict["adapters"] = copy.deepcopy(self.adapters)
-        output_dict["config_map"] = copy.deepcopy(self.config_map)
+        # make sure all config objects are serializable
+        output_dict["config_map"] = json.loads(json.dumps(self.config_map, cls=DataclassJSONEncoder))
         return output_dict
 
 

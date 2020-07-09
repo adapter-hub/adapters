@@ -6,6 +6,7 @@ import re
 import shutil
 import tarfile
 from collections.abc import Mapping
+from dataclasses import asdict, is_dataclass
 from enum import Enum
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
@@ -50,6 +51,13 @@ class AdapterType(str, Enum):
 
     def __repr__(self):
         return self.value
+
+
+class DataclassJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if is_dataclass(o):
+            return asdict(o)
+        return super().default(o)
 
 
 def _minimize_dict(d):
