@@ -35,10 +35,10 @@ from .adapter_bert import (
 )
 from .adapter_config import AdapterType
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
+from .adapter_utils import parse_adapter_names
 from .configuration_bert import BertConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_utils import PreTrainedModel, prune_linear_layer
-from .adapter_utils import parse_adapter_names
 
 
 logger = logging.getLogger(__name__)
@@ -1040,7 +1040,7 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        #TODO assume that first elem is language
+        # TODO assume that first elem is language
         if adapter_names is not None:
             adapter_names = parse_adapter_names(adapter_names)
             language = adapter_names[0][0]

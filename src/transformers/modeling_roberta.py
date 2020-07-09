@@ -24,11 +24,12 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from .adapter_bert import BertModelHeadsMixin
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
+from .adapter_utils import parse_adapter_names
 from .configuration_roberta import RobertaConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_bert import BertEmbeddings, BertLayerNorm, BertModel, BertPreTrainedModel, gelu
 from .modeling_utils import create_position_ids_from_input_ids
-from .adapter_utils import parse_adapter_names
+
 
 logger = logging.getLogger(__name__)
 

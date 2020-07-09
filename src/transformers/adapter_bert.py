@@ -644,8 +644,9 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         for stack in adapter_names:
             new_adapter_names.append([])
             for adapter_name in stack:
-                if adapter_name in self.config.adapters.adapter_list(AdapterType.text_task) \
-                        or adapter_name in self.config.adapters.adapter_list(AdapterType.text_lang):
+                if adapter_name in self.config.adapters.adapter_list(
+                    AdapterType.text_task
+                ) or adapter_name in self.config.adapters.adapter_list(AdapterType.text_lang):
                     new_adapter_names[-1].append(adapter_name)
                 else:
                     logger.info("No task adapter for task_name '{}' available. Removing it.".format(adapter_name))
