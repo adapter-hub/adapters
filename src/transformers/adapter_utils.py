@@ -35,6 +35,18 @@ ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
 ADAPTER_CACHE = join(torch_cache_home, "adapters")
 
 
+def parse_adapter_names(adapter_names):
+    if adapter_names is not None:
+        if isinstance(adapter_names, str):
+            adapter_names = [[adapter_names]]
+        elif isinstance(adapter_names, list):
+            if isinstance(adapter_names[0], str):
+                adapter_names = [adapter_names]
+        if not isinstance(adapter_names[0][0], str):
+            raise ValueError("Adapter names %s not set correctly", str(adapter_names))
+    return adapter_names
+
+
 def inherit_doc(cls):
     for name, func in vars(cls).items():
         if isinstance(func, Callable) and not func.__doc__:
