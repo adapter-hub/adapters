@@ -163,8 +163,14 @@ def main():
 
     # from transformers.adapter_config import  HoulsbyConfig
 
-    model.load_adapter("sentiment/sst@example-org", "text_task", config=PfeifferConfig())
-    model.load_adapter("sts/mrpc@calpt", "text_task", config=PfeifferConfig())
+    model.load_adapter("sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("lingaccept/cola@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/multinli@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/qnli@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/rte@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sts/mrpc@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sts/qqp@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sts/sts-b@ukp", "text_task", config=PfeifferConfig(), with_head=False)
 
     model.config.fusion_config = {}
     model.config.fusion_config["key"] = True
@@ -177,7 +183,7 @@ def main():
     model.config.fusion_config["value_before_softmax"] = True
     model.config.fusion_config["value_initialized"] = True
 
-    adapter_names = [["sst", "mrpc"]]
+    adapter_names = [["sst-2", "cola", "multinli", "qnli", "rte", "mrpc", "qqp", "sts-b"]]
     model.bert.add_fusion_layer(adapter_names[0])
     model.bert.train_fusion(adapter_names[0])
     model.cuda()
