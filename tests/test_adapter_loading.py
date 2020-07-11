@@ -49,7 +49,7 @@ class AdapterModelTest(unittest.TestCase):
 
                         # adapter is correctly added to config
                         self.assertTrue(name in model.config.adapters.adapter_list(adapter_type))
-                        self.assertEqual(adapter_config, model.config.adapters.get(name))
+                        self.assertEqual(adapter_config.to_dict(), model.config.adapters.get(name))
 
                         # check forward pass
                         input_ids = ids_tensor((1, 128), 1000)

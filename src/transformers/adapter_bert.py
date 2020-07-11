@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
-from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
+from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType, AdapterConfig
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import (
     Activation_Function_Class,
@@ -17,7 +17,6 @@ from .adapter_modeling import (
     NICECouplingBlock,
     SimpleAdapterWeightingStatic,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -458,13 +457,15 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         Args:
             adapter_name (str): The name of the adapter module to be added.
             adapter_type (AdapterType): The adapter type.
-            config (str or dict, optional): The adapter configuration, can be either:
+            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
         """
         if not AdapterType.has(adapter_type):
             raise ValueError("Invalid adapter type {}".format(adapter_type))
+        if isinstance(config, AdapterConfig):
+            config = config.to_dict()
         if not self.config.adapters.get_config(adapter_type):
             self.config.adapters.set_config(adapter_type, config or DEFAULT_ADAPTER_CONFIG)
         self.config.adapters.add(adapter_name, adapter_type, config=config)
