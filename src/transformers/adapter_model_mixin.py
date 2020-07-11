@@ -675,13 +675,9 @@ class ModelAdaptersMixin(ABC):
         """
         for name in self.config.adapters.adapters:
             adapter_config, adapter_type = self.config.adapters.get(name, return_type=True)
-            h = get_adapter_config_hash(adapter_config)
             save_path = join(save_directory, name)
-            if meta_dict:
-                meta_dict.update({"config_id": h})
-            else:
-                meta_dict = {"config_id": h}
             self.save_adapter(save_path, name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders)
+            yield save_path
 
     def freeze_model(self, freeze=True):
         """Freezes all weights of the model.
@@ -780,6 +776,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             if custom_weights_loaders is None:
                 custom_weights_loaders = []
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
-        super().save_all_adapters(
+        return super().save_all_adapters(
             save_directory, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
         )
