@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
-from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType, AdapterConfig
+from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterConfig, AdapterType
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import (
     Activation_Function_Class,
@@ -17,6 +17,7 @@ from .adapter_modeling import (
     NICECouplingBlock,
     SimpleAdapterWeightingStatic,
 )
+
 
 logger = logging.getLogger(__name__)
 

@@ -1,12 +1,7 @@
 import unittest
 
-from transformers import (
-    ADAPTER_CONFIG_MAP,
-    BertModel,
-    RobertaModel,
-    XLMRobertaModel,
-    AdapterType,
-)
+from transformers import ADAPTER_CONFIG_MAP, AdapterType, BertModel, RobertaModel, XLMRobertaModel
+
 from .utils import require_torch
 
 
