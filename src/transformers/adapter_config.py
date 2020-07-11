@@ -215,16 +215,17 @@ class ModelAdaptersConfig:
             return ADAPTER_CONFIG_MAP[config]
         return config
 
-    def set_config(self, adapter_type: AdapterType, config: Union[dict, str]):
+    def set_config(self, adapter_type: AdapterType, config: Union[dict, str, AdapterConfig]):
         """Sets the default adapter configuration of the specified adapter type.
 
         Args:
-            config (str or dict): adapter configuration, can be either:
+            config (str or dict or AdapterConfig): adapter configuration, can be either:
                 - a string identifying a pre-defined adapter configuration
                 - a dictionary representing the adapter configuration
                 - the path to a file containing the adapter configuration
         """
         assert len(self.adapter_list(adapter_type)) < 1, "Can only set new config if no adapters have been added."
+
         if isinstance(config, Mapping) or config in ADAPTER_CONFIG_MAP:
             self.config_map[adapter_type] = config
         elif isfile(config):
