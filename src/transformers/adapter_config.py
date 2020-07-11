@@ -204,14 +204,12 @@ class ModelAdaptersConfig:
     def common_config(self, adapter_names: list) -> Optional[dict]:
         common_config_name = None
         for name in adapter_names:
-            _, config_name = self.adapters[name]
+            adapter_type, config_name = self.adapters[name]
             if common_config_name and common_config_name != config_name:
                 return None
             common_config_name = config_name
-            # TODO this is a hack @calpt please fix
-            return self.config_map[config_name]
         if not common_config_name:
-            return None
+            return self.get_config(adapter_type)
         config = self.config_map[common_config_name]
         if isinstance(config, str):
             return ADAPTER_CONFIG_MAP[config]

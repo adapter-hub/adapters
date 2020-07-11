@@ -33,7 +33,6 @@ from .adapter_bert import (
     BertOutputAdaptersMixin,
     BertSelfOutputAdaptersMixin,
 )
-from .adapter_config import AdapterType
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .adapter_utils import parse_adapter_names
 from .configuration_bert import BertConfig
@@ -720,9 +719,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
 
         """
         # some warnings if we don't use available adapters
-        if not adapter_names and (
-            self.has_adapters(AdapterType.text_task) or self.has_adapters(AdapterType.text_lang)
-        ):
+        if not adapter_names and self.has_adapters():
             logger.warning("There are adapters available but none are passed to model.forward")
 
         if input_ids is not None and inputs_embeds is not None:
