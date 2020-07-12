@@ -101,9 +101,11 @@ def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, fo
             with ZipFile(output_path, "r") as zip_file:
                 # we want to extract all files into a flat folder structure (i.e. no subfolders)
                 for file in zip_file.namelist():
-                    file_data = zip_file.read(file)
-                    with open(join(output_path_extracted, basename(file)), "wb") as f:
-                        f.write(file_data)
+                    # check if we have a valid file
+                    if basename(file):
+                        file_data = zip_file.read(file)
+                        with open(join(output_path_extracted, basename(file)), "wb") as f:
+                            f.write(file_data)
         elif tarfile.is_tarfile(output_path):
             tar_file = tarfile.open(output_path)
             tar_file.extractall(output_path_extracted)
