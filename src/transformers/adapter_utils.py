@@ -229,7 +229,11 @@ def _dict_extract(d, primary_key, secondary_key=None):
 
 
 def find_in_index(
-    identifier: str, adapter_config: dict, adapter_type: AdapterType, model_name: str, strict: bool = True
+    identifier: str,
+    adapter_type: AdapterType,
+    model_name: str,
+    adapter_config: Optional[dict] = None,
+    strict: bool = False,
 ) -> Optional[str]:
     if not model_name:
         raise ValueError("Unable to resolve adapter without the name of a model. Please specify model_name.")
@@ -251,21 +255,25 @@ def find_in_index(
         # there are multiple possible options for this identifier
         raise ValueError("Found multiple possible adapters matching '{}'.".format(identifier))
     # go on with searching a matching adapter_config hash in the task entry
-    assert adapter_config, "Specify an adapter configuration to search for."
-    config_hash = get_adapter_config_hash(adapter_config)
-    if config_hash in index_entry:
-        # now match the org if given
-        hub_entry = _get_matching_version(index_entry[config_hash], org)
-        if hub_entry:
-            logger.info("Found matching adapter at: {}".format(hub_entry))
-        return hub_entry
-    # there's only one possible config and we allow matches with different configs
-    elif not strict and len(index_entry) == 1:
-        logger.warn("No matching adapter config found for this specifier, falling back to default.")
-        config_entry = list(index_entry.values())[0]
-        return _get_matching_version(config_entry, org)
-    else:
-        raise ValueError("No adapter '{}' found for the current model or configuration.".format(identifier))
+    if adapter_config:
+        config_hash = get_adapter_config_hash(adapter_config)
+        if config_hash in index_entry:
+            # now match the org if given
+            hub_entry = _get_matching_version(index_entry[config_hash], org)
+            if hub_entry:
+                logger.info("Found matching adapter at: {}".format(hub_entry))
+            return hub_entry
+    # if we're here, no matching config is available or no config was given
+    if not adapter_config or not strict:
+        if "default" in index_entry:
+            logger.info("No exactly matching adapter config found for this specifier, falling back to default.")
+            return index_entry["default"]
+        # there's only one possible config and we allow matches with different configs
+        elif len(index_entry) == 1:
+            logger.info("Only one configuration available for this adapter, using default.")
+            config_entry = list(index_entry.values())[0]
+            return _get_matching_version(config_entry, org)
+    raise ValueError("No adapter '{}' found for the current model or configuration.".format(identifier))
 
 
 def _get_matching_version(config_entry, org):
@@ -274,7 +282,7 @@ def _get_matching_version(config_entry, org):
     elif len(config_entry["versions"]) == 1:
         return list(config_entry["versions"].values())[0]
     elif "default" in config_entry:
-        return config_entry["versions"]["default"]
+        return config_entry["default"]
     else:
         raise ValueError("Multiple adapters with this name are available for this config.")
 
@@ -290,34 +298,43 @@ def http_get_json(url):
         raise EnvironmentError("Failed to get file {}".format(url))
 
 
+def get_checksum(file_entry: dict):
+    for algo in hashlib.algorithms_guaranteed:
+        if algo in file_entry:
+            return algo, file_entry[algo]
+
+
 def pull_from_hub(
     specifier: str,
-    adapter_config: Union[dict, str],
     adapter_type: AdapterType,
     model_name: str,
+    adapter_config: Optional[Union[dict, str]] = None,
     version: str = None,
-    strict: bool = True,
+    strict: bool = False,
     **kwargs
 ) -> str:
     """Downloads a pre-trained adapter module from Adapter-Hub
 
     Args:
         specifier (str): A string specifying the adapter to be loaded.
-        adapter_config (Union[dict, str]): The configuration of the adapter to be loaded.
         adapter_type (AdapterType): The adapter type.
         model_name (str): The identifier of the pre-trained model for which to load an adapter.
+        adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
-        strict (bool, optional): If set to True, only allow adapters exactly matching the given config to be loaded. Defaults to True.
+        strict (bool, optional): If set to True, only allow adapters exactly matching the given config to be loaded. Defaults to False.
 
     Returns:
         str: The local path to which the adapter has been downloaded.
     """
-    if not adapter_config or not adapter_type or not model_name:
-        raise ValueError("adapter_config, adapter_type and model_name arguments must be given.")
+    if not adapter_type:
+        raise ValueError("Adapter type must be specified.")
+    elif not model_name:
+        raise ValueError("model_name must be specified.")
     # resolve config if it's an identifier
-    adapter_config = resolve_adapter_config(adapter_config)
+    if adapter_config:
+        adapter_config = resolve_adapter_config(adapter_config)
     # search the correct entry in the index
-    hub_entry_url = find_in_index(specifier, adapter_config, adapter_type, model_name, strict=strict)
+    hub_entry_url = find_in_index(specifier, adapter_type, model_name, adapter_config=adapter_config, strict=strict)
     if not hub_entry_url:
         raise EnvironmentError("No adapter with name '{}' was found in the adapter index.".format(specifier))
     hub_entry = http_get_json(hub_entry_url)
@@ -332,8 +349,8 @@ def pull_from_hub(
 
     # start downloading
     logger.info("Resolved adapter files at {}.".format(file_entry["url"]))
-    # TODO add support for other checksums
-    download_path = download_cached(file_entry["url"], checksum=file_entry["sha1"], **kwargs)
+    checksum_algo, checksum = get_checksum(file_entry)
+    download_path = download_cached(file_entry["url"], checksum=checksum, checksum_algo=checksum_algo, **kwargs)
     if not download_path:
         raise EnvironmentError("Unable to load file from {}. The file might be unavailable.".format(file_entry["url"]))
     return download_path
@@ -341,9 +358,9 @@ def pull_from_hub(
 
 def resolve_adapter_path(
     adapter_name_or_path,
-    adapter_config: Union[dict, str] = None,
     adapter_type: AdapterType = AdapterType.text_task,
     model_name: str = None,
+    adapter_config: Union[dict, str] = None,
     version: str = None,
     **kwargs
 ) -> str:
@@ -355,9 +372,9 @@ def resolve_adapter_path(
             - the path to a folder in the file system containing the adapter configuration and weights
             - an url pointing to a zip folder containing the adapter configuration and weights
             - a specifier matching a pre-trained adapter uploaded to Adapter-Hub
-        adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
         adapter_type (AdapterType, optional): The adapter type.
         model_name (str, optional): The identifier of the pre-trained model for which to load an adapter.
+        adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
 
     Returns:
@@ -385,6 +402,8 @@ def resolve_adapter_path(
     elif re.fullmatch(ADAPTER_IDENTIFIER_PATTERN, adapter_name_or_path):
         if not adapter_type:  # make sure we have set an adapter_type
             adapter_type = AdapterType.text_task
-        return pull_from_hub(adapter_name_or_path, adapter_config, adapter_type, model_name, version=version, **kwargs)
+        return pull_from_hub(
+            adapter_name_or_path, adapter_type, model_name, adapter_config=adapter_config, version=version, **kwargs
+        )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
