@@ -17,7 +17,9 @@ from transformers.adapter_utils import download_cached
 from transformers.commands import BaseTransformersCLICommand
 
 
-ADAPTER_TEMPLATE_YAML = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/TEMPLATES/adapter.template.yaml"
+ADAPTER_TEMPLATE_YAML = (
+    "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/TEMPLATES/adapter.template.yaml"
+)
 
 ADAPTER_KEYS_TO_COPY = ["type", "model_type", "model_name", "model_class"]
 
@@ -31,20 +33,29 @@ class AdapterPackCommand(BaseTransformersCLICommand):
     def register_subcommand(parser: ArgumentParser):
         extract_parser = parser.add_parser(
             "pack",
-            help="CLI tool to extract all adapters in a directory and to prepare them for upload to AdapterHub."
+            help="CLI tool to extract all adapters in a directory and to prepare them for upload to AdapterHub.",
         )
-        extract_parser.add_argument("input_path", type=str, help="Path to a directory pretrained models or pretrained adapters.")
-        extract_parser.add_argument("-o", "--output_path", type=str, help="Path to a directory where the packed adapters will be saved. By default, the root of the input path is used.")
-        extract_parser.add_argument("--template", type=str, help="Path to a YAML file to be used as template for the adapter info cards.")
-        extract_parser.add_argument("--no_extract", action="store_true", help="Don't attempt to extract from models found in the input directory.")
+        extract_parser.add_argument(
+            "input_path", type=str, help="Path to a directory pretrained models or pretrained adapters."
+        )
+        extract_parser.add_argument(
+            "-o",
+            "--output_path",
+            type=str,
+            help="Path to a directory where the packed adapters will be saved. By default, the root of the input path is used.",
+        )
+        extract_parser.add_argument(
+            "--template", type=str, help="Path to a YAML file to be used as template for the adapter info cards."
+        )
+        extract_parser.add_argument(
+            "--no_extract",
+            action="store_true",
+            help="Don't attempt to extract from models found in the input directory.",
+        )
         extract_parser.set_defaults(func=adapter_pack_command_factory)
 
     def __init__(
-        self,
-        input_path: str,
-        output_path: str,
-        template: str,
-        extract_from_models: bool = False,
+        self, input_path: str, output_path: str, template: str, extract_from_models: bool = False,
     ):
         self.input_path = input_path
         self.output_path = output_path or input_path
@@ -70,19 +81,15 @@ class AdapterPackCommand(BaseTransformersCLICommand):
                 "type": "input",
                 "name": "author",
                 "message": "Your name or the names of other authors:",
-                "validate": self._validate_func
+                "validate": self._validate_func,
             },
             {
                 "type": "input",
                 "name": "email",
                 "message": "An email address to contact you or other authors:",
-                "validate": self._validate_func
+                "validate": self._validate_func,
             },
-            {
-                "type": "input",
-                "name": "url",
-                "message": "A URL providing more information on you or your work:",
-            },
+            {"type": "input", "name": "url", "message": "A URL providing more information on you or your work:",},
         ]
         answers = prompt(inputs)
         return answers
@@ -93,20 +100,20 @@ class AdapterPackCommand(BaseTransformersCLICommand):
                 "type": "input",
                 "name": "task",
                 "message": "The identifier of the task:",
-                "validate": self._validate_func
+                "validate": self._validate_func,
             },
             {
                 "type": "input",
                 "name": "subtask",
                 "message": "The identifier of the subtask:",
-                "validate": self._validate_func
+                "validate": self._validate_func,
             },
             {
                 "type": "input",
                 "name": "config_name",
                 "message": "The name of the adapter config:",
-                "validate": self._validate_func
-            }
+                "validate": self._validate_func,
+            },
         ]
         answers = prompt(inputs)
         return answers
@@ -119,7 +126,7 @@ class AdapterPackCommand(BaseTransformersCLICommand):
                 "name": "model_name",
                 "message": "Identifier of the pre-trained model:",
                 "validate": self._validate_func,
-                "default": self._input_cache.get("model_name", "")
+                "default": self._input_cache.get("model_name", ""),
             }
         ]
         answers = prompt(inputs)
@@ -155,15 +162,10 @@ class AdapterPackCommand(BaseTransformersCLICommand):
             file_bytes = f.read()
             sha1 = hashlib.sha1(file_bytes).hexdigest()
             sha256 = hashlib.sha256(file_bytes).hexdigest()
-        file_info = {
-            "version": version,
-            "url": "TODO",
-            "sha1": sha1,
-            "sha256": sha256
-        }
+        file_info = {"version": version, "url": "TODO", "sha1": sha1, "sha256": sha256}
         # load the template and fill in data
         yaml = ruamel.yaml.YAML()
-        with open(template_file, 'r') as f:
+        with open(template_file, "r") as f:
             template = yaml.load(f)
         for key in adapter_data:
             if key in template and key != "config":
@@ -186,7 +188,10 @@ class AdapterPackCommand(BaseTransformersCLICommand):
         print("These are your next steps for publishing them on AdapterHub:")
         print(Fore.MAGENTA + "-> Upload the created zip folders to your server.")
         print(Fore.MAGENTA + "-> Add the download links to your adapters to the respective yaml info cards.")
-        print(Fore.MAGENTA + "-> Add additional information to your info cards. Description and citation are very useful!")
+        print(
+            Fore.MAGENTA
+            + "-> Add additional information to your info cards. Description and citation are very useful!"
+        )
         print(Fore.MAGENTA + "-> Open a pull request to https://github.com/adapter-hub/Hub to add your info cards.")
         print()
 
@@ -222,13 +227,17 @@ class AdapterPackCommand(BaseTransformersCLICommand):
             print(f"Model in {model_dir}")
         for adapter_dir in adapters_list:
             print(f"Adapter in {adapter_dir}")
-        answers = prompt([{
-            "type": "confirm",
-            "name": "continue",
-            "message": "Extract and pack all listed adapters:",
-            "default": False
-        }])
-        if not answers['continue']:
+        answers = prompt(
+            [
+                {
+                    "type": "confirm",
+                    "name": "continue",
+                    "message": "Extract and pack all listed adapters:",
+                    "default": False,
+                }
+            ]
+        )
+        if not answers["continue"]:
             return
         # extract adapters from all models
         if self.extract_from_models:
