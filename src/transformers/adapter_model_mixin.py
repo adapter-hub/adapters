@@ -7,14 +7,19 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import torch
 
-from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType, build_full_config, get_adapter_config_hash
+from .adapter_config import (
+    DEFAULT_ADAPTER_CONFIG,
+    AdapterConfig,
+    AdapterType,
+    build_full_config,
+    get_adapter_config_hash,
+)
 from .adapter_utils import (
     CONFIG_NAME,
     HEAD_CONFIG_NAME,
     HEAD_WEIGHTS_NAME,
     WEIGHTS_NAME,
     inherit_doc,
-    resolve_adapter_config,
     resolve_adapter_path,
 )
 
@@ -354,7 +359,7 @@ class AdapterLoader(WeightsLoader):
                              and the name of the loaded weights.
         """
         # use: given adapter config (can be string) > default config of this type > global default config
-        requested_config = resolve_adapter_config(config or self.config or DEFAULT_ADAPTER_CONFIG)
+        requested_config = AdapterConfig.load(config or self.config or DEFAULT_ADAPTER_CONFIG)
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
         model_name = self.model.model_name or model_name
         resolved_folder = resolve_adapter_path(
@@ -522,7 +527,7 @@ class ModelAdaptersMixin(ABC):
         Args:
             adapter_name (str): The name of the adapter module to be added.
             adapter_type (AdapterType): The adapter type.
-            config (str or dict, optional): The adapter configuration, can be either:
+            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used

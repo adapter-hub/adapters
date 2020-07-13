@@ -1,22 +1,33 @@
 import copy
-import hashlib
 import json
 import logging
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, field, is_dataclass
-from enum import Enum
+from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass, replace
 from os.path import isfile
 from typing import List, Optional, Union
+
+from .adapter_utils import AdapterType, DataclassJSONEncoder, get_adapter_config_hash, resolve_adapter_config
 
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass()
 class InvertibleAdapterConfig(Mapping):
     block_type: str
     non_linearity: str
     reduction_factor: int
+
+    # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
+    # Therefore, we don't allow changing attribute values if set once.
+    def __setattr__(self, name, value):
+        if name in self.__dict__:
+            raise FrozenInstanceError()
+        else:
+            object.__setattr__(self, name, value)
+
+    def __delattr__(self, name):
+        raise FrozenInstanceError()
 
     def __getitem__(self, key):
         return self.__dict__[key]
@@ -28,7 +39,7 @@ class InvertibleAdapterConfig(Mapping):
         return len(self.__dict__)
 
 
-@dataclass(frozen=True)
+@dataclass
 class AdapterConfig(Mapping):
     """Base class that models the architecture of an adapter."""
 
@@ -45,6 +56,17 @@ class AdapterConfig(Mapping):
     invertible_adapter: Optional[InvertibleAdapterConfig] = None
     leave_out: List[int] = field(default_factory=list)
 
+    # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
+    # Therefore, we don't allow changing attribute values if set once.
+    def __setattr__(self, name, value):
+        if name in self.__dict__:
+            raise FrozenInstanceError()
+        else:
+            object.__setattr__(self, name, value)
+
+    def __delattr__(self, name):
+        raise FrozenInstanceError()
+
     def __getitem__(self, key):
         return self.__dict__[key]
 
@@ -57,17 +79,44 @@ class AdapterConfig(Mapping):
     def to_dict(self):
         return asdict(self)
 
+    def replace(self, **changes):
+        return replace(self, **changes)
+
     @classmethod
     def from_dict(cls, config):
-        # remove all invalid keys
-        valid_dict = {}
-        for k, v in config.items():
-            if k in cls.__annotations__:
-                valid_dict[k] = v
-        return cls(**valid_dict)
+        return cls(**config)
+
+    @classmethod
+    def load(cls, config: Union[dict, str], download_kwargs=None, **kwargs):
+        """Loads a given adapter configuration specifier into a full AdapterConfig instance.
+
+        Args:
+            config (Union[dict, str]): The configuration to load. Can be either:
+                - a dictionary representing the full config
+                - an identifier string available in ADAPTER_CONFIG_MAP
+                - the path to a file containing a full adapter configuration
+                - an identifier string available in Adapter-Hub
+
+        Returns:
+            dict: The resolved adapter configuration dictionary.
+        """
+        # if force_download is set, skip the local map
+        if download_kwargs and download_kwargs.get("force_download", False):
+            local_map = None
+        else:
+            local_map = ADAPTER_CONFIG_MAP
+        if download_kwargs:
+            config_dict = resolve_adapter_config(config, local_map=local_map, **download_kwargs)
+        else:
+            config_dict = resolve_adapter_config(config, local_map=local_map)
+        # convert back to dict to allow attr overrides
+        if isinstance(config_dict, AdapterConfig):
+            config_dict = config_dict.to_dict()
+        config_dict.update(kwargs)
+        return AdapterConfig.from_dict(config_dict)
 
 
-@dataclass(frozen=True)
+@dataclass
 class PfeifferConfig(AdapterConfig):
     """
     The adapter architecture proposed by Pfeiffer et. al., 2020.
@@ -89,7 +138,7 @@ class PfeifferConfig(AdapterConfig):
     )
 
 
-@dataclass(frozen=True)
+@dataclass
 class HoulsbyConfig(AdapterConfig):
     """
     The adapter architecture proposed by Houlsby et. al., 2019.
@@ -111,23 +160,6 @@ class HoulsbyConfig(AdapterConfig):
 ADAPTER_CONFIG_MAP = {"pfeiffer": PfeifferConfig(), "houlsby": HoulsbyConfig()}
 
 DEFAULT_ADAPTER_CONFIG = "pfeiffer"
-
-# these keys are ignored when calculating the config hash
-ADAPTER_CONFIG_HASH_IGNORE = []
-
-
-class AdapterType(str, Enum):
-    """Models all currently available model adapter types."""
-
-    text_task = "text_task"
-    text_lang = "text_lang"
-
-    @classmethod
-    def has(cls, value):
-        return value in cls.__members__.values()
-
-    def __repr__(self):
-        return self.value
 
 
 class ModelAdaptersConfig:
@@ -183,16 +215,17 @@ class ModelAdaptersConfig:
             return ADAPTER_CONFIG_MAP[config]
         return config
 
-    def set_config(self, adapter_type: AdapterType, config: Union[dict, str]):
+    def set_config(self, adapter_type: AdapterType, config: Union[dict, str, AdapterConfig]):
         """Sets the default adapter configuration of the specified adapter type.
 
         Args:
-            config (str or dict): adapter configuration, can be either:
+            config (str or dict or AdapterConfig): adapter configuration, can be either:
                 - a string identifying a pre-defined adapter configuration
                 - a dictionary representing the adapter configuration
                 - the path to a file containing the adapter configuration
         """
         assert len(self.adapter_list(adapter_type)) < 1, "Can only set new config if no adapters have been added."
+
         if isinstance(config, Mapping) or config in ADAPTER_CONFIG_MAP:
             self.config_map[adapter_type] = config
         elif isfile(config):
@@ -218,28 +251,9 @@ class ModelAdaptersConfig:
     def to_dict(self):
         output_dict = {}
         output_dict["adapters"] = copy.deepcopy(self.adapters)
-        output_dict["config_map"] = copy.deepcopy(self.config_map)
+        # make sure all config objects are serializable
+        output_dict["config_map"] = json.loads(json.dumps(self.config_map, cls=DataclassJSONEncoder))
         return output_dict
-
-
-def _minimize_dict(d):
-    if isinstance(d, Mapping):
-        return {k: _minimize_dict(v) for (k, v) in d.items() if v}
-    else:
-        return d
-
-
-def get_adapter_config_hash(config, length=16):
-    """Calculates the hash of a given adapter configuration which is used to identify this configuration.
-
-    Returns:
-        str: The resulting hash of the given config dict.
-    """
-    minimized_config = _minimize_dict({k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE})
-    dict_str = json.dumps(minimized_config, sort_keys=True)
-    h = hashlib.sha1()
-    h.update(dict_str.encode(encoding="utf-8"))
-    return h.hexdigest()[:length]
 
 
 def build_full_config(adapter_config, model_config, **kwargs):
