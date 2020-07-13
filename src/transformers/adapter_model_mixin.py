@@ -7,13 +7,7 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import torch
 
-from .adapter_config import (
-    DEFAULT_ADAPTER_CONFIG,
-    AdapterConfig,
-    AdapterType,
-    build_full_config,
-    get_adapter_config_hash,
-)
+from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterConfig, AdapterType, build_full_config
 from .adapter_utils import (
     CONFIG_NAME,
     HEAD_CONFIG_NAME,

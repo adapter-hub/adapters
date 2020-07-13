@@ -125,6 +125,10 @@ setup(
         "sentencepiece",
         # for XLM
         "sacremoses",
+        # for adapter-cli
+        "colorama",
+        "PyInquirer",
+        "ruamel.yaml"
     ],
     extras_require=extras,
     entry_points={

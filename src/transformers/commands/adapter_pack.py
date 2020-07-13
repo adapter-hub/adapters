@@ -89,7 +89,7 @@ class AdapterPackCommand(BaseTransformersCLICommand):
                 "message": "An email address to contact you or other authors:",
                 "validate": self._validate_func,
             },
-            {"type": "input", "name": "url", "message": "A URL providing more information on you or your work:",},
+            {"type": "input", "name": "url", "message": "A URL providing more information on you or your work:"},
         ]
         answers = prompt(inputs)
         return answers
