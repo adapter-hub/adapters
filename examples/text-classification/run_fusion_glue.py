@@ -69,12 +69,6 @@ class ModelArguments:
     )
 
 
-# --per_gpu_train_batch_size 2 --learning_rate 0.0001 --weight_decay 0.01 --do_train --do_eval
-# --output_dir data_models/glue_fusion_testing/ --model_name_or_path bert-base-uncased --overwrite_output_dir
-# --save_steps 1000 --logging_steps 1000 --task_name SST-2 --train_adapter
-# --data_dir ./dev/adapter-transformers/glue_data/SST-2/ --adapter_config houlsby --evaluate_during_training
-
-
 def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
@@ -155,7 +149,6 @@ def main():
     # language = adapter_args.language
     # setup_task_adapter_training(model, task_name, adapter_args)
     from transformers.adapter_config import AdapterType
-
     base_model = getattr(model, model.base_model_prefix, model)
     base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
 
@@ -163,30 +156,41 @@ def main():
 
     # from transformers.adapter_config import  HoulsbyConfig
 
-    model.load_adapter("sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("lingaccept/cola@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/multinli@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/qnli@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/rte@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sts/mrpc@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sts/qqp@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sts/sts-b@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False, version='AdapterFusion')
+    model.load_adapter("nli/multinli@ukp", "text_task", config=PfeifferConfig(), with_head=False, version='AdapterFusion')
+    model.load_adapter("nli/rte@ukp", "text_task", config=PfeifferConfig(), with_head=False, version='AdapterFusion')
+    model.load_adapter("sts/mrpc@ukp", "text_task", config=PfeifferConfig(), with_head=False, version='AdapterFusion')
+    model.load_adapter("sts/qqp@ukp", "text_task", config=PfeifferConfig(), with_head=False, version='AdapterFusion')
+    model.load_adapter("comsense/cosmosqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/csqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/hellaswag@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/siqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/winogrande@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/cb@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/sick@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/scitail@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("qa/boolq@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sentiment/imdb@ukp", "text_task", config=PfeifferConfig(), with_head=False)
 
-    model.config.fusion_config = {}
-    model.config.fusion_config["key"] = True
-    model.config.fusion_config["query"] = True
-    model.config.fusion_config["query_before_ln"] = False
-    model.config.fusion_config["regularization"] = True
-    model.config.fusion_config["residual_before"] = False
-    model.config.fusion_config["temperature"] = False
-    model.config.fusion_config["value"] = True
-    model.config.fusion_config["value_before_softmax"] = True
-    model.config.fusion_config["value_initialized"] = True
+    adapter_names = [[
+                      "sst_glue",
+                      "multinli",
+                      "rte",
+                      "mrpc",
+                      "qqp",
+                      "cosmosqa",
+                      "csqa",
+                      "hellaswag",
+                      "socialiqa",
+                      "winogrande",
+                      "cb",
+                      "sick",
+                      "scitail",
+                      "boolq",
+                      "imdb"
+                      ]]
 
-    adapter_names = [["sst-2", "cola", "multinli", "qnli", "rte", "mrpc", "qqp", "sts-b"]]
-    model.bert.add_fusion_layer(adapter_names[0])
-    model.bert.train_fusion(adapter_names[0])
-    model.cuda()
+    model.add_fusion(adapter_names[0])
 
     # Get datasets
     train_dataset = GlueDataset(data_args, tokenizer=tokenizer) if training_args.do_train else None
@@ -200,14 +204,6 @@ def main():
             preds = np.squeeze(p.predictions)
         return glue_compute_metrics(data_args.task_name, preds, p.label_ids)
 
-    # if adapter_args.train_adapter:
-    #     if language:
-    #         adapter_names = [[language],[task_name]]
-    #     else:
-    #         adapter_names = [[task_name]]
-    # else:
-    #     adapter_names = None
-
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
@@ -215,7 +211,7 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
-        is_training_adapter=adapter_args.train_adapter,
+        is_training_adapter_fusion=True,
         adapter_names=adapter_names,
     )
 

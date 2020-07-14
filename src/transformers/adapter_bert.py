@@ -7,7 +7,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion, GLOWCouplingBlock, NICECouplingBlock
-
+from .adapter_utils import parse_adapter_names
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +24,11 @@ def get_fusion_regularization_loss(model):
     target = torch.zeros((model.config.hidden_size, model.config.hidden_size)).fill_diagonal_(1.0).to(model.device)
     for k, v in model.encoder.layer._modules.items():
 
-        for _, layer_fusion in v.output.layer_fusion.items():
+        for _, layer_fusion in v.output.adapter_fusion_layer.items():
             if hasattr(layer_fusion, "value"):
                 reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
-        for _, layer_fusion in v.attention.output.attention_adapters_fusion.items():
+        for _, layer_fusion in v.attention.output.adapter_fusion_layer.items():
             if hasattr(layer_fusion, "value"):
                 reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
@@ -41,10 +41,8 @@ class BertSelfOutputAdaptersMixin:
 
     def _init_adapter_modules(self):
         self.attention_text_task_adapters = nn.ModuleDict(dict())
-        self.attention_adapters_fusion = nn.ModuleDict(dict())
+        self.adapter_fusion_layer = nn.ModuleDict(dict())
         self.attention_text_lang_adapters = nn.ModuleDict(dict())
-        self.language_attention_adapters_fusion = nn.ModuleDict(dict())
-        self.language_adapter_attention = nn.ModuleDict(dict())
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
@@ -71,7 +69,7 @@ class BertSelfOutputAdaptersMixin:
         if not adapter_config:
             raise ValueError("All tasks used in the attention layer must have the same configuration.")
         if adapter_config["mh_adapter"]:
-            self.attention_adapters_fusion["_".join(adapter_names)] = BertFusion(self.config)
+            self.adapter_fusion_layer["_".join(adapter_names)] = BertFusion(self.config)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
 
@@ -88,8 +86,8 @@ class BertSelfOutputAdaptersMixin:
                 adapter_names = [adapter_names]
             for adapter_fusion_group in adapter_names:
                 fusion_name = "_".join(adapter_fusion_group)
-                if fusion_name in self.attention_adapters_fusion:
-                    for param in self.attention_adapters_fusion[fusion_name].parameters():
+                if fusion_name in self.adapter_fusion_layer:
+                    for param in self.adapter_fusion_layer[fusion_name].parameters():
                         param.requires_grad = True
 
     def get_adapter_preparams(
@@ -204,7 +202,7 @@ class BertSelfOutputAdaptersMixin:
 
             fusion_name = "_".join(adapter_stack)
 
-            hidden_states = self.attention_adapters_fusion[fusion_name](
+            hidden_states = self.adapter_fusion_layer[fusion_name](
                 query, up_list, up_list, residual=residual, attention_mask=attention_mask
             )
         return hidden_states
@@ -212,14 +210,7 @@ class BertSelfOutputAdaptersMixin:
     def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
 
         if adapter_names is not None:
-            if isinstance(adapter_names, str):
-                adapter_names = [[adapter_names]]
-            elif isinstance(adapter_names, list):
-                if isinstance(adapter_names[0], str):
-                    adapter_names = [adapter_names]
-            if not isinstance(adapter_names[0][0], str):
-                raise ValueError("Adapter names %s not set correctly", str(adapter_names))
-
+            adapter_names = parse_adapter_names(adapter_names)
             flat_adapter_names = [item for sublist in adapter_names for item in sublist]
 
         if adapter_names is not None and (
@@ -255,7 +246,7 @@ class BertOutputAdaptersMixin:
     def _init_adapter_modules(self):
         # self.bert_adapter_att = BertAdapterAttention(config)
         # self.bert_adapter_att = SimpleAdapterWeightingSentLvl(config)
-        self.layer_fusion = nn.ModuleDict(dict())
+        self.adapter_fusion_layer = nn.ModuleDict(dict())
         self.layer_text_task_adapters = nn.ModuleDict(dict())
         self.layer_text_lang_adapters = nn.ModuleDict(dict())
 
@@ -266,7 +257,7 @@ class BertOutputAdaptersMixin:
         if not adapter_config:
             raise ValueError("All tasks used in the fusion layer must have the same configuration.")
         if adapter_config["output_adapter"]:
-            self.layer_fusion["_".join(adapter_names)] = BertFusion(self.config)
+            self.adapter_fusion_layer["_".join(adapter_names)] = BertFusion(self.config)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
@@ -301,8 +292,8 @@ class BertOutputAdaptersMixin:
                 adapter_names = [adapter_names]
             for adapter_fusion_group in adapter_names:
                 fusion_name = "_".join(adapter_fusion_group)
-                if fusion_name in self.layer_fusion:
-                    for param in self.layer_fusion[fusion_name].parameters():
+                if fusion_name in self.adapter_fusion_layer:
+                    for param in self.adapter_fusion_layer[fusion_name].parameters():
                         param.requires_grad = True
 
     def get_adapter_preparams(
@@ -323,7 +314,7 @@ class BertOutputAdaptersMixin:
         if adapter_config["residual_before_ln"]:
             residual = hidden_states
 
-        if hasattr(self.config, "fusion_config") and self.config.fusion_config["query_before_ln"]:
+        if hasattr(self.config, "adapter_fusion") and self.config.adapter_fusion["query_before_ln"]:
             query = hidden_states
 
         if adapter_config["original_ln_before"]:
@@ -332,7 +323,7 @@ class BertOutputAdaptersMixin:
         if not adapter_config["residual_before_ln"]:
             residual = hidden_states
 
-        if hasattr(self.config, "fusion_config") and not self.config.fusion_config["query_before_ln"]:
+        if hasattr(self.config, "adapter_fusion") and not self.config.adapter_fusion["query_before_ln"]:
             query = hidden_states
 
         return hidden_states, query, residual
@@ -418,7 +409,7 @@ class BertOutputAdaptersMixin:
 
             fusion_name = "_".join(adapter_stack)
 
-            hidden_states = self.layer_fusion[fusion_name](
+            hidden_states = self.adapter_fusion_layer[fusion_name](
                 query, up_list, up_list, residual=residual, attention_mask=attention_mask
             )
         return hidden_states
@@ -426,13 +417,7 @@ class BertOutputAdaptersMixin:
     def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
 
         if adapter_names is not None:
-            if isinstance(adapter_names, str):
-                adapter_names = [[adapter_names]]
-            elif isinstance(adapter_names, list):
-                if isinstance(adapter_names[0], str):
-                    adapter_names = [adapter_names]
-            if not isinstance(adapter_names[0][0], str):
-                raise ValueError("Adapter names %s not set correctly", str(adapter_names))
+            adapter_names = parse_adapter_names(adapter_names)
 
             flat_adapter_names = [item for sublist in adapter_names for item in sublist]
 
@@ -623,14 +608,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         Args:
             task_name (str): The name of the task adapter and/ or prediction head.
         """
-
-        if isinstance(adapter_names, str):
-            adapter_names = [[adapter_names]]
-        elif isinstance(adapter_names, list):
-            if isinstance(adapter_names[0], str):
-                adapter_names = [adapter_names]
-        if not isinstance(adapter_names[0][0], str):
-            raise ValueError("Adapter names %s not set correctly", str(adapter_names))
+        adapter_names = parse_adapter_names(adapter_names)
 
         new_adapter_names = []
 

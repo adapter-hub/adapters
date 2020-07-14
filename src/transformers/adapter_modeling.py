@@ -155,29 +155,29 @@ class BertFusion(nn.Module):
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
         if (
-            not self.config.fusion_config["query"]
-            and not self.config.fusion_config["key"]
-            and not self.config.fusion_config["value"]
+            not self.config.adapter_fusion["query"]
+            and not self.config.adapter_fusion["key"]
+            and not self.config.adapter_fusion["value"]
         ):
             self.dense = nn.Linear(self.dense_size, 1)
 
-        if self.config.fusion_config["query"]:
+        if self.config.adapter_fusion["query"]:
             self.query = nn.Linear(int(config.hidden_size), self.dense_size)
             self.query.apply(Adapter.init_bert_weights)
 
-        if self.config.fusion_config["key"]:
+        if self.config.adapter_fusion["key"]:
             self.key = nn.Linear(self.dense_size, self.dense_size)
             self.key.apply(Adapter.init_bert_weights)
 
-        if self.config.fusion_config["value"]:
+        if self.config.adapter_fusion["value"]:
             self.value = nn.Linear(int(config.hidden_size), int(config.hidden_size), bias=False)
             self.value.apply(Adapter.init_bert_weights)
-            if self.config.fusion_config["value_initialized"]:
+            if self.config.adapter_fusion["value_initialized"]:
                 self.value.weight.data = (
                     torch.zeros(int(config.hidden_size), int(config.hidden_size)) + 0.000001
                 ).fill_diagonal_(1.0)
 
-        if self.config.fusion_config["temperature"]:
+        if self.config.adapter_fusion["temperature"]:
             self.T = 50.0
         else:
             self.T = 1.0
@@ -185,20 +185,20 @@ class BertFusion(nn.Module):
 
     def forward(self, query, key, value, residual, attention_mask=None):
 
-        if self.config.fusion_config["residual_before"]:
+        if self.config.adapter_fusion["residual_before"]:
             value += residual[:, :, None, :].repeat(1, 1, value.size(2), 1)
 
-        if self.config.fusion_config["query"]:
+        if self.config.adapter_fusion["query"]:
             query_layer = self.query(query)
         else:
             query_layer = query
 
-        if self.config.fusion_config["key"]:
+        if self.config.adapter_fusion["key"]:
             key_layer = self.key(key)
         else:
             key_layer = key
 
-        if self.config.fusion_config["value"] and self.config.fusion_config["value_before_softmax"]:
+        if self.config.adapter_fusion["value"] and self.config.adapter_fusion["value_before_softmax"]:
             # key/value have dims => batch, toks, number-of-adapters, feats
             value_layer = self.value(value)
         else:
@@ -218,13 +218,13 @@ class BertFusion(nn.Module):
 
         context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value_layer), dim=2)
 
-        if self.config.fusion_config["value"] and not self.config.fusion_config["value_before_softmax"]:
+        if self.config.adapter_fusion["value"] and not self.config.adapter_fusion["value_before_softmax"]:
             # key/value have dims => batch, toks, number-of-adapters, feats
             context_layer = self.value(context_layer)
         else:
             context_layer = context_layer
 
-        if not self.config.fusion_config["residual_before"]:
+        if not self.config.adapter_fusion["residual_before"]:
             context_layer += residual
 
         return context_layer
@@ -238,22 +238,22 @@ class AdapterFusionSentLvlDynamic(nn.Module):
         self.dense_size = int(config.hidden_size) // config.text_task_adapter_config["reduction_factor"]
 
         if (
-            not self.config.fusion_config["query"]
-            and not self.config.fusion_config["key"]
-            and not self.config.fusion_config["value"]
+            not self.config.adapter_fusion["query"]
+            and not self.config.adapter_fusion["key"]
+            and not self.config.adapter_fusion["value"]
         ):
             self.dense = nn.Linear(self.dense_size, 1)
 
-        if self.config.fusion_config["query"]:
+        if self.config.adapter_fusion["query"]:
             self.query = nn.Linear(int(config.hidden_size), self.dense_size)
 
-        if self.config.fusion_config["key"]:
+        if self.config.adapter_fusion["key"]:
             self.key = nn.Linear(self.dense_size, self.dense_size)
 
-        if self.config.fusion_config["value"]:
+        if self.config.adapter_fusion["value"]:
             self.value = nn.Linear(int(config.hidden_size), int(config.hidden_size))
 
-        if self.config.fusion_config["temperature"]:
+        if self.config.adapter_fusion["temperature"]:
             self.T = 50.0
         else:
             self.T = 1.0
@@ -272,9 +272,9 @@ class AdapterFusionSentLvlDynamic(nn.Module):
         key_sent = torch.sum(key, dim=1) / length[:, None, None].repeat(1, key.size()[-2], key.size()[-1])
 
         if (
-            self.config.fusion_config["query"]
-            and not self.config.fusion_config["key"]
-            and not self.config.fusion_config["value"]
+            self.config.adapter_fusion["query"]
+            and not self.config.adapter_fusion["key"]
+            and not self.config.adapter_fusion["value"]
         ):
             query = query * attention_mask[:, :, None].repeat((1, 1, query.size()[-1]))
             query_sent = torch.sum(query, dim=1) / length[:, None].repeat(1, query.size()[-1])
@@ -286,9 +286,9 @@ class AdapterFusionSentLvlDynamic(nn.Module):
             result = torch.squeeze(torch.matmul(probs[:, None, None, :], value))
         #     {'MR': {'devacc': 77.53, 'acc': 76.7, 'ndev': 9596, 'ntest': 9596}}
         if (
-            self.config.fusion_config["query"]
-            and self.config.fusion_config["key"]
-            and not self.config.fusion_config["value"]
+            self.config.adapter_fusion["query"]
+            and self.config.adapter_fusion["key"]
+            and not self.config.adapter_fusion["value"]
         ):
             query = query * attention_mask[:, :, None].repeat((1, 1, query.size()[-1]))
             query_sent = torch.sum(query, dim=1) / length[:, None].repeat(1, query.size()[-1])
@@ -301,9 +301,9 @@ class AdapterFusionSentLvlDynamic(nn.Module):
             result = torch.squeeze(torch.matmul(probs[:, None, None, :], value))
 
         if (
-            self.config.fusion_config["query"]
-            and self.config.fusion_config["key"]
-            and self.config.fusion_config["value"]
+            self.config.adapter_fusion["query"]
+            and self.config.adapter_fusion["key"]
+            and self.config.adapter_fusion["value"]
         ):
             query = query * attention_mask[:, :, None].repeat((1, 1, query.size()[-1]))
             query_sent = torch.sum(query, dim=1) / length[:, None].repeat(1, query.size()[-1])
@@ -317,9 +317,9 @@ class AdapterFusionSentLvlDynamic(nn.Module):
             result = torch.squeeze(torch.matmul(probs[:, None, None, :], value_enc))
 
         if (
-            not self.config.fusion_config["query"]
-            and not self.config.fusion_config["key"]
-            and not self.config.fusion_config["value"]
+            not self.config.adapter_fusion["query"]
+            and not self.config.adapter_fusion["key"]
+            and not self.config.adapter_fusion["value"]
         ):
             # key_sent = torch.mean(key, dim=1)
             scores = self.dense(key_sent)

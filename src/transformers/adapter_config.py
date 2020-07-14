@@ -264,3 +264,118 @@ def build_full_config(adapter_config, model_config, **kwargs):
     else:
         config_dict["config"] = adapter_config
     return config_dict
+
+
+@dataclass
+class AdapterFusionConfig(Mapping):
+    """Base class that models the architecture of an adapter."""
+
+    key: bool
+    query: bool
+    value: bool
+    query_before_ln: bool
+    regularization: bool
+    residual_before: bool
+    temperature: bool
+    value_before_softmax: bool
+    value_initialized: str
+
+    # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
+    # Therefore, we don't allow changing attribute values if set once.
+    def __setattr__(self, name, value):
+        if name in self.__dict__:
+            raise FrozenInstanceError()
+        else:
+            object.__setattr__(self, name, value)
+
+    def __delattr__(self, name):
+        raise FrozenInstanceError()
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __iter__(self):
+        return iter(self.__dict__)
+
+    def __len__(self):
+        return len(self.__dict__)
+
+    def to_dict(self):
+        return asdict(self)
+
+    def replace(self, **changes):
+        return replace(self, **changes)
+
+    @classmethod
+    def from_dict(cls, config):
+        return cls(**config)
+
+    @classmethod
+    def load(cls, config: Union[dict, str], download_kwargs=None, **kwargs):
+        """Loads a given adapter configuration specifier into a full AdapterConfig instance.
+
+        Args:
+            config (Union[dict, str]): The configuration to load. Can be either:
+                - a dictionary representing the full config
+                - an identifier string available in ADAPTER_CONFIG_MAP
+                - the path to a file containing a full adapter configuration
+                - an identifier string available in Adapter-Hub
+
+        Returns:
+            dict: The resolved adapter configuration dictionary.
+        """
+        # if force_download is set, skip the local map
+        if download_kwargs and download_kwargs.get("force_download", False):
+            local_map = None
+        else:
+            local_map = ADAPTERFUSION_CONFIG_MAP
+        if download_kwargs:
+            config_dict = resolve_adapter_config(config, local_map=local_map, **download_kwargs)
+        else:
+            config_dict = resolve_adapter_config(config, local_map=local_map)
+        # convert back to dict to allow attr overrides
+        if isinstance(config_dict, AdapterFusionConfig):
+            config_dict = config_dict.to_dict()
+        config_dict.update(kwargs)
+        return AdapterFusionConfig.from_dict(config_dict)
+
+
+@dataclass
+class StaticAdapterFusionConfig(AdapterFusionConfig):
+    """
+    The adapter architecture proposed by Houlsby et. al., 2019.
+    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    """
+
+    key: bool = True
+    query: bool = True
+    value: bool = False
+    query_before_ln: bool = False
+    regularization: bool = False
+    residual_before: bool = False
+    temperature: bool = False
+    value_before_softmax: bool = True
+    value_initialized: str = False
+
+
+@dataclass
+class DynamicAdapterFusionConfig(AdapterFusionConfig):
+    """
+    The adapter architecture proposed by Houlsby et. al., 2019.
+    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    """
+
+    key: bool = True
+    query: bool = True
+    value: bool = True
+    query_before_ln: bool = False
+    regularization: bool = True
+    residual_before: bool = False
+    temperature: bool = False
+    value_before_softmax: bool = True
+    value_initialized: str = True
+
+
+ADAPTERFUSION_CONFIG_MAP = {"static": StaticAdapterFusionConfig, "dynamic": DynamicAdapterFusionConfig}
+
+DEFAULT_ADAPTERFUSION_CONFIG = "dynamic"

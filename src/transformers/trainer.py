@@ -179,6 +179,7 @@ class Trainer:
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         prediction_loss_only=False,
         is_training_adapter: bool = False,
+        is_training_adapter_fusion: bool = False,
         adapter_names: Optional[List[List[str]]] = None,
         tb_writer: Optional["SummaryWriter"] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = None,
@@ -223,6 +224,7 @@ class Trainer:
             os.makedirs(self.args.output_dir, exist_ok=True)
         # adapters used
         self.is_training_adapter = is_training_adapter
+        self.is_training_adapter_fusion = is_training_adapter_fusion
         self.adapter_names = adapter_names
         if is_tpu_available():
             # Set an xla_device flag on the model's config.
@@ -482,7 +484,7 @@ class Trainer:
                     and (step + 1) == len(epoch_iterator)
                 ):
 
-                    if hasattr(model.config, "fusion_config"):
+                    if hasattr(model.config, "adapter_fusion") and model.config.adapter_fusion['regularization']:
                         fusion_reg_loss = get_fusion_regularization_loss(model)
                         fusion_reg_loss.backward()
 
@@ -643,6 +645,8 @@ class Trainer:
         xm.rendezvous("saving_checkpoint")
         if self.is_training_adapter:
             self.model.save_all_adapters(output_dir)
+        if self.is_training_adapter_fusion:
+            self.model.save_all_adapter_fusions(output_dir)
         else:
             self.model.save_pretrained(output_dir)
 
@@ -656,6 +660,8 @@ class Trainer:
             raise ValueError("Trainer.model appears to not be a PreTrainedModel")
         if self.is_training_adapter:
             self.model.save_all_adapters(output_dir)
+        if self.is_training_adapter_fusion:
+            self.model.save_all_adapter_fusions(output_dir)
         else:
             self.model.save_pretrained(output_dir)
 
