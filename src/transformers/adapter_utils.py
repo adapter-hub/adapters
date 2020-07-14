@@ -234,10 +234,10 @@ def find_in_index(
     model_name: str,
     adapter_config: Optional[dict] = None,
     strict: bool = False,
+    index_file: str = None,
 ) -> Optional[str]:
-    if not model_name:
-        raise ValueError("Unable to resolve adapter without the name of a model. Please specify model_name.")
-    index_file = download_cached(ADAPTER_HUB_INDEX_FILE.format(adapter_type, model_name))
+    if not index_file:
+        index_file = download_cached(ADAPTER_HUB_INDEX_FILE.format(adapter_type, model_name))
     if not index_file:
         raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
     with open(index_file, "r") as f:
@@ -329,7 +329,7 @@ def pull_from_hub(
     if not adapter_type:
         raise ValueError("Adapter type must be specified.")
     elif not model_name:
-        raise ValueError("model_name must be specified.")
+        raise ValueError("Unable to resolve adapter without the name of a model. Please specify model_name.")
     # resolve config if it's an identifier
     if adapter_config:
         adapter_config = resolve_adapter_config(adapter_config)

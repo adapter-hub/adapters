@@ -1,14 +1,34 @@
+import os
 import unittest
 
-from transformers import AdapterConfig, BertForSequenceClassification, get_adapter_config_hash
+from transformers import ADAPTER_CONFIG_MAP, AdapterConfig, BertForSequenceClassification, get_adapter_config_hash
+from transformers.adapter_utils import find_in_index
 
 from .test_modeling_common import ids_tensor
 from .utils import require_torch
 
 
+SAMPLE_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/hub-index.sample.json")
+
+
 @require_torch
 class AdapterHubTest(unittest.TestCase):
-    # TODO add tests for default resolving when supported by Hub index
+    search_samples = [
+        ("t@ukp", "pfeiffer", "path/to/pfeiffer/ukp"),
+        ("s@ukp", "pfeiffer", "path/to/pfeiffer/ukp"),
+        ("xyz", "pfeiffer", None),
+        ("t/s", None, "path/to/default"),
+        ("t/s@ukp", "pfeiffer", "path/to/pfeiffer/ukp"),
+        ("t/s", "pfeiffer", "path/to/pfeiffer/default"),
+        ("t/s", "houlsby", "path/to/houlsby/example-org"),
+    ]
+
+    def test_find_in_index(self):
+        for sample in self.search_samples:
+            with self.subTest(sample=sample):
+                config = ADAPTER_CONFIG_MAP[sample[1]] if sample[1] else None
+                found_entry = find_in_index(sample[0], None, None, config, index_file=SAMPLE_INDEX)
+                self.assertEqual(sample[2], found_entry)
 
     def test_load_adapter_from_hub(self):
         for config in ["pfeiffer", "houlsby"]:
