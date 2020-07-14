@@ -9,6 +9,7 @@ from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion, GLOWCouplingBlock, NICECouplingBlock
 from .adapter_utils import parse_adapter_names
 
+
 logger = logging.getLogger(__name__)
 
 

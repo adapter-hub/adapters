@@ -149,6 +149,7 @@ def main():
     # language = adapter_args.language
     # setup_task_adapter_training(model, task_name, adapter_args)
     from transformers.adapter_config import AdapterType
+
     base_model = getattr(model, model.base_model_prefix, model)
     base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
 
@@ -156,11 +157,15 @@ def main():
 
     # from transformers.adapter_config import  HoulsbyConfig
 
-    model.load_adapter("sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False, version='AdapterFusion')
-    model.load_adapter("nli/multinli@ukp", "text_task", config=PfeifferConfig(), with_head=False, version='AdapterFusion')
-    model.load_adapter("nli/rte@ukp", "text_task", config=PfeifferConfig(), with_head=False, version='AdapterFusion')
-    model.load_adapter("sts/mrpc@ukp", "text_task", config=PfeifferConfig(), with_head=False, version='AdapterFusion')
-    model.load_adapter("sts/qqp@ukp", "text_task", config=PfeifferConfig(), with_head=False, version='AdapterFusion')
+    model.load_adapter(
+        "sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion"
+    )
+    model.load_adapter(
+        "nli/multinli@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion"
+    )
+    model.load_adapter("nli/rte@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion")
+    model.load_adapter("sts/mrpc@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion")
+    model.load_adapter("sts/qqp@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion")
     model.load_adapter("comsense/cosmosqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
     model.load_adapter("comsense/csqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
     model.load_adapter("comsense/hellaswag@ukp", "text_task", config=PfeifferConfig(), with_head=False)
@@ -172,23 +177,25 @@ def main():
     model.load_adapter("qa/boolq@ukp", "text_task", config=PfeifferConfig(), with_head=False)
     model.load_adapter("sentiment/imdb@ukp", "text_task", config=PfeifferConfig(), with_head=False)
 
-    adapter_names = [[
-                      "sst_glue",
-                      "multinli",
-                      "rte",
-                      "mrpc",
-                      "qqp",
-                      "cosmosqa",
-                      "csqa",
-                      "hellaswag",
-                      "socialiqa",
-                      "winogrande",
-                      "cb",
-                      "sick",
-                      "scitail",
-                      "boolq",
-                      "imdb"
-                      ]]
+    adapter_names = [
+        [
+            "sst_glue",
+            "multinli",
+            "rte",
+            "mrpc",
+            "qqp",
+            "cosmosqa",
+            "csqa",
+            "hellaswag",
+            "socialiqa",
+            "winogrande",
+            "cb",
+            "sick",
+            "scitail",
+            "boolq",
+            "imdb",
+        ]
+    ]
 
     model.add_fusion(adapter_names[0])
 

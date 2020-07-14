@@ -8,23 +8,22 @@ from typing import Callable, List, Optional, Tuple, Union
 import torch
 
 from .adapter_config import (
+    ADAPTERFUSION_CONFIG_MAP,
     DEFAULT_ADAPTER_CONFIG,
+    DEFAULT_ADAPTERFUSION_CONFIG,
     AdapterConfig,
+    AdapterFusionConfig,
     AdapterType,
     build_full_config,
     get_adapter_config_hash,
-    AdapterFusionConfig,
-    ADAPTERFUSION_CONFIG_MAP,
-    DEFAULT_ADAPTERFUSION_CONFIG,
-
 )
 from .adapter_utils import (
+    ADAPTERFUSION_CONFIG_NAME,
+    ADAPTERFUSION_WEIGHTS_NAME,
     CONFIG_NAME,
     HEAD_CONFIG_NAME,
     HEAD_WEIGHTS_NAME,
     WEIGHTS_NAME,
-    ADAPTERFUSION_CONFIG_NAME,
-    ADAPTERFUSION_WEIGHTS_NAME,
     inherit_doc,
     resolve_adapter_path,
 )
@@ -410,12 +409,17 @@ class AdapterFusionLoader(WeightsLoader):
 
     def filter_func(self, adapter_fusion_name):
         if adapter_fusion_name:
-            return lambda x: not x.startswith(self.model.base_model_prefix) and "adapter_fusion_layer.{}".format(adapter_fusion_name) in x
+            return (
+                lambda x: not x.startswith(self.model.base_model_prefix)
+                and "adapter_fusion_layer.{}".format(adapter_fusion_name) in x
+            )
         else:
             return lambda x: not x.startswith(self.model.base_model_prefix)
 
     def rename_func(self, old_name, new_name):
-        return lambda k: k.replace("adapter_fusion_layer.{}".format(old_name), "adapter_fusion_layer.{}".format(new_name))
+        return lambda k: k.replace(
+            "adapter_fusion_layer.{}".format(old_name), "adapter_fusion_layer.{}".format(new_name)
+        )
 
     def save(self, save_directory: str, name: str = None):
         """Saves a AdapterFusion module into the given directory.
@@ -703,7 +707,7 @@ class ModelAdaptersMixin(ABC):
             self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
         if not hasattr(self.config, "adapter_fusion_models"):
             self.config.adapter_fusion_models = []
-        adapter_fusion_name = '_'.join(adapter_names)
+        adapter_fusion_name = "_".join(adapter_names)
         if adapter_fusion_name not in self.config.adapter_fusion_models:
             self.config.adapter_fusion_models.append(adapter_fusion_name)
             self.base_model.add_fusion_layer(adapter_names)
@@ -737,10 +741,7 @@ class ModelAdaptersMixin(ABC):
             raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
     def save_adapter_fusion(
-        self,
-        save_directory: str,
-        adapter_names: list,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        self, save_directory: str, adapter_names: list, custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """Saves an adapter and its configuration file to a directory so that it can be shared
         or reloaded using `load_adapter()`.
@@ -759,7 +760,6 @@ class ModelAdaptersMixin(ABC):
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
                 weights_loader.save(save_directory, adapter_names)
-
 
     def load_adapter(
         self,
