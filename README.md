@@ -1,30 +1,43 @@
 <p align="center">
+<img style="vertical-align:middle" src="adapter_docs/logo.png" />
+</p>
+<h1 align="center">
+<span>adapter-transformers</span>
+</h1>
+
+<h3 align="center">
+A friendly fork of Huggingface's <i>Transformers</i>, adding Adapters to language models
+</h3>
+
+![Tests](https://github.com/Adapter-Hub/adapter-transformers/workflows/Tests/badge.svg)
+[![GitHub](https://img.shields.io/github/license/huggingface/transformers.svg?color=blue)](https://github.com/adapter-hub/transformers/blob/master/LICENSE)
+
+`adapter-transformers` is an extension of [Huggingface's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
+
+This library can be used as a drop-in replacement for Huggingface Transformers and regulary synchronizes new upstream changes.
+
+Huggingface's great documentation on getting started with _Transformers_ can be found below. To get started with adapters, refer to these locations:
+
+- **https://docs.adapterhub.ml**, our documentation on training and using adapters
+- **https://adapterhub.ml** to explore available pre-trained adapters and share your own adapters
+
+<br/>
+<hr/>
+<br/>
+
+_Original README:_
+
+<p align="center">
     <br>
     <img src="https://raw.githubusercontent.com/huggingface/transformers/master/docs/source/imgs/transformers_logo_name.png" width="400"/>
     <br>
 <p>
-<p align="center">
-    <a href="https://circleci.com/gh/huggingface/transformers">
-        <img alt="Build" src="https://img.shields.io/circleci/build/github/huggingface/transformers/master">
-    </a>
-    <a href="https://github.com/huggingface/transformers/blob/master/LICENSE">
-        <img alt="GitHub" src="https://img.shields.io/github/license/huggingface/transformers.svg?color=blue">
-    </a>
-    <a href="https://huggingface.co/transformers/index.html">
-        <img alt="Documentation" src="https://img.shields.io/website/http/huggingface.co/transformers/index.html.svg?down_color=red&down_message=offline&up_message=online">
-    </a>
-    <a href="https://github.com/huggingface/transformers/releases">
-        <img alt="GitHub release" src="https://img.shields.io/github/release/huggingface/transformers.svg">
-    </a>
-</p>
 
 <h3 align="center">
 <p>State-of-the-art Natural Language Processing for PyTorch and TensorFlow 2.0
 </h3>
 
 🤗 Transformers (formerly known as `pytorch-transformers` and `pytorch-pretrained-bert`) provides state-of-the-art general-purpose architectures (BERT, GPT-2, RoBERTa, XLM, DistilBert, XLNet, T5, CTRL...) for Natural Language Understanding (NLU) and Natural Language Generation (NLG) with over thousands of pretrained models in 100+ languages and deep interoperability between PyTorch & TensorFlow 2.0.
-
-[![](https://sourcerer.io/fame/clmnt/huggingface/transformers/images/0)](https://sourcerer.io/fame/clmnt/huggingface/transformers/links/0)[![](https://sourcerer.io/fame/clmnt/huggingface/transformers/images/1)](https://sourcerer.io/fame/clmnt/huggingface/transformers/links/1)[![](https://sourcerer.io/fame/clmnt/huggingface/transformers/images/2)](https://sourcerer.io/fame/clmnt/huggingface/transformers/links/2)[![](https://sourcerer.io/fame/clmnt/huggingface/transformers/images/3)](https://sourcerer.io/fame/clmnt/huggingface/transformers/links/3)[![](https://sourcerer.io/fame/clmnt/huggingface/transformers/images/4)](https://sourcerer.io/fame/clmnt/huggingface/transformers/links/4)[![](https://sourcerer.io/fame/clmnt/huggingface/transformers/images/5)](https://sourcerer.io/fame/clmnt/huggingface/transformers/links/5)[![](https://sourcerer.io/fame/clmnt/huggingface/transformers/images/6)](https://sourcerer.io/fame/clmnt/huggingface/transformers/links/6)[![](https://sourcerer.io/fame/clmnt/huggingface/transformers/images/7)](https://sourcerer.io/fame/clmnt/huggingface/transformers/links/7)
 
 ### Features
 - High performance on NLU and NLG tasks
