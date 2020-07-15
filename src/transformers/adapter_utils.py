@@ -175,7 +175,7 @@ def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, fo
     return output_path_extracted
 
 
-def resolve_adapter_config(config: Union[dict, str], local_map=None, **kwargs) -> dict:
+def resolve_adapter_config(config: Union[dict, str], local_map=None, try_loading_from_hub=True, **kwargs) -> dict:
     """Resolves a given adapter configuration specifier to a full configuration dictionary.
 
     Args:
@@ -204,15 +204,15 @@ def resolve_adapter_config(config: Union[dict, str], local_map=None, **kwargs) -
             else:
                 return loaded_config
     # now, try to find in hub index
-    index_file = download_cached(ADAPTER_HUB_CONFIG_FILE, **kwargs)
-    if not index_file:
-        raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
-    with open(index_file, "r") as f:
-        config_index = json.load(f)
-    if config in config_index:
-        return config_index[config]
-    else:
-        raise ValueError("Could not identify '{}' as a valid adapter configuration.".format(config))
+    if try_loading_from_hub:
+        index_file = download_cached(ADAPTER_HUB_CONFIG_FILE, **kwargs)
+        if not index_file:
+            raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
+        with open(index_file, "r") as f:
+            config_index = json.load(f)
+        if config in config_index:
+            return config_index[config]
+    raise ValueError("Could not identify '{}' as a valid adapter configuration.".format(config))
 
 
 def _split_identifier(identifier):

@@ -311,7 +311,7 @@ class AdapterFusionConfig(Mapping):
         return cls(**config)
 
     @classmethod
-    def load(cls, config: Union[dict, str], download_kwargs=None, **kwargs):
+    def load(cls, config: Union[dict, str], **kwargs):
         """Loads a given adapter configuration specifier into a full AdapterConfig instance.
 
         Args:
@@ -325,16 +325,7 @@ class AdapterFusionConfig(Mapping):
             dict: The resolved adapter configuration dictionary.
         """
         # currently storing AdapterFusion weights on AdapterHub is not supported.
-        available_on_adapter_hub = False
-        # if force_download is set, skip the local map
-        if available_on_adapter_hub and download_kwargs and download_kwargs.get("force_download", False):
-            local_map = None
-        else:
-            local_map = ADAPTERFUSION_CONFIG_MAP
-        if available_on_adapter_hub and download_kwargs:
-            config_dict = resolve_adapter_config(config, local_map=local_map, **download_kwargs)
-        else:
-            config_dict = resolve_adapter_config(config, local_map=local_map)
+        config_dict = resolve_adapter_config(config, local_map=ADAPTERFUSION_CONFIG_MAP, try_loading_from_hub=False)
         # convert back to dict to allow attr overrides
         if isinstance(config_dict, AdapterFusionConfig):
             config_dict = config_dict.to_dict()
