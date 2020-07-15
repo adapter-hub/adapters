@@ -196,7 +196,7 @@ def main():
         compute_metrics=compute_metrics,
         do_save_full_model=not adapter_args.train_adapter,
         do_save_adapters=adapter_args.train_adapter,
-        adapter_names=[task_name]
+        adapter_names=[task_name],
     )
 
     # Training
