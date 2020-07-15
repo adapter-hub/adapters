@@ -234,19 +234,15 @@ class ModelAdaptersConfig:
         else:
             raise ValueError("Unable to identify {} as a valid adapter config.".format(config))
 
-    def common_config(self, adapter_names: list) -> Optional[dict]:
-        common_config_name = None
+    def common_config(self, adapter_names: list) -> Optional[AdapterConfig]:
+        """Checks whether all adapters in a list share the same adapter configuration"""
+        common_config = None
         for name in adapter_names:
-            adapter_type, config_name = self.adapters[name]
-            if common_config_name and common_config_name != config_name:
+            adapter_config = AdapterConfig.from_dict(self.get(name))
+            if common_config and adapter_config != adapter_config:
                 return None
-            common_config_name = config_name
-        if not common_config_name:
-            return self.get_config(adapter_type)
-        config = self.config_map[common_config_name]
-        if isinstance(config, str):
-            return ADAPTER_CONFIG_MAP[config]
-        return config
+            common_config = adapter_config
+        return common_config
 
     def to_dict(self):
         output_dict = {}
