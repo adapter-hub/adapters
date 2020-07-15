@@ -65,12 +65,12 @@ class BertSelfOutputAdaptersMixin:
 
     def add_fusion_layer(self, adapter_names):
         """See BertModel.add_attention_layer"""
-        adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split("_")
+        adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
         adapter_config = self.config.adapters.common_config(adapter_names)
         if not adapter_config:
             raise ValueError("All tasks used in the attention layer must have the same configuration.")
         if adapter_config["mh_adapter"]:
-            self.adapter_fusion_layer["_".join(adapter_names)] = BertFusion(self.config)
+            self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
 
@@ -86,7 +86,7 @@ class BertSelfOutputAdaptersMixin:
             if isinstance(adapter_names[0], str):
                 adapter_names = [adapter_names]
             for adapter_fusion_group in adapter_names:
-                fusion_name = "_".join(adapter_fusion_group)
+                fusion_name = ",".join(adapter_fusion_group)
                 if fusion_name in self.adapter_fusion_layer:
                     for param in self.adapter_fusion_layer[fusion_name].parameters():
                         param.requires_grad = True
@@ -109,7 +109,7 @@ class BertSelfOutputAdaptersMixin:
         if adapter_config["residual_before_ln"]:
             residual = hidden_states
 
-        if hasattr(self.config, "fusion_config") and self.config.fusion_config["query_before_ln"]:
+        if hasattr(self.config, "adapter_fusion") and self.config.adapter_fusion["query_before_ln"]:
             query = hidden_states
 
         if adapter_config["original_ln_before"]:
@@ -118,7 +118,7 @@ class BertSelfOutputAdaptersMixin:
         if not adapter_config["residual_before_ln"]:
             residual = hidden_states
 
-        if hasattr(self.config, "fusion_config") and not self.config.fusion_config["query_before_ln"]:
+        if hasattr(self.config, "adapter_fusion") and not self.config.adapter_fusion["query_before_ln"]:
             query = hidden_states
 
         return hidden_states, query, residual
@@ -201,7 +201,7 @@ class BertSelfOutputAdaptersMixin:
             up_list = torch.stack(up_list)
             up_list = up_list.permute(1, 2, 0, 3)
 
-            fusion_name = "_".join(adapter_stack)
+            fusion_name = ",".join(adapter_stack)
 
             hidden_states = self.adapter_fusion_layer[fusion_name](
                 query, up_list, up_list, residual=residual, attention_mask=attention_mask
@@ -253,12 +253,12 @@ class BertOutputAdaptersMixin:
 
     def add_fusion_layer(self, adapter_names):
         """See BertModel.add_fusion_layer"""
-        adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split("_")
+        adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
         adapter_config = self.config.adapters.common_config(adapter_names)
         if not adapter_config:
             raise ValueError("All tasks used in the fusion layer must have the same configuration.")
         if adapter_config["output_adapter"]:
-            self.adapter_fusion_layer["_".join(adapter_names)] = BertFusion(self.config)
+            self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
@@ -292,7 +292,7 @@ class BertOutputAdaptersMixin:
             if isinstance(adapter_names[0], str):
                 adapter_names = [adapter_names]
             for adapter_fusion_group in adapter_names:
-                fusion_name = "_".join(adapter_fusion_group)
+                fusion_name = ",".join(adapter_fusion_group)
                 if fusion_name in self.adapter_fusion_layer:
                     for param in self.adapter_fusion_layer[fusion_name].parameters():
                         param.requires_grad = True
@@ -408,7 +408,7 @@ class BertOutputAdaptersMixin:
             up_list = torch.stack(up_list)
             up_list = up_list.permute(1, 2, 0, 3)
 
-            fusion_name = "_".join(adapter_stack)
+            fusion_name = ",".join(adapter_stack)
 
             hidden_states = self.adapter_fusion_layer[fusion_name](
                 query, up_list, up_list, residual=residual, attention_mask=attention_mask

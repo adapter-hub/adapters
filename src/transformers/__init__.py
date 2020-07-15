@@ -167,6 +167,7 @@ if is_torch_available():
         ADAPTER_CONFIG_MAP,
         DEFAULT_ADAPTER_CONFIG,
         ModelAdaptersConfig,
+        AdapterFusionConfig,
         DynamicAdapterFusionConfig,
         StaticAdapterFusionConfig,
         ADAPTERFUSION_CONFIG_MAP,

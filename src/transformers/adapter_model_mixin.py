@@ -408,20 +408,17 @@ class AdapterFusionLoader(WeightsLoader):
         self.error_on_missing = error_on_missing
 
     def filter_func(self, adapter_fusion_name):
-        if adapter_fusion_name:
-            return (
-                lambda x: not x.startswith(self.model.base_model_prefix)
-                and "adapter_fusion_layer.{}".format(adapter_fusion_name) in x
-            )
-        else:
-            return lambda x: not x.startswith(self.model.base_model_prefix)
+        return (
+            lambda x: not x.startswith(self.model.base_model_prefix)
+            and "adapter_fusion_layer.{}".format(adapter_fusion_name) in x
+        )
 
     def rename_func(self, old_name, new_name):
         return lambda k: k.replace(
             "adapter_fusion_layer.{}".format(old_name), "adapter_fusion_layer.{}".format(new_name)
         )
 
-    def save(self, save_directory: str, name: str = None):
+    def save(self, save_directory: str, name: str):
         """Saves a AdapterFusion module into the given directory.
 
         Args:
@@ -429,18 +426,14 @@ class AdapterFusionLoader(WeightsLoader):
             name (str, optional): The AdapterFusion name.
         """
 
-        if name:
-            if hasattr(self.model.config, "adapter_fusion_models"):
-                if name not in self.model.config.adapter_fusion_models:
-                    if self.error_on_missing:
-                        raise ValueError(f"Unknown AdapterFusion '{name}'.")
-                    else:
-                        logger.info(f"No AdapterFusion with name '{name}' available.")
-                        return
-            else:
-                # we haven't found a AdapterFusion configuration, so we assume there is only one (unnamed)
-                # -> ignore the name and go on
-                name = None
+        if hasattr(self.model.config, "adapter_fusion_models"):
+            if name not in self.model.config.adapter_fusion_models:
+                if self.error_on_missing:
+                    raise ValueError(f"Unknown AdapterFusion '{name}'.")
+                else:
+                    logger.info(f"No AdapterFusion with name '{name}' available.")
+                    return
+
         if not exists(save_directory):
             mkdir(save_directory)
         else:
@@ -482,10 +475,10 @@ class AdapterFusionLoader(WeightsLoader):
 
         adapter_fusion_name = None
 
-        # Load head config if available - otherwise just blindly try to load the weights
+        # Load AdapterFusion config if available - otherwise just blindly try to load the weights
         if isfile(join(save_directory, ADAPTERFUSION_CONFIG_NAME)):
             config = self.weights_helper.load_weights_config(save_directory)
-            # make sure that the model class of the loaded head matches the current class
+            # make sure that the model class of the loaded adapterfusion matches the current class
             if self.model.__class__.__name__ != config["model_class"]:
                 if self.error_on_missing:
                     raise ValueError(
@@ -493,15 +486,17 @@ class AdapterFusionLoader(WeightsLoader):
                         f"model class."
                     )
                 else:
-                    logger.info("No matching prediction head found in '{}'".format(save_directory))
+                    logger.info("No matching AdapterFusion found in '{}'".format(save_directory))
                     return None, None
-            if hasattr(self.model.config, "adapter_fusion_models"):
-                adapter_fusion_name = load_as or config["name"]
-                if adapter_fusion_name in self.model.config.adapter_fusion_models:
-                    logger.warning("Overwriting existing adapter fusion module '{}'".format(adapter_fusion_name))
-                self.model.add_fusion(adapter_fusion_name, config["config"], overwrite_ok=True)
+            if not hasattr(self.model.config, "adapter_fusion_models"):
+                self.model.config.adapter_fusion_models = []
 
-        # Load head weights
+            adapter_fusion_name = load_as or config["name"]
+            if adapter_fusion_name in self.model.config.adapter_fusion_models:
+                logger.warning("Overwriting existing adapter fusion module '{}'".format(adapter_fusion_name))
+            self.model.add_fusion(adapter_fusion_name, config["config"])
+
+        # Load AdapterFusion weights
         filter_func = self.filter_func(adapter_fusion_name)
         if load_as:
             rename_func = self.rename_func(config["name"], load_as)
@@ -687,27 +682,49 @@ class ModelAdaptersMixin(ABC):
         """Sets the adapter fusion configuration.
 
         Args:
-            adapter_config (str or dict): adapter fusion configuration, can be either:
+            adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
                 - a string identifying a pre-defined adapter fusion configuration
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
         """
         if isinstance(adapter_fusion_config, str) and adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP:
-            self.config.adapter_fusion = ADAPTERFUSION_CONFIG_MAP[adapter_fusion_config](**kwargs)
+            self.config.adapter_fusion = AdapterFusionConfig.load(adapter_fusion_config, **kwargs)
+            # ADAPTERFUSION_CONFIG_MAP[adapter_fusion_config](**kwargs).to_dict()
         elif isinstance(adapter_fusion_config, AdapterFusionConfig):
+            self.config.adapter_fusion = adapter_fusion_config.to_dict()
+        elif isinstance(adapter_fusion_config, dict):
             self.config.adapter_fusion = adapter_fusion_config
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
 
     def add_fusion(self, adapter_names, adapter_fusion_config=None, kwargs={}):
+        """Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 
-        if adapter_fusion_config is not None:
-            self.set_adapter_config(adapter_fusion_config, kwargs)
+        Args:
+            adapter_names: a list of adapter names which should be fused
+            adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
+                - a string identifying a pre-defined adapter fusion configuration
+                - a dictionary representing the adapter fusion configuration
+                - the path to a file containing the adapter fusion configuration
+            kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
+
+        Returns:
+
+        """
         if not hasattr(self.config, "adapter_fusion"):
-            self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
+            if adapter_fusion_config is not None:
+                self.set_adapter_fusion_config(adapter_fusion_config, kwargs)
+            else:
+                self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
+        elif hasattr(self.config, "adapter_fusion") and adapter_fusion_config is not None:
+            raise Warning("An AdapterFusion config has already been set and will NOT be overwritten")
+
         if not hasattr(self.config, "adapter_fusion_models"):
             self.config.adapter_fusion_models = []
-        adapter_fusion_name = "_".join(adapter_names)
+        if isinstance(adapter_names, list):
+            adapter_fusion_name = ",".join(adapter_names)
+        else:
+            adapter_fusion_name = adapter_names
         if adapter_fusion_name not in self.config.adapter_fusion_models:
             self.config.adapter_fusion_models.append(adapter_fusion_name)
             self.base_model.add_fusion_layer(adapter_names)

@@ -324,12 +324,14 @@ class AdapterFusionConfig(Mapping):
         Returns:
             dict: The resolved adapter configuration dictionary.
         """
+        # currently storing AdapterFusion weights on AdapterHub is not supported.
+        available_on_adapter_hub = False
         # if force_download is set, skip the local map
-        if download_kwargs and download_kwargs.get("force_download", False):
+        if available_on_adapter_hub and download_kwargs and download_kwargs.get("force_download", False):
             local_map = None
         else:
             local_map = ADAPTERFUSION_CONFIG_MAP
-        if download_kwargs:
+        if available_on_adapter_hub and download_kwargs:
             config_dict = resolve_adapter_config(config, local_map=local_map, **download_kwargs)
         else:
             config_dict = resolve_adapter_config(config, local_map=local_map)
@@ -376,6 +378,6 @@ class DynamicAdapterFusionConfig(AdapterFusionConfig):
     value_initialized: str = True
 
 
-ADAPTERFUSION_CONFIG_MAP = {"static": StaticAdapterFusionConfig, "dynamic": DynamicAdapterFusionConfig}
+ADAPTERFUSION_CONFIG_MAP = {"static": StaticAdapterFusionConfig(), "dynamic": DynamicAdapterFusionConfig()}
 
 DEFAULT_ADAPTERFUSION_CONFIG = "dynamic"
