@@ -473,28 +473,14 @@ class AdapterFusionLoader(WeightsLoader):
                 logger.info("No matching prediction head found in '{}'".format(save_directory))
                 return None, None
 
-        adapter_fusion_name = None
+        config = self.weights_helper.load_weights_config(save_directory)
+        if not hasattr(self.model.config, "adapter_fusion_models"):
+            self.model.config.adapter_fusion_models = []
 
-        # Load AdapterFusion config if available - otherwise just blindly try to load the weights
-        if isfile(join(save_directory, ADAPTERFUSION_CONFIG_NAME)):
-            config = self.weights_helper.load_weights_config(save_directory)
-            # make sure that the model class of the loaded adapterfusion matches the current class
-            if self.model.__class__.__name__ != config["model_class"]:
-                if self.error_on_missing:
-                    raise ValueError(
-                        f"Model class '{config['model_class']}' of found prediction head does not match current "
-                        f"model class."
-                    )
-                else:
-                    logger.info("No matching AdapterFusion found in '{}'".format(save_directory))
-                    return None, None
-            if not hasattr(self.model.config, "adapter_fusion_models"):
-                self.model.config.adapter_fusion_models = []
-
-            adapter_fusion_name = load_as or config["name"]
-            if adapter_fusion_name in self.model.config.adapter_fusion_models:
-                logger.warning("Overwriting existing adapter fusion module '{}'".format(adapter_fusion_name))
-            self.model.add_fusion(adapter_fusion_name, config["config"])
+        adapter_fusion_name = load_as or config["name"]
+        if adapter_fusion_name in self.model.config.adapter_fusion_models:
+            logger.warning("Overwriting existing adapter fusion module '{}'".format(adapter_fusion_name))
+        self.model.add_fusion(adapter_fusion_name, config["config"])
 
         # Load AdapterFusion weights
         filter_func = self.filter_func(adapter_fusion_name)
