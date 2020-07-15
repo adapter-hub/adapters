@@ -218,7 +218,8 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
-        is_training_adapter_fusion=True,
+        do_save_full_model=False,
+        do_save_adapter_fusion=True,
         adapter_names=adapter_names,
     )
 

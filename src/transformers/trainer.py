@@ -178,8 +178,9 @@ class Trainer:
         eval_dataset: Optional[Dataset] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         prediction_loss_only=False,
-        is_training_adapter: bool = False,
-        is_training_adapter_fusion: bool = False,
+        do_save_full_model: bool = True,
+        do_save_adapters: bool = False,
+        do_save_adapter_fusion: bool = False,
         adapter_names: Optional[List[List[str]]] = None,
         tb_writer: Optional["SummaryWriter"] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = None,
@@ -223,8 +224,9 @@ class Trainer:
         if self.is_world_master():
             os.makedirs(self.args.output_dir, exist_ok=True)
         # adapters used
-        self.is_training_adapter = is_training_adapter
-        self.is_training_adapter_fusion = is_training_adapter_fusion
+        self.do_save_full_model = do_save_full_model
+        self.do_save_adapters = do_save_adapters
+        self.do_save_adapter_fusion = do_save_adapter_fusion
         self.adapter_names = adapter_names
         if is_tpu_available():
             # Set an xla_device flag on the model's config.
@@ -557,7 +559,7 @@ class Trainer:
         if self.tb_writer:
             self.tb_writer.close()
 
-        if self.is_training_adapter:
+        if self.do_save_adapters:
             logger.info("\n\nTraining completed. Do not forget to share your adapters on https://adapterhub.ml =)\n\n")
         else:
             logger.info("\n\nTraining completed. Do not forget to share your model on huggingface.co/models =)\n\n")
@@ -643,11 +645,11 @@ class Trainer:
             raise ValueError("Trainer.model appears to not be a PreTrainedModel")
 
         xm.rendezvous("saving_checkpoint")
-        if self.is_training_adapter:
+        if self.do_save_adapters:
             self.model.save_all_adapters(output_dir)
-        if self.is_training_adapter_fusion:
+        if self.do_save_adapter_fusion:
             self.model.save_all_adapter_fusions(output_dir)
-        if not (self.is_training_adapter or self.is_training_adapter_fusion):
+        if self.do_save_full_model:
             self.model.save_pretrained(output_dir)
 
     def _save(self, output_dir: Optional[str] = None):
@@ -658,11 +660,11 @@ class Trainer:
         # They can then be reloaded using `from_pretrained()`
         if not isinstance(self.model, PreTrainedModel):
             raise ValueError("Trainer.model appears to not be a PreTrainedModel")
-        if self.is_training_adapter:
+        if self.do_save_adapters:
             self.model.save_all_adapters(output_dir)
-        if self.is_training_adapter_fusion:
+        if self.do_save_adapter_fusion:
             self.model.save_all_adapter_fusions(output_dir)
-        if not (self.is_training_adapter or self.is_training_adapter_fusion):
+        if self.do_save_full_model:
             self.model.save_pretrained(output_dir)
 
         # Good practice: save your training arguments together with the trained model
