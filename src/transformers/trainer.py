@@ -647,7 +647,7 @@ class Trainer:
             self.model.save_all_adapters(output_dir)
         if self.is_training_adapter_fusion:
             self.model.save_all_adapter_fusions(output_dir)
-        else:
+        if not (self.is_training_adapter or self.is_training_adapter_fusion):
             self.model.save_pretrained(output_dir)
 
     def _save(self, output_dir: Optional[str] = None):
@@ -662,7 +662,7 @@ class Trainer:
             self.model.save_all_adapters(output_dir)
         if self.is_training_adapter_fusion:
             self.model.save_all_adapter_fusions(output_dir)
-        else:
+        if not (self.is_training_adapter or self.is_training_adapter_fusion):
             self.model.save_pretrained(output_dir)
 
         # Good practice: save your training arguments together with the trained model
