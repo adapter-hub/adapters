@@ -154,7 +154,6 @@ def main():
 
     # Setup adapters
     task_name = data_args.task_name
-    language = adapter_args.load_lang_adapter
     setup_task_adapter_training(model, task_name, adapter_args)
 
     # Get datasets
