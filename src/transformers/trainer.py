@@ -478,16 +478,16 @@ class Trainer:
 
                 tr_loss += self._training_step(model, inputs, optimizer)
 
+                # apply adapter fusion regularization
+                if hasattr(model.config, "adapter_fusion") and model.config.adapter_fusion["regularization"]:
+                    fusion_reg_loss = get_fusion_regularization_loss(model)
+                    fusion_reg_loss.backward()
+
                 if (step + 1) % self.args.gradient_accumulation_steps == 0 or (
                     # last step in epoch but step is always smaller than gradient_accumulation_steps
                     len(epoch_iterator) <= self.args.gradient_accumulation_steps
                     and (step + 1) == len(epoch_iterator)
                 ):
-
-                    if hasattr(model.config, "adapter_fusion") and model.config.adapter_fusion["regularization"]:
-                        fusion_reg_loss = get_fusion_regularization_loss(model)
-                        fusion_reg_loss.backward()
-
                     if self.args.fp16:
                         torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), self.args.max_grad_norm)
                     else:
