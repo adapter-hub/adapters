@@ -73,7 +73,12 @@ class BertSelfOutputAdaptersMixin:
             self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
+        """Unfreezes a given list of adapters, the adapter fusion layer, or both
 
+        :param adapter_names: names of adapters to unfreeze (or names of adapters part of the fusion layer to unfreeze)
+        :param unfreeze_adapters: whether the adapters themselves should be unfreezed
+        :param unfreeze_fusion: whether the adapter attention layer for the given adapters should be unfreezed
+        """
         if unfreeze_adapters:
             if isinstance(adapter_names, str):
                 adapter_names = [adapter_names]
