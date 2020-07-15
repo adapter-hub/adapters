@@ -7,15 +7,14 @@ from .utils import require_torch
 
 
 @require_torch
-class AdapterFusionTest(unittest.TestCase):
+class AdapterFusionConfigTest(unittest.TestCase):
 
     config_names = ADAPTERFUSION_CONFIG_MAP.keys()
 
     def test_config_load(self):
-        download_kwargs = {"force_download": True}
         for config_name in self.config_names:
             with self.subTest(config_name=config_name):
-                config = AdapterFusionConfig.load(config_name, download_kwargs=download_kwargs, temperature=True)
+                config = AdapterFusionConfig.load(config_name, temperature=True)
                 self.assertTrue(isinstance(config, AdapterFusionConfig))
                 self.assertEqual(config.temperature, True)
 
