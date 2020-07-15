@@ -516,9 +516,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
                 self.add_fusion_layer(fusion_adapter_names)
 
     def train_adapter(self, adapter_names: list):
-        """Sets the model in mode for training the given type of adapter.
-        """
-
+        """Sets the model in mode for training the given adapters."""
         self.train()
         self.freeze_model(True)
         self.encoder.enable_adapters(adapter_names, True, False)
@@ -529,9 +527,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
                     param.requires_grad = True
 
     def train_fusion(self, adapter_names: list):
-        """Sets the model in mode for training the given type of adapter.
-        """
-
+        """Sets the model in mode for training of adapter fusion determined by a list of adapter names."""
         self.train()
         self.freeze_model(True)
         self.encoder.enable_adapters(adapter_names, False, True)
