@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .adapter_bert import BertModelHeadsMixin
-from .adapter_config import AdapterType
+from .adapter_config import AdapterConfig, AdapterType
 
 
 @dataclass
@@ -50,18 +50,13 @@ def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArgu
                 base_model.add_adapter(task_name, AdapterType.text_task)
         # language adapter - only add if not existing
         if language and language not in base_model.config.adapters.adapter_list(AdapterType.text_lang):
-            base_model.set_adapter_config(
-                AdapterType.text_lang, adapter_args.lang_adapter_config or adapter_args.adapter_config
-            )
-            # TODO CLIFTON: correctly set how language adapters need to be set
-            from transformers.adapter_config import PfeifferConfig, HoulsbyConfig
+            lconfig_string = adapter_args.lang_adapter_config or adapter_args.adapter_config
+            base_model.set_adapter_config(AdapterType.text_lang, lconfig_string)
+            # TODO support different non_linearity & reduction_factor
+            lconfig = AdapterConfig.load(lconfig_string, non_linearity="gelu", reduction_factor=2)
 
-            if adapter_args.adapter_config == "houlsby":
-                lconfig = HoulsbyConfig(non_linearity="gelu", reduction_factor=2)
-            elif adapter_args.adapter_config == "pfeiffer":
-                lconfig = PfeifferConfig(non_linearity="gelu", reduction_factor=2)
             model.load_adapter(
-                adapter_args.load_lang_adapter, AdapterType.lang_task, config=lconfig, load_as=adapter_args.language
+                adapter_args.load_lang_adapter, AdapterType.text_lang, config=lconfig, load_as=adapter_args.language
             )
         # enable adapter training
         base_model.train_adapter([task_name])
