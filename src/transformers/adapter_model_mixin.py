@@ -7,13 +7,7 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import torch
 
-from .adapter_config import (
-    DEFAULT_ADAPTER_CONFIG,
-    AdapterConfig,
-    AdapterType,
-    build_full_config,
-    get_adapter_config_hash,
-)
+from .adapter_config import AdapterConfig, AdapterType, build_full_config, get_adapter_config_hash
 from .adapter_utils import (
     CONFIG_NAME,
     HEAD_CONFIG_NAME,
@@ -358,11 +352,17 @@ class AdapterLoader(WeightsLoader):
                              and the name of the loaded weights.
         """
         # use: given adapter config (can be string) > default config of this type > global default config
-        requested_config = AdapterConfig.load(config or self.config or DEFAULT_ADAPTER_CONFIG)
+        config = config or self.config
+        requested_config = AdapterConfig.load(config) if config else None
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
         model_name = self.model.model_name or model_name
         resolved_folder = resolve_adapter_path(
-            adapter_name_or_path, requested_config, self.adapter_type, model_name, version, **kwargs
+            adapter_name_or_path,
+            self.adapter_type,
+            model_name,
+            adapter_config=requested_config,
+            version=version,
+            **kwargs,
         )
 
         # Load config of adapter
@@ -758,7 +758,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             if custom_weights_loaders is None:
                 custom_weights_loaders = []
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
-        super().load_adapter(
+        return super().load_adapter(
             adapter_name_or_path,
             adapter_type=adapter_type,
             config=config,
