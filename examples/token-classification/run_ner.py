@@ -113,7 +113,8 @@ def main():
         and not training_args.overwrite_output_dir
     ):
         raise ValueError(
-            f"Output directory ({training_args.output_dir}) already exists and is not empty. Use --overwrite_output_dir to overcome."
+            f"Output directory ({training_args.output_dir}) already exists and is not empty. "
+            f"Use --overwrite_output_dir to overcome."
         )
 
     # Setup logging
@@ -167,8 +168,15 @@ def main():
 
     # Setup adapters
     task_name = "ner"
-    language = adapter_args.load_lang_adapter
+    language = adapter_args.language
     setup_task_adapter_training(model, task_name, adapter_args)
+    if adapter_args.train_adapter:
+        if language:
+            adapter_names = [[language], [task_name]]
+        else:
+            adapter_names = [[task_name]]
+    else:
+        adapter_names = None
 
     # Get datasets
     train_dataset = (
@@ -229,9 +237,9 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
-        is_training_adapter=adapter_args.train_adapter,
-        lang_adapter=language,
-        task_adapters=[task_name],
+        do_save_full_model=not adapter_args.train_adapter,
+        do_save_adapters=adapter_args.train_adapter,
+        adapter_names=adapter_names,
     )
 
     # Training

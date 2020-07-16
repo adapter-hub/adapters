@@ -54,10 +54,8 @@ class AdapterModelTest(unittest.TestCase):
                         # check forward pass
                         input_ids = ids_tensor((1, 128), 1000)
                         input_data = {"input_ids": input_ids}
-                        if adapter_type == AdapterType.text_task:
-                            input_data["adapter_tasks"] = [name]
-                        elif adapter_type == AdapterType.text_lang:
-                            input_data["language"] = name
+                        if adapter_type == AdapterType.text_task or adapter_type == AdapterType.text_lang:
+                            input_data["adapter_names"] = [name]
                         adapter_output = model(**input_data)
                         base_output = model(input_ids)
                         self.assertEqual(len(adapter_output), len(base_output))
@@ -80,8 +78,8 @@ class AdapterModelTest(unittest.TestCase):
 
                     # check equal output
                     in_data = ids_tensor((1, 128), 1000)
-                    output1 = model1(in_data, adapter_tasks=[name])
-                    output2 = model2(in_data, adapter_tasks=[name])
+                    output1 = model1(in_data, adapter_names=[name])
+                    output2 = model2(in_data, adapter_names=[name])
                     self.assertEqual(len(output1), len(output2))
                     self.assertTrue(torch.equal(output1[0], output2[0]))
 
@@ -101,11 +99,11 @@ class PredictionHeadModelTest(unittest.TestCase):
         self.assertTrue(head_name in compare_model.config.prediction_heads)
 
         in_data = ids_tensor(input_shape, 1000)
-        model.set_active_task(head_name)
+        model.set_active_adapters(head_name)
         output1 = model(in_data)
         self.assertEqual(output_shape, tuple(output1[0].size()))
         # check equal output
-        compare_model.set_active_task(head_name)
+        compare_model.set_active_adapters(head_name)
         output2 = compare_model(in_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
@@ -142,12 +140,12 @@ class PredictionHeadModelTest(unittest.TestCase):
                 name = "dummy"
                 model1.add_adapter(name, AdapterType.text_task)
                 model1.add_classification_head(name, num_labels=3)
-                model1.set_active_task(name)
+                model1.set_active_adapters(name)
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_adapter(temp_dir, name)
 
                     model2.load_adapter(temp_dir)
-                    model2.set_active_task(name)
+                    model2.set_active_adapters(name)
 
                 # check equal output
                 in_data = ids_tensor((1, 128), 1000)
@@ -165,13 +163,13 @@ class PredictionHeadModelTest(unittest.TestCase):
                 name = "dummy"
                 model1.add_adapter(name, AdapterType.text_task)
                 model1.add_classification_head(name, num_labels=3)
-                model1.set_active_task(name)
+                model1.set_active_adapters(name)
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_adapter(temp_dir, name)
 
                     # reload using a different name
                     model2.load_adapter(temp_dir, load_as="new_name")
-                    model2.set_active_task("new_name")
+                    model2.set_active_adapters("new_name")
 
                 # check equal output
                 in_data = ids_tensor((1, 128), 1000)

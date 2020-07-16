@@ -6,20 +6,34 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
-from .adapter_modeling import (
-    Activation_Function_Class,
-    Adapter,
-    AdapterFusionSentLvlDynamic,
-    AdapterWeightingSentLvl,
-    AdapterWeightingSentLvlDynamic,
-    BertAdapterAttention,
-    GLOWCouplingBlock,
-    NICECouplingBlock,
-    SimpleAdapterWeightingStatic,
-)
+from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion, GLOWCouplingBlock, NICECouplingBlock
+from .adapter_utils import parse_adapter_names
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_fusion_regularization_loss(model):
+    if hasattr(model, "base_model"):
+        model = model.base_model
+    elif hasattr(model, "encoder"):
+        pass
+    else:
+        raise Exception("Model not passed correctly, please pass a transformer model with an encoder")
+
+    reg_loss = 0.0
+    target = torch.zeros((model.config.hidden_size, model.config.hidden_size)).fill_diagonal_(1.0).to(model.device)
+    for k, v in model.encoder.layer._modules.items():
+
+        for _, layer_fusion in v.output.adapter_fusion_layer.items():
+            if hasattr(layer_fusion, "value"):
+                reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+        for _, layer_fusion in v.attention.output.adapter_fusion_layer.items():
+            if hasattr(layer_fusion, "value"):
+                reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+    return reg_loss
 
 
 class BertSelfOutputAdaptersMixin:
@@ -28,10 +42,8 @@ class BertSelfOutputAdaptersMixin:
 
     def _init_adapter_modules(self):
         self.attention_text_task_adapters = nn.ModuleDict(dict())
-        self.attention_adapters_fusion = nn.ModuleDict(dict())
+        self.adapter_fusion_layer = nn.ModuleDict(dict())
         self.attention_text_lang_adapters = nn.ModuleDict(dict())
-        self.language_attention_adapters_fusion = nn.ModuleDict(dict())
-        self.language_adapter_attention = nn.ModuleDict(dict())
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
@@ -51,127 +63,183 @@ class BertSelfOutputAdaptersMixin:
             else:
                 raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
 
-    def add_attention_layer(self, tasks):
+    def add_fusion_layer(self, adapter_names):
         """See BertModel.add_attention_layer"""
-        task_names = tasks if isinstance(tasks, list) else tasks.split("_")
-        adapter_config = self.config.adapters.common_config(task_names)
+        adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
+        adapter_config = self.config.adapters.common_config(adapter_names)
         if not adapter_config:
             raise ValueError("All tasks used in the attention layer must have the same configuration.")
         if adapter_config["mh_adapter"]:
-            if adapter_config["attention_type"] == "tok-lvl":
-                layer = BertAdapterAttention(self.config)
-            elif adapter_config["attention_type"] == "sent-lvl":
-                layer = AdapterWeightingSentLvl(self.config, len(task_names))
-            elif adapter_config["attention_type"] == "sent-lvl-dynamic":
-                layer = AdapterWeightingSentLvlDynamic(self.config, len(task_names))
-            elif adapter_config["attention_type"] == "static":
-                layer = SimpleAdapterWeightingStatic(self.config, len(task_names))
-            else:
-                raise Exception("Unknown attention type: {}".format(adapter_config["attention_type"]))
+            self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
-            self.attention_adapters_fusion["_".join(task_names)] = layer
+    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
+        """Unfreezes a given list of adapters, the adapter fusion layer, or both
 
-            if adapter_config["new_attention_norm"]:
-                self.attention_layer_norm = nn.LayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
-
-    def enable_adapters(self, adapter_type: AdapterType, unfreeze_adapters: bool, unfreeze_attention: bool):
-        # TODO cleanup?
-        if adapter_type == AdapterType.text_task:
-            if unfreeze_adapters:
-                for param in self.attention_text_task_adapters.parameters():
-                    param.requires_grad = True
-            if unfreeze_attention:
-                for param in self.attention_adapters_fusion.parameters():
-                    param.requires_grad = True
-
-                for adap in self.attention_text_task_adapters.values():
-                    for param in adap.adapter_attention.parameters():
+        :param adapter_names: names of adapters to unfreeze (or names of adapters part of the fusion layer to unfreeze)
+        :param unfreeze_adapters: whether the adapters themselves should be unfreezed
+        :param unfreeze_fusion: whether the adapter attention layer for the given adapters should be unfreezed
+        """
+        if unfreeze_adapters:
+            if isinstance(adapter_names, str):
+                adapter_names = [adapter_names]
+            for adapter_name in adapter_names:
+                layer = self.get_adapter_layer(adapter_name)
+                if layer is not None:
+                    for param in layer.parameters():
+                        param.requires_grad = True
+        if unfreeze_fusion:
+            if isinstance(adapter_names[0], str):
+                adapter_names = [adapter_names]
+            for adapter_fusion_group in adapter_names:
+                fusion_name = ",".join(adapter_fusion_group)
+                if fusion_name in self.adapter_fusion_layer:
+                    for param in self.adapter_fusion_layer[fusion_name].parameters():
                         param.requires_grad = True
 
-                if hasattr(self, "attention_layer_norm"):
-                    for param in self.attention_layer_norm.parameters():
-                        param.requires_grad = True
-        elif adapter_type == AdapterType.text_lang:
-            if unfreeze_adapters:
-                for param in self.attention_text_lang_adapters.parameters():
-                    param.requires_grad = True
-            if unfreeze_attention:
-                for param in self.language_attention_adapters_fusion.parameters():
-                    param.requires_grad = True
+    def get_adapter_preparams(
+        self, adapter_config, hidden_states, input_tensor,
+    ):
+        """
+        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
+        Args:
+            adapter_config: config file according to what the parameters are passed
+            hidden_states: output of previous layer
+            input_tensor: residual connection before FFN
 
-                for adap in self.attention_text_lang_adapters.values():
-                    for param in adap.language_adapter_attention.parameters():
-                        param.requires_grad = True
+        Returns: hidden_states, query, residual
 
-                if hasattr(self, "language_attention_layer_norm"):
-                    for param in self.language_attention_layer_norm.parameters():
-                        param.requires_grad = True
+        """
+        query = None
+
+        if adapter_config["residual_before_ln"]:
+            residual = hidden_states
+
+        if hasattr(self.config, "adapter_fusion") and self.config.adapter_fusion["query_before_ln"]:
+            query = hidden_states
+
+        if adapter_config["original_ln_before"]:
+            hidden_states = self.LayerNorm(hidden_states + input_tensor)
+
+        if not adapter_config["residual_before_ln"]:
+            residual = hidden_states
+
+        if hasattr(self.config, "adapter_fusion") and not self.config.adapter_fusion["query_before_ln"]:
+            query = hidden_states
+
+        return hidden_states, query, residual
+
+    def get_adapter_layer(self, adapter_name):
+        """
+        Depending on the adapter type we retrieve the correct layer. If no adapter for that name was set at that layer
+        we return None
+        Args:
+            adapter_name: string name of the adapter
+
+        Returns: layer | None
+
+        """
+        if adapter_name in self.attention_text_lang_adapters:
+            return self.attention_text_lang_adapters[adapter_name]
+        if adapter_name in self.attention_text_task_adapters:
+            return self.attention_text_task_adapters[adapter_name]
+        return None
+
+    def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
+        """
+        One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
+        into a subsequent adapter, or the next transformer layer
+        OR
+        IFF more than one adapter names is set for one stack layer, we assume that fusion is activated. Thus, the
+        adapters are fused together.
+        Args:
+            hidden_states: output of the previous transformer layer or adapter
+            input_tensor: residual connection of transformer
+            attention_mask: attention mask on token level
+            adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
+                            single adapter. iff len(adapter_stack) > 1 we fuse the adapters
+
+        Returns: hidden_states
+
+        """
+        # We assume that all adapters have the same residual connection and layer norm setting as the first adapter in
+        # the stack
+        adapter_config = self.config.adapters.get(adapter_stack[0])
+
+        hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
+
+        if len(adapter_stack) == 1:
+
+            adapter_layer = self.get_adapter_layer(adapter_stack[0])
+            if adapter_layer is not None:
+                hidden_states, _, _ = adapter_layer(hidden_states, residual_input=residual)
+
+            return hidden_states
+
         else:
-            raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
+            return self.adapter_fusion(hidden_states, attention_mask, adapter_stack, residual, query)
 
-    def adapters_forward(self, hidden_states, input_tensor, tasks=None, language=None):
-        adapter_used = False
+    def adapter_fusion(self, hidden_states, attention_mask, adapter_stack, residual, query):
+        """
+        If more than one adapter name is set for a stack layer, we fuse the adapters.
+        For this, we pass through every adapter and learn an attention-like weighting of each adapter.
+        The information stored in each of the adapters is thus fused together wrt the current example.
+        Args:
+            hidden_states: output of the previous transformer layer or adapter
+            attention_mask: attention mask on token level
+            adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
+                            single adapter. iff len(adapter_stack) > 1 we fuse the adapters
+            residual: residual of the previous layer
+            query: query by which we attend over the adapters
 
-        # Language adapter
-        if language:
-            lang_adapter_config = self.config.adapters.get(language)
-            if lang_adapter_config and language in self.attention_text_lang_adapters:
-                adapter_used = True
+        Returns: hidden_states
 
-                if lang_adapter_config["residual_before_ln"]:
-                    residual = hidden_states
+        """
 
-                if lang_adapter_config["original_ln_before"]:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        up_list = []
 
-                if not lang_adapter_config["residual_before_ln"]:
-                    residual = hidden_states
+        for adapter_name in adapter_stack:
+            adapter_layer = self.get_adapter_layer(adapter_name)
+            if adapter_layer is not None:
+                intermediate_output, _, up = adapter_layer(hidden_states, residual_input=residual)
+                up_list.append(up)
+        if len(up_list) > 0:
+            up_list = torch.stack(up_list)
+            up_list = up_list.permute(1, 2, 0, 3)
 
-                hidden_states, adapter_attention, down, up = self.attention_text_lang_adapters[language](
-                    hidden_states, residual_input=residual
+            fusion_name = ",".join(adapter_stack)
+
+            hidden_states = self.adapter_fusion_layer[fusion_name](
+                query, up_list, up_list, residual=residual, attention_mask=attention_mask
+            )
+        return hidden_states
+
+    def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
+
+        if adapter_names is not None:
+            adapter_names = parse_adapter_names(adapter_names)
+            flat_adapter_names = [item for sublist in adapter_names for item in sublist]
+
+        if adapter_names is not None and (
+            len(
+                (set(self.attention_text_task_adapters.keys()) | set(self.attention_text_lang_adapters.keys()))
+                & set(flat_adapter_names)
+            )
+            > 0
+        ):
+
+            for adapter_stack in adapter_names:
+                hidden_states = self.adapter_stack_layer(
+                    hidden_states=hidden_states,
+                    input_tensor=input_tensor,
+                    attention_mask=attention_mask,
+                    adapter_stack=adapter_stack,
                 )
-                if lang_adapter_config["original_ln_after"]:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-        # Task adapters
-        # filter tasks that are available in this module
-        if tasks:
-            tasks = [t for t in tasks if t in self.attention_text_task_adapters]
-        if tasks:
-            # if we have multiple tasks and use fusion, all configs are assumed to be equal
-            task_adapter_config = self.config.adapters.get(tasks[0])
-            adapter_used = True
-
-            if task_adapter_config["residual_before_ln"]:
-                residual = hidden_states
-
-            # if hasattr(self.config, "fusion_config") and self.config.fusion_config["query_before_ln"]:
-            #     query = hidden_states
-
-            if task_adapter_config["original_ln_before"]:
+            last_config = self.config.adapters.get(adapter_names[-1][-1])
+            if last_config["original_ln_after"]:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if not task_adapter_config["residual_before_ln"]:
-                residual = hidden_states
-
-            # if hasattr(self.config, "fusion_config") and not self.config.fusion_config["query_before_ln"]:
-            #     query = hidden_states
-
-            # if we have multiple tasks, use fusion
-            if len(tasks) > 1:
-                # TODO see BertOutput module
-                raise NotImplementedError()
-
-            # otherwise, only use one task adapter without attention
-            else:
-                hidden_states, adapter_attention, down, up = self.attention_text_task_adapters[tasks[0]](
-                    hidden_states, residual_input=residual
-                )
-                if task_adapter_config["original_ln_after"]:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        # In case we haven't used any adapter
-        if not adapter_used:
+        else:
             hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         return hidden_states
@@ -184,36 +252,18 @@ class BertOutputAdaptersMixin:
     def _init_adapter_modules(self):
         # self.bert_adapter_att = BertAdapterAttention(config)
         # self.bert_adapter_att = SimpleAdapterWeightingSentLvl(config)
-        self.bert_adapter_att = nn.ModuleDict(dict())
+        self.adapter_fusion_layer = nn.ModuleDict(dict())
         self.layer_text_task_adapters = nn.ModuleDict(dict())
-        self.bert_language_adapter_att = nn.ModuleDict(dict())
         self.layer_text_lang_adapters = nn.ModuleDict(dict())
 
-    def add_attention_layer(self, tasks):
-        """See BertModel.add_attention_layer"""
-        task_names = tasks if isinstance(tasks, list) else tasks.split("_")
-        adapter_config = self.config.adapters.common_config(task_names)
+    def add_fusion_layer(self, adapter_names):
+        """See BertModel.add_fusion_layer"""
+        adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
+        adapter_config = self.config.adapters.common_config(adapter_names)
         if not adapter_config:
-            raise ValueError("All tasks used in the attention layer must have the same configuration.")
+            raise ValueError("All tasks used in the fusion layer must have the same configuration.")
         if adapter_config["output_adapter"]:
-            if adapter_config["attention_type"] == "tok-lvl":
-                layer = BertAdapterAttention(self.config)
-            elif adapter_config["attention_type"] == "sent-lvl":
-                layer = AdapterWeightingSentLvl(self.config, len(task_names))
-            elif adapter_config["attention_type"] == "sent-lvl-dynamic":
-                layer = AdapterWeightingSentLvlDynamic(self.config, len(task_names))
-            elif adapter_config["attention_type"] == "static":
-                layer = SimpleAdapterWeightingStatic(self.config, len(task_names))
-            elif adapter_config["attention_type"] == "sent-lvl-fusion":
-                layer = AdapterFusionSentLvlDynamic(self.config, len(task_names))
-
-            else:
-                raise Exception("Unknown attention type: {}".format(adapter_config["attention_type"]))
-
-            self.bert_adapter_att["_".join(task_names)] = layer
-
-            if adapter_config["new_attention_norm"]:
-                self.attention_layer_norm = nn.LayerNorm(self.config.hidden_size, eps=self.config.layer_norm_eps)
+            self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
@@ -233,145 +283,171 @@ class BertOutputAdaptersMixin:
             else:
                 raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
 
-    def enable_adapters(self, adapter_type: AdapterType, unfreeze_adapters: bool, unfreeze_attention: bool):
-        # TODO cleanup?
-        if adapter_type == AdapterType.text_task:
-            if unfreeze_adapters:
-                for param in self.layer_text_task_adapters.parameters():
-                    param.requires_grad = True
-            if unfreeze_attention:
-                for adap in self.layer_text_task_adapters.values():
-                    for param in adap.adapter_attention.parameters():
+    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
+
+        if unfreeze_adapters:
+            if isinstance(adapter_names, str):
+                adapter_names = [adapter_names]
+            for adapter_name in adapter_names:
+                layer = self.get_adapter_layer(adapter_name)
+                if layer is not None:
+                    for param in layer.parameters():
+                        param.requires_grad = True
+        if unfreeze_fusion:
+            if isinstance(adapter_names[0], str):
+                adapter_names = [adapter_names]
+            for adapter_fusion_group in adapter_names:
+                fusion_name = ",".join(adapter_fusion_group)
+                if fusion_name in self.adapter_fusion_layer:
+                    for param in self.adapter_fusion_layer[fusion_name].parameters():
                         param.requires_grad = True
 
-                for param in self.bert_adapter_att.parameters():
-                    param.requires_grad = True
+    def get_adapter_preparams(
+        self, adapter_config, hidden_states, input_tensor,
+    ):
+        """
+        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
+        Args:
+            adapter_config: config file according to what the parameters are passed
+            hidden_states: output of previous layer
+            input_tensor: residual connection before FFN
 
-                if hasattr(self, "attention_layer_norm"):
-                    for param in self.attention_layer_norm.parameters():
-                        param.requires_grad = True
-        elif adapter_type == AdapterType.text_lang:
-            if unfreeze_adapters:
-                for param in self.layer_text_lang_adapters.parameters():
-                    param.requires_grad = True
-            if unfreeze_attention:
-                for adap in self.layer_text_lang_adapters.values():
-                    for param in adap.adapter_attention.parameters():
-                        param.requires_grad = True
+        Returns: hidden_states, query, residual
 
-                for param in self.bert_language_adapter_att.parameters():
-                    param.requires_grad = True
+        """
+        query = None
 
-                if hasattr(self, "language_attention_layer_norm"):
-                    for param in self.language_attention_layer_norm.parameters():
-                        param.requires_grad = True
+        if adapter_config["residual_before_ln"]:
+            residual = hidden_states
+
+        if hasattr(self.config, "adapter_fusion") and self.config.adapter_fusion["query_before_ln"]:
+            query = hidden_states
+
+        if adapter_config["original_ln_before"]:
+            hidden_states = self.LayerNorm(hidden_states + input_tensor)
+
+        if not adapter_config["residual_before_ln"]:
+            residual = hidden_states
+
+        if hasattr(self.config, "adapter_fusion") and not self.config.adapter_fusion["query_before_ln"]:
+            query = hidden_states
+
+        return hidden_states, query, residual
+
+    def get_adapter_layer(self, adapter_name):
+        """
+        Depending on the adapter type we retrieve the correct layer. If no adapter for that name was set at that layer
+        we return None
+        Args:
+            adapter_name: string name of the adapter
+
+        Returns: layer | None
+
+        """
+        if adapter_name in self.layer_text_lang_adapters:
+            return self.layer_text_lang_adapters[adapter_name]
+        if adapter_name in self.layer_text_task_adapters:
+            return self.layer_text_task_adapters[adapter_name]
+        return None
+
+    def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
+        """
+        One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
+        into a subsequent adapter, or the next transformer layer
+        OR
+        IFF more than one adapter names is set for one stack layer, we assume that fusion is activated. Thus, the
+        adapters are fused together.
+        Args:
+            hidden_states: output of the previous transformer layer or adapter
+            input_tensor: residual connection of transformer
+            attention_mask: attention mask on token level
+            adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
+                            single adapter. iff len(adapter_stack) > 1 we fuse the adapters
+
+        Returns: hidden_states
+
+        """
+        # We assume that all adapters have the same residual connection and layer norm setting as the first adapter in
+        # the stack
+        adapter_config = self.config.adapters.get(adapter_stack[0])
+
+        hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
+
+        if len(adapter_stack) == 1:
+
+            adapter_layer = self.get_adapter_layer(adapter_stack[0])
+            if adapter_layer is not None:
+                hidden_states, _, _ = adapter_layer(hidden_states, residual_input=residual)
+
+            return hidden_states
+
         else:
-            raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
+            return self.adapter_fusion(hidden_states, attention_mask, adapter_stack, residual, query)
 
-    def adapters_forward(self, hidden_states, input_tensor, attention_mask, tasks=None, language=None):
-        adapter_used = False
+    def adapter_fusion(self, hidden_states, attention_mask, adapter_stack, residual, query):
+        """
+        If more than one adapter name is set for a stack layer, we fuse the adapters.
+        For this, we pass through every adapter and learn an attention-like weighting of each adapter.
+        The information stored in each of the adapters is thus fused together wrt the current example.
+        Args:
+            hidden_states: output of the previous transformer layer or adapter
+            attention_mask: attention mask on token level
+            adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
+                            single adapter. iff len(adapter_stack) > 1 we fuse the adapters
+            residual: residual of the previous layer
+            query: query by which we attend over the adapters
 
-        # Language adapter
-        if language:
-            lang_adapter_config = self.config.adapters.get(language)
-            if lang_adapter_config and language in self.layer_text_lang_adapters:
-                adapter_used = True
+        Returns: hidden_states
 
-                if lang_adapter_config["residual_before_ln"]:
-                    residual = hidden_states
+        """
+        up_list = []
 
-                if lang_adapter_config["original_ln_before"]:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        for adapter_name in adapter_stack:
+            adapter_layer = self.get_adapter_layer(adapter_name)
+            if adapter_layer is not None:
+                intermediate_output, _, up = adapter_layer(hidden_states, residual_input=residual)
+                up_list.append(up)
 
-                if not lang_adapter_config["residual_before_ln"]:
-                    residual = hidden_states
+        if len(up_list) > 0:
 
-                hidden_states, adapter_attention, down, up = self.layer_text_lang_adapters[language](
-                    hidden_states, residual_input=residual
+            up_list = torch.stack(up_list)
+            up_list = up_list.permute(1, 2, 0, 3)
+
+            fusion_name = ",".join(adapter_stack)
+
+            hidden_states = self.adapter_fusion_layer[fusion_name](
+                query, up_list, up_list, residual=residual, attention_mask=attention_mask
+            )
+        return hidden_states
+
+    def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
+
+        if adapter_names is not None:
+            adapter_names = parse_adapter_names(adapter_names)
+
+            flat_adapter_names = [item for sublist in adapter_names for item in sublist]
+
+        if adapter_names is not None and (
+            len(
+                (set(self.layer_text_lang_adapters.keys()) | set(self.layer_text_task_adapters.keys()))
+                & set(flat_adapter_names)
+            )
+            > 0
+        ):
+
+            for adapter_stack in adapter_names:
+                hidden_states = self.adapter_stack_layer(
+                    hidden_states=hidden_states,
+                    input_tensor=input_tensor,
+                    attention_mask=attention_mask,
+                    adapter_stack=adapter_stack,
                 )
-                if lang_adapter_config["original_ln_after"]:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-        # Task adapters
-        # filter tasks that are available in this module
-        if tasks:
-            tasks = [t for t in tasks if t in self.layer_text_task_adapters]
-        if tasks:
-            # if we have multiple tasks and use fusion, all configs are assumed to be equal
-            task_adapter_config = self.config.adapters.get(tasks[0])
-            adapter_used = True
-
-            if task_adapter_config["residual_before_ln"]:
-                residual = hidden_states
-
-            if hasattr(self.config, "fusion_config") and self.config.fusion_config["query_before_ln"]:
-                query = hidden_states
-
-            if task_adapter_config["original_ln_before"]:
+            last_config = self.config.adapters.get(adapter_names[-1][-1])
+            if last_config["original_ln_after"]:
                 hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
-            if not task_adapter_config["residual_before_ln"]:
-                residual = hidden_states
-
-            if hasattr(self.config, "fusion_config") and not self.config.fusion_config["query_before_ln"]:
-                query = hidden_states
-
-            # if we have multiple tasks, use fusion
-            # TODO ?
-            if len(tasks) > 1:
-                layer_output_list, down_list, up_list = [], [], []
-                # down_list, up_list = [], []
-                for task in tasks:
-                    intermediate_output, adapter_attention, down, up = self.layer_text_task_adapters[task](
-                        hidden_states, residual_input=residual
-                    )
-                    layer_output_list.append(intermediate_output)
-                    # up = self.LayerNorm(intermediate_output )
-                    # up = self.LayerNorm(up )
-                    down_list.append(down)
-                    up_list.append(up)
-
-                layer_output_list = torch.stack(layer_output_list)
-                layer_output_list = layer_output_list.permute(1, 2, 0, 3)
-                down_list = torch.stack(down_list)
-                down_list = down_list.permute(1, 2, 0, 3)
-                up_list = torch.stack(up_list)
-                up_list = up_list.permute(1, 2, 0, 3)
-
-                attn_name = "_".join(tasks)
-                if attn_name not in self.bert_adapter_att:
-                    attn_name_new = list(self.bert_adapter_att.keys())[0]
-                    # logging.root.warn('{} not in attention layers. Using other attention layer {} instead'.format(
-                    #     attn_name,
-                    #     attn_name_new
-                    # ))
-                    attn_name = attn_name_new
-
-                hidden_states = self.bert_adapter_att[attn_name](
-                    query, up_list, up_list, residual=residual, attention_mask=attention_mask
-                )
-
-                # hidden_states = self.bert_adapter_att[attn_name](query, down_list, up_list, residual=residual, attention_mask=attention_mask)
-
-                # hidden_states += residual
-
-                # hidden_states = up_list[:,:,0] + residual
-                # hidden_states = layer_output_list[:,:,0]
-
-                if task_adapter_config["new_attention_norm"]:
-                    hidden_states = self.attention_layer_norm(hidden_states + input_tensor)
-                else:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
-            # otherwise, only use one task adapter without attention
-            else:
-                hidden_states, adapter_attention, down, up = self.layer_text_task_adapters[tasks[0]](
-                    hidden_states, residual_input=residual
-                )
-                if task_adapter_config["original_ln_after"]:
-                    hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        # In case we haven't used any adapter
-        if not adapter_used:
+        else:
             hidden_states = self.LayerNorm(hidden_states + input_tensor)
 
         return hidden_states
@@ -381,40 +457,40 @@ class BertLayerAdaptersMixin:
     """Adds adapters to the BertLayer module.
     """
 
-    def add_attention_layer(self, tasks):
-        self.attention.output.add_attention_layer(tasks)
-        self.output.add_attention_layer(tasks)
+    def add_fusion_layer(self, adapter_names):
+        self.attention.output.add_fusion_layer(adapter_names)
+        self.output.add_fusion_layer(adapter_names)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         self.attention.output.add_adapter(adapter_name, adapter_type)
         self.output.add_adapter(adapter_name, adapter_type)
 
-    def enable_adapters(self, adapter_type: AdapterType, unfreeze_adapters: bool, unfreeze_attention: bool):
-        self.attention.output.enable_adapters(adapter_type, unfreeze_adapters, unfreeze_attention)
-        self.output.enable_adapters(adapter_type, unfreeze_adapters, unfreeze_attention)
+    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
+        self.attention.output.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+        self.output.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
 
 
 class BertEncoderAdaptersMixin:
     """Adds adapters to the BertEncoder module.
     """
 
-    def add_attention_layer(self, task_names):
+    def add_fusion_layer(self, adapter_names):
         for layer in self.layer:
-            layer.add_attention_layer(task_names)
+            layer.add_fusion_layer(adapter_names)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config:
-            leave_out = adapter_config.get("leave_out", [])
+        if hasattr(adapter_config, "leave_out"):
+            leave_out = adapter_config.leave_out
         else:
             leave_out = []
         for i, layer in enumerate(self.layer):
             if i not in leave_out:
                 layer.add_adapter(adapter_name, adapter_type)
 
-    def enable_adapters(self, adapter_type: AdapterType, unfreeze_adapters: bool, unfreeze_attention: bool):
+    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         for layer in self.layer:
-            layer.enable_adapters(adapter_type, unfreeze_adapters, unfreeze_attention)
+            layer.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
 
 
 class BertModelAdaptersMixin(ModelAdaptersMixin):
@@ -436,21 +512,26 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             self.encoder.add_adapter(task, AdapterType.text_task)
         # fusion
         if hasattr(self.config, "fusion_models"):
-            for tasks in self.config.fusion_models:
-                self.add_attention_layer(tasks)
+            for fusion_adapter_names in self.config.fusion_models:
+                self.add_fusion_layer(fusion_adapter_names)
 
-    def train_adapter(self, adapter_type: AdapterType):
-        """Sets the model in mode for training the given type of adapter.
-        """
-        if not self.has_adapters(adapter_type):
-            raise ValueError("No adapters of this type available fro training.")
+    def train_adapter(self, adapter_names: list):
+        """Sets the model in mode for training the given adapters."""
         self.train()
         self.freeze_model(True)
-        self.encoder.enable_adapters(adapter_type, True, False)
-        # unfreeze invertible adapters for language adapters
-        if adapter_type == AdapterType.text_lang:
-            for param in self.invertible_lang_adapters.parameters():
-                param.requires_grad = True
+        self.encoder.enable_adapters(adapter_names, True, False)
+        # unfreeze invertible adapters for invertible adapters
+        for adapter_name in adapter_names:
+            if adapter_name in self.invertible_lang_adapters:
+                for param in self.invertible_lang_adapters[adapter_name].parameters():
+                    param.requires_grad = True
+
+    def train_fusion(self, adapter_names: list):
+        """Sets the model in mode for training of adapter fusion determined by a list of adapter names."""
+        self.train()
+        self.freeze_model(True)
+        self.encoder.enable_adapters(adapter_names, False, True)
+        # TODO implement fusion for invertible adapters
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
         """Adds a new adapter module of the specified type to the model.
@@ -486,7 +567,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             inv_adap = GLOWCouplingBlock(
                 [[self.config.hidden_size]],
                 non_linearity=inv_adap_config["non_linearity"],
-                reduction_factor=inv_adap_config["reduction_fector"],
+                reduction_factor=inv_adap_config["reduction_factor"],
             )
         else:
             raise ValueError(f"Invalid invertible adapter type '{inv_adap_config['block_type']}'.")
@@ -499,9 +580,9 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         else:
             return None
 
-    def add_attention_layer(self, task_names):
+    def add_fusion_layer(self, adapter_names):
         """See BertModel.add_attention_layer"""
-        self.encoder.add_attention_layer(task_names)
+        self.encoder.add_fusion_layer(adapter_names)
 
 
 class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
@@ -511,8 +592,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.active_language_adapter = None
-        self.active_task_adapters = []
+        self.active_adapter_names = None
         self.active_head = None
 
     def _init_head_modules(self):
@@ -523,32 +603,33 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         for head_name in self.config.prediction_heads:
             self._add_prediction_head_module(head_name)
 
-    def set_active_language(self, language_name: str):
-        """Sets the language adapter which should be used by default in a forward pass.
-
-        Args:
-            language_name (str): The name of the language adapter.
-        """
-        if language_name in self.config.adapters.adapter_list(AdapterType.text_lang):
-            self.active_language_adapter = language_name
-        else:
-            logger.info("No language adapter with name '{}' available.".format(language_name))
-
-    def set_active_task(self, task_name: str):
+    def set_active_adapters(self, adapter_names: list):
         """Sets the task adapter and/ or prediction head which should be used by default in a forward pass.
         If no adapter or prediction with the given name is found, no module of the respective type will be activated.
 
         Args:
             task_name (str): The name of the task adapter and/ or prediction head.
         """
-        if task_name in self.config.adapters.adapter_list(AdapterType.text_task):
-            self.active_task_adapters = [task_name]
-        else:
-            logger.info("No task adapter for task_name '{}' available.".format(task_name))
-        if task_name in self.config.prediction_heads:
-            self.active_head = task_name
-        else:
-            logger.info("No prediction head for task_name '{}' available.".format(task_name))
+        adapter_names = parse_adapter_names(adapter_names)
+
+        new_adapter_names = []
+
+        for stack in adapter_names:
+            new_adapter_names.append([])
+            for adapter_name in stack:
+                if adapter_name in self.config.adapters.adapter_list(
+                    AdapterType.text_task
+                ) or adapter_name in self.config.adapters.adapter_list(AdapterType.text_lang):
+                    new_adapter_names[-1].append(adapter_name)
+                else:
+                    logger.info("No task adapter for task_name '{}' available. Removing it.".format(adapter_name))
+                if adapter_name in self.config.prediction_heads:
+                    self.active_head = adapter_name
+                else:
+                    logger.info("No prediction head for task_name '{}' available.".format(adapter_name))
+        if len(new_adapter_names[0]) == 0:
+            new_adapter_names = None
+        self.active_adapter_names = new_adapter_names
 
     def add_classification_head(
         self, head_name, num_labels=2, layers=2, activation_function="tanh", overwrite_ok=False,

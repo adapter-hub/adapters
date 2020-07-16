@@ -24,6 +24,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from .adapter_bert import BertModelHeadsMixin
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
+from .adapter_utils import parse_adapter_names
 from .configuration_roberta import RobertaConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_bert import BertEmbeddings, BertLayerNorm, BertModel, BertPreTrainedModel, gelu
@@ -186,8 +187,7 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         labels=None,
-        adapter_tasks=None,
-        language=None,
+        adapter_names=None,
         head=None,
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
@@ -195,8 +195,8 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
         position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
 
-        language = language or self.active_language_adapter
-        adapter_tasks = adapter_tasks or self.active_task_adapters
+        adapter_names = adapter_names or self.active_adapter_names
+
         outputs = self.roberta(
             input_ids,
             attention_mask=attention_mask,
@@ -204,8 +204,7 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
-            adapter_tasks=adapter_tasks,
-            language=language,
+            adapter_names=adapter_names,
         )
 
         outputs = self.forward_head(outputs, head_name=head, attention_mask=attention_mask, labels=labels,)
@@ -239,8 +238,7 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         masked_lm_labels=None,
-        language=None,
-        tasks=None,
+        adapter_names=None,
     ):
         r"""
         masked_lm_labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -286,10 +284,16 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
-            language=language,
-            adapter_tasks=tasks,
+            adapter_names=adapter_names,
         )
         sequence_output = outputs[0]
+
+        # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
+        if adapter_names is not None and len(adapter_names) > 0:
+            adapter_names = parse_adapter_names(adapter_names)
+            language = adapter_names[0][0]
+        else:
+            language = None
         prediction_scores = self.lm_head(
             sequence_output, inv_lang_adapter=self.roberta.get_invertible_lang_adapter(language),
         )
@@ -358,8 +362,7 @@ class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrain
         head_mask=None,
         inputs_embeds=None,
         labels=None,
-        adapter_tasks=None,
-        language=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -406,8 +409,7 @@ class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrain
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
-            adapter_tasks=adapter_tasks,
-            language=language,
+            adapter_names=adapter_names,
         )
         sequence_output = outputs[0]
         logits = self.classifier(sequence_output)
@@ -454,8 +456,7 @@ class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel)
         position_ids=None,
         head_mask=None,
         inputs_embeds=None,
-        adapter_tasks=None,
-        language=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -509,8 +510,7 @@ class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel)
             token_type_ids=flat_token_type_ids,
             attention_mask=flat_attention_mask,
             head_mask=head_mask,
-            adapter_tasks=adapter_tasks,
-            language=language,
+            adapter_names=adapter_names,
         )
         pooled_output = outputs[1]
 
@@ -557,8 +557,7 @@ class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedM
         head_mask=None,
         inputs_embeds=None,
         labels=None,
-        tasks=None,
-        language=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -604,8 +603,7 @@ class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedM
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
-            adapter_tasks=tasks,
-            language=language,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -680,8 +678,7 @@ class RobertaForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedMod
         inputs_embeds=None,
         start_positions=None,
         end_positions=None,
-        adapter_tasks=None,
-        language=None,
+        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -740,8 +737,7 @@ class RobertaForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedMod
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
-            adapter_tasks=adapter_tasks,
-            language=language,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]

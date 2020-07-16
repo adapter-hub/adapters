@@ -24,7 +24,7 @@ For more about the different head types and the configuration options, refer to 
 
 Now, of course, we would like to train our classification head together with an adapter, so let's add one:
 ```python
-model.add_task_adapter("mrpc", config="pfeiffer")
+model.add_adapter("mrpc", config="pfeiffer")
 model.set_active_task("mrpc")
 ```
 

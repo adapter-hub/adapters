@@ -7,8 +7,18 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import torch
 
-from .adapter_config import AdapterConfig, AdapterType, build_full_config, get_adapter_config_hash
+from .adapter_config import (
+    ADAPTERFUSION_CONFIG_MAP,
+    DEFAULT_ADAPTERFUSION_CONFIG,
+    AdapterConfig,
+    AdapterFusionConfig,
+    AdapterType,
+    build_full_config,
+    get_adapter_config_hash,
+)
 from .adapter_utils import (
+    ADAPTERFUSION_CONFIG_NAME,
+    ADAPTERFUSION_WEIGHTS_NAME,
     CONFIG_NAME,
     HEAD_CONFIG_NAME,
     HEAD_WEIGHTS_NAME,
@@ -345,7 +355,8 @@ class AdapterLoader(WeightsLoader):
             config (str, optional): The requested configuration of the adapter.
             version (str, optional): The version of the adapter to be loaded.
             model_name (str, optional): The string identifier of the pre-trained model.
-            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was saved will be used.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
+             saved will be used.
 
         Returns:
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
@@ -389,6 +400,101 @@ class AdapterLoader(WeightsLoader):
         )
 
         return resolved_folder, adapter_name
+
+
+class AdapterFusionLoader(WeightsLoader):
+    """
+    A class providing methods for saving and loading AdapterFusion modules from the file system.
+
+    """
+
+    def __init__(self, model, error_on_missing=True):
+        super().__init__(model, ADAPTERFUSION_WEIGHTS_NAME, ADAPTERFUSION_CONFIG_NAME)
+        self.error_on_missing = error_on_missing
+
+    def filter_func(self, adapter_fusion_name):
+        return lambda x: "adapter_fusion_layer.{}".format(adapter_fusion_name) in x
+
+    def rename_func(self, old_name, new_name):
+        return lambda k: k.replace(
+            "adapter_fusion_layer.{}".format(old_name), "adapter_fusion_layer.{}".format(new_name)
+        )
+
+    def save(self, save_directory: str, name: str):
+        """Saves a AdapterFusion module into the given directory.
+
+        Args:
+            save_directory (str): The directory to save the weights in.
+            name (str, optional): The AdapterFusion name.
+        """
+
+        if hasattr(self.model.config, "adapter_fusion_models"):
+            if name not in self.model.config.adapter_fusion_models:
+                if self.error_on_missing:
+                    raise ValueError(f"Unknown AdapterFusion '{name}'.")
+                else:
+                    logger.info(f"No AdapterFusion with name '{name}' available.")
+                    return
+
+        if not exists(save_directory):
+            mkdir(save_directory)
+        else:
+            assert isdir(save_directory), "Saving path should be a directory where the head can be saved."
+
+        adapter_fusion_config = self.model.config.adapter_fusion
+
+        # Save the adapter fusion configuration
+        config_dict = build_full_config(
+            adapter_fusion_config,
+            self.model.config,
+            name=name,
+            model_name=self.model.model_name,
+            model_class=self.model.__class__.__name__,
+        )
+        self.weights_helper.save_weights_config(save_directory, config_dict)
+
+        # Save head weights
+        filter_func = self.filter_func(name)
+        self.weights_helper.save_weights(save_directory, filter_func)
+
+    def load(self, save_directory, load_as=None, loading_info=None):
+        """Loads a AdapterFusion module from the given directory.
+
+        Args:
+            save_directory (str): The directory from where to load the weights.
+            load_as (str, optional): Load the weights with this name. Defaults to None.
+
+        Returns:
+            Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
+                             and the name of the loaded weights.
+        """
+        if not exists(join(save_directory, ADAPTERFUSION_WEIGHTS_NAME)):
+            if self.error_on_missing:
+                raise ValueError("Loading path should be a directory where AdapterFusion is saved.")
+            else:
+                logger.info("No matching prediction head found in '{}'".format(save_directory))
+                return None, None
+
+        config = self.weights_helper.load_weights_config(save_directory)
+        if not hasattr(self.model.config, "adapter_fusion_models"):
+            self.model.config.adapter_fusion_models = []
+
+        adapter_fusion_name = load_as or config["name"]
+        if adapter_fusion_name in self.model.config.adapter_fusion_models:
+            logger.warning("Overwriting existing adapter fusion module '{}'".format(adapter_fusion_name))
+        self.model.add_fusion(adapter_fusion_name, config["config"])
+
+        # Load AdapterFusion weights
+        filter_func = self.filter_func(adapter_fusion_name)
+        if load_as:
+            rename_func = self.rename_func(config["name"], load_as)
+        else:
+            rename_func = None
+        self.weights_helper.load_weights(
+            save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
+        )
+
+        return save_directory, adapter_fusion_name
 
 
 class PredictionHeadLoader(WeightsLoader):
@@ -485,7 +591,8 @@ class PredictionHeadLoader(WeightsLoader):
             if self.model.__class__.__name__ != config["model_class"]:
                 if self.error_on_missing:
                     raise ValueError(
-                        f"Model class '{config['model_class']}' of found prediction head does not match current model class."
+                        f"Model class '{config['model_class']}' of found prediction head does not match current "
+                        f"model class."
                     )
                 else:
                     logger.info("No matching prediction head found in '{}'".format(save_directory))
@@ -532,45 +639,11 @@ class ModelAdaptersMixin(ABC):
         """
         pass
 
-    def add_language_adapter(self, adapter_name: str, config=None):
-        """Adds a new adapter module of type text_lang to the model.
-
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            config (str or dict, optional): The adapter configuration, can be either:
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
-        """
-        self.add_adapter(adapter_name, AdapterType.text_lang, config=config)
-
-    def add_task_adapter(self, adapter_name: str, config=None):
-        """Adds a new adapter module of type text_task to the model.
-
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            config (str or dict, optional): The adapter configuration, can be either:
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
-        """
-        self.add_adapter(adapter_name, AdapterType.text_task, config=config)
-
     @abstractmethod
-    def train_adapter(self, adapter_type: AdapterType):
+    def train_adapter(self, adapter_names: list):
         """Sets the model in mode for training the given type of adapter.
         """
         pass
-
-    def train_language_adapter(self):
-        """Sets the model in mode for training language adapters.
-        """
-        self.train_adapter(AdapterType.text_lang)
-
-    def train_task_adapter(self):
-        """Sets the model in mode for training task adapters.
-        """
-        self.train_adapter(AdapterType.text_task)
 
     def has_adapters(self, adapter_type=None):
         if not adapter_type:
@@ -592,6 +665,57 @@ class ModelAdaptersMixin(ABC):
             self.config.adapters.set_config(adapter_type, adapter_config)
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
+
+    def set_adapter_fusion_config(self, adapter_fusion_config, kwargs={}):
+        """Sets the adapter fusion configuration.
+
+        Args:
+            adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
+                - a string identifying a pre-defined adapter fusion configuration
+                - a dictionary representing the adapter fusion configuration
+                - the path to a file containing the adapter fusion configuration
+        """
+        if isinstance(adapter_fusion_config, str) and adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP:
+            self.config.adapter_fusion = AdapterFusionConfig.load(adapter_fusion_config, **kwargs)
+            # ADAPTERFUSION_CONFIG_MAP[adapter_fusion_config](**kwargs).to_dict()
+        elif isinstance(adapter_fusion_config, AdapterFusionConfig):
+            self.config.adapter_fusion = adapter_fusion_config.to_dict()
+        elif isinstance(adapter_fusion_config, dict):
+            self.config.adapter_fusion = adapter_fusion_config
+        else:
+            raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
+
+    def add_fusion(self, adapter_names, adapter_fusion_config=None, kwargs={}):
+        """Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
+
+        Args:
+            adapter_names: a list of adapter names which should be fused
+            adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
+                - a string identifying a pre-defined adapter fusion configuration
+                - a dictionary representing the adapter fusion configuration
+                - the path to a file containing the adapter fusion configuration
+            kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
+
+        Returns:
+
+        """
+        if not hasattr(self.config, "adapter_fusion"):
+            if adapter_fusion_config is not None:
+                self.set_adapter_fusion_config(adapter_fusion_config, kwargs)
+            else:
+                self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
+        elif hasattr(self.config, "adapter_fusion") and adapter_fusion_config is not None:
+            raise Warning("An AdapterFusion config has already been set and will NOT be overwritten")
+
+        if not hasattr(self.config, "adapter_fusion_models"):
+            self.config.adapter_fusion_models = []
+        if isinstance(adapter_names, list):
+            adapter_fusion_name = ",".join(adapter_names)
+        else:
+            adapter_fusion_name = adapter_names
+        if adapter_fusion_name not in self.config.adapter_fusion_models:
+            self.config.adapter_fusion_models.append(adapter_fusion_name)
+            self.base_model.add_fusion_layer(adapter_names)
 
     def save_adapter(
         self,
@@ -621,6 +745,27 @@ class ModelAdaptersMixin(ABC):
         else:
             raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
+    def save_adapter_fusion(
+        self, save_directory: str, adapter_names: list, custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+    ):
+        """Saves an adapter and its configuration file to a directory so that it can be shared
+        or reloaded using `load_adapter()`.
+
+        Args:
+            save_directory (str): Path to a directory where the adapter should be saved.
+            adapter_name (str): Name of the adapter to be saved.
+
+        Raises:
+            ValueError: If the given adapter name is invalid.
+        """
+
+        loader = AdapterFusionLoader(self)
+        loader.save(save_directory, adapter_names)
+        # save additional custom weights
+        if custom_weights_loaders:
+            for weights_loader in custom_weights_loaders:
+                weights_loader.save(save_directory, adapter_names)
+
     def load_adapter(
         self,
         adapter_name_or_path: str,
@@ -639,13 +784,16 @@ class ModelAdaptersMixin(ABC):
                 - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
                 - a path to a directory containing adapter weights saved using `model.saved_adapter()`
                 - a URL pointing to a zip folder containing a saved adapter module
-            adapter_type (AdapterType, optional): The type of adapter to be loaded. If not specified, text_task will be used for adapters loaded from the Hub.
-            config (dict or str, optional): The requested configuration of the adapter. If not specified, will be either:
+            adapter_type (AdapterType, optional): The type of adapter to be loaded. If not specified, text_task will be
+                    used for adapters loaded from the Hub.
+            config (dict or str, optional): The requested configuration of the adapter.
+                If not specified, will be either:
                 - the default adapter config for the requested adapter if specified
                 - the global default adapter config
             version (str, optional): The version of the adapter to be loaded.
             model_name (str, optional): The string identifier of the pre-trained model.
-            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was saved will be used.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
+                    saved will be used.
 
         Returns:
             str: The name with which the adapter was added to the model.
@@ -660,6 +808,40 @@ class ModelAdaptersMixin(ABC):
             return load_name
         else:
             raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
+
+    def load_adapter_fusion(
+        self,
+        adapter_fusion_name_or_path: str,
+        load_as: str = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        **kwargs
+    ) -> str:
+        """Loads a pre-trained pytorch adapter module from the local file system or a remote location.
+
+        Args:
+            adapter_fusion_name_or_path (str): can be either:
+                - the identifier of a pre-trained task adapter fusion module to be loaded from Adapter Hub
+                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
+                - a URL pointing to a zip folder containing a saved adapter module
+            config (dict or str, optional): The requested configuration of the adapter fusion.
+                If not specified, will be either:
+                - the default adapter config for the requested adapter fusion if specified
+                - the global default adapter fusion config
+            model_name (str, optional): The string identifier of the pre-trained model.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
+                    saved will be used.
+
+        Returns:
+            str: The name with which the adapter was added to the model.
+        """
+
+        loader = AdapterFusionLoader(self)
+        load_dir, load_name = loader.load(adapter_fusion_name_or_path, load_as)
+        # load additional custom weights
+        if custom_weights_loaders:
+            for weights_loader in custom_weights_loaders:
+                weights_loader.load(load_dir, load_as=load_as, loading_info=kwargs.get("loading_info", None))
+        return load_name
 
     def save_all_adapters(
         self,
@@ -682,6 +864,28 @@ class ModelAdaptersMixin(ABC):
             else:
                 meta_dict = {"config_id": h}
             self.save_adapter(save_path, name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders)
+
+    def save_all_adapter_fusions(
+        self,
+        save_directory: str,
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+    ):
+        """Saves all adapters of this model together with their configuration
+        to subfolders of the given location.
+
+        Args:
+            save_directory (str): Path to a directory where the adapters should be saved.
+        """
+        for name in self.config.adapter_fusion_models:
+            adapter_fusion_config = self.config.adapter_fusion
+            h = get_adapter_config_hash(adapter_fusion_config)
+            save_path = join(save_directory, name)
+            if meta_dict:
+                meta_dict.update({"config_id": h})
+            else:
+                meta_dict = {"config_id": h}
+            self.save_adapter_fusion(save_path, name, custom_weights_loaders=custom_weights_loaders)
 
     def freeze_model(self, freeze=True):
         """Freezes all weights of the model.
@@ -712,10 +916,13 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         """
         self.base_model.add_adapter(adapter_name, adapter_type, config)
 
-    def train_adapter(self, adapter_type: AdapterType):
-        """Sets the model in mode for training the given type of adapter.
-        """
-        self.base_model.train_adapter(adapter_type)
+    def train_adapter(self, adapter_names: list):
+        """Sets the model in mode for training the given type of adapter."""
+        self.base_model.train_adapter(adapter_names)
+
+    def train_fusion(self, adapter_names: list):
+        """Sets the model in mode for training of adapter fusion determined by a list of adapter names."""
+        self.base_model.train_fusion(adapter_names)
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)

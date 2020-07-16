@@ -154,7 +154,6 @@ def main():
 
     # Setup adapters
     task_name = data_args.task_name
-    language = adapter_args.load_lang_adapter
     setup_task_adapter_training(model, task_name, adapter_args)
 
     # Get datasets
@@ -194,9 +193,9 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
-        is_training_adapter=adapter_args.train_adapter,
-        lang_adapter=language,
-        task_adapters=[task_name],
+        do_save_full_model=not adapter_args.train_adapter,
+        do_save_adapters=adapter_args.train_adapter,
+        adapter_names=[task_name],
     )
 
     # Training

@@ -41,7 +41,10 @@ class AdapterHubTest(unittest.TestCase):
                 )
 
                 self.assertEqual(0, len(loading_info["missing_keys"]))
-                self.assertEqual(0, len(loading_info["unexpected_keys"]))
+
+                # hotfix for unnecessary weights in old adapters
+                unexpected_keys = [k for k in loading_info["unexpected_keys"] if "adapter_attention" not in k]
+                self.assertEqual(0, len(unexpected_keys))
 
                 self.assertIn(adapter_name, model.config.adapters.adapters)
                 # check if config is valid

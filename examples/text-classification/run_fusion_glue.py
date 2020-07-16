@@ -13,7 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Finetuning the library models for sequence classification on GLUE (Bert, XLM, XLNet, RoBERTa, Albert, XLM-RoBERTa)."""
+""" Finetuning the library models for sequence classification on
+GLUE (Bert, XLM, XLNet, RoBERTa, Albert, XLM-RoBERTa)."""
 
 
 import dataclasses
@@ -25,7 +26,14 @@ from typing import Dict, Optional
 
 import numpy as np
 
-from transformers import AdapterArguments, AutoConfig, AutoModelWithHeads, AutoTokenizer, EvalPrediction, GlueDataset
+from transformers import (  # setup_task_adapter_training,
+    AdapterArguments,
+    AutoConfig,
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    EvalPrediction,
+    GlueDataset,
+)
 from transformers import GlueDataTrainingArguments as DataTrainingArguments
 from transformers import (
     HfArgumentParser,
@@ -35,7 +43,6 @@ from transformers import (
     glue_output_modes,
     glue_tasks_num_labels,
     set_seed,
-    setup_task_adapter_training,
 )
 
 
@@ -85,7 +92,8 @@ def main():
         and not training_args.overwrite_output_dir
     ):
         raise ValueError(
-            f"Output directory ({training_args.output_dir}) already exists and is not empty. Use --overwrite_output_dir to overcome."
+            f"Output directory ({training_args.output_dir}) already exists and is not empty."
+            f" Use --overwrite_output_dir to overcome."
         )
 
     # Setup logging
@@ -129,17 +137,68 @@ def main():
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
     )
-    model = AutoModelWithHeads.from_pretrained(
+    model = AutoModelForSequenceClassification.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
         cache_dir=model_args.cache_dir,
     )
-    model.add_classification_head(data_args.task_name, num_labels=num_labels)
 
     # Setup adapters
-    setup_task_adapter_training(model, data_args.task_name, adapter_args)
+    # task_name = data_args.task_name
+    # language = adapter_args.language
+    # setup_task_adapter_training(model, task_name, adapter_args)
+    from transformers.adapter_config import AdapterType
 
+    base_model = getattr(model, model.base_model_prefix, model)
+    base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
+
+    from transformers.adapter_config import PfeifferConfig
+
+    # from transformers.adapter_config import  HoulsbyConfig
+
+    model.load_adapter(
+        "sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion"
+    )
+    model.load_adapter(
+        "nli/multinli@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion"
+    )
+    model.load_adapter("nli/rte@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion")
+    model.load_adapter("sts/mrpc@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion")
+    model.load_adapter("sts/qqp@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion")
+    model.load_adapter("comsense/cosmosqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/csqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/hellaswag@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/siqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/winogrande@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/cb@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/sick@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/scitail@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("qa/boolq@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sentiment/imdb@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+
+    adapter_names = [
+        [
+            "sst_glue",
+            "multinli",
+            "rte",
+            "mrpc",
+            "qqp",
+            "cosmosqa",
+            "csqa",
+            "hellaswag",
+            "socialiqa",
+            "winogrande",
+            "cb",
+            "sick",
+            "scitail",
+            "boolq",
+            "imdb",
+        ]
+    ]
+
+    model.add_fusion(adapter_names[0], "static", {"regularization": False})
+    model.base_model.train_fusion(adapter_names[0])
     # Get datasets
     train_dataset = GlueDataset(data_args, tokenizer=tokenizer) if training_args.do_train else None
     eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev") if training_args.do_eval else None
@@ -159,8 +218,9 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
-        do_save_full_model=not adapter_args.train_adapter,
-        do_save_adapters=adapter_args.train_adapter,
+        do_save_full_model=False,
+        do_save_adapter_fusion=True,
+        adapter_names=adapter_names,
     )
 
     # Training

@@ -19,6 +19,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler, Sampler, SequentialSampler
 from tqdm.auto import tqdm, trange
 
+from .adapter_bert import get_fusion_regularization_loss
 from .data.data_collator import DataCollator, DefaultDataCollator
 from .modeling_utils import PreTrainedModel
 from .optimization import AdamW, get_linear_schedule_with_warmup
@@ -177,9 +178,10 @@ class Trainer:
         eval_dataset: Optional[Dataset] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         prediction_loss_only=False,
-        is_training_adapter: bool = False,
-        lang_adapter=None,
-        task_adapters=None,
+        do_save_full_model: bool = True,
+        do_save_adapters: bool = False,
+        do_save_adapter_fusion: bool = False,
+        adapter_names: Optional[List[List[str]]] = None,
         tb_writer: Optional["SummaryWriter"] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = None,
     ):
@@ -222,9 +224,10 @@ class Trainer:
         if self.is_world_master():
             os.makedirs(self.args.output_dir, exist_ok=True)
         # adapters used
-        self.is_training_adapter = is_training_adapter
-        self.lang_adapter = lang_adapter
-        self.task_adapters = task_adapters
+        self.do_save_full_model = do_save_full_model
+        self.do_save_adapters = do_save_adapters
+        self.do_save_adapter_fusion = do_save_adapter_fusion
+        self.adapter_names = adapter_names
         if is_tpu_available():
             # Set an xla_device flag on the model's config.
             # We'll find a more elegant and not need to do this in the future.
@@ -309,6 +312,9 @@ class Trainer:
             return self.optimizers
         # Prepare optimizer and schedule (linear warmup and decay)
         no_decay = ["bias", "LayerNorm.weight"]
+        if hasattr(self.model.config, "adapter_fusion_models"):
+            no_decay += [f"adapter_fusion_layer.{n}.value" for n in self.model.config.adapter_fusion_models]
+
         optimizer_grouped_parameters = [
             {
                 "params": [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay)],
@@ -482,6 +488,11 @@ class Trainer:
                     len(epoch_iterator) <= self.args.gradient_accumulation_steps
                     and (step + 1) == len(epoch_iterator)
                 ):
+                    # apply adapter fusion weight regularization on the value matrix
+                    if hasattr(model.config, "adapter_fusion") and model.config.adapter_fusion["regularization"]:
+                        fusion_reg_loss = get_fusion_regularization_loss(model)
+                        fusion_reg_loss.backward()
+
                     if self.args.fp16:
                         torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), self.args.max_grad_norm)
                     else:
@@ -551,7 +562,7 @@ class Trainer:
         if self.tb_writer:
             self.tb_writer.close()
 
-        if self.is_training_adapter:
+        if self.do_save_adapters:
             logger.info("\n\nTraining completed. Do not forget to share your adapters on https://adapterhub.ml =)\n\n")
         else:
             logger.info("\n\nTraining completed. Do not forget to share your model on huggingface.co/models =)\n\n")
@@ -578,7 +589,7 @@ class Trainer:
         for k, v in inputs.items():
             inputs[k] = v.to(self.args.device)
 
-        outputs = model(**inputs, language=self.lang_adapter, adapter_tasks=self.task_adapters)
+        outputs = model(**inputs, adapter_names=self.adapter_names)
         loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
         if self.args.n_gpu > 1:
@@ -637,9 +648,11 @@ class Trainer:
             raise ValueError("Trainer.model appears to not be a PreTrainedModel")
 
         xm.rendezvous("saving_checkpoint")
-        if self.is_training_adapter:
+        if self.do_save_adapters:
             self.model.save_all_adapters(output_dir)
-        else:
+        if self.do_save_adapter_fusion:
+            self.model.save_all_adapter_fusions(output_dir)
+        if self.do_save_full_model:
             self.model.save_pretrained(output_dir)
 
     def _save(self, output_dir: Optional[str] = None):
@@ -650,9 +663,11 @@ class Trainer:
         # They can then be reloaded using `from_pretrained()`
         if not isinstance(self.model, PreTrainedModel):
             raise ValueError("Trainer.model appears to not be a PreTrainedModel")
-        if self.is_training_adapter:
+        if self.do_save_adapters:
             self.model.save_all_adapters(output_dir)
-        else:
+        if self.do_save_adapter_fusion:
+            self.model.save_all_adapter_fusions(output_dir)
+        if self.do_save_full_model:
             self.model.save_pretrained(output_dir)
 
         # Good practice: save your training arguments together with the trained model
@@ -769,7 +784,7 @@ class Trainer:
                 inputs[k] = v.to(self.args.device)
 
             with torch.no_grad():
-                outputs = model(**inputs, language=self.lang_adapter, adapter_tasks=self.task_adapters)
+                outputs = model(**inputs, adapter_names=self.adapter_names)
                 if has_labels:
                     step_eval_loss, logits = outputs[:2]
                     eval_losses += [step_eval_loss.mean().item()]

@@ -26,6 +26,8 @@ CONFIG_NAME = "adapter_config.json"
 WEIGHTS_NAME = "pytorch_adapter.bin"
 HEAD_CONFIG_NAME = "head_config.json"
 HEAD_WEIGHTS_NAME = "pytorch_model_head.bin"
+ADAPTERFUSION_CONFIG_NAME = "adapter_fusion_config.json"
+ADAPTERFUSION_WEIGHTS_NAME = "pytorch_model_adapter_fusion.bin"
 
 ADAPTER_IDENTIFIER_PATTERN = r"[0-9a-zA-Z\-_\/@]{2,}"
 ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/dist/"
@@ -78,6 +80,18 @@ def get_adapter_config_hash(config, length=16):
     h = hashlib.sha1()
     h.update(dict_str.encode(encoding="utf-8"))
     return h.hexdigest()[:length]
+
+
+def parse_adapter_names(adapter_names):
+    if adapter_names is not None:
+        if isinstance(adapter_names, str):
+            adapter_names = [[adapter_names]]
+        elif isinstance(adapter_names, list):
+            if isinstance(adapter_names[0], str):
+                adapter_names = [adapter_names]
+        if not isinstance(adapter_names[0][0], str):
+            raise ValueError("Adapter names %s not set correctly", str(adapter_names))
+    return adapter_names
 
 
 def inherit_doc(cls):
@@ -161,7 +175,7 @@ def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, fo
     return output_path_extracted
 
 
-def resolve_adapter_config(config: Union[dict, str], local_map=None, **kwargs) -> dict:
+def resolve_adapter_config(config: Union[dict, str], local_map=None, try_loading_from_hub=True, **kwargs) -> dict:
     """Resolves a given adapter configuration specifier to a full configuration dictionary.
 
     Args:
@@ -190,15 +204,15 @@ def resolve_adapter_config(config: Union[dict, str], local_map=None, **kwargs) -
             else:
                 return loaded_config
     # now, try to find in hub index
-    index_file = download_cached(ADAPTER_HUB_CONFIG_FILE, **kwargs)
-    if not index_file:
-        raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
-    with open(index_file, "r") as f:
-        config_index = json.load(f)
-    if config in config_index:
-        return config_index[config]
-    else:
-        raise ValueError("Could not identify '{}' as a valid adapter configuration.".format(config))
+    if try_loading_from_hub:
+        index_file = download_cached(ADAPTER_HUB_CONFIG_FILE, **kwargs)
+        if not index_file:
+            raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
+        with open(index_file, "r") as f:
+            config_index = json.load(f)
+        if config in config_index:
+            return config_index[config]
+    raise ValueError("Could not identify '{}' as a valid adapter configuration.".format(config))
 
 
 def _split_identifier(identifier):

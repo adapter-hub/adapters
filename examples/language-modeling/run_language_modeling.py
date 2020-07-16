@@ -235,7 +235,7 @@ def main():
             else:
                 base_model.add_adapter(language, AdapterType.text_lang)
         # enable adapter training
-        base_model.train_language_adapter()
+        base_model.train_adapter([language])
 
     if config.model_type in ["bert", "roberta", "distilbert", "camembert"] and not data_args.mlm:
         raise ValueError(
@@ -265,8 +265,9 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         prediction_loss_only=True,
-        is_training_adapter=adapter_args.train_adapter,
-        lang_adapter=language,
+        do_save_full_model=not adapter_args.train_adapter,
+        do_save_adapters=adapter_args.train_adapter,
+        adapter_names=[[language]],
     )
 
     # Training

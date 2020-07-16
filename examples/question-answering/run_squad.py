@@ -72,7 +72,7 @@ def to_list(tensor):
     return tensor.detach().cpu().tolist()
 
 
-def train(args, train_dataset, model, tokenizer, language=None, tasks=None):
+def train(args, train_dataset, model, tokenizer, adapter_names=None):
     """ Train the model """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -186,8 +186,7 @@ def train(args, train_dataset, model, tokenizer, language=None, tasks=None):
                 "token_type_ids": batch[2],
                 "start_positions": batch[3],
                 "end_positions": batch[4],
-                "language": language,
-                "adapter_tasks": tasks,
+                "adapter_names": adapter_names,
             }
 
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
@@ -270,7 +269,7 @@ def train(args, train_dataset, model, tokenizer, language=None, tasks=None):
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, model, tokenizer, prefix="", language=None, tasks=None):
+def evaluate(args, model, tokenizer, prefix="", adapter_names=None):
     dataset, examples, features = load_and_cache_examples(args, tokenizer, evaluate=True, output_examples=True)
 
     if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
@@ -303,8 +302,7 @@ def evaluate(args, model, tokenizer, prefix="", language=None, tasks=None):
                 "input_ids": batch[0],
                 "attention_mask": batch[1],
                 "token_type_ids": batch[2],
-                "language": language,
-                "adapter_tasks": tasks,
+                "adapter_names": adapter_names,
             }
 
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
@@ -410,7 +408,8 @@ def evaluate(args, model, tokenizer, prefix="", language=None, tasks=None):
 
 def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=False):
     if args.local_rank not in [-1, 0] and not evaluate:
-        # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        # Make sure only the first process in distributed training process the dataset,
+        # and the others will use the cache
         torch.distributed.barrier()
 
     # Load data features from cache or dataset file
@@ -470,7 +469,8 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
             torch.save({"features": features, "dataset": dataset, "examples": examples}, cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
-        # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        # Make sure only the first process in distributed training process the dataset, and the others
+        #  will use the cache
         torch.distributed.barrier()
 
     if output_examples:
@@ -630,7 +630,8 @@ def main():
         "--lang_id",
         default=0,
         type=int,
-        help="language id of input for language-specific xlm models (see tokenization_xlm.PRETRAINED_INIT_CONFIGURATION)",
+        help="language id of input for language-specific xlm models "
+        "(see tokenization_xlm.PRETRAINED_INIT_CONFIGURATION)",
     )
 
     parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
@@ -679,6 +680,7 @@ def main():
     parser.add_argument(
         "--load_language_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded."
     )
+    parser.add_argument("--language", type=str, default=None, help="Adapter name of the loaded language adapter.")
     parser.add_argument("--adapter_config", type=str, default="pfeiffer", help="Adapter configuration.")
     parser.add_argument("--language_adapter_config", type=str, default=None, help="Language adapter configuration.")
     args = parser.parse_args()
@@ -764,9 +766,15 @@ def main():
 
     # Setup adapters
     task_name = "squad"
-    language = args.load_lang_adapter
+    language = args.language
     setup_task_adapter_training(model, task_name, args)
-    tasks = [task_name]
+    if args.train_adapter:
+        if language:
+            adapter_names = [[language], [task_name]]
+        else:
+            adapter_names = [[task_name]]
+    else:
+        adapter_names = None
 
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab
@@ -776,9 +784,9 @@ def main():
 
     logger.info("Training/evaluation parameters %s", args)
 
-    # Before we do anything with models, we want to ensure that we get fp16 execution of torch.einsum if args.fp16 is set.
-    # Otherwise it'll default to "promote" mode, and we'll get fp32 operations. Note that running `--fp16_opt_level="O2"` will
-    # remove the need for this code, but it is still valid.
+    # Before we do anything with models, we want to ensure that we get fp16 execution of torch.einsum if
+    # args.fp16 is set.Otherwise it'll default to "promote" mode, and we'll get fp32 operations.
+    # Note that running `--fp16_opt_level="O2"` will remove the need for this code, but it is still valid.
     if args.fp16:
         try:
             import apex
@@ -790,7 +798,7 @@ def main():
     # Training
     if args.do_train:
         train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=False)
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer, language=language, tasks=tasks)
+        global_step, tr_loss = train(args, train_dataset, model, tokenizer, adapter_names=adapter_names)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
     # Save the trained model and the tokenizer
@@ -840,7 +848,7 @@ def main():
             model.to(args.device)
 
             # Evaluate
-            result = evaluate(args, model, tokenizer, prefix=global_step, language=language, tasks=tasks)
+            result = evaluate(args, model, tokenizer, prefix=global_step, adapter_names=adapter_names)
 
             result = dict((k + ("_{}".format(global_step) if global_step else ""), v) for k, v in result.items())
             results.update(result)
