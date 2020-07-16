@@ -43,7 +43,7 @@ model.train_adapter([task_name])
 ```eval_rst
 .. important::
     The most crucial step when training an adapter module is to freeze all weights in the model except for those of the
-    adapter. In the previous snippet, this is achieved by calling the ``train_task_adapter()`` method which disables training
+    adapter. In the previous snippet, this is achieved by calling the ``train_adapter()`` method which disables training
     of all weights outside the task adapter. In case you want to unfreeze all model weights later on, you can use
     ``freeze_model(False)``.
 ```
