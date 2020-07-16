@@ -312,7 +312,7 @@ class Trainer:
             return self.optimizers
         # Prepare optimizer and schedule (linear warmup and decay)
         no_decay = ["bias", "LayerNorm.weight"]
-        if hasattr(self.model.config, 'adapter_fusion_models'):
+        if hasattr(self.model.config, "adapter_fusion_models"):
             no_decay += [f"adapter_fusion_layer.{n}.value" for n in self.model.config.adapter_fusion_models]
 
         optimizer_grouped_parameters = [
