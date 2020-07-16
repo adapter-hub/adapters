@@ -145,11 +145,11 @@ class WeightsLoaderHelper:
 
         missing_keys = [k for k in missing_keys if filter_func(k)]
         if len(missing_keys) > 0:
-            logger.warning(
+            logger.info(
                 "Some module weights could not be found in loaded weights file: {}".format(", ".join(missing_keys))
             )
         if len(unexpected_keys) > 0:
-            logger.warning(
+            logger.info(
                 "Some weights of the state_dict could not be loaded into model: {}".format(", ".join(unexpected_keys))
             )
 
@@ -433,7 +433,7 @@ class AdapterFusionLoader(WeightsLoader):
                 if self.error_on_missing:
                     raise ValueError(f"Unknown AdapterFusion '{name}'.")
                 else:
-                    logger.info(f"No AdapterFusion with name '{name}' available.")
+                    logger.debug(f"No AdapterFusion with name '{name}' available.")
                     return
 
         if not exists(save_directory):
@@ -472,7 +472,7 @@ class AdapterFusionLoader(WeightsLoader):
             if self.error_on_missing:
                 raise ValueError("Loading path should be a directory where AdapterFusion is saved.")
             else:
-                logger.info("No matching prediction head found in '{}'".format(save_directory))
+                logger.debug("No matching adapter fusion found in '{}'".format(save_directory))
                 return None, None
 
         config = self.weights_helper.load_weights_config(save_directory)
@@ -532,7 +532,7 @@ class PredictionHeadLoader(WeightsLoader):
                     if self.error_on_missing:
                         raise ValueError(f"Unknown head_name '{name}'.")
                     else:
-                        logger.info(f"No prediction head with name '{name}' available.")
+                        logger.debug(f"No prediction head with name '{name}' available.")
                         return
             else:
                 # we haven't found a prediction head configuration, so we assume there is only one (unnamed) head
@@ -595,7 +595,7 @@ class PredictionHeadLoader(WeightsLoader):
                         f"model class."
                     )
                 else:
-                    logger.info("No matching prediction head found in '{}'".format(save_directory))
+                    logger.debug("No matching prediction head found in '{}'".format(save_directory))
                     return None, None
             if hasattr(self.model.config, "prediction_heads"):
                 head_name = load_as or config["name"]
