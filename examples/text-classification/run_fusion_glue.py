@@ -197,8 +197,8 @@ def main():
         ]
     ]
 
-    model.add_fusion(adapter_names[0])
-
+    model.add_fusion(adapter_names[0], "static", {"regularization": False})
+    model.base_model.train_fusion(adapter_names[0])
     # Get datasets
     train_dataset = GlueDataset(data_args, tokenizer=tokenizer) if training_args.do_train else None
     eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev") if training_args.do_eval else None
