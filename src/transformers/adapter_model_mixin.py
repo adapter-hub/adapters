@@ -408,10 +408,7 @@ class AdapterFusionLoader(WeightsLoader):
         self.error_on_missing = error_on_missing
 
     def filter_func(self, adapter_fusion_name):
-        return (
-            lambda x: not x.startswith(self.model.base_model_prefix)
-            and "adapter_fusion_layer.{}".format(adapter_fusion_name) in x
-        )
+        return lambda x: "adapter_fusion_layer.{}".format(adapter_fusion_name) in x
 
     def rename_func(self, old_name, new_name):
         return lambda k: k.replace(
