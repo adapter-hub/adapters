@@ -6,7 +6,7 @@ from .utils import require_torch
 
 
 @require_torch
-class AdapterModelTest(unittest.TestCase):
+class AdapterFusionModelTest(unittest.TestCase):
     model_classes = [BertModel, RobertaModel, XLMRobertaModel]
 
     def test_model_config_serialization(self):
