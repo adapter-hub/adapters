@@ -37,7 +37,7 @@ if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
         config=adapter_args.adapter_config
     )
 # enable adapter training
-model.train_task_adapter()
+model.train_adapter([task_name])
 ```
 
 ```eval_rst
