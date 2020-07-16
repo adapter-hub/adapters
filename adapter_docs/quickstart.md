@@ -52,10 +52,10 @@ The task prediction head loaded together with the adapter gives us a class label
 ```python
 # load pre-trained task adapter from Adapter Hub
 # with with_head=True given, we also load a pre-trained classification head for this task
-model.load_adapter('sst', with_head=True)
+model.load_adapter('sst', config='pfeiffer', with_head=True)
 
 # activate the adapter we just loaded, so that it is used in every forward pass
-model.set_active_task('sst')
+model.set_active_adapters('sst')
 
 # predict output tensor
 outputs = model(input_tensor)

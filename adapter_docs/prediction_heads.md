@@ -25,18 +25,17 @@ For more about the different head types and the configuration options, refer to 
 Now, of course, we would like to train our classification head together with an adapter, so let's add one:
 ```python
 model.add_adapter("mrpc", config="pfeiffer")
-model.set_active_task("mrpc")
+model.set_active_adapters("mrpc")
 ```
 
 Since we gave the task adapter the same name as our head, we can easily identify them as belonging together.
-The call to `set_active_task()` in the second line tells our model to use the adapter - head configuration we specified by default in a forward pass.
+The call to `set_active_adapters()` in the second line tells our model to use the adapter - head configuration we specified by default in a forward pass.
 At this point, we can start to [train our setup](training.md).
 
 ```eval_rst
 .. note::
-    The ``set_active_task()`` will search for a task adapter module and a prediction head with the given name to be activated.
-    If this method is not used, you can still activate a specific adapter module or prediction head by providing the `adapter_tasks` or `head` parameter in the forward call.
-    An equivalent method ``set_active_language()`` is available for language adapters.
+    The ``set_active_adapters()`` will search for an adapter module and a prediction head with the given name to be activated.
+    If this method is not used, you can still activate a specific adapter module or prediction head by providing the `adapter_names` or `head` parameter in the forward call.
 ```
 
 After training has completed, we can save our whole setup (adapter module _and_ prediction head), with a single call:

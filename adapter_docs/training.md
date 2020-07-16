@@ -51,7 +51,7 @@ model.train_adapter([task_name])
 Besides this, we only have to make sure that the task adapter and preddiction head are activated so that they are used in every forward pass:
 
 ```python
-model.set_active_task(data_args.task_name)
+model.set_active_adapters(data_args.task_name)
 ```
 
 The rest of the training procedure does not require any further changes in code.
@@ -91,14 +91,12 @@ described above, we add a language adapter module to an existing model training 
 script by adding the following code:
 
 ```python
-# get actual model for derived models with heads
-base_model = getattr(model, model.base_model_prefix, model)
 # language adapter - only add if not existing
-if language not in base_model.config.adapters.adapter_list(AdapterType.text_lang):
-    base_model.set_adapter_config(AdapterType.text_lang, adapter_args.adapter_config)
-    base_model.add_adapter(language, AdapterType.text_lang)
+if language not in model.config.adapters.adapter_list(AdapterType.text_lang):
+    model.set_adapter_config(AdapterType.text_lang, adapter_args.adapter_config)
+    model.add_adapter(language, AdapterType.text_lang)
 # enable adapter training
-base_model.train_language_adapter()
+model.train_adapter([language])
 ```
 
 Training a language adapter on BERT then may look like the following:
