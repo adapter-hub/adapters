@@ -30,7 +30,7 @@ ADAPTERFUSION_CONFIG_NAME = "adapter_fusion_config.json"
 ADAPTERFUSION_WEIGHTS_NAME = "pytorch_model_adapter_fusion.bin"
 
 ADAPTER_IDENTIFIER_PATTERN = r"[0-9a-zA-Z\-_\/@]{2,}"
-ADAPTER_HUB_URL = "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/dist/"
+ADAPTER_HUB_URL = "https://raw.githubusercontent.com/Adapter-Hub/Hub/master/dist/"
 ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index_{}/{}.json"
 ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
 
