@@ -238,7 +238,9 @@ class ModelAdaptersConfig:
         """Checks whether all adapters in a list share the same adapter configuration"""
         common_config = None
         for name in adapter_names:
-            adapter_config = AdapterConfig.from_dict(self.get(name))
+            adapter_config = self.get(name)
+            if not is_dataclass(adapter_config):
+                adapter_config = AdapterConfig.from_dict(adapter_config)
             if common_config and adapter_config != adapter_config:
                 return None
             common_config = adapter_config
