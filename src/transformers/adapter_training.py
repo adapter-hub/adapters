@@ -52,9 +52,7 @@ def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArgu
             # TODO support different non_linearity & reduction_factor
             lconfig = AdapterConfig.load(lconfig_string, non_linearity="gelu", reduction_factor=2)
 
-            model.load_adapter(
-                adapter_args.load_lang_adapter, AdapterType.text_lang, config=lconfig
-            )
+            model.load_adapter(adapter_args.load_lang_adapter, AdapterType.text_lang, config=lconfig)
         # enable adapter training
         base_model.train_adapter([task_name])
     # set adapters as default if possible
