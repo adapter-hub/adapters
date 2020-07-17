@@ -22,9 +22,6 @@ class AdapterArguments:
     )
     adapter_config: Optional[str] = field(default="pfeiffer", metadata={"help": "Adapter configuration."})
     lang_adapter_config: Optional[str] = field(default=None, metadata={"help": "Language adapter configuration."})
-    language: Optional[str] = field(
-        default=None, metadata={"help": "The adapter name of the loaded language adapter, e.g. 'en' for english."}
-    )
 
 
 def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArguments):
@@ -56,7 +53,7 @@ def setup_task_adapter_training(model, task_name: str, adapter_args: AdapterArgu
             lconfig = AdapterConfig.load(lconfig_string, non_linearity="gelu", reduction_factor=2)
 
             model.load_adapter(
-                adapter_args.load_lang_adapter, AdapterType.text_lang, config=lconfig, load_as=adapter_args.language
+                adapter_args.load_lang_adapter, AdapterType.text_lang, config=lconfig
             )
         # enable adapter training
         base_model.train_adapter([task_name])

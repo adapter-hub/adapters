@@ -38,7 +38,9 @@ from transformers import (
     set_seed,
     setup_task_adapter_training,
 )
+
 from utils_ner import NerDataset, Split, get_labels
+
 
 
 logger = logging.getLogger(__name__)
@@ -77,6 +79,7 @@ class DataTrainingArguments:
         metadata={"help": "The input data dir. Should contain the .txt files for a CoNLL-2003-formatted task."}
     )
     labels: Optional[str] = field(
+        default=None,
         metadata={"help": "Path to a file containing all labels. If not specified, CoNLL-2003 labels are used."}
     )
     max_seq_length: int = field(
@@ -168,13 +171,17 @@ def main():
 
     # Setup adapters
     task_name = "ner"
-    language = adapter_args.language
     setup_task_adapter_training(model, task_name, adapter_args)
     if adapter_args.train_adapter:
+        language = None
+        for k, v in model.config.adapters.adapters.items():
+            if v[0] == 'text_lang':
+                language = k
         if language:
             adapter_names = [[language], [task_name]]
         else:
             adapter_names = [[task_name]]
+
     else:
         adapter_names = None
 
