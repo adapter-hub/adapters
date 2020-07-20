@@ -153,8 +153,8 @@ class HoulsbyConfig(AdapterConfig):
     ln_after: bool = False
     mh_adapter: bool = True
     output_adapter: bool = True
-    non_linearity: str = "swish"
-    reduction_factor: int = 16
+    non_linearity: str = "gelu"
+    reduction_factor: int = 12
 
 
 ADAPTER_CONFIG_MAP = {"pfeiffer": PfeifferConfig(), "houlsby": HoulsbyConfig()}
