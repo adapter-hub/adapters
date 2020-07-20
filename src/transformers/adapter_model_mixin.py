@@ -891,8 +891,14 @@ class ModelAdaptersMixin(ABC):
         """Freezes all weights of the model.
         """
         # first freeze/ unfreeze all model weights
-        for param in self.base_model.parameters():
-            param.requires_grad = not freeze
+        if self.config.adapters.config_map['text_task'] == "houlsby":
+            for param in self.base_model.named_parameters():
+                if "encoder" in param[0] and "LayerNorm" in param[0]:
+                    continue
+                param[1].requires_grad = not freeze
+        else:
+            for param in self.base_model.parameters():
+                param.requires_grad = not freeze
         self.model_freezed = freeze
 
 
