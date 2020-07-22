@@ -2,7 +2,7 @@ import logging
 
 import torch
 from torch import nn
-from torch.nn import CrossEntropyLoss, MSELoss, BCEWithLogitsLoss
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
@@ -645,10 +645,10 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
         """
         if multilabel:
-            head_type="multilabel_classification"
+            head_type = "multilabel_classification"
         else:
-            head_type="classification"
-            
+            head_type = "classification"
+
         config = {
             "head_type": head_type,
             "num_labels": num_labels,
@@ -758,14 +758,14 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                     loss_fct = CrossEntropyLoss()
                     loss = loss_fct(logits.view(-1, head["num_labels"]), labels.view(-1))
                 outputs = (loss,) + outputs
-                
+
         elif head["head_type"] == "multilabel_classification":
             logits = self.heads[head_name](sequence_output[:, 0])
 
             outputs = (logits,) + outputs[2:]
             if labels is not None:
                 loss_fct = BCEWithLogitsLoss()
-                if labels.dtype != 'torch.float32':
+                if labels.dtype != "torch.float32":
                     labels = labels.float()
                 loss = loss_fct(logits, labels)
                 outputs = (loss,) + outputs
