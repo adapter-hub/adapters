@@ -2,7 +2,7 @@ import logging
 
 import torch
 from torch import nn
-from torch.nn import CrossEntropyLoss, MSELoss
+from torch.nn import CrossEntropyLoss, MSELoss, BCEWithLogitsLoss
 
 from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
@@ -632,7 +632,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.active_adapter_names = new_adapter_names
 
     def add_classification_head(
-        self, head_name, num_labels=2, layers=2, activation_function="tanh", overwrite_ok=False,
+        self, head_name, num_labels=2, layers=2, activation_function="tanh", overwrite_ok=False, multilabel=False
     ):
         """Adds a sequence classification head on top of the model.
 
@@ -642,9 +642,15 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             layers (int, optional): Number of layers. Defaults to 2.
             activation_function (str, optional): Activation function. Defaults to 'tanh'.
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
         """
+        if multilabel:
+            head_type="multilabel_classification"
+        else:
+            head_type="classification"
+            
         config = {
-            "head_type": "classification",
+            "head_type": head_type,
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
@@ -751,6 +757,17 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 else:
                     loss_fct = CrossEntropyLoss()
                     loss = loss_fct(logits.view(-1, head["num_labels"]), labels.view(-1))
+                outputs = (loss,) + outputs
+                
+        elif head["head_type"] == "multilabel_classification":
+            logits = self.heads[head_name](sequence_output[:, 0])
+
+            outputs = (logits,) + outputs[2:]
+            if labels is not None:
+                loss_fct = BCEWithLogitsLoss()
+                if labels.dtype != 'torch.float32':
+                    labels = labels.float()
+                loss = loss_fct(logits.view(-1, head["num_labels"]), labels.view(-1, head["num_labels"]))
                 outputs = (loss,) + outputs
 
         elif head["head_type"] == "multiple_choice":
