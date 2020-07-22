@@ -767,7 +767,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 loss_fct = BCEWithLogitsLoss()
                 if labels.dtype != 'torch.float32':
                     labels = labels.float()
-                loss = loss_fct(logits.view(-1, head["num_labels"]), labels.view(-1, head["num_labels"]))
+                loss = loss_fct(logits, labels)
                 outputs = (loss,) + outputs
 
         elif head["head_type"] == "multiple_choice":
