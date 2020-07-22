@@ -765,7 +765,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             outputs = (logits,) + outputs[2:]
             if labels is not None:
                 loss_fct = BCEWithLogitsLoss()
-                if labels.dtype != "torch.float32":
+                if labels.dtype != torch.float32:
                     labels = labels.float()
                 loss = loss_fct(logits, labels)
                 outputs = (loss,) + outputs
