@@ -3,7 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 from os import mkdir
 from os.path import exists, isdir, isfile, join
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Mapping, Optional, Tuple, Union
 
 import torch
 
@@ -678,9 +678,7 @@ class ModelAdaptersMixin(ABC):
         if isinstance(adapter_fusion_config, str) and adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP:
             self.config.adapter_fusion = AdapterFusionConfig.load(adapter_fusion_config, **kwargs)
             # ADAPTERFUSION_CONFIG_MAP[adapter_fusion_config](**kwargs).to_dict()
-        elif isinstance(adapter_fusion_config, AdapterFusionConfig):
-            self.config.adapter_fusion = adapter_fusion_config.to_dict()
-        elif isinstance(adapter_fusion_config, dict):
+        elif isinstance(adapter_fusion_config, Mapping):
             self.config.adapter_fusion = adapter_fusion_config
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))

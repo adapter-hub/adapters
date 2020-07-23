@@ -83,6 +83,19 @@ class AdapterModelTest(unittest.TestCase):
                     self.assertEqual(len(output1), len(output2))
                     self.assertTrue(torch.equal(output1[0], output2[0]))
 
+    def test_model_config_serialization(self):
+        """PretrainedConfigurations should not raise an Exception when serializing the config dict
+
+        See, e.g., PretrainedConfig.to_json_string()
+        """
+        for model_class in self.model_classes:
+            for k, v in ADAPTER_CONFIG_MAP.items():
+                model_config = model_class.config_class
+                model = model_class(model_config())
+                model.add_adapter("test", adapter_type=AdapterType.text_task, config=v)
+                # should not raise an exception
+                model.config.to_json_string()
+
 
 @require_torch
 class PredictionHeadModelTest(unittest.TestCase):
