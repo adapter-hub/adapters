@@ -1,4 +1,5 @@
 import hashlib
+import itertools
 import json
 import logging
 import os
@@ -10,7 +11,7 @@ from dataclasses import asdict, is_dataclass
 from enum import Enum
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 
@@ -82,7 +83,11 @@ def get_adapter_config_hash(config, length=16):
     return h.hexdigest()[:length]
 
 
-def parse_adapter_names(adapter_names):
+def flatten_adapter_names(adapter_names: List[List[str]]) -> List[str]:
+    return list(itertools.chain(*adapter_names))
+
+
+def parse_adapter_names(adapter_names: list) -> List[List[str]]:
     if adapter_names is not None:
         if isinstance(adapter_names, str):
             adapter_names = [[adapter_names]]
