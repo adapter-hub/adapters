@@ -480,10 +480,7 @@ class BertEncoderAdaptersMixin:
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
-        if hasattr(adapter_config, "leave_out"):
-            leave_out = adapter_config.leave_out
-        else:
-            leave_out = []
+        leave_out = adapter_config.get("leave_out", [])
         for i, layer in enumerate(self.layer):
             if i not in leave_out:
                 layer.add_adapter(adapter_name, adapter_type)
