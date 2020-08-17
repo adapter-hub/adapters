@@ -183,7 +183,10 @@ class ModelAdaptersConfig:
     def get(self, adapter_name: str, return_type: bool = False):
         if adapter_name in self.adapters:
             adapter_type, config_name = self.adapters[adapter_name]
-            config = self.config_map.get(config_name, None)
+            if config_name in self.config_map:
+                config = self.config_map.get(config_name, None)
+            else:
+                config = ADAPTER_CONFIG_MAP.get(config_name, None)
             if not config:
                 config = self.config_map[adapter_type]
             if isinstance(config, str):
@@ -234,17 +237,20 @@ class ModelAdaptersConfig:
         else:
             raise ValueError("Unable to identify {} as a valid adapter config.".format(config))
 
-    def common_config(self, adapter_names: list) -> Optional[AdapterConfig]:
-        """Checks whether all adapters in a list share the same adapter configuration"""
-        common_config = None
-        for name in adapter_names:
-            adapter_config = self.get(name)
-            if not is_dataclass(adapter_config):
-                adapter_config = AdapterConfig.from_dict(adapter_config)
-            if common_config and adapter_config != adapter_config:
-                return None
-            common_config = adapter_config
-        return common_config
+    def common_config_value(self, adapter_names: list, attribute: str):
+        """Checks whether all adapters in a list share the same config setting for a given attribute and returns the shared value.
+
+        Args:
+            adapter_names (list): The adapters to check.
+            attribute (str): The config attribute to check.
+        """
+        common_value = None
+        for i, name in enumerate(adapter_names):
+            config_value = self.get(name).get(attribute, None)
+            if i > 0 and config_value != common_value:
+                raise ValueError(f"All given adapters must define the same value for config attribute {attribute}.")
+            common_value = config_value
+        return common_value
 
     def to_dict(self):
         output_dict = {}

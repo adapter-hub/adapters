@@ -66,10 +66,7 @@ class BertSelfOutputAdaptersMixin:
     def add_fusion_layer(self, adapter_names):
         """See BertModel.add_attention_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
-        adapter_config = self.config.adapters.common_config(adapter_names)
-        if not adapter_config:
-            raise ValueError("All tasks used in the attention layer must have the same configuration.")
-        if adapter_config["mh_adapter"]:
+        if self.config.adapters.common_config_value(adapter_names, "mh_adapter"):
             self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
@@ -259,10 +256,7 @@ class BertOutputAdaptersMixin:
     def add_fusion_layer(self, adapter_names):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
-        adapter_config = self.config.adapters.common_config(adapter_names)
-        if not adapter_config:
-            raise ValueError("All tasks used in the fusion layer must have the same configuration.")
-        if adapter_config["output_adapter"]:
+        if self.config.adapters.common_config_value(adapter_names, "output_adapter"):
             self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
