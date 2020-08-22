@@ -33,6 +33,8 @@ from transformers import (
     MODEL_FOR_QUESTION_ANSWERING_MAPPING,
     WEIGHTS_NAME,
     AdamW,
+    AdapterConfig,
+    AdapterType,
     AutoConfig,
     AutoModelForQuestionAnswering,
     AutoTokenizer,
@@ -232,7 +234,7 @@ def train(args, train_dataset, model, tokenizer, adapter_names=None):
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     # Only evaluate when single GPU otherwise metrics may not average well
                     if args.local_rank == -1 and args.evaluate_during_training:
-                        results = evaluate(args, model, tokenizer)
+                        results = evaluate(args, model, tokenizer, adapter_names=adapter_names)
                         for key, value in results.items():
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
                     tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
@@ -246,7 +248,10 @@ def train(args, train_dataset, model, tokenizer, adapter_names=None):
                         os.makedirs(output_dir)
                     # Take care of distributed/parallel training
                     model_to_save = model.module if hasattr(model, "module") else model
-                    model_to_save.save_pretrained(output_dir)
+                    if args.train_adapter:
+                        model_to_save.save_all_adapters(output_dir)
+                    else:
+                        model_to_save.save_pretrained(output_dir)
                     tokenizer.save_pretrained(output_dir)
 
                     torch.save(args, os.path.join(output_dir, "training_args.bin"))
@@ -678,11 +683,11 @@ def main():
         "--load_task_adapter", type=str, default="", help="Pre-trained task adapter to be loaded for further training."
     )
     parser.add_argument(
-        "--load_language_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded."
+        "--load_lang_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded."
     )
     parser.add_argument("--language", type=str, default=None, help="Adapter name of the loaded language adapter.")
     parser.add_argument("--adapter_config", type=str, default="pfeiffer", help="Adapter configuration.")
-    parser.add_argument("--language_adapter_config", type=str, default=None, help="Language adapter configuration.")
+    parser.add_argument("--lang_adapter_config", type=str, default=None, help="Language adapter configuration.")
     args = parser.parse_args()
 
     if args.doc_stride >= args.max_seq_length - args.max_query_length:
@@ -767,8 +772,8 @@ def main():
     # Setup adapters
     task_name = "squad"
     language = args.language
-    setup_task_adapter_training(model, task_name, args)
     if args.train_adapter:
+        setup_task_adapter_training(model, task_name, args)
         if language:
             adapter_names = [[language], [task_name]]
         else:
@@ -812,16 +817,20 @@ def main():
         # They can then be reloaded using `from_pretrained()`
         # Take care of distributed/parallel training
         model_to_save = model.module if hasattr(model, "module") else model
-        model_to_save.save_pretrained(args.output_dir)
+        if args.train_adapter:
+            model_to_save.save_all_adapters(args.output_dir)
+        else:
+            model_to_save.save_pretrained(args.output_dir)
         tokenizer.save_pretrained(args.output_dir)
 
         # Good practice: save your training arguments together with the trained model
         torch.save(args, os.path.join(args.output_dir, "training_args.bin"))
 
         # Load a trained model and vocabulary that you have fine-tuned
-        model = AutoModelForQuestionAnswering.from_pretrained(args.output_dir)  # , force_download=True)
-        tokenizer = AutoTokenizer.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
-        model.to(args.device)
+        if not args.train_adapter:
+            model = AutoModelForQuestionAnswering.from_pretrained(args.output_dir)  # , force_download=True)
+            tokenizer = AutoTokenizer.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
+            model.to(args.device)
 
     # Evaluation - we can ask to evaluate all the checkpoints (sub-directories) in a directory
     results = {}
@@ -830,10 +839,16 @@ def main():
             logger.info("Loading checkpoints saved during training for evaluation")
             checkpoints = [args.output_dir]
             if args.eval_all_checkpoints:
-                checkpoints = list(
-                    os.path.dirname(c)
-                    for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True))
-                )
+                if args.train_adapter:
+                    checkpoints = set(
+                        os.path.dirname(os.path.dirname(c))
+                        for c in sorted(glob.glob(args.output_dir + "/**/" + "pytorch_adapter.bin", recursive=True))
+                    )
+                else:
+                    checkpoints = list(
+                        os.path.dirname(c)
+                        for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True))
+                    )
                 logging.getLogger("transformers.modeling_utils").setLevel(logging.WARN)  # Reduce model loading logs
         else:
             logger.info("Loading checkpoint %s for evaluation", args.model_name_or_path)
@@ -842,10 +857,27 @@ def main():
         logger.info("Evaluate the following checkpoints: %s", checkpoints)
 
         for checkpoint in checkpoints:
-            # Reload the model
-            global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 else ""
-            model = AutoModelForQuestionAnswering.from_pretrained(checkpoint)  # , force_download=True)
-            model.to(args.device)
+            # Reload the adapters / model
+            global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 and "-" in checkpoint else ""
+            if args.train_adapter:
+                if language:
+                    model.load_adapter(
+                            os.path.join(checkpoint, language) if args.do_train else args.load_lang_adapter,
+                            AdapterType.text_lang,
+                            load_as=language,
+                        )
+                model.load_adapter(
+                        os.path.join(checkpoint, task_name) if args.do_train else args.load_task_adapter,
+                        AdapterType.text_task,
+                        load_as=task_name,
+                    )
+                if language:
+                    adapter_names = [[language], [task_name]]
+                else:
+                    adapter_names = [[task_name]]
+            else:
+                model = AutoModelForQuestionAnswering.from_pretrained(checkpoint)  # , force_download=True)
+                model.to(args.device)
 
             # Evaluate
             result = evaluate(args, model, tokenizer, prefix=global_step, adapter_names=adapter_names)
@@ -854,7 +886,9 @@ def main():
             results.update(result)
 
     logger.info("Results: {}".format(results))
-
+    with open(os.path.join(args.output_dir, "results.txt"), "w") as f:
+        for key, value in results.items():
+            f.write("%s = %s\n" % (key, value))
     return results
 
 
