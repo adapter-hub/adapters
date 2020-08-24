@@ -277,21 +277,15 @@ class AdapterLoader(WeightsLoader):
     def __init__(self, model, adapter_type=None):
         super().__init__(model, WEIGHTS_NAME, CONFIG_NAME)
         self.adapter_type = adapter_type
+        if not AdapterType.has(self.adapter_type):
+            raise ValueError("Invalid adapter type {}".format(self.adapter_type))
 
     @property
     def config(self):
         return self.model.config.adapters.get_config(self.adapter_type)
 
     def filter_func(self, adapter_name):
-        if self.adapter_type == AdapterType.text_lang:
-            return (
-                lambda x: "_adapters.{}".format(adapter_name) in x
-                or "invertible_lang_adapters.{}".format(adapter_name) in x
-            )
-        elif AdapterType.has(self.adapter_type):
-            return lambda x: "_adapters.{}".format(adapter_name) in x
-        else:
-            raise ValueError("Invalid adapter type {}".format(self.adapter_type))
+        return lambda x: "_adapters.{}.".format(adapter_name) in x
 
     # This dict maps the original weight names to the currently used equivalents.
     # The mapping is used by rename_func() to support loading from older weights files.
