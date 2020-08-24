@@ -6,6 +6,7 @@ import numpy as np
 from transformers import (
     ADAPTER_CONFIG_MAP,
     AdapterConfig,
+    AutoModel,
     AutoTokenizer,
     BertForSequenceClassification,
     GlueDataset,
@@ -17,7 +18,8 @@ from transformers import (
 )
 from transformers.adapter_utils import find_in_index
 
-from .utils import require_torch
+from .test_modeling_common import ids_tensor
+from .utils import require_torch, slow
 
 
 SAMPLE_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/hub-index.sample.json")
@@ -42,7 +44,7 @@ class AdapterHubTest(unittest.TestCase):
                 found_entry = find_in_index(sample[0], None, None, config, index_file=SAMPLE_INDEX)
                 self.assertEqual(sample[2], found_entry)
 
-    def test_load_adapter_from_hub(self):
+    def test_load_task_adapter_from_hub(self):
         """This test checks if an adapter is loaded from the Hub correctly by evaluating it on some MRPC samples
         and comparing with the expected result.
         """
@@ -88,3 +90,34 @@ class AdapterHubTest(unittest.TestCase):
 
     def _compute_glue_metrics(self, task_name):
         return lambda p: glue_compute_metrics(task_name, np.argmax(p.predictions, axis=1), p.label_ids)
+
+    @slow
+    def test_load_lang_adapter_from_hub(self):
+        for config in ["pfeiffer", "houlsby"]:
+            with self.subTest(config=config):
+                model = AutoModel.from_pretrained("bert-base-multilingual-cased")
+                config = AdapterConfig.load(config, non_linearity="gelu", reduction_factor=2)
+
+                loading_info = {}
+                adapter_name = model.load_adapter("fi/wiki@ukp", "text_lang", config=config, loading_info=loading_info)
+
+                self.assertEqual(0, len(loading_info["missing_keys"]))
+
+                # TODO hotfix for unnecessary weights in old adapters
+                unexpected_keys = [k for k in loading_info["unexpected_keys"] if "adapter_attention" not in k]
+                self.assertEqual(0, len(unexpected_keys))
+
+                # check if adapter & invertible adapter were added
+                self.assertIn(adapter_name, model.config.adapters.adapters)
+                self.assertIn(adapter_name, model.invertible_lang_adapters)
+
+                # check if config is valid
+                # TODO hashes are not guaranteed to be equal because of invertible adapters
+                # expected_hash = get_adapter_config_hash(config)
+                # real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
+                # self.assertEqual(expected_hash, real_hash)
+
+                # check size of output
+                in_data = ids_tensor((1, 128), 1000)
+                output = model(in_data)
+                self.assertEqual([1, 128, 768], list(output[0].size()))
