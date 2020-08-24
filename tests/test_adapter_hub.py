@@ -1,10 +1,22 @@
 import os
 import unittest
 
-from transformers import ADAPTER_CONFIG_MAP, AdapterConfig, BertForSequenceClassification, get_adapter_config_hash
+import numpy as np
+
+from transformers import (
+    ADAPTER_CONFIG_MAP,
+    AdapterConfig,
+    AutoTokenizer,
+    BertForSequenceClassification,
+    GlueDataset,
+    GlueDataTrainingArguments,
+    Trainer,
+    TrainingArguments,
+    get_adapter_config_hash,
+    glue_compute_metrics,
+)
 from transformers.adapter_utils import find_in_index
 
-from .test_modeling_common import ids_tensor
 from .utils import require_torch
 
 
@@ -31,8 +43,12 @@ class AdapterHubTest(unittest.TestCase):
                 self.assertEqual(sample[2], found_entry)
 
     def test_load_adapter_from_hub(self):
+        """This test checks if an adapter is loaded from the Hub correctly by evaluating it on some MRPC samples
+        and comparing with the expected result.
+        """
         for config in ["pfeiffer", "houlsby"]:
             with self.subTest(config=config):
+                tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
                 model = BertForSequenceClassification.from_pretrained("bert-base-uncased")
 
                 loading_info = {}
@@ -42,7 +58,7 @@ class AdapterHubTest(unittest.TestCase):
 
                 self.assertEqual(0, len(loading_info["missing_keys"]))
 
-                # hotfix for unnecessary weights in old adapters
+                # TODO hotfix for unnecessary weights in old adapters
                 unexpected_keys = [k for k in loading_info["unexpected_keys"] if "adapter_attention" not in k]
                 self.assertEqual(0, len(unexpected_keys))
 
@@ -52,7 +68,23 @@ class AdapterHubTest(unittest.TestCase):
                 real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
                 self.assertEqual(expected_hash, real_hash)
 
-                # check size of output
-                in_data = ids_tensor((1, 128), 1000)
-                output = model(in_data)
-                self.assertEqual([1, 2], list(output[0].size()))
+                # setup dataset
+                data_args = GlueDataTrainingArguments(
+                    task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+                )
+                eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev")
+                training_args = TrainingArguments(output_dir="./examples", no_cuda=True)
+
+                # evaluate
+                trainer = Trainer(
+                    model=model,
+                    args=training_args,
+                    eval_dataset=eval_dataset,
+                    compute_metrics=self._compute_glue_metrics("mrpc"),
+                    adapter_names=["mrpc"],
+                )
+                result = trainer.evaluate()
+                self.assertGreater(result["eval_acc"], 0.9)
+
+    def _compute_glue_metrics(self, task_name):
+        return lambda p: glue_compute_metrics(task_name, np.argmax(p.predictions, axis=1), p.label_ids)
