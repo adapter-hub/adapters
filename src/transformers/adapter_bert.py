@@ -1,4 +1,5 @@
 import logging
+from typing import List, Union
 
 import torch
 from torch import nn
@@ -41,11 +42,10 @@ class BertSelfOutputAdaptersMixin:
     """
 
     def _init_adapter_modules(self):
-        self.attention_text_task_adapters = nn.ModuleDict(dict())
+        self.attention_adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
-        self.attention_text_lang_adapters = nn.ModuleDict(dict())
 
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
+    def add_adapter(self, adapter_name: str):
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config["mh_adapter"]:
             adapter = Adapter(
@@ -56,15 +56,10 @@ class BertSelfOutputAdaptersMixin:
                 non_linearity=adapter_config["non_linearity"],
                 residual_before_ln=adapter_config["adapter_residual_before_ln"],
             )
-            if adapter_type == AdapterType.text_task:
-                self.attention_text_task_adapters[adapter_name] = adapter
-            elif adapter_type == AdapterType.text_lang:
-                self.attention_text_lang_adapters[adapter_name] = adapter
-            else:
-                raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
+            self.attention_adapters[adapter_name] = adapter
 
-    def add_fusion_layer(self, adapter_names):
-        """See BertModel.add_attention_layer"""
+    def add_fusion_layer(self, adapter_names: Union[List, str]):
+        """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
         if self.config.adapters.common_config_value(adapter_names, "mh_adapter"):
             self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
@@ -125,22 +120,6 @@ class BertSelfOutputAdaptersMixin:
 
         return hidden_states, query, residual
 
-    def get_adapter_layer(self, adapter_name):
-        """
-        Depending on the adapter type we retrieve the correct layer. If no adapter for that name was set at that layer
-        we return None
-        Args:
-            adapter_name: string name of the adapter
-
-        Returns: layer | None
-
-        """
-        if adapter_name in self.attention_text_lang_adapters:
-            return self.attention_text_lang_adapters[adapter_name]
-        if adapter_name in self.attention_text_task_adapters:
-            return self.attention_text_task_adapters[adapter_name]
-        return None
-
     def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
         """
         One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
@@ -165,9 +144,8 @@ class BertSelfOutputAdaptersMixin:
         hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
 
         if len(adapter_stack) == 1:
-
-            adapter_layer = self.get_adapter_layer(adapter_stack[0])
-            if adapter_layer is not None:
+            if adapter_stack[0] in self.attention_adapters:
+                adapter_layer = self.attention_adapters[adapter_stack[0]]
                 hidden_states, _, _ = adapter_layer(hidden_states, residual_input=residual)
 
             return hidden_states
@@ -195,8 +173,8 @@ class BertSelfOutputAdaptersMixin:
         up_list = []
 
         for adapter_name in adapter_stack:
-            adapter_layer = self.get_adapter_layer(adapter_name)
-            if adapter_layer is not None:
+            if adapter_stack[0] in self.attention_adapters:
+                adapter_layer = self.attention_adapters[adapter_name]
                 intermediate_output, _, up = adapter_layer(hidden_states, residual_input=residual)
                 up_list.append(up)
         if len(up_list) > 0:
@@ -211,19 +189,11 @@ class BertSelfOutputAdaptersMixin:
         return hidden_states
 
     def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
-
         if adapter_names is not None:
             adapter_names = parse_adapter_names(adapter_names)
             flat_adapter_names = [item for sublist in adapter_names for item in sublist]
 
-        if adapter_names is not None and (
-            len(
-                (set(self.attention_text_task_adapters.keys()) | set(self.attention_text_lang_adapters.keys()))
-                & set(flat_adapter_names)
-            )
-            > 0
-        ):
-
+        if adapter_names is not None and (len(set(self.attention_adapters.keys()) & set(flat_adapter_names)) > 0):
             for adapter_stack in adapter_names:
                 hidden_states = self.adapter_stack_layer(
                     hidden_states=hidden_states,
@@ -247,19 +217,16 @@ class BertOutputAdaptersMixin:
     """
 
     def _init_adapter_modules(self):
-        # self.bert_adapter_att = BertAdapterAttention(config)
-        # self.bert_adapter_att = SimpleAdapterWeightingSentLvl(config)
+        self.output_adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
-        self.layer_text_task_adapters = nn.ModuleDict(dict())
-        self.layer_text_lang_adapters = nn.ModuleDict(dict())
 
-    def add_fusion_layer(self, adapter_names):
+    def add_fusion_layer(self, adapter_names: Union[List, str]):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
         if self.config.adapters.common_config_value(adapter_names, "output_adapter"):
             self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
+    def add_adapter(self, adapter_name: str):
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config["output_adapter"]:
             adapter = Adapter(
@@ -270,15 +237,15 @@ class BertOutputAdaptersMixin:
                 non_linearity=adapter_config["non_linearity"],
                 residual_before_ln=adapter_config["adapter_residual_before_ln"],
             )
-            if adapter_type == AdapterType.text_task:
-                self.layer_text_task_adapters[adapter_name] = adapter
-            elif adapter_type == AdapterType.text_lang:
-                self.layer_text_lang_adapters[adapter_name] = adapter
-            else:
-                raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
+            self.output_adapters[adapter_name] = adapter
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
+        """Unfreezes a given list of adapters, the adapter fusion layer, or both
 
+        :param adapter_names: names of adapters to unfreeze (or names of adapters part of the fusion layer to unfreeze)
+        :param unfreeze_adapters: whether the adapters themselves should be unfreezed
+        :param unfreeze_fusion: whether the adapter attention layer for the given adapters should be unfreezed
+        """
         if unfreeze_adapters:
             if isinstance(adapter_names, str):
                 adapter_names = [adapter_names]
@@ -328,22 +295,6 @@ class BertOutputAdaptersMixin:
 
         return hidden_states, query, residual
 
-    def get_adapter_layer(self, adapter_name):
-        """
-        Depending on the adapter type we retrieve the correct layer. If no adapter for that name was set at that layer
-        we return None
-        Args:
-            adapter_name: string name of the adapter
-
-        Returns: layer | None
-
-        """
-        if adapter_name in self.layer_text_lang_adapters:
-            return self.layer_text_lang_adapters[adapter_name]
-        if adapter_name in self.layer_text_task_adapters:
-            return self.layer_text_task_adapters[adapter_name]
-        return None
-
     def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
         """
         One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
@@ -368,9 +319,8 @@ class BertOutputAdaptersMixin:
         hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
 
         if len(adapter_stack) == 1:
-
-            adapter_layer = self.get_adapter_layer(adapter_stack[0])
-            if adapter_layer is not None:
+            if adapter_stack[0] in self.output_adapters:
+                adapter_layer = self.output_adapters[adapter_stack[0]]
                 hidden_states, _, _ = adapter_layer(hidden_states, residual_input=residual)
 
             return hidden_states
@@ -397,13 +347,12 @@ class BertOutputAdaptersMixin:
         up_list = []
 
         for adapter_name in adapter_stack:
-            adapter_layer = self.get_adapter_layer(adapter_name)
-            if adapter_layer is not None:
+            if adapter_stack[0] in self.output_adapters:
+                adapter_layer = self.output_adapters[adapter_name]
                 intermediate_output, _, up = adapter_layer(hidden_states, residual_input=residual)
                 up_list.append(up)
 
         if len(up_list) > 0:
-
             up_list = torch.stack(up_list)
             up_list = up_list.permute(1, 2, 0, 3)
 
@@ -415,20 +364,11 @@ class BertOutputAdaptersMixin:
         return hidden_states
 
     def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
-
         if adapter_names is not None:
             adapter_names = parse_adapter_names(adapter_names)
-
             flat_adapter_names = [item for sublist in adapter_names for item in sublist]
 
-        if adapter_names is not None and (
-            len(
-                (set(self.layer_text_lang_adapters.keys()) | set(self.layer_text_task_adapters.keys()))
-                & set(flat_adapter_names)
-            )
-            > 0
-        ):
-
+        if adapter_names is not None and (len(set(self.output_adapters.keys()) & set(flat_adapter_names)) > 0):
             for adapter_stack in adapter_names:
                 hidden_states = self.adapter_stack_layer(
                     hidden_states=hidden_states,
@@ -455,9 +395,9 @@ class BertLayerAdaptersMixin:
         self.attention.output.add_fusion_layer(adapter_names)
         self.output.add_fusion_layer(adapter_names)
 
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
-        self.attention.output.add_adapter(adapter_name, adapter_type)
-        self.output.add_adapter(adapter_name, adapter_type)
+    def add_adapter(self, adapter_name: str):
+        self.attention.output.add_adapter(adapter_name)
+        self.output.add_adapter(adapter_name)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention.output.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
@@ -472,12 +412,12 @@ class BertEncoderAdaptersMixin:
         for layer in self.layer:
             layer.add_fusion_layer(adapter_names)
 
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
+    def add_adapter(self, adapter_name: str):
         adapter_config = self.config.adapters.get(adapter_name)
         leave_out = adapter_config.get("leave_out", [])
         for i, layer in enumerate(self.layer):
             if i not in leave_out:
-                layer.add_adapter(adapter_name, adapter_type)
+                layer.add_adapter(adapter_name)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         for layer in self.layer:
@@ -496,11 +436,11 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
 
         # language adapters
         for language in self.config.adapters.adapter_list(AdapterType.text_lang):
-            self.encoder.add_adapter(language, AdapterType.text_lang)
+            self.encoder.add_adapter(language)
             self.add_invertible_lang_adapter(language)
         # task adapters
         for task in self.config.adapters.adapter_list(AdapterType.text_task):
-            self.encoder.add_adapter(task, AdapterType.text_task)
+            self.encoder.add_adapter(task)
         # fusion
         if hasattr(self.config, "fusion_models"):
             for fusion_adapter_names in self.config.fusion_models:
@@ -546,7 +486,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         if not self.config.adapters.get_config(adapter_type):
             self.config.adapters.set_config(adapter_type, config or DEFAULT_ADAPTER_CONFIG)
         self.config.adapters.add(adapter_name, adapter_type, config=config)
-        self.encoder.add_adapter(adapter_name, adapter_type)
+        self.encoder.add_adapter(adapter_name)
         if adapter_type == AdapterType.text_lang:
             self.add_invertible_lang_adapter(adapter_name)
 
