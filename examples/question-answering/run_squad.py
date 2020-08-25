@@ -33,6 +33,7 @@ from transformers import (
     MODEL_FOR_QUESTION_ANSWERING_MAPPING,
     WEIGHTS_NAME,
     AdamW,
+    AdapterType,
     AutoConfig,
     AutoModelForQuestionAnswering,
     AutoTokenizer,
@@ -124,7 +125,7 @@ def train(args, train_dataset, model, tokenizer, adapter_names=None):
     # Distributed training (should be after apex fp16 initialization)
     if args.local_rank != -1:
         model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True
+            model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True,
         )
 
     # Train!
@@ -156,14 +157,16 @@ def train(args, train_dataset, model, tokenizer, adapter_names=None):
             logger.info("  Continuing training from checkpoint, will skip to saved global_step")
             logger.info("  Continuing training from epoch %d", epochs_trained)
             logger.info("  Continuing training from global step %d", global_step)
-            logger.info("  Will skip the first %d steps in the first epoch", steps_trained_in_current_epoch)
+            logger.info(
+                "  Will skip the first %d steps in the first epoch", steps_trained_in_current_epoch,
+            )
         except ValueError:
             logger.info("  Starting fine-tuning.")
 
     tr_loss, logging_loss = 0.0, 0.0
     model.zero_grad()
     train_iterator = trange(
-        epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
+        epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0],
     )
     # Added here for reproductibility
     set_seed(args)
@@ -232,11 +235,13 @@ def train(args, train_dataset, model, tokenizer, adapter_names=None):
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     # Only evaluate when single GPU otherwise metrics may not average well
                     if args.local_rank == -1 and args.evaluate_during_training:
-                        results = evaluate(args, model, tokenizer)
+                        results = evaluate(args, model, tokenizer, adapter_names=adapter_names)
                         for key, value in results.items():
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
                     tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
-                    tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
+                    tb_writer.add_scalar(
+                        "loss", (tr_loss - logging_loss) / args.logging_steps, global_step,
+                    )
                     logging_loss = tr_loss
 
                 # Save model checkpoint
@@ -246,7 +251,10 @@ def train(args, train_dataset, model, tokenizer, adapter_names=None):
                         os.makedirs(output_dir)
                     # Take care of distributed/parallel training
                     model_to_save = model.module if hasattr(model, "module") else model
-                    model_to_save.save_pretrained(output_dir)
+                    if args.train_adapter:
+                        model_to_save.save_all_adapters(output_dir)
+                    else:
+                        model_to_save.save_pretrained(output_dir)
                     tokenizer.save_pretrained(output_dir)
 
                     torch.save(args, os.path.join(output_dir, "training_args.bin"))
@@ -353,7 +361,9 @@ def evaluate(args, model, tokenizer, prefix="", adapter_names=None):
             all_results.append(result)
 
     evalTime = timeit.default_timer() - start_time
-    logger.info("  Evaluation done in total %f secs (%f sec per example)", evalTime, evalTime / len(dataset))
+    logger.info(
+        "  Evaluation done in total %f secs (%f sec per example)", evalTime, evalTime / len(dataset),
+    )
 
     # Compute predictions
     output_prediction_file = os.path.join(args.output_dir, "predictions_{}.json".format(prefix))
@@ -466,7 +476,9 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
 
         if args.local_rank in [-1, 0]:
             logger.info("Saving features into cached file %s", cached_features_file)
-            torch.save({"features": features, "dataset": dataset, "examples": examples}, cached_features_file)
+            torch.save(
+                {"features": features, "dataset": dataset, "examples": examples}, cached_features_file,
+            )
 
     if args.local_rank == 0 and not evaluate:
         # Make sure only the first process in distributed training process the dataset, and the others
@@ -527,7 +539,7 @@ def main():
         + "If no data dir or train/predict files are specified, will run with tensorflow_datasets.",
     )
     parser.add_argument(
-        "--config_name", default="", type=str, help="Pretrained config name or path if not the same as model_name"
+        "--config_name", default="", type=str, help="Pretrained config name or path if not the same as model_name",
     )
     parser.add_argument(
         "--tokenizer_name",
@@ -577,17 +589,21 @@ def main():
     parser.add_argument("--do_train", action="store_true", help="Whether to run training.")
     parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
     parser.add_argument(
-        "--evaluate_during_training", action="store_true", help="Run evaluation during training at each logging step."
+        "--evaluate_during_training", action="store_true", help="Run evaluation during training at each logging step.",
     )
     parser.add_argument(
-        "--do_lower_case", action="store_true", help="Set this flag if you are using an uncased model."
+        "--do_lower_case", action="store_true", help="Set this flag if you are using an uncased model.",
     )
 
-    parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
     parser.add_argument(
-        "--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation."
+        "--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.",
     )
-    parser.add_argument("--learning_rate", default=5e-5, type=float, help="The initial learning rate for Adam.")
+    parser.add_argument(
+        "--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.",
+    )
+    parser.add_argument(
+        "--learning_rate", default=5e-5, type=float, help="The initial learning rate for Adam.",
+    )
     parser.add_argument(
         "--gradient_accumulation_steps",
         type=int,
@@ -598,7 +614,7 @@ def main():
     parser.add_argument("--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer.")
     parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
     parser.add_argument(
-        "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
+        "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform.",
     )
     parser.add_argument(
         "--max_steps",
@@ -635,7 +651,9 @@ def main():
     )
 
     parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
-    parser.add_argument("--save_steps", type=int, default=500, help="Save checkpoint every X updates steps.")
+    parser.add_argument(
+        "--save_steps", type=int, default=500, help="Save checkpoint every X updates steps.",
+    )
     parser.add_argument(
         "--eval_all_checkpoints",
         action="store_true",
@@ -643,14 +661,16 @@ def main():
     )
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
     parser.add_argument(
-        "--overwrite_output_dir", action="store_true", help="Overwrite the content of the output directory"
+        "--overwrite_output_dir", action="store_true", help="Overwrite the content of the output directory",
     )
     parser.add_argument(
-        "--overwrite_cache", action="store_true", help="Overwrite the cached training and evaluation sets"
+        "--overwrite_cache", action="store_true", help="Overwrite the cached training and evaluation sets",
     )
     parser.add_argument("--seed", type=int, default=42, help="random seed for initialization")
 
-    parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus")
+    parser.add_argument(
+        "--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus",
+    )
     parser.add_argument(
         "--fp16",
         action="store_true",
@@ -666,7 +686,9 @@ def main():
     parser.add_argument("--server_ip", type=str, default="", help="Can be used for distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="Can be used for distant debugging.")
 
-    parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
+    parser.add_argument(
+        "--threads", type=int, default=1, help="multiple threads for converting example to features",
+    )
 
     parser.add_argument(
         "--train_adapter",
@@ -675,14 +697,21 @@ def main():
         help="Train a text task adapter instead of the full model",
     )
     parser.add_argument(
-        "--load_task_adapter", type=str, default="", help="Pre-trained task adapter to be loaded for further training."
+        "--load_task_adapter",
+        type=str,
+        default="",
+        help="Pre-trained task adapter to be loaded for further training.",
     )
     parser.add_argument(
-        "--load_language_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded."
+        "--load_lang_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded.",
     )
-    parser.add_argument("--language", type=str, default=None, help="Adapter name of the loaded language adapter.")
+    parser.add_argument(
+        "--language", type=str, default=None, help="Adapter name of the loaded language adapter.",
+    )
     parser.add_argument("--adapter_config", type=str, default="pfeiffer", help="Adapter configuration.")
-    parser.add_argument("--language_adapter_config", type=str, default=None, help="Language adapter configuration.")
+    parser.add_argument(
+        "--lang_adapter_config", type=str, default=None, help="Language adapter configuration.",
+    )
     args = parser.parse_args()
 
     if args.doc_stride >= args.max_seq_length - args.max_query_length:
@@ -767,8 +796,8 @@ def main():
     # Setup adapters
     task_name = "squad"
     language = args.language
-    setup_task_adapter_training(model, task_name, args)
     if args.train_adapter:
+        setup_task_adapter_training(model, task_name, args)
         if language:
             adapter_names = [[language], [task_name]]
         else:
@@ -812,16 +841,19 @@ def main():
         # They can then be reloaded using `from_pretrained()`
         # Take care of distributed/parallel training
         model_to_save = model.module if hasattr(model, "module") else model
-        model_to_save.save_pretrained(args.output_dir)
+        if args.train_adapter:
+            model_to_save.save_all_adapters(args.output_dir)
+        else:
+            model_to_save.save_pretrained(args.output_dir)
         tokenizer.save_pretrained(args.output_dir)
 
         # Good practice: save your training arguments together with the trained model
         torch.save(args, os.path.join(args.output_dir, "training_args.bin"))
 
         # Load a trained model and vocabulary that you have fine-tuned
-        model = AutoModelForQuestionAnswering.from_pretrained(args.output_dir)  # , force_download=True)
-        tokenizer = AutoTokenizer.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
-        model.to(args.device)
+        if not args.train_adapter:
+            model = AutoModelForQuestionAnswering.from_pretrained(args.output_dir)  # , force_download=True)
+            model.to(args.device)
 
     # Evaluation - we can ask to evaluate all the checkpoints (sub-directories) in a directory
     results = {}
@@ -830,10 +862,16 @@ def main():
             logger.info("Loading checkpoints saved during training for evaluation")
             checkpoints = [args.output_dir]
             if args.eval_all_checkpoints:
-                checkpoints = list(
-                    os.path.dirname(c)
-                    for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True))
-                )
+                if args.train_adapter:
+                    checkpoints = set(
+                        os.path.dirname(os.path.dirname(c))
+                        for c in sorted(glob.glob(args.output_dir + "/**/" + "pytorch_adapter.bin", recursive=True,))
+                    )
+                else:
+                    checkpoints = list(
+                        os.path.dirname(c)
+                        for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True))
+                    )
                 logging.getLogger("transformers.modeling_utils").setLevel(logging.WARN)  # Reduce model loading logs
         else:
             logger.info("Loading checkpoint %s for evaluation", args.model_name_or_path)
@@ -842,10 +880,27 @@ def main():
         logger.info("Evaluate the following checkpoints: %s", checkpoints)
 
         for checkpoint in checkpoints:
-            # Reload the model
-            global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 else ""
-            model = AutoModelForQuestionAnswering.from_pretrained(checkpoint)  # , force_download=True)
-            model.to(args.device)
+            # Reload the adapters / model
+            global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 and "-" in checkpoint else ""
+            if args.train_adapter:
+                if language:
+                    model.load_adapter(
+                        os.path.join(checkpoint, language) if args.do_train else args.load_lang_adapter,
+                        AdapterType.text_lang,
+                        load_as=language,
+                    )
+                model.load_adapter(
+                    os.path.join(checkpoint, task_name) if args.do_train else args.load_task_adapter,
+                    AdapterType.text_task,
+                    load_as=task_name,
+                )
+                if language:
+                    adapter_names = [[language], [task_name]]
+                else:
+                    adapter_names = [[task_name]]
+            else:
+                model = AutoModelForQuestionAnswering.from_pretrained(checkpoint)  # , force_download=True)
+                model.to(args.device)
 
             # Evaluate
             result = evaluate(args, model, tokenizer, prefix=global_step, adapter_names=adapter_names)
@@ -854,7 +909,9 @@ def main():
             results.update(result)
 
     logger.info("Results: {}".format(results))
-
+    with open(os.path.join(args.output_dir, "results.txt"), "w") as f:
+        for key, value in results.items():
+            f.write("%s = %s\n" % (key, value))
     return results
 
 
