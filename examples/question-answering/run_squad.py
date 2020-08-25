@@ -33,12 +33,12 @@ from transformers import (
     MODEL_FOR_QUESTION_ANSWERING_MAPPING,
     WEIGHTS_NAME,
     AdamW,
+    AdapterConfig,
     AdapterType,
     AutoConfig,
     AutoModelForQuestionAnswering,
     AutoTokenizer,
     get_linear_schedule_with_warmup,
-    setup_task_adapter_training,
     squad_convert_examples_to_features,
 )
 from transformers.data.metrics.squad_metrics import (
@@ -73,7 +73,7 @@ def to_list(tensor):
     return tensor.detach().cpu().tolist()
 
 
-def train(args, train_dataset, model, tokenizer, adapter_names=None):
+def train(args, train_dataset, model, tokenizer):
     """ Train the model """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -189,7 +189,6 @@ def train(args, train_dataset, model, tokenizer, adapter_names=None):
                 "token_type_ids": batch[2],
                 "start_positions": batch[3],
                 "end_positions": batch[4],
-                "adapter_names": adapter_names,
             }
 
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
@@ -235,7 +234,7 @@ def train(args, train_dataset, model, tokenizer, adapter_names=None):
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     # Only evaluate when single GPU otherwise metrics may not average well
                     if args.local_rank == -1 and args.evaluate_during_training:
-                        results = evaluate(args, model, tokenizer, adapter_names=adapter_names)
+                        results = evaluate(args, model, tokenizer)
                         for key, value in results.items():
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
                     tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
@@ -277,7 +276,7 @@ def train(args, train_dataset, model, tokenizer, adapter_names=None):
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, model, tokenizer, prefix="", adapter_names=None):
+def evaluate(args, model, tokenizer, prefix=""):
     dataset, examples, features = load_and_cache_examples(args, tokenizer, evaluate=True, output_examples=True)
 
     if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
@@ -310,7 +309,6 @@ def evaluate(args, model, tokenizer, prefix="", adapter_names=None):
                 "input_ids": batch[0],
                 "attention_mask": batch[1],
                 "token_type_ids": batch[2],
-                "adapter_names": adapter_names,
             }
 
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
@@ -697,20 +695,52 @@ def main():
         help="Train a text task adapter instead of the full model",
     )
     parser.add_argument(
-        "--load_task_adapter",
+        "--load_adapter", type=str, default="", help="Pre-trained adapter module to be loaded from Hub.",
+    )
+    parser.add_argument(
+        "--load_lang_adapter",
         type=str,
-        default="",
-        help="Pre-trained task adapter to be loaded for further training.",
+        default=None,
+        help="Pre-trained language adapter module to be loaded from Hub.",
     )
     parser.add_argument(
-        "--load_lang_adapter", type=str, default=None, help="Pre-trained language adapter to be loaded.",
+        "--language", type=str, default=None, help="The training language, e.g. 'en' for English.",
     )
     parser.add_argument(
-        "--language", type=str, default=None, help="Adapter name of the loaded language adapter.",
+        "--adapter_config",
+        type=str,
+        default="pfeiffer",
+        help="Adapter configuration. Either an identifier or a path to a file.",
     )
-    parser.add_argument("--adapter_config", type=str, default="pfeiffer", help="Adapter configuration.")
     parser.add_argument(
-        "--lang_adapter_config", type=str, default=None, help="Language adapter configuration.",
+        "--adapter_non_linearity",
+        type=str,
+        default=None,
+        help="Override the non-linearity of the adapter configuration.",
+    )
+    parser.add_argument(
+        "--adapter_reduction_factor",
+        type=int,
+        default=None,
+        help="Override the reduction factor of the adapter configuration.",
+    )
+    parser.add_argument(
+        "--lang_adapter_config",
+        type=str,
+        default=None,
+        help="Language adapter configuration. Either an identifier or a path to a file.",
+    )
+    parser.add_argument(
+        "--lang_adapter_non_linearity",
+        type=str,
+        default=None,
+        help="Override the non-linearity of the language adapter configuration.",
+    )
+    parser.add_argument(
+        "--lang_adapter_reduction_factor",
+        type=int,
+        default=None,
+        help="Override the reduction factor of the language adapter configuration.",
     )
     args = parser.parse_args()
 
@@ -794,16 +824,45 @@ def main():
     )
 
     # Setup adapters
-    task_name = "squad"
-    language = args.language
     if args.train_adapter:
-        setup_task_adapter_training(model, task_name, args)
-        if language:
-            adapter_names = [[language], [task_name]]
+        task_name = "squad2.0" if args.version_2_with_negative else "squad"
+        # check if adapter already exists, otherwise add it
+        if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
+            # resolve the adapter config
+            adapter_config = AdapterConfig.load(
+                args.adapter_config,
+                non_linearity=args.adapter_non_linearity,
+                reduction_factor=args.adapter_reduction_factor,
+            )
+            # load a pre-trained from Hub if specified
+            if args.load_adapter:
+                model.load_adapter(
+                    args.load_adapter, AdapterType.text_task, config=adapter_config, load_as=task_name,
+                )
+            # otherwise, add a fresh adapter
+            else:
+                model.add_adapter(task_name, AdapterType.text_task, config=adapter_config)
+        # optionally load a pre-trained language adapter
+        if args.load_lang_adapter:
+            # resolve the language adapter config
+            lang_adapter_config = AdapterConfig.load(
+                args.lang_adapter_config,
+                non_linearity=args.lang_adapter_non_linearity,
+                reduction_factor=args.lang_adapter_reduction_factor,
+            )
+            # load the language adapter from Hub
+            lang_adapter_name = model.load_adapter(
+                args.load_lang_adapter, AdapterType.text_lang, config=lang_adapter_config, load_as=args.language,
+            )
         else:
-            adapter_names = [[task_name]]
-    else:
-        adapter_names = None
+            lang_adapter_name = None
+        # Freeze all model weights except of those of this adapter
+        model.train_adapter([task_name])
+        # Set the adapters to be used in every forward pass
+        if lang_adapter_name:
+            model.set_active_adapters([lang_adapter_name, task_name])
+        else:
+            model.set_active_adapters([task_name])
 
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab
@@ -827,7 +886,7 @@ def main():
     # Training
     if args.do_train:
         train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=False)
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer, adapter_names=adapter_names)
+        global_step, tr_loss = train(args, train_dataset, model, tokenizer)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
     # Save the trained model and the tokenizer
@@ -883,27 +942,29 @@ def main():
             # Reload the adapters / model
             global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 and "-" in checkpoint else ""
             if args.train_adapter:
-                if language:
-                    model.load_adapter(
-                        os.path.join(checkpoint, language) if args.do_train else args.load_lang_adapter,
-                        AdapterType.text_lang,
-                        load_as=language,
-                    )
                 model.load_adapter(
                     os.path.join(checkpoint, task_name) if args.do_train else args.load_task_adapter,
                     AdapterType.text_task,
                     load_as=task_name,
                 )
-                if language:
-                    adapter_names = [[language], [task_name]]
+                if args.language:
+                    lang_adapter_name = model.load_adapter(
+                        os.path.join(checkpoint, args.language) if args.do_train else args.load_lang_adapter,
+                        AdapterType.text_lang,
+                        load_as=args.language,
+                    )
                 else:
-                    adapter_names = [[task_name]]
+                    lang_adapter_name = None
+                if lang_adapter_name:
+                    model.set_active_adapters([lang_adapter_name, task_name])
+                else:
+                    model.set_active_adapters([task_name])
             else:
                 model = AutoModelForQuestionAnswering.from_pretrained(checkpoint)  # , force_download=True)
                 model.to(args.device)
 
             # Evaluate
-            result = evaluate(args, model, tokenizer, prefix=global_step, adapter_names=adapter_names)
+            result = evaluate(args, model, tokenizer, prefix=global_step)
 
             result = dict((k + ("_{}".format(global_step) if global_step else ""), v) for k, v in result.items())
             results.update(result)

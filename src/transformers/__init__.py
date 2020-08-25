@@ -150,7 +150,7 @@ if is_sklearn_available():
 
 # Adapters
 if is_torch_available():
-    from .adapter_training import AdapterArguments, MultiLingAdapterArguments, setup_task_adapter_training
+    from .adapter_training import AdapterArguments, MultiLingAdapterArguments
     from .adapter_model_mixin import (
         WeightsLoaderHelper,
         WeightsLoader,

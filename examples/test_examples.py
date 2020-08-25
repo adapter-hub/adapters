@@ -97,8 +97,9 @@ class ExamplesTests(unittest.TestCase):
             --seed=42
             --max_seq_length=128
             --train_adapter
-            --adapter_config houlsby
-            --adapter_reduction_factor 12
+            --adapter_config=houlsby
+            --adapter_reduction_factor=12
+            --load_adapter=sts-b
             """.split()
         with patch.object(sys, "argv", testargs):
             result = run_glue.main()
@@ -150,6 +151,36 @@ class ExamplesTests(unittest.TestCase):
             --per_gpu_eval_batch_size=1
             --overwrite_output_dir
             --seed=42
+        """.split()
+        with patch.object(sys, "argv", testargs):
+            result = run_squad.main()
+            self.assertGreaterEqual(result["f1"], 30)
+            self.assertGreaterEqual(result["exact"], 30)
+
+    def test_run_squad_adapters(self):
+        stream_handler = logging.StreamHandler(sys.stdout)
+        logger.addHandler(stream_handler)
+
+        testargs = """
+            run_squad.py
+            --model_type=bert
+            --model_name_or_path=bert-base-uncased
+            --data_dir=./tests/fixtures/tests_samples/SQUAD
+            --model_name=bert-base-uncased
+            --output_dir=./tests/fixtures/tests_samples/temp_dir
+            --max_steps=10
+            --warmup_steps=2
+            --do_train
+            --do_eval
+            --version_2_with_negative
+            --learning_rate=2e-4
+            --per_gpu_train_batch_size=2
+            --per_gpu_eval_batch_size=1
+            --overwrite_output_dir
+            --seed=42
+            --train_adapter
+            --adapter_config=houlsby
+            --adapter_reduction_factor=12
         """.split()
         with patch.object(sys, "argv", testargs):
             result = run_squad.main()
