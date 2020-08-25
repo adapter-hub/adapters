@@ -11,19 +11,39 @@ class AdapterArguments:
     The subset of arguments related to adapter training.
     """
 
-    train_adapter: bool = field(
-        default=False, metadata={"help": "Train a text task adapter instead of the full model."}
+    train_adapter: bool = field(default=False, metadata={"help": "Train an adapter instead of the full model."})
+    load_adapter: Optional[str] = field(
+        default="", metadata={"help": "Pre-trained adapter module to be loaded from Hub."}
     )
-    load_task_adapter: Optional[str] = field(
-        default="", metadata={"help": "Pre-trained task adapter to be loaded for further training."}
+    adapter_config: Optional[str] = field(
+        default="pfeiffer", metadata={"help": "Adapter configuration. Either an identifier or a path to a file."}
     )
+    adapter_non_linearity: Optional[str] = field(
+        default=None, metadata={"help": "Override the non-linearity of the adapter configuration."}
+    )
+    adapter_reduction_factor: Optional[str] = field(
+        default=None, metadata={"help": "Override the reduction factor of the adapter configuration."}
+    )
+    language: Optional[str] = field(default=None, metadata={"help": "The training language, e.g. 'en' for English."})
+
+
+@dataclass
+class MultiLingAdapterArguments(AdapterArguments):
+    """
+    Arguemnts related to adapter training, extended by arguments for multilingual setups.
+    """
+
     load_lang_adapter: Optional[str] = field(
-        default=None, metadata={"help": "Pre-trained language adapter to be loaded."}
+        default=None, metadata={"help": "Pre-trained language adapter module to be loaded from Hub."}
     )
-    adapter_config: Optional[str] = field(default="pfeiffer", metadata={"help": "Adapter configuration."})
-    lang_adapter_config: Optional[str] = field(default=None, metadata={"help": "Language adapter configuration."})
-    language: Optional[str] = field(
-        default=None, metadata={"help": "The adapter name of the loaded language adapter, e.g. 'en' for english."}
+    lang_adapter_config: Optional[str] = field(
+        default=None, metadata={"help": "Language adapter configuration. Either an identifier or a path to a file."}
+    )
+    lang_adapter_non_linearity: Optional[str] = field(
+        default=None, metadata={"help": "Override the non-linearity of the language adapter configuration."}
+    )
+    lang_adapter_reduction_factor: Optional[str] = field(
+        default=None, metadata={"help": "Override the reduction factor of the language adapter configuration."}
     )
 
 

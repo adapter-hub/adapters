@@ -26,7 +26,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
-from transformers import (  # setup_task_adapter_training,
+from transformers import (
     AdapterArguments,
     AutoConfig,
     AutoModelForSequenceClassification,
@@ -145,9 +145,6 @@ def main():
     )
 
     # Setup adapters
-    # task_name = data_args.task_name
-    # language = adapter_args.language
-    # setup_task_adapter_training(model, task_name, adapter_args)
     from transformers.adapter_config import AdapterType
 
     base_model = getattr(model, model.base_model_prefix, model)
