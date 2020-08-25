@@ -489,8 +489,11 @@ class Trainer:
                     and (step + 1) == len(epoch_iterator)
                 ):
                     # apply adapter fusion weight regularization on the value matrix
-                    if hasattr(model.config, "adapter_fusion") and model.config.adapter_fusion["regularization"]:
-                        fusion_reg_loss = get_fusion_regularization_loss(model)
+                    if (
+                        hasattr(self.model.config, "adapter_fusion")
+                        and self.model.config.adapter_fusion["regularization"]
+                    ):
+                        fusion_reg_loss = get_fusion_regularization_loss(self.model)
                         fusion_reg_loss.backward()
 
                     if self.args.fp16:
