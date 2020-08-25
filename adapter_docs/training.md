@@ -56,7 +56,7 @@ model.set_active_adapters(task_name)
 
 The rest of the training procedure does not require any further changes in code.
 
-You can find the full version of the modified training script for GLUE at [run_glue_wh.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue_wh.py) in the `examples` folder of our repository.
+You can find the full version of the modified training script for GLUE at [run_glue_alt.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue_alt.py) in the `examples` folder of our repository.
 We also adapted various other example scripts (e.g. `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
 
 To start adapter training on a GLUE task, you can run something similar to:
@@ -65,7 +65,7 @@ To start adapter training on a GLUE task, you can run something similar to:
 export GLUE_DIR=/path/to/glue
 export TASK_NAME=MNLI
 
-python run_glue_wh.py \
+python run_glue_alt.py \
   --model_name_or_path bert-base-cased \
   --task_name $TASK_NAME \
   --do_train \
