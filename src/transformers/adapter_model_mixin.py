@@ -24,6 +24,7 @@ from .adapter_utils import (
     HEAD_WEIGHTS_NAME,
     WEIGHTS_NAME,
     inherit_doc,
+    parse_adapter_names,
     resolve_adapter_path,
 )
 
@@ -623,6 +624,8 @@ class ModelAdaptersMixin(ABC):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
 
+        self._active_adapter_names = None
+
     # These methods have to be implemented by every deriving class:
 
     @abstractmethod
@@ -650,6 +653,33 @@ class ModelAdaptersMixin(ABC):
             return len(self.config.adapters.adapters) > 0
         else:
             return len(self.config.adapters.adapter_list(adapter_type)) > 0
+
+    @property
+    def active_adapters(self):
+        return self.base_model._active_adapter_names
+
+    def set_active_adapters(self, adapter_names: list):
+        """Sets the adapter modules to be used by default in every forward pass.
+        This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
+        If no adapter with the given name is found, no module of the respective type will be activated.
+
+        Args:
+            adapter_names (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
+        """
+        adapter_names = parse_adapter_names(adapter_names)
+
+        new_adapter_names = []
+
+        for stack in adapter_names:
+            new_adapter_names.append([])
+            for adapter_name in stack:
+                if adapter_name in self.config.adapters.adapters:
+                    new_adapter_names[-1].append(adapter_name)
+                else:
+                    logger.info("No adapter with name '{}' available. Skipping.".format(adapter_name))
+        if len(new_adapter_names[0]) == 0:
+            new_adapter_names = None
+        self.base_model._active_adapter_names = new_adapter_names
 
     def set_adapter_config(self, adapter_type: AdapterType, adapter_config):
         """Sets the adapter configuration of the specified adapter type.
