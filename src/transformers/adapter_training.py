@@ -1,9 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .adapter_bert import BertModelHeadsMixin
-from .adapter_config import AdapterConfig, AdapterType
-
 
 @dataclass
 class AdapterArguments:

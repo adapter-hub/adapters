@@ -825,7 +825,7 @@ def main():
 
     # Setup adapters
     if args.train_adapter:
-        task_name = "squad2.0" if args.version_2_with_negative else "squad"
+        task_name = "squad2" if args.version_2_with_negative else "squad1"
         # check if adapter already exists, otherwise add it
         if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
             # resolve the adapter config
