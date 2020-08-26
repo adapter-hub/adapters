@@ -588,8 +588,10 @@ class Trainer:
         model.train()
         for k, v in inputs.items():
             inputs[k] = v.to(self.args.device)
+        if self.adapter_names:
+            inputs["adapter_names"] = self.adapter_names
 
-        outputs = model(**inputs, adapter_names=self.adapter_names)
+        outputs = model(**inputs)
         loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
         if self.args.n_gpu > 1:
@@ -782,9 +784,11 @@ class Trainer:
 
             for k, v in inputs.items():
                 inputs[k] = v.to(self.args.device)
+            if self.adapter_names:
+                inputs["adapter_names"] = self.adapter_names
 
             with torch.no_grad():
-                outputs = model(**inputs, adapter_names=self.adapter_names)
+                outputs = model(**inputs)
                 if has_labels:
                     step_eval_loss, logits = outputs[:2]
                     eval_losses += [step_eval_loss.mean().item()]
