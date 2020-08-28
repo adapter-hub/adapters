@@ -488,9 +488,9 @@ class Trainer:
                     len(epoch_iterator) <= self.args.gradient_accumulation_steps
                     and (step + 1) == len(epoch_iterator)
                 ):
-                    if model.module:
-                        model.config = model.module.config
-                        model.config.adapter_fusion["regularization"] = model.module.config.adapter_fusion["regularization"]
+                    # if model.module:
+                    #     model.config = model.module.config
+                    #     model.config.adapter_fusion["regularization"] = model.module.config.adapter_fusion["regularization"]
                     
                     # apply adapter fusion weight regularization on the value matrix
                     if hasattr(model.config, "adapter_fusion") and model.config.adapter_fusion["regularization"]:

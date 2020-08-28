@@ -24,7 +24,7 @@ batch_size_per_gpu = 32
 max_seq_length = 80
 overwrite_tokenizer = False
 num_train_epochs = 10
-continue_train = False
+another_version = False
 logging_steps = 100
 logging_first_step = True
 saving_steps = 1000
@@ -34,7 +34,8 @@ learning_rate = 0.00003
 logging.basicConfig(level=logging.INFO)
 
 # Experiment
-base_path = Path("/home/convei_intern1/adapter/")
+#base_path = Path("/home/convei_intern1/adapter/")
+base_path = Path("/content/gdrive/My Drive/adapter")
 experiment_name = "hello_mutiple_choice"
 task_name="commonsenseqa"
 
@@ -47,7 +48,7 @@ logging.info("Tokenizer Path: {}".format(tokenizer_path))
 
 # Model
 model_path = config_path = base_path / Path("models/"+experiment_name)
-if not continue_train:  # model version control
+if another_version:  # model version control
     model_variants = [str(x) for x in Path(base_path / "models").iterdir() if x.is_dir() and str(x).find(experiment_name)]
     model_versions = [ver for var in model_variants for ver in re.findall(r'(\d+)$', var)]
     model_path = config_path = base_path / Path("models/"+experiment_name+str(int(sorted(model_versions)[-1])+1)) if model_versions else model_path
@@ -55,7 +56,7 @@ logging.info("Model Path: {}".format(model_path))
 
 # Adapter
 adapter_model_path = adapter_config_path = base_path / Path("adapters/"+experiment_name)
-if not continue_train:  # adapter version control
+if another_version:  # adapter version control
     adapter_variants = [str(x) for x in Path(base_path / "adapters").iterdir() if x.is_dir() and str(x).find(experiment_name)]
     adapter_versions = [ver for var in adapter_variants for ver in re.findall(r'(\d+)$', var)]
     adapter_model_path = adapter_config_path = base_path / Path("models/"+experiment_name+str(int(sorted(adapter_versions)[-1])+1)) if adapter_versions else adapter_model_path
@@ -69,6 +70,7 @@ model_path = str(model_path)
 model_name_or_path = str("bert-base-uncased")
 adapter_config_name_or_path = str("pfeiffer")
 adapter_name_or_path = str("csqa")
+adapter_name_or_path = str("comsense/csqa@ukp")
 
 # GPU
 # REQUIRED: set GPUs to use using shell command
@@ -76,7 +78,7 @@ adapter_name_or_path = str("csqa")
 logging.info("Current Device Count {}".format(torch.cuda.device_count()))
 for did in range(torch.cuda.device_count()):
     logging.info('\t{}'.format(torch.cuda.get_device_name(did)))
-device_ids = [0, 1, 2] 
+device_ids = [0] 
 dev = []
 for did in device_ids: 
     logging.info('Memory Usage for {} {}'.format(torch.cuda.get_device_name(did), did))
@@ -92,7 +94,7 @@ training_args = TrainingArguments(
     save_steps=-1,
     evaluate_during_training=True,
     output_dir=model_path,
-    overwrite_output_dir=continue_train,
+    overwrite_output_dir=another_version,
     do_train=True,
     do_eval=True,
     do_predict=True,
@@ -150,7 +152,7 @@ test_dataset = (
     else None
 )
 
-config = AutoConfig.from_pretrained(
+config = BertConfig.from_pretrained(
     model_name_or_path,
     num_labels=num_labels,
     finetuning_task=task_name,
@@ -161,12 +163,25 @@ model = AutoModelWithHeads.from_pretrained(
     model_name_or_path,
     config=config
 )
+
+#model.add_multiple_choice_head(adapter_config_name_or_path, num_choices=5)
 model.add_multiple_choice_head(adapter_config_name_or_path, num_choices=5)
 adapter_config = AdapterConfig.load(adapter_config_name_or_path)
-model.load_adapter(adapter_name_or_path, "text_task", config=adapter_config)
+#model.load_adapter("comsense/csqa@ukp", "text_task", config=config) # --> original
+model.load_adapter(adapter_name_or_path, "text_task", config=adapter_config) # --> removed
+model.add_apdapter("csqa", AdapterType.text_task)
 model.train_adapter([adapter_name_or_path])
 model.set_active_adapters([[adapter_name_or_path]])
-
+# task adapter - only add if not existing
+if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
+    # add a new adapter
+    model.add_adapter(
+        task_name,
+        AdapterType.text_task
+        config=adapter_args.adapter_config
+    )
+# enable adapter training
+model.train_adapter([task_name])
 
 # Metric
 def simple_accuracy(preds, labels):
