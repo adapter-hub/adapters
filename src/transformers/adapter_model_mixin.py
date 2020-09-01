@@ -280,10 +280,6 @@ class AdapterLoader(WeightsLoader):
         if adapter_type and not AdapterType.has(self.adapter_type):
             raise ValueError("Invalid adapter type {}".format(self.adapter_type))
 
-    @property
-    def config(self):
-        return self.model.config.adapters.get_config(self.adapter_type)
-
     def filter_func(self, adapter_name):
         return lambda x: "_adapters.{}.".format(adapter_name) in x
 
@@ -307,13 +303,14 @@ class AdapterLoader(WeightsLoader):
     # In the old format, task adapters e.g. using pfeiffer config specify inv. adapters but don't use them.
     # As inv. adapters would be incorrectly used in the new implementation,
     # catch this case here when loading pretrained adapters.
-    def _fix_legacy_config(self, adapter_name, loading_info):
+    def _fix_legacy_config(self, adapter_name, missing_keys):
         if self.adapter_type == AdapterType.text_task:
-            inv_adapter_keys = [x for x in loading_info["missing_keys"] if f"invertible_adapters.{adapter_name}." in x]
+            inv_adapter_keys = [x for x in missing_keys if f"invertible_adapters.{adapter_name}." in x]
             if len(inv_adapter_keys) > 0:
                 del self.model.base_model.invertible_adapters[adapter_name]
-                loading_info["missing_keys"] = [k for k in loading_info["missing_keys"] if k not in inv_adapter_keys]
+                missing_keys = [k for k in missing_keys if k not in inv_adapter_keys]
                 # TODO remove invertible_adapter from config
+        return missing_keys
 
     def rename_func(self, old_name, new_name):
         return lambda k: self._rename_legacy_weights(k).replace(
@@ -387,8 +384,6 @@ class AdapterLoader(WeightsLoader):
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
                              and the name of the loaded weights.
         """
-        # use: given adapter config (can be string) > default config of this type > global default config
-        config = config or self.config
         requested_config = AdapterConfig.load(config) if config else None
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
         model_name = self.model.model_name or model_name
@@ -420,10 +415,12 @@ class AdapterLoader(WeightsLoader):
         # Load adapter weights
         filter_func = self.filter_func(adapter_name)
         rename_func = self.rename_func(config["name"], adapter_name)
-        self.weights_helper.load_weights(
+        _, missing_keys = self.weights_helper.load_weights(
             resolved_folder, filter_func, rename_func=rename_func, loading_info=loading_info, in_base_model=True
         )
-        self._fix_legacy_config(adapter_name, loading_info)
+        missing_keys = self._fix_legacy_config(adapter_name, missing_keys)
+        if isinstance(loading_info, Mapping):
+            loading_info["missing_keys"] = missing_keys
 
         return resolved_folder, adapter_name
 
@@ -705,21 +702,6 @@ class ModelAdaptersMixin(ABC):
         if len(new_adapter_names[0]) == 0:
             new_adapter_names = None
         self.base_model._active_adapter_names = new_adapter_names
-
-    def set_adapter_config(self, adapter_type: AdapterType, adapter_config):
-        """Sets the adapter configuration of the specified adapter type.
-
-        Args:
-            adapter_type (AdapterType): The adapter type.
-            adapter_config (str or dict): adapter configuration, can be either:
-                - a string identifying a pre-defined adapter configuration
-                - a dictionary representing the adapter configuration
-                - the path to a file containing the adapter configuration
-        """
-        if AdapterType.has(adapter_type):
-            self.config.adapters.set_config(adapter_type, adapter_config)
-        else:
-            raise ValueError("Invalid adapter type {}".format(adapter_type))
 
     def set_adapter_fusion_config(self, adapter_fusion_config, kwargs={}):
         """Sets the adapter fusion configuration.

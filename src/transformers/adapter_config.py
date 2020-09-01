@@ -1,9 +1,7 @@
 import copy
-import json
 import logging
 from collections.abc import Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass, replace
-from os.path import isfile
 from typing import List, Optional, Union
 
 from .adapter_utils import AdapterType, get_adapter_config_hash, resolve_adapter_config
@@ -237,41 +235,20 @@ class ModelAdaptersConfig:
     def add(self, adapter_name: str, adapter_type: AdapterType, config: Optional[Union[str, dict]] = None):
         if adapter_name in self.adapters:
             raise ValueError(f"An adapter with the name '{adapter_name}' has already been added.")
-        config_name = config
+        if config is None:
+            config = DEFAULT_ADAPTER_CONFIG
         if isinstance(config, str):
             if config not in ADAPTER_CONFIG_MAP and config not in self.config_map:
                 raise ValueError(f"Invalid adapter config identifier '{config}''")
+            config_name = config
         # if it's a dict, compute it's hash and add a new entry to the config map
         elif isinstance(config, Mapping):
             config_name = get_adapter_config_hash(config)
             self.config_map[config_name] = config
+        else:
+            raise ValueError("Invalid adapter config: {}".format(config))
         self.adapters[adapter_name] = (adapter_type, config_name)
         logger.info(f"Adding adapter '{adapter_name}' of type '{adapter_type}'.")
-
-    def get_config(self, adapter_type: AdapterType) -> dict:
-        config = self.config_map.get(adapter_type, None)
-        if isinstance(config, str) and config in ADAPTER_CONFIG_MAP:
-            return ADAPTER_CONFIG_MAP[config]
-        return config
-
-    def set_config(self, adapter_type: AdapterType, config: Union[dict, str, AdapterConfig]):
-        """Sets the default adapter configuration of the specified adapter type.
-
-        Args:
-            config (str or dict or AdapterConfig): adapter configuration, can be either:
-                - a string identifying a pre-defined adapter configuration
-                - a dictionary representing the adapter configuration
-                - the path to a file containing the adapter configuration
-        """
-        assert len(self.adapter_list(adapter_type)) < 1, "Can only set new config if no adapters have been added."
-
-        if isinstance(config, Mapping) or config in ADAPTER_CONFIG_MAP:
-            self.config_map[adapter_type] = config
-        elif isfile(config):
-            with open(config, "r", encoding="utf-8") as f:
-                self.config_map[adapter_type] = json.load(f)
-        else:
-            raise ValueError("Unable to identify {} as a valid adapter config.".format(config))
 
     def common_config_value(self, adapter_names: list, attribute: str):
         """Checks whether all adapters in a list share the same config setting for a given attribute and returns the shared value.

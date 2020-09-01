@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
+from .adapter_config import AdapterType
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion, GLOWCouplingBlock, NICECouplingBlock
 from .adapter_utils import flatten_adapter_names, parse_adapter_names
@@ -480,8 +480,6 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         """
         if not AdapterType.has(adapter_type):
             raise ValueError("Invalid adapter type {}".format(adapter_type))
-        if not self.config.adapters.get_config(adapter_type):
-            self.config.adapters.set_config(adapter_type, config or DEFAULT_ADAPTER_CONFIG)
         self.config.adapters.add(adapter_name, adapter_type, config=config)
         self.encoder.add_adapter(adapter_name)
         self.add_invertible_adapter(adapter_name)
