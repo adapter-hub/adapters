@@ -65,6 +65,8 @@ class AdapterHubTest(unittest.TestCase):
                 self.assertEqual(0, len(unexpected_keys))
 
                 self.assertIn(adapter_name, model.config.adapters.adapters)
+                self.assertNotIn(adapter_name, model.base_model.invertible_adapters)
+
                 # check if config is valid
                 expected_hash = get_adapter_config_hash(AdapterConfig.load(config))
                 real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
@@ -91,7 +93,6 @@ class AdapterHubTest(unittest.TestCase):
     def _compute_glue_metrics(self, task_name):
         return lambda p: glue_compute_metrics(task_name, np.argmax(p.predictions, axis=1), p.label_ids)
 
-    @slow
     def test_load_lang_adapter_from_hub(self):
         for config in ["pfeiffer", "houlsby"]:
             with self.subTest(config=config):
@@ -109,7 +110,7 @@ class AdapterHubTest(unittest.TestCase):
 
                 # check if adapter & invertible adapter were added
                 self.assertIn(adapter_name, model.config.adapters.adapters)
-                self.assertIn(adapter_name, model.invertible_lang_adapters)
+                self.assertIn(adapter_name, model.invertible_adapters)
 
                 # check if config is valid
                 # TODO hashes are not guaranteed to be equal because of invertible adapters

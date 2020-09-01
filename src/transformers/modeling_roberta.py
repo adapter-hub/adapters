@@ -293,7 +293,7 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         else:
             language = None
         prediction_scores = self.lm_head(
-            sequence_output, inv_lang_adapter=self.roberta.get_invertible_lang_adapter(language),
+            sequence_output, inv_lang_adapter=self.roberta.get_invertible_adapter(language),
         )
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here

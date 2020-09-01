@@ -38,6 +38,16 @@ class InvertibleAdapterConfig(Mapping):
     def __len__(self):
         return len(self.__dict__)
 
+    def to_dict(self):
+        return asdict(self)
+
+    def replace(self, **changes):
+        return replace(self, **changes)
+
+    @classmethod
+    def from_dict(cls, config):
+        return cls(**config)
+
 
 @dataclass
 class AdapterConfig(Mapping):
@@ -133,6 +143,15 @@ class PfeifferConfig(AdapterConfig):
     output_adapter: bool = True
     non_linearity: str = "relu"
     reduction_factor: int = 16
+
+
+@dataclass
+class PfeifferInvConfig(PfeifferConfig):
+    """
+    The adapter architecture proposed by Pfeiffer et. al., 2020.
+    Described in https://arxiv.org/pdf/2005.00247.pdf.
+    """
+
     invertible_adapter: Optional[dict] = InvertibleAdapterConfig(
         block_type="nice", non_linearity="relu", reduction_factor=2
     )
@@ -157,7 +176,24 @@ class HoulsbyConfig(AdapterConfig):
     reduction_factor: int = 16
 
 
-ADAPTER_CONFIG_MAP = {"pfeiffer": PfeifferConfig(), "houlsby": HoulsbyConfig()}
+@dataclass
+class HoulsbyInvConfig(HoulsbyConfig):
+    """
+    The adapter architecture proposed by Houlsby et. al., 2019.
+    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    """
+
+    invertible_adapter: Optional[dict] = InvertibleAdapterConfig(
+        block_type="nice", non_linearity="relu", reduction_factor=2
+    )
+
+
+ADAPTER_CONFIG_MAP = {
+    "pfeiffer": PfeifferConfig(),
+    "houlsby": HoulsbyConfig(),
+    "pfeiffer+inv": PfeifferInvConfig(),
+    "houlsby+inv": HoulsbyInvConfig(),
+}
 
 DEFAULT_ADAPTER_CONFIG = "pfeiffer"
 

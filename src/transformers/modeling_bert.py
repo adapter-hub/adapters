@@ -770,8 +770,8 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         if adapter_names is not None and len(adapter_names) > 0:
             adapter_names = parse_adapter_names(adapter_names)
 
-            if adapter_names[0][0] in self.invertible_lang_adapters:
-                embedding_output = self.invertible_lang_adapters[adapter_names[0][0]](embedding_output, rev=False)
+            if adapter_names[0][0] in self.invertible_adapters:
+                embedding_output = self.invertible_adapters[adapter_names[0][0]](embedding_output, rev=False)
 
         encoder_outputs = self.encoder(
             embedding_output,
@@ -933,7 +933,7 @@ class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         else:
             language = None
         prediction_scores, seq_relationship_score = self.cls(
-            sequence_output, pooled_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(language),
+            sequence_output, pooled_output, inv_lang_adapter=self.bert.get_invertible_adapter(language),
         )
 
         outputs = (prediction_scores, seq_relationship_score,) + outputs[
@@ -1046,7 +1046,7 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
             language = None
 
         prediction_scores = self.cls(
-            sequence_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(language),
+            sequence_output, inv_lang_adapter=self.bert.get_invertible_adapter(language),
         )
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here

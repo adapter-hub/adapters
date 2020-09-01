@@ -432,15 +432,12 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         super().__init__(*args, **kwargs)
 
     def _init_adapter_modules(self):
-        self.invertible_lang_adapters = nn.ModuleDict(dict())
+        self.invertible_adapters = nn.ModuleDict(dict())
 
-        # language adapters
-        for language in self.config.adapters.adapter_list(AdapterType.text_lang):
-            self.encoder.add_adapter(language)
-            self.add_invertible_lang_adapter(language)
-        # task adapters
-        for task in self.config.adapters.adapter_list(AdapterType.text_task):
-            self.encoder.add_adapter(task)
+        # add adapters specified in config; invertible adapter will only be added if required
+        for adapter_name in self.config.adapters.adapters:
+            self.encoder.add_adapter(adapter_name)
+            self.add_invertible_adapter(adapter_name)
         # fusion
         if hasattr(self.config, "fusion_models"):
             for fusion_adapter_names in self.config.fusion_models:
@@ -454,8 +451,8 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         self.encoder.enable_adapters(adapter_names, True, False)
         # unfreeze invertible adapters for invertible adapters
         for adapter_name in adapter_names_flat:
-            if adapter_name in self.invertible_lang_adapters:
-                for param in self.invertible_lang_adapters[adapter_name].parameters():
+            if adapter_name in self.invertible_adapters:
+                for param in self.invertible_adapters[adapter_name].parameters():
                     param.requires_grad = True
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_names)
@@ -487,33 +484,40 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
             self.config.adapters.set_config(adapter_type, config or DEFAULT_ADAPTER_CONFIG)
         self.config.adapters.add(adapter_name, adapter_type, config=config)
         self.encoder.add_adapter(adapter_name)
-        if adapter_type == AdapterType.text_lang:
-            self.add_invertible_lang_adapter(adapter_name)
+        self.add_invertible_adapter(adapter_name)
 
-    def add_invertible_lang_adapter(self, language):
-        if language in self.invertible_lang_adapters:
-            raise ValueError(f"Model already contains an adapter module for '{language}'.")
-        inv_adap_config = self.config.adapters.get(language)["invertible_adapter"]
-        if inv_adap_config["block_type"] == "nice":
-            inv_adap = NICECouplingBlock(
-                [[self.config.hidden_size]],
-                non_linearity=inv_adap_config["non_linearity"],
-                reduction_factor=inv_adap_config["reduction_factor"],
-            )
-        elif inv_adap_config["block_type"] == "glow":
-            inv_adap = GLOWCouplingBlock(
-                [[self.config.hidden_size]],
-                non_linearity=inv_adap_config["non_linearity"],
-                reduction_factor=inv_adap_config["reduction_factor"],
-            )
-        else:
-            raise ValueError(f"Invalid invertible adapter type '{inv_adap_config['block_type']}'.")
-        self.invertible_lang_adapters[language] = inv_adap
-        self.invertible_lang_adapters[language].apply(Adapter.init_bert_weights)
+    def add_invertible_adapter(self, adapter_name: str):
+        """Adds an invertible adapter module for the adapter with the given name.
+        If the given adapter does not specify an invertible adapter config, this method does nothing.
 
-    def get_invertible_lang_adapter(self, language):
-        if language in self.invertible_lang_adapters:
-            return self.invertible_lang_adapters[language]
+        Args:
+            adapter_name (str): The name of the adapter for which to add an invertible adapter module.
+        """
+        if adapter_name in self.invertible_adapters:
+            raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
+        adapter_config = self.config.adapters.get(adapter_name)
+        if adapter_config and adapter_config["invertible_adapter"]:
+            inv_adap_config = adapter_config["invertible_adapter"]
+            if inv_adap_config["block_type"] == "nice":
+                inv_adap = NICECouplingBlock(
+                    [[self.config.hidden_size]],
+                    non_linearity=inv_adap_config["non_linearity"],
+                    reduction_factor=inv_adap_config["reduction_factor"],
+                )
+            elif inv_adap_config["block_type"] == "glow":
+                inv_adap = GLOWCouplingBlock(
+                    [[self.config.hidden_size]],
+                    non_linearity=inv_adap_config["non_linearity"],
+                    reduction_factor=inv_adap_config["reduction_factor"],
+                )
+            else:
+                raise ValueError(f"Invalid invertible adapter type '{inv_adap_config['block_type']}'.")
+            self.invertible_adapters[adapter_name] = inv_adap
+            self.invertible_adapters[adapter_name].apply(Adapter.init_bert_weights)
+
+    def get_invertible_adapter(self, adapter_name):
+        if adapter_name in self.invertible_adapters:
+            return self.invertible_adapters[adapter_name]
         else:
             return None
 

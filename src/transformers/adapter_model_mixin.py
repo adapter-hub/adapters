@@ -277,7 +277,7 @@ class AdapterLoader(WeightsLoader):
     def __init__(self, model, adapter_type=None):
         super().__init__(model, WEIGHTS_NAME, CONFIG_NAME)
         self.adapter_type = adapter_type
-        if not AdapterType.has(self.adapter_type):
+        if adapter_type and not AdapterType.has(self.adapter_type):
             raise ValueError("Invalid adapter type {}".format(self.adapter_type))
 
     @property
@@ -295,12 +295,25 @@ class AdapterLoader(WeightsLoader):
         "attention_text_lang_adapters": "attention_adapters",
         "layer_text_task_adapters": "output_adapters",
         "layer_text_lang_adapters": "output_adapters",
+        "invertible_lang_adapters": "invertible_adapters"
     }
 
     def _rename_legacy_weights(self, k):
         for old, new in self.legacy_weights_mapping.items():
             k = k.replace(old, new)
         return k
+
+    # This method is used to remove unnecessary invertible adapters from task adapters using the old format.
+    # In the old format, task adapters e.g. using pfeiffer config specify inv. adapters but don't use them.
+    # As inv. adapters would be incorrectly used in the new implementation,
+    # catch this case here when loading pretrained adapters.
+    def _fix_legacy_config(self, adapter_name, loading_info):
+        if self.adapter_type == AdapterType.text_task:
+            inv_adapter_keys = [x for x in loading_info["missing_keys"] if f"invertible_adapters.{adapter_name}." in x]
+            if len(inv_adapter_keys) > 0:
+                del self.model.base_model.invertible_adapters[adapter_name]
+                loading_info["missing_keys"] = [k for k in loading_info["missing_keys"] if k not in inv_adapter_keys]
+                # TODO remove invertible_adapter from config
 
     def rename_func(self, old_name, new_name):
         return lambda k: self._rename_legacy_weights(k).replace(
@@ -410,6 +423,7 @@ class AdapterLoader(WeightsLoader):
         self.weights_helper.load_weights(
             resolved_folder, filter_func, rename_func=rename_func, loading_info=loading_info, in_base_model=True
         )
+        self._fix_legacy_config(adapter_name, loading_info)
 
         return resolved_folder, adapter_name
 
