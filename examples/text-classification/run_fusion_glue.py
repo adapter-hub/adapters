@@ -145,14 +145,7 @@ def main():
     )
 
     # Setup adapters
-    from transformers.adapter_config import AdapterType
-
-    base_model = getattr(model, model.base_model_prefix, model)
-    base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
-
     from transformers.adapter_config import PfeifferConfig
-
-    # from transformers.adapter_config import  HoulsbyConfig
 
     model.load_adapter(
         "sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion"
