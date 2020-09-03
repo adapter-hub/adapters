@@ -87,7 +87,7 @@ extras["all"] = extras["serving"] + ["tensorflow", "torch"]
 extras["testing"] = ["pytest", "pytest-xdist", "timeout-decorator", "pytest-subtests"]
 extras["docs"] = ["recommonmark", "sphinx", "sphinx-markdown-tables", "sphinx-rtd-theme"]
 extras["quality"] = [
-    "black",
+    "black == 19.10b0",
     "isort",
     "flake8",
 ]
