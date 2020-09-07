@@ -28,6 +28,7 @@ if is_torch_available():
         BertConfig,
         BertModel,
         BertLMHeadModel,
+        BertModelWithHeads,
         BertForMaskedLM,
         BertForNextSentencePrediction,
         BertForPreTraining,
@@ -434,6 +435,7 @@ class BertModelTest(ModelTesterMixin, unittest.TestCase):
     all_model_classes = (
         (
             BertModel,
+            BertModelWithHeads,
             BertForMaskedLM,
             BertForMultipleChoice,
             BertForNextSentencePrediction,

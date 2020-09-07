@@ -1,0 +1,61 @@
+name: Tests
+
+on:
+  push:
+    branches: [ 'master' ]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'templates/**'
+      - 'tests/**'
+      - 'utils/**'
+  pull_request:
+    branches: [ 'master' ]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'templates/**'
+      - 'tests/**'
+      - 'utils/**'
+
+jobs:
+  check_code_quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install
+        run: |
+          pip install .[torch,quality]
+          pip uninstall isort -y
+          pip install git+git://github.com/timothycrosley/isort.git@e63ae06ec7d70b06df9e528357650281a3d3ec22#egg=isort
+      - name: Check Quality
+        run: |
+          make quality
+  run_reduced_tests_torch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install
+        run: |
+          pip install .[sklearn,torch,testing]
+      - name: Test
+        run: |
+          make test-reduced

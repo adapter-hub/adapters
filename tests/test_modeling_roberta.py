@@ -28,6 +28,7 @@ if is_torch_available():
     from transformers import (
         RobertaConfig,
         RobertaModel,
+        RobertaModelWithHeads,
         RobertaForMaskedLM,
         RobertaForMultipleChoice,
         RobertaForQuestionAnswering,
@@ -222,6 +223,7 @@ class RobertaModelTest(ModelTesterMixin, unittest.TestCase):
         (
             RobertaForMaskedLM,
             RobertaModel,
+            RobertaModelWithHeads,
             RobertaForSequenceClassification,
             RobertaForTokenClassification,
             RobertaForMultipleChoice,

@@ -27,6 +27,7 @@ from seqeval.metrics import f1_score, precision_score, recall_score
 from torch import nn
 
 from transformers import (
+    AdapterArguments,
     AutoConfig,
     AutoModelForTokenClassification,
     AutoTokenizer,
@@ -35,6 +36,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
     set_seed,
+    setup_task_adapter_training,
 )
 from utils_ner import NerDataset, Split, get_labels
 
@@ -95,13 +97,15 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, adapter_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
-        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+        model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     if (
         os.path.exists(training_args.output_dir)
@@ -110,7 +114,8 @@ def main():
         and not training_args.overwrite_output_dir
     ):
         raise ValueError(
-            f"Output directory ({training_args.output_dir}) already exists and is not empty. Use --overwrite_output_dir to overcome."
+            f"Output directory ({training_args.output_dir}) already exists and is not empty. "
+            f"Use --overwrite_output_dir to overcome."
         )
 
     # Setup logging
@@ -161,6 +166,18 @@ def main():
         config=config,
         cache_dir=model_args.cache_dir,
     )
+
+    # Setup adapters
+    task_name = "ner"
+    language = adapter_args.language
+    setup_task_adapter_training(model, task_name, adapter_args)
+    if adapter_args.train_adapter:
+        if language:
+            adapter_names = [[language], [task_name]]
+        else:
+            adapter_names = [[task_name]]
+    else:
+        adapter_names = None
 
     # Get datasets
     train_dataset = (
@@ -221,6 +238,9 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
+        do_save_full_model=not adapter_args.train_adapter,
+        do_save_adapters=adapter_args.train_adapter,
+        adapter_names=adapter_names,
     )
 
     # Training

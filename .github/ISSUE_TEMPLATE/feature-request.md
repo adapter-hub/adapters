@@ -1,8 +1,8 @@
 ---
 name: "\U0001F680 Feature request"
-about: Submit a proposal/request for a new transformers feature
+about: Submit a proposal/request for a new adapter-transformers feature
 title: ''
-labels: ''
+labels: 'enhancement'
 assignees: ''
 
 ---

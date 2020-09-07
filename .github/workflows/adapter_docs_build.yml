@@ -1,0 +1,33 @@
+name: Build Adapter Docs
+
+on:
+  push:
+    branches: [ master ]
+    paths: [ 'adapter_docs/**' ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - name: Install
+        run: |
+          pip install .[tf,torch,docs]
+      - name: Build
+        run: |
+          cd adapter_docs && make html && cd ..
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          user_name: "Adapter-Hub-Bert"
+          user_email: "---"
+          publish_dir: ./adapter_docs/_build/html
+          publish_branch: gh-pages
+          force_orphan: true
+          cname: docs.adapterhub.ml

@@ -1,8 +1,8 @@
 ---
 name: "\U0001F41B Bug Report"
-about: Submit a bug report to help us improve transformers
+about: Submit a bug report to help us improve adapter-transformers
 title: ''
-labels: ''
+labels: 'bug'
 assignees: ''
 
 ---
@@ -14,6 +14,8 @@ assignees: ''
 Model I am using (Bert, XLNet ...):
 
 Language I am using the model on (English, Chinese ...):
+
+Adapter setup I am using (if any):
 
 The problem arises when using:
 * [ ] the official example scripts: (give details below)

@@ -22,6 +22,7 @@ import logging
 import os
 from typing import Dict, Tuple
 
+from .adapter_utils import DataclassJSONEncoder
 from .file_utils import CONFIG_NAME, cached_path, hf_bucket_url, is_remote_url
 
 
@@ -364,6 +365,8 @@ class PretrainedConfig(object):
         output = copy.deepcopy(self.__dict__)
         if hasattr(self.__class__, "model_type"):
             output["model_type"] = self.__class__.model_type
+        if hasattr(self, "adapters"):
+            output["adapters"] = self.adapters.to_dict()
         return output
 
     def to_json_string(self, use_diff=True):
@@ -381,7 +384,7 @@ class PretrainedConfig(object):
             config_dict = self.to_diff_dict()
         else:
             config_dict = self.to_dict()
-        return json.dumps(config_dict, indent=2, sort_keys=True) + "\n"
+        return json.dumps(config_dict, indent=2, sort_keys=True, cls=DataclassJSONEncoder) + "\n"
 
     def to_json_file(self, json_file_path, use_diff=True):
         """

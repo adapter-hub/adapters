@@ -23,6 +23,9 @@ import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
+from .adapter_bert import BertModelHeadsMixin
+from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
+from .adapter_utils import parse_adapter_names
 from .configuration_roberta import RobertaConfig
 from .file_utils import add_code_sample_docstrings, add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_bert import BertEmbeddings, BertLayerNorm, BertModel, BertPreTrainedModel, gelu
@@ -162,8 +165,57 @@ class RobertaModel(BertModel):
         self.embeddings.word_embeddings = value
 
 
+@add_start_docstrings(
+    """Roberta Model transformer with the option to add multiple flexible heads on top.""", ROBERTA_START_DOCSTRING,
+)
+class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
+    config_class = RobertaConfig
+    base_model_prefix = "roberta"
+
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.roberta = RobertaModel(config)
+
+        self._init_head_modules()
+
+        self.init_weights()
+
+    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING.format("(batch_size, sequence_length)"))
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        adapter_names=None,
+        head=None,
+    ):
+        input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
+        position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+
+        outputs = self.roberta(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            adapter_names=adapter_names,
+        )
+
+        outputs = self.forward_head(outputs, head_name=head, attention_mask=attention_mask, labels=labels,)
+
+        return outputs
+
+
 @add_start_docstrings("""RoBERTa Model with a `language modeling` head on top. """, ROBERTA_START_DOCSTRING)
-class RobertaForMaskedLM(BertPreTrainedModel):
+class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     config_class = RobertaConfig
     base_model_prefix = "roberta"
 
@@ -191,6 +243,7 @@ class RobertaForMaskedLM(BertPreTrainedModel):
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
         **kwargs
     ):
         r"""
@@ -237,9 +290,19 @@ class RobertaForMaskedLM(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
         sequence_output = outputs[0]
-        prediction_scores = self.lm_head(sequence_output)
+
+        # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
+        if adapter_names is not None and len(adapter_names) > 0:
+            adapter_names = parse_adapter_names(adapter_names)
+            language = adapter_names[0][0]
+        else:
+            language = None
+        prediction_scores = self.lm_head(
+            sequence_output, inv_lang_adapter=self.roberta.get_invertible_lang_adapter(language),
+        )
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
 
@@ -265,10 +328,13 @@ class RobertaLMHead(nn.Module):
         # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
         self.decoder.bias = self.bias
 
-    def forward(self, features, **kwargs):
+    def forward(self, features, inv_lang_adapter=None, **kwargs):
         x = self.dense(features)
         x = gelu(x)
         x = self.layer_norm(x)
+
+        if inv_lang_adapter:
+            x = inv_lang_adapter(x, rev=True)
 
         # project back to size of vocabulary with bias
         x = self.decoder(x)
@@ -281,7 +347,7 @@ class RobertaLMHead(nn.Module):
     on top of the pooled output) e.g. for GLUE tasks. """,
     ROBERTA_START_DOCSTRING,
 )
-class RobertaForSequenceClassification(BertPreTrainedModel):
+class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     config_class = RobertaConfig
     base_model_prefix = "roberta"
 
@@ -307,6 +373,7 @@ class RobertaForSequenceClassification(BertPreTrainedModel):
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -342,6 +409,7 @@ class RobertaForSequenceClassification(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
         sequence_output = outputs[0]
         logits = self.classifier(sequence_output)
@@ -365,7 +433,7 @@ class RobertaForSequenceClassification(BertPreTrainedModel):
     the pooled output and a softmax) e.g. for RocStories/SWAG tasks. """,
     ROBERTA_START_DOCSTRING,
 )
-class RobertaForMultipleChoice(BertPreTrainedModel):
+class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     config_class = RobertaConfig
     base_model_prefix = "roberta"
 
@@ -391,6 +459,7 @@ class RobertaForMultipleChoice(BertPreTrainedModel):
         inputs_embeds=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -439,6 +508,7 @@ class RobertaForMultipleChoice(BertPreTrainedModel):
             inputs_embeds=flat_inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
         pooled_output = outputs[1]
 
@@ -461,7 +531,7 @@ class RobertaForMultipleChoice(BertPreTrainedModel):
     the hidden-states output) e.g. for Named-Entity-Recognition (NER) tasks. """,
     ROBERTA_START_DOCSTRING,
 )
-class RobertaForTokenClassification(BertPreTrainedModel):
+class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     config_class = RobertaConfig
     base_model_prefix = "roberta"
 
@@ -488,6 +558,7 @@ class RobertaForTokenClassification(BertPreTrainedModel):
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -522,6 +593,7 @@ class RobertaForTokenClassification(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -572,7 +644,7 @@ class RobertaClassificationHead(nn.Module):
     the hidden-states output to compute `span start logits` and `span end logits`). """,
     ROBERTA_START_DOCSTRING,
 )
-class RobertaForQuestionAnswering(BertPreTrainedModel):
+class RobertaForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     config_class = RobertaConfig
     base_model_prefix = "roberta"
 
@@ -599,6 +671,7 @@ class RobertaForQuestionAnswering(BertPreTrainedModel):
         end_positions=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -640,6 +713,7 @@ class RobertaForQuestionAnswering(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]

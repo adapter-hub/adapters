@@ -24,6 +24,7 @@ from typing import Dict, Optional
 import numpy as np
 
 from transformers import (
+    AdapterArguments,
     AutoConfig,
     AutoModelForMultipleChoice,
     AutoTokenizer,
@@ -32,6 +33,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
     set_seed,
+    setup_task_adapter_training,
 )
 from utils_multiple_choice import MultipleChoiceDataset, Split, processors
 
@@ -88,8 +90,8 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
+    model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     if (
         os.path.exists(training_args.output_dir)
@@ -150,6 +152,10 @@ def main():
         cache_dir=model_args.cache_dir,
     )
 
+    # Setup adapters
+    task_name = data_args.task_name
+    setup_task_adapter_training(model, task_name, adapter_args)
+
     # Get datasets
     train_dataset = (
         MultipleChoiceDataset(
@@ -187,6 +193,9 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
+        do_save_full_model=not adapter_args.train_adapter,
+        do_save_adapters=adapter_args.train_adapter,
+        adapter_names=[task_name],
     )
 
     # Training

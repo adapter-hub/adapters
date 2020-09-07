@@ -88,11 +88,11 @@ extras["torch"] = ["torch"]
 extras["serving"] = ["pydantic", "uvicorn", "fastapi", "starlette"]
 extras["all"] = extras["serving"] + ["tensorflow", "torch"]
 
-extras["testing"] = ["pytest", "pytest-xdist", "timeout-decorator", "psutil"]
+extras["testing"] = ["pytest", "pytest-xdist", "timeout-decorator", "psutil", "pytest-subtests"]
 # sphinx-rtd-theme==0.5.0 introduced big changes in the style.
 extras["docs"] = ["recommonmark", "sphinx", "sphinx-markdown-tables", "sphinx-rtd-theme==0.4.3", "sphinx-copybutton"]
 extras["quality"] = [
-    "black",
+    "black == 19.10b0",
     "isort",
     # "isort @ git+git://github.com/timothycrosley/isort.git@e63ae06ec7d70b06df9e528357650281a3d3ec22#egg=isort",
     "flake8",
@@ -100,16 +100,16 @@ extras["quality"] = [
 extras["dev"] = extras["testing"] + extras["quality"] + ["mecab-python3<1", "scikit-learn", "tensorflow", "torch"]
 
 setup(
-    name="transformers",
+    name="adapter-transformers",
     version="3.0.2",
-    author="Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Sam Shleifer, Patrick von Platen, Google AI Language Team Authors, Open AI team Authors, Facebook AI Authors, Carnegie Mellon University Authors",
-    author_email="thomas@huggingface.co",
+    author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, based on work by Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Sam Shleifer, Patrick von Platen, Google AI Language Team Authors, Open AI team Authors, Facebook AI Authors, Carnegie Mellon University Authors",
+    author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="State-of-the-art Natural Language Processing for TensorFlow 2.0 and PyTorch",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     keywords="NLP deep learning transformer pytorch tensorflow BERT GPT GPT-2 google openai CMU",
     license="Apache",
-    url="https://github.com/huggingface/transformers",
+    url="https://github.com/adapter-hub/adapter-transformers",
     package_dir={"": "src"},
     packages=find_packages("src"),
     install_requires=[

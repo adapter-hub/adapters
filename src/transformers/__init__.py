@@ -167,12 +167,53 @@ if is_sklearn_available():
     from .data import glue_compute_metrics, xnli_compute_metrics
 
 
+# Adapters
+if is_torch_available():
+    from .adapter_training import AdapterArguments, setup_task_adapter_training
+    from .adapter_model_mixin import (
+        WeightsLoaderHelper,
+        WeightsLoader,
+        AdapterLoader,
+        AdapterFusionLoader,
+        PredictionHeadLoader,
+        ModelAdaptersMixin,
+        ModelWithHeadsAdaptersMixin,
+    )
+    from .adapter_config import (
+        InvertibleAdapterConfig,
+        AdapterConfig,
+        PfeifferConfig,
+        HoulsbyConfig,
+        ADAPTER_CONFIG_MAP,
+        DEFAULT_ADAPTER_CONFIG,
+        ModelAdaptersConfig,
+        AdapterFusionConfig,
+        DynamicAdapterFusionConfig,
+        StaticAdapterFusionConfig,
+        ADAPTERFUSION_CONFIG_MAP,
+        DEFAULT_ADAPTERFUSION_CONFIG,
+    )
+    from .adapter_utils import (
+        AdapterType,
+        get_adapter_config_hash,
+        ADAPTER_HUB_URL,
+        ADAPTER_HUB_INDEX_FILE,
+        ADAPTER_CACHE,
+        pull_from_hub,
+        resolve_adapter_config,
+        resolve_adapter_path,
+    )
+
+    # TODO add more
+
+
 # Modeling
 if is_torch_available():
     from .generation_utils import top_k_top_p_filtering
     from .modeling_utils import PreTrainedModel, prune_layer, Conv1D, apply_chunking_to_forward
     from .modeling_auto import (
         AutoModel,
+        AutoModelWithHeads,
         AutoModelForPreTraining,
         AutoModelForSequenceClassification,
         AutoModelForQuestionAnswering,
@@ -212,6 +253,7 @@ if is_torch_available():
     from .modeling_bert import (
         BertPreTrainedModel,
         BertModel,
+        BertModelWithHeads,
         BertForPreTraining,
         BertForMaskedLM,
         BertLMHeadModel,
@@ -284,6 +326,7 @@ if is_torch_available():
     from .modeling_roberta import (
         RobertaForMaskedLM,
         RobertaModel,
+        RobertaModelWithHeads,
         RobertaForSequenceClassification,
         RobertaForMultipleChoice,
         RobertaForTokenClassification,
@@ -332,6 +375,7 @@ if is_torch_available():
     from .modeling_xlm_roberta import (
         XLMRobertaForMaskedLM,
         XLMRobertaModel,
+        XLMRobertaModelWithHeads,
         XLMRobertaForMultipleChoice,
         XLMRobertaForSequenceClassification,
         XLMRobertaForTokenClassification,

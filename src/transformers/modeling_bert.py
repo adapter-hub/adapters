@@ -27,6 +27,16 @@ from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from .activations import gelu, gelu_new, swish
+from .adapter_bert import (
+    BertEncoderAdaptersMixin,
+    BertLayerAdaptersMixin,
+    BertModelAdaptersMixin,
+    BertModelHeadsMixin,
+    BertOutputAdaptersMixin,
+    BertSelfOutputAdaptersMixin,
+)
+from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
+from .adapter_utils import parse_adapter_names
 from .configuration_bert import BertConfig
 from .file_utils import add_code_sample_docstrings, add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_utils import PreTrainedModel, find_pruneable_heads_and_indices, prune_linear_layer
@@ -263,17 +273,22 @@ class BertSelfAttention(nn.Module):
         return outputs
 
 
-class BertSelfOutput(nn.Module):
+class BertSelfOutput(nn.Module, BertSelfOutputAdaptersMixin):
     def __init__(self, config):
         super().__init__()
+        self.config = config
+
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
-    def forward(self, hidden_states, input_tensor):
+    def forward(self, hidden_states, input_tensor, attention_mask=None, adapter_names=None):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapters_forward(
+            hidden_states, input_tensor, attention_mask=attention_mask, adapter_names=adapter_names
+        )
         return hidden_states
 
 
@@ -310,11 +325,14 @@ class BertAttention(nn.Module):
         encoder_hidden_states=None,
         encoder_attention_mask=None,
         output_attentions=False,
+        adapter_names=None,
     ):
         self_outputs = self.self(
             hidden_states, attention_mask, head_mask, encoder_hidden_states, encoder_attention_mask, output_attentions,
         )
-        attention_output = self.output(self_outputs[0], hidden_states)
+        attention_output = self.output(
+            self_outputs[0], hidden_states, attention_mask=attention_mask, adapter_names=adapter_names
+        )
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
         return outputs
 
@@ -334,21 +352,24 @@ class BertIntermediate(nn.Module):
         return hidden_states
 
 
-class BertOutput(nn.Module):
+class BertOutput(nn.Module, BertOutputAdaptersMixin):
     def __init__(self, config):
         super().__init__()
+        self.config = config
+
         self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
         self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
-    def forward(self, hidden_states, input_tensor):
+    def forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapters_forward(hidden_states, input_tensor, attention_mask, adapter_names)
         return hidden_states
 
 
-class BertLayer(nn.Module):
+class BertLayer(BertLayerAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.attention = BertAttention(config)
@@ -366,9 +387,10 @@ class BertLayer(nn.Module):
         encoder_hidden_states=None,
         encoder_attention_mask=None,
         output_attentions=False,
+        adapter_names=None,
     ):
         self_attention_outputs = self.attention(
-            hidden_states, attention_mask, head_mask, output_attentions=output_attentions,
+            hidden_states, attention_mask, head_mask, output_attentions=output_attentions, adapter_names=adapter_names,
         )
         attention_output = self_attention_outputs[0]
         outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
@@ -386,12 +408,12 @@ class BertLayer(nn.Module):
             outputs = outputs + cross_attention_outputs[1:]  # add cross attentions if we output attention weights
 
         intermediate_output = self.intermediate(attention_output)
-        layer_output = self.output(intermediate_output, attention_output)
+        layer_output = self.output(intermediate_output, attention_output, attention_mask, adapter_names=adapter_names)
         outputs = (layer_output,) + outputs
         return outputs
 
 
-class BertEncoder(nn.Module):
+class BertEncoder(BertEncoderAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -406,6 +428,7 @@ class BertEncoder(nn.Module):
         encoder_attention_mask=None,
         output_attentions=False,
         output_hidden_states=False,
+        adapter_names=None,
     ):
         all_hidden_states = ()
         all_attentions = ()
@@ -428,6 +451,7 @@ class BertEncoder(nn.Module):
                     head_mask[i],
                     encoder_hidden_states,
                     encoder_attention_mask,
+                    adapter_names=adapter_names,
                 )
             else:
                 layer_outputs = layer_module(
@@ -437,6 +461,7 @@ class BertEncoder(nn.Module):
                     encoder_hidden_states,
                     encoder_attention_mask,
                     output_attentions,
+                    adapter_names=adapter_names,
                 )
             hidden_states = layer_outputs[0]
 
@@ -501,8 +526,10 @@ class BertLMPredictionHead(nn.Module):
         # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
         self.decoder.bias = self.bias
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, inv_lang_adapter=None):
         hidden_states = self.transform(hidden_states)
+        if inv_lang_adapter:
+            hidden_states = inv_lang_adapter(hidden_states, rev=True)
         hidden_states = self.decoder(hidden_states)
         return hidden_states
 
@@ -512,8 +539,8 @@ class BertOnlyMLMHead(nn.Module):
         super().__init__()
         self.predictions = BertLMPredictionHead(config)
 
-    def forward(self, sequence_output):
-        prediction_scores = self.predictions(sequence_output)
+    def forward(self, sequence_output, inv_lang_adapter=None):
+        prediction_scores = self.predictions(sequence_output, inv_lang_adapter)
         return prediction_scores
 
 
@@ -533,8 +560,8 @@ class BertPreTrainingHeads(nn.Module):
         self.predictions = BertLMPredictionHead(config)
         self.seq_relationship = nn.Linear(config.hidden_size, 2)
 
-    def forward(self, sequence_output, pooled_output):
-        prediction_scores = self.predictions(sequence_output)
+    def forward(self, sequence_output, pooled_output, inv_lang_adapter=None):
+        prediction_scores = self.predictions(sequence_output, inv_lang_adapter)
         seq_relationship_score = self.seq_relationship(pooled_output)
         return prediction_scores, seq_relationship_score
 
@@ -624,7 +651,7 @@ BERT_INPUTS_DOCSTRING = r"""
     "The bare Bert Model transformer outputting raw hidden-states without any specific head on top.",
     BERT_START_DOCSTRING,
 )
-class BertModel(BertPreTrainedModel):
+class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
     """
 
     The model can behave as an encoder (with only self-attention) as well
@@ -648,6 +675,8 @@ class BertModel(BertPreTrainedModel):
         self.embeddings = BertEmbeddings(config)
         self.encoder = BertEncoder(config)
         self.pooler = BertPooler(config)
+
+        self._init_adapter_modules()
 
         self.init_weights()
 
@@ -679,6 +708,7 @@ class BertModel(BertPreTrainedModel):
         encoder_attention_mask=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
     ):
         r"""
     Return:
@@ -710,6 +740,11 @@ class BertModel(BertPreTrainedModel):
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
+        # override the default active adapters with those passed in the method call
+        adapter_names = adapter_names or self.active_adapters
+        # some warnings if we don't use available adapters
+        if not adapter_names and self.has_adapters():
+            logger.warning("There are adapters available but none are passed to model.forward")
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
@@ -752,6 +787,14 @@ class BertModel(BertPreTrainedModel):
         embedding_output = self.embeddings(
             input_ids=input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds
         )
+
+        # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
+        if adapter_names is not None and len(adapter_names) > 0:
+            adapter_names = parse_adapter_names(adapter_names)
+
+            if adapter_names[0][0] in self.invertible_lang_adapters:
+                embedding_output = self.invertible_lang_adapters[adapter_names[0][0]](embedding_output, rev=False)
+
         encoder_outputs = self.encoder(
             embedding_output,
             attention_mask=extended_attention_mask,
@@ -760,6 +803,7 @@ class BertModel(BertPreTrainedModel):
             encoder_attention_mask=encoder_extended_attention_mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
         sequence_output = encoder_outputs[0]
         pooled_output = self.pooler(sequence_output)
@@ -767,7 +811,54 @@ class BertModel(BertPreTrainedModel):
         outputs = (sequence_output, pooled_output,) + encoder_outputs[
             1:
         ]  # add hidden_states and attentions if they are here
+
         return outputs  # sequence_output, pooled_output, (hidden_states), (attentions)
+
+
+@add_start_docstrings(
+    """Bert Model transformer with the option to add multiple flexible heads on top.""", BERT_START_DOCSTRING,
+)
+class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.bert = BertModel(config)
+
+        self._init_head_modules()
+
+        self.init_weights()
+
+    @add_start_docstrings_to_callable(BERT_INPUTS_DOCSTRING)
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        adapter_names=None,
+        head=None,
+    ):
+        input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
+        position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+
+        outputs = self.bert(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            adapter_names=adapter_names,
+        )
+
+        outputs = self.forward_head(outputs, head_name=head, attention_mask=attention_mask, labels=labels,)
+
+        return outputs
 
 
 @add_start_docstrings(
@@ -775,7 +866,7 @@ class BertModel(BertPreTrainedModel):
     a `next sentence prediction (classification)` head. """,
     BERT_START_DOCSTRING,
 )
-class BertForPreTraining(BertPreTrainedModel):
+class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -800,6 +891,7 @@ class BertForPreTraining(BertPreTrainedModel):
         next_sentence_label=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
         **kwargs
     ):
         r"""
@@ -869,10 +961,18 @@ class BertForPreTraining(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
 
         sequence_output, pooled_output = outputs[:2]
-        prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
+        if adapter_names is not None:
+            adapter_names = parse_adapter_names(adapter_names)
+            language = adapter_names[0][0]
+        else:
+            language = None
+        prediction_scores, seq_relationship_score = self.cls(
+            sequence_output, pooled_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(language),
+        )
 
         outputs = (prediction_scores, seq_relationship_score,) + outputs[
             2:
@@ -891,7 +991,7 @@ class BertForPreTraining(BertPreTrainedModel):
 @add_start_docstrings(
     """Bert Model with a `language modeling` head on top for CLM fine-tuning. """, BERT_START_DOCSTRING
 )
-class BertLMHeadModel(BertPreTrainedModel):
+class BertLMHeadModel(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         assert config.is_decoder, "If you want to use `BertLMHeadModel` as a standalone, add `is_decoder=True`."
@@ -918,6 +1018,7 @@ class BertLMHeadModel(BertPreTrainedModel):
         encoder_attention_mask=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
         **kwargs
     ):
         r"""
@@ -974,10 +1075,20 @@ class BertLMHeadModel(BertPreTrainedModel):
             encoder_attention_mask=encoder_attention_mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+        # TODO assume that first elem is language
+        if adapter_names is not None:
+            adapter_names = parse_adapter_names(adapter_names)
+            language = adapter_names[0][0]
+        else:
+            language = None
+
+        prediction_scores = self.cls(
+            sequence_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(language),
+        )
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
 
@@ -1113,7 +1224,7 @@ class BertForMaskedLM(BertPreTrainedModel):
 @add_start_docstrings(
     """Bert Model with a `next sentence prediction (classification)` head on top. """, BERT_START_DOCSTRING,
 )
-class BertForNextSentencePrediction(BertPreTrainedModel):
+class BertForNextSentencePrediction(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1134,6 +1245,7 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
         next_sentence_label=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
     ):
         r"""
         next_sentence_label (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1185,6 +1297,7 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
 
         pooled_output = outputs[1]
@@ -1205,7 +1318,7 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
     the pooled output) e.g. for GLUE tasks. """,
     BERT_START_DOCSTRING,
 )
-class BertForSequenceClassification(BertPreTrainedModel):
+class BertForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1229,6 +1342,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1265,6 +1379,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
 
         pooled_output = outputs[1]
@@ -1292,7 +1407,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
     the pooled output and a softmax) e.g. for RocStories/SWAG tasks. """,
     BERT_START_DOCSTRING,
 )
-class BertForMultipleChoice(BertPreTrainedModel):
+class BertForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1315,6 +1430,7 @@ class BertForMultipleChoice(BertPreTrainedModel):
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1363,6 +1479,7 @@ class BertForMultipleChoice(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
 
         pooled_output = outputs[1]
@@ -1386,7 +1503,7 @@ class BertForMultipleChoice(BertPreTrainedModel):
     the hidden-states output) e.g. for Named-Entity-Recognition (NER) tasks. """,
     BERT_START_DOCSTRING,
 )
-class BertForTokenClassification(BertPreTrainedModel):
+class BertForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1410,6 +1527,7 @@ class BertForTokenClassification(BertPreTrainedModel):
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -1444,6 +1562,7 @@ class BertForTokenClassification(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1474,7 +1593,7 @@ class BertForTokenClassification(BertPreTrainedModel):
     layers on top of the hidden-states output to compute `span start logits` and `span end logits`). """,
     BERT_START_DOCSTRING,
 )
-class BertForQuestionAnswering(BertPreTrainedModel):
+class BertForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1498,6 +1617,7 @@ class BertForQuestionAnswering(BertPreTrainedModel):
         end_positions=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -1539,6 +1659,7 @@ class BertForQuestionAnswering(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
