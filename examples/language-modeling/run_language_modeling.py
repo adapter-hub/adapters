@@ -29,6 +29,8 @@ from typing import Optional
 from transformers import (
     CONFIG_MAPPING,
     MODEL_WITH_LM_HEAD_MAPPING,
+    AdapterArguments,
+    AdapterConfig,
     AdapterType,
     AutoConfig,
     AutoModelWithLMHead,
@@ -114,22 +116,6 @@ class DataTrainingArguments:
     overwrite_cache: bool = field(
         default=False, metadata={"help": "Overwrite the cached training and evaluation sets"}
     )
-
-
-@dataclass
-class AdapterArguments:
-    """
-    Arguments related to adapter training.
-    """
-
-    language: str = field(default="en", metadata={"help": "The training language."})
-    train_adapter: bool = field(
-        default=False, metadata={"help": "Train a text language adapter for the given language."}
-    )
-    load_lang_adapter: Optional[str] = field(
-        default=None, metadata={"help": "Pre-trained language adapter to be loaded."}
-    )
-    adapter_config: Optional[str] = field(default="pfeiffer", metadata={"help": "The adapter configuration."})
 
 
 def get_dataset(args: DataTrainingArguments, tokenizer: PreTrainedTokenizer, evaluate=False):
@@ -223,19 +209,28 @@ def main():
     model.resize_token_embeddings(len(tokenizer))
 
     # Setup adapters
-    language = adapter_args.language
     if adapter_args.train_adapter:
-        # get actual model for derived models with heads
-        base_model = getattr(model, model.base_model_prefix, model)
-        # language adapter - only add if not existing
-        if language not in base_model.config.adapters.adapter_list(AdapterType.text_lang):
-            base_model.set_adapter_config(AdapterType.text_lang, adapter_args.adapter_config)
-            if adapter_args.load_lang_adapter:
-                base_model.load_adapter(adapter_args.load_lang_adapter, AdapterType.text_lang, load_as=language)
+        language = adapter_args.language
+        if not language:
+            raise ValueError("--language flag must be set when training an adapter")
+        # check if language adapter already exists, otherwise add it
+        if language not in model.config.adapters.adapter_list(AdapterType.text_lang):
+            # resolve the adapter config
+            adapter_config = AdapterConfig.load(
+                adapter_args.adapter_config,
+                non_linearity=adapter_args.adapter_non_linearity,
+                reduction_factor=adapter_args.adapter_reduction_factor,
+            )
+            # load a pre-trained from Hub if specified
+            if adapter_args.load_adapter:
+                model.load_adapter(
+                    adapter_args.load_adapter, AdapterType.text_lang, config=adapter_config, load_as=language,
+                )
+            # otherwise, add a fresh adapter
             else:
-                base_model.add_adapter(language, AdapterType.text_lang)
-        # enable adapter training
-        base_model.train_adapter([language])
+                model.add_adapter(language, AdapterType.text_lang, config=adapter_config)
+        # Freeze all model weights except of those of this adapter & use this adapter in every forward pass
+        model.train_adapter([language])
 
     if config.model_type in ["bert", "roberta", "distilbert", "camembert"] and not data_args.mlm:
         raise ValueError(
@@ -267,7 +262,6 @@ def main():
         prediction_loss_only=True,
         do_save_full_model=not adapter_args.train_adapter,
         do_save_adapters=adapter_args.train_adapter,
-        adapter_names=[[language]],
     )
 
     # Training

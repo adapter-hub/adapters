@@ -85,6 +85,34 @@ CoLA, SST-2. The following section provides details on how to run half-precision
 said, there shouldn’t be any issues in running half-precision training with the remaining GLUE tasks as well,
 since the data processor for each task inherits from the base class DataProcessor.
 
+## Training Adapters in PyTorch
+
+Based on scripts `run_glue.py` and `run_glue_alt.py` (using model classes with flexible heads).
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/website/blob/master/app/static/notebooks/Adapter_Quickstart_Training.ipynb)
+
+By specifying a few additional, adapter-specific flags, you can easily switch from fine-tuning a full model to training Adapter modules on GLUE:
+
+```bash
+export GLUE_DIR=/path/to/glue
+export TASK_NAME=MRPC
+
+python run_glue_alt.py \
+  --model_type bert \
+  --model_name_or_path bert-base-cased \
+  --task_name $TASK_NAME \
+  --do_train \
+  --do_eval \
+  --data_dir $GLUE_DIR/$TASK_NAME \
+  --max_seq_length 128 \
+  --per_device_train_batch_size 32 \
+  --learning_rate 1e-4 \
+  --num_train_epochs 10.0 \
+  --output_dir /tmp/$TASK_NAME/ \
+  --train_adapter \
+  --adapter_config houlsby
+```
+
 ## Running on TPUs in PyTorch
 
 **Update**: read the more up-to-date [Running on TPUs](../README.md#running-on-tpus) in the main README.md instead.

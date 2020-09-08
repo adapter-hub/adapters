@@ -27,7 +27,8 @@ from typing import Dict, Optional
 import numpy as np
 
 from transformers import (
-    AdapterArguments,
+    AdapterConfig,
+    AdapterType,
     AutoConfig,
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -37,13 +38,13 @@ from transformers import (
 from transformers import GlueDataTrainingArguments as DataTrainingArguments
 from transformers import (
     HfArgumentParser,
+    MultiLingAdapterArguments,
     Trainer,
     TrainingArguments,
     glue_compute_metrics,
     glue_output_modes,
     glue_tasks_num_labels,
     set_seed,
-    setup_task_adapter_training,
 )
 
 
@@ -75,7 +76,7 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, MultiLingAdapterArguments))
 
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -146,9 +147,48 @@ def main():
     )
 
     # Setup adapters
-    task_name = data_args.task_name
-    language = adapter_args.language
-    setup_task_adapter_training(model, task_name, adapter_args)
+    if adapter_args.train_adapter:
+        task_name = data_args.task_name
+        # check if adapter already exists, otherwise add it
+        if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
+            # resolve the adapter config
+            adapter_config = AdapterConfig.load(
+                adapter_args.adapter_config,
+                non_linearity=adapter_args.adapter_non_linearity,
+                reduction_factor=adapter_args.adapter_reduction_factor,
+            )
+            # load a pre-trained from Hub if specified
+            if adapter_args.load_adapter:
+                model.load_adapter(
+                    adapter_args.load_adapter, AdapterType.text_task, config=adapter_config, load_as=task_name,
+                )
+            # otherwise, add a fresh adapter
+            else:
+                model.add_adapter(task_name, AdapterType.text_task, config=adapter_config)
+        # optionally load a pre-trained language adapter
+        if adapter_args.load_lang_adapter:
+            # resolve the language adapter config
+            lang_adapter_config = AdapterConfig.load(
+                adapter_args.lang_adapter_config,
+                non_linearity=adapter_args.lang_adapter_non_linearity,
+                reduction_factor=adapter_args.lang_adapter_reduction_factor,
+            )
+            # load the language adapter from Hub
+            lang_adapter_name = model.load_adapter(
+                adapter_args.load_lang_adapter,
+                AdapterType.text_lang,
+                config=lang_adapter_config,
+                load_as=adapter_args.language,
+            )
+        else:
+            lang_adapter_name = None
+        # Freeze all model weights except of those of this adapter
+        model.train_adapter([task_name])
+        # Set the adapters to be used in every forward pass
+        if lang_adapter_name:
+            model.set_active_adapters([lang_adapter_name, task_name])
+        else:
+            model.set_active_adapters([task_name])
 
     # Get datasets
     train_dataset = GlueDataset(data_args, tokenizer=tokenizer) if training_args.do_train else None
@@ -162,14 +202,6 @@ def main():
             preds = np.squeeze(p.predictions)
         return glue_compute_metrics(data_args.task_name, preds, p.label_ids)
 
-    if adapter_args.train_adapter:
-        if language:
-            adapter_names = [[language], [task_name]]
-        else:
-            adapter_names = [[task_name]]
-    else:
-        adapter_names = None
-
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
@@ -179,7 +211,6 @@ def main():
         compute_metrics=compute_metrics,
         do_save_full_model=not adapter_args.train_adapter,
         do_save_adapters=adapter_args.train_adapter,
-        adapter_names=adapter_names,
     )
 
     # Training
