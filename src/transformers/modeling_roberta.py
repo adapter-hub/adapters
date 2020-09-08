@@ -191,6 +191,8 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
         adapter_names=None,
         head=None,
     ):
@@ -206,6 +208,8 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
             adapter_names=adapter_names,
         )
 
