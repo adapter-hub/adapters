@@ -63,7 +63,7 @@ model.set_active_adapters(task_name)
 The rest of the training procedure does not require any further changes in code.
 
 You can find the full version of the modified training script for GLUE at [run_glue_alt.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue_alt.py) in the `examples` folder of our repository.
-We also adapted various other example scripts (e.g. `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
+We also adapted [various other example scripts](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples) (e.g. `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
 
 To start adapter training on a GLUE task, you can run something similar to:
 
