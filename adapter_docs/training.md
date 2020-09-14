@@ -25,18 +25,24 @@ model = AutoModelWithHeads.from_pretrained(
 model.add_classification_head(data_args.task_name, num_labels=num_labels)
 ```
 
-The only main adaption we now have to make is to add a new adapter module:
+Compared to fine-tuning the full model, there is only one significant adaptation we have to make: adding a new adapter module and activating it.
 
 ```python
 # task adapter - only add if not existing
 if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
+    # resolve the adapter config
+    adapter_config = AdapterConfig.load(
+        adapter_args.adapter_config,
+        non_linearity=adapter_args.adapter_non_linearity,
+        reduction_factor=adapter_args.adapter_reduction_factor,
+    )
     # add a new adapter
     model.add_adapter(
         task_name,
         AdapterType.text_task
-        config=adapter_args.adapter_config
+        config=adapter_config
     )
-# enable adapter training
+# Enable adapter training
 model.train_adapter([task_name])
 ```
 
@@ -48,7 +54,7 @@ model.train_adapter([task_name])
     ``freeze_model(False)``.
 ```
 
-Besides this, we only have to make sure that the task adapter and prediction head are activated so that they are used in every forward pass:
+Besides this, we only have to make sure that the task adapter and prediction head are activated so that they are used in every forward pass. There are two ways to specify the adapter modules to be used. Either we can pass the parameter `adapter_names` in every call to `model.forward()`, or we can set the adapters to be used by default beforehand:
 
 ```python
 model.set_active_adapters(task_name)
@@ -56,8 +62,8 @@ model.set_active_adapters(task_name)
 
 The rest of the training procedure does not require any further changes in code.
 
-You can find the full version of the modified training script for GLUE at [run_glue_wh.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue_wh.py) in the `examples` folder of our repository.
-We also adapted various other example scripts (e.g. `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
+You can find the full version of the modified training script for GLUE at [run_glue_alt.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue_alt.py) in the `examples` folder of our repository.
+We also adapted [various other example scripts](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples) (e.g. `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
 
 To start adapter training on a GLUE task, you can run something similar to:
 
@@ -65,7 +71,7 @@ To start adapter training on a GLUE task, you can run something similar to:
 export GLUE_DIR=/path/to/glue
 export TASK_NAME=MNLI
 
-python run_glue_wh.py \
+python run_glue_alt.py \
   --model_name_or_path bert-base-cased \
   --task_name $TASK_NAME \
   --do_train \
@@ -101,12 +107,16 @@ described above, we add a language adapter module to an existing model training 
 script by adding the following code:
 
 ```python
-# language adapter - only add if not existing
+# check if language adapter already exists, otherwise add it
 if language not in model.config.adapters.adapter_list(AdapterType.text_lang):
-    model.set_adapter_config(AdapterType.text_lang, adapter_args.adapter_config)
-    model.add_adapter(language, AdapterType.text_lang)
-
-# enable adapter training
+    # resolve the adapter config
+    adapter_config = AdapterConfig.load(
+        adapter_args.adapter_config,
+        non_linearity=adapter_args.adapter_non_linearity,
+        reduction_factor=adapter_args.adapter_reduction_factor,
+    )
+    model.add_adapter(language, AdapterType.text_lang, config=adapter_config)
+# Freeze all model weights except of those of this adapter & use this adapter in every forward pass
 model.train_adapter([language])
 ```
 

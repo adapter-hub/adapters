@@ -100,6 +100,8 @@ class AdapterConfig(Mapping):
         Returns:
             dict: The resolved adapter configuration dictionary.
         """
+        if not config:
+            return None
         # if force_download is set, skip the local map
         if download_kwargs and download_kwargs.get("force_download", False):
             local_map = None
@@ -112,7 +114,7 @@ class AdapterConfig(Mapping):
         # convert back to dict to allow attr overrides
         if isinstance(config_dict, AdapterConfig):
             config_dict = config_dict.to_dict()
-        config_dict.update(kwargs)
+        config_dict.update((k, v) for k, v in kwargs.items() if v is not None)
         return AdapterConfig.from_dict(config_dict)
 
 
