@@ -30,5 +30,7 @@ class AdapterConfigTest(unittest.TestCase):
     def test_custom_attr(self):
         for config in ADAPTER_CONFIG_MAP.values():
             with self.subTest(config=config.__class__.__name__):
+                # create a copy to leave original untouched
+                config = config.replace()
                 config.dummy_attr = "test_value"
                 self.assertEqual(config.dummy_attr, "test_value")

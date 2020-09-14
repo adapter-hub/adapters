@@ -3,23 +3,27 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-adapter-transformers Documentation
+AdapterHub Documentation
 ================================================
 
-``adapter-transformers`` is an extension of Huggingface's `transformers <https://huggingface.co/transformers/>`_ library
-that adds adapter components to transformer models.
+*AdapterHub* is a framework simplifying the integration, training and usage of adapter modules for Transformer-based language models.
+It integrates adapters for downstream tasks (https://arxiv.org/pdf/1902.00751), adapters for cross-lingual transfer (https://arxiv.org/pdf/2005.00052) and *AdapterFusion* (https://arxiv.org/pdf/2005.00247).
 
-The main additions on top of *transformers* are:
+The framework consists of two main components:
 
-- Extension of transformer models by task and language adapter components
-- Loading and saving of pre-trained adapters
-- `Adapter Hub <https://adapterhub.ml>`_, a repository of shared pre-trained adapters
+- ``adapter-transformers``, an extension of Huggingface's `Transformers <https://huggingface.co/transformers/>`_ library that adds adapter components to transformer models
+
+- `The Hub <https://adapterhub.ml>`_, a central repository collecting pre-trained adapter modules
+
+The *adapter-transformers* section documents the integration of adapters into the ``transformers`` library and how training adapters works.
+
+The section on *Adapter-Hub* describes the fundamentals of the pre-trained adapter repository and how to contribute new adapters.
 
 Currently, we support the PyTorch versions of all models listed in the *Supported Models* section.
 
 .. toctree::
    :maxdepth: 2
-   :caption: General
+   :caption: adapter-transformers
 
    installation
    quickstart
@@ -30,7 +34,7 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
 
 .. toctree::
    :maxdepth: 2
-   :caption: Adapter Hub
+   :caption: Adapter-Hub
 
    loading
    contributing
@@ -53,6 +57,27 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    classes/bert
    classes/roberta
    classes/xlmroberta
+
+
+Citation
+========
+
+.. code-block:: bibtex
+
+   @article{pfeiffer2020AdapterHub,
+      title={AdapterHub: A Framework for Adapting Transformers},
+      author={Jonas Pfeiffer and
+               Andreas R\"uckl\'{e} and
+               Clifton Poth and
+               Aishwarya Kamath and
+               Ivan Vuli\'{c} and
+               Sebastian Ruder and
+               Kyunghyun Cho and
+               Iryna Gurevych},
+      journal={arXiv preprint},
+      year={2020},
+      url={https://arxiv.org/abs/2007.07779}
+   }
 
 
 Indices and tables

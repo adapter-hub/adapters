@@ -2,7 +2,7 @@
 # There's no way to ignore "F401 '...' imported but unused" warnings in this
 # module, but to preserve other warnings. So, don't check this module at all.
 
-__version__ = "2.11.0"
+__version__ = "1.0.0"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
 # default Python logging output behavior when present.
@@ -150,11 +150,12 @@ if is_sklearn_available():
 
 # Adapters
 if is_torch_available():
-    from .adapter_training import AdapterArguments, setup_task_adapter_training
+    from .adapter_training import AdapterArguments, MultiLingAdapterArguments
     from .adapter_model_mixin import (
         WeightsLoaderHelper,
         WeightsLoader,
         AdapterLoader,
+        AdapterFusionLoader,
         PredictionHeadLoader,
         ModelAdaptersMixin,
         ModelWithHeadsAdaptersMixin,
@@ -167,6 +168,11 @@ if is_torch_available():
         ADAPTER_CONFIG_MAP,
         DEFAULT_ADAPTER_CONFIG,
         ModelAdaptersConfig,
+        AdapterFusionConfig,
+        DynamicAdapterFusionConfig,
+        StaticAdapterFusionConfig,
+        ADAPTERFUSION_CONFIG_MAP,
+        DEFAULT_ADAPTERFUSION_CONFIG,
     )
     from .adapter_utils import (
         AdapterType,

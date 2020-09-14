@@ -6,7 +6,7 @@ from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_datacl
 from os.path import isfile
 from typing import List, Optional, Union
 
-from .adapter_utils import AdapterType, DataclassJSONEncoder, get_adapter_config_hash, resolve_adapter_config
+from .adapter_utils import AdapterType, get_adapter_config_hash, resolve_adapter_config
 
 
 logger = logging.getLogger(__name__)
@@ -100,6 +100,8 @@ class AdapterConfig(Mapping):
         Returns:
             dict: The resolved adapter configuration dictionary.
         """
+        if not config:
+            return None
         # if force_download is set, skip the local map
         if download_kwargs and download_kwargs.get("force_download", False):
             local_map = None
@@ -112,7 +114,7 @@ class AdapterConfig(Mapping):
         # convert back to dict to allow attr overrides
         if isinstance(config_dict, AdapterConfig):
             config_dict = config_dict.to_dict()
-        config_dict.update(kwargs)
+        config_dict.update((k, v) for k, v in kwargs.items() if v is not None)
         return AdapterConfig.from_dict(config_dict)
 
 
@@ -183,7 +185,10 @@ class ModelAdaptersConfig:
     def get(self, adapter_name: str, return_type: bool = False):
         if adapter_name in self.adapters:
             adapter_type, config_name = self.adapters[adapter_name]
-            config = self.config_map.get(config_name, None)
+            if config_name in self.config_map:
+                config = self.config_map.get(config_name, None)
+            else:
+                config = ADAPTER_CONFIG_MAP.get(config_name, None)
             if not config:
                 config = self.config_map[adapter_type]
             if isinstance(config, str):
@@ -234,25 +239,24 @@ class ModelAdaptersConfig:
         else:
             raise ValueError("Unable to identify {} as a valid adapter config.".format(config))
 
-    def common_config(self, adapter_names: list) -> Optional[dict]:
-        common_config_name = None
-        for name in adapter_names:
-            _, config_name = self.adapters[name]
-            if common_config_name and common_config_name != config_name:
-                return None
-            common_config_name = config_name
-        if not common_config_name:
-            return None
-        config = self.config_map[common_config_name]
-        if isinstance(config, str):
-            return ADAPTER_CONFIG_MAP[config]
-        return config
+    def common_config_value(self, adapter_names: list, attribute: str):
+        """Checks whether all adapters in a list share the same config setting for a given attribute and returns the shared value.
+
+        Args:
+            adapter_names (list): The adapters to check.
+            attribute (str): The config attribute to check.
+        """
+        common_value = None
+        for i, name in enumerate(adapter_names):
+            config_value = self.get(name).get(attribute, None)
+            if i > 0 and config_value != common_value:
+                raise ValueError(f"All given adapters must define the same value for config attribute {attribute}.")
+            common_value = config_value
+        return common_value
 
     def to_dict(self):
         output_dict = {}
         output_dict["adapters"] = copy.deepcopy(self.adapters)
-        # make sure all config objects are serializable
-        output_dict["config_map"] = json.loads(json.dumps(self.config_map, cls=DataclassJSONEncoder))
         return output_dict
 
 
@@ -264,3 +268,111 @@ def build_full_config(adapter_config, model_config, **kwargs):
     else:
         config_dict["config"] = adapter_config
     return config_dict
+
+
+@dataclass
+class AdapterFusionConfig(Mapping):
+    """Base class that models the architecture of an adapter."""
+
+    key: bool
+    query: bool
+    value: bool
+    query_before_ln: bool
+    regularization: bool
+    residual_before: bool
+    temperature: bool
+    value_before_softmax: bool
+    value_initialized: str
+
+    # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
+    # Therefore, we don't allow changing attribute values if set once.
+    def __setattr__(self, name, value):
+        if name in self.__dict__:
+            raise FrozenInstanceError()
+        else:
+            object.__setattr__(self, name, value)
+
+    def __delattr__(self, name):
+        raise FrozenInstanceError()
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __iter__(self):
+        return iter(self.__dict__)
+
+    def __len__(self):
+        return len(self.__dict__)
+
+    def to_dict(self):
+        return asdict(self)
+
+    def replace(self, **changes):
+        return replace(self, **changes)
+
+    @classmethod
+    def from_dict(cls, config):
+        return cls(**config)
+
+    @classmethod
+    def load(cls, config: Union[dict, str], **kwargs):
+        """Loads a given adapter configuration specifier into a full AdapterConfig instance.
+
+        Args:
+            config (Union[dict, str]): The configuration to load. Can be either:
+                - a dictionary representing the full config
+                - an identifier string available in ADAPTER_CONFIG_MAP
+                - the path to a file containing a full adapter configuration
+                - an identifier string available in Adapter-Hub
+
+        Returns:
+            dict: The resolved adapter configuration dictionary.
+        """
+        # currently storing AdapterFusion weights on AdapterHub is not supported.
+        config_dict = resolve_adapter_config(config, local_map=ADAPTERFUSION_CONFIG_MAP, try_loading_from_hub=False)
+        # convert back to dict to allow attr overrides
+        if isinstance(config_dict, AdapterFusionConfig):
+            config_dict = config_dict.to_dict()
+        config_dict.update(kwargs)
+        return AdapterFusionConfig.from_dict(config_dict)
+
+
+@dataclass
+class StaticAdapterFusionConfig(AdapterFusionConfig):
+    """
+    The adapter architecture proposed by Houlsby et. al., 2019.
+    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    """
+
+    key: bool = True
+    query: bool = True
+    value: bool = False
+    query_before_ln: bool = False
+    regularization: bool = False
+    residual_before: bool = False
+    temperature: bool = False
+    value_before_softmax: bool = True
+    value_initialized: str = False
+
+
+@dataclass
+class DynamicAdapterFusionConfig(AdapterFusionConfig):
+    """
+    The adapter architecture proposed by Houlsby et. al., 2019.
+    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    """
+
+    key: bool = True
+    query: bool = True
+    value: bool = True
+    query_before_ln: bool = False
+    regularization: bool = True
+    residual_before: bool = False
+    temperature: bool = False
+    value_before_softmax: bool = True
+    value_initialized: str = True
+
+
+ADAPTERFUSION_CONFIG_MAP = {"static": StaticAdapterFusionConfig(), "dynamic": DynamicAdapterFusionConfig()}
+
+DEFAULT_ADAPTERFUSION_CONFIG = "dynamic"
