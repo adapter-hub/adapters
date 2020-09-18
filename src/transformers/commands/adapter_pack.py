@@ -4,7 +4,7 @@ import json
 import zipfile
 from argparse import ArgumentParser, Namespace
 from os import listdir
-from os.path import dirname, isfile, join
+from os.path import basename, dirname, isfile, join
 from typing import List, Mapping
 
 import ruamel.yaml
@@ -12,16 +12,19 @@ from colorama import Fore, init
 from PyInquirer import prompt
 
 from transformers import WEIGHTS_NAME, AutoModel
+from transformers.adapter_utils import ADAPTER_CACHE
 from transformers.adapter_utils import WEIGHTS_NAME as ADAPTER_WEIGHTS_NAME
 from transformers.adapter_utils import download_cached
 from transformers.commands import BaseTransformersCLICommand
 
 
 ADAPTER_TEMPLATE_YAML = (
-    "https://raw.githubusercontent.com/calpt/nothing-to-see-here/master/TEMPLATES/adapter.template.yaml"
+    "https://raw.githubusercontent.com/Adapter-Hub/Hub/master/TEMPLATES/adapter.template.yaml"
 )
 
 ADAPTER_KEYS_TO_COPY = ["type", "model_type", "model_name", "model_class"]
+
+ADAPTER_PACK_METADATA_FILE = join(ADAPTER_CACHE, "pack_metadata.json")
 
 
 def adapter_pack_command_factory(args: Namespace):
@@ -76,22 +79,53 @@ class AdapterPackCommand(BaseTransformersCLICommand):
         return models_list, adapters_list
 
     def ask_for_metadata(self) -> Mapping:
+        metadata_config = {}
+        if isfile(ADAPTER_PACK_METADATA_FILE):
+            with open(ADAPTER_PACK_METADATA_FILE, 'r') as f:
+                metadata_config = json.load(f)
         inputs = [
             {
                 "type": "input",
                 "name": "author",
                 "message": "Your name or the names of other authors:",
                 "validate": self._validate_func,
+                "default": metadata_config.get("author", ""),
             },
             {
                 "type": "input",
                 "name": "email",
                 "message": "An email address to contact you or other authors:",
                 "validate": self._validate_func,
+                "default": metadata_config.get("email", ""),
             },
-            {"type": "input", "name": "url", "message": "A URL providing more information on you or your work:"},
+            {
+                "type": "input",
+                "name": "url",
+                "message": "[opt.] A URL providing more information on you or your work:",
+                "default": metadata_config.get("url", ""),
+            },
+            {
+                "type": "input",
+                "name": "twitter",
+                "message": "[opt.] Your or your organization's Twitter handle:",
+                "default": metadata_config.get("twitter", ""),
+            },
+            {
+                "type": "input",
+                "name": "github",
+                "message": "[opt.] Your or your organization's GitHub account:",
+                "default": metadata_config.get("github", ""),
+            },
+            {
+                "type": "input",
+                "name": "adapter_url_template",
+                "message": "[opt.] A template for the download links of your adapters:",
+                "default": metadata_config.get("adapter_url_template", ""),
+            },
         ]
         answers = prompt(inputs)
+        with open(ADAPTER_PACK_METADATA_FILE, 'w') as f:
+            json.dump(answers, f)
         return answers
 
     def ask_for_adapter_data(self) -> Mapping:
@@ -133,7 +167,7 @@ class AdapterPackCommand(BaseTransformersCLICommand):
         self._input_cache["model_name"] = answers["model_name"]
         return answers
 
-    def pack_adapter(self, folder, save_root, template_file, adapter_data=None, metadata=None, version="1"):
+    def pack_adapter(self, folder, save_root, template_file, adapter_data=None, metadata=None, version="1", url_template=None):
         # ask for data from user if not given
         if not adapter_data:
             adapter_data = self.ask_for_adapter_data()
@@ -162,7 +196,12 @@ class AdapterPackCommand(BaseTransformersCLICommand):
             file_bytes = f.read()
             sha1 = hashlib.sha1(file_bytes).hexdigest()
             sha256 = hashlib.sha256(file_bytes).hexdigest()
-        file_info = {"version": version, "url": "TODO", "sha1": sha1, "sha256": sha256}
+        # use url template if available
+        if url_template:
+            download_url = url_template.format(file=basename(zip_name), **adapter_data)
+        else:
+            download_url = "TODO"
+        file_info = {"version": version, "url": download_url, "sha1": sha1, "sha256": sha256}
         # load the template and fill in data
         yaml = ruamel.yaml.YAML()
         with open(template_file, "r") as f:
@@ -209,11 +248,12 @@ class AdapterPackCommand(BaseTransformersCLICommand):
         print("[i] Before we start packing your adapters, we first need some meta information.")
         print("This information will be added to every adapter info card.")
         metadata = self.ask_for_metadata()
+        url_template = metadata.pop("adapter_url_template")
         print("Thanks! Now let's start...")
         for i, folder in enumerate(folders):
             print(Fore.CYAN + f"[Adapter {i+1} of {len(folders)}] {folder}")
             try:
-                self.pack_adapter(folder, save_root, template_file, metadata=metadata, version=version)
+                self.pack_adapter(folder, save_root, template_file, metadata=metadata, version=version, url_template=url_template)
             except Exception as ex:
                 print(Fore.RED + "✘ Failed to pack adapter")
                 print(Fore.RED + str(ex))
