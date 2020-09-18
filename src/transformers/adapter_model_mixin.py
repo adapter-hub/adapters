@@ -291,7 +291,7 @@ class AdapterLoader(WeightsLoader):
         "attention_text_lang_adapters": "attention_adapters",
         "layer_text_task_adapters": "output_adapters",
         "layer_text_lang_adapters": "output_adapters",
-        "invertible_lang_adapters": "invertible_adapters"
+        "invertible_lang_adapters": "invertible_adapters",
     }
 
     def _rename_legacy_weights(self, k):

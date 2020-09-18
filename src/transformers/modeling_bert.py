@@ -1045,9 +1045,7 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         else:
             language = None
 
-        prediction_scores = self.cls(
-            sequence_output, inv_lang_adapter=self.bert.get_invertible_adapter(language),
-        )
+        prediction_scores = self.cls(sequence_output, inv_lang_adapter=self.bert.get_invertible_adapter(language),)
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
 

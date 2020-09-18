@@ -1,4 +1,5 @@
 import logging
+from abc import ABC, abstractmethod
 from typing import List, Union
 
 import torch
@@ -37,354 +38,225 @@ def get_fusion_regularization_loss(model):
     return reg_loss
 
 
-class BertSelfOutputAdaptersMixin:
+class BertAdaptersBaseMixin(ABC):
+    """An abstract base implementation of adapter integration into a Transformer block.
+    In BERT, subclasses of this module are placed in the BertSelfOutput module and in the BertOutput module.
+    """
+
+    @property
+    @abstractmethod
+    def adapter_modules(self):
+        """Gets the module dict holding the adapter modules available in this block.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def adapter_config_key(self):
+        """Gets the name of the key by which this adapter location is identified in the adapter configuration.
+        """
+        pass
+
+    def _init_adapter_modules(self):
+        self.adapter_fusion_layer = nn.ModuleDict(dict())
+
+    def add_adapter(self, adapter_name: str):
+        adapter_config = self.config.adapters.get(adapter_name)
+        if adapter_config and adapter_config[self.adapter_config_key]:
+            adapter = Adapter(
+                input_size=self.config.hidden_size,
+                down_sample=self.config.hidden_size // adapter_config["reduction_factor"],
+                add_layer_norm_before=adapter_config["ln_before"],
+                add_layer_norm_after=adapter_config["ln_after"],
+                non_linearity=adapter_config["non_linearity"],
+                residual_before_ln=adapter_config["adapter_residual_before_ln"],
+            )
+            self.adapter_modules[adapter_name] = adapter
+
+    def add_fusion_layer(self, adapter_names: Union[List, str]):
+        """See BertModel.add_fusion_layer"""
+        adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
+        if self.config.adapters.common_config_value(adapter_names, self.adapter_config_key):
+            self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
+
+    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
+        """Unfreezes a given list of adapters, the adapter fusion layer, or both
+
+        :param adapter_names: names of adapters to unfreeze (or names of adapters part of the fusion layer to unfreeze)
+        :param unfreeze_adapters: whether the adapters themselves should be unfreezed
+        :param unfreeze_fusion: whether the adapter attention layer for the given adapters should be unfreezed
+        """
+        if unfreeze_adapters:
+            if isinstance(adapter_names, str):
+                adapter_names = [adapter_names]
+            for adapter_name in adapter_names:
+                layer = self.get_adapter_layer(adapter_name)
+                if layer is not None:
+                    for param in layer.parameters():
+                        param.requires_grad = True
+        if unfreeze_fusion:
+            if isinstance(adapter_names[0], str):
+                adapter_names = [adapter_names]
+            for adapter_fusion_group in adapter_names:
+                fusion_name = ",".join(adapter_fusion_group)
+                if fusion_name in self.adapter_fusion_layer:
+                    for param in self.adapter_fusion_layer[fusion_name].parameters():
+                        param.requires_grad = True
+
+    def get_adapter_preparams(
+        self, adapter_config, hidden_states, input_tensor,
+    ):
+        """
+        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
+        Args:
+            adapter_config: config file according to what the parameters are passed
+            hidden_states: output of previous layer
+            input_tensor: residual connection before FFN
+
+        Returns: hidden_states, query, residual
+
+        """
+        query = None
+
+        if adapter_config["residual_before_ln"]:
+            residual = hidden_states
+
+        if hasattr(self.config, "adapter_fusion") and self.config.adapter_fusion["query_before_ln"]:
+            query = hidden_states
+
+        if adapter_config["original_ln_before"]:
+            hidden_states = self.LayerNorm(hidden_states + input_tensor)
+
+        if not adapter_config["residual_before_ln"]:
+            residual = hidden_states
+
+        if hasattr(self.config, "adapter_fusion") and not self.config.adapter_fusion["query_before_ln"]:
+            query = hidden_states
+
+        return hidden_states, query, residual
+
+    def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
+        """
+        One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
+        into a subsequent adapter, or the next transformer layer
+        OR
+        IFF more than one adapter names is set for one stack layer, we assume that fusion is activated. Thus, the
+        adapters are fused together.
+        Args:
+            hidden_states: output of the previous transformer layer or adapter
+            input_tensor: residual connection of transformer
+            attention_mask: attention mask on token level
+            adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
+                            single adapter. iff len(adapter_stack) > 1 we fuse the adapters
+
+        Returns: hidden_states
+        """
+        # We assume that all adapters have the same residual connection and layer norm setting as the first adapter in
+        # the stack
+        adapter_config = self.config.adapters.get(adapter_stack[0])
+
+        hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
+
+        if len(adapter_stack) == 1:
+            if adapter_stack[0] in self.adapter_modules:
+                adapter_layer = self.adapter_modules[adapter_stack[0]]
+                hidden_states, _, _ = adapter_layer(hidden_states, residual_input=residual)
+
+            return hidden_states
+
+        else:
+            return self.adapter_fusion(hidden_states, attention_mask, adapter_stack, residual, query)
+
+    def adapter_fusion(self, hidden_states, attention_mask, adapter_stack, residual, query):
+        """
+        If more than one adapter name is set for a stack layer, we fuse the adapters.
+        For this, we pass through every adapter and learn an attention-like weighting of each adapter.
+        The information stored in each of the adapters is thus fused together wrt the current example.
+        Args:
+            hidden_states: output of the previous transformer layer or adapter
+            attention_mask: attention mask on token level
+            adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
+                            single adapter. iff len(adapter_stack) > 1 we fuse the adapters
+            residual: residual of the previous layer
+            query: query by which we attend over the adapters
+
+        Returns: hidden_states
+        """
+        up_list = []
+
+        for adapter_name in adapter_stack:
+            if adapter_stack[0] in self.adapter_modules:
+                adapter_layer = self.adapter_modules[adapter_name]
+                intermediate_output, _, up = adapter_layer(hidden_states, residual_input=residual)
+                up_list.append(up)
+
+        if len(up_list) > 0:
+            up_list = torch.stack(up_list)
+            up_list = up_list.permute(1, 2, 0, 3)
+
+            fusion_name = ",".join(adapter_stack)
+
+            hidden_states = self.adapter_fusion_layer[fusion_name](
+                query, up_list, up_list, residual=residual, attention_mask=attention_mask
+            )
+        return hidden_states
+
+    def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
+        if adapter_names is not None:
+            adapter_names = parse_adapter_names(adapter_names)
+            flat_adapter_names = [item for sublist in adapter_names for item in sublist]
+
+        if adapter_names is not None and (len(set(self.adapter_modules.keys()) & set(flat_adapter_names)) > 0):
+            for adapter_stack in adapter_names:
+                hidden_states = self.adapter_stack_layer(
+                    hidden_states=hidden_states,
+                    input_tensor=input_tensor,
+                    attention_mask=attention_mask,
+                    adapter_stack=adapter_stack,
+                )
+
+            last_config = self.config.adapters.get(adapter_names[-1][-1])
+            if last_config["original_ln_after"]:
+                hidden_states = self.LayerNorm(hidden_states + input_tensor)
+
+        else:
+            hidden_states = self.LayerNorm(hidden_states + input_tensor)
+
+        return hidden_states
+
+
+class BertSelfOutputAdaptersMixin(BertAdaptersBaseMixin):
     """Adds adapters to the BertSelfOutput module.
     """
 
+    @property
+    def adapter_modules(self):
+        return self.attention_adapters
+
+    @property
+    def adapter_config_key(self):
+        return "mh_adapter"
+
     def _init_adapter_modules(self):
+        super()._init_adapter_modules()
         self.attention_adapters = nn.ModuleDict(dict())
-        self.adapter_fusion_layer = nn.ModuleDict(dict())
-
-    def add_adapter(self, adapter_name: str):
-        adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config and adapter_config["mh_adapter"]:
-            adapter = Adapter(
-                input_size=self.config.hidden_size,
-                down_sample=self.config.hidden_size // adapter_config["reduction_factor"],
-                add_layer_norm_before=adapter_config["ln_before"],
-                add_layer_norm_after=adapter_config["ln_after"],
-                non_linearity=adapter_config["non_linearity"],
-                residual_before_ln=adapter_config["adapter_residual_before_ln"],
-            )
-            self.attention_adapters[adapter_name] = adapter
-
-    def add_fusion_layer(self, adapter_names: Union[List, str]):
-        """See BertModel.add_fusion_layer"""
-        adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
-        if self.config.adapters.common_config_value(adapter_names, "mh_adapter"):
-            self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
-
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
-        """Unfreezes a given list of adapters, the adapter fusion layer, or both
-
-        :param adapter_names: names of adapters to unfreeze (or names of adapters part of the fusion layer to unfreeze)
-        :param unfreeze_adapters: whether the adapters themselves should be unfreezed
-        :param unfreeze_fusion: whether the adapter attention layer for the given adapters should be unfreezed
-        """
-        if unfreeze_adapters:
-            if isinstance(adapter_names, str):
-                adapter_names = [adapter_names]
-            for adapter_name in adapter_names:
-                layer = self.get_adapter_layer(adapter_name)
-                if layer is not None:
-                    for param in layer.parameters():
-                        param.requires_grad = True
-        if unfreeze_fusion:
-            if isinstance(adapter_names[0], str):
-                adapter_names = [adapter_names]
-            for adapter_fusion_group in adapter_names:
-                fusion_name = ",".join(adapter_fusion_group)
-                if fusion_name in self.adapter_fusion_layer:
-                    for param in self.adapter_fusion_layer[fusion_name].parameters():
-                        param.requires_grad = True
-
-    def get_adapter_preparams(
-        self, adapter_config, hidden_states, input_tensor,
-    ):
-        """
-        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
-        Args:
-            adapter_config: config file according to what the parameters are passed
-            hidden_states: output of previous layer
-            input_tensor: residual connection before FFN
-
-        Returns: hidden_states, query, residual
-
-        """
-        query = None
-
-        if adapter_config["residual_before_ln"]:
-            residual = hidden_states
-
-        if hasattr(self.config, "adapter_fusion") and self.config.adapter_fusion["query_before_ln"]:
-            query = hidden_states
-
-        if adapter_config["original_ln_before"]:
-            hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        if not adapter_config["residual_before_ln"]:
-            residual = hidden_states
-
-        if hasattr(self.config, "adapter_fusion") and not self.config.adapter_fusion["query_before_ln"]:
-            query = hidden_states
-
-        return hidden_states, query, residual
-
-    def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
-        """
-        One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
-        into a subsequent adapter, or the next transformer layer
-        OR
-        IFF more than one adapter names is set for one stack layer, we assume that fusion is activated. Thus, the
-        adapters are fused together.
-        Args:
-            hidden_states: output of the previous transformer layer or adapter
-            input_tensor: residual connection of transformer
-            attention_mask: attention mask on token level
-            adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
-                            single adapter. iff len(adapter_stack) > 1 we fuse the adapters
-
-        Returns: hidden_states
-
-        """
-        # We assume that all adapters have the same residual connection and layer norm setting as the first adapter in
-        # the stack
-        adapter_config = self.config.adapters.get(adapter_stack[0])
-
-        hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
-
-        if len(adapter_stack) == 1:
-            if adapter_stack[0] in self.attention_adapters:
-                adapter_layer = self.attention_adapters[adapter_stack[0]]
-                hidden_states, _, _ = adapter_layer(hidden_states, residual_input=residual)
-
-            return hidden_states
-
-        else:
-            return self.adapter_fusion(hidden_states, attention_mask, adapter_stack, residual, query)
-
-    def adapter_fusion(self, hidden_states, attention_mask, adapter_stack, residual, query):
-        """
-        If more than one adapter name is set for a stack layer, we fuse the adapters.
-        For this, we pass through every adapter and learn an attention-like weighting of each adapter.
-        The information stored in each of the adapters is thus fused together wrt the current example.
-        Args:
-            hidden_states: output of the previous transformer layer or adapter
-            attention_mask: attention mask on token level
-            adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
-                            single adapter. iff len(adapter_stack) > 1 we fuse the adapters
-            residual: residual of the previous layer
-            query: query by which we attend over the adapters
-
-        Returns: hidden_states
-
-        """
-
-        up_list = []
-
-        for adapter_name in adapter_stack:
-            if adapter_stack[0] in self.attention_adapters:
-                adapter_layer = self.attention_adapters[adapter_name]
-                intermediate_output, _, up = adapter_layer(hidden_states, residual_input=residual)
-                up_list.append(up)
-        if len(up_list) > 0:
-            up_list = torch.stack(up_list)
-            up_list = up_list.permute(1, 2, 0, 3)
-
-            fusion_name = ",".join(adapter_stack)
-
-            hidden_states = self.adapter_fusion_layer[fusion_name](
-                query, up_list, up_list, residual=residual, attention_mask=attention_mask
-            )
-        return hidden_states
-
-    def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
-        if adapter_names is not None:
-            adapter_names = parse_adapter_names(adapter_names)
-            flat_adapter_names = [item for sublist in adapter_names for item in sublist]
-
-        if adapter_names is not None and (len(set(self.attention_adapters.keys()) & set(flat_adapter_names)) > 0):
-            for adapter_stack in adapter_names:
-                hidden_states = self.adapter_stack_layer(
-                    hidden_states=hidden_states,
-                    input_tensor=input_tensor,
-                    attention_mask=attention_mask,
-                    adapter_stack=adapter_stack,
-                )
-
-            last_config = self.config.adapters.get(adapter_names[-1][-1])
-            if last_config["original_ln_after"]:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        else:
-            hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        return hidden_states
 
 
-class BertOutputAdaptersMixin:
+class BertOutputAdaptersMixin(BertAdaptersBaseMixin):
     """Adds adapters to the BertOutput module.
     """
 
+    @property
+    def adapter_modules(self):
+        return self.output_adapters
+
+    @property
+    def adapter_config_key(self):
+        return "output_adapter"
+
     def _init_adapter_modules(self):
+        super()._init_adapter_modules()
         self.output_adapters = nn.ModuleDict(dict())
-        self.adapter_fusion_layer = nn.ModuleDict(dict())
-
-    def add_fusion_layer(self, adapter_names: Union[List, str]):
-        """See BertModel.add_fusion_layer"""
-        adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
-        if self.config.adapters.common_config_value(adapter_names, "output_adapter"):
-            self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
-
-    def add_adapter(self, adapter_name: str):
-        adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config and adapter_config["output_adapter"]:
-            adapter = Adapter(
-                input_size=self.config.hidden_size,
-                down_sample=self.config.hidden_size // adapter_config["reduction_factor"],
-                add_layer_norm_before=adapter_config["ln_before"],
-                add_layer_norm_after=adapter_config["ln_after"],
-                non_linearity=adapter_config["non_linearity"],
-                residual_before_ln=adapter_config["adapter_residual_before_ln"],
-            )
-            self.output_adapters[adapter_name] = adapter
-
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
-        """Unfreezes a given list of adapters, the adapter fusion layer, or both
-
-        :param adapter_names: names of adapters to unfreeze (or names of adapters part of the fusion layer to unfreeze)
-        :param unfreeze_adapters: whether the adapters themselves should be unfreezed
-        :param unfreeze_fusion: whether the adapter attention layer for the given adapters should be unfreezed
-        """
-        if unfreeze_adapters:
-            if isinstance(adapter_names, str):
-                adapter_names = [adapter_names]
-            for adapter_name in adapter_names:
-                layer = self.get_adapter_layer(adapter_name)
-                if layer is not None:
-                    for param in layer.parameters():
-                        param.requires_grad = True
-        if unfreeze_fusion:
-            if isinstance(adapter_names[0], str):
-                adapter_names = [adapter_names]
-            for adapter_fusion_group in adapter_names:
-                fusion_name = ",".join(adapter_fusion_group)
-                if fusion_name in self.adapter_fusion_layer:
-                    for param in self.adapter_fusion_layer[fusion_name].parameters():
-                        param.requires_grad = True
-
-    def get_adapter_preparams(
-        self, adapter_config, hidden_states, input_tensor,
-    ):
-        """
-        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
-        Args:
-            adapter_config: config file according to what the parameters are passed
-            hidden_states: output of previous layer
-            input_tensor: residual connection before FFN
-
-        Returns: hidden_states, query, residual
-
-        """
-        query = None
-
-        if adapter_config["residual_before_ln"]:
-            residual = hidden_states
-
-        if hasattr(self.config, "adapter_fusion") and self.config.adapter_fusion["query_before_ln"]:
-            query = hidden_states
-
-        if adapter_config["original_ln_before"]:
-            hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        if not adapter_config["residual_before_ln"]:
-            residual = hidden_states
-
-        if hasattr(self.config, "adapter_fusion") and not self.config.adapter_fusion["query_before_ln"]:
-            query = hidden_states
-
-        return hidden_states, query, residual
-
-    def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
-        """
-        One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
-        into a subsequent adapter, or the next transformer layer
-        OR
-        IFF more than one adapter names is set for one stack layer, we assume that fusion is activated. Thus, the
-        adapters are fused together.
-        Args:
-            hidden_states: output of the previous transformer layer or adapter
-            input_tensor: residual connection of transformer
-            attention_mask: attention mask on token level
-            adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
-                            single adapter. iff len(adapter_stack) > 1 we fuse the adapters
-
-        Returns: hidden_states
-
-        """
-        # We assume that all adapters have the same residual connection and layer norm setting as the first adapter in
-        # the stack
-        adapter_config = self.config.adapters.get(adapter_stack[0])
-
-        hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
-
-        if len(adapter_stack) == 1:
-            if adapter_stack[0] in self.output_adapters:
-                adapter_layer = self.output_adapters[adapter_stack[0]]
-                hidden_states, _, _ = adapter_layer(hidden_states, residual_input=residual)
-
-            return hidden_states
-
-        else:
-            return self.adapter_fusion(hidden_states, attention_mask, adapter_stack, residual, query)
-
-    def adapter_fusion(self, hidden_states, attention_mask, adapter_stack, residual, query):
-        """
-        If more than one adapter name is set for a stack layer, we fuse the adapters.
-        For this, we pass through every adapter and learn an attention-like weighting of each adapter.
-        The information stored in each of the adapters is thus fused together wrt the current example.
-        Args:
-            hidden_states: output of the previous transformer layer or adapter
-            attention_mask: attention mask on token level
-            adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
-                            single adapter. iff len(adapter_stack) > 1 we fuse the adapters
-            residual: residual of the previous layer
-            query: query by which we attend over the adapters
-
-        Returns: hidden_states
-
-        """
-        up_list = []
-
-        for adapter_name in adapter_stack:
-            if adapter_stack[0] in self.output_adapters:
-                adapter_layer = self.output_adapters[adapter_name]
-                intermediate_output, _, up = adapter_layer(hidden_states, residual_input=residual)
-                up_list.append(up)
-
-        if len(up_list) > 0:
-            up_list = torch.stack(up_list)
-            up_list = up_list.permute(1, 2, 0, 3)
-
-            fusion_name = ",".join(adapter_stack)
-
-            hidden_states = self.adapter_fusion_layer[fusion_name](
-                query, up_list, up_list, residual=residual, attention_mask=attention_mask
-            )
-        return hidden_states
-
-    def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
-        if adapter_names is not None:
-            adapter_names = parse_adapter_names(adapter_names)
-            flat_adapter_names = [item for sublist in adapter_names for item in sublist]
-
-        if adapter_names is not None and (len(set(self.output_adapters.keys()) & set(flat_adapter_names)) > 0):
-            for adapter_stack in adapter_names:
-                hidden_states = self.adapter_stack_layer(
-                    hidden_states=hidden_states,
-                    input_tensor=input_tensor,
-                    attention_mask=attention_mask,
-                    adapter_stack=adapter_stack,
-                )
-
-            last_config = self.config.adapters.get(adapter_names[-1][-1])
-            if last_config["original_ln_after"]:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        else:
-            hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        return hidden_states
 
 
 class BertLayerAdaptersMixin:
