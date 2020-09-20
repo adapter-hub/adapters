@@ -2,7 +2,7 @@
 export GLUE_DIR="/content/gdrive/My Drive/adapter/data/glue_data"
 export TASK_NAME=MNLI
 
-python3 run_glue_wh.py \
+python3 run_mnli_wh.py \
   --model_name_or_path bert-base-cased \
   --task_name $TASK_NAME \
   --do_train \

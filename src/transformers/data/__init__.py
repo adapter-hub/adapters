@@ -13,6 +13,7 @@ from .processors import (
     SquadV1Processor,
     SquadV2Processor,
     glue_convert_examples_to_features,
+    conceptnet_convert_examples_to_features,
     glue_output_modes,
     glue_processors,
     glue_tasks_num_labels,
@@ -20,8 +21,11 @@ from .processors import (
     xnli_output_modes,
     xnli_processors,
     xnli_tasks_num_labels,
+    conceptnet_output_modes,
+    conceptnet_processors,
+    conceptnet_tasks_num_labels,
 )
 
 
 if is_sklearn_available():
-    from .metrics import glue_compute_metrics, xnli_compute_metrics
+    from .metrics import glue_compute_metrics, xnli_compute_metrics, conceptnet_compute_metrics

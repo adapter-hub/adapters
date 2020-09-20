@@ -83,3 +83,10 @@ if _has_sklearn:
             return {"acc": simple_accuracy(preds, labels)}
         else:
             raise KeyError(task_name)
+
+    def conceptnet_compute_metrics(task_name, preds, labels):
+        assert len(preds) == len(labels)
+        if task_name == "conceptnet":
+            return {"acc": simple_accuracy(preds, labels)}
+        else:
+            raise KeyError(task_name)
