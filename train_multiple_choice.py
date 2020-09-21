@@ -177,7 +177,7 @@ if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
     # add a new adapter
     model.add_adapter(
         task_name,
-        AdapterType.text_task
+        AdapterType.text_task,
         config=adapter_args.adapter_config
     )
 # enable adapter training

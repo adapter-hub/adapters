@@ -61,7 +61,7 @@ class ModelArguments:
         default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
     )
     cache_dir: Optional[str] = field(
-        default="/content/gdrive/My Drive/adapter/models/commonsenseqa", metadata={"help": "Where do you want to store the pretrained models downloaded from s3"}
+        default="/home/theorist17/projects/adapter/adapters/commonsenseqa", metadata={"help": "Where do you want to store the pretrained models downloaded from s3"}
     )
 
 

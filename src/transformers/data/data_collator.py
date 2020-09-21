@@ -48,7 +48,7 @@ class DefaultDataCollator(DataCollator):
         # So we will look at the first element as a proxy for what attributes exist
         # on the whole batch.
         first = features[0]
-
+        
         # Special handling for labels.
         # Ensure that tensor is created with the correct type
         # (it should be automatically the case, but let's make sure of it.)

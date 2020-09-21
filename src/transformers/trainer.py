@@ -493,7 +493,7 @@ class Trainer:
                     #     model.config.adapter_fusion["regularization"] = model.module.config.adapter_fusion["regularization"]
                     
                     # apply adapter fusion weight regularization on the value matrix
-                    if hasattr(model.config, "adapter_fusion") and model.config.adapter_fusion["regularization"]:
+                    if hasattr(self.model.config, "adapter_fusion") and self.model.config.adapter_fusion["regularization"]:
                         fusion_reg_loss = get_fusion_regularization_loss(model)
                         fusion_reg_loss.backward()
 
