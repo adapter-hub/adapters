@@ -696,7 +696,7 @@ class ModelAdaptersMixin(ABC):
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
-    def set_adapter_fusion_config(self, adapter_fusion_config, kwargs={}):
+    def set_adapter_fusion_config(self, adapter_fusion_config, override_kwargs=None):
         """Sets the adapter fusion configuration.
 
         Args:
@@ -705,15 +705,16 @@ class ModelAdaptersMixin(ABC):
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
         """
+        if override_kwargs is None:
+            override_kwargs = {}
         if isinstance(adapter_fusion_config, str) and adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP:
-            self.config.adapter_fusion = AdapterFusionConfig.load(adapter_fusion_config, **kwargs)
-            # ADAPTERFUSION_CONFIG_MAP[adapter_fusion_config](**kwargs).to_dict()
+            self.config.adapter_fusion = AdapterFusionConfig.load(adapter_fusion_config, **override_kwargs)
         elif isinstance(adapter_fusion_config, Mapping):
             self.config.adapter_fusion = adapter_fusion_config
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
 
-    def add_fusion(self, adapter_names, adapter_fusion_config=None, kwargs={}):
+    def add_fusion(self, adapter_names, adapter_fusion_config=None, override_kwargs=None):
         """Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 
         Args:
@@ -722,14 +723,13 @@ class ModelAdaptersMixin(ABC):
                 - a string identifying a pre-defined adapter fusion configuration
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
-            kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
-
-        Returns:
-
+            override_kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
         """
         if not hasattr(self.config, "adapter_fusion"):
+            if override_kwargs is None:
+                override_kwargs = {}
             if adapter_fusion_config is not None:
-                self.set_adapter_fusion_config(adapter_fusion_config, kwargs)
+                self.set_adapter_fusion_config(adapter_fusion_config, **override_kwargs)
             else:
                 self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
         elif hasattr(self.config, "adapter_fusion") and adapter_fusion_config is not None:
