@@ -644,7 +644,13 @@ class ModelAdaptersMixin(ABC):
 
     @abstractmethod
     def train_adapter(self, adapter_names: list):
-        """Sets the model in mode for training the given type of adapter.
+        """Sets the model into mode for training the given adapters.
+        """
+        pass
+
+    @abstractmethod
+    def train_fusion(self, adapter_names: list):
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names.
         """
         pass
 
@@ -945,7 +951,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         self.base_model.add_adapter(adapter_name, adapter_type, config)
 
     def train_adapter(self, adapter_names: list):
-        """Sets the model in mode for training the given type of adapter."""
+        """Sets the model into mode for training the given adapters."""
         self.base_model.train_adapter(adapter_names)
 
     def train_fusion(self, adapter_names: list):

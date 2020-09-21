@@ -142,7 +142,7 @@ python run_language_modeling.py \
 
 ## Train AdapterFusion
 
-We provide an example for training _AdapterFusion_ ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00247)) on the GLUE dataset: [run_fusion_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_fusion_glue.py). You can use adapt this script to train AdapterFusion with different pre-trained adapters on your own dataset.
+We provide an example for training _AdapterFusion_ ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00247)) on the GLUE dataset: [run_fusion_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_fusion_glue.py). You can adapt this script to train AdapterFusion with different pre-trained adapters on your own dataset.
 
 ```eval_rst
 .. important::
