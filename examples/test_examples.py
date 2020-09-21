@@ -32,6 +32,7 @@ sys.path.extend(SRC_DIRS)
 if SRC_DIRS is not None:
     import run_generation
     import run_glue
+    import run_fusion_glue
     import run_language_modeling
     import run_squad
 
@@ -105,6 +106,33 @@ class ExamplesTests(unittest.TestCase):
             del result["eval_loss"]
             for value in result.values():
                 self.assertGreaterEqual(value, 0.75)
+
+    def test_run_fusion_glue(self):
+        stream_handler = logging.StreamHandler(sys.stdout)
+        logger.addHandler(stream_handler)
+
+        testargs = """
+            run_fusion_glue.py
+            --model_name_or_path bert-base-uncased
+            --data_dir ./tests/fixtures/tests_samples/MRPC/
+            --task_name mrpc
+            --do_train
+            --do_eval
+            --output_dir ./tests/fixtures/tests_samples/temp_dir
+            --per_device_train_batch_size=2
+            --per_device_eval_batch_size=1
+            --learning_rate=5e-5
+            --max_steps=20
+            --warmup_steps=2
+            --overwrite_output_dir
+            --seed=42
+            --max_seq_length=128
+            """.split()
+        with patch.object(sys, "argv", testargs):
+            result = run_fusion_glue.main()
+            del result["eval_loss"]
+            for value in result.values():
+                self.assertGreaterEqual(value, 0.5)
 
     def test_run_language_modeling(self):
         stream_handler = logging.StreamHandler(sys.stdout)
