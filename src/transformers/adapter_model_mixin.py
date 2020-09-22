@@ -7,6 +7,7 @@ from typing import Callable, List, Mapping, Optional, Tuple, Union
 
 import torch
 
+from .adapter_composition import AdapterCompositionBlock, parse_composition
 from .adapter_config import (
     ADAPTERFUSION_CONFIG_MAP,
     DEFAULT_ADAPTERFUSION_CONFIG,
@@ -24,7 +25,6 @@ from .adapter_utils import (
     HEAD_WEIGHTS_NAME,
     WEIGHTS_NAME,
     inherit_doc,
-    parse_adapter_names,
     resolve_adapter_path,
 )
 
@@ -665,15 +665,13 @@ class ModelAdaptersMixin(ABC):
         pass
 
     @abstractmethod
-    def train_adapter(self, adapter_names: list):
-        """Sets the model into mode for training the given adapters.
-        """
+    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+        """Sets the model into mode for training the given adapters."""
         pass
 
     @abstractmethod
-    def train_fusion(self, adapter_names: list):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names.
-        """
+    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         pass
 
     def has_adapters(self, adapter_type=None):
@@ -683,31 +681,26 @@ class ModelAdaptersMixin(ABC):
             return len(self.config.adapters.adapter_list(adapter_type)) > 0
 
     @property
-    def active_adapters(self):
+    def active_adapters(self) -> AdapterCompositionBlock:
         return self.base_model._active_adapter_names
 
-    def set_active_adapters(self, adapter_names: list):
+    def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the adapter modules to be used by default in every forward pass.
         This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
         If no adapter with the given name is found, no module of the respective type will be activated.
 
         Args:
-            adapter_names (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
+            adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
-        adapter_names = parse_adapter_names(adapter_names)
+        adapter_setup = parse_composition(adapter_setup)
+        # TODO: temporary solution for validating adapter names
+        for adapter_name in adapter_setup.flatten():
+            if adapter_name not in self.config.adapters.adapters:
+                raise ValueError(
+                    f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
+                )
 
-        new_adapter_names = []
-
-        for stack in adapter_names:
-            new_adapter_names.append([])
-            for adapter_name in stack:
-                if adapter_name in self.config.adapters.adapters:
-                    new_adapter_names[-1].append(adapter_name)
-                else:
-                    logger.info("No adapter with name '{}' available. Skipping.".format(adapter_name))
-        if len(new_adapter_names[0]) == 0:
-            new_adapter_names = None
-        self.base_model._active_adapter_names = new_adapter_names
+        self.base_model._active_adapter_names = adapter_setup
 
     def set_adapter_fusion_config(self, adapter_fusion_config, override_kwargs=None):
         """Sets the adapter fusion configuration.
@@ -957,13 +950,13 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         """
         self.base_model.add_adapter(adapter_name, adapter_type, config)
 
-    def train_adapter(self, adapter_names: list):
+    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
-        self.base_model.train_adapter(adapter_names)
+        self.base_model.train_adapter(adapter_setup)
 
-    def train_fusion(self, adapter_names: list):
-        """Sets the model in mode for training of adapter fusion determined by a list of adapter names."""
-        self.base_model.train_fusion(adapter_names)
+    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
+        self.base_model.train_fusion(adapter_setup)
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)

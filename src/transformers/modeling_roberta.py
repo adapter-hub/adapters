@@ -23,8 +23,8 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from .adapter_bert import BertModelHeadsMixin
+from .adapter_composition import parse_composition
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
-from .adapter_utils import parse_adapter_names
 from .configuration_roberta import RobertaConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_bert import BertEmbeddings, BertLayerNorm, BertModel, BertPreTrainedModel, gelu
@@ -275,6 +275,12 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         loss, prediction_scores = outputs[:2]
 
         """
+        # override the default active adapters with those passed in the method call
+        if not adapter_names:
+            adapter_setup = self.active_adapters
+        else:
+            adapter_setup = parse_composition(adapter_names)
+
         outputs = self.roberta(
             input_ids,
             attention_mask=attention_mask,
@@ -282,14 +288,13 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
-            adapter_names=adapter_names,
+            adapter_names=adapter_setup,
         )
         sequence_output = outputs[0]
 
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if adapter_names is not None and len(adapter_names) > 0:
-            adapter_names = parse_adapter_names(adapter_names)
-            language = adapter_names[0][0]
+        if adapter_setup is not None and len(adapter_setup) > 0:
+            language = adapter_setup.first()
         else:
             language = None
         prediction_scores = self.lm_head(
