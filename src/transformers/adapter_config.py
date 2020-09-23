@@ -248,7 +248,12 @@ class ModelAdaptersConfig:
         """
         common_value = None
         for i, name in enumerate(adapter_names):
-            config_value = self.get(name).get(attribute, None)
+            config = self.get(name)
+            if not config:
+                raise ValueError(
+                    f"No adapter with name '{name}' found. Make sure that an adapter with this name is loaded."
+                )
+            config_value = config.get(attribute, None)
             if i > 0 and config_value != common_value:
                 raise ValueError(f"All given adapters must define the same value for config attribute {attribute}.")
             common_value = config_value
