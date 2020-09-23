@@ -7,7 +7,6 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from .adapter_composition import AdapterCompositionBlock, Fuse, Split, Stack, parse_composition
-from .adapter_config import AdapterType
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion, GLOWCouplingBlock, NICECouplingBlock
 
@@ -344,20 +343,17 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         self.set_active_adapters(adapter_setup)
         # TODO implement fusion for invertible adapters
 
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
+    def add_adapter(self, adapter_name: str, config=None):
         """Adds a new adapter module of the specified type to the model.
 
         Args:
             adapter_name (str): The name of the adapter module to be added.
-            adapter_type (AdapterType): The adapter type.
             config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
         """
-        if not AdapterType.has(adapter_type):
-            raise ValueError("Invalid adapter type {}".format(adapter_type))
-        self.config.adapters.add(adapter_name, adapter_type, config=config)
+        self.config.adapters.add(adapter_name, config=config)
         self.encoder.add_adapter(adapter_name)
         self.add_invertible_adapter(adapter_name)
 

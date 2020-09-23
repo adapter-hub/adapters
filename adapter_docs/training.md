@@ -29,7 +29,7 @@ Compared to fine-tuning the full model, there is only one significant adaptation
 
 ```python
 # task adapter - only add if not existing
-if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
+if task_name not in model.config.adapters:
     # resolve the adapter config
     adapter_config = AdapterConfig.load(
         adapter_args.adapter_config,
@@ -39,7 +39,6 @@ if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
     # add a new adapter
     model.add_adapter(
         task_name,
-        AdapterType.text_task
         config=adapter_config
     )
 # Enable adapter training
@@ -108,14 +107,14 @@ script by adding the following code:
 
 ```python
 # check if language adapter already exists, otherwise add it
-if language not in model.config.adapters.adapter_list(AdapterType.text_lang):
+if language not in model.config.adapters:
     # resolve the adapter config
     adapter_config = AdapterConfig.load(
         adapter_args.adapter_config,
         non_linearity=adapter_args.adapter_non_linearity,
         reduction_factor=adapter_args.adapter_reduction_factor,
     )
-    model.add_adapter(language, AdapterType.text_lang, config=adapter_config)
+    model.add_adapter(language, config=adapter_config)
 # Freeze all model weights except of those of this adapter & use this adapter in every forward pass
 model.train_adapter([language])
 ```

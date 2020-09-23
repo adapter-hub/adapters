@@ -1,10 +1,10 @@
 import copy
 import logging
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass, replace
-from typing import List, Optional, Union
+from typing import List, Optional, Sequence, Union
 
-from .adapter_utils import AdapterType, get_adapter_config_hash, resolve_adapter_config
+from .adapter_utils import get_adapter_config_hash, resolve_adapter_config
 
 
 logger = logging.getLogger(__name__)
@@ -198,43 +198,42 @@ ADAPTER_CONFIG_MAP = {
 DEFAULT_ADAPTER_CONFIG = "pfeiffer"
 
 
-class ModelAdaptersConfig:
+class ModelAdaptersConfig(Collection):
     """This class manages the setup and configuration of adapter modules in a pre-trained model.
     """
 
     def __init__(self, **kwargs):
-        # adapters maps <name> -> (<type>, <config_name>)
-        self.adapters = kwargs.pop("adapters", {})
+        adapters_list = kwargs.pop("adapters", {})
+        # this is for backwards compability: in v1.x, self.adapters values had shape (<type>, <config_name>)
+        adapters_list = dict(
+            map(lambda t: (t[0], t[1][1] or t[1][0] if isinstance(t[1], tuple) else t[1]), adapters_list.items())
+        )
+        self.adapters: Sequence[str] = adapters_list
         self.config_map = kwargs.pop("config_map", {})
 
-    def adapter_list(self, adapter_type: AdapterType) -> list:
-        return [k for k, v in self.adapters.items() if v[0] == adapter_type]
+    def __contains__(self, item):
+        return item in self.adapters.keys()
 
-    def get_type(self, adapter_name: str) -> Optional[AdapterType]:
-        if adapter_name in self.adapters:
-            return self.adapters[adapter_name][0]
-        else:
-            return None
+    def __iter__(self):
+        return iter(self.adapters)
 
-    def get(self, adapter_name: str, return_type: bool = False):
+    def __len__(self):
+        return len(self.adapters)
+
+    def get(self, adapter_name: str):
         if adapter_name in self.adapters:
-            adapter_type, config_name = self.adapters[adapter_name]
+            config_name = self.adapters[adapter_name]
             if config_name in self.config_map:
                 config = self.config_map.get(config_name, None)
             else:
                 config = ADAPTER_CONFIG_MAP.get(config_name, None)
-            if not config:
-                config = self.config_map[adapter_type]
             if isinstance(config, str):
                 config = ADAPTER_CONFIG_MAP[config]
         else:
-            config, adapter_type = None, None
-        if return_type:
-            return config, adapter_type
-        else:
-            return config
+            config = None
+        return config
 
-    def add(self, adapter_name: str, adapter_type: AdapterType, config: Optional[Union[str, dict]] = None):
+    def add(self, adapter_name: str, config: Optional[Union[str, dict]] = None):
         if adapter_name in self.adapters:
             raise ValueError(f"An adapter with the name '{adapter_name}' has already been added.")
         if config is None:
@@ -249,8 +248,8 @@ class ModelAdaptersConfig:
             self.config_map[config_name] = config
         else:
             raise ValueError("Invalid adapter config: {}".format(config))
-        self.adapters[adapter_name] = (adapter_type, config_name)
-        logger.info(f"Adding adapter '{adapter_name}' of type '{adapter_type}'.")
+        self.adapters[adapter_name] = config_name
+        logger.info(f"Adding adapter '{adapter_name}'.")
 
     def common_config_value(self, adapter_names: list, attribute: str):
         """Checks whether all adapters in a list share the same config setting for a given attribute and returns the shared value.

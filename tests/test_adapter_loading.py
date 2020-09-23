@@ -6,7 +6,6 @@ import torch
 
 from transformers import (
     ADAPTER_CONFIG_MAP,
-    AdapterType,
     BertModel,
     BertModelWithHeads,
     RobertaModel,
@@ -39,49 +38,44 @@ class AdapterModelTest(unittest.TestCase):
             model = model_class(model_config())
 
             for config_name, adapter_config in ADAPTER_CONFIG_MAP.items():
-                for type_name, adapter_type in AdapterType.__members__.items():
-                    # skip configs without invertible language adapters
-                    if adapter_type == AdapterType.text_lang and not adapter_config.invertible_adapter:
-                        continue
-                    with self.subTest(model_class=model_class, config=config_name, adapter_type=type_name):
-                        name = f"{type_name}-{config_name}"
-                        model.add_adapter(name, adapter_type, config=adapter_config)
+                with self.subTest(model_class=model_class, config=config_name):
+                    name = f"{config_name}"
+                    model.add_adapter(name, config=adapter_config)
 
-                        # adapter is correctly added to config
-                        self.assertTrue(name in model.config.adapters.adapter_list(adapter_type))
-                        self.assertEqual(adapter_config, model.config.adapters.get(name))
+                    # adapter is correctly added to config
+                    self.assertTrue(name in model.config.adapters)
+                    self.assertEqual(adapter_config, model.config.adapters.get(name))
 
-                        # check forward pass
-                        input_ids = ids_tensor((1, 128), 1000)
-                        input_data = {"input_ids": input_ids}
-                        if adapter_type == AdapterType.text_task or adapter_type == AdapterType.text_lang:
-                            input_data["adapter_names"] = [name]
-                        adapter_output = model(**input_data)
-                        base_output = model(input_ids)
-                        self.assertEqual(len(adapter_output), len(base_output))
-                        self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
+                    # check forward pass
+                    input_ids = ids_tensor((1, 128), 1000)
+                    input_data = {"input_ids": input_ids}
+                    input_data["adapter_names"] = [name]
+                    adapter_output = model(**input_data)
+                    base_output = model(input_ids)
+                    self.assertEqual(len(adapter_output), len(base_output))
+                    self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
 
     def test_load_adapter(self):
         for model_class in self.model_classes:
             model1, model2 = create_twin_models(model_class)
 
-            for name, adapter_type in AdapterType.__members__.items():
-                with self.subTest(model_class=model_class, adapter_type=name):
-                    model1.add_adapter(name, adapter_type)
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        model1.save_adapter(temp_dir, name)
+            with self.subTest(model_class=model_class):
+                name = "dummy"
+                model1.add_adapter(name)
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    model1.save_adapter(temp_dir, name)
 
-                        model2.load_adapter(temp_dir)
+                    model2.load_adapter(temp_dir)
 
-                    # check if adapter was correctly loaded
-                    self.assertTrue(name in model2.config.adapters.adapter_list(adapter_type))
+                # check if adapter was correctly loaded
+                self.assertTrue(name in model2.config.adapters)
 
-                    # check equal output
-                    in_data = ids_tensor((1, 128), 1000)
-                    output1 = model1(in_data, adapter_names=[name])
-                    output2 = model2(in_data, adapter_names=[name])
-                    self.assertEqual(len(output1), len(output2))
-                    self.assertTrue(torch.equal(output1[0], output2[0]))
+                # check equal output
+                in_data = ids_tensor((1, 128), 1000)
+                output1 = model1(in_data, adapter_names=[name])
+                output2 = model2(in_data, adapter_names=[name])
+                self.assertEqual(len(output1), len(output2))
+                self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_model_config_serialization(self):
         """PretrainedConfigurations should not raise an Exception when serializing the config dict
@@ -92,7 +86,7 @@ class AdapterModelTest(unittest.TestCase):
             for k, v in ADAPTER_CONFIG_MAP.items():
                 model_config = model_class.config_class
                 model = model_class(model_config())
-                model.add_adapter("test", adapter_type=AdapterType.text_task, config=v)
+                model.add_adapter("test", config=v)
                 # should not raise an exception
                 model.config.to_json_string()
 
@@ -151,7 +145,7 @@ class PredictionHeadModelTest(unittest.TestCase):
 
             with self.subTest(model_class=model_class.__name__):
                 name = "dummy"
-                model1.add_adapter(name, AdapterType.text_task)
+                model1.add_adapter(name)
                 model1.add_classification_head(name, num_labels=3)
                 model1.set_active_adapters(name)
                 with tempfile.TemporaryDirectory() as temp_dir:
@@ -174,7 +168,7 @@ class PredictionHeadModelTest(unittest.TestCase):
 
             with self.subTest(model_class=model_class.__name__):
                 name = "dummy"
-                model1.add_adapter(name, AdapterType.text_task)
+                model1.add_adapter(name)
                 model1.add_classification_head(name, num_labels=3)
                 model1.set_active_adapters(name)
                 with tempfile.TemporaryDirectory() as temp_dir:
@@ -215,7 +209,7 @@ class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
         model_with_head = BertModelWithHeads(model_with_head_base.config)
         model_with_head.bert = model_with_head_base
 
-        model_with_head.add_adapter("dummy", AdapterType.text_task)
+        model_with_head.add_adapter("dummy")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             model_with_head.save_adapter(temp_dir, "dummy")
@@ -239,7 +233,7 @@ class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
         model_with_head = BertModelWithHeads(model_with_head_base.config)
         model_with_head.bert = model_with_head_base
 
-        model_base.add_adapter("dummy", AdapterType.text_task)
+        model_base.add_adapter("dummy")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             model_base.save_adapter(temp_dir, "dummy")

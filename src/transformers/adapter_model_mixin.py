@@ -13,7 +13,6 @@ from .adapter_config import (
     DEFAULT_ADAPTERFUSION_CONFIG,
     AdapterConfig,
     AdapterFusionConfig,
-    AdapterType,
     build_full_config,
     get_adapter_config_hash,
 )
@@ -24,6 +23,7 @@ from .adapter_utils import (
     HEAD_CONFIG_NAME,
     HEAD_WEIGHTS_NAME,
     WEIGHTS_NAME,
+    AdapterType,
     inherit_doc,
     resolve_adapter_path,
 )
@@ -335,16 +335,11 @@ class AdapterLoader(WeightsLoader):
             name in self.model.config.adapters.adapters
         ), "No adapter of this type with the given name is part of this model."
 
-        adapter_config, adapter_type = self.model.config.adapters.get(name, return_type=True)
-        if self.adapter_type:
-            assert adapter_type == self.adapter_type, "Saved adapter has to be a {} adapter.".format(self.adapter_type)
-        else:
-            self.adapter_type = adapter_type
+        adapter_config = self.model.config.adapters.get(name)
 
         config_dict = build_full_config(
             adapter_config,
             self.model.config,
-            type=adapter_type,
             model_name=self.model.model_name,
             name=name,
             model_class=self.model.__class__.__name__,
@@ -651,12 +646,11 @@ class ModelAdaptersMixin(ABC):
     # These methods have to be implemented by every deriving class:
 
     @abstractmethod
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
+    def add_adapter(self, adapter_name: str, config=None):
         """Adds a new adapter module of the specified type to the model.
 
         Args:
             adapter_name (str): The name of the adapter module to be added.
-            adapter_type (AdapterType): The adapter type.
             config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
@@ -674,11 +668,8 @@ class ModelAdaptersMixin(ABC):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         pass
 
-    def has_adapters(self, adapter_type=None):
-        if not adapter_type:
-            return len(self.config.adapters.adapters) > 0
-        else:
-            return len(self.config.adapters.adapter_list(adapter_type)) > 0
+    def has_adapters(self):
+        return len(self.config.adapters.adapters) > 0
 
     @property
     def active_adapters(self) -> AdapterCompositionBlock:
@@ -768,16 +759,12 @@ class ModelAdaptersMixin(ABC):
         Raises:
             ValueError: If the given adapter name is invalid.
         """
-        adapter_type = self.config.adapters.get_type(adapter_name)
-        if adapter_type:
-            loader = AdapterLoader(self, adapter_type)
-            loader.save(save_directory, adapter_name, meta_dict)
-            # save additional custom weights
-            if custom_weights_loaders:
-                for weights_loader in custom_weights_loaders:
-                    weights_loader.save(save_directory, adapter_name)
-        else:
-            raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
+        loader = AdapterLoader(self)
+        loader.save(save_directory, adapter_name, meta_dict)
+        # save additional custom weights
+        if custom_weights_loaders:
+            for weights_loader in custom_weights_loaders:
+                weights_loader.save(save_directory, adapter_name)
 
     def save_adapter_fusion(
         self, save_directory: str, adapter_names: list, custom_weights_loaders: Optional[List[WeightsLoader]] = None,
@@ -889,8 +876,8 @@ class ModelAdaptersMixin(ABC):
         Args:
             save_directory (str): Path to a directory where the adapters should be saved.
         """
-        for name in self.config.adapters.adapters:
-            adapter_config, adapter_type = self.config.adapters.get(name, return_type=True)
+        for name in self.config.adapters:
+            adapter_config = self.config.adapters.get(name)
             h = get_adapter_config_hash(adapter_config)
             save_path = join(save_directory, name)
             if meta_dict:
@@ -937,18 +924,17 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
 
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
+    def add_adapter(self, adapter_name: str, config=None):
         """Adds a new adapter module of the specified type to the model.
 
         Args:
             adapter_name (str): The name of the adapter module to be added.
-            adapter_type (AdapterType): The adapter type.
             config (str or dict, optional): The adapter configuration, can be either:
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
         """
-        self.base_model.add_adapter(adapter_name, adapter_type, config)
+        self.base_model.add_adapter(adapter_name, config)
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""

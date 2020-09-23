@@ -214,7 +214,7 @@ def main():
         if not language:
             raise ValueError("--language flag must be set when training an adapter")
         # check if language adapter already exists, otherwise add it
-        if language not in model.config.adapters.adapter_list(AdapterType.text_lang):
+        if language not in model.config.adapters:
             # resolve the adapter config
             adapter_config = AdapterConfig.load(
                 adapter_args.adapter_config,
@@ -228,7 +228,7 @@ def main():
                 )
             # otherwise, add a fresh adapter
             else:
-                model.add_adapter(language, AdapterType.text_lang, config=adapter_config)
+                model.add_adapter(language, config=adapter_config)
         # Freeze all model weights except of those of this adapter & use this adapter in every forward pass
         model.train_adapter([language])
 

@@ -171,7 +171,7 @@ def main():
     if adapter_args.train_adapter:
         task_name = "ner"
         # check if adapter already exists, otherwise add it
-        if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
+        if task_name not in model.config.adapters:
             # resolve the adapter config
             adapter_config = AdapterConfig.load(
                 adapter_args.adapter_config,
@@ -185,7 +185,7 @@ def main():
                 )
             # otherwise, add a fresh adapter
             else:
-                model.add_adapter(task_name, AdapterType.text_task, config=adapter_config)
+                model.add_adapter(task_name, config=adapter_config)
         # optionally load a pre-trained language adapter
         if adapter_args.load_lang_adapter:
             # resolve the language adapter config
