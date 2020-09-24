@@ -1,5 +1,5 @@
 # REQUIRED: DOWNLOAD SST FROME GLUE $ python3 transformers/utils/download_glue_data.py --tasks MNLI
-export GLUE_DIR="/content/gdrive/My Drive/adapter/data/glue_data"
+export GLUE_DIR="/home/theorist17/projects/adapter/data/glue_data"
 export TASK_NAME=MNLI
 
 python3 run_glue_wh.py \
@@ -12,9 +12,10 @@ python3 run_glue_wh.py \
   --per_device_train_batch_size 64 \
   --learning_rate 1e-4 \
   --num_train_epochs 10.0 \
-  --output_dir "/content/gdrive/My Drive/adapter/adapters/$TASK_NAME" \
+  --output_dir "/home/theorist17/projects/adapter/adapters/$TASK_NAME" \
   --overwrite_output_dir \
   --train_adapter \
-  --adapter_config pfeiffer
-
-#  --output_dir /tmp/$TASK_NAME \
+  --adapter_config pfeiffer \
+  --logging_steps 1000 \
+  --save_steps 1000 \
+  --evaluate_during_training

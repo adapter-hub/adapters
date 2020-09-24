@@ -204,10 +204,10 @@ class Trainer:
         self.compute_metrics = compute_metrics
         self.prediction_loss_only = prediction_loss_only
         self.optimizers = optimizers
-        if tb_writer is not None:
-            self.tb_writer = tb_writer
-        elif is_tensorboard_available() and self.is_world_master():
-            self.tb_writer = SummaryWriter(log_dir=self.args.logging_dir)
+        # if tb_writer is not None:
+        #     self.tb_writer = tb_writer
+        # elif is_tensorboard_available() and self.is_world_master():
+        #     self.tb_writer = SummaryWriter(log_dir=self.args.logging_dir)
         if not is_tensorboard_available():
             logger.warning(
                 "You are instantiating a Trainer but Tensorboard is not installed. You should consider installing it."
@@ -475,7 +475,6 @@ class Trainer:
                 epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=not self.is_local_master())
 
             for step, inputs in enumerate(epoch_iterator):
-
                 # Skip past any already trained steps if resuming training
                 if steps_trained_in_current_epoch > 0:
                     steps_trained_in_current_epoch -= 1
@@ -488,10 +487,6 @@ class Trainer:
                     len(epoch_iterator) <= self.args.gradient_accumulation_steps
                     and (step + 1) == len(epoch_iterator)
                 ):
-                    # if model.module:
-                    #     model.config = model.module.config
-                    #     model.config.adapter_fusion["regularization"] = model.module.config.adapter_fusion["regularization"]
-                    
                     # apply adapter fusion weight regularization on the value matrix
                     if hasattr(self.model.config, "adapter_fusion") and self.model.config.adapter_fusion["regularization"]:
                         fusion_reg_loss = get_fusion_regularization_loss(model)

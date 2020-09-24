@@ -572,6 +572,7 @@ def main():
     model.add_classification_head(args.task_name, num_labels=num_labels)
     # Setup adapters
     setup_task_adapter_training(model, args.task_name, adapter_args)
+    
 
     if args.local_rank == 0:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab

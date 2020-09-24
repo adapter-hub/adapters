@@ -34,7 +34,9 @@ from transformers import (
     TrainingArguments,
     set_seed,
     setup_task_adapter_training,
+    AdapterType
 )
+from transformers.modeling_bert import BertForMultipleChoice
 from utils_multiple_choice import MultipleChoiceDataset, Split, processors
 
 
@@ -145,15 +147,17 @@ def main():
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
     )
-    model = AutoModelForMultipleChoice.from_pretrained(
+    model = BertForMultipleChoice.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
         cache_dir=model_args.cache_dir,
     )
-
+    
     # Setup adapters
     task_name = data_args.task_name
+    adapter_args.train_adapter = True
+    #model.add_classification_head(data_args.task_name, num_labels=num_labels)
     setup_task_adapter_training(model, task_name, adapter_args)
 
     # Get datasets
@@ -185,7 +189,7 @@ def main():
     def compute_metrics(p: EvalPrediction) -> Dict:
         preds = np.argmax(p.predictions, axis=1)
         return {"acc": simple_accuracy(preds, p.label_ids)}
-
+    
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
