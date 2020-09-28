@@ -9,6 +9,8 @@ from transformers import (
     AdapterType,
     BertModel,
     BertModelWithHeads,
+    DistilBertModel,
+    DistilBertModelWithHeads,
     RobertaModel,
     RobertaModelWithHeads,
     XLMRobertaModel,
@@ -31,7 +33,7 @@ def create_twin_models(model_class):
 @require_torch
 class AdapterModelTest(unittest.TestCase):
 
-    model_classes = [BertModel, RobertaModel, XLMRobertaModel]
+    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel]
 
     def test_add_adapter(self):
         for model_class in self.model_classes:
@@ -100,7 +102,7 @@ class AdapterModelTest(unittest.TestCase):
 @require_torch
 class PredictionHeadModelTest(unittest.TestCase):
 
-    model_classes = [BertModelWithHeads, RobertaModelWithHeads]
+    model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads]
 
     def run_prediction_head_test(self, model, compare_model, head_name, input_shape=(1, 128), output_shape=(1, 2)):
         with tempfile.TemporaryDirectory() as temp_dir:

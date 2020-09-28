@@ -9,6 +9,7 @@ from transformers import (
     ADAPTERFUSION_CONFIG_MAP,
     AdapterType,
     BertModel,
+    DistilBertModel,
     PfeifferConfig,
     RobertaModel,
     XLMRobertaModel,
@@ -29,7 +30,7 @@ def create_twin_models(model1):
 @require_torch
 class AdapterFusionModelTest(unittest.TestCase):
 
-    model_classes = [BertModel, RobertaModel, XLMRobertaModel]
+    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel]
 
     def test_add_adapter_fusion(self):
 

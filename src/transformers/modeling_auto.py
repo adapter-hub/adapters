@@ -75,6 +75,7 @@ from .modeling_distilbert import (
     DistilBertForSequenceClassification,
     DistilBertForTokenClassification,
     DistilBertModel,
+    DistilBertModelWithHeads,
 )
 from .modeling_electra import (
     ElectraForMaskedLM,
@@ -169,6 +170,7 @@ MODEL_WITH_HEADS_MAPPING = OrderedDict(
         (XLMRobertaConfig, XLMRobertaModelWithHeads),
         (RobertaConfig, RobertaModelWithHeads),
         (BertConfig, BertModelWithHeads),
+        (DistilBertConfig, DistilBertModelWithHeads),
     ]
 )
 

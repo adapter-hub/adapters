@@ -293,6 +293,7 @@ if is_torch_available():
         DistilBertPreTrainedModel,
         DistilBertForMaskedLM,
         DistilBertModel,
+        DistilBertModelWithHeads,
         DistilBertForSequenceClassification,
         DistilBertForQuestionAnswering,
         DistilBertForTokenClassification,

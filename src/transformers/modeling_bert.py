@@ -34,7 +34,6 @@ from .adapter_bert import (
     BertSelfOutputAdaptersMixin,
 )
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
-from .adapter_utils import parse_adapter_names
 from .configuration_bert import BertConfig
 from .file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from .modeling_utils import PreTrainedModel, prune_linear_layer
@@ -765,13 +764,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         embedding_output = self.embeddings(
             input_ids=input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds
         )
-
-        # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if adapter_names is not None and len(adapter_names) > 0:
-            adapter_names = parse_adapter_names(adapter_names)
-
-            if adapter_names[0][0] in self.invertible_lang_adapters:
-                embedding_output = self.invertible_lang_adapters[adapter_names[0][0]](embedding_output, rev=False)
+        embedding_output = self.invertible_adapters_forward(embedding_output, adapter_names=adapter_names)
 
         encoder_outputs = self.encoder(
             embedding_output,
@@ -927,13 +920,8 @@ class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         )
 
         sequence_output, pooled_output = outputs[:2]
-        if adapter_names is not None:
-            adapter_names = parse_adapter_names(adapter_names)
-            language = adapter_names[0][0]
-        else:
-            language = None
         prediction_scores, seq_relationship_score = self.cls(
-            sequence_output, pooled_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(language),
+            sequence_output, pooled_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
         )
 
         outputs = (prediction_scores, seq_relationship_score,) + outputs[
@@ -1038,15 +1026,8 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        # TODO assume that first elem is language
-        if adapter_names is not None:
-            adapter_names = parse_adapter_names(adapter_names)
-            language = adapter_names[0][0]
-        else:
-            language = None
-
         prediction_scores = self.cls(
-            sequence_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(language),
+            sequence_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
         )
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
