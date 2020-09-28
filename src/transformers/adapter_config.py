@@ -189,8 +189,12 @@ class ModelAdaptersConfig:
                 config = self.config_map.get(config_name, None)
             else:
                 config = ADAPTER_CONFIG_MAP.get(config_name, None)
-            if not config:
+            if not config and adapter_type in self.config_map:
                 config = self.config_map[adapter_type]
+            elif (
+                not config
+            ):  # If no config is specified via config_name or adapter_type, we just use the global default
+                config = DEFAULT_ADAPTER_CONFIG
             if isinstance(config, str):
                 config = ADAPTER_CONFIG_MAP[config]
         else:
@@ -203,6 +207,9 @@ class ModelAdaptersConfig:
     def add(self, adapter_name: str, adapter_type: AdapterType, config: Optional[Union[str, dict]] = None):
         if adapter_name in self.adapters:
             raise ValueError(f"An adapter with the name '{adapter_name}' has already been added.")
+        if config is None and adapter_type not in self.config_map:
+            # if config is not specified & no per-type default is set, manually set global default
+            config = DEFAULT_ADAPTER_CONFIG
         config_name = config
         if isinstance(config, str):
             if config not in ADAPTER_CONFIG_MAP and config not in self.config_map:
@@ -257,6 +264,7 @@ class ModelAdaptersConfig:
     def to_dict(self):
         output_dict = {}
         output_dict["adapters"] = copy.deepcopy(self.adapters)
+        output_dict["config_map"] = copy.deepcopy(self.config_map)
         return output_dict
 
 
