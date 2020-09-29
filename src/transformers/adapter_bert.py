@@ -674,16 +674,12 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 f"Model already contains a head with name '{head_name}'. Use overwrite_ok=True to force overwrite."
             )
 
-    # override this method in subclass if config key has different name
-    def _get_dropout_prob(self):
-        return self.config.hidden_dropout_prob
-
     def _add_prediction_head_module(self, head_name):
         head_config = self.config.prediction_heads.get(head_name)
 
         pred_head = []
         for l in range(head_config["layers"]):
-            pred_head.append(nn.Dropout(self._get_dropout_prob()))
+            pred_head.append(nn.Dropout(self.config.hidden_dropout_prob))
             if l < head_config["layers"] - 1:
                 pred_head.append(nn.Linear(self.config.hidden_size, self.config.hidden_size))
                 pred_head.append(Activation_Function_Class(head_config["activation_function"]))

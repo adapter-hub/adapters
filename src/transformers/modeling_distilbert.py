@@ -18,7 +18,6 @@
 """
 
 
-import copy
 import logging
 import math
 
@@ -283,8 +282,7 @@ class Transformer(DistilBertTransformerAdaptersMixin, nn.Module):
         self.output_attentions = config.output_attentions
         self.output_hidden_states = config.output_hidden_states
 
-        layer = TransformerBlock(config)
-        self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.n_layers)])
+        self.layer = nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layers)])
 
     def forward(self, x, attn_mask=None, head_mask=None, adapter_names=None):
         """

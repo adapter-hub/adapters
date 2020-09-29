@@ -145,3 +145,11 @@ class DistilBertConfig(PretrainedConfig):
     @property
     def num_hidden_layers(self):
         return self.n_layers
+
+    @property
+    def hidden_dropout_prob(self):
+        return self.dropout
+
+    @property
+    def attention_probs_dropout_prob(self):
+        return self.attention_dropout

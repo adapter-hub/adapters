@@ -1,3 +1,5 @@
+from torch import nn
+
 from .adapter_bert import (
     BertEncoderAdaptersMixin,
     BertModelHeadsMixin,
@@ -9,30 +11,32 @@ from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 from .adapter_utils import AdapterType, flatten_adapter_names
 
 
-class DistilBertSelfAttentionAdaptersModule(BertSelfOutputAdaptersMixin):
+class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
     """Adds attention adapters to the Transformer module of DistilBert.
     """
 
     def __init__(self, parent):
-        self.parent = parent
-        self.config = self.parent.config
+        super().__init__()
+        self._layer_norm = parent.output_layer_norm
+        self.config = parent.config
 
     @property
     def layer_norm(self):
-        return self.parent.sa_layer_norm
+        return self._layer_norm
 
 
-class DistilBertOutputAdaptersModule(BertOutputAdaptersMixin):
+class DistilBertOutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
     """Adds output adapters to the Transformer module of DistilBert.
     """
 
     def __init__(self, parent):
-        self.parent = parent
-        self.config = self.parent.config
+        super().__init__()
+        self._layer_norm = parent.output_layer_norm
+        self.config = parent.config
 
     @property
     def layer_norm(self):
-        return self.parent.output_layer_norm
+        return self._layer_norm
 
 
 class DistilBertTransfomerBlockAdaptersMixin:
@@ -134,5 +138,4 @@ class DistilBertModelHeadsMixin(BertModelHeadsMixin):
     """Adds heads to a DistilBert model.
     """
 
-    def _get_dropout_prob(self):
-        return self.config.dropout
+    pass
