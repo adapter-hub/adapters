@@ -54,7 +54,7 @@ class DistilBertTransfomerBlockAdaptersMixin:
         self.output_adapters.add_adapter(adapter_name, adapter_type)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
-        self.aattention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+        self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
 
 
