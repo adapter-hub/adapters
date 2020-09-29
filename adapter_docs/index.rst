@@ -57,6 +57,7 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    classes/bert
    classes/roberta
    classes/xlmroberta
+   classes/distilbert
 
 
 Citation
