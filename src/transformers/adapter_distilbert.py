@@ -17,7 +17,7 @@ class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMix
 
     def __init__(self, parent):
         super().__init__()
-        self._layer_norm = parent.output_layer_norm
+        self._layer_norm = parent.sa_layer_norm
         self.config = parent.config
 
     @property
