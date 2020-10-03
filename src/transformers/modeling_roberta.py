@@ -195,8 +195,6 @@ class RobertaModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
         position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
 
-        adapter_names = adapter_names or self.active_adapter_names
-
         outputs = self.roberta(
             input_ids,
             attention_mask=attention_mask,

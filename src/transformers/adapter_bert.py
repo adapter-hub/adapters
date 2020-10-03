@@ -7,7 +7,7 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
 from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion, GLOWCouplingBlock, NICECouplingBlock
-from .adapter_utils import parse_adapter_names
+from .adapter_utils import flatten_adapter_names, parse_adapter_names
 
 
 logger = logging.getLogger(__name__)
@@ -66,10 +66,7 @@ class BertSelfOutputAdaptersMixin:
     def add_fusion_layer(self, adapter_names):
         """See BertModel.add_attention_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
-        adapter_config = self.config.adapters.common_config(adapter_names)
-        if not adapter_config:
-            raise ValueError("All tasks used in the attention layer must have the same configuration.")
-        if adapter_config["mh_adapter"]:
+        if self.config.adapters.common_config_value(adapter_names, "mh_adapter"):
             self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
@@ -259,10 +256,7 @@ class BertOutputAdaptersMixin:
     def add_fusion_layer(self, adapter_names):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
-        adapter_config = self.config.adapters.common_config(adapter_names)
-        if not adapter_config:
-            raise ValueError("All tasks used in the fusion layer must have the same configuration.")
-        if adapter_config["output_adapter"]:
+        if self.config.adapters.common_config_value(adapter_names, "output_adapter"):
             self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
@@ -480,10 +474,7 @@ class BertEncoderAdaptersMixin:
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType):
         adapter_config = self.config.adapters.get(adapter_name)
-        if hasattr(adapter_config, "leave_out"):
-            leave_out = adapter_config.leave_out
-        else:
-            leave_out = []
+        leave_out = adapter_config.get("leave_out", [])
         for i, layer in enumerate(self.layer):
             if i not in leave_out:
                 layer.add_adapter(adapter_name, adapter_type)
@@ -516,21 +507,27 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
                 self.add_fusion_layer(fusion_adapter_names)
 
     def train_adapter(self, adapter_names: list):
-        """Sets the model in mode for training the given adapters."""
+        """Sets the model into mode for training the given adapters."""
         self.train()
         self.freeze_model(True)
-        self.encoder.enable_adapters(adapter_names, True, False)
+        adapter_names_flat = flatten_adapter_names(adapter_names)
+        self.encoder.enable_adapters(adapter_names_flat, True, False)
         # unfreeze invertible adapters for invertible adapters
-        for adapter_name in adapter_names:
+        for adapter_name in adapter_names_flat:
             if adapter_name in self.invertible_lang_adapters:
                 for param in self.invertible_lang_adapters[adapter_name].parameters():
                     param.requires_grad = True
+        # use the adapters to be trained by default in every forward pass
+        self.set_active_adapters(adapter_names)
 
     def train_fusion(self, adapter_names: list):
-        """Sets the model in mode for training of adapter fusion determined by a list of adapter names."""
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         self.train()
         self.freeze_model(True)
-        self.encoder.enable_adapters(adapter_names, False, True)
+        adapter_names_flat = flatten_adapter_names(adapter_names)
+        self.encoder.enable_adapters(adapter_names_flat, False, True)
+        # use the adapters to be trained by default in every forward pass
+        self.set_active_adapters(adapter_names)
         # TODO implement fusion for invertible adapters
 
     def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
@@ -592,7 +589,6 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.active_adapter_names = None
         self.active_head = None
 
     def _init_head_modules(self):
@@ -604,32 +600,22 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             self._add_prediction_head_module(head_name)
 
     def set_active_adapters(self, adapter_names: list):
-        """Sets the task adapter and/ or prediction head which should be used by default in a forward pass.
-        If no adapter or prediction with the given name is found, no module of the respective type will be activated.
+        """Sets the adapter modules to be used by default in every forward pass.
+        This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
+        If no adapter with the given name is found, no module of the respective type will be activated.
+        In case the calling model class supports named prediction heads, this method will attempt to activate a prediction head with the name of the last adapter in the list of passed adapter names.
 
         Args:
-            task_name (str): The name of the task adapter and/ or prediction head.
+            adapter_names (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
-        adapter_names = parse_adapter_names(adapter_names)
-
-        new_adapter_names = []
-
-        for stack in adapter_names:
-            new_adapter_names.append([])
-            for adapter_name in stack:
-                if adapter_name in self.config.adapters.adapter_list(
-                    AdapterType.text_task
-                ) or adapter_name in self.config.adapters.adapter_list(AdapterType.text_lang):
-                    new_adapter_names[-1].append(adapter_name)
-                else:
-                    logger.info("No task adapter for task_name '{}' available. Removing it.".format(adapter_name))
-                if adapter_name in self.config.prediction_heads:
-                    self.active_head = adapter_name
-                else:
-                    logger.info("No prediction head for task_name '{}' available.".format(adapter_name))
-        if len(new_adapter_names[0]) == 0:
-            new_adapter_names = None
-        self.active_adapter_names = new_adapter_names
+        self.base_model.set_active_adapters(adapter_names)
+        # use last adapter name as name of prediction head
+        if self.active_adapters:
+            head_name = self.active_adapters[-1][-1]
+            if head_name in self.config.prediction_heads:
+                self.active_head = head_name
+            else:
+                logger.info("No prediction head for task_name '{}' available.".format(head_name))
 
     def add_classification_head(
         self, head_name, num_labels=2, layers=2, activation_function="tanh", overwrite_ok=False, multilabel=False
@@ -735,7 +721,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     def forward_head(self, outputs, head_name=None, attention_mask=None, labels=None):
         head_name = head_name or self.active_head
         if not head_name:
-            logger.warn("No prediction head is used.")
+            logger.debug("No prediction head is used.")
             return outputs
 
         if head_name not in self.config.prediction_heads:

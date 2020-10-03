@@ -489,9 +489,9 @@ class Trainer:
                 ):
                     # apply adapter fusion weight regularization on the value matrix
                     if hasattr(self.model.config, "adapter_fusion") and self.model.config.adapter_fusion["regularization"]:
-                        fusion_reg_loss = get_fusion_regularization_loss(model)
+                        fusion_reg_loss = get_fusion_regularization_loss(self.model)
                         fusion_reg_loss.backward()
-
+                    
                     if self.args.fp16:
                         torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), self.args.max_grad_norm)
                     else:
@@ -587,8 +587,10 @@ class Trainer:
         model.train()
         for k, v in inputs.items():
             inputs[k] = v.to(self.args.device)
+        if self.adapter_names:
+            inputs["adapter_names"] = self.adapter_names
 
-        outputs = model(**inputs, adapter_names=self.adapter_names)
+        outputs = model(**inputs)
         loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
         if self.args.n_gpu > 1:
@@ -781,9 +783,11 @@ class Trainer:
 
             for k, v in inputs.items():
                 inputs[k] = v.to(self.args.device)
+            if self.adapter_names:
+                inputs["adapter_names"] = self.adapter_names
 
             with torch.no_grad():
-                outputs = model(**inputs, adapter_names=self.adapter_names)
+                outputs = model(**inputs)
                 if has_labels:
                     step_eval_loss, logits = outputs[:2]
                     eval_losses += [step_eval_loss.mean().item()]

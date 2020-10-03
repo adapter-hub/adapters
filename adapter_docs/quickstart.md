@@ -13,17 +13,19 @@ storing (e.g. `save_adapter()`) are added to the model classes. In the following
     `the 'Usage' section in Huggingface's documentation <https://huggingface.co/transformers/usage.html>`_.
 ```
 
-## Quick Tour: Use a pre-trained adapter
+## Quick Tour: Using a pre-trained adapter for inference
+
+_We also have a Quickstart Colab notebook for adapter inference:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/website/blob/master/app/static/notebooks/Adapter_Quickstart_Inference.ipynb)
 
 The following example shows the usage of a basic pre-trained transformer model with adapters.
 Our goal here is to predict the sentiment of a given sentence.
 
 We use BERT in this example, so we first load a pre-trained `BertTokenizer` to encode the input sentence and a pre-trained
-`BertModel` from Huggingface:
+`BertModel` from HuggingFace:
 
 ```python
 import torch
-from transformers import BertTokenizer, BertModelWithHeads
+from transformers import BertTokenizer, BertForSequenceClassification
 
 # output more information
 import logging
@@ -34,28 +36,26 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 # tokenize an input sentence
 sentence = "It's also, clearly, great fun."
-tokenized_sentence = tokenizer.tokenize(sentence)
 
 # convert input tokens to indices and create PyTorch input tensor
-token_ids = tokenizer.convert_tokens_to_ids(tokenized_sentence)
-input_tensor = torch.tensor([token_ids])
+input_tensor = torch.tensor([tokenizer.encode(sentence)])
 
 # load pre-trained BERT model from Huggingface
-# the `BertModelWithHeads` class supports adding flexible prediction heads
-model = BertModelWithHeads.from_pretrained('bert-base-uncased')
+# the `BertForSequenceClassification` class includes a prediction head for sequence classification
+model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
 ```
 
 Having loaded the model, we now add a pre-trained task adapter that is useful to our task from Adapter Hub.
-(As we're doing sentiment classification, we use an adapter trained on the SST dataset in this case.)
+As we're doing sentiment classification, we use [an adapter trained on the SST-2 dataset](https://adapterhub.ml/adapters/ukp/bert-base-uncased-sst_pfeiffer/) in this case.
 The task prediction head loaded together with the adapter gives us a class label for our sentence:
 
 ```python
 # load pre-trained task adapter from Adapter Hub
-# with with_head=True given, we also load a pre-trained classification head for this task
-model.load_adapter('sst', config='pfeiffer', with_head=True)
+# this method call will also load a pre-trained classification head for the adapter task
+adapter_name = model.load_adapter('sst-2@ukp', config='pfeiffer')
 
 # activate the adapter we just loaded, so that it is used in every forward pass
-model.set_active_adapters('sst')
+model.set_active_adapters(adapter_name)
 
 # predict output tensor
 outputs = model(input_tensor)
@@ -71,13 +71,17 @@ To save our pre-trained model and adapters, we can easily store and reload them 
 # save model
 model.save_pretrained('./path/to/model/directory/')
 # save adapter
-model.save_adapter('./path/to/adapter/directory/', 'sst')
+model.save_adapter('./path/to/adapter/directory/', 'sst-2')
 
 # load model
 model = BertModel.from_pretrained('./path/to/model/directory/')
 model.load_adapter('./path/to/adapter/directory/')
 ```
 
-Similar to how the weights of the full model are saved, the `save_adapter()` will create a file for saving the adapter weights
-and a file for saving the adapter configuration in the specified directory.
+Similar to how the weights of the full model are saved, the `save_adapter()` will create a file for saving the adapter weights and a file for saving the adapter configuration in the specified directory.
 
+## Quick Tour: Adapter training
+
+_We also have a Quickstart Colab notebook for adapter training:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/website/blob/master/app/static/notebooks/Adapter_Quickstart_Training.ipynb)
+
+For more examples on training different adapter setups, refer to the section on [Adapter Training](training.md).

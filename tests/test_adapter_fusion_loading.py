@@ -9,6 +9,7 @@ from transformers import (
     ADAPTERFUSION_CONFIG_MAP,
     AdapterType,
     BertModel,
+    PfeifferConfig,
     RobertaModel,
     XLMRobertaModel,
 )
@@ -65,6 +66,22 @@ class AdapterFusionModelTest(unittest.TestCase):
                             base_output = model(input_ids)
                             self.assertEqual(len(adapter_output), len(base_output))
                             self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
+
+    def test_add_adapter_fusion_different_config(self):
+        for model_class in self.model_classes:
+            model_config = model_class.config_class
+            model = model_class(model_config())
+
+            # fusion between a and b should be possible whereas fusion between a and c should fail
+            model.add_adapter("a", AdapterType.text_task, config=PfeifferConfig(reduction_factor=16))
+            model.add_adapter("b", AdapterType.text_task, config=PfeifferConfig(reduction_factor=2))
+            model.add_adapter("c", AdapterType.text_task, config="houlsby")
+
+            # correct fusion
+            model.add_fusion(["a", "b"])
+            self.assertIn("a,b", model.config.adapter_fusion_models)
+            # failing fusion
+            self.assertRaises(ValueError, lambda: model.add_fusion(["a", "c"]))
 
     def test_load_adapter_fusion(self):
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():

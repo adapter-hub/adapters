@@ -4,7 +4,7 @@ You can easily add your own pre-trained adapter modules or architectures to Adap
 
 ## Getting started
 
-Before making any kind of contribution to _Adapter-Hub_, you will first need to setup your own fork of the _Hub_ repository to be able to make pull request later on:
+Before making any kind of contribution to _Adapter-Hub_, you will first need to set up your own fork of the _Hub_ repository to be able to open a pull request later on:
 
 1. Fork [the Hub repository](https://github.com/adapter-hub/hub) by clicking the 'Fork' button on the repository's page. This creates a clone of the repository under your GitHub user.
 
@@ -20,7 +20,7 @@ cd Hub
 pip install -r scripts/requirements.txt
 ```
 
-As your fully set up now, you can proceed to working on your actual contribution now:
+As you're fully set up now, you can proceed on the specific steps if your contribution:
 
 - [Add your pre-trained adapter](#add-your-pre-trained-adapter)
 - [Add a new adapter architecture](#add-a-new-adapter-architecture)

@@ -2,7 +2,7 @@
 
 ## Using adapters from Adapter-Hub
 
-Suppose we have loaded a pre-trained transformer model from Huggingface, e.g. BERT:
+Suppose we have loaded a pre-trained transformer model from HuggingFace, e.g. BERT:
 
 ```python
 from transformers import BertModel
@@ -13,19 +13,19 @@ model = BertModel.from_pretrained('bert-base-uncased')
 We can now easily load a pre-trained adapter module from Adapter Hub by its identifier:
 
 ```python
-model.load_adapter('sst')
+model.load_adapter('sst-2')
 ```
 
-In the minimal case, that's everything we need to specify to load a pre-trained task adapter for sentiment analysis, trained on the `sst` dataset using BERT base and a suitable adapter configuration.
+In the minimal case, that's everything we need to specify to load a pre-trained task adapter for sentiment analysis, trained on the `sst-2` dataset using BERT base and a suitable adapter configuration.
 To examine what's happening underneath in a bit more detail, let's first write out the full method call with all relevant arguments explicitly stated:
 
 ```python
-model.load_adapter('sst', AdapterType.text_task, config='pfeiffer', model_name='bert-base-uncased', version=1, load_as='sst')
+model.load_adapter('sst-2', AdapterType.text_task, config='pfeiffer', model_name='bert-base-uncased', version=1, load_as='sst')
 ```
 
 We will go through the different arguments and their meaning one by one:
 
-- The first argument passed to the method specifies the name of the adapter we want to load from Adapter-Hub. The library will search for an available adapter module with this name that matches the model architecture as well as the adapter type and configuration we requested. As the identifier `sst` resolves to a unique entry in the Hub, the corresponding adapter can be successfully loaded based on this information. To get an overview of all available adapter identifiers, please refer to [the Adapter-Hub website](https://adapterhub.ml/explore). The different format options of the identifier string are further described in [How adapter resolving works](#how-adapter-resolving-works).
+- The first argument passed to the method specifies the name of the adapter we want to load from Adapter-Hub. The library will search for an available adapter module with this name that matches the model architecture as well as the adapter type and configuration we requested. As the identifier `sst-2` resolves to a unique entry in the Hub, the corresponding adapter can be successfully loaded based on this information. To get an overview of all available adapter identifiers, please refer to [the Adapter-Hub website](https://adapterhub.ml/explore). The different format options of the identifier string are further described in [How adapter resolving works](#how-adapter-resolving-works).
 
 - The second argument specifies the type of adapter we want to load. In this case, we load a *task* adapter which is the default setting if we don't explicitly state this argument. All other possible adapter types are defined in the `AdapterType` (e.g. we could load a language adapter using `AdapterType.text_lang`) enumeration and explained in more detail on the [Adapter Types](/adapter_types) page.
 

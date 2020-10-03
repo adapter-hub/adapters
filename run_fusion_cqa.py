@@ -150,28 +150,28 @@ def main():
     # Setup adapters
     from transformers.adapter_config import AdapterType
 
-    base_model = getattr(model, model.base_model_prefix, model)
-    base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
+    # base_model = getattr(model, model.base_model_prefix, model)
+    # base_model.set_adapter_config(AdapterType.text_task, adapter_args.adapter_config)
 
     from transformers.adapter_config import PfeifferConfig
     model.load_adapter("/home/theorist17/projects/adapter/adapters/MNLI/mnli", 
                        "text_task", config=PfeifferConfig(), with_head=False)
     model.load_adapter("/home/theorist17/projects/adapter/adapters/commonsenseqa/commonsenseqa",
                        "text_task", config=PfeifferConfig(), with_head=False)
-    # model.load_adapter("/home/theorist17/projects/adapter/adapters/conceptnet/conceptnet",
-    #                    "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("/home/theorist17/projects/adapter/adapters/conceptnet/conceptnet",
+                       "text_task", config=PfeifferConfig(), with_head=False)
     adapter_names = [
         [
             "mnli",
             "commonsenseqa",
-            # "conceptnet"
+            "conceptnet"
         ]
     ]
 
-    model.add_fusion(adapter_names[0], "dynamic", {"regularization": False})
+    model.add_fusion(adapter_names[0], "dynamic")
     #model.base_model.set_active_adapters(adapter_names)
-    model.base_model.train_fusion(adapter_names)
-    # model.train_fusion(adapter_names[0])
+    #model.train_fusion(adapter_names)
+    model.train_fusion(adapter_names)
     # inspect parameters of the fusion layer
     for (n,p) in model.named_parameters():
         print(n, p.requires_grad)
@@ -220,12 +220,6 @@ def main():
         do_save_adapter_fusion=True,
         adapter_names=adapter_names,
     )
-
-    
-    print("Fusion Key weights")
-    print(trainer.model.base_model.state_dict()[f"encoder.layer.0.output.adapter_fusion_layer.{','.join(adapter_names[0])}.key.weight"])
-    print("Fusion Query weights")
-    print(trainer.model.base_model.state_dict()[f"encoder.layer.0.output.adapter_fusion_layer.{','.join(adapter_names[0])}.query.weight"])
 
     # Training
     if training_args.do_train:

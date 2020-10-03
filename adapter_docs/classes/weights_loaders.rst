@@ -20,6 +20,11 @@ AdapterLoader
 .. autoclass:: transformers.AdapterLoader
     :members:
 
+AdapterFusionLoader
+---------------------------
+.. autoclass:: transformers.AdapterFusionLoader
+    :members:
+
 PredictionHeadLoader
 ---------------------------
 
