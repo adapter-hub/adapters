@@ -515,7 +515,7 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
                 self.add_fusion_layer(fusion_adapter_names)
 
     def train_adapter(self, adapter_names: list):
-        """Sets the model in mode for training the given adapters."""
+        """Sets the model into mode for training the given adapters."""
         self.train()
         self.freeze_model(True)
         adapter_names_flat = flatten_adapter_names(adapter_names)
@@ -525,7 +525,7 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.set_active_adapters(adapter_names)
 
     def train_fusion(self, adapter_names: list):
-        """Sets the model in mode for training of adapter fusion determined by a list of adapter names."""
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         self.train()
         self.freeze_model(True)
         adapter_names_flat = flatten_adapter_names(adapter_names)
@@ -659,6 +659,17 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
+    def add_qa_head(
+        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False,
+    ):
+        config = {
+            "head_type": "question_answering",
+            "num_labels": num_labels,
+            "layers": layers,
+            "activation_function": activation_function,
+        }
+        self.add_prediction_head(head_name, config, overwrite_ok)
+
     def add_prediction_head(
         self, head_name, config, overwrite_ok=False,
     ):
@@ -759,6 +770,31 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 else:
                     loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
                 outputs = (loss,) + outputs
+
+        elif head["head_type"] == "question_answering":
+            logits = self.heads[head_name](sequence_output)
+
+            start_logits, end_logits = logits.split(1, dim=-1)
+            start_logits = start_logits.squeeze(-1)
+            end_logits = end_logits.squeeze(-1)
+
+            outputs = (start_logits, end_logits,) + outputs[2:]
+            if labels is not None:
+                start_positions, end_positions = labels
+                if len(start_positions.size()) > 1:
+                    start_positions = start_positions.squeeze(-1)
+                if len(end_positions.size()) > 1:
+                    end_positions = end_positions.squeeze(-1)
+                # sometimes the start/end positions are outside our model inputs, we ignore these terms
+                ignored_index = start_logits.size(1)
+                start_positions.clamp_(0, ignored_index)
+                end_positions.clamp_(0, ignored_index)
+
+                loss_fct = CrossEntropyLoss(ignore_index=ignored_index)
+                start_loss = loss_fct(start_logits, start_positions)
+                end_loss = loss_fct(end_logits, end_positions)
+                total_loss = (start_loss + end_loss) / 2
+                outputs = (total_loss,) + outputs
 
         else:
             raise ValueError("Unknown head_type '{}'".format(head["head_type"]))

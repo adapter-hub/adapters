@@ -83,8 +83,13 @@ def get_adapter_config_hash(config, length=16):
     return h.hexdigest()[:length]
 
 
-def flatten_adapter_names(adapter_names: List[List[str]]) -> List[str]:
-    return list(itertools.chain(*adapter_names))
+def flatten_adapter_names(adapter_names: list) -> List[str]:
+    if not isinstance(adapter_names, list):
+        return [adapter_names]
+    elif not isinstance(adapter_names[0], list):
+        return adapter_names
+    else:
+        return list(itertools.chain(*adapter_names))
 
 
 def parse_adapter_names(adapter_names: list) -> List[List[str]]:

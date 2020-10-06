@@ -144,18 +144,16 @@ def main():
         cache_dir=model_args.cache_dir,
     )
 
-    # Setup adapters
+    # ~~~~~ Here comes the interesting part of setting up AdapterFusion training ~~~~~
+
     from transformers.adapter_config import PfeifferConfig
 
-    model.load_adapter(
-        "sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion"
-    )
-    model.load_adapter(
-        "nli/multinli@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion"
-    )
-    model.load_adapter("nli/rte@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion")
-    model.load_adapter("sts/mrpc@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion")
-    model.load_adapter("sts/qqp@ukp", "text_task", config=PfeifferConfig(), with_head=False, version="AdapterFusion")
+    # First, load the pre-trained adapters we want to fuse from Hub
+    model.load_adapter("sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/multinli@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/rte@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sts/mrpc@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sts/qqp@ukp", "text_task", config=PfeifferConfig(), with_head=False)
     model.load_adapter("comsense/cosmosqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
     model.load_adapter("comsense/csqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
     model.load_adapter("comsense/hellaswag@ukp", "text_task", config=PfeifferConfig(), with_head=False)
@@ -167,10 +165,10 @@ def main():
     model.load_adapter("qa/boolq@ukp", "text_task", config=PfeifferConfig(), with_head=False)
     model.load_adapter("sentiment/imdb@ukp", "text_task", config=PfeifferConfig(), with_head=False)
 
-    adapter_names = [
+    adapter_setup = [
         [
-            "sst_glue",
-            "multinli",
+            "sst-2",
+            "mnli",
             "rte",
             "mrpc",
             "qqp",
@@ -187,8 +185,12 @@ def main():
         ]
     ]
 
-    model.add_fusion(adapter_names[0], "static", {"regularization": False})
-    model.base_model.train_fusion(adapter_names[0])
+    # Add a fusion layer and tell the model to train fusion
+    model.add_fusion(adapter_setup[0], "dynamic")
+    model.train_fusion(adapter_setup)
+
+    # ~~~~~ Rest is again same as in standard training setup ~~~~~
+
     # Get datasets
     train_dataset = GlueDataset(data_args, tokenizer=tokenizer) if training_args.do_train else None
     eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev") if training_args.do_eval else None
@@ -210,7 +212,6 @@ def main():
         compute_metrics=compute_metrics,
         do_save_full_model=False,
         do_save_adapter_fusion=True,
-        adapter_names=adapter_names,
     )
 
     # Training

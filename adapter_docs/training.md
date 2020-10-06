@@ -142,14 +142,23 @@ python run_language_modeling.py \
 
 ## Train AdapterFusion
 
-We provide an example for training _AdapterFusion_ on the GLUE dataset: [run_fusion_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_fusion_glue.py). To start training, you can run something like the following:
+We provide an example for training _AdapterFusion_ ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00247)) on the GLUE dataset: [run_fusion_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_fusion_glue.py). You can adapt this script to train AdapterFusion with different pre-trained adapters on your own dataset.
+
+```eval_rst
+.. important::
+    AdapterFusion on a target task is trained in a second training stage, after independently training adapters on individual tasks.
+    When setting up a fusion architecture on your model, make sure to load the pre-trained adapter modules to be fused using ``model.load_adapter()`` before adding a fusion layer.
+    For more on AdapterFusion, also refer to `Pfeiffer et al., 2020 <https://arxiv.org/pdf/2005.00247>`_.
+```
+
+To start fusion training on SST-2 as target task, you can run something like the following:
 
 ```
 export GLUE_DIR=/path/to/glue
 export TASK_NAME=SST-2
 
 python run_fusion_glue.py \
-  --model_name_or_path bert-base-cased \
+  --model_name_or_path bert-base-uncased \
   --task_name $TASK_NAME \
   --do_train \
   --do_eval \
