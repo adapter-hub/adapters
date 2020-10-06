@@ -507,11 +507,11 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
                 self.add_fusion_layer(fusion_adapter_names)
 
     def train_adapter(self, adapter_names: list):
-        """Sets the model in mode for training the given adapters."""
+        """Sets the model into mode for training the given adapters."""
         self.train()
         self.freeze_model(True)
         adapter_names_flat = flatten_adapter_names(adapter_names)
-        self.encoder.enable_adapters(adapter_names, True, False)
+        self.encoder.enable_adapters(adapter_names_flat, True, False)
         # unfreeze invertible adapters for invertible adapters
         for adapter_name in adapter_names_flat:
             if adapter_name in self.invertible_lang_adapters:
@@ -521,7 +521,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         self.set_active_adapters(adapter_names)
 
     def train_fusion(self, adapter_names: list):
-        """Sets the model in mode for training of adapter fusion determined by a list of adapter names."""
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         self.train()
         self.freeze_model(True)
         adapter_names_flat = flatten_adapter_names(adapter_names)
