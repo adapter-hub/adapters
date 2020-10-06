@@ -77,6 +77,30 @@ class AdapterModelTest(unittest.TestCase):
                 self.assertEqual(len(output1), len(output2))
                 self.assertTrue(torch.equal(output1[0], output2[0]))
 
+    def test_load_full_model(self):
+        for model_class in self.model_classes:
+            model_config = model_class.config_class
+            model1 = model_class(model_config())
+            model1.eval()
+
+            for name, adapter_type in AdapterType.__members__.items():
+                with self.subTest(model_class=model_class, adapter_type=name):
+                    model1.add_adapter(name, adapter_type)
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        model1.save_pretrained(temp_dir)
+
+                        model2 = model_class.from_pretrained(temp_dir)
+
+                    # check if adapter was correctly loaded
+                    self.assertTrue(name in model2.config.adapters.adapter_list(adapter_type))
+
+                    # check equal output
+                    in_data = ids_tensor((1, 128), 1000)
+                    output1 = model1(in_data, adapter_names=[name])
+                    output2 = model2(in_data, adapter_names=[name])
+                    self.assertEqual(len(output1), len(output2))
+                    self.assertTrue(torch.equal(output1[0], output2[0]))
+
     def test_model_config_serialization(self):
         """PretrainedConfigurations should not raise an Exception when serializing the config dict
 

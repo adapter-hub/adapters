@@ -660,7 +660,14 @@ class ModelAdaptersMixin(ABC):
 
     @abstractmethod
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
-        """Sets the model into mode for training the given adapters."""
+        """Sets the model into mode for training the given adapters.
+        """
+        pass
+
+    @abstractmethod
+    def train_fusion(self, adapter_names: list):
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names.
+        """
         pass
 
     @abstractmethod
