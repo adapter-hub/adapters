@@ -5,10 +5,8 @@ from torch import nn
 
 
 class Activation_Function_Class(nn.Module):
-    """Implementation of the gelu activation function.
-        For information: OpenAI GPT's gelu is slightly different (and gives slightly different results):
-        0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
-        Also see https://arxiv.org/abs/1606.08415
+    """
+    Implementation of various activation function.
     """
 
     def __init__(self, hidden_act):
@@ -42,6 +40,10 @@ class Activation_Function_Class(nn.Module):
 
 
 class Adapter(nn.Module):
+    """
+    Implementation of a single Adapter block.
+    """
+
     def __init__(
         self,
         input_size,
@@ -466,11 +468,3 @@ class GLOWCouplingBlock(nn.Module):
 
     def output_dims(self, input_dims):
         return input_dims
-
-
-if __name__ == "__main__":
-    adapter = Adapter(50)
-
-    batch = torch.rand(16, 50)
-
-    print(adapter(batch))
