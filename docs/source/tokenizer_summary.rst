@@ -1,5 +1,5 @@
 Tokenizer summary
------------------
+-----------------------------------------------------------------------------------------------------------------------
 
 In this page, we will have a closer look at tokenization. As we saw in
 :doc:`the preprocessing tutorial <preprocessing>`, tokenizing a text is splitting it into words or subwords, which then
@@ -13,13 +13,13 @@ algorithms the pretrained model used. For instance, if we look at :class:`~trans
 using :ref:`WordPiece <wordpiece>`.
 
 Introduction to tokenization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Splitting a text in smaller chunks is a task that's harder than it looks, and there are multiple ways of doing it. For
 instance, let's look at the sentence "Don't you love 🤗 Transformers? We sure do." A first simple way of tokenizing
 this text is just to split it by spaces, which would give:
 
-::
+.. code-block::
 
     ["Don't", "you", "love", "🤗", "Transformers?", "We", "sure", "do."]
 
@@ -27,7 +27,7 @@ This is a nice first step, but if we look at the tokens "Transformers?" or "do."
 will be different than the tokens "Transformers" and "do" for our model, so we should probably take the punctuation
 into account. This would give:
 
-::
+.. code-block::
 
     ["Don", "'", "t", "you", "love", "🤗", "Transformers", "?", "We", "sure", "do", "."]
 
@@ -40,7 +40,7 @@ perform properly if you don't use the exact same rules as the persons who pretra
 `spaCy <https://spacy.io/>`__ and `Moses <http://www.statmt.org/moses/?n=Development.GetStarted>`__ are two popular
 rule-based tokenizers. On the text above, they'd output something like:
 
-::
+.. code-block::
 
     ["Do", "n't", "you", "love", "🤗", "Transformers", "?", "We", "sure", "do", "."]
 
@@ -52,7 +52,7 @@ size of 267,735!
 
 A huge vocabulary size means a huge embedding matrix at the start of the model, which will cause memory problems.
 TransformerXL deals with it by using a special kind of embeddings called adaptive embeddings, but in general,
-transformers model rarely have a vocabulary size greater than 50,000, especially if they are trained on a single
+transformers models rarely have a vocabulary size greater than 50,000, especially if they are trained on a single
 language.
 
 So if tokenizing on words is unsatisfactory, we could go on the opposite direction and simply tokenize on characters.
@@ -61,7 +61,7 @@ as meaningful as when using a word tokenization, leading to a loss of performanc
 all transformers models use a hybrid between word-level and character-level tokenization called subword tokenization.
 
 Subword tokenization
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Subword tokenization algorithms rely on the principle that most common words should be left as is, but rare words
 should be decomposed in meaningful subword units. For instance "annoyingly" might be considered a rare word and
@@ -69,11 +69,11 @@ decomposed as "annoying" and "ly". This is especially useful in agglutinative la
 form (almost) arbitrarily long complex words by stringing together some subwords.
 
 This allows the model to keep a reasonable vocabulary while still learning useful representations for common words or
-subwords. This also gives the ability to the model to process words it has never seen before, by decomposing them into
+subwords. This also enables the model to process words it has never seen before, by decomposing them into
 subwords it knows. For instance, the base :class:`~transformers.BertTokenizer` will tokenize "I have a new GPU!" like
 this:
 
-::
+.. code-block::
 
     >>> from transformers import BertTokenizer
     >>> tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -87,7 +87,7 @@ predictions and reverse the tokenization).
 
 Another example is when we use the base :class:`~transformers.XLNetTokenizer` to tokenize our previous text:
 
-::
+.. code-block::
 
     >>> from transformers import XLNetTokenizer
     >>> tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
@@ -103,14 +103,14 @@ training which is usually done on the corpus the corresponding model will be tra
 .. _byte-pair-encoding:
 
 Byte-Pair Encoding
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Byte-Pair Encoding was introduced in `this paper <https://arxiv.org/abs/1508.07909>`__. It relies on a pretokenizer
 splitting the training data into words, which can be a simple space tokenization
 (:doc:`GPT-2 <model_doc/gpt2>` and :doc:`Roberta <model_doc/roberta>` uses this for instance) or a rule-based tokenizer
 (:doc:`XLM <model_doc/xlm>` use Moses for most languages, as does :doc:`FlauBERT <model_doc/flaubert>`),
 
-:doc:`GPT <model_doc/gpt>` uses Spacy and ftfy) and, counts the frequency of each word in the training corpus.
+:doc:`GPT <model_doc/gpt>` uses Spacy and ftfy, and counts the frequency of each word in the training corpus.
 
 It then begins from the list of all characters, and will learn merge rules to form a new token from two symbols in the
 vocabulary until it has learned a vocabulary of the desired size (this is a hyperparameter to pick).
@@ -118,22 +118,22 @@ vocabulary until it has learned a vocabulary of the desired size (this is a hype
 Let's say that after the pre-tokenization we have the following words (the number indicating the frequency of each
 word):
 
-::
+.. code-block::
 
     ('hug', 10), ('pug', 5), ('pun', 12), ('bun', 4), ('hugs', 5)
 
 Then the base vocabulary is ['b', 'g', 'h', 'n', 'p', 's', 'u'] and all our words are first split by character:
 
-::
+.. code-block::
 
     ('h' 'u' 'g', 10), ('p' 'u' 'g', 5), ('p' 'u' 'n', 12), ('b' 'u' 'n', 4), ('h' 'u' 'g' 's', 5)
 
 We then take each pair of symbols and look at the most frequent. For instance 'hu' is present `10 + 5 = 15` times (10
 times in the 10 occurrences of 'hug', 5 times in the 5 occurrences of 'hugs'). The most frequent here is 'ug', present
-`10 + 5 + 2 + 5 = 22` times in total. So the first merge rule the tokenizer learns is to group all 'u' and 'g' together
+`10 + 5 + 5 = 20` times in total. So the first merge rule the tokenizer learns is to group all 'u' and 'g' together
 then it adds 'ug' to the vocabulary. Our corpus then becomes
 
-::
+.. code-block::
 
     ('h' 'ug', 10), ('p' 'ug', 5), ('p' 'u' 'n', 12), ('b' 'u' 'n', 4), ('h' 'ug' 's', 5)
 
@@ -144,7 +144,7 @@ to the vocabulary.
 At this stage, the vocabulary is ``['b', 'g', 'h', 'n', 'p', 's', 'u', 'ug', 'un', 'hug']`` and our corpus is
 represented as
 
-::
+.. code-block::
 
     ('hug', 10), ('p' 'ug', 5), ('p' 'un', 12), ('b' 'un', 4), ('hug' 's', 5)
 
@@ -158,7 +158,7 @@ to choose. For instance :doc:`GPT <model_doc/gpt>` has a vocabulary size of 40,4
 and chose to stop the training of the tokenizer at 40,000 merges.
 
 Byte-level BPE
-^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To deal with the fact the base vocabulary needs to get all base characters, which can be quite big if one allows for
 all unicode characters, the
@@ -171,14 +171,14 @@ token. For instance, the :doc:`GPT-2 model <model_doc/gpt>` has a vocabulary siz
 .. _wordpiece:
 
 WordPiece
-=========
+=======================================================================================================================
 
 WordPiece is the subword tokenization algorithm used for :doc:`BERT <model_doc/bert>` (as well as
 :doc:`DistilBERT <model_doc/distilbert>` and :doc:`Electra <model_doc/electra>`) and was outlined in
 `this paper <https://static.googleusercontent.com/media/research.google.com/ja//pubs/archive/37842.pdf>`__. It relies
 on the same base as BPE, which is to initialize the vocabulary to every character present in the corpus and
 progressively learn a given number of merge rules, the difference is that it doesn't choose the pair that is the most
-frequent but the one that will maximize the likelihood on the corpus once merged. 
+frequent but the one that will maximize the likelihood on the corpus once merged.
 
 What does this mean? Well, in the previous example, it means we would only merge 'u' and 'g' if the probability of
 having 'ug' divided by the probability of having 'u' then 'g' is greater than for any other pair of symbols. It's
@@ -188,7 +188,7 @@ sure it's `worth it`.
 .. _unigram:
 
 Unigram
-=======
+=======================================================================================================================
 
 Unigram is a subword tokenization algorithm introduced in `this paper <https://arxiv.org/pdf/1804.10959.pdf>`__.
 Instead of starting with a group of base symbols and learning merges with some rule, like BPE or WordPiece, it starts
@@ -207,7 +207,7 @@ Contrary to BPE and WordPiece that work out rules in a certain order that you ca
 tokenizing new text, Unigram will have several ways of tokenizing a new text. For instance, if it ends up with the
 vocabulary
 
-::
+.. code-block::
 
     ['b', 'g', 'h', 'n', 'p', 's', 'u', 'ug', 'un', 'hug']
 
@@ -217,7 +217,7 @@ training corpus. You can then give a probability to each tokenization (which is 
 tokens forming it) and pick the most likely one (or if you want to apply some data augmentation, you could sample one
 of the tokenization according to their probabilities).
 
-Those probabilities are what are used to define the loss that trains the tokenizer: if our corpus consists of the
+Those probabilities define the loss that trains the tokenizer: if our corpus consists of the
 words :math:`x_{1}, \dots, x_{N}` and if for the word :math:`x_{i}` we note :math:`S(x_{i})` the set of all possible
 tokenizations of :math:`x_{i}` (with the current vocabulary), then the loss is defined as
 
@@ -227,17 +227,17 @@ tokenizations of :math:`x_{i}` (with the current vocabulary), then the loss is d
 .. _sentencepiece:
 
 SentencePiece
-=============
+=======================================================================================================================
 
-All the methods we have been looking at so far required some from of pretrokenization, which has a central problem: not
+All the methods we have been looking at so far required some form of pretokenization, which has a central problem: not
 all languages use spaces to separate words. This is a problem :doc:`XLM <model_doc/xlm>` solves by using specific
 pretokenizers for each of those languages (in this case, Chinese, Japanese and Thai). To solve this problem,
 SentencePiece (introduced in `this paper <https://arxiv.org/pdf/1808.06226.pdf>`__) treats the input as a raw stream,
 includes the space in the set of characters to use, then uses BPE or unigram to construct the appropriate vocabulary.
 
 That's why in the example we saw before using :class:`~transformers.XLNetTokenizer` (which uses SentencePiece), we had
-some '▁' characters, that represent spaces. Decoding a tokenized text is then super easy: we just have to concatenate
-all of them together and replace those '▁' by spaces.
+the '▁' character, that represents space. Decoding a tokenized text is then super easy: we just have to concatenate
+all of them together and replace '▁' with space.
 
 All transformers models in the library that use SentencePiece use it with unigram. Examples of models using it are
 :doc:`ALBERT <model_doc/albert>`, :doc:`XLNet <model_doc/xlnet>` or the :doc:`Marian framework <model_doc/marian>`.

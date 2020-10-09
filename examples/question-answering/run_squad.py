@@ -191,7 +191,7 @@ def train(args, train_dataset, model, tokenizer):
                 "end_positions": batch[4],
             }
 
-            if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
+            if args.model_type in ["xlm", "roberta", "distilbert", "camembert", "bart"]:
                 del inputs["token_type_ids"]
 
             if args.model_type in ["xlnet", "xlm"]:
@@ -309,7 +309,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                 "token_type_ids": batch[2],
             }
 
-            if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
+            if args.model_type in ["xlm", "roberta", "distilbert", "camembert", "bart"]:
                 del inputs["token_type_ids"]
 
             feature_indices = batch[3]
@@ -322,7 +322,6 @@ def evaluate(args, model, tokenizer, prefix=""):
                     inputs.update(
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
-
             outputs = model(**inputs)
 
         for i, feature_index in enumerate(feature_indices):

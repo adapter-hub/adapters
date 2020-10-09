@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Fine-tuning the library models for language modeling on a text file (GPT, GPT-2, BERT, RoBERTa).
-GPT and GPT-2 are fine-tuned using a causal language modeling (CLM) loss while BERT and RoBERTa are fine-tuned
-using a masked language modeling (MLM) loss.
+Fine-tuning the library models for language modeling on a text file (GPT, GPT-2, CTRL, BERT, RoBERTa, XLNet).
+GPT, GPT-2 and CTRL are fine-tuned using a causal language modeling (CLM) loss. BERT and RoBERTa are fine-tuned
+using a masked language modeling (MLM) loss. XLNet is fine-tuned using a permutation language modeling (PLM) loss.
 """
 
 
@@ -36,6 +36,7 @@ from transformers import (
     AutoModelWithLMHead,
     AutoTokenizer,
     DataCollatorForLanguageModeling,
+    DataCollatorForPermutationLanguageModeling,
     HfArgumentParser,
     LineByLineTextDataset,
     PreTrainedTokenizer,
@@ -104,6 +105,15 @@ class DataTrainingArguments:
     mlm_probability: float = field(
         default=0.15, metadata={"help": "Ratio of tokens to mask for masked language modeling loss"}
     )
+    plm_probability: float = field(
+        default=1 / 6,
+        metadata={
+            "help": "Ratio of length of a span of masked tokens to surrounding context length for permutation language modeling."
+        },
+    )
+    max_span_length: int = field(
+        default=5, metadata={"help": "Maximum length of a span of masked tokens for permutation language modeling."}
+    )
 
     block_size: int = field(
         default=-1,
@@ -118,13 +128,22 @@ class DataTrainingArguments:
     )
 
 
-def get_dataset(args: DataTrainingArguments, tokenizer: PreTrainedTokenizer, evaluate=False):
+def get_dataset(
+    args: DataTrainingArguments,
+    tokenizer: PreTrainedTokenizer,
+    evaluate: bool = False,
+    cache_dir: Optional[str] = None,
+):
     file_path = args.eval_data_file if evaluate else args.train_data_file
     if args.line_by_line:
         return LineByLineTextDataset(tokenizer=tokenizer, file_path=file_path, block_size=args.block_size)
     else:
         return TextDataset(
-            tokenizer=tokenizer, file_path=file_path, block_size=args.block_size, overwrite_cache=args.overwrite_cache
+            tokenizer=tokenizer,
+            file_path=file_path,
+            block_size=args.block_size,
+            overwrite_cache=args.overwrite_cache,
+            cache_dir=cache_dir,
         )
 
 
@@ -234,8 +253,8 @@ def main():
 
     if config.model_type in ["bert", "roberta", "distilbert", "camembert"] and not data_args.mlm:
         raise ValueError(
-            "BERT and RoBERTa-like models do not have LM heads but masked LM heads. They must be run using the --mlm "
-            "flag (masked language modeling)."
+            "BERT and RoBERTa-like models do not have LM heads but masked LM heads. They must be run using the"
+            "--mlm flag (masked language modeling)."
         )
 
     if data_args.block_size <= 0:
@@ -246,11 +265,24 @@ def main():
 
     # Get datasets
 
-    train_dataset = get_dataset(data_args, tokenizer=tokenizer) if training_args.do_train else None
-    eval_dataset = get_dataset(data_args, tokenizer=tokenizer, evaluate=True) if training_args.do_eval else None
-    data_collator = DataCollatorForLanguageModeling(
-        tokenizer=tokenizer, mlm=data_args.mlm, mlm_probability=data_args.mlm_probability
+    train_dataset = (
+        get_dataset(data_args, tokenizer=tokenizer, cache_dir=model_args.cache_dir) if training_args.do_train else None
     )
+    eval_dataset = (
+        get_dataset(data_args, tokenizer=tokenizer, evaluate=True, cache_dir=model_args.cache_dir)
+        if training_args.do_eval
+        else None
+    )
+    if config.model_type == "xlnet":
+        data_collator = DataCollatorForPermutationLanguageModeling(
+            tokenizer=tokenizer,
+            plm_probability=data_args.plm_probability,
+            max_span_length=data_args.max_span_length,
+        )
+    else:
+        data_collator = DataCollatorForLanguageModeling(
+            tokenizer=tokenizer, mlm=data_args.mlm, mlm_probability=data_args.mlm_probability
+        )
 
     # Initialize our Trainer
     trainer = Trainer(

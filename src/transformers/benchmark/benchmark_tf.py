@@ -18,14 +18,15 @@
 """
 
 
-import logging
 import random
 import timeit
 from functools import wraps
 from typing import Callable, Optional
 
-from transformers import TF_MODEL_MAPPING, PretrainedConfig, is_py3nvml_available, is_tf_available
-
+from ..configuration_utils import PretrainedConfig
+from ..file_utils import is_py3nvml_available, is_tf_available
+from ..modeling_tf_auto import TF_MODEL_MAPPING, TF_MODEL_WITH_LM_HEAD_MAPPING
+from ..utils import logging
 from .benchmark_utils import (
     Benchmark,
     Memory,
@@ -38,13 +39,14 @@ from .benchmark_utils import (
 
 if is_tf_available():
     import tensorflow as tf
-    from .benchmark_args_tf import TensorFlowBenchmarkArguments
     from tensorflow.python.framework.errors_impl import ResourceExhaustedError
+
+    from .benchmark_args_tf import TensorFlowBenchmarkArguments
 
 if is_py3nvml_available():
     import py3nvml.py3nvml as nvml
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 
 def run_with_tf_optimizations(do_eager_mode: bool, use_xla: bool):
@@ -92,10 +94,11 @@ class TensorFlowBenchmark(Benchmark):
         _inference = self._prepare_inference_func(model_name, batch_size, sequence_length)
         return self._measure_speed(_inference)
 
-    def _train_speed(self, model_name, batch_size, sequence_length):
-        raise NotImplementedError(
-            "Training is currently not really implemented." "Wait for TFTrainer to support CLM and MLM."
-        )
+    def _train_speed(self, model_name: str, batch_size: int, sequence_length: int) -> float:
+        strategy = self.args.strategy
+        assert strategy is not None, "A device strategy has to be initialized before using TensorFlow."
+        _train = self._prepare_train_func(model_name, batch_size, sequence_length)
+        return self._measure_speed(_train)
 
     def _inference_memory(
         self, model_name: str, batch_size: int, sequence_length: int
@@ -108,10 +111,16 @@ class TensorFlowBenchmark(Benchmark):
         _inference = self._prepare_inference_func(model_name, batch_size, sequence_length)
         return self._measure_memory(_inference)
 
-    def _train_memory(self, model_name, batch_size, sequence_length):
-        raise NotImplementedError(
-            "Training is currently not really implemented. Wait for TFTrainer to support CLM and MLM."
-        )
+    def _train_memory(
+        self, model_name: str, batch_size: int, sequence_length: int
+    ) -> [Memory, Optional[MemorySummary]]:
+        if self.args.is_gpu:
+            tf.config.experimental.set_memory_growth(self.args.gpu_list[self.args.device_idx], True)
+        strategy = self.args.strategy
+        assert strategy is not None, "A device strategy has to be initialized before using TensorFlow."
+
+        _train = self._prepare_train_func(model_name, batch_size, sequence_length)
+        return self._measure_memory(_train)
 
     def _prepare_inference_func(self, model_name: str, batch_size: int, sequence_length: int) -> Callable[[], None]:
         config = self.config_dict[model_name]
@@ -119,7 +128,11 @@ class TensorFlowBenchmark(Benchmark):
         if self.args.fp16:
             raise NotImplementedError("Mixed precision is currently not supported.")
 
-        has_model_class_in_config = hasattr(config, "architecture") and len(config.architectures) > 1
+        has_model_class_in_config = (
+            hasattr(config, "architectures")
+            and isinstance(config.architectures, list)
+            and len(config.architectures) > 0
+        )
         if not self.args.only_pretrain_model and has_model_class_in_config:
             try:
                 model_class = "TF" + config.architectures[0]  # prepend 'TF' for tensorflow model
@@ -149,6 +162,54 @@ class TensorFlowBenchmark(Benchmark):
 
         return _inference
 
+    def _prepare_train_func(self, model_name: str, batch_size: int, sequence_length: int) -> Callable[[], None]:
+        config = self.config_dict[model_name]
+
+        assert (
+            self.args.eager_mode is False
+        ), "Training cannot be done in eager mode. Please make sure that `args.eager_mode = False`."
+
+        if self.args.fp16:
+            raise NotImplementedError("Mixed precision is currently not supported.")
+
+        has_model_class_in_config = (
+            hasattr(config, "architectures")
+            and isinstance(config.architectures, list)
+            and len(config.architectures) > 0
+        )
+        if not self.args.only_pretrain_model and has_model_class_in_config:
+            try:
+                model_class = "TF" + config.architectures[0]  # prepend 'TF' for tensorflow model
+                transformers_module = __import__("transformers", fromlist=[model_class])
+                model_cls = getattr(transformers_module, model_class)
+                model = model_cls(config)
+            except ImportError:
+                raise ImportError(
+                    f"{model_class} does not exist. If you just want to test the pretrained model, you might want to set `--only_pretrain_model` or `args.only_pretrain_model=True`."
+                )
+        else:
+            model = TF_MODEL_WITH_LM_HEAD_MAPPING[config.__class__](config)
+
+        # encoder-decoder has vocab size saved differently
+        vocab_size = config.vocab_size if hasattr(config, "vocab_size") else config.encoder.vocab_size
+        input_ids = random_input_ids(batch_size, sequence_length, vocab_size)
+
+        @run_with_tf_optimizations(self.args.eager_mode, self.args.use_xla)
+        def encoder_decoder_train():
+            loss = model(input_ids, decoder_input_ids=input_ids, labels=input_ids, training=True)[0]
+            gradients = tf.gradients(loss, model.trainable_variables)
+            return gradients
+
+        @run_with_tf_optimizations(self.args.eager_mode, self.args.use_xla)
+        def encoder_train():
+            loss = model(input_ids, labels=input_ids, training=True)[0]
+            gradients = tf.gradients(loss, model.trainable_variables)
+            return gradients
+
+        _train = encoder_decoder_train if config.is_encoder_decoder else encoder_train
+
+        return _train
+
     def _measure_speed(self, func) -> float:
         with self.args.strategy.scope():
             try:
@@ -158,7 +219,11 @@ class TensorFlowBenchmark(Benchmark):
                     timeit.repeat(func, repeat=1, number=5)
 
                 # as written in https://docs.python.org/2/library/timeit.html#timeit.Timer.repeat, min should be taken rather than the average
-                runtimes = timeit.repeat(func, repeat=self.args.repeat, number=10,)
+                runtimes = timeit.repeat(
+                    func,
+                    repeat=self.args.repeat,
+                    number=10,
+                )
 
                 return min(runtimes) / 10.0
             except ResourceExhaustedError as e:
@@ -183,7 +248,7 @@ class TensorFlowBenchmark(Benchmark):
                 if self.args.is_tpu:
                     # tpu
                     raise NotImplementedError(
-                        "Memory Benchmarking is currently not implemented for TPU. Please disable memory benchmarking with `args.no_memory=True`"
+                        "Memory Benchmarking is currently not implemented for TPU. Please disable memory benchmarking with `args.memory=False`"
                     )
                 elif self.args.is_gpu:
                     # gpu

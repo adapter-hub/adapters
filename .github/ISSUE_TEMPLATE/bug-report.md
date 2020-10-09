@@ -7,7 +7,48 @@ assignees: ''
 
 ---
 
-# 🐛 Bug
+
+## Environment info
+<!-- You can run the command `transformers-cli env` and copy-and-paste its output below.
+     Don't forget to fill out the missing fields in that output! -->
+     
+- `transformers` version:
+- Platform:
+- Python version:
+- PyTorch version (GPU?):
+- Tensorflow version (GPU?):
+- Using GPU in script?:
+- Using distributed or parallel set-up in script?:
+
+### Who can help
+<!-- Your issue will be replied to more quickly if you can figure out the right person to tag with @
+ If you know how to use git blame, that is the easiest way, otherwise, here is a rough guide of **who to tag**.
+ Please tag fewer than 3 people.
+ 
+ albert, bert, GPT2, XLM: @LysandreJik 
+ tokenizers: @mfuntowicz
+ Trainer: @sgugger
+ Speed and Memory Benchmarks: @patrickvonplaten
+ Model Cards: @julien-c
+ Translation: @sshleifer
+ Summarization: @sshleifer
+ TextGeneration: @TevenLeScao 
+ examples/distillation: @VictorSanh
+ nlp datasets: [different repo](https://github.com/huggingface/nlp)
+ rust tokenizers: [different repo](https://github.com/huggingface/tokenizers)
+ Text Generation: @TevenLeScao
+ blenderbot: @mariamabarham
+ Bart: @sshleifer
+ Marian: @sshleifer
+ T5: @patrickvonplaten
+ Longformer/Reformer: @patrickvonplaten
+ TransfoXL/XLNet: @TevenLeScao 
+ examples/seq2seq: @sshleifer
+ examples/bert-loses-patience: @JetRunner
+ tensorflow: @jplu
+ examples/token-classification: @stefan-it
+ documentation: @sgugger
+ -->
 
 ## Information
 
@@ -40,15 +81,3 @@ Steps to reproduce the behavior:
 ## Expected behavior
 
 <!-- A clear and concise description of what you would expect to happen. -->
-
-## Environment info
-<!-- You can run the command `transformers-cli env` and copy-and-paste its output below.
-     Don't forget to fill out the missing fields in that output! -->
-     
-- `transformers` version:
-- Platform:
-- Python version:
-- PyTorch version (GPU?):
-- Tensorflow version (GPU?):
-- Using GPU in script?:
-- Using distributed or parallel set-up in script?:
