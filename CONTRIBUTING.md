@@ -208,7 +208,7 @@ CircleCI does not run them.
 
 ### Tests
 
-You can run 🤗 Transformers (the underlying library for adapter) tests with `unittest` or `pytest`.
+You can run 🤗 Transformers (the underlying library for adapter) and Adapter Transformers tests with `unittest` or `pytest`.
 
 We like `pytest` and `pytest-xdist` because it's faster. From the root of the
 repository, here's how to run tests with `pytest` for the library:
