@@ -146,7 +146,7 @@ class BertSelfOutputAdaptersMixin:
             return self.attention_text_task_adapters[adapter_name]
         return None
 
-    def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
+    def adapter_stack_layer(self, hidden_states, input_tensor, adapter_stack):
         """
         One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
         into a subsequent adapter, or the next transformer layer
@@ -156,7 +156,6 @@ class BertSelfOutputAdaptersMixin:
         Args:
             hidden_states: output of the previous transformer layer or adapter
             input_tensor: residual connection of transformer
-            attention_mask: attention mask on token level
             adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
                             single adapter. iff len(adapter_stack) > 1 we fuse the adapters
 
@@ -178,16 +177,15 @@ class BertSelfOutputAdaptersMixin:
             return hidden_states
 
         else:
-            return self.adapter_fusion(hidden_states, attention_mask, adapter_stack, residual, query)
+            return self.adapter_fusion(hidden_states, adapter_stack, residual, query)
 
-    def adapter_fusion(self, hidden_states, attention_mask, adapter_stack, residual, query):
+    def adapter_fusion(self, hidden_states, adapter_stack, residual, query):
         """
         If more than one adapter name is set for a stack layer, we fuse the adapters.
         For this, we pass through every adapter and learn an attention-like weighting of each adapter.
         The information stored in each of the adapters is thus fused together wrt the current example.
         Args:
             hidden_states: output of the previous transformer layer or adapter
-            attention_mask: attention mask on token level
             adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
                             single adapter. iff len(adapter_stack) > 1 we fuse the adapters
             residual: residual of the previous layer
@@ -210,12 +208,10 @@ class BertSelfOutputAdaptersMixin:
 
             fusion_name = ",".join(adapter_stack)
 
-            hidden_states = self.adapter_fusion_layer[fusion_name](
-                query, up_list, up_list, residual=residual, attention_mask=attention_mask
-            )
+            hidden_states = self.adapter_fusion_layer[fusion_name](query, up_list, up_list, residual,)
         return hidden_states
 
-    def adapters_forward(self, hidden_states, input_tensor, attention_mask=None, adapter_names=None):
+    def adapters_forward(self, hidden_states, input_tensor, adapter_names=None):
 
         if adapter_names is not None:
             adapter_names = parse_adapter_names(adapter_names)
@@ -231,10 +227,7 @@ class BertSelfOutputAdaptersMixin:
 
             for adapter_stack in adapter_names:
                 hidden_states = self.adapter_stack_layer(
-                    hidden_states=hidden_states,
-                    input_tensor=input_tensor,
-                    attention_mask=attention_mask,
-                    adapter_stack=adapter_stack,
+                    hidden_states=hidden_states, input_tensor=input_tensor, adapter_stack=adapter_stack,
                 )
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
@@ -352,7 +345,7 @@ class BertOutputAdaptersMixin:
             return self.layer_text_task_adapters[adapter_name]
         return None
 
-    def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
+    def adapter_stack_layer(self, hidden_states, input_tensor, adapter_stack):
         """
         One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
         into a subsequent adapter, or the next transformer layer
@@ -362,7 +355,6 @@ class BertOutputAdaptersMixin:
         Args:
             hidden_states: output of the previous transformer layer or adapter
             input_tensor: residual connection of transformer
-            attention_mask: attention mask on token level
             adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
                             single adapter. iff len(adapter_stack) > 1 we fuse the adapters
 
@@ -384,16 +376,15 @@ class BertOutputAdaptersMixin:
             return hidden_states
 
         else:
-            return self.adapter_fusion(hidden_states, attention_mask, adapter_stack, residual, query)
+            return self.adapter_fusion(hidden_states, adapter_stack, residual, query)
 
-    def adapter_fusion(self, hidden_states, attention_mask, adapter_stack, residual, query):
+    def adapter_fusion(self, hidden_states, adapter_stack, residual, query):
         """
         If more than one adapter name is set for a stack layer, we fuse the adapters.
         For this, we pass through every adapter and learn an attention-like weighting of each adapter.
         The information stored in each of the adapters is thus fused together wrt the current example.
         Args:
             hidden_states: output of the previous transformer layer or adapter
-            attention_mask: attention mask on token level
             adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
                             single adapter. iff len(adapter_stack) > 1 we fuse the adapters
             residual: residual of the previous layer
@@ -417,12 +408,10 @@ class BertOutputAdaptersMixin:
 
             fusion_name = ",".join(adapter_stack)
 
-            hidden_states = self.adapter_fusion_layer[fusion_name](
-                query, up_list, up_list, residual=residual, attention_mask=attention_mask
-            )
+            hidden_states = self.adapter_fusion_layer[fusion_name](query, up_list, up_list, residual)
         return hidden_states
 
-    def adapters_forward(self, hidden_states, input_tensor, attention_mask=None, adapter_names=None):
+    def adapters_forward(self, hidden_states, input_tensor, adapter_names=None):
 
         if adapter_names is not None:
             adapter_names = parse_adapter_names(adapter_names)
@@ -439,10 +428,7 @@ class BertOutputAdaptersMixin:
 
             for adapter_stack in adapter_names:
                 hidden_states = self.adapter_stack_layer(
-                    hidden_states=hidden_states,
-                    input_tensor=input_tensor,
-                    attention_mask=attention_mask,
-                    adapter_stack=adapter_stack,
+                    hidden_states=hidden_states, input_tensor=input_tensor, adapter_stack=adapter_stack,
                 )
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])

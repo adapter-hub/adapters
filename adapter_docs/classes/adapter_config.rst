@@ -1,7 +1,31 @@
-Model Adapters Config
+Adapter Configuration
 =======================
 
-This class manages the setup and configuration of adapter modules in a pre-trained model.
+Classes representing the architectures of adapter modules and fusion layers.
 
-.. autoclass:: transformers.ModelAdaptersConfig
+Single Adapter
+~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.AdapterConfig
+    :members:
+
+.. autoclass:: transformers.PfeifferConfig
+    :members:
+
+.. autoclass:: transformers.HoulsbyConfig
+    :members:
+
+.. autoclass:: transformers.InvertibleAdapterConfig
+    :members:
+
+Adapter Fusion
+~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.AdapterFusionConfig
+    :members:
+
+.. autoclass:: transformers.StaticAdapterFusionConfig
+    :members:
+
+.. autoclass:: transformers.DynamicAdapterFusionConfig
     :members:

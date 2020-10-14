@@ -14,9 +14,9 @@ from transformers import (
     RobertaModel,
     XLMRobertaModel,
 )
+from transformers.testing_utils import require_torch
 
 from .test_modeling_common import ids_tensor
-from .utils import require_torch
 
 
 def create_twin_models(model1):

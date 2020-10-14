@@ -185,7 +185,7 @@ class BertFusion(nn.Module):
             self.T = 1.0
         self.reduction = self.T / 1000.0
 
-    def forward(self, query, key, value, residual, attention_mask=None):
+    def forward(self, query, key, value, residual):
 
         if self.config.adapter_fusion["residual_before"]:
             value += residual[:, :, None, :].repeat(1, 1, value.size(2), 1)
