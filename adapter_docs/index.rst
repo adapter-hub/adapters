@@ -7,7 +7,7 @@ AdapterHub Documentation
 ================================================
 
 *AdapterHub* is a framework simplifying the integration, training and usage of adapter modules for Transformer-based language models.
-It integrates adapters for downstream tasks (https://arxiv.org/pdf/1902.00751), adapters for cross-lingual transfer (https://arxiv.org/pdf/2005.00052) and *AdapterFusion* (https://arxiv.org/pdf/2005.00247).
+It integrates adapters for downstream tasks (`Houlsby et al., 2019 <https://arxiv.org/pdf/1902.00751>`_), adapters for cross-lingual transfer (`Pfeiffer et al., 2020a <https://arxiv.org/pdf/2005.00052>`_) and *AdapterFusion* (`Pfeiffer et al., 2020b <https://arxiv.org/pdf/2005.00247>`_).
 
 The framework consists of two main components:
 
@@ -27,7 +27,7 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
 
    installation
    quickstart
-   adapter_types
+   adapters
    training
    prediction_heads
    extending
@@ -43,8 +43,9 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    :maxdepth: 2
    :caption: Adapter-Related Classes
 
-   classes/adapter_modules
    classes/adapter_config
+   classes/model_adapters_config
+   classes/adapter_modules
    classes/model_mixins
    classes/bert_mixins
    classes/adapter_utils
