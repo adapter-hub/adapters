@@ -12,8 +12,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-
-from .utils import require_torch
+from transformers.testing_utils import require_torch
 
 
 def filter_parameters(model, filter_string):
