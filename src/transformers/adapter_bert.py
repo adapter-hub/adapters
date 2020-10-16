@@ -394,7 +394,6 @@ class BertOutputAdaptersMixin:
                 up_list.append(up)
 
         if len(up_list) > 0:
-
             up_list = torch.stack(up_list)
             up_list = up_list.permute(1, 2, 0, 3)
 
@@ -604,7 +603,14 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 logger.info("No prediction head for task_name '{}' available.".format(head_name))
 
     def add_classification_head(
-        self, head_name, num_labels=2, layers=2, activation_function="tanh", overwrite_ok=False, multilabel=False
+        self,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        overwrite_ok=False,
+        multilabel=False,
+        id2label=None,
     ):
         """Adds a sequence classification head on top of the model.
 
@@ -620,17 +626,17 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             head_type = "multilabel_classification"
         else:
             head_type = "classification"
-
         config = {
             "head_type": head_type,
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_multiple_choice_head(
-        self, head_name, num_choices=2, layers=2, activation_function="tanh", overwrite_ok=False,
+        self, head_name, num_choices=2, layers=2, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         """Adds a multiple choice head on top of the model.
 
@@ -646,11 +652,12 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             "num_choices": num_choices,
             "layers": layers,
             "activation_function": activation_function,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_tagging_head(
-        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False,
+        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         """Adds a token classification head on top of the model.
 
@@ -666,17 +673,19 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_qa_head(
-        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False,
+        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         config = {
             "head_type": "question_answering",
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
@@ -685,6 +694,12 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     ):
         if head_name not in self.config.prediction_heads or overwrite_ok:
             self.config.prediction_heads[head_name] = config
+
+            if "label2id" not in config.keys() or config["label2id"] is None:
+                if "num_labels" in config.keys():
+                    config["label2id"] = {"LABEL_" + str(num): num for num in range(config["num_labels"])}
+                if "num_choices" in config.keys():
+                    config["label2id"] = {"LABEL_" + str(num): num for num in range(config["num_choices"])}
 
             logger.info(f"Adding head '{head_name}' with config {config}.")
             self._add_prediction_head_module(head_name)
@@ -810,3 +825,38 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             raise ValueError("Unknown head_type '{}'".format(head["head_type"]))
 
         return outputs  # (loss), logits, (hidden_states), (attentions)
+
+    def get_labels_dict(self, head_name=None):
+        """
+        Returns the id2label dict for the given head
+        Args:
+            head_name: (str, optional) the name of the head which labels should be returned. Default is None.
+            If the name is None the labels of the active head are returned
+
+        Returns: id2label
+
+        """
+        if head_name is None:
+            head_name = self.active_head
+        if head_name is None:
+            raise ValueError("No head name given and no active head in the model")
+        if "label2id" in self.config.prediction_heads[head_name].keys():
+            return {id_: label for label, id_ in self.config.prediction_heads[head_name]["label2id"].items()}
+        else:
+            return None
+
+    def get_labels(self, head_name=None):
+        """
+        Returns the labels the given head is assigning/predicting
+        Args:
+            head_name: (str, optional) the name of the head which labels should be returned. Default is None.
+            If the name is None the labels of the active head are returned
+
+        Returns: labels
+
+        """
+        label_dict = self.get_labels_dict(head_name)
+        if label_dict is None:
+            return None
+        else:
+            return list(label_dict.values())

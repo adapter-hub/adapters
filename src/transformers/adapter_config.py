@@ -301,9 +301,11 @@ class ModelAdaptersConfig:
         return output_dict
 
 
-def build_full_config(adapter_config, model_config, **kwargs):
+def build_full_config(adapter_config, model_config, save_id2label=False, **kwargs):
     config_dict = {"model_type": model_config.model_type, "hidden_size": model_config.hidden_size}
     config_dict.update(kwargs)
+    if not hasattr(model_config, "prediction_heads") and save_id2label:
+        config_dict["label2id"] = model_config.label2id
     if is_dataclass(adapter_config):
         config_dict["config"] = adapter_config.to_dict()
     else:
