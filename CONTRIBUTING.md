@@ -101,13 +101,13 @@ issues to make sure that nobody is already working on the same thing. If you are
 unsure, it is always a good idea to open an issue to get some feedback.
 
 You will need basic `git` proficiency to be able to contribute to
-`transformers`. `git` is not the easiest tool to use but it has the greatest
+`adapter-transformers`. `git` is not the easiest tool to use but it has the greatest
 manual. Type `git --help` in a shell and enjoy. If you prefer books, [Pro
 Git](https://git-scm.com/book/en/v2) is a very good reference.
 
 Follow these steps to start contributing:
 
-1. Fork the [repository](https://github.com/huggingface/transformers) by
+1. Fork the [repository](https://github.com/Adapter-Hub/adapter-transformers) by
    clicking on the 'Fork' button on the repository's page. This creates a copy of the code
    under your GitHub user account.
 
@@ -115,8 +115,8 @@ Follow these steps to start contributing:
 
    ```bash
    $ git clone git@github.com:<your Github handle>/transformers.git
-   $ cd transformers
-   $ git remote add upstream https://github.com/huggingface/transformers.git
+   $ cd adapter-transformers
+   $ git remote add upstream https://github.com/Adapter-Hub/adapter-transformers.git
    ```
 
 3. Create a new branch to hold your development changes:
@@ -134,7 +134,7 @@ Follow these steps to start contributing:
    ```
 
    (If transformers was already installed in the virtual environment, remove
-   it with `pip uninstall transformers` before reinstalling it in editable
+   it with `pip uninstall adapter-transformers` before reinstalling it in editable
    mode with the `-e` flag.)
 
    To run the full test suite, you might need the additional dependency on `datasets` which requires a separate source
@@ -166,14 +166,14 @@ Follow these steps to start contributing:
 
    Adjust the value of `-n` to fit the load your hardware can support.
 
-   `transformers` relies on `black` and `isort` to format its source code
+   `adapter-transformers` relies on `black` and `isort` to format its source code
    consistently. After you make changes, format them with:
 
    ```bash
    $ make style
    ```
 
-   `transformers` also uses `flake8` and a few custom scripts to check for coding mistakes. Quality
+   `adapter-transformers` also uses `flake8` to check for coding mistakes. Quality
    control runs in CI, however you can also run the same checks with:
 
    ```bash
