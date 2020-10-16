@@ -603,7 +603,10 @@ class PredictionHeadLoader(WeightsLoader):
                 if head_name in self.model.config.prediction_heads:
                     logger.warning("Overwriting existing head '{}'".format(head_name))
                 self.model.add_prediction_head(head_name, config["config"], overwrite_ok=True)
-
+            else:
+                if hasattr(config, "id2label"):
+                    self.model.config.id2label = {int(id_): label for id_, label in config["id2label"].items()}
+                    self.model.config.label2id = {label: int(id_) for id_, label in config["id2label"].items()}
         # Load head weights
         filter_func = self.filter_func(head_name)
         if load_as:
@@ -623,7 +626,6 @@ class ModelAdaptersMixin(ABC):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
-
         self._active_adapter_names = None
 
     # These methods have to be implemented by every deriving class:
@@ -1024,3 +1026,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         super().save_all_adapters(
             save_directory, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
         )
+
+    def get_labels(self):
+        return list(self.config.id2label.values())
+
+    def get_labels_dict(self):
+        return self.config.id2label
