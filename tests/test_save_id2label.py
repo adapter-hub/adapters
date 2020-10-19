@@ -78,7 +78,7 @@ class TestSaveLabel(unittest.TestCase):
         model.add_tagging_head("test_head", num_labels=len(self.labels), id2label=self.label_map)
         with TemporaryDirectory() as temp_dir:
             model.save_head(temp_dir, "test_head")
-            model.load_head(temp_dir )
+            model.load_head(temp_dir)
         model.load_adapter("pos/ldc2012t13@vblagoje", "text_task")
         model.add_classification_head("classification_head")
         default_label, default_label_dict = get_default(2)
@@ -100,7 +100,6 @@ class TestSaveLabel(unittest.TestCase):
 
         self.assertEqual(model.get_labels("test_head"), self.labels)
         self.assertEqual(model.get_labels_dict("test_head"), self.label_map)
-
 
 
 if __name__ == "__main__":
