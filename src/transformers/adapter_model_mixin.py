@@ -558,6 +558,7 @@ class PredictionHeadLoader(WeightsLoader):
             name=name,
             model_name=self.model.model_name,
             model_class=self.model.__class__.__name__,
+            save_id2label=True
         )
         self.weights_helper.save_weights_config(save_directory, config_dict)
 
@@ -589,7 +590,8 @@ class PredictionHeadLoader(WeightsLoader):
         if isfile(join(save_directory, HEAD_CONFIG_NAME)):
             config = self.weights_helper.load_weights_config(save_directory)
             if (not config["config"] is None) and "label2id" in config["config"].keys():
-                config["config"]["id2label"] = {int(id_): label for label, id_ in config["config"]["label2id"].items()}
+                config["config"]["label2id"] = {label: id_ for label, id_ in config["config"]["label2id"].items()}
+                config["config"]["id2label"] = {id_: label for label, id_ in config["config"]["label2id"].items()}
             # make sure that the model class of the loaded head matches the current class
             if self.model.__class__.__name__ != config["model_class"]:
                 if self.error_on_missing:
