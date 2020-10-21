@@ -558,7 +558,7 @@ class PredictionHeadLoader(WeightsLoader):
             name=name,
             model_name=self.model.model_name,
             model_class=self.model.__class__.__name__,
-            save_id2label=True
+            save_id2label=True,
         )
         self.weights_helper.save_weights_config(save_directory, config_dict)
 
