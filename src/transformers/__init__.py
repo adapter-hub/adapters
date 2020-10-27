@@ -360,6 +360,7 @@ if is_torch_available():
         DistilBertForSequenceClassification,
         DistilBertForTokenClassification,
         DistilBertModel,
+        DistilBertModelWithHeads,
         DistilBertPreTrainedModel,
     )
     from .modeling_dpr import (

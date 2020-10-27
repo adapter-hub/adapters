@@ -32,6 +32,13 @@ XLMRobertaModel
     :members:
 
 
+XLMRobertaModelWithHeads
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.XLMRobertaModelWithHeads
+    :members:
+
+
 XLMRobertaForMaskedLM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

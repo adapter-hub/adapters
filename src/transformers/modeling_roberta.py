@@ -25,7 +25,6 @@ from torch.nn import CrossEntropyLoss, MSELoss
 from .activations import ACT2FN, gelu
 from .adapter_bert import BertModelHeadsMixin
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
-from .adapter_utils import parse_adapter_names
 from .configuration_roberta import RobertaConfig
 from .file_utils import (
     add_code_sample_docstrings,
@@ -954,15 +953,8 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
             return_dict=return_dict,
         )
         sequence_output = outputs[0]
-
-        # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if adapter_names is not None and len(adapter_names) > 0:
-            adapter_names = parse_adapter_names(adapter_names)
-            language = adapter_names[0][0]
-        else:
-            language = None
         prediction_scores = self.lm_head(
-            sequence_output, inv_lang_adapter=self.roberta.get_invertible_lang_adapter(language),
+            sequence_output, inv_lang_adapter=self.roberta.get_invertible_lang_adapter(adapter_names),
         )
 
         masked_lm_loss = None

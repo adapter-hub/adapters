@@ -18,7 +18,7 @@
 """
 
 
-import copy
+import logging
 import math
 import warnings
 
@@ -28,6 +28,13 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 
 from .activations import gelu
+from .adapter_distilbert import (
+    DistilBertModelAdaptersMixin,
+    DistilBertModelHeadsMixin,
+    DistilBertTransfomerBlockAdaptersMixin,
+    DistilBertTransformerAdaptersMixin,
+)
+from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .configuration_distilbert import DistilBertConfig
 from .file_utils import (
     add_code_sample_docstrings,
@@ -233,9 +240,10 @@ class FFN(nn.Module):
         return x
 
 
-class TransformerBlock(nn.Module):
+class TransformerBlock(DistilBertTransfomerBlockAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
 
         assert config.dim % config.n_heads == 0
 
@@ -245,7 +253,9 @@ class TransformerBlock(nn.Module):
         self.ffn = FFN(config)
         self.output_layer_norm = nn.LayerNorm(normalized_shape=config.dim, eps=1e-12)
 
-    def forward(self, x, attn_mask=None, head_mask=None, output_attentions=False):
+        self._init_adapter_modules()
+
+    def forward(self, x, attn_mask=None, head_mask=None, output_attentions=False, adapter_names=None):
         """
         Parameters
         ----------
@@ -273,11 +283,15 @@ class TransformerBlock(nn.Module):
         else:  # To handle these `output_attentions` or `output_hidden_states` cases returning tuples
             assert type(sa_output) == tuple
             sa_output = sa_output[0]
-        sa_output = self.sa_layer_norm(sa_output + x)  # (bs, seq_length, dim)
+        sa_output = self.attention_adapters.adapters_forward(
+            sa_output, x, adapter_names=adapter_names
+        )  # (bs, seq_length, dim)
 
         # Feed Forward Network
         ffn_output = self.ffn(sa_output)  # (bs, seq_length, dim)
-        ffn_output = self.output_layer_norm(ffn_output + sa_output)  # (bs, seq_length, dim)
+        ffn_output = self.output_adapters.adapters_forward(
+            ffn_output, sa_output, adapter_names=adapter_names
+        )  # (bs, seq_length, dim)
 
         output = (ffn_output,)
         if output_attentions:
@@ -285,16 +299,23 @@ class TransformerBlock(nn.Module):
         return output
 
 
-class Transformer(nn.Module):
+class Transformer(DistilBertTransformerAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.n_layers = config.n_layers
 
-        layer = TransformerBlock(config)
-        self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.n_layers)])
+        self.layer = nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layers)])
 
     def forward(
-        self, x, attn_mask=None, head_mask=None, output_attentions=False, output_hidden_states=False, return_dict=None
+        self,
+        x,
+        attn_mask=None,
+        head_mask=None,
+        output_attentions=False,
+        output_hidden_states=False,
+        return_dict=None,
+        adapter_names=None,
     ):
         """
         Parameters
@@ -324,7 +345,11 @@ class Transformer(nn.Module):
                 all_hidden_states = all_hidden_states + (hidden_state,)
 
             layer_outputs = layer_module(
-                x=hidden_state, attn_mask=attn_mask, head_mask=head_mask[i], output_attentions=output_attentions
+                x=hidden_state,
+                attn_mask=attn_mask,
+                head_mask=head_mask[i],
+                output_attentions=output_attentions,
+                adapter_names=adapter_names,
             )
             hidden_state = layer_outputs[-1]
 
@@ -430,12 +455,14 @@ DISTILBERT_INPUTS_DOCSTRING = r"""
     "The bare DistilBERT encoder/transformer outputting raw hidden-states without any specific head on top.",
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertModel(DistilBertPreTrainedModel):
+class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
         self.embeddings = Embeddings(config)  # Embeddings
         self.transformer = Transformer(config)  # Encoder
+
+        self._init_adapter_modules()
 
         self.init_weights()
 
@@ -470,12 +497,18 @@ class DistilBertModel(DistilBertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        # override the default active adapters with those passed in the method call
+        adapter_names = adapter_names or self.active_adapters
+        # some warnings if we don't use available adapters
+        if not adapter_names and self.has_adapters():
+            logger.warning("There are adapters available but none are passed to model.forward")
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
@@ -496,6 +529,8 @@ class DistilBertModel(DistilBertPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.embeddings(input_ids)  # (bs, seq_length, dim)
+        inputs_embeds = self.invertible_adapters_forward(inputs_embeds, adapter_names=adapter_names)
+
         return self.transformer(
             x=inputs_embeds,
             attn_mask=attention_mask,
@@ -503,14 +538,51 @@ class DistilBertModel(DistilBertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
 
 @add_start_docstrings(
-    """DistilBert Model with a `masked language modeling` head on top. """,
+    """DistilBert Model transformer with the option to add multiple flexible heads on top.""",
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForMaskedLM(DistilBertPreTrainedModel):
+class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.distilbert = DistilBertModel(config)
+
+        self._init_head_modules()
+
+        self.init_weights()
+
+    @add_start_docstrings_to_callable(DISTILBERT_INPUTS_DOCSTRING)
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        adapter_names=None,
+        head=None,
+    ):
+        distilbert_output = self.distilbert(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            adapter_names=adapter_names,
+        )
+
+        outputs = self.forward_head(distilbert_output, head_name=head, attention_mask=attention_mask, labels=labels,)
+
+        return outputs
+
+
+@add_start_docstrings(
+    """DistilBert Model with a `masked language modeling` head on top. """, DISTILBERT_START_DOCSTRING,
+)
+class DistilBertForMaskedLM(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -543,6 +615,7 @@ class DistilBertForMaskedLM(DistilBertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
         **kwargs
     ):
         r"""
@@ -571,11 +644,15 @@ class DistilBertForMaskedLM(DistilBertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
         hidden_states = dlbrt_output[0]  # (bs, seq_length, dim)
         prediction_logits = self.vocab_transform(hidden_states)  # (bs, seq_length, dim)
         prediction_logits = gelu(prediction_logits)  # (bs, seq_length, dim)
         prediction_logits = self.vocab_layer_norm(prediction_logits)  # (bs, seq_length, dim)
+        prediction_logits = self.distilbert.invertible_adapters_forward(
+            prediction_logits, adapter_names=adapter_names, rev=True
+        )
         prediction_logits = self.vocab_projector(prediction_logits)  # (bs, seq_length, vocab_size)
 
         mlm_loss = None
@@ -599,7 +676,7 @@ class DistilBertForMaskedLM(DistilBertPreTrainedModel):
     the pooled output) e.g. for GLUE tasks. """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForSequenceClassification(DistilBertPreTrainedModel):
+class DistilBertForSequenceClassification(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -628,6 +705,7 @@ class DistilBertForSequenceClassification(DistilBertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -646,6 +724,7 @@ class DistilBertForSequenceClassification(DistilBertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
         hidden_state = distilbert_output[0]  # (bs, seq_len, dim)
         pooled_output = hidden_state[:, 0]  # (bs, dim)
@@ -680,7 +759,7 @@ class DistilBertForSequenceClassification(DistilBertPreTrainedModel):
     the hidden-states output to compute `span start logits` and `span end logits`). """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForQuestionAnswering(DistilBertPreTrainedModel):
+class DistilBertForQuestionAnswering(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -709,6 +788,7 @@ class DistilBertForQuestionAnswering(DistilBertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -730,6 +810,7 @@ class DistilBertForQuestionAnswering(DistilBertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
         hidden_states = distilbert_output[0]  # (bs, max_query_len, dim)
 
@@ -774,7 +855,7 @@ class DistilBertForQuestionAnswering(DistilBertPreTrainedModel):
     the hidden-states output) e.g. for Named-Entity-Recognition (NER) tasks. """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForTokenClassification(DistilBertPreTrainedModel):
+class DistilBertForTokenClassification(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -802,6 +883,7 @@ class DistilBertForTokenClassification(DistilBertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -818,6 +900,7 @@ class DistilBertForTokenClassification(DistilBertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
