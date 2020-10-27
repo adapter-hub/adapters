@@ -12,8 +12,10 @@ from .adapter_utils import AdapterType, get_adapter_config_hash, resolve_adapter
 logger = logging.getLogger(__name__)
 
 
-@dataclass()
+@dataclass
 class InvertibleAdapterConfig(Mapping):
+    """Base class that models the architecture of an invertible adapter module."""
+
     block_type: str
     non_linearity: str
     reduction_factor: int
@@ -177,20 +179,41 @@ class ModelAdaptersConfig:
         return [k for k, v in self.adapters.items() if v[0] == adapter_type]
 
     def get_type(self, adapter_name: str) -> Optional[AdapterType]:
+        """Gets the type of a given adapter.
+
+        Args:
+            adapter_name (str): The name of the adapter.
+
+        Returns:
+            Optional[AdapterType]: The adapter's type.
+        """
         if adapter_name in self.adapters:
             return self.adapters[adapter_name][0]
         else:
             return None
 
     def get(self, adapter_name: str, return_type: bool = False):
+        """Gets the config dictionary for a given adapter.
+
+        Args:
+            adapter_name (str): The name of the adapter.
+            return_type (bool, optional): If set to True, also return the adapter type. Defaults to False.
+
+        Returns:
+            Mapping or tuple(Mapping, AdapterType): The adapter configuration and optionally the adapter type.
+        """
         if adapter_name in self.adapters:
             adapter_type, config_name = self.adapters[adapter_name]
             if config_name in self.config_map:
                 config = self.config_map.get(config_name, None)
             else:
                 config = ADAPTER_CONFIG_MAP.get(config_name, None)
-            if not config:
+            if not config and adapter_type in self.config_map:
                 config = self.config_map[adapter_type]
+            elif (
+                not config
+            ):  # If no config is specified via config_name or adapter_type, we just use the global default
+                config = DEFAULT_ADAPTER_CONFIG
             if isinstance(config, str):
                 config = ADAPTER_CONFIG_MAP[config]
         else:
@@ -201,8 +224,18 @@ class ModelAdaptersConfig:
             return config
 
     def add(self, adapter_name: str, adapter_type: AdapterType, config: Optional[Union[str, dict]] = None):
+        """Adds a new adapter of the given type and name to the model config.
+
+        Args:
+            adapter_name (str): The name of the adapter.
+            adapter_type (AdapterType): The type of the adapter.
+            config (Optional[Union[str, dict]], optional): The adapter config. Defaults to None.
+        """
         if adapter_name in self.adapters:
             raise ValueError(f"An adapter with the name '{adapter_name}' has already been added.")
+        if config is None and adapter_type not in self.config_map:
+            # if config is not specified & no per-type default is set, manually set global default
+            config = DEFAULT_ADAPTER_CONFIG
         config_name = config
         if isinstance(config, str):
             if config not in ADAPTER_CONFIG_MAP and config not in self.config_map:
@@ -215,6 +248,8 @@ class ModelAdaptersConfig:
         logger.info(f"Adding adapter '{adapter_name}' of type '{adapter_type}'.")
 
     def get_config(self, adapter_type: AdapterType) -> dict:
+        """Gets the default adapter configuration of the specified adapter type.
+        """
         config = self.config_map.get(adapter_type, None)
         if isinstance(config, str) and config in ADAPTER_CONFIG_MAP:
             return ADAPTER_CONFIG_MAP[config]
@@ -248,7 +283,12 @@ class ModelAdaptersConfig:
         """
         common_value = None
         for i, name in enumerate(adapter_names):
-            config_value = self.get(name).get(attribute, None)
+            config = self.get(name)
+            if not config:
+                raise ValueError(
+                    f"No adapter with name '{name}' found. Make sure that an adapter with this name is loaded."
+                )
+            config_value = config.get(attribute, None)
             if i > 0 and config_value != common_value:
                 raise ValueError(f"All given adapters must define the same value for config attribute {attribute}.")
             common_value = config_value
@@ -257,12 +297,15 @@ class ModelAdaptersConfig:
     def to_dict(self):
         output_dict = {}
         output_dict["adapters"] = copy.deepcopy(self.adapters)
+        output_dict["config_map"] = copy.deepcopy(self.config_map)
         return output_dict
 
 
-def build_full_config(adapter_config, model_config, **kwargs):
+def build_full_config(adapter_config, model_config, save_id2label=False, **kwargs):
     config_dict = {"model_type": model_config.model_type, "hidden_size": model_config.hidden_size}
     config_dict.update(kwargs)
+    if not hasattr(model_config, "prediction_heads") and save_id2label:
+        config_dict["label2id"] = model_config.label2id
     if is_dataclass(adapter_config):
         config_dict["config"] = adapter_config.to_dict()
     else:
@@ -272,7 +315,7 @@ def build_full_config(adapter_config, model_config, **kwargs):
 
 @dataclass
 class AdapterFusionConfig(Mapping):
-    """Base class that models the architecture of an adapter."""
+    """Base class that models the architecture of an adapter fusion layer."""
 
     key: bool
     query: bool
@@ -316,17 +359,16 @@ class AdapterFusionConfig(Mapping):
 
     @classmethod
     def load(cls, config: Union[dict, str], **kwargs):
-        """Loads a given adapter configuration specifier into a full AdapterConfig instance.
+        """Loads a given adapter fusion configuration specifier into a full AdapterFusionConfig instance.
 
         Args:
             config (Union[dict, str]): The configuration to load. Can be either:
                 - a dictionary representing the full config
-                - an identifier string available in ADAPTER_CONFIG_MAP
-                - the path to a file containing a full adapter configuration
-                - an identifier string available in Adapter-Hub
+                - an identifier string available in ADAPTERFUSION_CONFIG_MAP
+                - the path to a file containing a full adapter fusion configuration
 
         Returns:
-            dict: The resolved adapter configuration dictionary.
+            dict: The resolved adapter fusion configuration dictionary.
         """
         # currently storing AdapterFusion weights on AdapterHub is not supported.
         config_dict = resolve_adapter_config(config, local_map=ADAPTERFUSION_CONFIG_MAP, try_loading_from_hub=False)
@@ -340,8 +382,8 @@ class AdapterFusionConfig(Mapping):
 @dataclass
 class StaticAdapterFusionConfig(AdapterFusionConfig):
     """
-    The adapter architecture proposed by Houlsby et. al., 2019.
-    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    Static version of adapter fusion without a value matrix.
+    Described in https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     key: bool = True
@@ -358,8 +400,8 @@ class StaticAdapterFusionConfig(AdapterFusionConfig):
 @dataclass
 class DynamicAdapterFusionConfig(AdapterFusionConfig):
     """
-    The adapter architecture proposed by Houlsby et. al., 2019.
-    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    Dynamic version of adapter fusion with a value matrix and regularization.
+    Described in https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     key: bool = True

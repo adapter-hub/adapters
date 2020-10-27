@@ -2,8 +2,7 @@ import unittest
 from dataclasses import FrozenInstanceError
 
 from transformers import ADAPTER_CONFIG_MAP, AdapterConfig
-
-from .utils import require_torch
+from transformers.testing_utils import require_torch
 
 
 @require_torch

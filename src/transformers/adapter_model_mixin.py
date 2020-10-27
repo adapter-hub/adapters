@@ -558,6 +558,7 @@ class PredictionHeadLoader(WeightsLoader):
             name=name,
             model_name=self.model.model_name,
             model_class=self.model.__class__.__name__,
+            save_id2label=True,
         )
         self.weights_helper.save_weights_config(save_directory, config_dict)
 
@@ -588,6 +589,9 @@ class PredictionHeadLoader(WeightsLoader):
         # Load head config if available - otherwise just blindly try to load the weights
         if isfile(join(save_directory, HEAD_CONFIG_NAME)):
             config = self.weights_helper.load_weights_config(save_directory)
+            if (not config["config"] is None) and "label2id" in config["config"].keys():
+                config["config"]["label2id"] = {label: id_ for label, id_ in config["config"]["label2id"].items()}
+                config["config"]["id2label"] = {id_: label for label, id_ in config["config"]["label2id"].items()}
             # make sure that the model class of the loaded head matches the current class
             if self.model.__class__.__name__ != config["model_class"]:
                 if self.error_on_missing:
@@ -603,7 +607,10 @@ class PredictionHeadLoader(WeightsLoader):
                 if head_name in self.model.config.prediction_heads:
                     logger.warning("Overwriting existing head '{}'".format(head_name))
                 self.model.add_prediction_head(head_name, config["config"], overwrite_ok=True)
-
+            else:
+                if "label2id" in config.keys():
+                    self.model.config.id2label = {int(id_): label for label, id_ in config["label2id"].items()}
+                    self.model.config.label2id = {label: int(id_) for label, id_ in config["label2id"].items()}
         # Load head weights
         filter_func = self.filter_func(head_name)
         if load_as:
@@ -623,7 +630,6 @@ class ModelAdaptersMixin(ABC):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
-
         self._active_adapter_names = None
 
     # These methods have to be implemented by every deriving class:
@@ -644,7 +650,13 @@ class ModelAdaptersMixin(ABC):
 
     @abstractmethod
     def train_adapter(self, adapter_names: list):
-        """Sets the model in mode for training the given type of adapter.
+        """Sets the model into mode for training the given adapters.
+        """
+        pass
+
+    @abstractmethod
+    def train_fusion(self, adapter_names: list):
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names.
         """
         pass
 
@@ -696,7 +708,7 @@ class ModelAdaptersMixin(ABC):
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_type))
 
-    def set_adapter_fusion_config(self, adapter_fusion_config, kwargs={}):
+    def set_adapter_fusion_config(self, adapter_fusion_config, override_kwargs=None):
         """Sets the adapter fusion configuration.
 
         Args:
@@ -705,15 +717,16 @@ class ModelAdaptersMixin(ABC):
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
         """
+        if override_kwargs is None:
+            override_kwargs = {}
         if isinstance(adapter_fusion_config, str) and adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP:
-            self.config.adapter_fusion = AdapterFusionConfig.load(adapter_fusion_config, **kwargs)
-            # ADAPTERFUSION_CONFIG_MAP[adapter_fusion_config](**kwargs).to_dict()
+            self.config.adapter_fusion = AdapterFusionConfig.load(adapter_fusion_config, **override_kwargs)
         elif isinstance(adapter_fusion_config, Mapping):
             self.config.adapter_fusion = adapter_fusion_config
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
 
-    def add_fusion(self, adapter_names, adapter_fusion_config=None, kwargs={}):
+    def add_fusion(self, adapter_names, adapter_fusion_config=None, override_kwargs=None):
         """Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 
         Args:
@@ -722,14 +735,13 @@ class ModelAdaptersMixin(ABC):
                 - a string identifying a pre-defined adapter fusion configuration
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
-            kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
-
-        Returns:
-
+            override_kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
         """
         if not hasattr(self.config, "adapter_fusion"):
+            if override_kwargs is None:
+                override_kwargs = {}
             if adapter_fusion_config is not None:
-                self.set_adapter_fusion_config(adapter_fusion_config, kwargs)
+                self.set_adapter_fusion_config(adapter_fusion_config, **override_kwargs)
             else:
                 self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
         elif hasattr(self.config, "adapter_fusion") and adapter_fusion_config is not None:
@@ -941,7 +953,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         self.base_model.add_adapter(adapter_name, adapter_type, config)
 
     def train_adapter(self, adapter_names: list):
-        """Sets the model in mode for training the given type of adapter."""
+        """Sets the model into mode for training the given adapters."""
         self.base_model.train_adapter(adapter_names)
 
     def train_fusion(self, adapter_names: list):
@@ -1014,3 +1026,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         return super().save_all_adapters(
             save_directory, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
         )
+
+    def get_labels(self):
+        return list(self.config.id2label.values())
+
+    def get_labels_dict(self):
+        return self.config.id2label

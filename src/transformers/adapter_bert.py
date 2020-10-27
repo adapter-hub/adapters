@@ -141,7 +141,7 @@ class BertSelfOutputAdaptersMixin:
             return self.attention_text_task_adapters[adapter_name]
         return None
 
-    def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
+    def adapter_stack_layer(self, hidden_states, input_tensor, adapter_stack):
         """
         One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
         into a subsequent adapter, or the next transformer layer
@@ -151,7 +151,6 @@ class BertSelfOutputAdaptersMixin:
         Args:
             hidden_states: output of the previous transformer layer or adapter
             input_tensor: residual connection of transformer
-            attention_mask: attention mask on token level
             adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
                             single adapter. iff len(adapter_stack) > 1 we fuse the adapters
 
@@ -173,16 +172,15 @@ class BertSelfOutputAdaptersMixin:
             return hidden_states
 
         else:
-            return self.adapter_fusion(hidden_states, attention_mask, adapter_stack, residual, query)
+            return self.adapter_fusion(hidden_states, adapter_stack, residual, query)
 
-    def adapter_fusion(self, hidden_states, attention_mask, adapter_stack, residual, query):
+    def adapter_fusion(self, hidden_states, adapter_stack, residual, query):
         """
         If more than one adapter name is set for a stack layer, we fuse the adapters.
         For this, we pass through every adapter and learn an attention-like weighting of each adapter.
         The information stored in each of the adapters is thus fused together wrt the current example.
         Args:
             hidden_states: output of the previous transformer layer or adapter
-            attention_mask: attention mask on token level
             adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
                             single adapter. iff len(adapter_stack) > 1 we fuse the adapters
             residual: residual of the previous layer
@@ -205,12 +203,10 @@ class BertSelfOutputAdaptersMixin:
 
             fusion_name = ",".join(adapter_stack)
 
-            hidden_states = self.adapter_fusion_layer[fusion_name](
-                query, up_list, up_list, residual=residual, attention_mask=attention_mask
-            )
+            hidden_states = self.adapter_fusion_layer[fusion_name](query, up_list, up_list, residual,)
         return hidden_states
 
-    def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
+    def adapters_forward(self, hidden_states, input_tensor, adapter_names=None):
 
         if adapter_names is not None:
             adapter_names = parse_adapter_names(adapter_names)
@@ -226,10 +222,7 @@ class BertSelfOutputAdaptersMixin:
 
             for adapter_stack in adapter_names:
                 hidden_states = self.adapter_stack_layer(
-                    hidden_states=hidden_states,
-                    input_tensor=input_tensor,
-                    attention_mask=attention_mask,
-                    adapter_stack=adapter_stack,
+                    hidden_states=hidden_states, input_tensor=input_tensor, adapter_stack=adapter_stack,
                 )
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
@@ -344,7 +337,7 @@ class BertOutputAdaptersMixin:
             return self.layer_text_task_adapters[adapter_name]
         return None
 
-    def adapter_stack_layer(self, hidden_states, input_tensor, attention_mask, adapter_stack):
+    def adapter_stack_layer(self, hidden_states, input_tensor, adapter_stack):
         """
         One layer of stacked adapters. This either passes through a single adapter and prepares the data to be passed
         into a subsequent adapter, or the next transformer layer
@@ -354,7 +347,6 @@ class BertOutputAdaptersMixin:
         Args:
             hidden_states: output of the previous transformer layer or adapter
             input_tensor: residual connection of transformer
-            attention_mask: attention mask on token level
             adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
                             single adapter. iff len(adapter_stack) > 1 we fuse the adapters
 
@@ -376,16 +368,15 @@ class BertOutputAdaptersMixin:
             return hidden_states
 
         else:
-            return self.adapter_fusion(hidden_states, attention_mask, adapter_stack, residual, query)
+            return self.adapter_fusion(hidden_states, adapter_stack, residual, query)
 
-    def adapter_fusion(self, hidden_states, attention_mask, adapter_stack, residual, query):
+    def adapter_fusion(self, hidden_states, adapter_stack, residual, query):
         """
         If more than one adapter name is set for a stack layer, we fuse the adapters.
         For this, we pass through every adapter and learn an attention-like weighting of each adapter.
         The information stored in each of the adapters is thus fused together wrt the current example.
         Args:
             hidden_states: output of the previous transformer layer or adapter
-            attention_mask: attention mask on token level
             adapter_stack: names of adapters for the current stack. Iff len(adapter_stack) == 1, we pass through a
                             single adapter. iff len(adapter_stack) > 1 we fuse the adapters
             residual: residual of the previous layer
@@ -403,18 +394,15 @@ class BertOutputAdaptersMixin:
                 up_list.append(up)
 
         if len(up_list) > 0:
-
             up_list = torch.stack(up_list)
             up_list = up_list.permute(1, 2, 0, 3)
 
             fusion_name = ",".join(adapter_stack)
 
-            hidden_states = self.adapter_fusion_layer[fusion_name](
-                query, up_list, up_list, residual=residual, attention_mask=attention_mask
-            )
+            hidden_states = self.adapter_fusion_layer[fusion_name](query, up_list, up_list, residual)
         return hidden_states
 
-    def adapters_forward(self, hidden_states, input_tensor, attention_mask, adapter_names=None):
+    def adapters_forward(self, hidden_states, input_tensor, adapter_names=None):
 
         if adapter_names is not None:
             adapter_names = parse_adapter_names(adapter_names)
@@ -431,10 +419,7 @@ class BertOutputAdaptersMixin:
 
             for adapter_stack in adapter_names:
                 hidden_states = self.adapter_stack_layer(
-                    hidden_states=hidden_states,
-                    input_tensor=input_tensor,
-                    attention_mask=attention_mask,
-                    adapter_stack=adapter_stack,
+                    hidden_states=hidden_states, input_tensor=input_tensor, adapter_stack=adapter_stack,
                 )
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
@@ -507,11 +492,11 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
                 self.add_fusion_layer(fusion_adapter_names)
 
     def train_adapter(self, adapter_names: list):
-        """Sets the model in mode for training the given adapters."""
+        """Sets the model into mode for training the given adapters."""
         self.train()
         self.freeze_model(True)
         adapter_names_flat = flatten_adapter_names(adapter_names)
-        self.encoder.enable_adapters(adapter_names, True, False)
+        self.encoder.enable_adapters(adapter_names_flat, True, False)
         # unfreeze invertible adapters for invertible adapters
         for adapter_name in adapter_names_flat:
             if adapter_name in self.invertible_lang_adapters:
@@ -521,7 +506,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         self.set_active_adapters(adapter_names)
 
     def train_fusion(self, adapter_names: list):
-        """Sets the model in mode for training of adapter fusion determined by a list of adapter names."""
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         self.train()
         self.freeze_model(True)
         adapter_names_flat = flatten_adapter_names(adapter_names)
@@ -618,7 +603,14 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 logger.info("No prediction head for task_name '{}' available.".format(head_name))
 
     def add_classification_head(
-        self, head_name, num_labels=2, layers=2, activation_function="tanh", overwrite_ok=False, multilabel=False
+        self,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        overwrite_ok=False,
+        multilabel=False,
+        id2label=None,
     ):
         """Adds a sequence classification head on top of the model.
 
@@ -634,17 +626,17 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             head_type = "multilabel_classification"
         else:
             head_type = "classification"
-
         config = {
             "head_type": head_type,
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_multiple_choice_head(
-        self, head_name, num_choices=2, layers=2, activation_function="tanh", overwrite_ok=False,
+        self, head_name, num_choices=2, layers=2, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         """Adds a multiple choice head on top of the model.
 
@@ -660,11 +652,12 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             "num_choices": num_choices,
             "layers": layers,
             "activation_function": activation_function,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_tagging_head(
-        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False,
+        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         """Adds a token classification head on top of the model.
 
@@ -680,6 +673,19 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+        }
+        self.add_prediction_head(head_name, config, overwrite_ok)
+
+    def add_qa_head(
+        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
+    ):
+        config = {
+            "head_type": "question_answering",
+            "num_labels": num_labels,
+            "layers": layers,
+            "activation_function": activation_function,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
         self.add_prediction_head(head_name, config, overwrite_ok)
 
@@ -688,6 +694,12 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     ):
         if head_name not in self.config.prediction_heads or overwrite_ok:
             self.config.prediction_heads[head_name] = config
+
+            if "label2id" not in config.keys() or config["label2id"] is None:
+                if "num_labels" in config.keys():
+                    config["label2id"] = {"LABEL_" + str(num): num for num in range(config["num_labels"])}
+                if "num_choices" in config.keys():
+                    config["label2id"] = {"LABEL_" + str(num): num for num in range(config["num_choices"])}
 
             logger.info(f"Adding head '{head_name}' with config {config}.")
             self._add_prediction_head_module(head_name)
@@ -784,7 +796,67 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                     loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
                 outputs = (loss,) + outputs
 
+        elif head["head_type"] == "question_answering":
+            logits = self.heads[head_name](sequence_output)
+
+            start_logits, end_logits = logits.split(1, dim=-1)
+            start_logits = start_logits.squeeze(-1)
+            end_logits = end_logits.squeeze(-1)
+
+            outputs = (start_logits, end_logits,) + outputs[2:]
+            if labels is not None:
+                start_positions, end_positions = labels
+                if len(start_positions.size()) > 1:
+                    start_positions = start_positions.squeeze(-1)
+                if len(end_positions.size()) > 1:
+                    end_positions = end_positions.squeeze(-1)
+                # sometimes the start/end positions are outside our model inputs, we ignore these terms
+                ignored_index = start_logits.size(1)
+                start_positions.clamp_(0, ignored_index)
+                end_positions.clamp_(0, ignored_index)
+
+                loss_fct = CrossEntropyLoss(ignore_index=ignored_index)
+                start_loss = loss_fct(start_logits, start_positions)
+                end_loss = loss_fct(end_logits, end_positions)
+                total_loss = (start_loss + end_loss) / 2
+                outputs = (total_loss,) + outputs
+
         else:
             raise ValueError("Unknown head_type '{}'".format(head["head_type"]))
 
         return outputs  # (loss), logits, (hidden_states), (attentions)
+
+    def get_labels_dict(self, head_name=None):
+        """
+        Returns the id2label dict for the given head
+        Args:
+            head_name: (str, optional) the name of the head which labels should be returned. Default is None.
+            If the name is None the labels of the active head are returned
+
+        Returns: id2label
+
+        """
+        if head_name is None:
+            head_name = self.active_head
+        if head_name is None:
+            raise ValueError("No head name given and no active head in the model")
+        if "label2id" in self.config.prediction_heads[head_name].keys():
+            return {id_: label for label, id_ in self.config.prediction_heads[head_name]["label2id"].items()}
+        else:
+            return None
+
+    def get_labels(self, head_name=None):
+        """
+        Returns the labels the given head is assigning/predicting
+        Args:
+            head_name: (str, optional) the name of the head which labels should be returned. Default is None.
+            If the name is None the labels of the active head are returned
+
+        Returns: labels
+
+        """
+        label_dict = self.get_labels_dict(head_name)
+        if label_dict is None:
+            return None
+        else:
+            return list(label_dict.values())

@@ -65,7 +65,8 @@ Awesome! Please provide the following information:
 If you are willing to contribute the model yourself, let us know so we can best
 guide you.
 
-We have added a **detailed guide and templates** to guide you in the process of adding a new model. You can find them in the [`templates`](./templates) folder.
+We have added a **detailed guide and templates** to guide you in the process of adding a new model. You can find them 
+in the [`templates`](https://github.com/huggingface/transformers/templates) folder.
 
 ### Do you want a new feature (that is not a model)?
 
@@ -86,7 +87,9 @@ A world-class feature request addresses the following points:
 If your issue is well written we're already 80% of the way there by the time you
 post it.
 
-We have added **templates** to guide you in the process of adding a new example script for training or testing the models in the library. You can find them in the [`templates`](./templates) folder.
+We have added **templates** to guide you in the process of adding a new example script for training or testing the 
+models in the library. You can find them in the [`templates`](https://github.com/huggingface/transformers/templates) 
+folder.
 
 ## Start contributing! (Pull Requests)
 
@@ -95,13 +98,13 @@ issues to make sure that nobody is already working on the same thing. If you are
 unsure, it is always a good idea to open an issue to get some feedback.
 
 You will need basic `git` proficiency to be able to contribute to
-`transformers`. `git` is not the easiest tool to use but it has the greatest
+`adapter-transformers`. `git` is not the easiest tool to use but it has the greatest
 manual. Type `git --help` in a shell and enjoy. If you prefer books, [Pro
 Git](https://git-scm.com/book/en/v2) is a very good reference.
 
 Follow these steps to start contributing:
 
-1. Fork the [repository](https://github.com/huggingface/transformers) by
+1. Fork the [repository](https://github.com/Adapter-Hub/adapter-transformers) by
    clicking on the 'Fork' button on the repository's page. This creates a copy of the code
    under your GitHub user account.
 
@@ -109,8 +112,8 @@ Follow these steps to start contributing:
 
    ```bash
    $ git clone git@github.com:<your Github handle>/transformers.git
-   $ cd transformers
-   $ git remote add upstream https://github.com/huggingface/transformers.git
+   $ cd adapter-transformers
+   $ git remote add upstream https://github.com/Adapter-Hub/adapter-transformers.git
    ```
 
 3. Create a new branch to hold your development changes:
@@ -128,15 +131,9 @@ Follow these steps to start contributing:
    ```
 
    (If transformers was already installed in the virtual environment, remove
-   it with `pip uninstall transformers` before reinstalling it in editable
+   it with `pip uninstall adapter-transformers` before reinstalling it in editable
    mode with the `-e` flag.)
 
-   Right now, we need an unreleased version of `isort` to avoid a
-   [bug](https://github.com/timothycrosley/isort/pull/1000):
-
-   ```bash
-   $ pip install -U git+git://github.com/timothycrosley/isort.git@e63ae06ec7d70b06df9e528357650281a3d3ec22#egg=isort
-   ```
 5. Develop the features on your branch.
 
    As you work on the features, you should make sure that the test suite
@@ -146,14 +143,14 @@ Follow these steps to start contributing:
    $ make test
    ```
 
-   `transformers` relies on `black` and `isort` to format its source code
+   `adapter-transformers` relies on `black` and `isort` to format its source code
    consistently. After you make changes, format them with:
 
    ```bash
    $ make style
    ```
 
-   `transformers` also uses `flake8` to check for coding mistakes. Quality
+   `adapter-transformers` also uses `flake8` to check for coding mistakes. Quality
    control runs in CI, however you can also run the same checks with:
 
    ```bash
@@ -206,15 +203,21 @@ Follow these steps to start contributing:
    to be merged;
 4. Make sure existing tests pass;
 5. Add high-coverage tests. No quality testing = no merge. 
- - If you are adding a new model, make sure that you use `ModelTester.all_model_classes = (MyModel, MyModelWithLMHead,...)`, which triggers the common tests.
- - If you are adding new `@slow` tests, make sure they pass using `RUN_SLOW=1 python -m pytest tests/test_my_new_model.py`. 
- - If you are adding a new tokenizer, write tests, and make sure `RUN_SLOW=1 python -m pytest tests/test_tokenization_{your_model_name}.py` passes.
-CircleCI does not run them. 
-6. All public methods must have informative docstrings that work nicely with sphinx. See `modeling_ctrl.py` for an example.
+   - If you are adding a new model, make sure that you use 
+     `ModelTester.all_model_classes = (MyModel, MyModelWithLMHead,...)`, which triggers the common tests.
+   - If you are adding new `@slow` tests, make sure they pass using 
+     `RUN_SLOW=1 python -m pytest tests/test_my_new_model.py`. 
+   - If you are adding a new tokenizer, write tests, and make sure 
+     `RUN_SLOW=1 python -m pytest tests/test_tokenization_{your_model_name}.py` passes.
+   CircleCI does not run the slow tests. 
+6. All public methods must have informative docstrings that work nicely with sphinx. See `modeling_ctrl.py` for an 
+   example.
 
 ### Tests
 
-You can run 🤗 Transformers tests with `unittest` or `pytest`.
+An extensive test suite is included to test the library behavior and several examples. Library tests can be found in 
+the [tests folder](https://github.com/huggingface/transformers/tree/master/tests) and examples tests in the 
+[examples folder](https://github.com/huggingface/transformers/tree/master/examples).
 
 We like `pytest` and `pytest-xdist` because it's faster. From the root of the
 repository, here's how to run tests with `pytest` for the library:
@@ -261,7 +264,8 @@ $ python -m unittest discover -s examples -t examples -v
 
 ### Style guide
 
-For documentation strings, `transformers` follows the [google
-style](https://google.github.io/styleguide/pyguide.html).
+For documentation strings, `transformers` follows the [google style](https://google.github.io/styleguide/pyguide.html).
+Check our [documentation writing guide](https://github.com/huggingface/transformers/tree/master/docs#writing-documentation---specification)
+for more information.
 
 #### This guide was heavily inspired by the awesome [scikit-learn guide to contributing](https://github.com/scikit-learn/scikit-learn/blob/master/CONTRIBUTING.md)

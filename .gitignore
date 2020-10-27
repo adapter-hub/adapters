@@ -8,6 +8,10 @@ __pycache__/
 # C extensions
 *.so
 
+# tests and logs
+tests/fixtures
+logs/
+
 # Distribution / packaging
 .Python
 build/
@@ -117,6 +121,7 @@ dmypy.json
 .pyre/
 
 # vscode
+.vs
 .vscode
 
 # Pycharm

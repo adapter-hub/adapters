@@ -6,16 +6,16 @@
 </h1>
 
 <h3 align="center">
-A friendly fork of Huggingface's <i>Transformers</i>, adding Adapters to PyTorch language models
+A friendly fork of HuggingFace's <i>Transformers</i>, adding Adapters to PyTorch language models
 </h3>
 
 ![Tests](https://github.com/Adapter-Hub/adapter-transformers/workflows/Tests/badge.svg)
 [![GitHub](https://img.shields.io/github/license/adapter-hub/adapter-transformers.svg?color=blue)](https://github.com/adapter-hub/adapter-transformers/blob/master/LICENSE)
 ![PyPI](https://img.shields.io/pypi/v/adapter-transformers)
 
-`adapter-transformers` is an extension of [Huggingface's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
+`adapter-transformers` is an extension of [HuggingFace's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
 
-This library can be used as a drop-in replacement for Huggingface Transformers and regulary synchronizes new upstream changes.
+This library can be used as a drop-in replacement for HuggingFace Transformers and regularly synchronizes new upstream changes.
 
 ## Installation
 

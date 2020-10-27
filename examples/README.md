@@ -1,7 +1,7 @@
-## Examples
+# Examples
 
 Version 2.9 of `transformers` introduces a new [`Trainer`](https://github.com/adapter-hub/adapter-transformers/blob/master/src/transformers/trainer.py) class for PyTorch, and its equivalent [`TFTrainer`](https://github.com/adapter-hub/adapter-transformers/blob/master/src/transformers/trainer_tf.py) for TF 2.
-Running the examples requires PyTorch 1.3.1+ or TensorFlow 2.0+.
+Running the examples requires PyTorch 1.3.1+ or TensorFlow 2.1+.
 
 Here is the list of all our examples:
 - **grouped by task** (all official examples work for multiple models)
@@ -14,7 +14,7 @@ This is still a work-in-progress – in particular documentation is still sparse
 **Note**: For more information on training Adapters, please refer to the [Training section in the Adapter-Hub documentation](https://docs.adapterhub.ml/training).
 
 
-# The Big Table of Tasks
+## The Big Table of Tasks
 
 | Task | Example datasets | Adapter support (pytorch) | Trainer support | TFTrainer support | pytorch-lightning
 |---|---|:---:|:---:|:---:|:---:|
@@ -23,12 +23,12 @@ This is still a work-in-progress – in particular documentation is still sparse
 | [**`token-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/token-classification) | CoNLL NER       | ✅ | ✅ | ✅ | ✅ 
 | [**`multiple-choice`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/multiple-choice)           | SWAG, RACE, ARC | ✅ | ✅ | ✅ | - 
 | [**`question-answering`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/question-answering)     | SQuAD           | ✅ | -  | ✅ | - 
-| [**`text-generation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/text-generation)     | -           | - | -  | - | - 
+| [**`text-generation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/text-generation)     | -           | n/a | n/a  | n/a | n/a 
 | [**`distillation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/distillation)       | All               | - | -  | -  | - 
-| [**`summarization`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/summarization)     | CNN/Daily Mail    | - | -  | -  | - 
-| [**`translation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/translation)         | WMT               | - | -  | -  | - 
+| [**`summarization`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/summarization)     | CNN/Daily Mail    | - | -  | -  | ✅ 
+| [**`translation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/translation)         | WMT               | - | -  | -  | ✅ 
 | [**`bertology`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/bertology)             | -                 | - | -  | -  | - 
-| [**`adversarial`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/adversarial)         | HANS              | - | -  | -  | - 
+| [**`adversarial`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/adversarial)         | HANS              | - | ✅ | -  | - 
 
 
 <br>
