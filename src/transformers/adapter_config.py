@@ -167,8 +167,7 @@ DEFAULT_ADAPTER_CONFIG = "pfeiffer"
 
 
 class ModelAdaptersConfig:
-    """This class manages the setup and configuration of adapter modules in a pre-trained model.
-    """
+    """This class manages the setup and configuration of adapter modules in a pre-trained model."""
 
     def __init__(self, **kwargs):
         # adapters maps <name> -> (<type>, <config_name>)
@@ -248,8 +247,7 @@ class ModelAdaptersConfig:
         logger.info(f"Adding adapter '{adapter_name}' of type '{adapter_type}'.")
 
     def get_config(self, adapter_type: AdapterType) -> dict:
-        """Gets the default adapter configuration of the specified adapter type.
-        """
+        """Gets the default adapter configuration of the specified adapter type."""
         config = self.config_map.get(adapter_type, None)
         if isinstance(config, str) and config in ADAPTER_CONFIG_MAP:
             return ADAPTER_CONFIG_MAP[config]

@@ -83,7 +83,7 @@ class XLMRobertaModelWithHeads(RobertaModelWithHeads):
     superclass for the appropriate documentation alongside usage examples.
     """
 
-    config_class = 
+    config_class = XLMRobertaConfig
 
 
 @add_start_docstrings(

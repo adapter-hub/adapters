@@ -243,7 +243,10 @@ def main():
             # load a pre-trained from Hub if specified
             if adapter_args.load_adapter:
                 model.load_adapter(
-                    adapter_args.load_adapter, AdapterType.text_lang, config=adapter_config, load_as=language,
+                    adapter_args.load_adapter,
+                    AdapterType.text_lang,
+                    config=adapter_config,
+                    load_as=language,
                 )
             # otherwise, add a fresh adapter
             else:

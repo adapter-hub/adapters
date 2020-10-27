@@ -12,8 +12,7 @@ from .adapter_utils import AdapterType, flatten_adapter_names
 
 
 class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
-    """Adds attention adapters to the Transformer module of DistilBert.
-    """
+    """Adds attention adapters to the Transformer module of DistilBert."""
 
     def __init__(self, parent):
         super().__init__()
@@ -26,8 +25,7 @@ class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMix
 
 
 class DistilBertOutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
-    """Adds output adapters to the Transformer module of DistilBert.
-    """
+    """Adds output adapters to the Transformer module of DistilBert."""
 
     def __init__(self, parent):
         super().__init__()
@@ -40,8 +38,7 @@ class DistilBertOutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
 
 
 class DistilBertTransfomerBlockAdaptersMixin:
-    """Adds adapters to the TransformerBlock module of DistilBert.
-    """
+    """Adds adapters to the TransformerBlock module of DistilBert."""
 
     def _init_adapter_modules(self):
         self.attention_adapters = DistilBertSelfAttentionAdaptersModule(self)
@@ -63,15 +60,13 @@ class DistilBertTransfomerBlockAdaptersMixin:
 
 
 class DistilBertTransformerAdaptersMixin(BertEncoderAdaptersMixin):
-    """Adds adapters to the Transformer module of DistilBert.
-    """
+    """Adds adapters to the Transformer module of DistilBert."""
 
     pass
 
 
 class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
-    """Adds adapters to the DistilBert module.
-    """
+    """Adds adapters to the DistilBert module."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -135,7 +130,6 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
 
 class DistilBertModelHeadsMixin(BertModelHeadsMixin):
-    """Adds heads to a DistilBert model.
-    """
+    """Adds heads to a DistilBert model."""
 
     pass

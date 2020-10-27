@@ -8,6 +8,12 @@ from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
 from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion
 from .adapter_utils import flatten_adapter_names, parse_adapter_names
+from .modeling_outputs import (
+    MultipleChoiceModelOutput,
+    QuestionAnsweringModelOutput,
+    SequenceClassifierOutput,
+    TokenClassifierOutput,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -37,8 +43,7 @@ def get_fusion_regularization_loss(model):
 
 
 class BertSelfOutputAdaptersMixin:
-    """Adds adapters to the BertSelfOutput module.
-    """
+    """Adds adapters to the BertSelfOutput module."""
 
     # override this property if layer norm has a different name
     @property
@@ -99,7 +104,10 @@ class BertSelfOutputAdaptersMixin:
                         param.requires_grad = True
 
     def get_adapter_preparams(
-        self, adapter_config, hidden_states, input_tensor,
+        self,
+        adapter_config,
+        hidden_states,
+        input_tensor,
     ):
         """
         Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
@@ -208,7 +216,12 @@ class BertSelfOutputAdaptersMixin:
 
             fusion_name = ",".join(adapter_stack)
 
-            hidden_states = self.adapter_fusion_layer[fusion_name](query, up_list, up_list, residual,)
+            hidden_states = self.adapter_fusion_layer[fusion_name](
+                query,
+                up_list,
+                up_list,
+                residual,
+            )
         return hidden_states
 
     def adapters_forward(self, hidden_states, input_tensor, adapter_names=None):
@@ -227,7 +240,9 @@ class BertSelfOutputAdaptersMixin:
 
             for adapter_stack in adapter_names:
                 hidden_states = self.adapter_stack_layer(
-                    hidden_states=hidden_states, input_tensor=input_tensor, adapter_stack=adapter_stack,
+                    hidden_states=hidden_states,
+                    input_tensor=input_tensor,
+                    adapter_stack=adapter_stack,
                 )
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
@@ -241,8 +256,7 @@ class BertSelfOutputAdaptersMixin:
 
 
 class BertOutputAdaptersMixin:
-    """Adds adapters to the BertOutput module.
-    """
+    """Adds adapters to the BertOutput module."""
 
     # override this property if layer norm has a different name
     @property
@@ -298,7 +312,10 @@ class BertOutputAdaptersMixin:
                         param.requires_grad = True
 
     def get_adapter_preparams(
-        self, adapter_config, hidden_states, input_tensor,
+        self,
+        adapter_config,
+        hidden_states,
+        input_tensor,
     ):
         """
         Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
@@ -427,7 +444,9 @@ class BertOutputAdaptersMixin:
 
             for adapter_stack in adapter_names:
                 hidden_states = self.adapter_stack_layer(
-                    hidden_states=hidden_states, input_tensor=input_tensor, adapter_stack=adapter_stack,
+                    hidden_states=hidden_states,
+                    input_tensor=input_tensor,
+                    adapter_stack=adapter_stack,
                 )
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
@@ -441,8 +460,7 @@ class BertOutputAdaptersMixin:
 
 
 class BertLayerAdaptersMixin:
-    """Adds adapters to the BertLayer module.
-    """
+    """Adds adapters to the BertLayer module."""
 
     def add_fusion_layer(self, adapter_names):
         self.attention.output.add_fusion_layer(adapter_names)
@@ -458,8 +476,7 @@ class BertLayerAdaptersMixin:
 
 
 class BertEncoderAdaptersMixin:
-    """Adds adapters to the BertEncoder module.
-    """
+    """Adds adapters to the BertEncoder module."""
 
     def add_fusion_layer(self, adapter_names):
         for layer in self.layer:
@@ -478,8 +495,7 @@ class BertEncoderAdaptersMixin:
 
 
 class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
-    """Adds adapters to the BertModel module.
-    """
+    """Adds adapters to the BertModel module."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -544,8 +560,7 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
 
 class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
-    """Adds heads to a Bert-based module.
-    """
+    """Adds heads to a Bert-based module."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -666,7 +681,10 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_prediction_head(
-        self, head_name, config, overwrite_ok=False,
+        self,
+        head_name,
+        config,
+        overwrite_ok=False,
     ):
         if head_name not in self.config.prediction_heads or overwrite_ok:
             self.config.prediction_heads[head_name] = config
@@ -706,7 +724,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.heads[head_name].apply(self._init_weights)
         self.heads[head_name].train(self.training)  # make sure training mode is consistent
 
-    def forward_head(self, outputs, head_name=None, attention_mask=None, labels=None):
+    def forward_head(self, outputs, head_name=None, attention_mask=None, labels=None, return_dict=False):
         head_name = head_name or self.active_head
         if not head_name:
             logger.debug("No prediction head is used.")
@@ -718,6 +736,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         head = self.config.prediction_heads[head_name]
 
         sequence_output = outputs[0]
+        loss = None
 
         if head["head_type"] == "classification":
             logits = self.heads[head_name](sequence_output[:, 0])
@@ -733,6 +752,16 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                     loss = loss_fct(logits.view(-1, head["num_labels"]), labels.view(-1))
                 outputs = (loss,) + outputs
 
+            if return_dict:
+                return SequenceClassifierOutput(
+                    loss=loss,
+                    logits=logits,
+                    hidden_states=outputs.hidden_states,
+                    attentions=outputs.attentions,
+                )
+            else:
+                return outputs
+
         elif head["head_type"] == "multilabel_classification":
             logits = self.heads[head_name](sequence_output[:, 0])
 
@@ -744,6 +773,16 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 loss = loss_fct(logits, labels)
                 outputs = (loss,) + outputs
 
+            if return_dict:
+                return SequenceClassifierOutput(
+                    loss=loss,
+                    logits=logits,
+                    hidden_states=outputs.hidden_states,
+                    attentions=outputs.attentions,
+                )
+            else:
+                return outputs
+
         elif head["head_type"] == "multiple_choice":
             logits = self.heads[head_name](sequence_output[:, 0])
             logits = logits.view(-1, head["num_choices"])
@@ -753,6 +792,16 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 loss_fct = CrossEntropyLoss()
                 loss = loss_fct(logits, labels)
                 outputs = (loss,) + outputs
+
+            if return_dict:
+                return MultipleChoiceModelOutput(
+                    loss=loss,
+                    logits=logits,
+                    hidden_states=outputs.hidden_states,
+                    attentions=outputs.attentions,
+                )
+            else:
+                return outputs
 
         elif head["head_type"] == "tagging":
             logits = self.heads[head_name](sequence_output)
@@ -772,6 +821,16 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                     loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
                 outputs = (loss,) + outputs
 
+            if return_dict:
+                return TokenClassifierOutput(
+                    loss=loss,
+                    logits=logits,
+                    hidden_states=outputs.hidden_states,
+                    attentions=outputs.attentions,
+                )
+            else:
+                return outputs
+
         elif head["head_type"] == "question_answering":
             logits = self.heads[head_name](sequence_output)
 
@@ -779,7 +838,10 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             start_logits = start_logits.squeeze(-1)
             end_logits = end_logits.squeeze(-1)
 
-            outputs = (start_logits, end_logits,) + outputs[2:]
+            outputs = (
+                start_logits,
+                end_logits,
+            ) + outputs[2:]
             if labels is not None:
                 start_positions, end_positions = labels
                 if len(start_positions.size()) > 1:
@@ -797,10 +859,19 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 total_loss = (start_loss + end_loss) / 2
                 outputs = (total_loss,) + outputs
 
+            if return_dict:
+                return QuestionAnsweringModelOutput(
+                    loss=loss,
+                    start_logits=start_logits,
+                    end_logits=end_logits,
+                    hidden_states=outputs.hidden_states,
+                    attentions=outputs.attentions,
+                )
+            else:
+                return outputs
+
         else:
             raise ValueError("Unknown head_type '{}'".format(head["head_type"]))
-
-        return outputs  # (loss), logits, (hidden_states), (attentions)
 
     def get_labels_dict(self, head_name=None):
         """

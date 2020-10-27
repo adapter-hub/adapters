@@ -611,12 +611,12 @@ class AutoModel:
 
 class AutoModelWithHeads:
     r"""
-        :class:`~transformers.AutoModelWithHeads` is a generic model class
-        that will be instantiated as one of the flexible prediction head model classes of the library
-        when created with the `AutoModelWithHeads.from_pretrained(pretrained_model_name_or_path)`
-        class method.
+    :class:`~transformers.AutoModelWithHeads` is a generic model class
+    that will be instantiated as one of the flexible prediction head model classes of the library
+    when created with the `AutoModelWithHeads.from_pretrained(pretrained_model_name_or_path)`
+    class method.
 
-        This class cannot be instantiated using `__init__()` (throws an error).
+    This class cannot be instantiated using `__init__()` (throws an error).
     """
 
     def __init__(self):
@@ -628,7 +628,7 @@ class AutoModelWithHeads:
 
     @classmethod
     def from_config(cls, config):
-        r""" Instantiates one of the base model classes of the library
+        r"""Instantiates one of the base model classes of the library
         from a configuration.
 
         Note:
@@ -655,13 +655,15 @@ class AutoModelWithHeads:
         raise ValueError(
             "Unrecognized configuration class {} for this kind of AutoModel: {}.\n"
             "Model type should be one of {}.".format(
-                config.__class__, cls.__name__, ", ".join(c.__name__ for c in MODEL_WITH_HEADS_MAPPING.keys()),
+                config.__class__,
+                cls.__name__,
+                ", ".join(c.__name__ for c in MODEL_WITH_HEADS_MAPPING.keys()),
             )
         )
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
-        r""" Instantiates one of the flexible prediction head model classes of the library
+        r"""Instantiates one of the flexible prediction head model classes of the library
         from a pre-trained model configuration.
 
         The `from_pretrained()` method takes care of returning the correct model class instance
@@ -734,7 +736,9 @@ class AutoModelWithHeads:
         raise ValueError(
             "Unrecognized configuration class {} for this kind of AutoModel: {}.\n"
             "Model type should be one of {}.".format(
-                config.__class__, cls.__name__, ", ".join(c.__name__ for c in MODEL_WITH_HEADS_MAPPING.keys()),
+                config.__class__,
+                cls.__name__,
+                ", ".join(c.__name__ for c in MODEL_WITH_HEADS_MAPPING.keys()),
             )
         )
 

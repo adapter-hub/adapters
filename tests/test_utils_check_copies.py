@@ -27,8 +27,10 @@ REFERENCE_CODE = """    def __init__(self, config):
         # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
         self.decoder.bias = self.bias
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, inv_lang_adapter=None):
         hidden_states = self.transform(hidden_states)
+        if inv_lang_adapter:
+            hidden_states = inv_lang_adapter(hidden_states, rev=True)
         hidden_states = self.decoder(hidden_states)
         return hidden_states
 """

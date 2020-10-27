@@ -27,7 +27,7 @@ import torch.utils.checkpoint
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
-from .activations import ACT2FN, gelu, gelu_new, swish
+from .activations import ACT2FN
 from .adapter_bert import (
     BertEncoderAdaptersMixin,
     BertLayerAdaptersMixin,
@@ -291,7 +291,7 @@ class BertSelfAttention(nn.Module):
         return outputs
 
 
-class BertSelfOutput(nn.Module, BertSelfOutputAdaptersMixin):
+class BertSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -371,7 +371,7 @@ class BertIntermediate(nn.Module):
         return hidden_states
 
 
-class BertOutput(nn.Module, BertOutputAdaptersMixin):
+class BertOutput(BertOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -413,7 +413,11 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
         adapter_names=None,
     ):
         self_attention_outputs = self.attention(
-            hidden_states, attention_mask, head_mask, output_attentions=output_attentions, adapter_names=adapter_names,
+            hidden_states,
+            attention_mask,
+            head_mask,
+            output_attentions=output_attentions,
+            adapter_names=adapter_names,
         )
         attention_output = self_attention_outputs[0]
         outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
@@ -434,12 +438,16 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
             outputs = outputs + cross_attention_outputs[1:]  # add cross attentions if we output attention weights
 
         layer_output = apply_chunking_to_forward(
-            self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output, adapter_names=adapter_names
+            self.feed_forward_chunk,
+            self.chunk_size_feed_forward,
+            self.seq_len_dim,
+            attention_output,
+            adapter_names=adapter_names,
         )
         outputs = (layer_output,) + outputs
         return outputs
 
-    def feed_forward_chunk(self, attention_output, adapter_names):
+    def feed_forward_chunk(self, attention_output, adapter_names=None):
         intermediate_output = self.intermediate(attention_output)
         layer_output = self.output(intermediate_output, attention_output, adapter_names=adapter_names)
         return layer_output
@@ -885,7 +893,8 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
 
 
 @add_start_docstrings(
-    """Bert Model transformer with the option to add multiple flexible heads on top.""", BERT_START_DOCSTRING,
+    """Bert Model transformer with the option to add multiple flexible heads on top.""",
+    BERT_START_DOCSTRING,
 )
 class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
     def __init__(self, config):
@@ -911,11 +920,14 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         output_hidden_states=None,
         adapter_names=None,
         head=None,
+        return_dict=None,
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
         attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
         token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
         position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         outputs = self.bert(
             input_ids,
@@ -927,9 +939,16 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             adapter_names=adapter_names,
+            return_dict=return_dict,
         )
 
-        outputs = self.forward_head(outputs, head_name=head, attention_mask=attention_mask, labels=labels,)
+        outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            attention_mask=attention_mask,
+            labels=labels,
+            return_dict=return_dict,
+        )
 
         return outputs
 
@@ -1024,7 +1043,9 @@ class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
         sequence_output, pooled_output = outputs[:2]
         prediction_scores, seq_relationship_score = self.cls(
-            sequence_output, pooled_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
+            sequence_output,
+            pooled_output,
+            inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
         )
 
         total_loss = None
@@ -1140,7 +1161,8 @@ class BertLMHeadModel(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
         sequence_output = outputs[0]
         prediction_scores = self.cls(
-            sequence_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
+            sequence_output,
+            inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
         )
 
         lm_loss = None

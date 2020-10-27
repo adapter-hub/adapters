@@ -40,10 +40,10 @@ if is_torch_available():
         AdaptiveEmbedding,
         BertConfig,
         BertModel,
+        ModelWithHeadsAdaptersMixin,
         PretrainedConfig,
         PreTrainedModel,
         top_k_top_p_filtering,
-        ModelWithHeadsAdaptersMixin,
     )
 
 

@@ -482,7 +482,7 @@ class PretrainedConfig(object):
         output = copy.deepcopy(self.__dict__)
         if hasattr(self.__class__, "model_type"):
             output["model_type"] = self.__class__.model_type
-        if hasattr(self, "adapters"):
+        if hasattr(self, "adapters") and not isinstance(output["adapters"], dict):
             output["adapters"] = self.adapters.to_dict()
         return output
 

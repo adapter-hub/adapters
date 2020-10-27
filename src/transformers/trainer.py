@@ -1102,7 +1102,7 @@ class Trainer:
 
         if self.adapter_names:
             inputs["adapter_names"] = self.adapter_names
-        
+
         return inputs
 
     def training_step(self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:

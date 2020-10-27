@@ -18,7 +18,6 @@
 """
 
 
-import logging
 import math
 import warnings
 
@@ -574,13 +573,19 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
             adapter_names=adapter_names,
         )
 
-        outputs = self.forward_head(distilbert_output, head_name=head, attention_mask=attention_mask, labels=labels,)
+        outputs = self.forward_head(
+            distilbert_output,
+            head_name=head,
+            attention_mask=attention_mask,
+            labels=labels,
+        )
 
         return outputs
 
 
 @add_start_docstrings(
-    """DistilBert Model with a `masked language modeling` head on top. """, DISTILBERT_START_DOCSTRING,
+    """DistilBert Model with a `masked language modeling` head on top. """,
+    DISTILBERT_START_DOCSTRING,
 )
 class DistilBertForMaskedLM(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config):
