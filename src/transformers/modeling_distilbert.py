@@ -562,15 +562,23 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
         head_mask=None,
         inputs_embeds=None,
         labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
         adapter_names=None,
         head=None,
+        return_dict=False,
     ):
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
         distilbert_output = self.distilbert(
             input_ids=input_ids,
             attention_mask=attention_mask,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
             adapter_names=adapter_names,
+            return_dict=return_dict,
         )
 
         outputs = self.forward_head(
@@ -578,6 +586,7 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
             head_name=head,
             attention_mask=attention_mask,
             labels=labels,
+            return_dict=return_dict,
         )
 
         return outputs

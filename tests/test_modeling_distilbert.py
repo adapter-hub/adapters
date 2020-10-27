@@ -33,6 +33,7 @@ if is_torch_available():
         DistilBertForSequenceClassification,
         DistilBertForTokenClassification,
         DistilBertModel,
+        DistilBertModelWithHeads,
     )
 
     class DistilBertModelTester(object):
@@ -198,6 +199,7 @@ class DistilBertModelTest(ModelTesterMixin, unittest.TestCase):
     all_model_classes = (
         (
             DistilBertModel,
+            DistilBertModelWithHeads,
             DistilBertForMaskedLM,
             DistilBertForMultipleChoice,
             DistilBertForQuestionAnswering,
