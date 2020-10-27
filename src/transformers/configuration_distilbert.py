@@ -17,6 +17,7 @@
 
 import logging
 
+from .adapter_config import ModelAdaptersConfig
 from .configuration_utils import PretrainedConfig
 
 
@@ -126,6 +127,13 @@ class DistilBertConfig(PretrainedConfig):
         self.qa_dropout = qa_dropout
         self.seq_classif_dropout = seq_classif_dropout
 
+        # adapter configuration
+        adapter_config_dict = kwargs.pop("adapters", None)
+        if adapter_config_dict:
+            self.adapters = ModelAdaptersConfig(**adapter_config_dict)
+        else:
+            self.adapters = ModelAdaptersConfig()
+
     @property
     def hidden_size(self):
         return self.dim
@@ -137,3 +145,11 @@ class DistilBertConfig(PretrainedConfig):
     @property
     def num_hidden_layers(self):
         return self.n_layers
+
+    @property
+    def hidden_dropout_prob(self):
+        return self.dropout
+
+    @property
+    def attention_probs_dropout_prob(self):
+        return self.attention_dropout

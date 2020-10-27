@@ -5,8 +5,8 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
-from .adapter_model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
-from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion, GLOWCouplingBlock, NICECouplingBlock
+from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
+from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion
 from .adapter_utils import flatten_adapter_names, parse_adapter_names
 
 
@@ -39,6 +39,11 @@ def get_fusion_regularization_loss(model):
 class BertSelfOutputAdaptersMixin:
     """Adds adapters to the BertSelfOutput module.
     """
+
+    # override this property if layer norm has a different name
+    @property
+    def layer_norm(self):
+        return self.LayerNorm
 
     def _init_adapter_modules(self):
         self.attention_text_task_adapters = nn.ModuleDict(dict())
@@ -115,7 +120,7 @@ class BertSelfOutputAdaptersMixin:
             query = hidden_states
 
         if adapter_config["original_ln_before"]:
-            hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            hidden_states = self.layer_norm(hidden_states + input_tensor)
 
         if not adapter_config["residual_before_ln"]:
             residual = hidden_states
@@ -227,10 +232,10 @@ class BertSelfOutputAdaptersMixin:
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
             if last_config["original_ln_after"]:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
+                hidden_states = self.layer_norm(hidden_states + input_tensor)
 
         else:
-            hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            hidden_states = self.layer_norm(hidden_states + input_tensor)
 
         return hidden_states
 
@@ -239,9 +244,12 @@ class BertOutputAdaptersMixin:
     """Adds adapters to the BertOutput module.
     """
 
+    # override this property if layer norm has a different name
+    @property
+    def layer_norm(self):
+        return self.LayerNorm
+
     def _init_adapter_modules(self):
-        # self.bert_adapter_att = BertAdapterAttention(config)
-        # self.bert_adapter_att = SimpleAdapterWeightingSentLvl(config)
         self.adapter_fusion_layer = nn.ModuleDict(dict())
         self.layer_text_task_adapters = nn.ModuleDict(dict())
         self.layer_text_lang_adapters = nn.ModuleDict(dict())
@@ -311,7 +319,7 @@ class BertOutputAdaptersMixin:
             query = hidden_states
 
         if adapter_config["original_ln_before"]:
-            hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            hidden_states = self.layer_norm(hidden_states + input_tensor)
 
         if not adapter_config["residual_before_ln"]:
             residual = hidden_states
@@ -424,10 +432,10 @@ class BertOutputAdaptersMixin:
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
             if last_config["original_ln_after"]:
-                hidden_states = self.LayerNorm(hidden_states + input_tensor)
+                hidden_states = self.layer_norm(hidden_states + input_tensor)
 
         else:
-            hidden_states = self.LayerNorm(hidden_states + input_tensor)
+            hidden_states = self.layer_norm(hidden_states + input_tensor)
 
         return hidden_states
 
@@ -469,7 +477,7 @@ class BertEncoderAdaptersMixin:
             layer.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
 
 
-class BertModelAdaptersMixin(ModelAdaptersMixin):
+class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     """Adds adapters to the BertModel module.
     """
 
@@ -477,7 +485,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         super().__init__(*args, **kwargs)
 
     def _init_adapter_modules(self):
-        self.invertible_lang_adapters = nn.ModuleDict(dict())
+        super()._init_adapter_modules()
 
         # language adapters
         for language in self.config.adapters.adapter_list(AdapterType.text_lang):
@@ -496,12 +504,8 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         self.train()
         self.freeze_model(True)
         adapter_names_flat = flatten_adapter_names(adapter_names)
-        self.encoder.enable_adapters(adapter_names_flat, True, False)
-        # unfreeze invertible adapters for invertible adapters
-        for adapter_name in adapter_names_flat:
-            if adapter_name in self.invertible_lang_adapters:
-                for param in self.invertible_lang_adapters[adapter_name].parameters():
-                    param.requires_grad = True
+        self.encoder.enable_adapters(adapter_names, True, False)
+        self.enable_invertible_adapters(adapter_names_flat)
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_names)
 
@@ -535,35 +539,7 @@ class BertModelAdaptersMixin(ModelAdaptersMixin):
         if adapter_type == AdapterType.text_lang:
             self.add_invertible_lang_adapter(adapter_name)
 
-    def add_invertible_lang_adapter(self, language):
-        if language in self.invertible_lang_adapters:
-            raise ValueError(f"Model already contains an adapter module for '{language}'.")
-        inv_adap_config = self.config.adapters.get(language)["invertible_adapter"]
-        if inv_adap_config["block_type"] == "nice":
-            inv_adap = NICECouplingBlock(
-                [[self.config.hidden_size]],
-                non_linearity=inv_adap_config["non_linearity"],
-                reduction_factor=inv_adap_config["reduction_factor"],
-            )
-        elif inv_adap_config["block_type"] == "glow":
-            inv_adap = GLOWCouplingBlock(
-                [[self.config.hidden_size]],
-                non_linearity=inv_adap_config["non_linearity"],
-                reduction_factor=inv_adap_config["reduction_factor"],
-            )
-        else:
-            raise ValueError(f"Invalid invertible adapter type '{inv_adap_config['block_type']}'.")
-        self.invertible_lang_adapters[language] = inv_adap
-        self.invertible_lang_adapters[language].apply(Adapter.init_bert_weights)
-
-    def get_invertible_lang_adapter(self, language):
-        if language in self.invertible_lang_adapters:
-            return self.invertible_lang_adapters[language]
-        else:
-            return None
-
-    def add_fusion_layer(self, adapter_names):
-        """See BertModel.add_attention_layer"""
+    def _add_fusion_layer(self, adapter_names):
         self.encoder.add_fusion_layer(adapter_names)
 
 
