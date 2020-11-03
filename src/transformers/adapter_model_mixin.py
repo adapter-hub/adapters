@@ -14,6 +14,7 @@ from .adapter_config import (
     AdapterConfig,
     AdapterFusionConfig,
     AdapterType,
+    ModelAdaptersConfig,
     build_full_config,
     get_adapter_config_hash,
 )
@@ -627,8 +628,7 @@ class PredictionHeadLoader(WeightsLoader):
 
 
 class InvertibleAdaptersMixin:
-    """Mixin for Transformer models adding invertible adapters.
-    """
+    """Mixin for Transformer models adding invertible adapters."""
 
     def _init_adapter_modules(self):
         self.invertible_lang_adapters = nn.ModuleDict(dict())
@@ -687,6 +687,13 @@ class ModelAdaptersMixin(ABC):
         self.model_name = None
         self._active_adapter_names = None
 
+        # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
+        # Thus, we check the adapters config here to make sure everything is correct.
+        if not hasattr(config, "adapters"):
+            config.adapters = ModelAdaptersConfig()
+        elif not isinstance(config.adapters, ModelAdaptersConfig):
+            config.adapters = ModelAdaptersConfig(**config.adapters)
+
     # These methods have to be implemented by every deriving class:
 
     @abstractmethod
@@ -705,14 +712,12 @@ class ModelAdaptersMixin(ABC):
 
     @abstractmethod
     def train_adapter(self, adapter_names: list):
-        """Sets the model into mode for training the given adapters.
-        """
+        """Sets the model into mode for training the given adapters."""
         pass
 
     @abstractmethod
     def train_fusion(self, adapter_names: list):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names.
-        """
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         pass
 
     def has_adapters(self, adapter_type=None):
@@ -841,7 +846,10 @@ class ModelAdaptersMixin(ABC):
             raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
     def save_adapter_fusion(
-        self, save_directory: str, adapter_names: list, custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        self,
+        save_directory: str,
+        adapter_names: list,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """Saves an adapter and its configuration file to a directory so that it can be shared
         or reloaded using `load_adapter()`.
@@ -983,8 +991,7 @@ class ModelAdaptersMixin(ABC):
             self.save_adapter_fusion(save_path, name, custom_weights_loaders=custom_weights_loaders)
 
     def freeze_model(self, freeze=True):
-        """Freezes all weights of the model.
-        """
+        """Freezes all weights of the model."""
         # first freeze/ unfreeze all model weights
         for param in self.base_model.parameters():
             param.requires_grad = not freeze
@@ -1041,7 +1048,10 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             if not any([isinstance(o, PredictionHeadLoader) for o in custom_weights_loaders]):
                 custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
         super().save_adapter(
-            save_directory, adapter_name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
+            save_directory,
+            adapter_name,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
         )
 
     def load_adapter(
@@ -1083,7 +1093,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 custom_weights_loaders = []
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
         super().save_all_adapters(
-            save_directory, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
+            save_directory,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
         )
 
     def get_labels(self):

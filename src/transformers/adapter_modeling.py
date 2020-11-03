@@ -24,8 +24,8 @@ class Activation_Function_Class(nn.Module):
         elif hidden_act.lower() == "gelu":
 
             def gelu_new(x):
-                """ Implementation of the gelu activation function currently in Google Bert repo (identical to OpenAI GPT).
-                    Also see https://arxiv.org/abs/1606.08415
+                """Implementation of the gelu activation function currently in Google Bert repo (identical to OpenAI GPT).
+                Also see https://arxiv.org/abs/1606.08415
                 """
                 return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
 
@@ -127,8 +127,7 @@ class Adapter(nn.Module):
     # copying so it might be better to pass the BERT model here TODO
     @staticmethod
     def init_bert_weights(module):
-        """ Initialize the weights.
-        """
+        """Initialize the weights."""
         if isinstance(module, (nn.Linear, nn.Embedding)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
