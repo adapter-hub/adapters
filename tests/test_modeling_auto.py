@@ -54,6 +54,7 @@ if is_torch_available():
         MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
         MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
         MODEL_MAPPING,
+        MODEL_WITH_HEADS_MAPPING,
         MODEL_WITH_LM_HEAD_MAPPING,
     )
     from transformers.modeling_bert import BERT_PRETRAINED_MODEL_ARCHIVE_LIST
@@ -198,6 +199,7 @@ class AutoModelTest(unittest.TestCase):
 
         mappings = (
             MODEL_MAPPING,
+            MODEL_WITH_HEADS_MAPPING,
             MODEL_FOR_PRETRAINING_MAPPING,
             MODEL_FOR_QUESTION_ANSWERING_MAPPING,
             MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,

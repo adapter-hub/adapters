@@ -1,0 +1,60 @@
+name: Tests
+
+on:
+  push:
+    branches: [ 'master' ]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'templates/**'
+      - 'tests/**'
+      - 'utils/**'
+  pull_request:
+    branches: [ 'master' ]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'templates/**'
+      - 'tests/**'
+      - 'utils/**'
+
+jobs:
+  check_code_quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install
+        run: |
+          pip install .[torch,quality]
+      - name: Check Quality
+        run: |
+          make quality
+  run_reduced_tests_torch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install
+        run: |
+          pip install .[sklearn,torch,testing]
+          pip install datasets
+      - name: Test
+        run: |
+          make test-reduced

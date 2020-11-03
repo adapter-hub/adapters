@@ -32,6 +32,9 @@ from torch.utils.data import ConcatDataset
 from transformers import (
     CONFIG_MAPPING,
     MODEL_WITH_LM_HEAD_MAPPING,
+    AdapterArguments,
+    AdapterConfig,
+    AdapterType,
     AutoConfig,
     AutoModelWithLMHead,
     AutoTokenizer,
@@ -166,8 +169,8 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
+    model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     if data_args.eval_data_file is None and training_args.do_eval:
         raise ValueError(
@@ -241,6 +244,33 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
+    # Setup adapters
+    if adapter_args.train_adapter:
+        language = adapter_args.language
+        if not language:
+            raise ValueError("--language flag must be set when training an adapter")
+        # check if language adapter already exists, otherwise add it
+        if language not in model.config.adapters.adapter_list(AdapterType.text_lang):
+            # resolve the adapter config
+            adapter_config = AdapterConfig.load(
+                adapter_args.adapter_config,
+                non_linearity=adapter_args.adapter_non_linearity,
+                reduction_factor=adapter_args.adapter_reduction_factor,
+            )
+            # load a pre-trained from Hub if specified
+            if adapter_args.load_adapter:
+                model.load_adapter(
+                    adapter_args.load_adapter,
+                    AdapterType.text_lang,
+                    config=adapter_config,
+                    load_as=language,
+                )
+            # otherwise, add a fresh adapter
+            else:
+                model.add_adapter(language, AdapterType.text_lang, config=adapter_config)
+        # Freeze all model weights except of those of this adapter & use this adapter in every forward pass
+        model.train_adapter([language])
+
     if config.model_type in ["bert", "roberta", "distilbert", "camembert"] and not data_args.mlm:
         raise ValueError(
             "BERT and RoBERTa-like models do not have LM heads but masked LM heads. They must be run using the"
@@ -282,6 +312,8 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         prediction_loss_only=True,
+        do_save_full_model=not adapter_args.train_adapter,
+        do_save_adapters=adapter_args.train_adapter,
     )
 
     # Training

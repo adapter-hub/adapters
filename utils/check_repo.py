@@ -18,6 +18,8 @@ import inspect
 import os
 import re
 
+from transformers.file_utils import is_tf_available, is_torch_available
+
 
 # All paths are set with the intent you should run this script from the root of the repo with the command
 # python utils/check_repo.py
@@ -58,6 +60,11 @@ IGNORE_NON_DOCUMENTED = [
     "DPRSpanPredictor",  # Building part of bigger (documented) model.
     "T5Stack",  # Building part of bigger (tested) model.
     "TFElectraMainLayer",  # Building part of bigger (documented) model (should it be a TFPreTrainedModel ?)
+    # adapter-transformers specific
+    "BertModelWithHeads",
+    "DistilBertModelWithHeads",
+    "RobertaModelWithHeads",
+    "XLMRobertaModelWithHeads",
 ]
 
 # Update this dict with any special correspondance model name (used in modeling_xxx.py) to doc file.
@@ -110,7 +117,11 @@ def get_model_modules():
 def get_models(module):
     """ Get the objects in module that are models."""
     models = []
-    model_classes = (transformers.PreTrainedModel, transformers.TFPreTrainedModel)
+    model_classes = ()
+    if is_torch_available():
+        model_classes += (transformers.PreTrainedModel,)
+    if is_tf_available():
+        model_classes += (transformers.TFPreTrainedModel,)
     for attr_name in dir(module):
         if "Pretrained" in attr_name or "PreTrained" in attr_name:
             continue
@@ -163,7 +174,7 @@ def get_model_doc_files():
 def find_tested_models(test_file):
     """ Parse the content of test_file to detect what's in all_model_classes"""
     # This is a bit hacky but I didn't find a way to import the test_file as a module and read inside the class
-    with open(os.path.join(PATH_TO_TESTS, test_file)) as f:
+    with open(os.path.join(PATH_TO_TESTS, test_file), encoding="utf-8") as f:
         content = f.read()
     all_models = re.findall(r"all_model_classes\s+=\s+\(\s*\(([^\)]*)\)", content)
     # Check with one less parenthesis
@@ -221,7 +232,7 @@ def check_all_models_are_tested():
 
 def find_documented_classes(doc_file):
     """ Parse the content of doc_file to detect which classes it documents"""
-    with open(os.path.join(PATH_TO_DOC, doc_file)) as f:
+    with open(os.path.join(PATH_TO_DOC, doc_file), encoding="utf-8") as f:
         content = f.read()
     return re.findall(r"autoclass:: transformers.(\S+)\s+", content)
 

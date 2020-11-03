@@ -35,6 +35,7 @@ if is_torch_available():
         RobertaForSequenceClassification,
         RobertaForTokenClassification,
         RobertaModel,
+        RobertaModelWithHeads,
     )
     from transformers.modeling_roberta import (
         ROBERTA_PRETRAINED_MODEL_ARCHIVE_LIST,
@@ -274,6 +275,7 @@ class RobertaModelTest(ModelTesterMixin, unittest.TestCase):
             RobertaForCausalLM,
             RobertaForMaskedLM,
             RobertaModel,
+            RobertaModelWithHeads,
             RobertaForSequenceClassification,
             RobertaForTokenClassification,
             RobertaForMultipleChoice,

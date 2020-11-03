@@ -35,6 +35,7 @@ if is_torch_available():
         BertForTokenClassification,
         BertLMHeadModel,
         BertModel,
+        BertModelWithHeads,
     )
     from transformers.modeling_bert import BERT_PRETRAINED_MODEL_ARCHIVE_LIST
 
@@ -362,6 +363,7 @@ class BertModelTest(ModelTesterMixin, unittest.TestCase):
     all_model_classes = (
         (
             BertModel,
+            BertModelWithHeads,
             BertForMaskedLM,
             BertForMultipleChoice,
             BertForNextSentencePrediction,

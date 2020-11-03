@@ -1,13 +1,13 @@
 ---
-name: "\U0001F31F New model addition"
-about: Submit a proposal/request to implement a new Transformer-based model
+name: "\U0001F31F New adapter setup"
+about: Submit a proposal/request to implement a new adapter setup or to add a new model
 title: ''
-labels: New model
+labels: 'enhancement'
 assignees: ''
 
 ---
 
-# 🌟 New model addition
+# 🌟 New adapter setup
 
 ## Model description
 

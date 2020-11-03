@@ -2,7 +2,7 @@
 # There's no way to ignore "F401 '...' imported but unused" warnings in this
 # module, but to preserve other warnings. So, don't check this module at all.
 
-__version__ = "3.4.0"
+__version__ = "1.0.1"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
 # default Python logging output behavior when present.
@@ -273,6 +273,46 @@ from .utils import logging
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 
+# Adapters
+if is_torch_available():
+    from .adapter_config import (
+        ADAPTER_CONFIG_MAP,
+        ADAPTERFUSION_CONFIG_MAP,
+        DEFAULT_ADAPTER_CONFIG,
+        DEFAULT_ADAPTERFUSION_CONFIG,
+        AdapterConfig,
+        AdapterFusionConfig,
+        DynamicAdapterFusionConfig,
+        HoulsbyConfig,
+        InvertibleAdapterConfig,
+        ModelAdaptersConfig,
+        PfeifferConfig,
+        StaticAdapterFusionConfig,
+    )
+    from .adapter_model_mixin import (
+        AdapterFusionLoader,
+        AdapterLoader,
+        ModelAdaptersMixin,
+        ModelWithHeadsAdaptersMixin,
+        PredictionHeadLoader,
+        WeightsLoader,
+        WeightsLoaderHelper,
+    )
+    from .adapter_training import AdapterArguments, MultiLingAdapterArguments
+    from .adapter_utils import (
+        ADAPTER_CACHE,
+        ADAPTER_HUB_INDEX_FILE,
+        ADAPTER_HUB_URL,
+        AdapterType,
+        get_adapter_config_hash,
+        pull_from_hub,
+        resolve_adapter_config,
+        resolve_adapter_path,
+    )
+
+    # TODO add more
+
+
 # Modeling
 if is_torch_available():
     # Benchmarks
@@ -330,6 +370,7 @@ if is_torch_available():
         AutoModelForSeq2SeqLM,
         AutoModelForSequenceClassification,
         AutoModelForTokenClassification,
+        AutoModelWithHeads,
         AutoModelWithLMHead,
     )
     from .modeling_bart import (
@@ -352,6 +393,7 @@ if is_torch_available():
         BertLayer,
         BertLMHeadModel,
         BertModel,
+        BertModelWithHeads,
         BertPreTrainedModel,
         load_tf_weights_in_bert,
     )
@@ -386,6 +428,7 @@ if is_torch_available():
         DistilBertForSequenceClassification,
         DistilBertForTokenClassification,
         DistilBertModel,
+        DistilBertModelWithHeads,
         DistilBertPreTrainedModel,
     )
     from .modeling_dpr import (
@@ -523,6 +566,7 @@ if is_torch_available():
         RobertaForSequenceClassification,
         RobertaForTokenClassification,
         RobertaModel,
+        RobertaModelWithHeads,
     )
     from .modeling_squeezebert import (
         SQUEEZEBERT_PRETRAINED_MODEL_ARCHIVE_LIST,
@@ -579,6 +623,7 @@ if is_torch_available():
         XLMRobertaForSequenceClassification,
         XLMRobertaForTokenClassification,
         XLMRobertaModel,
+        XLMRobertaModelWithHeads,
     )
     from .modeling_xlnet import (
         XLNET_PRETRAINED_MODEL_ARCHIVE_LIST,

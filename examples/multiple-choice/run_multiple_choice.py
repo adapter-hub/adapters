@@ -24,11 +24,14 @@ from typing import Dict, Optional
 import numpy as np
 
 from transformers import (
+    AdapterConfig,
+    AdapterType,
     AutoConfig,
     AutoModelForMultipleChoice,
     AutoTokenizer,
     EvalPrediction,
     HfArgumentParser,
+    MultiLingAdapterArguments,
     Trainer,
     TrainingArguments,
     set_seed,
@@ -88,8 +91,8 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, MultiLingAdapterArguments))
+    model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     if (
         os.path.exists(training_args.output_dir)
@@ -150,6 +153,53 @@ def main():
         cache_dir=model_args.cache_dir,
     )
 
+    # Setup adapters
+    if adapter_args.train_adapter:
+        task_name = data_args.task_name
+        # check if adapter already exists, otherwise add it
+        if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
+            # resolve the adapter config
+            adapter_config = AdapterConfig.load(
+                adapter_args.adapter_config,
+                non_linearity=adapter_args.adapter_non_linearity,
+                reduction_factor=adapter_args.adapter_reduction_factor,
+            )
+            # load a pre-trained from Hub if specified
+            if adapter_args.load_adapter:
+                model.load_adapter(
+                    adapter_args.load_adapter,
+                    AdapterType.text_task,
+                    config=adapter_config,
+                    load_as=task_name,
+                )
+            # otherwise, add a fresh adapter
+            else:
+                model.add_adapter(task_name, AdapterType.text_task, config=adapter_config)
+        # optionally load a pre-trained language adapter
+        if adapter_args.load_lang_adapter:
+            # resolve the language adapter config
+            lang_adapter_config = AdapterConfig.load(
+                adapter_args.lang_adapter_config,
+                non_linearity=adapter_args.lang_adapter_non_linearity,
+                reduction_factor=adapter_args.lang_adapter_reduction_factor,
+            )
+            # load the language adapter from Hub
+            lang_adapter_name = model.load_adapter(
+                adapter_args.load_lang_adapter,
+                AdapterType.text_lang,
+                config=lang_adapter_config,
+                load_as=adapter_args.language,
+            )
+        else:
+            lang_adapter_name = None
+        # Freeze all model weights except of those of this adapter
+        model.train_adapter([task_name])
+        # Set the adapters to be used in every forward pass
+        if lang_adapter_name:
+            model.set_active_adapters([lang_adapter_name, task_name])
+        else:
+            model.set_active_adapters([task_name])
+
     # Get datasets
     train_dataset = (
         MultipleChoiceDataset(
@@ -187,6 +237,8 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
+        do_save_full_model=not adapter_args.train_adapter,
+        do_save_adapters=adapter_args.train_adapter,
     )
 
     # Training

@@ -75,6 +75,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+adapter_docs/_build/
 
 # PyBuilder
 target/
@@ -160,3 +161,5 @@ tags
 
 # pre-commit
 .pre-commit*
+# scripts
+*.ps1

@@ -879,6 +879,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin):
             model_kwargs = kwargs
 
         # Load model
+        model_name = None  # pre-trained model identifier if given
         if pretrained_model_name_or_path is not None:
             if os.path.isdir(pretrained_model_name_or_path):
                 if from_tf and os.path.isfile(os.path.join(pretrained_model_name_or_path, TF_WEIGHTS_NAME + ".index")):
@@ -913,6 +914,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin):
                     use_cdn=use_cdn,
                     mirror=mirror,
                 )
+                model_name = pretrained_model_name_or_path
 
             try:
                 # Load from URL or cache if already cached
@@ -945,6 +947,8 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin):
 
         # Instantiate model.
         model = cls(config, *model_args, **model_kwargs)
+        # set the name of the pretrained model if available
+        model.model_name = model_name
 
         if state_dict is None and not from_tf:
             try:
@@ -1629,7 +1633,11 @@ def prune_layer(
 
 
 def apply_chunking_to_forward(
-    forward_fn: Callable[..., torch.Tensor], chunk_size: int, chunk_dim: int, *input_tensors
+    forward_fn: Callable[..., torch.Tensor],
+    chunk_size: int,
+    chunk_dim: int,
+    *input_tensors,
+    adapter_names=None,
 ) -> torch.Tensor:
     """
     This function chunks the :obj:`input_tensors` into smaller input tensor parts of size :obj:`chunk_size` over the
@@ -1671,6 +1679,9 @@ def apply_chunking_to_forward(
 
     # inspect.signature exist since python 3.5 and is a python method -> no problem with backward compability
     num_args_in_forward_chunk_fn = len(inspect.signature(forward_fn).parameters)
+    # HACK: take adapter_names into account
+    if "adapter_names" in inspect.signature(forward_fn).parameters:
+        num_args_in_forward_chunk_fn -= 1
     assert num_args_in_forward_chunk_fn == len(
         input_tensors
     ), "forward_chunk_fn expects {} arguments, but only {} input tensors are given".format(
@@ -1693,4 +1704,7 @@ def apply_chunking_to_forward(
         # concatenate output at same dimension
         return torch.cat(output_chunks, dim=chunk_dim)
 
-    return forward_fn(*input_tensors)
+    if adapter_names is not None:
+        return forward_fn(*input_tensors, adapter_names=adapter_names)
+    else:
+        return forward_fn(*input_tensors)

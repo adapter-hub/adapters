@@ -95,23 +95,23 @@ extras["all"] = extras["serving"] + ["tensorflow", "torch"]
 
 extras["sentencepiece"] = ["sentencepiece!=0.1.92"]
 extras["retrieval"] = ["faiss-cpu", "datasets"]
-extras["testing"] = ["pytest", "pytest-xdist", "timeout-decorator", "parameterized", "psutil"] + extras["retrieval"]
+extras["testing"] = ["pytest", "pytest-xdist", "timeout-decorator", "parameterized", "psutil", "pytest-subtests"] + extras["retrieval"]
 # sphinx-rtd-theme==0.5.0 introduced big changes in the style.
 extras["docs"] = ["recommonmark", "sphinx", "sphinx-markdown-tables", "sphinx-rtd-theme==0.4.3", "sphinx-copybutton"]
 extras["quality"] = ["black >= 20.8b1", "isort >= 5.5.4", "flake8 >= 3.8.3"]
 extras["dev"] = extras["testing"] + extras["quality"] + extras["ja"] + ["scikit-learn", "tensorflow", "torch", "sentencepiece!=0.1.92"]
 
 setup(
-    name="transformers",
-    version="3.4.0",
-    author="Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Sam Shleifer, Patrick von Platen, Sylvain Gugger, Google AI Language Team Authors, Open AI team Authors, Facebook AI Authors, Carnegie Mellon University Authors",
-    author_email="thomas@huggingface.co",
-    description="State-of-the-art Natural Language Processing for TensorFlow 2.0 and PyTorch",
+    name="adapter-transformers",
+    version="1.0.1",
+    author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, based on work by Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Sam Shleifer, Patrick von Platen, Google AI Language Team Authors, Open AI team Authors, Facebook AI Authors, Carnegie Mellon University Authors",
+    author_email="pfeiffer@ukp.tu-darmstadt.de",
+    description="A friendly fork of Huggingface's Transformers, adding Adapters to PyTorch language models",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    keywords="NLP deep learning transformer pytorch tensorflow BERT GPT GPT-2 google openai CMU",
+    keywords="NLP deep learning transformer pytorch BERT adapters",
     license="Apache",
-    url="https://github.com/huggingface/transformers",
+    url="https://github.com/adapter-hub/adapter-transformers",
     package_dir={"": "src"},
     packages=find_packages("src"),
     install_requires=[
