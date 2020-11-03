@@ -10,8 +10,10 @@ from .adapter_utils import get_adapter_config_hash, resolve_adapter_config
 logger = logging.getLogger(__name__)
 
 
-@dataclass()
+@dataclass
 class InvertibleAdapterConfig(Mapping):
+    """Base class that models the architecture of an invertible adapter module."""
+
     block_type: str
     non_linearity: str
     reduction_factor: int
@@ -221,6 +223,14 @@ class ModelAdaptersConfig(Collection):
         return len(self.adapters)
 
     def get(self, adapter_name: str):
+        """Gets the config dictionary for a given adapter.
+
+        Args:
+            adapter_name (str): The name of the adapter.
+
+        Returns:
+            Mapping: The adapter configuration.
+        """
         if adapter_name in self.adapters:
             config_name = self.adapters[adapter_name]
             if config_name in self.config_map:
@@ -234,6 +244,12 @@ class ModelAdaptersConfig(Collection):
         return config
 
     def add(self, adapter_name: str, config: Optional[Union[str, dict]] = None):
+        """Adds a new adapter of the name to the model config.
+
+        Args:
+            adapter_name (str): The name of the adapter.
+            config (Optional[Union[str, dict]], optional): The adapter config. Defaults to None.
+        """
         if adapter_name in self.adapters:
             raise ValueError(f"An adapter with the name '{adapter_name}' has already been added.")
         if config is None:
@@ -278,9 +294,11 @@ class ModelAdaptersConfig(Collection):
         return output_dict
 
 
-def build_full_config(adapter_config, model_config, **kwargs):
+def build_full_config(adapter_config, model_config, save_id2label=False, **kwargs):
     config_dict = {"model_type": model_config.model_type, "hidden_size": model_config.hidden_size}
     config_dict.update(kwargs)
+    if not hasattr(model_config, "prediction_heads") and save_id2label:
+        config_dict["label2id"] = model_config.label2id
     if is_dataclass(adapter_config):
         config_dict["config"] = adapter_config.to_dict()
     else:
@@ -290,7 +308,7 @@ def build_full_config(adapter_config, model_config, **kwargs):
 
 @dataclass
 class AdapterFusionConfig(Mapping):
-    """Base class that models the architecture of an adapter."""
+    """Base class that models the architecture of an adapter fusion layer."""
 
     key: bool
     query: bool
@@ -334,17 +352,16 @@ class AdapterFusionConfig(Mapping):
 
     @classmethod
     def load(cls, config: Union[dict, str], **kwargs):
-        """Loads a given adapter configuration specifier into a full AdapterConfig instance.
+        """Loads a given adapter fusion configuration specifier into a full AdapterFusionConfig instance.
 
         Args:
             config (Union[dict, str]): The configuration to load. Can be either:
                 - a dictionary representing the full config
-                - an identifier string available in ADAPTER_CONFIG_MAP
-                - the path to a file containing a full adapter configuration
-                - an identifier string available in Adapter-Hub
+                - an identifier string available in ADAPTERFUSION_CONFIG_MAP
+                - the path to a file containing a full adapter fusion configuration
 
         Returns:
-            dict: The resolved adapter configuration dictionary.
+            dict: The resolved adapter fusion configuration dictionary.
         """
         # currently storing AdapterFusion weights on AdapterHub is not supported.
         config_dict = resolve_adapter_config(config, local_map=ADAPTERFUSION_CONFIG_MAP, try_loading_from_hub=False)
@@ -358,8 +375,8 @@ class AdapterFusionConfig(Mapping):
 @dataclass
 class StaticAdapterFusionConfig(AdapterFusionConfig):
     """
-    The adapter architecture proposed by Houlsby et. al., 2019.
-    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    Static version of adapter fusion without a value matrix.
+    Described in https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     key: bool = True
@@ -376,8 +393,8 @@ class StaticAdapterFusionConfig(AdapterFusionConfig):
 @dataclass
 class DynamicAdapterFusionConfig(AdapterFusionConfig):
     """
-    The adapter architecture proposed by Houlsby et. al., 2019.
-    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    Dynamic version of adapter fusion with a value matrix and regularization.
+    Described in https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     key: bool = True

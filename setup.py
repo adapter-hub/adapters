@@ -5,7 +5,7 @@ To create the package for pypi.
 
 1. Change the version in __init__.py, setup.py as well as docs/source/conf.py.
 
-2. Unpin specific versions from setup.py (like isort).
+2. Unpin specific versions from setup.py that use a git install.
 
 2. Commit these changes with the message: "Release: VERSION"
 
@@ -36,7 +36,7 @@ To create the package for pypi.
 
 7. Copy the release notes from RELEASE.md to the tag in github once everything is looking hunky-dory.
 
-8. Update the documentation commit in .circleci/deploy.sh for the accurate documentation to be displayed
+8. Add the release version to docs/source/_static/js/custom.js and .circleci/deploy.sh
 
 9. Update README.md to redirect to correct documentation.
 """
@@ -65,37 +65,40 @@ if stale_egg_info.exists():
 
 extras = {}
 
-extras["mecab"] = ["mecab-python3"]
+extras["ja"] = ["fugashi>=1.0", "ipadic>=1.0.0,<2.0", "unidic_lite>=1.0.7", "unidic>=1.0.2"]
 extras["sklearn"] = ["scikit-learn"]
 
 # keras2onnx and onnxconverter-common version is specific through a commit until 1.7.0 lands on pypi
 extras["tf"] = [
-    "tensorflow",
+    "tensorflow>=2.0",
     "onnxconverter-common",
     "keras2onnx"
+    # "onnxconverter-common @ git+git://github.com/microsoft/onnxconverter-common.git@f64ca15989b6dc95a1f3507ff6e4c395ba12dff5#egg=onnxconverter-common",
+    # "keras2onnx @ git+git://github.com/onnx/keras-onnx.git@cbdc75cb950b16db7f0a67be96a278f8d2953b48#egg=keras2onnx",
 ]
 extras["tf-cpu"] = [
-    "tensorflow-cpu",
+    "tensorflow-cpu>=2.0",
     "onnxconverter-common",
     "keras2onnx"
+    # "onnxconverter-common @ git+git://github.com/microsoft/onnxconverter-common.git@f64ca15989b6dc95a1f3507ff6e4c395ba12dff5#egg=onnxconverter-common",
+    # "keras2onnx @ git+git://github.com/onnx/keras-onnx.git@cbdc75cb950b16db7f0a67be96a278f8d2953b48#egg=keras2onnx",
 ]
-extras["torch"] = ["torch"]
+extras["torch"] = ["torch>=1.0"]
+extras["onnxruntime"] = ["onnxruntime>=1.4.0", "onnxruntime-tools>=1.4.2"]
 
 extras["serving"] = ["pydantic", "uvicorn", "fastapi", "starlette"]
 extras["all"] = extras["serving"] + ["tensorflow", "torch"]
 
-extras["testing"] = ["pytest", "pytest-xdist", "timeout-decorator", "pytest-subtests"]
-extras["docs"] = ["recommonmark", "sphinx", "sphinx-markdown-tables", "sphinx-rtd-theme"]
-extras["quality"] = [
-    "black == 19.10b0",
-    "isort",
-    "flake8",
-]
-extras["dev"] = extras["testing"] + extras["quality"] + ["mecab-python3", "scikit-learn", "tensorflow", "torch"]
+extras["retrieval"] = ["faiss-cpu", "datasets"]
+extras["testing"] = ["pytest", "pytest-xdist", "timeout-decorator", "parameterized", "psutil", "pytest-subtests"] + extras["retrieval"]
+# sphinx-rtd-theme==0.5.0 introduced big changes in the style.
+extras["docs"] = ["recommonmark", "sphinx", "sphinx-markdown-tables", "sphinx-rtd-theme==0.4.3", "sphinx-copybutton"]
+extras["quality"] = ["black >= 20.8b1", "isort >= 5", "flake8 >= 3.8.3"]
+extras["dev"] = extras["testing"] + extras["quality"] + extras["ja"] + ["scikit-learn", "tensorflow", "torch"]
 
 setup(
     name="adapter-transformers",
-    version="1.0.0",
+    version="1.0.1",
     author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, based on work by Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Sam Shleifer, Patrick von Platen, Google AI Language Team Authors, Open AI team Authors, Facebook AI Authors, Carnegie Mellon University Authors",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A friendly fork of Huggingface's Transformers, adding Adapters to PyTorch language models",
@@ -108,7 +111,7 @@ setup(
     packages=find_packages("src"),
     install_requires=[
         "numpy",
-        "tokenizers == 0.7.0",
+        "tokenizers == 0.8.1.rc2",
         # dataclasses for Python versions that don't have it
         "dataclasses;python_version<'3.7'",
         # utilities from PyPA to e.g. compare versions
@@ -122,7 +125,7 @@ setup(
         # for OpenAI GPT
         "regex != 2019.12.17",
         # for XLNet
-        "sentencepiece",
+        "sentencepiece != 0.1.92",
         # for XLM
         "sacremoses",
     ],

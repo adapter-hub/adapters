@@ -17,9 +17,9 @@ from transformers import (
     glue_compute_metrics,
 )
 from transformers.adapter_utils import find_in_index
+from transformers.testing_utils import require_torch
 
 from .test_modeling_common import ids_tensor
-from .utils import require_torch, slow
 
 
 SAMPLE_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/hub-index.sample.json")

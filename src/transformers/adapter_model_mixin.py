@@ -6,6 +6,7 @@ from os.path import exists, isdir, isfile, join
 from typing import Callable, List, Mapping, Optional, Tuple, Union
 
 import torch
+from torch import nn
 
 from .adapter_composition import AdapterCompositionBlock, parse_composition
 from .adapter_config import (
@@ -13,9 +14,11 @@ from .adapter_config import (
     DEFAULT_ADAPTERFUSION_CONFIG,
     AdapterConfig,
     AdapterFusionConfig,
+    ModelAdaptersConfig,
     build_full_config,
     get_adapter_config_hash,
 )
+from .adapter_modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .adapter_utils import (
     ADAPTERFUSION_CONFIG_NAME,
     ADAPTERFUSION_WEIGHTS_NAME,
@@ -575,6 +578,7 @@ class PredictionHeadLoader(WeightsLoader):
             name=name,
             model_name=self.model.model_name,
             model_class=self.model.__class__.__name__,
+            save_id2label=True,
         )
         self.weights_helper.save_weights_config(save_directory, config_dict)
 
@@ -605,6 +609,9 @@ class PredictionHeadLoader(WeightsLoader):
         # Load head config if available - otherwise just blindly try to load the weights
         if isfile(join(save_directory, HEAD_CONFIG_NAME)):
             config = self.weights_helper.load_weights_config(save_directory)
+            if (not config["config"] is None) and "label2id" in config["config"].keys():
+                config["config"]["label2id"] = {label: id_ for label, id_ in config["config"]["label2id"].items()}
+                config["config"]["id2label"] = {id_: label for label, id_ in config["config"]["label2id"].items()}
             # make sure that the model class of the loaded head matches the current class
             if self.model.__class__.__name__ != config["model_class"]:
                 if self.error_on_missing:
@@ -620,7 +627,10 @@ class PredictionHeadLoader(WeightsLoader):
                 if head_name in self.model.config.prediction_heads:
                     logger.warning("Overwriting existing head '{}'".format(head_name))
                 self.model.add_prediction_head(head_name, config["config"], overwrite_ok=True)
-
+            else:
+                if "label2id" in config.keys():
+                    self.model.config.id2label = {int(id_): label for label, id_ in config["label2id"].items()}
+                    self.model.config.label2id = {label: int(id_) for label, id_ in config["label2id"].items()}
         # Load head weights
         filter_func = self.filter_func(head_name)
         if load_as:
@@ -634,14 +644,79 @@ class PredictionHeadLoader(WeightsLoader):
         return save_directory, head_name
 
 
+class InvertibleAdaptersMixin:
+    """Mixin for Transformer models adding invertible adapters."""
+
+    def _init_adapter_modules(self):
+        self.invertible_adapters = nn.ModuleDict(dict())
+
+    def add_invertible_adapter(self, adapter_name: str):
+        """Adds an invertible adapter module for the adapter with the given name.
+        If the given adapter does not specify an invertible adapter config, this method does nothing.
+
+        Args:
+            adapter_name (str): The name of the adapter for which to add an invertible adapter module.
+        """
+        if adapter_name in self.invertible_adapters:
+            raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
+        adapter_config = self.config.adapters.get(adapter_name)
+        if adapter_config and adapter_config["invertible_adapter"]:
+            inv_adap_config = adapter_config["invertible_adapter"]
+            if inv_adap_config["block_type"] == "nice":
+                inv_adap = NICECouplingBlock(
+                    [[self.config.hidden_size]],
+                    non_linearity=inv_adap_config["non_linearity"],
+                    reduction_factor=inv_adap_config["reduction_factor"],
+                )
+            elif inv_adap_config["block_type"] == "glow":
+                inv_adap = GLOWCouplingBlock(
+                    [[self.config.hidden_size]],
+                    non_linearity=inv_adap_config["non_linearity"],
+                    reduction_factor=inv_adap_config["reduction_factor"],
+                )
+            else:
+                raise ValueError(f"Invalid invertible adapter type '{inv_adap_config['block_type']}'.")
+            self.invertible_adapters[adapter_name] = inv_adap
+            self.invertible_adapters[adapter_name].apply(Adapter.init_bert_weights)
+
+    def get_invertible_adapter(self, adapter_setup):
+        # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
+        if adapter_setup is not None and len(adapter_setup) > 0:
+            first_adapter = adapter_setup.first()
+            if first_adapter in self.invertible_adapters:
+                return self.invertible_adapters[first_adapter]
+        return None
+
+    def enable_invertible_adapters(self, adapter_names):
+        for adapter_name in adapter_names:
+            if adapter_name in self.invertible_adapters:
+                for param in self.invertible_adapters[adapter_name].parameters():
+                    param.requires_grad = True
+
+    def invertible_adapters_forward(self, hidden_states, adapter_names=None, rev=False):
+        # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
+        if adapter_names is not None and len(adapter_names) > 0:
+            first_adapter = adapter_names.first()
+            if first_adapter in self.invertible_adapters:
+                hidden_states = self.invertible_adapters[first_adapter](hidden_states, rev=rev)
+
+        return hidden_states
+
+
 class ModelAdaptersMixin(ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
-
         self._active_adapter_names = None
+
+        # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
+        # Thus, we check the adapters config here to make sure everything is correct.
+        if not hasattr(config, "adapters"):
+            config.adapters = ModelAdaptersConfig()
+        elif not isinstance(config.adapters, ModelAdaptersConfig):
+            config.adapters = ModelAdaptersConfig(**config.adapters)
 
     # These methods have to be implemented by every deriving class:
 
@@ -661,12 +736,6 @@ class ModelAdaptersMixin(ABC):
     @abstractmethod
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters.
-        """
-        pass
-
-    @abstractmethod
-    def train_fusion(self, adapter_names: list):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names.
         """
         pass
 
@@ -747,7 +816,7 @@ class ModelAdaptersMixin(ABC):
             adapter_fusion_name = adapter_names
         if adapter_fusion_name not in self.config.adapter_fusion_models:
             self.config.adapter_fusion_models.append(adapter_fusion_name)
-            self.base_model.add_fusion_layer(adapter_names)
+            self.base_model._add_fusion_layer(adapter_names)
 
     def save_adapter(
         self,
@@ -774,7 +843,10 @@ class ModelAdaptersMixin(ABC):
                 weights_loader.save(save_directory, adapter_name)
 
     def save_adapter_fusion(
-        self, save_directory: str, adapter_names: list, custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        self,
+        save_directory: str,
+        adapter_names: list,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """Saves an adapter and its configuration file to a directory so that it can be shared
         or reloaded using `load_adapter()`.
@@ -916,8 +988,7 @@ class ModelAdaptersMixin(ABC):
             self.save_adapter_fusion(save_path, name, custom_weights_loaders=custom_weights_loaders)
 
     def freeze_model(self, freeze=True):
-        """Freezes all weights of the model.
-        """
+        """Freezes all weights of the model."""
         # first freeze/ unfreeze all model weights
         for param in self.base_model.parameters():
             param.requires_grad = not freeze
@@ -973,7 +1044,10 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             if not any([isinstance(o, PredictionHeadLoader) for o in custom_weights_loaders]):
                 custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
         super().save_adapter(
-            save_directory, adapter_name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
+            save_directory,
+            adapter_name,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
         )
 
     def load_adapter(
@@ -1015,5 +1089,13 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 custom_weights_loaders = []
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
         super().save_all_adapters(
-            save_directory, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
+            save_directory,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
         )
+
+    def get_labels(self):
+        return list(self.config.id2label.values())
+
+    def get_labels_dict(self):
+        return self.config.id2label

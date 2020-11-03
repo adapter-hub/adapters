@@ -1,5 +1,5 @@
 Multi-lingual models
-================================================
+=======================================================================================================================
 
 Most of the models available in this library are mono-lingual models (English, Chinese and German). A few
 multi-lingual models are available and have a different mechanisms than mono-lingual models.
@@ -8,13 +8,13 @@ This page details the usage of these models.
 The two models that currently support multiple languages are BERT and XLM.
 
 XLM
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 XLM has a total of 10 different checkpoints, only one of which is mono-lingual. The 9 remaining model checkpoints can
 be split in two categories: the checkpoints that make use of language embeddings, and those that don't
 
 XLM & Language Embeddings
-------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
 
 This section concerns the following checkpoints:
 
@@ -36,10 +36,11 @@ Here is an example using the ``xlm-clm-enfr-1024`` checkpoint (Causal language m
 
 .. code-block::
 
-    import torch
-    from transformers import XLMTokenizer, XLMWithLMHeadModel
+    >>> import torch
+    >>> from transformers import XLMTokenizer, XLMWithLMHeadModel
 
-    tokenizer = XLMTokenizer.from_pretrained("xlm-clm-1024-enfr")
+    >>> tokenizer = XLMTokenizer.from_pretrained("xlm-clm-enfr-1024")
+    >>> model = XLMWithLMHeadModel.from_pretrained("xlm-clm-enfr-1024")
 
 
 The different languages this model/tokenizer handles, as well as the ids of these languages are visible using the
@@ -47,16 +48,15 @@ The different languages this model/tokenizer handles, as well as the ids of thes
 
 .. code-block::
 
-    # Continuation of the previous script
-    print(tokenizer.lang2id)  # {'en': 0, 'fr': 1}
+    >>> print(tokenizer.lang2id)
+    {'en': 0, 'fr': 1}
 
 
 These ids should be used when passing a language parameter during a model pass. Let's define our inputs:
 
 .. code-block::
 
-    # Continuation of the previous script
-    input_ids = torch.tensor([tokenizer.encode("Wikipedia was used to")]) # batch size of 1
+    >>> input_ids = torch.tensor([tokenizer.encode("Wikipedia was used to")]) # batch size of 1
 
 
 We should now define the language embedding by using the previously defined language id. We want to create a tensor
@@ -64,27 +64,25 @@ filled with the appropriate language ids, of the same size as input_ids. For eng
 
 .. code-block::
 
-    # Continuation of the previous script
-    language_id = tokenizer.lang2id['en']  # 0
-    langs = torch.tensor([language_id] * input_ids.shape[1])  # torch.tensor([0, 0, 0, ..., 0])
+    >>> language_id = tokenizer.lang2id['en']  # 0
+    >>> langs = torch.tensor([language_id] * input_ids.shape[1])  # torch.tensor([0, 0, 0, ..., 0])
 
-    # We reshape it to be of size (batch_size, sequence_length)
-    langs = langs.view(1, -1) # is now of shape [1, sequence_length] (we have a batch size of 1)
+    >>> # We reshape it to be of size (batch_size, sequence_length)
+    >>> langs = langs.view(1, -1) # is now of shape [1, sequence_length] (we have a batch size of 1)
 
 
 You can then feed it all as input to your model:
 
 .. code-block::
 
-    # Continuation of the previous script
-    outputs = model(input_ids, langs=langs)
+    >>> outputs = model(input_ids, langs=langs)
 
 
 The example `run_generation.py <https://github.com/huggingface/transformers/blob/master/examples/text-generation/run_generation.py>`__
 can generate text using the CLM checkpoints from XLM, using the language embeddings.
 
 XLM without Language Embeddings
-------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
 
 This section concerns the following checkpoints:
 
@@ -96,7 +94,7 @@ sentence representations, differently from previously-mentioned XLM checkpoints.
 
 
 BERT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 BERT has two checkpoints that can be used for multi-lingual tasks:
 
@@ -107,7 +105,7 @@ These checkpoints do not require language embeddings at inference time. They sho
 used in the context and infer accordingly.
 
 XLM-RoBERTa
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 XLM-RoBERTa was trained on 2.5TB of newly created clean CommonCrawl data in 100 languages. It provides strong
 gains over previously released multi-lingual models like mBERT or XLM on downstream taks like classification,

@@ -8,13 +8,14 @@ from transformers import (
     ADAPTER_CONFIG_MAP,
     ADAPTERFUSION_CONFIG_MAP,
     BertModel,
+    DistilBertModel,
     PfeifferConfig,
     RobertaModel,
     XLMRobertaModel,
 )
+from transformers.testing_utils import require_torch
 
 from .test_modeling_common import ids_tensor
-from .utils import require_torch
 
 
 def create_twin_models(model1):
@@ -28,7 +29,7 @@ def create_twin_models(model1):
 @require_torch
 class AdapterFusionModelTest(unittest.TestCase):
 
-    model_classes = [BertModel, RobertaModel, XLMRobertaModel]
+    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel]
 
     def test_add_adapter_fusion(self):
 

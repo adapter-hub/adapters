@@ -4,7 +4,7 @@ This model was trained for sentiment classification of German language texts. To
 we provide a Python package that bundles the code need for the preprocessing and inferencing. 
 
 The model uses the Googles Bert architecture and was trained on 1.834 million German-language samples. The training data contains texts from various domains like Twitter, Facebook and movie, app and hotel reviews. 
-You can find more information about the dataset and the training process in the [paper](http://www.lrec-conf.org/proceedings/lrec2020/pdf/2020.lrec-1.201.pdf).
+You can find more information about the dataset and the training process in the [paper](http://www.lrec-conf.org/proceedings/lrec2020/pdf/2020.lrec-1.202.pdf).
 
 ## Using the Python package
 
@@ -55,7 +55,7 @@ class SentimentModel():
     def predict_sentiment(self, texts: List[str])-> List[str]:
         texts = [self.clean_text(text) for text in texts]
         # Add special tokens takes care of adding [CLS], [SEP], <s>... tokens in the right way for each model.
-        input_ids = self.tokenizer.batch_encode_plus(texts,pad_to_max_length=True, add_special_tokens=True)
+        input_ids = self.tokenizer(texts, padding=True, truncation=True, add_special_tokens=True)
         input_ids = torch.tensor(input_ids["input_ids"])
 
         with torch.no_grad():
