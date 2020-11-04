@@ -679,10 +679,10 @@ class InvertibleAdaptersMixin:
             self.invertible_adapters[adapter_name] = inv_adap
             self.invertible_adapters[adapter_name].apply(Adapter.init_bert_weights)
 
-    def get_invertible_adapter(self, adapter_setup):
+    def get_invertible_adapter(self):
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if adapter_setup is not None and len(adapter_setup) > 0:
-            first_adapter = adapter_setup.first()
+        if self.active_adapters is not None and len(self.active_adapters) > 0:
+            first_adapter = self.active_adapters.first()
             if first_adapter in self.invertible_adapters:
                 return self.invertible_adapters[first_adapter]
         return None
@@ -693,10 +693,10 @@ class InvertibleAdaptersMixin:
                 for param in self.invertible_adapters[adapter_name].parameters():
                     param.requires_grad = True
 
-    def invertible_adapters_forward(self, hidden_states, adapter_names=None, rev=False):
+    def invertible_adapters_forward(self, hidden_states, rev=False):
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if adapter_names is not None and len(adapter_names) > 0:
-            first_adapter = adapter_names.first()
+        if self.active_adapters is not None and len(self.active_adapters) > 0:
+            first_adapter = self.active_adapters.first()
             if first_adapter in self.invertible_adapters:
                 hidden_states = self.invertible_adapters[first_adapter](hidden_states, rev=rev)
 
@@ -709,7 +709,6 @@ class ModelAdaptersMixin(ABC):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
-        self._active_adapter_names = None
 
         # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
         # Thus, we check the adapters config here to make sure everything is correct.
@@ -749,7 +748,7 @@ class ModelAdaptersMixin(ABC):
 
     @property
     def active_adapters(self) -> AdapterCompositionBlock:
-        return self.base_model._active_adapter_names
+        return self.config.adapters.active_setup
 
     def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the adapter modules to be used by default in every forward pass.
@@ -767,7 +766,7 @@ class ModelAdaptersMixin(ABC):
                     f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
                 )
 
-        self.base_model._active_adapter_names = adapter_setup
+        self.config.adapters.active_setup = adapter_setup
 
     def set_adapter_fusion_config(self, adapter_fusion_config, override_kwargs=None):
         """Sets the adapter fusion configuration.

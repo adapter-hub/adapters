@@ -4,6 +4,7 @@ from collections.abc import Collection, Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass, replace
 from typing import List, Optional, Sequence, Union
 
+from .adapter_composition import AdapterCompositionBlock
 from .adapter_utils import get_adapter_config_hash, resolve_adapter_config
 
 
@@ -212,6 +213,8 @@ class ModelAdaptersConfig(Collection):
         )
         self.adapters: Sequence[str] = adapters_list
         self.config_map = kwargs.pop("config_map", {})
+        # TODO Save this with config?
+        self.active_setup: Optional[AdapterCompositionBlock] = None
 
     def __contains__(self, item):
         return item in self.adapters.keys()

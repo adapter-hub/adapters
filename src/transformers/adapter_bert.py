@@ -56,15 +56,13 @@ class BertAdaptersBaseMixin(ABC):
     @property
     @abstractmethod
     def adapter_modules(self):
-        """Gets the module dict holding the adapter modules available in this block.
-        """
+        """Gets the module dict holding the adapter modules available in this block."""
         pass
 
     @property
     @abstractmethod
     def adapter_config_key(self):
-        """Gets the name of the key by which this adapter location is identified in the adapter configuration.
-        """
+        """Gets the name of the key by which this adapter location is identified in the adapter configuration."""
         pass
 
     def _init_adapter_modules(self):
@@ -223,9 +221,8 @@ class BertAdaptersBaseMixin(ABC):
         hidden_states = torch.cat((first_hidden_states, second_hidden_states), dim=1)
         return hidden_states
 
-    def adapters_forward(
-        self, hidden_states, input_tensor, adapter_setup: AdapterCompositionBlock = None
-    ):
+    def adapters_forward(self, hidden_states, input_tensor):
+        adapter_setup = self.config.adapters.active_setup
         if adapter_setup is not None and (len(set(self.adapter_modules.keys()) & adapter_setup.flatten()) > 0):
             if isinstance(adapter_setup, Stack):
                 hidden_states = self.adapter_stack(adapter_setup, hidden_states, input_tensor)
@@ -247,8 +244,7 @@ class BertAdaptersBaseMixin(ABC):
 
 
 class BertSelfOutputAdaptersMixin(BertAdaptersBaseMixin):
-    """Adds adapters to the BertSelfOutput module.
-    """
+    """Adds adapters to the BertSelfOutput module."""
 
     @property
     def adapter_modules(self):
@@ -264,8 +260,7 @@ class BertSelfOutputAdaptersMixin(BertAdaptersBaseMixin):
 
 
 class BertOutputAdaptersMixin(BertAdaptersBaseMixin):
-    """Adds adapters to the BertOutput module.
-    """
+    """Adds adapters to the BertOutput module."""
 
     @property
     def adapter_modules(self):
