@@ -9,6 +9,7 @@ check_dirs := examples templates tests src utils
 	# python utils/check_copies.py
 extra_quality_checks:
 	python utils/check_repo.py
+	python utils/check_adapters.py
 
 # this target runs checks on all files
 quality:

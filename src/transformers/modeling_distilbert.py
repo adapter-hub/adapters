@@ -495,8 +495,8 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
         inputs_embeds=None,
         output_attentions=None,
         output_hidden_states=None,
-        return_dict=None,
         adapter_names=None,
+        return_dict=None,
     ):
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
@@ -536,8 +536,8 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
             head_mask=head_mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
             adapter_names=adapter_names,
+            return_dict=return_dict,
         )
 
 
@@ -628,8 +628,8 @@ class DistilBertForMaskedLM(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedMod
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
-        return_dict=None,
         adapter_names=None,
+        return_dict=None,
         **kwargs
     ):
         r"""
@@ -657,8 +657,8 @@ class DistilBertForMaskedLM(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedMod
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
             adapter_names=adapter_names,
+            return_dict=return_dict,
         )
         hidden_states = dlbrt_output[0]  # (bs, seq_length, dim)
         prediction_logits = self.vocab_transform(hidden_states)  # (bs, seq_length, dim)
@@ -718,8 +718,8 @@ class DistilBertForSequenceClassification(ModelWithHeadsAdaptersMixin, DistilBer
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
-        return_dict=None,
         adapter_names=None,
+        return_dict=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -737,8 +737,8 @@ class DistilBertForSequenceClassification(ModelWithHeadsAdaptersMixin, DistilBer
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
             adapter_names=adapter_names,
+            return_dict=return_dict,
         )
         hidden_state = distilbert_output[0]  # (bs, seq_len, dim)
         pooled_output = hidden_state[:, 0]  # (bs, dim)
@@ -801,8 +801,8 @@ class DistilBertForQuestionAnswering(ModelWithHeadsAdaptersMixin, DistilBertPreT
         end_positions=None,
         output_attentions=None,
         output_hidden_states=None,
-        return_dict=None,
         adapter_names=None,
+        return_dict=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -823,8 +823,8 @@ class DistilBertForQuestionAnswering(ModelWithHeadsAdaptersMixin, DistilBertPreT
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
             adapter_names=adapter_names,
+            return_dict=return_dict,
         )
         hidden_states = distilbert_output[0]  # (bs, max_query_len, dim)
 
@@ -896,8 +896,8 @@ class DistilBertForTokenClassification(ModelWithHeadsAdaptersMixin, DistilBertPr
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
-        return_dict=None,
         adapter_names=None,
+        return_dict=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -913,8 +913,8 @@ class DistilBertForTokenClassification(ModelWithHeadsAdaptersMixin, DistilBertPr
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
             adapter_names=adapter_names,
+            return_dict=return_dict,
         )
 
         sequence_output = outputs[0]
@@ -953,7 +953,7 @@ class DistilBertForTokenClassification(ModelWithHeadsAdaptersMixin, DistilBertPr
     the pooled output and a softmax) e.g. for RocStories/SWAG tasks. """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForMultipleChoice(DistilBertPreTrainedModel):
+class DistilBertForMultipleChoice(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -975,6 +975,7 @@ class DistilBertForMultipleChoice(DistilBertPreTrainedModel):
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
         return_dict=None,
     ):
         r"""
@@ -1023,6 +1024,7 @@ class DistilBertForMultipleChoice(DistilBertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
             return_dict=return_dict,
         )
 

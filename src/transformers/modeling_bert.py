@@ -1195,7 +1195,7 @@ class BertLMHeadModel(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
 
 @add_start_docstrings("""Bert Model with a `language modeling` head on top. """, BERT_START_DOCSTRING)
-class BertForMaskedLM(BertPreTrainedModel):
+class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
     authorized_unexpected_keys = [r"pooler"]
     authorized_missing_keys = [r"position_ids", r"predictions.decoder.bias"]
@@ -1237,6 +1237,7 @@ class BertForMaskedLM(BertPreTrainedModel):
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
         return_dict=None,
         **kwargs
     ):
@@ -1271,11 +1272,15 @@ class BertForMaskedLM(BertPreTrainedModel):
             encoder_attention_mask=encoder_attention_mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
             return_dict=return_dict,
         )
 
         sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+        prediction_scores = self.cls(
+            sequence_output,
+            inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
+        )
 
         masked_lm_loss = None
         if labels is not None:
