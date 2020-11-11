@@ -613,6 +613,9 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             head_name = self.active_adapters[-1][-1]
             if head_name in self.config.prediction_heads:
                 self.active_head = head_name
+                self.config.label2id = self.config.prediction_heads[head_name].label2id
+                self.config.id2label = self.get_labels_dict(head_name)
+                self.config.labels = self.get_labels(head_name)
             else:
                 logger.info("No prediction head for task_name '{}' available.".format(head_name))
 
@@ -715,9 +718,13 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 if "num_choices" in config.keys():
                     config["label2id"] = {"LABEL_" + str(num): num for num in range(config["num_choices"])}
 
+
             logger.info(f"Adding head '{head_name}' with config {config}.")
             self._add_prediction_head_module(head_name)
             self.active_head = head_name
+            self.config.label2id = config["label2id"]
+            self.config.id2label = self.get_labels_dict(head_name)
+            self.get_labels(head_name)
 
         else:
             raise ValueError(
