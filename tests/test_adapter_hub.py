@@ -3,9 +3,9 @@ import unittest
 
 from transformers import ADAPTER_CONFIG_MAP, AdapterConfig, BertForSequenceClassification, get_adapter_config_hash
 from transformers.adapter_utils import find_in_index
+from transformers.testing_utils import require_torch
 
 from .test_modeling_common import ids_tensor
-from .utils import require_torch
 
 
 SAMPLE_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/hub-index.sample.json")

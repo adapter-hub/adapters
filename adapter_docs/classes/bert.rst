@@ -31,6 +31,13 @@ BertModel
     :members:
 
 
+BertModelWithHeads
+~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.BertModelWithHeads
+    :members:
+
+
 BertForPreTraining
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

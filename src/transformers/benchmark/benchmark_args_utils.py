@@ -20,6 +20,11 @@ from dataclasses import dataclass, field
 from time import time
 from typing import List
 
+from ..utils import logging
+
+
+logger = logging.get_logger(__name__)
+
 
 def list_field(default=None, metadata=None):
     return field(default_factory=lambda: default, metadata=metadata)
@@ -52,15 +57,40 @@ class BenchmarkArguments:
         metadata={"help": "List of sequence lengths for which memory and time performance will be evaluated"},
     )
 
-    no_inference: bool = field(default=False, metadata={"help": "Don't benchmark inference of model"})
+    inference: bool = field(
+        default=True,
+        metadata={"help": "Whether to benchmark inference of model. Inference can be disabled via --no-inference."},
+    )
+    cuda: bool = field(
+        default=True,
+        metadata={"help": "Whether to run on available cuda devices. Cuda can be disabled via --no-cuda."},
+    )
+    tpu: bool = field(
+        default=True, metadata={"help": "Whether to run on available tpu devices. TPU can be disabled via --no-tpu."}
+    )
+    fp16: bool = field(default=False, metadata={"help": "Use FP16 to accelerate inference."})
     training: bool = field(default=False, metadata={"help": "Benchmark training of model"})
     verbose: bool = field(default=False, metadata={"help": "Verbose memory tracing"})
-    no_speed: bool = field(default=False, metadata={"help": "Don't perform speed measurments"})
-    no_memory: bool = field(default=False, metadata={"help": "Don't perform memory measurments"})
+    speed: bool = field(
+        default=True,
+        metadata={"help": "Whether to perform speed measurements. Speed measurements can be disabled via --no-speed."},
+    )
+    memory: bool = field(
+        default=True,
+        metadata={
+            "help": "Whether to perform memory measurements. Memory measurements can be disabled via --no-memory"
+        },
+    )
     trace_memory_line_by_line: bool = field(default=False, metadata={"help": "Trace memory line by line"})
     save_to_csv: bool = field(default=False, metadata={"help": "Save result to a CSV file"})
     log_print: bool = field(default=False, metadata={"help": "Save all print statements in a log file"})
-    no_env_print: bool = field(default=False, metadata={"help": "Don't print environment information"})
+    env_print: bool = field(default=False, metadata={"help": "Whether to print environment information"})
+    multi_process: bool = field(
+        default=True,
+        metadata={
+            "help": "Whether to use multiprocessing for memory and speed measurement. It is highly recommended to use multiprocessing for accurate CPU and GPU memory measurements. This option should only be disabled for debugging / testing and on TPU."
+        },
+    )
     inference_time_csv_file: str = field(
         default=f"inference_time_{round(time())}.csv",
         metadata={"help": "CSV filename used if saving time results to csv."},
@@ -86,6 +116,12 @@ class BenchmarkArguments:
         metadata={"help": "Log filename used if print statements are saved in log."},
     )
     repeat: int = field(default=3, metadata={"help": "Times an experiment will be run."})
+    only_pretrain_model: bool = field(
+        default=False,
+        metadata={
+            "help": "Instead of loading the model as defined in `config.architectures` if exists, just load the pretrain model weights."
+        },
+    )
 
     def to_json_string(self):
         """
@@ -95,4 +131,17 @@ class BenchmarkArguments:
 
     @property
     def model_names(self):
+        assert (
+            len(self.models) > 0
+        ), "Please make sure you provide at least one model name / model identifier, *e.g.* `--models bert-base-cased` or `args.models = ['bert-base-cased']."
         return self.models
+
+    @property
+    def do_multi_processing(self):
+        if not self.multi_process:
+            return False
+        elif self.is_tpu:
+            logger.info("Multiprocessing is currently not possible on TPU.")
+            return False
+        else:
+            return True

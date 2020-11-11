@@ -12,8 +12,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-
-from .utils import require_torch
+from transformers.testing_utils import require_torch
 
 
 def filter_parameters(model, filter_string):
@@ -65,7 +64,11 @@ class AdapterTrainingTest(unittest.TestCase):
                 )
 
                 # evaluate
-                trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset,)
+                trainer = Trainer(
+                    model=model,
+                    args=training_args,
+                    train_dataset=train_dataset,
+                )
                 trainer.train()
 
                 for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
@@ -118,7 +121,11 @@ class AdapterTrainingTest(unittest.TestCase):
                 )
 
                 # evaluate
-                trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset,)
+                trainer = Trainer(
+                    model=model,
+                    args=training_args,
+                    train_dataset=train_dataset,
+                )
                 trainer.train()
 
                 for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):

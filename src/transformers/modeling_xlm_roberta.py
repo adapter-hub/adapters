@@ -15,22 +15,22 @@
 # limitations under the License.
 """PyTorch XLM-RoBERTa model. """
 
-
-import logging
-
 from .configuration_xlm_roberta import XLMRobertaConfig
 from .file_utils import add_start_docstrings
 from .modeling_roberta import (
+    RobertaForCausalLM,
     RobertaForMaskedLM,
     RobertaForMultipleChoice,
+    RobertaForQuestionAnswering,
     RobertaForSequenceClassification,
     RobertaForTokenClassification,
     RobertaModel,
     RobertaModelWithHeads,
 )
+from .utils import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 XLM_ROBERTA_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "xlm-roberta-base",
@@ -45,7 +45,11 @@ XLM_ROBERTA_PRETRAINED_MODEL_ARCHIVE_LIST = [
 
 XLM_ROBERTA_START_DOCSTRING = r"""
 
-    This model is a PyTorch `torch.nn.Module <https://pytorch.org/docs/stable/nn.html#torch.nn.Module>`_ sub-class.
+    This model inherits from :class:`~transformers.PreTrainedModel`. Check the superclass documentation for the generic
+    methods the library implements for all its model (such as downloading or saving, resizing the input embeddings,
+    pruning heads etc.)
+
+    This model is also a PyTorch `torch.nn.Module <https://pytorch.org/docs/stable/nn.html#torch.nn.Module>`__ subclass.
     Use it as a regular PyTorch Module and refer to the PyTorch documentation for all matter related to general
     usage and behavior.
 
@@ -70,7 +74,8 @@ class XLMRobertaModel(RobertaModel):
 
 
 @add_start_docstrings(
-    """XLM-RoBERTa Model with the option to add multiple flexible heads on top.""", XLM_ROBERTA_START_DOCSTRING,
+    """XLM-RoBERTa Model with the option to add multiple flexible heads on top.""",
+    XLM_ROBERTA_START_DOCSTRING,
 )
 class XLMRobertaModelWithHeads(RobertaModelWithHeads):
     """
@@ -82,7 +87,21 @@ class XLMRobertaModelWithHeads(RobertaModelWithHeads):
 
 
 @add_start_docstrings(
-    """XLM-RoBERTa Model with a `language modeling` head on top. """, XLM_ROBERTA_START_DOCSTRING,
+    "XLM-RoBERTa Model with a `language modeling` head on top for CLM fine-tuning.",
+    XLM_ROBERTA_START_DOCSTRING,
+)
+class XLMRobertaForCausalLM(RobertaForCausalLM):
+    """
+    This class overrides :class:`~transformers.RobertaForCausalLM`. Please check the
+    superclass for the appropriate documentation alongside usage examples.
+    """
+
+    config_class = XLMRobertaConfig
+
+
+@add_start_docstrings(
+    """XLM-RoBERTa Model with a `language modeling` head on top. """,
+    XLM_ROBERTA_START_DOCSTRING,
 )
 class XLMRobertaForMaskedLM(RobertaForMaskedLM):
     """
@@ -129,6 +148,20 @@ class XLMRobertaForMultipleChoice(RobertaForMultipleChoice):
 class XLMRobertaForTokenClassification(RobertaForTokenClassification):
     """
     This class overrides :class:`~transformers.RobertaForTokenClassification`. Please check the
+    superclass for the appropriate documentation alongside usage examples.
+    """
+
+    config_class = XLMRobertaConfig
+
+
+@add_start_docstrings(
+    """XLM-RoBERTa Model with a span classification head on top for extractive question-answering tasks like SQuAD (a
+    linear layers on top of the hidden-states output to compute `span start logits` and `span end logits`).""",
+    XLM_ROBERTA_START_DOCSTRING,
+)
+class XLMRobertaForQuestionAnswering(RobertaForQuestionAnswering):
+    """
+    This class overrides :class:`~transformers.RobertaForQuestionAnswering`. Please check the
     superclass for the appropriate documentation alongside usage examples.
     """
 

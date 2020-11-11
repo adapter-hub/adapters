@@ -17,7 +17,7 @@ A friendly fork of HuggingFace's <i>Transformers</i>, adding Adapters to PyTorch
 
 This library can be used as a drop-in replacement for HuggingFace Transformers and regularly synchronizes new upstream changes.
 
-## Installation
+## Quick tour
 
 _adapter-transformers_ currently supports **Python 3.6+** and **PyTorch 1.1.0+**.
 After [installing PyTorch](https://pytorch.org/get-started/locally/), you can install _adapter-transformers_ from PyPI ...

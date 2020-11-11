@@ -1,4 +1,3 @@
-import logging
 import os
 import time
 from dataclasses import dataclass, field
@@ -6,17 +5,20 @@ from enum import Enum
 from typing import List, Optional, Union
 
 import torch
-from filelock import FileLock
 from torch.utils.data.dataset import Dataset
 
+from filelock import FileLock
+
+from ...tokenization_bart import BartTokenizer, BartTokenizerFast
 from ...tokenization_roberta import RobertaTokenizer, RobertaTokenizerFast
 from ...tokenization_utils import PreTrainedTokenizer
 from ...tokenization_xlm_roberta import XLMRobertaTokenizer
+from ...utils import logging
 from ..processors.glue import glue_convert_examples_to_features, glue_output_modes, glue_processors
 from ..processors.utils import InputFeatures
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 
 @dataclass
@@ -70,6 +72,7 @@ class GlueDataset(Dataset):
         tokenizer: PreTrainedTokenizer,
         limit_length: Optional[int] = None,
         mode: Union[str, Split] = Split.train,
+        cache_dir: Optional[str] = None,
     ):
         self.args = args
         self.processor = glue_processors[args.task_name]()
@@ -81,9 +84,12 @@ class GlueDataset(Dataset):
                 raise KeyError("mode is not a valid split name")
         # Load data features from cache or dataset file
         cached_features_file = os.path.join(
-            args.data_dir,
+            cache_dir if cache_dir is not None else args.data_dir,
             "cached_{}_{}_{}_{}".format(
-                mode.value, tokenizer.__class__.__name__, str(args.max_seq_length), args.task_name,
+                mode.value,
+                tokenizer.__class__.__name__,
+                str(args.max_seq_length),
+                args.task_name,
             ),
         )
         label_list = self.processor.get_labels()
@@ -91,6 +97,8 @@ class GlueDataset(Dataset):
             RobertaTokenizer,
             RobertaTokenizerFast,
             XLMRobertaTokenizer,
+            BartTokenizer,
+            BartTokenizerFast,
         ):
             # HACK(label indices are swapped in RoBERTa pretrained model)
             label_list[1], label_list[2] = label_list[2], label_list[1]

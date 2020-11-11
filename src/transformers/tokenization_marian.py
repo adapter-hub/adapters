@@ -7,8 +7,9 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import sentencepiece
 
-from .file_utils import S3_BUCKET_PREFIX
+from .file_utils import add_start_docstrings
 from .tokenization_utils import BatchEncoding, PreTrainedTokenizer
+from .tokenization_utils_base import PREPARE_SEQ2SEQ_BATCH_DOCSTRING
 
 
 vocab_files_names = {
@@ -17,57 +18,51 @@ vocab_files_names = {
     "vocab": "vocab.json",
     "tokenizer_config_file": "tokenizer_config.json",
 }
-MODEL_NAMES = ("opus-mt-en-de",)  # TODO(SS): delete this, the only required constant is vocab_files_names
-PRETRAINED_VOCAB_FILES_MAP = {
-    k: {m: f"{S3_BUCKET_PREFIX}/Helsinki-NLP/{m}/{fname}" for m in MODEL_NAMES}
-    for k, fname in vocab_files_names.items()
-}
 # Example URL https://s3.amazonaws.com/models.huggingface.co/bert/Helsinki-NLP/opus-mt-en-de/vocab.json
 
 
 class MarianTokenizer(PreTrainedTokenizer):
     """Sentencepiece tokenizer for marian. Source and target languages have different SPM models.
-    The logic is use the relevant source_spm or target_spm to encode txt as pieces, then look up each piece in a vocab dictionary.
+    The logic is use the relevant source_spm or target_spm to encode txt as pieces, then look up each piece in a
+    vocab dictionary.
 
     Examples::
 
-        from transformers import MarianTokenizer
-        tok = MarianTokenizer.from_pretrained('Helsinki-NLP/opus-mt-en-de')
-        src_texts = [ "I am a small frog.", "Tom asked his teacher for advice."]
-        tgt_texts = ["Ich bin ein kleiner Frosch.", "Tom bat seinen Lehrer um Rat."]  # optional
-        batch_enc: BatchEncoding = tok.prepare_translation_batch(src_texts, tgt_texts=tgt_texts)
-        # keys  [input_ids, attention_mask, decoder_input_ids,  decoder_attention_mask].
-        # model(**batch) should work
+        >>> from transformers import MarianTokenizer
+        >>> tok = MarianTokenizer.from_pretrained('Helsinki-NLP/opus-mt-en-de')
+        >>> src_texts = [ "I am a small frog.", "Tom asked his teacher for advice."]
+        >>> tgt_texts = ["Ich bin ein kleiner Frosch.", "Tom bat seinen Lehrer um Rat."]  # optional
+        >>> batch_enc: BatchEncoding = tok.prepare_seq2seq_batch(src_texts, tgt_texts=tgt_texts)
+        >>> # keys  [input_ids, attention_mask, labels].
+        >>> # model(**batch) should work
     """
 
     vocab_files_names = vocab_files_names
-    pretrained_vocab_files_map = PRETRAINED_VOCAB_FILES_MAP
-    max_model_input_sizes = {m: 512 for m in MODEL_NAMES}
-    model_input_names = ["attention_mask"]  # actually attention_mask, decoder_attention_mask
+    model_input_names = ["attention_mask"]
     language_code_re = re.compile(">>.+<<")  # type: re.Pattern
 
     def __init__(
         self,
-        vocab=None,
-        source_spm=None,
-        target_spm=None,
+        vocab,
+        source_spm,
+        target_spm,
         source_lang=None,
         target_lang=None,
         unk_token="<unk>",
         eos_token="</s>",
         pad_token="<pad>",
-        max_len=512,
-        **kwargs,
+        model_max_length=512,
+        **kwargs
     ):
-
         super().__init__(
             # bos_token=bos_token,  unused. Start decoding with config.decoder_start_token_id
-            max_len=max_len,
+            model_max_length=model_max_length,
             eos_token=eos_token,
             unk_token=unk_token,
             pad_token=pad_token,
             **kwargs,
         )
+        assert Path(source_spm).exists(), f"cannot find spm source {source_spm}"
         self.encoder = load_json(vocab)
         if self.unk_token not in self.encoder:
             raise KeyError("<unk> token must be in vocab")
@@ -90,11 +85,11 @@ class MarianTokenizer(PreTrainedTokenizer):
 
     def _setup_normalizer(self):
         try:
-            from mosestokenizer import MosesPunctuationNormalizer
+            from sacremoses import MosesPunctNormalizer
 
-            self.punc_normalizer = MosesPunctuationNormalizer(self.source_lang)
-        except ImportError:
-            warnings.warn("Recommended: pip install mosestokenizer")
+            self.punc_normalizer = MosesPunctNormalizer(self.source_lang).normalize
+        except (ImportError, FileNotFoundError):
+            warnings.warn("Recommended: pip install sacremoses.")
             self.punc_normalizer = lambda x: x
 
     def normalize(self, x: str) -> str:
@@ -130,51 +125,38 @@ class MarianTokenizer(PreTrainedTokenizer):
         # We don't expect to process pairs, but leave the pair logic for API consistency
         return token_ids_0 + token_ids_1 + [self.eos_token_id]
 
-    def prepare_translation_batch(
+    @add_start_docstrings(PREPARE_SEQ2SEQ_BATCH_DOCSTRING)
+    def prepare_seq2seq_batch(
         self,
         src_texts: List[str],
         tgt_texts: Optional[List[str]] = None,
         max_length: Optional[int] = None,
-        pad_to_max_length: bool = True,
+        max_target_length: Optional[int] = None,
         return_tensors: str = "pt",
+        truncation=True,
+        padding="longest",
+        **unused,
     ) -> BatchEncoding:
-        """Prepare model inputs for translation. For best performance, translate one sentence at a time.
-        Arguments:
-            src_texts: list of src language texts
-            tgt_texts: list of tgt language texts
-            max_length: (None) defer to config (1024 for mbart-large-en-ro)
-            pad_to_max_length: (bool)
-            return_tensors: (str) default "pt" returns pytorch tensors, pass None to return lists.
-
-        Returns:
-            BatchEncoding: with keys [input_ids, attention_mask, decoder_input_ids,  decoder_attention_mask]
-            all shaped bs, seq_len. (BatchEncoding is a dict of string -> tensor or lists).
-            If no tgt_text is specified, the only keys will be input_ids and attention_mask.
-        """
         if "" in src_texts:
             raise ValueError(f"found empty string in src_texts: {src_texts}")
         self.current_spm = self.spm_source
         src_texts = [self.normalize(t) for t in src_texts]  # this does not appear to do much
-        model_inputs: BatchEncoding = self.batch_encode_plus(
-            src_texts,
+        tokenizer_kwargs = dict(
             add_special_tokens=True,
             return_tensors=return_tensors,
             max_length=max_length,
-            pad_to_max_length=pad_to_max_length,
+            truncation=truncation,
+            padding=padding,
         )
+        model_inputs: BatchEncoding = self(src_texts, **tokenizer_kwargs)
+
         if tgt_texts is None:
             return model_inputs
+        if max_target_length is not None:
+            tokenizer_kwargs["max_length"] = max_target_length
 
         self.current_spm = self.spm_target
-        decoder_inputs: BatchEncoding = self.batch_encode_plus(
-            tgt_texts,
-            add_special_tokens=True,
-            return_tensors=return_tensors,
-            max_length=max_length,
-            pad_to_max_length=pad_to_max_length,
-        )
-        for k, v in decoder_inputs.items():
-            model_inputs[f"decoder_{k}"] = v
+        model_inputs["labels"] = self(tgt_texts, **tokenizer_kwargs)["input_ids"]
         self.current_spm = self.spm_source
         return model_inputs
 
@@ -188,10 +170,11 @@ class MarianTokenizer(PreTrainedTokenizer):
         assert save_dir.is_dir(), f"{save_directory} should be a directory"
         save_json(self.encoder, save_dir / self.vocab_files_names["vocab"])
 
-        for f in self.spm_files:
+        for orig, f in zip(["source.spm", "target.spm"], self.spm_files):
             dest_path = save_dir / Path(f).name
             if not dest_path.exists():
-                copyfile(f, save_dir / Path(f).name)
+                copyfile(f, save_dir / orig)
+
         return tuple(save_dir / f for f in self.vocab_files_names)
 
     def get_vocab(self) -> Dict:
