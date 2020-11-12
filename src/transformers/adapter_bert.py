@@ -879,8 +879,6 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         else:
             raise ValueError("Unknown head_type '{}'".format(head["head_type"]))
 
-        return outputs  # (loss), logits, (hidden_states), (attentions)
-
     def get_labels_dict(self, head_name=None):
         """
         Returns the id2label dict for the given head
