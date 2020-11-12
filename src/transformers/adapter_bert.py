@@ -590,7 +590,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             head_name = self.active_adapters[-1][-1]
             if head_name in self.config.prediction_heads:
                 self.active_head = head_name
-                self.config.label2id = self.config.prediction_heads[head_name].label2id
+                self.config.label2id = self.config.prediction_heads[head_name]["label2id"]
                 self.config.id2label = self.get_labels_dict(head_name)
                 self.config.labels = self.get_labels(head_name)
             else:
