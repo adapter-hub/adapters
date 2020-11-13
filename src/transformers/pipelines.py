@@ -29,6 +29,8 @@ from uuid import UUID
 
 import numpy as np
 
+from transformers.modeling_auto import MODEL_WITH_HEADS_MAPPING
+
 from .configuration_auto import AutoConfig
 from .configuration_utils import PretrainedConfig
 from .data import SquadExample, squad_convert_examples_to_features
@@ -614,6 +616,8 @@ class Pipeline(_ScikitCompat):
         """
         if not isinstance(supported_models, list):  # Create from a model mapping
             supported_models = [item[1].__name__ for item in supported_models.items()]
+        for item in MODEL_WITH_HEADS_MAPPING.values():
+            supported_models.append(item.__name__)
         if self.model.__class__.__name__ not in supported_models:
             raise PipelineException(
                 self.task,
