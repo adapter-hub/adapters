@@ -104,10 +104,7 @@ class BertSelfOutputAdaptersMixin:
                         param.requires_grad = True
 
     def get_adapter_preparams(
-        self,
-        adapter_config,
-        hidden_states,
-        input_tensor,
+        self, adapter_config, hidden_states, input_tensor,
     ):
         """
         Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
@@ -216,12 +213,7 @@ class BertSelfOutputAdaptersMixin:
 
             fusion_name = ",".join(adapter_stack)
 
-            hidden_states = self.adapter_fusion_layer[fusion_name](
-                query,
-                up_list,
-                up_list,
-                residual,
-            )
+            hidden_states = self.adapter_fusion_layer[fusion_name](query, up_list, up_list, residual,)
         return hidden_states
 
     def adapters_forward(self, hidden_states, input_tensor, adapter_names=None):
@@ -240,9 +232,7 @@ class BertSelfOutputAdaptersMixin:
 
             for adapter_stack in adapter_names:
                 hidden_states = self.adapter_stack_layer(
-                    hidden_states=hidden_states,
-                    input_tensor=input_tensor,
-                    adapter_stack=adapter_stack,
+                    hidden_states=hidden_states, input_tensor=input_tensor, adapter_stack=adapter_stack,
                 )
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
@@ -312,10 +302,7 @@ class BertOutputAdaptersMixin:
                         param.requires_grad = True
 
     def get_adapter_preparams(
-        self,
-        adapter_config,
-        hidden_states,
-        input_tensor,
+        self, adapter_config, hidden_states, input_tensor,
     ):
         """
         Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
@@ -444,9 +431,7 @@ class BertOutputAdaptersMixin:
 
             for adapter_stack in adapter_names:
                 hidden_states = self.adapter_stack_layer(
-                    hidden_states=hidden_states,
-                    input_tensor=input_tensor,
-                    adapter_stack=adapter_stack,
+                    hidden_states=hidden_states, input_tensor=input_tensor, adapter_stack=adapter_stack,
                 )
 
             last_config = self.config.adapters.get(adapter_names[-1][-1])
@@ -693,10 +678,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_prediction_head(
-        self,
-        head_name,
-        config,
-        overwrite_ok=False,
+        self, head_name, config, overwrite_ok=False,
     ):
         if head_name not in self.config.prediction_heads or overwrite_ok:
             self.config.prediction_heads[head_name] = config
@@ -766,10 +748,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
 
             if return_dict:
                 return SequenceClassifierOutput(
-                    loss=loss,
-                    logits=logits,
-                    hidden_states=outputs.hidden_states,
-                    attentions=outputs.attentions,
+                    loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
                 )
             else:
                 return outputs
@@ -787,10 +766,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
 
             if return_dict:
                 return SequenceClassifierOutput(
-                    loss=loss,
-                    logits=logits,
-                    hidden_states=outputs.hidden_states,
-                    attentions=outputs.attentions,
+                    loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
                 )
             else:
                 return outputs
@@ -807,10 +783,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
 
             if return_dict:
                 return MultipleChoiceModelOutput(
-                    loss=loss,
-                    logits=logits,
-                    hidden_states=outputs.hidden_states,
-                    attentions=outputs.attentions,
+                    loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
                 )
             else:
                 return outputs
@@ -835,10 +808,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
 
             if return_dict:
                 return TokenClassifierOutput(
-                    loss=loss,
-                    logits=logits,
-                    hidden_states=outputs.hidden_states,
-                    attentions=outputs.attentions,
+                    loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
                 )
             else:
                 return outputs
@@ -850,10 +820,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             start_logits = start_logits.squeeze(-1)
             end_logits = end_logits.squeeze(-1)
 
-            outputs = (
-                start_logits,
-                end_logits,
-            ) + outputs[2:]
+            outputs = (start_logits, end_logits,) + outputs[2:]
             if labels is not None:
                 start_positions, end_positions = labels
                 if len(start_positions.size()) > 1:
