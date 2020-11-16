@@ -655,7 +655,9 @@ class AutoModelWithHeads:
         raise ValueError(
             "Unrecognized configuration class {} for this kind of AutoModel: {}.\n"
             "Model type should be one of {}.".format(
-                config.__class__, cls.__name__, ", ".join(c.__name__ for c in MODEL_WITH_HEADS_MAPPING.keys()),
+                config.__class__,
+                cls.__name__,
+                ", ".join(c.__name__ for c in MODEL_WITH_HEADS_MAPPING.keys()),
             )
         )
 
@@ -734,7 +736,9 @@ class AutoModelWithHeads:
         raise ValueError(
             "Unrecognized configuration class {} for this kind of AutoModel: {}.\n"
             "Model type should be one of {}.".format(
-                config.__class__, cls.__name__, ", ".join(c.__name__ for c in MODEL_WITH_HEADS_MAPPING.keys()),
+                config.__class__,
+                cls.__name__,
+                ", ".join(c.__name__ for c in MODEL_WITH_HEADS_MAPPING.keys()),
             )
         )
 

@@ -243,7 +243,10 @@ def main():
             # load a pre-trained from Hub if specified
             if adapter_args.load_adapter:
                 model.load_adapter(
-                    adapter_args.load_adapter, AdapterType.text_lang, config=adapter_config, load_as=language,
+                    adapter_args.load_adapter,
+                    AdapterType.text_lang,
+                    config=adapter_config,
+                    load_as=language,
                 )
             # otherwise, add a fresh adapter
             else:
@@ -275,7 +278,9 @@ def main():
     )
     if config.model_type == "xlnet":
         data_collator = DataCollatorForPermutationLanguageModeling(
-            tokenizer=tokenizer, plm_probability=data_args.plm_probability, max_span_length=data_args.max_span_length,
+            tokenizer=tokenizer,
+            plm_probability=data_args.plm_probability,
+            max_span_length=data_args.max_span_length,
         )
     else:
         data_collator = DataCollatorForLanguageModeling(

@@ -181,7 +181,11 @@ class FSMTTokenizer(PreTrainedTokenizer):
         **kwargs
     ):
         super().__init__(
-            unk_token=unk_token, bos_token=bos_token, sep_token=sep_token, pad_token=pad_token, **kwargs,
+            unk_token=unk_token,
+            bos_token=bos_token,
+            sep_token=sep_token,
+            pad_token=pad_token,
+            **kwargs,
         )
 
         self.src_vocab_file = src_vocab_file
@@ -410,7 +414,12 @@ class FSMTTokenizer(PreTrainedTokenizer):
                     "You should not supply a second sequence if the provided sequence of "
                     "ids is already formated with special tokens for the model."
                 )
-            return list(map(lambda x: 1 if x in [self.sep_token_id, self.cls_token_id] else 0, token_ids_0,))
+            return list(
+                map(
+                    lambda x: 1 if x in [self.sep_token_id, self.cls_token_id] else 0,
+                    token_ids_0,
+                )
+            )
         # no bos used in fairseq
         if token_ids_1 is not None:
             return ([0] * len(token_ids_0)) + [1] + ([0] * len(token_ids_1)) + [1]

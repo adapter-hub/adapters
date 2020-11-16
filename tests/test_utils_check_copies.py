@@ -77,7 +77,9 @@ class CopyCheckTester(unittest.TestCase):
 
         # With no empty line at the end
         self.check_copy_consistency(
-            "# Copied from transformers.modeling_bert.BertLMPredictionHead", "BertLMPredictionHead", REFERENCE_CODE,
+            "# Copied from transformers.modeling_bert.BertLMPredictionHead",
+            "BertLMPredictionHead",
+            REFERENCE_CODE,
         )
 
         # Copy consistency with rename

@@ -21,7 +21,14 @@ PEGASUS_XSUM = "google/pegasus-xsum"
 
 @slow
 @pytest.mark.parametrize(
-    "tok_name", [MBART_TINY, MARIAN_TINY, T5_TINY, BART_TINY, PEGASUS_XSUM,],
+    "tok_name",
+    [
+        MBART_TINY,
+        MARIAN_TINY,
+        T5_TINY,
+        BART_TINY,
+        PEGASUS_XSUM,
+    ],
 )
 def test_seq2seq_dataset_truncation(tok_name):
     tokenizer = AutoTokenizer.from_pretrained(tok_name)
@@ -70,7 +77,11 @@ def test_legacy_dataset_truncation(tok):
     max_len_target = max(len(tokenizer.encode(a)) for a in SUMMARIES)
     trunc_target = 4
     train_dataset = LegacySeq2SeqDataset(
-        tokenizer, data_dir=tmp_dir, type_path="train", max_source_length=20, max_target_length=trunc_target,
+        tokenizer,
+        data_dir=tmp_dir,
+        type_path="train",
+        max_source_length=20,
+        max_target_length=trunc_target,
     )
     dataloader = DataLoader(train_dataset, batch_size=2, collate_fn=train_dataset.collate_fn)
     for batch in dataloader:

@@ -624,7 +624,9 @@ class FunnelEncoder(nn.Module):
         # The pooling is not implemented on long tensors, so we convert this mask.
         attention_mask = attention_mask.type_as(inputs_embeds)
         attention_inputs = self.attention_structure.init_attention_inputs(
-            inputs_embeds, attention_mask=attention_mask, token_type_ids=token_type_ids,
+            inputs_embeds,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
         )
         hidden = inputs_embeds
 
@@ -710,7 +712,9 @@ class FunnelDecoder(nn.Module):
         all_attentions = () if output_attentions else None
 
         attention_inputs = self.attention_structure.init_attention_inputs(
-            hidden, attention_mask=attention_mask, token_type_ids=token_type_ids,
+            hidden,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
         )
 
         for layer in self.layers:
@@ -1286,7 +1290,10 @@ class FunnelForSequenceClassification(FunnelPreTrainedModel):
             return ((loss,) + output) if loss is not None else output
 
         return SequenceClassifierOutput(
-            loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
 
@@ -1364,7 +1371,10 @@ class FunnelForMultipleChoice(FunnelPreTrainedModel):
             return ((loss,) + output) if loss is not None else output
 
         return MultipleChoiceModelOutput(
-            loss=loss, logits=reshaped_logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=loss,
+            logits=reshaped_logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
 
@@ -1442,7 +1452,10 @@ class FunnelForTokenClassification(FunnelPreTrainedModel):
             return ((loss,) + output) if loss is not None else output
 
         return TokenClassifierOutput(
-            loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
 

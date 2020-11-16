@@ -344,7 +344,12 @@ class BertAttention(nn.Module):
         adapter_names=None,
     ):
         self_outputs = self.self(
-            hidden_states, attention_mask, head_mask, encoder_hidden_states, encoder_attention_mask, output_attentions,
+            hidden_states,
+            attention_mask,
+            head_mask,
+            encoder_hidden_states,
+            encoder_attention_mask,
+            output_attentions,
         )
         attention_output = self.output(self_outputs[0], hidden_states, adapter_names=adapter_names)
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
@@ -408,7 +413,11 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
         adapter_names=None,
     ):
         self_attention_outputs = self.attention(
-            hidden_states, attention_mask, head_mask, output_attentions=output_attentions, adapter_names=adapter_names,
+            hidden_states,
+            attention_mask,
+            head_mask,
+            output_attentions=output_attentions,
+            adapter_names=adapter_names,
         )
         attention_output = self_attention_outputs[0]
         outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
@@ -884,7 +893,8 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
 
 
 @add_start_docstrings(
-    """Bert Model transformer with the option to add multiple flexible heads on top.""", BERT_START_DOCSTRING,
+    """Bert Model transformer with the option to add multiple flexible heads on top.""",
+    BERT_START_DOCSTRING,
 )
 class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
     def __init__(self, config):
@@ -933,7 +943,11 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         )
 
         outputs = self.forward_head(
-            outputs, head_name=head, attention_mask=attention_mask, labels=labels, return_dict=return_dict,
+            outputs,
+            head_name=head,
+            attention_mask=attention_mask,
+            labels=labels,
+            return_dict=return_dict,
         )
 
         return outputs
@@ -1029,7 +1043,9 @@ class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
         sequence_output, pooled_output = outputs[:2]
         prediction_scores, seq_relationship_score = self.cls(
-            sequence_output, pooled_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
+            sequence_output,
+            pooled_output,
+            inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
         )
 
         total_loss = None
@@ -1145,7 +1161,8 @@ class BertLMHeadModel(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
         sequence_output = outputs[0]
         prediction_scores = self.cls(
-            sequence_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
+            sequence_output,
+            inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
         )
 
         lm_loss = None
@@ -1161,7 +1178,10 @@ class BertLMHeadModel(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
             return ((lm_loss,) + output) if lm_loss is not None else output
 
         return CausalLMOutput(
-            loss=lm_loss, logits=prediction_scores, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=lm_loss,
+            logits=prediction_scores,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
     def prepare_inputs_for_generation(self, input_ids, attention_mask=None, **model_kwargs):
@@ -1258,7 +1278,8 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
         sequence_output = outputs[0]
         prediction_scores = self.cls(
-            sequence_output, inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
+            sequence_output,
+            inv_lang_adapter=self.bert.get_invertible_lang_adapter(adapter_names),
         )
 
         masked_lm_loss = None
@@ -1293,7 +1314,8 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
 
 @add_start_docstrings(
-    """Bert Model with a `next sentence prediction (classification)` head on top. """, BERT_START_DOCSTRING,
+    """Bert Model with a `next sentence prediction (classification)` head on top. """,
+    BERT_START_DOCSTRING,
 )
 class BertForNextSentencePrediction(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
@@ -1461,7 +1483,10 @@ class BertForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedM
             return ((loss,) + output) if loss is not None else output
 
         return SequenceClassifierOutput(
-            loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
 
@@ -1549,7 +1574,10 @@ class BertForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
             return ((loss,) + output) if loss is not None else output
 
         return MultipleChoiceModelOutput(
-            loss=loss, logits=reshaped_logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=loss,
+            logits=reshaped_logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
 
@@ -1637,7 +1665,10 @@ class BertForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedMode
             return ((loss,) + output) if loss is not None else output
 
         return TokenClassifierOutput(
-            loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
 

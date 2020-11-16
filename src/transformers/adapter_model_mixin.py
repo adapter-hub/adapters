@@ -846,7 +846,10 @@ class ModelAdaptersMixin(ABC):
             raise ValueError("Could not resolve '{}' to a valid adapter name.".format(adapter_name))
 
     def save_adapter_fusion(
-        self, save_directory: str, adapter_names: list, custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        self,
+        save_directory: str,
+        adapter_names: list,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """Saves an adapter and its configuration file to a directory so that it can be shared
         or reloaded using `load_adapter()`.
@@ -1045,7 +1048,10 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             if not any([isinstance(o, PredictionHeadLoader) for o in custom_weights_loaders]):
                 custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
         super().save_adapter(
-            save_directory, adapter_name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
+            save_directory,
+            adapter_name,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
         )
 
     def load_adapter(
@@ -1087,7 +1093,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 custom_weights_loaders = []
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
         super().save_all_adapters(
-            save_directory, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders,
+            save_directory,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
         )
 
     def get_labels(self):

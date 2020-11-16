@@ -44,7 +44,8 @@ if is_torch_available():
 @require_torch
 class ModelTester:
     def __init__(
-        self, parent,
+        self,
+        parent,
     ):
         self.parent = parent
         self.src_vocab_size = 99
@@ -71,7 +72,9 @@ class ModelTester:
         self.vocab_size = self.src_vocab_size
 
     def prepare_config_and_inputs_for_common(self):
-        input_ids = ids_tensor([self.batch_size, self.seq_length], self.src_vocab_size).clamp(3,)
+        input_ids = ids_tensor([self.batch_size, self.seq_length], self.src_vocab_size).clamp(
+            3,
+        )
         input_ids[:, -1] = 2  # Eos Token
 
         config = FSMTConfig(
@@ -98,7 +101,9 @@ class ModelTester:
 
 
 def prepare_fsmt_inputs_dict(
-    config, input_ids, attention_mask=None,
+    config,
+    input_ids,
+    attention_mask=None,
 ):
     if attention_mask is None:
         attention_mask = input_ids.ne(config.pad_token_id)

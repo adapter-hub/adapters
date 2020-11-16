@@ -282,7 +282,12 @@ class RobertaAttention(nn.Module):
         adapter_names=None,
     ):
         self_outputs = self.self(
-            hidden_states, attention_mask, head_mask, encoder_hidden_states, encoder_attention_mask, output_attentions,
+            hidden_states,
+            attention_mask,
+            head_mask,
+            encoder_hidden_states,
+            encoder_attention_mask,
+            output_attentions,
         )
         attention_output = self.output(self_outputs[0], hidden_states, adapter_names=adapter_names)
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
@@ -349,7 +354,11 @@ class RobertaLayer(BertLayerAdaptersMixin, nn.Module):
         adapter_names=None,
     ):
         self_attention_outputs = self.attention(
-            hidden_states, attention_mask, head_mask, output_attentions=output_attentions, adapter_names=adapter_names,
+            hidden_states,
+            attention_mask,
+            head_mask,
+            output_attentions=output_attentions,
+            adapter_names=adapter_names,
         )
         attention_output = self_attention_outputs[0]
         outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
@@ -726,7 +735,8 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
 
 
 @add_start_docstrings(
-    """Roberta Model transformer with the option to add multiple flexible heads on top.""", ROBERTA_START_DOCSTRING,
+    """Roberta Model transformer with the option to add multiple flexible heads on top.""",
+    ROBERTA_START_DOCSTRING,
 )
 class RobertaModelWithHeads(BertModelHeadsMixin, RobertaPreTrainedModel):
     def __init__(self, config):
@@ -775,7 +785,11 @@ class RobertaModelWithHeads(BertModelHeadsMixin, RobertaPreTrainedModel):
         )
 
         outputs = self.forward_head(
-            outputs, head_name=head, attention_mask=attention_mask, labels=labels, return_dict=return_dict,
+            outputs,
+            head_name=head,
+            attention_mask=attention_mask,
+            labels=labels,
+            return_dict=return_dict,
         )
 
         return outputs
@@ -874,7 +888,8 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
 
         sequence_output = outputs[0]
         prediction_scores = self.lm_head(
-            sequence_output, inv_lang_adapter=self.roberta.get_invertible_lang_adapter(adapter_names),
+            sequence_output,
+            inv_lang_adapter=self.roberta.get_invertible_lang_adapter(adapter_names),
         )
 
         lm_loss = None
@@ -890,7 +905,10 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
             return ((lm_loss,) + output) if lm_loss is not None else output
 
         return CausalLMOutput(
-            loss=lm_loss, logits=prediction_scores, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=lm_loss,
+            logits=prediction_scores,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
     def prepare_inputs_for_generation(self, input_ids, attention_mask=None, **model_kwargs):
@@ -983,7 +1001,8 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
         )
         sequence_output = outputs[0]
         prediction_scores = self.lm_head(
-            sequence_output, inv_lang_adapter=self.roberta.get_invertible_lang_adapter(adapter_names),
+            sequence_output,
+            inv_lang_adapter=self.roberta.get_invertible_lang_adapter(adapter_names),
         )
 
         masked_lm_loss = None
@@ -1108,7 +1127,10 @@ class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, RobertaPreTr
             return ((loss,) + output) if loss is not None else output
 
         return SequenceClassifierOutput(
-            loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
 
@@ -1197,7 +1219,10 @@ class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, RobertaPreTrainedMod
             return ((loss,) + output) if loss is not None else output
 
         return MultipleChoiceModelOutput(
-            loss=loss, logits=reshaped_logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=loss,
+            logits=reshaped_logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
 
@@ -1285,7 +1310,10 @@ class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, RobertaPreTrain
             return ((loss,) + output) if loss is not None else output
 
         return TokenClassifierOutput(
-            loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
         )
 
 

@@ -275,7 +275,10 @@ class RagRetriever:
     def __init__(self, config, question_encoder_tokenizer, generator_tokenizer):
         super().__init__()
         self.index = (
-            LegacyIndex(config.retrieval_vector_size, config.index_path or LEGACY_INDEX_PATH,)
+            LegacyIndex(
+                config.retrieval_vector_size,
+                config.index_path or LEGACY_INDEX_PATH,
+            )
             if config.index_name == "legacy"
             else HFIndex(
                 config.dataset,
@@ -309,7 +312,8 @@ class RagRetriever:
     def save_pretrained(self, save_directory):
         self.config.save_pretrained(save_directory)
         rag_tokenizer = RagTokenizer(
-            question_encoder=self.question_encoder_tokenizer, generator=self.generator_tokenizer,
+            question_encoder=self.question_encoder_tokenizer,
+            generator=self.generator_tokenizer,
         )
         rag_tokenizer.save_pretrained(save_directory)
 
@@ -355,7 +359,12 @@ class RagRetriever:
             return out
 
         rag_input_strings = [
-            cat_input_and_doc(docs[i]["title"][j], docs[i]["text"][j], input_strings[i], prefix,)
+            cat_input_and_doc(
+                docs[i]["title"][j],
+                docs[i]["text"][j],
+                input_strings[i],
+                prefix,
+            )
             for i in range(len(docs))
             for j in range(n_docs)
         ]

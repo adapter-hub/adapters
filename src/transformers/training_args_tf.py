@@ -108,7 +108,8 @@ class TFTrainingArguments(TrainingArguments):
     """
 
     tpu_name: str = field(
-        default=None, metadata={"help": "Name of TPU"},
+        default=None,
+        metadata={"help": "Name of TPU"},
     )
 
     xla: bool = field(default=False, metadata={"help": "Whether to activate the XLA compilation or not"})
