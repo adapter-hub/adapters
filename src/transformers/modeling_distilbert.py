@@ -270,12 +270,7 @@ class TransformerBlock(DistilBertTransfomerBlockAdaptersMixin, nn.Module):
         """
         # Self-Attention
         sa_output = self.attention(
-            query=x,
-            key=x,
-            value=x,
-            mask=attn_mask,
-            head_mask=head_mask,
-            output_attentions=output_attentions,
+            query=x, key=x, value=x, mask=attn_mask, head_mask=head_mask, output_attentions=output_attentions,
         )
         if output_attentions:
             sa_output, sa_weights = sa_output  # (bs, seq_length, dim), (bs, n_heads, seq_length, seq_length)
@@ -582,19 +577,14 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
         )
 
         outputs = self.forward_head(
-            distilbert_output,
-            head_name=head,
-            attention_mask=attention_mask,
-            labels=labels,
-            return_dict=return_dict,
+            distilbert_output, head_name=head, attention_mask=attention_mask, labels=labels, return_dict=return_dict,
         )
 
         return outputs
 
 
 @add_start_docstrings(
-    """DistilBert Model with a `masked language modeling` head on top. """,
-    DISTILBERT_START_DOCSTRING,
+    """DistilBert Model with a `masked language modeling` head on top. """, DISTILBERT_START_DOCSTRING,
 )
 class DistilBertForMaskedLM(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config):
@@ -941,10 +931,7 @@ class DistilBertForTokenClassification(ModelWithHeadsAdaptersMixin, DistilBertPr
             return ((loss,) + output) if loss is not None else output
 
         return TokenClassifierOutput(
-            loss=loss,
-            logits=logits,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
+            loss=loss, logits=logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
         )
 
 
@@ -1047,8 +1034,5 @@ class DistilBertForMultipleChoice(ModelWithHeadsAdaptersMixin, DistilBertPreTrai
             return ((loss,) + output) if loss is not None else output
 
         return MultipleChoiceModelOutput(
-            loss=loss,
-            logits=reshaped_logits,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
+            loss=loss, logits=reshaped_logits, hidden_states=outputs.hidden_states, attentions=outputs.attentions,
         )

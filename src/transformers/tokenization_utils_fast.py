@@ -385,9 +385,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
             encodings = [encodings]
         else:
             encodings = self._tokenizer.encode_batch(
-                batch_text_or_text_pairs,
-                add_special_tokens=add_special_tokens,
-                is_pretokenized=is_split_into_words,
+                batch_text_or_text_pairs, add_special_tokens=add_special_tokens, is_pretokenized=is_split_into_words,
             )
 
         # Convert encoding to dict

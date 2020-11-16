@@ -15,7 +15,6 @@ from .modeling_outputs import (
     TokenClassifierOutput,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -104,7 +103,7 @@ class BertSelfOutputAdaptersMixin:
                         param.requires_grad = True
 
     def get_adapter_preparams(
-        self, adapter_config, hidden_states, input_tensor,
+            self, adapter_config, hidden_states, input_tensor,
     ):
         """
         Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
@@ -213,7 +212,7 @@ class BertSelfOutputAdaptersMixin:
 
             fusion_name = ",".join(adapter_stack)
 
-            hidden_states = self.adapter_fusion_layer[fusion_name](query, up_list, up_list, residual,)
+            hidden_states = self.adapter_fusion_layer[fusion_name](query, up_list, up_list, residual, )
         return hidden_states
 
     def adapters_forward(self, hidden_states, input_tensor, adapter_names=None):
@@ -223,11 +222,11 @@ class BertSelfOutputAdaptersMixin:
             flat_adapter_names = [item for sublist in adapter_names for item in sublist]
 
         if adapter_names is not None and (
-            len(
-                (set(self.attention_text_task_adapters.keys()) | set(self.attention_text_lang_adapters.keys()))
-                & set(flat_adapter_names)
-            )
-            > 0
+                len(
+                    (set(self.attention_text_task_adapters.keys()) | set(self.attention_text_lang_adapters.keys()))
+                    & set(flat_adapter_names)
+                )
+                > 0
         ):
 
             for adapter_stack in adapter_names:
@@ -302,7 +301,7 @@ class BertOutputAdaptersMixin:
                         param.requires_grad = True
 
     def get_adapter_preparams(
-        self, adapter_config, hidden_states, input_tensor,
+            self, adapter_config, hidden_states, input_tensor,
     ):
         """
         Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
@@ -422,11 +421,11 @@ class BertOutputAdaptersMixin:
             flat_adapter_names = [item for sublist in adapter_names for item in sublist]
 
         if adapter_names is not None and (
-            len(
-                (set(self.layer_text_lang_adapters.keys()) | set(self.layer_text_task_adapters.keys()))
-                & set(flat_adapter_names)
-            )
-            > 0
+                len(
+                    (set(self.layer_text_lang_adapters.keys()) | set(self.layer_text_task_adapters.keys()))
+                    & set(flat_adapter_names)
+                )
+                > 0
         ):
 
             for adapter_stack in adapter_names:
@@ -567,7 +566,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     @active_head.setter
     def active_head(self, head_name):
         self._active_head = head_name
-        if not head_name is None and head_name in self.config.prediction_heads:
+        if head_name is not None and head_name in self.config.prediction_heads:
             self.config.label2id = self.config.prediction_heads[head_name]["label2id"]
             self.config.id2label = self.get_labels_dict(head_name)
 
@@ -591,14 +590,14 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 logger.info("No prediction head for task_name '{}' available.".format(head_name))
 
     def add_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        overwrite_ok=False,
-        multilabel=False,
-        id2label=None,
+            self,
+            head_name,
+            num_labels=2,
+            layers=2,
+            activation_function="tanh",
+            overwrite_ok=False,
+            multilabel=False,
+            id2label=None,
     ):
         """Adds a sequence classification head on top of the model.
 
@@ -624,7 +623,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_multiple_choice_head(
-        self, head_name, num_choices=2, layers=2, activation_function="tanh", overwrite_ok=False, id2label=None
+            self, head_name, num_choices=2, layers=2, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         """Adds a multiple choice head on top of the model.
 
@@ -645,7 +644,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_tagging_head(
-        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
+            self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         """Adds a token classification head on top of the model.
 
@@ -666,7 +665,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_qa_head(
-        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
+            self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         config = {
             "head_type": "question_answering",
@@ -678,7 +677,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.add_prediction_head(head_name, config, overwrite_ok)
 
     def add_prediction_head(
-        self, head_name, config, overwrite_ok=False,
+            self, head_name, config, overwrite_ok=False,
     ):
         if head_name not in self.config.prediction_heads or overwrite_ok:
             self.config.prediction_heads[head_name] = config

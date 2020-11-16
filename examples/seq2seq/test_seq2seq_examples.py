@@ -147,12 +147,7 @@ class TestSummarizationDistiller(unittest.TestCase):
     @require_multigpu
     @unittest.skip("Broken at the moment")
     def test_multigpu(self):
-        updates = dict(
-            no_teacher=True,
-            freeze_encoder=True,
-            gpus=2,
-            sortish_sampler=True,
-        )
+        updates = dict(no_teacher=True, freeze_encoder=True, gpus=2, sortish_sampler=True,)
         self._test_distiller_cli(updates, check_contents=False)
 
     def test_distill_no_teacher(self):
@@ -375,8 +370,7 @@ def test_run_eval_search(model):
 
 
 @pytest.mark.parametrize(
-    "model",
-    [T5_TINY, BART_TINY, MBART_TINY, MARIAN_TINY, FSMT_TINY],
+    "model", [T5_TINY, BART_TINY, MBART_TINY, MARIAN_TINY, FSMT_TINY],
 )
 def test_finetune(model):
     args_d: dict = CHEAP_ARGS.copy()
@@ -450,8 +444,7 @@ def test_finetune_extra_model_args():
     output_dir = tempfile.mkdtemp(prefix="output_1_")
     args_d1 = args_d.copy()
     args_d1.update(
-        model_name_or_path=model,
-        output_dir=output_dir,
+        model_name_or_path=model, output_dir=output_dir,
     )
     extra_model_params = ("encoder_layerdrop", "decoder_layerdrop", "dropout", "attention_dropout")
     for p in extra_model_params:
@@ -466,8 +459,7 @@ def test_finetune_extra_model_args():
     output_dir = tempfile.mkdtemp(prefix="output_2_")
     args_d2 = args_d.copy()
     args_d2.update(
-        model_name_or_path=model,
-        output_dir=output_dir,
+        model_name_or_path=model, output_dir=output_dir,
     )
     unsupported_param = "encoder_layerdrop"
     args_d2[unsupported_param] = 0.5

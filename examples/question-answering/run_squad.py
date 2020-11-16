@@ -125,10 +125,7 @@ def train(args, train_dataset, model, tokenizer):
     # Distributed training (should be after apex fp16 initialization)
     if args.local_rank != -1:
         model = torch.nn.parallel.DistributedDataParallel(
-            model,
-            device_ids=[args.local_rank],
-            output_device=args.local_rank,
-            find_unused_parameters=True,
+            model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True,
         )
 
     # Train!
@@ -161,8 +158,7 @@ def train(args, train_dataset, model, tokenizer):
             logger.info("  Continuing training from epoch %d", epochs_trained)
             logger.info("  Continuing training from global step %d", global_step)
             logger.info(
-                "  Will skip the first %d steps in the first epoch",
-                steps_trained_in_current_epoch,
+                "  Will skip the first %d steps in the first epoch", steps_trained_in_current_epoch,
             )
         except ValueError:
             logger.info("  Starting fine-tuning.")
@@ -170,10 +166,7 @@ def train(args, train_dataset, model, tokenizer):
     tr_loss, logging_loss = 0.0, 0.0
     model.zero_grad()
     train_iterator = trange(
-        epochs_trained,
-        int(args.num_train_epochs),
-        desc="Epoch",
-        disable=args.local_rank not in [-1, 0],
+        epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0],
     )
     # Added here for reproductibility
     set_seed(args)
@@ -246,9 +239,7 @@ def train(args, train_dataset, model, tokenizer):
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
                     tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
                     tb_writer.add_scalar(
-                        "loss",
-                        (tr_loss - logging_loss) / args.logging_steps,
-                        global_step,
+                        "loss", (tr_loss - logging_loss) / args.logging_steps, global_step,
                     )
                     logging_loss = tr_loss
 
@@ -365,9 +356,7 @@ def evaluate(args, model, tokenizer, prefix=""):
 
     evalTime = timeit.default_timer() - start_time
     logger.info(
-        "  Evaluation done in total %f secs (%f sec per example)",
-        evalTime,
-        evalTime / len(dataset),
+        "  Evaluation done in total %f secs (%f sec per example)", evalTime, evalTime / len(dataset),
     )
 
     # Compute predictions
@@ -482,8 +471,7 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
         if args.local_rank in [-1, 0]:
             logger.info("Saving features into cached file %s", cached_features_file)
             torch.save(
-                {"features": features, "dataset": dataset, "examples": examples},
-                cached_features_file,
+                {"features": features, "dataset": dataset, "examples": examples}, cached_features_file,
             )
 
     if args.local_rank == 0 and not evaluate:
@@ -545,10 +533,7 @@ def main():
         + "If no data dir or train/predict files are specified, will run with tensorflow_datasets.",
     )
     parser.add_argument(
-        "--config_name",
-        default="",
-        type=str,
-        help="Pretrained config name or path if not the same as model_name",
+        "--config_name", default="", type=str, help="Pretrained config name or path if not the same as model_name",
     )
     parser.add_argument(
         "--tokenizer_name",
@@ -598,33 +583,20 @@ def main():
     parser.add_argument("--do_train", action="store_true", help="Whether to run training.")
     parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
     parser.add_argument(
-        "--evaluate_during_training",
-        action="store_true",
-        help="Run evaluation during training at each logging step.",
+        "--evaluate_during_training", action="store_true", help="Run evaluation during training at each logging step.",
     )
     parser.add_argument(
-        "--do_lower_case",
-        action="store_true",
-        help="Set this flag if you are using an uncased model.",
+        "--do_lower_case", action="store_true", help="Set this flag if you are using an uncased model.",
     )
 
     parser.add_argument(
-        "--per_gpu_train_batch_size",
-        default=8,
-        type=int,
-        help="Batch size per GPU/CPU for training.",
+        "--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.",
     )
     parser.add_argument(
-        "--per_gpu_eval_batch_size",
-        default=8,
-        type=int,
-        help="Batch size per GPU/CPU for evaluation.",
+        "--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.",
     )
     parser.add_argument(
-        "--learning_rate",
-        default=5e-5,
-        type=float,
-        help="The initial learning rate for Adam.",
+        "--learning_rate", default=5e-5, type=float, help="The initial learning rate for Adam.",
     )
     parser.add_argument(
         "--gradient_accumulation_steps",
@@ -636,10 +608,7 @@ def main():
     parser.add_argument("--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer.")
     parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
     parser.add_argument(
-        "--num_train_epochs",
-        default=3.0,
-        type=float,
-        help="Total number of training epochs to perform.",
+        "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform.",
     )
     parser.add_argument(
         "--max_steps",
@@ -677,10 +646,7 @@ def main():
 
     parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
     parser.add_argument(
-        "--save_steps",
-        type=int,
-        default=500,
-        help="Save checkpoint every X updates steps.",
+        "--save_steps", type=int, default=500, help="Save checkpoint every X updates steps.",
     )
     parser.add_argument(
         "--eval_all_checkpoints",
@@ -689,22 +655,15 @@ def main():
     )
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
     parser.add_argument(
-        "--overwrite_output_dir",
-        action="store_true",
-        help="Overwrite the content of the output directory",
+        "--overwrite_output_dir", action="store_true", help="Overwrite the content of the output directory",
     )
     parser.add_argument(
-        "--overwrite_cache",
-        action="store_true",
-        help="Overwrite the cached training and evaluation sets",
+        "--overwrite_cache", action="store_true", help="Overwrite the cached training and evaluation sets",
     )
     parser.add_argument("--seed", type=int, default=42, help="random seed for initialization")
 
     parser.add_argument(
-        "--local_rank",
-        type=int,
-        default=-1,
-        help="local_rank for distributed training on gpus",
+        "--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus",
     )
     parser.add_argument(
         "--fp16",
@@ -722,10 +681,7 @@ def main():
     parser.add_argument("--server_port", type=str, default="", help="Can be used for distant debugging.")
 
     parser.add_argument(
-        "--threads",
-        type=int,
-        default=1,
-        help="multiple threads for converting example to features",
+        "--threads", type=int, default=1, help="multiple threads for converting example to features",
     )
 
     parser.add_argument(
@@ -735,10 +691,7 @@ def main():
         help="Train a text task adapter instead of the full model",
     )
     parser.add_argument(
-        "--load_adapter",
-        type=str,
-        default="",
-        help="Pre-trained adapter module to be loaded from Hub.",
+        "--load_adapter", type=str, default="", help="Pre-trained adapter module to be loaded from Hub.",
     )
     parser.add_argument(
         "--load_lang_adapter",
@@ -747,10 +700,7 @@ def main():
         help="Pre-trained language adapter module to be loaded from Hub.",
     )
     parser.add_argument(
-        "--language",
-        type=str,
-        default=None,
-        help="The training language, e.g. 'en' for English.",
+        "--language", type=str, default=None, help="The training language, e.g. 'en' for English.",
     )
     parser.add_argument(
         "--adapter_config",
@@ -883,10 +833,7 @@ def main():
             # load a pre-trained from Hub if specified
             if args.load_adapter:
                 model.load_adapter(
-                    args.load_adapter,
-                    AdapterType.text_task,
-                    config=adapter_config,
-                    load_as=task_name,
+                    args.load_adapter, AdapterType.text_task, config=adapter_config, load_as=task_name,
                 )
             # otherwise, add a fresh adapter
             else:
@@ -901,10 +848,7 @@ def main():
             )
             # load the language adapter from Hub
             lang_adapter_name = model.load_adapter(
-                args.load_lang_adapter,
-                AdapterType.text_lang,
-                config=lang_adapter_config,
-                load_as=args.language,
+                args.load_lang_adapter, AdapterType.text_lang, config=lang_adapter_config, load_as=args.language,
             )
         else:
             lang_adapter_name = None
@@ -972,12 +916,7 @@ def main():
                 if args.train_adapter:
                     checkpoints = set(
                         os.path.dirname(os.path.dirname(c))
-                        for c in sorted(
-                            glob.glob(
-                                args.output_dir + "/**/" + "pytorch_adapter.bin",
-                                recursive=True,
-                            )
-                        )
+                        for c in sorted(glob.glob(args.output_dir + "/**/" + "pytorch_adapter.bin", recursive=True,))
                     )
                 else:
                     checkpoints = list(

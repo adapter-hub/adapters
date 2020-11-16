@@ -167,10 +167,7 @@ def main():
             # load a pre-trained from Hub if specified
             if adapter_args.load_adapter:
                 model.load_adapter(
-                    adapter_args.load_adapter,
-                    AdapterType.text_task,
-                    config=adapter_config,
-                    load_as=task_name,
+                    adapter_args.load_adapter, AdapterType.text_task, config=adapter_config, load_as=task_name,
                 )
             # otherwise, add a fresh adapter
             else:
