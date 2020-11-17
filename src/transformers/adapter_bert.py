@@ -1,4 +1,5 @@
 import logging
+from os.path import join
 
 import torch
 from torch import nn
@@ -566,28 +567,39 @@ class PredictionHead(nn.Module):
         self.head = None
         self.name = name
 
-    def build(self, config):
+    def build(self, model,): # _init_weights):
+        model_config = model.config
         pred_head = []
         for l in range(self.config["layers"]):
-            pred_head.append(nn.Dropout(config.hidden_dropout_prob))
+            pred_head.append(nn.Dropout(model_config.hidden_dropout_prob))
             if l < self.config["layers"] - 1:
-                pred_head.append(nn.Linear(config.hidden_size, config.hidden_size))
+                pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
                 pred_head.append(Activation_Function_Class(self.config["activation_function"]))
             else:
                 if "num_labels" in self.config:
-                    pred_head.append(nn.Linear(config.hidden_size, self.config["num_labels"]))
+                    pred_head.append(nn.Linear(model_config.hidden_size, self.config["num_labels"]))
                 else:  # used for multiple_choice head
-                    pred_head.append(nn.Linear(config.hidden_size, 1))
+                    pred_head.append(nn.Linear(model_config.hidden_size, 1))
         self.head = nn.Sequential(*pred_head)
 
-        # ToDo self.head.apply(self._init_weights)
+        self.head.apply(model._init_weights)
         self.head.train(self.training)
 
     def forward(self, outputs, attention_mask, labels, return_dict):
         raise NotImplementedError("Use a Prediction Head that inherits from this class")
 
+    def save_head(self, path):
+        torch.save(self, path)
+
+    @staticmethod
+    def load_head(self, path, load_as):
+        head = torch.load(path)
+        if load_as:
+            head.name = load_as
+        return head
+
 class ClassificationHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, multilabel, id2label, config):
+    def __init__(self, head_name, num_labels, layers, activation_function, multilabel, id2label, model):
         super().__init__(head_name)
         if multilabel:
             self.type = "multilabel_classification"
@@ -600,7 +612,7 @@ class ClassificationHead(PredictionHead):
             "activation_function": activation_function,
             "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
-        self.build(config)
+        self.build(model)
 
     def forward(self, outputs, attention_mask, labels, return_dict):
         #ToDO add Multiclass Classification
@@ -628,7 +640,7 @@ class ClassificationHead(PredictionHead):
             return outputs
 
 class MultipleChoiceHead(PredictionHead):
-    def __init__(self, head_name, num_choices, layers, activation_function, id2label, config):
+    def __init__(self, head_name, num_choices, layers, activation_function, id2label, model):
         super().__init__(head_name)
         self.config = {
             "head_type": "multiple_choice",
@@ -637,7 +649,7 @@ class MultipleChoiceHead(PredictionHead):
             "activation_function": activation_function,
             "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
-        self.build(config)
+        self.build(model)
 
     def forward(self, outputs, attention_mask, labels, return_dict):
         logits = self.head(outputs[0][:, 0])
@@ -660,7 +672,7 @@ class MultipleChoiceHead(PredictionHead):
             return outputs
 
 class TaggingHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, id2label, config):
+    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
         super().__init__( head_name)
         self.config = {
             "head_type": "tagging",
@@ -669,7 +681,7 @@ class TaggingHead(PredictionHead):
             "activation_function": activation_function,
             "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
-        self.build(config)
+        self.build(model)
 
     def forward(self, outputs, attention_mask, labels, return_dict):
         logits = self.heads(outputs[0])
@@ -700,7 +712,7 @@ class TaggingHead(PredictionHead):
             return outputs
 
 class QuestionAnsweringHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, id2label, config):
+    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
         super().__init__(head_name)
         self. config = {
             "head_type": "question_answering",
@@ -709,7 +721,7 @@ class QuestionAnsweringHead(PredictionHead):
             "activation_function": activation_function,
             "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
         }
-        self.build(config)
+        self.build(model)
 
     def forward(self, outputs, attention_mask= None, labels=None, return_dict=False):
         logits = self.head(outputs[0])
@@ -816,7 +828,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
             multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
         """
-        head = ClassificationHead(head_name, num_labels, layers, activation_function, multilabel, id2label, self.config)
+        head = ClassificationHead(head_name, num_labels, layers, activation_function, multilabel, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
 
     def add_multiple_choice_head(
@@ -831,7 +843,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             activation_function (str, optional): Activation function. Defaults to 'tanh'.
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
         """
-        head = MultipleChoiceHead(head_name, num_choices, layers, activation_function, id2label, self.config)
+        head = MultipleChoiceHead(head_name, num_choices, layers, activation_function, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
 
     def add_tagging_head(
@@ -846,13 +858,13 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             activation_function (str, optional): Activation function. Defaults to 'tanh'.
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
         """
-        head = TaggingHead(head_name, num_labels, layers, activation_function, id2label, self.config)
+        head = TaggingHead(head_name, num_labels, layers, activation_function, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
 
     def add_qa_head(
         self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
-        head = QuestionAnsweringHead(num_labels, layers, activation_function, id2label, self.config)
+        head = QuestionAnsweringHead(num_labels, layers, activation_function, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
 
     def add_prediction_head(
@@ -860,6 +872,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         head,
         overwrite_ok=False,
     ):
+
         if head.name not in self.config.prediction_heads or overwrite_ok:
             self.config.prediction_heads[head.name] = head
 

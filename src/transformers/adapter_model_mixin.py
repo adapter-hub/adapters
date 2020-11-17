@@ -550,7 +550,8 @@ class PredictionHeadLoader(WeightsLoader):
 
         # if we use a custom head, save it
         if name and hasattr(self.model.config, "prediction_heads"):
-            head_config = self.model.config.prediction_heads[name]
+            head = self.model.config.prediction_heads[name]
+            head_config = head.config
         else:
             head_config = None
 
@@ -566,8 +567,12 @@ class PredictionHeadLoader(WeightsLoader):
         self.weights_helper.save_weights_config(save_directory, config_dict)
 
         # Save head weights
-        filter_func = self.filter_func(name)
-        self.weights_helper.save_weights(save_directory, filter_func)
+
+        if name and hasattr(self.model.config, "prediction_heads"):
+            head.save_head(join(save_directory, HEAD_WEIGHTS_NAME))
+        else:
+            filter_func = self.filter_func(name)
+            self.weights_helper.save_weights(save_directory, filter_func)
 
     def load(self, save_directory, load_as=None, loading_info=None):
         """Loads a prediction head module from the given directory.
@@ -609,20 +614,23 @@ class PredictionHeadLoader(WeightsLoader):
                 head_name = load_as or config["name"]
                 if head_name in self.model.config.prediction_heads:
                     logger.warning("Overwriting existing head '{}'".format(head_name))
-                self.model.add_prediction_head(head_name, config["config"], overwrite_ok=True)
+                loaded_head = torch.load(join(save_directory, HEAD_WEIGHTS_NAME))
+                self.model.add_prediction_head(loaded_head, overwrite_ok=True)
             else:
                 if "label2id" in config.keys():
                     self.model.config.id2label = {int(id_): label for label, id_ in config["label2id"].items()}
                     self.model.config.label2id = {label: int(id_) for label, id_ in config["label2id"].items()}
         # Load head weights
-        filter_func = self.filter_func(head_name)
-        if load_as:
-            rename_func = self.rename_func(config["name"], load_as)
-        else:
-            rename_func = None
-        self.weights_helper.load_weights(
-            save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
-        )
+
+        if not hasattr(self.model.config, "prediction_heads"):
+            filter_func = self.filter_func(head_name)
+            if load_as:
+                rename_func = self.rename_func(config["name"], load_as)
+            else:
+                rename_func = None
+            self.weights_helper.load_weights(
+                save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
+            )
 
         return save_directory, head_name
 
