@@ -16,7 +16,6 @@ from .modeling_outputs import (
     TokenClassifierOutput,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -105,10 +104,10 @@ class BertSelfOutputAdaptersMixin:
                         param.requires_grad = True
 
     def get_adapter_preparams(
-        self,
-        adapter_config,
-        hidden_states,
-        input_tensor,
+            self,
+            adapter_config,
+            hidden_states,
+            input_tensor,
     ):
         """
         Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
@@ -232,11 +231,11 @@ class BertSelfOutputAdaptersMixin:
             flat_adapter_names = [item for sublist in adapter_names for item in sublist]
 
         if adapter_names is not None and (
-            len(
-                (set(self.attention_text_task_adapters.keys()) | set(self.attention_text_lang_adapters.keys()))
-                & set(flat_adapter_names)
-            )
-            > 0
+                len(
+                    (set(self.attention_text_task_adapters.keys()) | set(self.attention_text_lang_adapters.keys()))
+                    & set(flat_adapter_names)
+                )
+                > 0
         ):
 
             for adapter_stack in adapter_names:
@@ -313,10 +312,10 @@ class BertOutputAdaptersMixin:
                         param.requires_grad = True
 
     def get_adapter_preparams(
-        self,
-        adapter_config,
-        hidden_states,
-        input_tensor,
+            self,
+            adapter_config,
+            hidden_states,
+            input_tensor,
     ):
         """
         Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration
@@ -436,11 +435,11 @@ class BertOutputAdaptersMixin:
             flat_adapter_names = [item for sublist in adapter_names for item in sublist]
 
         if adapter_names is not None and (
-            len(
-                (set(self.layer_text_lang_adapters.keys()) | set(self.layer_text_task_adapters.keys()))
-                & set(flat_adapter_names)
-            )
-            > 0
+                len(
+                    (set(self.layer_text_lang_adapters.keys()) | set(self.layer_text_task_adapters.keys()))
+                    & set(flat_adapter_names)
+                )
+                > 0
         ):
 
             for adapter_stack in adapter_names:
@@ -567,7 +566,7 @@ class PredictionHead(nn.Module):
         self.head = None
         self.name = name
 
-    def build(self, model,): # _init_weights):
+    def build(self, model, ):  # _init_weights):
         model_config = model.config
         pred_head = []
         for l in range(self.config["layers"]):
@@ -598,15 +597,12 @@ class PredictionHead(nn.Module):
             head.name = load_as
         return head
 
+
 class ClassificationHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, multilabel, id2label, model):
+    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
         super().__init__(head_name)
-        if multilabel:
-            self.type = "multilabel_classification"
-        else:
-            self.type = "classification"
         self.config = {
-            "head_type": self.type,
+            "head_type": "classification",
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
@@ -615,10 +611,9 @@ class ClassificationHead(PredictionHead):
         self.build(model)
 
     def forward(self, outputs, attention_mask, labels, return_dict):
-        #ToDO add Multiclass Classification
         logits = self.head(outputs[0][:, 0])
 
-        outputs = (logits, )+outputs
+        outputs = (logits,) + outputs
         if labels is not None:
             if self.config["num_labels"] == 1:
                 #  We are doing regression
@@ -638,6 +633,41 @@ class ClassificationHead(PredictionHead):
             )
         else:
             return outputs
+
+
+class MultiLabelClassificationHead(PredictionHead):
+    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
+        super().__init__(head_name)
+        self.config = {
+            "head_type": "multilabel_classification",
+            "num_labels": num_labels,
+            "layers": layers,
+            "activation_function": activation_function,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+        }
+        self.build(model)
+
+    def forward(self, outputs, attention_mask, labels, return_dict):
+        logits = self.head(outputs[0][:, 0])
+
+        outputs = (logits,) + outputs[2:]
+        if labels is not None:
+            loss_fct = BCEWithLogitsLoss()
+            if labels.dtype != torch.float32:
+                labels = labels.float()
+            loss = loss_fct(logits, labels)
+            outputs = (loss,) + outputs
+
+        if return_dict:
+            return SequenceClassifierOutput(
+                loss=loss,
+                logits=logits,
+                hidden_states=outputs.hidden_states,
+                attentions=outputs.attentions,
+            )
+        else:
+            return outputs
+
 
 class MultipleChoiceHead(PredictionHead):
     def __init__(self, head_name, num_choices, layers, activation_function, id2label, model):
@@ -671,9 +701,10 @@ class MultipleChoiceHead(PredictionHead):
         else:
             return outputs
 
+
 class TaggingHead(PredictionHead):
     def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
-        super().__init__( head_name)
+        super().__init__(head_name)
         self.config = {
             "head_type": "tagging",
             "num_labels": num_labels,
@@ -711,10 +742,11 @@ class TaggingHead(PredictionHead):
         else:
             return outputs
 
+
 class QuestionAnsweringHead(PredictionHead):
     def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
         super().__init__(head_name)
-        self. config = {
+        self.config = {
             "head_type": "question_answering",
             "num_labels": num_labels,
             "layers": layers,
@@ -723,7 +755,7 @@ class QuestionAnsweringHead(PredictionHead):
         }
         self.build(model)
 
-    def forward(self, outputs, attention_mask= None, labels=None, return_dict=False):
+    def forward(self, outputs, attention_mask=None, labels=None, return_dict=False):
         logits = self.head(outputs[0])
 
         start_logits, end_logits = logits.split(1, dim=-1)
@@ -753,7 +785,7 @@ class QuestionAnsweringHead(PredictionHead):
 
         if return_dict:
             return QuestionAnsweringModelOutput(
-                loss=None, # ToDo where is the loss set?  loss,
+                loss=total_loss,
                 start_logits=start_logits,
                 end_logits=end_logits,
                 hidden_states=outputs.hidden_states,
@@ -761,6 +793,7 @@ class QuestionAnsweringHead(PredictionHead):
             )
         else:
             return outputs
+
 
 class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     """Adds heads to a Bert-based module."""
@@ -809,14 +842,14 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 logger.info("No prediction head for task_name '{}' available.".format(head_name))
 
     def add_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        overwrite_ok=False,
-        multilabel=False,
-        id2label=None,
+            self,
+            head_name,
+            num_labels=2,
+            layers=2,
+            activation_function="tanh",
+            overwrite_ok=False,
+            multilabel=False,
+            id2label=None,
     ):
         """Adds a sequence classification head on top of the model.
 
@@ -828,11 +861,15 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
             multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
         """
-        head = ClassificationHead(head_name, num_labels, layers, activation_function, multilabel, id2label, self)
+
+        if multilabel:
+            head = MultiLabelClassificationHead(head_name, num_labels, layers, activation_function, id2label, self)
+        else:
+            head = ClassificationHead(head_name, num_labels, layers, activation_function, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
 
     def add_multiple_choice_head(
-        self, head_name, num_choices=2, layers=2, activation_function="tanh", overwrite_ok=False, id2label=None
+            self, head_name, num_choices=2, layers=2, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         """Adds a multiple choice head on top of the model.
 
@@ -847,7 +884,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.add_prediction_head(head, overwrite_ok)
 
     def add_tagging_head(
-        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
+            self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         """Adds a token classification head on top of the model.
 
@@ -862,15 +899,15 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.add_prediction_head(head, overwrite_ok)
 
     def add_qa_head(
-        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
+            self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         head = QuestionAnsweringHead(num_labels, layers, activation_function, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
 
     def add_prediction_head(
-        self,
-        head,
-        overwrite_ok=False,
+            self,
+            head,
+            overwrite_ok=False,
     ):
 
         if head.name not in self.config.prediction_heads or overwrite_ok:
@@ -883,7 +920,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                     head.config["label2id"] = {"LABEL_" + str(num): num for num in range(head.config["num_choices"])}
 
             logger.info(f"Adding head '{head.name}' with config {head.config}.")
-#             self._add_prediction_head_module(head.name)
+            #             self._add_prediction_head_module(head.name)
             self.active_head = head.name
 
         else:
