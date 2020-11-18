@@ -576,6 +576,17 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         for head_name in self.config.prediction_heads:
             self._add_prediction_head_module(head_name)
 
+    @property
+    def active_head(self):
+        return self._active_head
+
+    @active_head.setter
+    def active_head(self, head_name):
+        self._active_head = head_name
+        if head_name is not None and head_name in self.config.prediction_heads:
+            self.config.label2id = self.config.prediction_heads[head_name]["label2id"]
+            self.config.id2label = self.get_labels_dict(head_name)
+
     def set_active_adapters(self, adapter_names: list):
         """Sets the adapter modules to be used by default in every forward pass.
         This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
@@ -591,6 +602,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             head_name = self.active_adapters[-1][-1]
             if head_name in self.config.prediction_heads:
                 self.active_head = head_name
+
             else:
                 logger.info("No prediction head for task_name '{}' available.".format(head_name))
 

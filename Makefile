@@ -10,6 +10,7 @@ check_dirs := examples tests src utils
 extra_quality_checks:
 	python utils/check_repo.py
 	python utils/style_doc.py src/transformers docs/source --max_len 119
+	python utils/check_adapters.py
 
 # this target runs checks on all files
 quality:
