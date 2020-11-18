@@ -31,7 +31,7 @@ PRETRAINED_VOCAB_FILES_MAP = {
 PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {"Helsinki-NLP/opus-mt-en-de": 512}
 PRETRAINED_INIT_CONFIGURATION = {}
 
-# Example URL https://s3.amazonaws.com/models.huggingface.co/bert/Helsinki-NLP/opus-mt-en-de/vocab.json
+# Example URL https://huggingface.co/Helsinki-NLP/opus-mt-en-de/resolve/main/vocab.json
 
 
 class MarianTokenizer(PreTrainedTokenizer):
@@ -97,10 +97,12 @@ class MarianTokenizer(PreTrainedTokenizer):
     ):
         super().__init__(
             # bos_token=bos_token,  unused. Start decoding with config.decoder_start_token_id
-            model_max_length=model_max_length,
-            eos_token=eos_token,
+            source_lang=source_lang,
+            target_lang=target_lang,
             unk_token=unk_token,
+            eos_token=eos_token,
             pad_token=pad_token,
+            model_max_length=model_max_length,
             **kwargs,
         )
         assert Path(source_spm).exists(), f"cannot find spm source {source_spm}"

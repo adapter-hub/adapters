@@ -26,12 +26,12 @@ VOCAB_FILES_NAMES = {"vocab_file": "vocab.txt", "tokenizer_file": "tokenizer.jso
 
 PRETRAINED_VOCAB_FILES_MAP = {
     "vocab_file": {
-        "microsoft/layoutlm-base-uncased": "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-uncased-vocab.txt",
-        "microsoft/layoutlm-large-uncased": "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-vocab.txt",
+        "microsoft/layoutlm-base-uncased": "https://huggingface.co/bert-base-uncased/resolve/main/vocab.txt",
+        "microsoft/layoutlm-large-uncased": "https://huggingface.co/bert-large-uncased/resolve/main/vocab.txt",
     },
     "tokenizer_file": {
-        "microsoft/layoutlm-base-uncased": "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-uncased-tokenizer.json",
-        "microsoft/layoutlm-large-uncased": "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-tokenizer.json",
+        "microsoft/layoutlm-base-uncased": "https://huggingface.co/bert-base-uncased/resolve/main/tokenizer.json",
+        "microsoft/layoutlm-large-uncased": "https://huggingface.co/bert-large-uncased/resolve/main/tokenizer.json",
     },
 }
 
@@ -50,10 +50,10 @@ PRETRAINED_INIT_CONFIGURATION = {
 
 class LayoutLMTokenizerFast(BertTokenizerFast):
     r"""
-    Constructs a  "Fast" LayoutLMTokenizer.
+    Constructs a "Fast" LayoutLMTokenizer.
 
-    :class:`~transformers.LayoutLMTokenizerFast` is identical to :class:`~transformers.BertTokenizerFast` and runs end-to-end
-    tokenization: punctuation splitting + wordpiece.
+    :class:`~transformers.LayoutLMTokenizerFast` is identical to :class:`~transformers.BertTokenizerFast` and runs
+    end-to-end tokenization: punctuation splitting + wordpiece.
 
     Refer to superclass :class:`~transformers.BertTokenizerFast` for usage examples and documentation concerning
     parameters.

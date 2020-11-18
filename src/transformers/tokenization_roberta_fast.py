@@ -27,28 +27,28 @@ VOCAB_FILES_NAMES = {"vocab_file": "vocab.json", "merges_file": "merges.txt", "t
 
 PRETRAINED_VOCAB_FILES_MAP = {
     "vocab_file": {
-        "roberta-base": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-base-vocab.json",
-        "roberta-large": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-large-vocab.json",
-        "roberta-large-mnli": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-large-mnli-vocab.json",
-        "distilroberta-base": "https://s3.amazonaws.com/models.huggingface.co/bert/distilroberta-base-vocab.json",
-        "roberta-base-openai-detector": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-base-vocab.json",
-        "roberta-large-openai-detector": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-large-vocab.json",
+        "roberta-base": "https://huggingface.co/roberta-base/resolve/main/vocab.json",
+        "roberta-large": "https://huggingface.co/roberta-large/resolve/main/vocab.json",
+        "roberta-large-mnli": "https://huggingface.co/roberta-large-mnli/resolve/main/vocab.json",
+        "distilroberta-base": "https://huggingface.co/distilroberta-base/resolve/main/vocab.json",
+        "roberta-base-openai-detector": "https://huggingface.co/roberta-base/resolve/main/vocab.json",
+        "roberta-large-openai-detector": "https://huggingface.co/roberta-large/resolve/main/vocab.json",
     },
     "merges_file": {
-        "roberta-base": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-base-merges.txt",
-        "roberta-large": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-large-merges.txt",
-        "roberta-large-mnli": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-large-mnli-merges.txt",
-        "distilroberta-base": "https://s3.amazonaws.com/models.huggingface.co/bert/distilroberta-base-merges.txt",
-        "roberta-base-openai-detector": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-base-merges.txt",
-        "roberta-large-openai-detector": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-large-merges.txt",
+        "roberta-base": "https://huggingface.co/roberta-base/resolve/main/merges.txt",
+        "roberta-large": "https://huggingface.co/roberta-large/resolve/main/merges.txt",
+        "roberta-large-mnli": "https://huggingface.co/roberta-large-mnli/resolve/main/merges.txt",
+        "distilroberta-base": "https://huggingface.co/distilroberta-base/resolve/main/merges.txt",
+        "roberta-base-openai-detector": "https://huggingface.co/roberta-base/resolve/main/merges.txt",
+        "roberta-large-openai-detector": "https://huggingface.co/roberta-large/resolve/main/merges.txt",
     },
     "tokenizer_file": {
-        "roberta-base": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-base-tokenizer.json",
-        "roberta-large": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-large-tokenizer.json",
-        "roberta-large-mnli": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-large-mnli-tokenizer.json",
-        "distilroberta-base": "https://s3.amazonaws.com/models.huggingface.co/bert/distilroberta-base-tokenizer.json",
-        "roberta-base-openai-detector": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-base-tokenizer.json",
-        "roberta-large-openai-detector": "https://s3.amazonaws.com/models.huggingface.co/bert/roberta-large-tokenizer.json",
+        "roberta-base": "https://huggingface.co/roberta-base/resolve/main/tokenizer.json",
+        "roberta-large": "https://huggingface.co/roberta-large/resolve/main/tokenizer.json",
+        "roberta-large-mnli": "https://huggingface.co/roberta-large-mnli/resolve/main/tokenizer.json",
+        "distilroberta-base": "https://huggingface.co/distilroberta-base/resolve/main/tokenizer.json",
+        "roberta-base-openai-detector": "https://huggingface.co/roberta-base/resolve/main/tokenizer.json",
+        "roberta-large-openai-detector": "https://huggingface.co/roberta-large/resolve/main/tokenizer.json",
     },
 }
 
@@ -103,23 +103,22 @@ class RobertaTokenizerFast(GPT2TokenizerFast):
 
             .. note::
 
-                When building a sequence using special tokens, this is not the token that is used for the beginning
-                of sequence. The token used is the :obj:`cls_token`.
+                When building a sequence using special tokens, this is not the token that is used for the beginning of
+                sequence. The token used is the :obj:`cls_token`.
         eos_token (:obj:`str`, `optional`, defaults to :obj:`"</s>"`):
             The end of sequence token.
 
             .. note::
 
-                When building a sequence using special tokens, this is not the token that is used for the end
-                of sequence. The token used is the :obj:`sep_token`.
+                When building a sequence using special tokens, this is not the token that is used for the end of
+                sequence. The token used is the :obj:`sep_token`.
         sep_token (:obj:`str`, `optional`, defaults to :obj:`"</s>"`):
-            The separator token, which is used when building a sequence from multiple sequences, e.g. two sequences
-            for sequence classification or for a text and a question for question answering.
-            It is also used as the last token of a sequence built with special tokens.
+            The separator token, which is used when building a sequence from multiple sequences, e.g. two sequences for
+            sequence classification or for a text and a question for question answering. It is also used as the last
+            token of a sequence built with special tokens.
         cls_token (:obj:`str`, `optional`, defaults to :obj:`"<s>"`):
-            The classifier token which is used when doing sequence classification (classification of the whole
-            sequence instead of per-token classification). It is the first token of the sequence when built with
-            special tokens.
+            The classifier token which is used when doing sequence classification (classification of the whole sequence
+            instead of per-token classification). It is the first token of the sequence when built with special tokens.
         unk_token (:obj:`str`, `optional`, defaults to :obj:`"<unk>"`):
             The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this
             token instead.
@@ -184,8 +183,8 @@ class RobertaTokenizerFast(GPT2TokenizerFast):
         self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None
     ) -> List[int]:
         """
-        Create a mask from the two sequences passed to be used in a sequence-pair classification task.
-        RoBERTa does not make use of token type ids, therefore a list of zeros is returned.
+        Create a mask from the two sequences passed to be used in a sequence-pair classification task. RoBERTa does not
+        make use of token type ids, therefore a list of zeros is returned.
 
         Args:
             token_ids_0 (:obj:`List[int]`):
@@ -194,7 +193,7 @@ class RobertaTokenizerFast(GPT2TokenizerFast):
                 Optional second list of IDs for sequence pairs.
 
         Returns:
-            :obj:`List[int]`:  List of zeros.
+            :obj:`List[int]`: List of zeros.
         """
         sep = [self.sep_token_id]
         cls = [self.cls_token_id]

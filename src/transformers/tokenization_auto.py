@@ -73,6 +73,7 @@ from .tokenization_flaubert import FlaubertTokenizer
 from .tokenization_fsmt import FSMTTokenizer
 from .tokenization_funnel import FunnelTokenizer
 from .tokenization_gpt2 import GPT2Tokenizer
+from .tokenization_herbert import HerbertTokenizer
 from .tokenization_layoutlm import LayoutLMTokenizer
 from .tokenization_longformer import LongformerTokenizer
 from .tokenization_lxmert import LxmertTokenizer
@@ -112,6 +113,7 @@ else:
     T5Tokenizer = None
     XLMRobertaTokenizer = None
     XLNetTokenizer = None
+    XLMProphetNetTokenizer = None
 
 if is_tokenizers_available():
     from .tokenization_albert_fast import AlbertTokenizerFast
@@ -123,6 +125,7 @@ if is_tokenizers_available():
     from .tokenization_electra_fast import ElectraTokenizerFast
     from .tokenization_funnel_fast import FunnelTokenizerFast
     from .tokenization_gpt2_fast import GPT2TokenizerFast
+    from .tokenization_herbert_fast import HerbertTokenizerFast
     from .tokenization_layoutlm_fast import LayoutLMTokenizerFast
     from .tokenization_longformer_fast import LongformerTokenizerFast
     from .tokenization_lxmert_fast import LxmertTokenizerFast
@@ -147,6 +150,7 @@ else:
     ElectraTokenizerFast = None
     FunnelTokenizerFast = None
     GPT2TokenizerFast = None
+    HerbertTokenizerFast = None
     LayoutLMTokenizerFast = None
     LongformerTokenizerFast = None
     LxmertTokenizerFast = None
@@ -191,6 +195,7 @@ TOKENIZER_MAPPING = OrderedDict(
         (LayoutLMConfig, (LayoutLMTokenizer, LayoutLMTokenizerFast)),
         (DPRConfig, (DPRQuestionEncoderTokenizer, DPRQuestionEncoderTokenizerFast)),
         (SqueezeBertConfig, (SqueezeBertTokenizer, SqueezeBertTokenizerFast)),
+        (BertConfig, (HerbertTokenizer, HerbertTokenizerFast)),
         (BertConfig, (BertTokenizer, BertTokenizerFast)),
         (OpenAIGPTConfig, (OpenAIGPTTokenizer, OpenAIGPTTokenizerFast)),
         (GPT2Config, (GPT2Tokenizer, GPT2TokenizerFast)),
@@ -217,8 +222,8 @@ SLOW_TOKENIZER_MAPPING = {
 
 class AutoTokenizer:
     r"""
-    This is a generic tokenizer class that will be instantiated as one of the tokenizer classes of the library
-    when created with the :meth:`AutoTokenizer.from_pretrained` class method.
+    This is a generic tokenizer class that will be instantiated as one of the tokenizer classes of the library when
+    created with the :meth:`AutoTokenizer.from_pretrained` class method.
 
     This class cannot be instantiated directly using ``__init__()`` (throws an error).
     """
@@ -253,8 +258,8 @@ class AutoTokenizer:
                       using the :func:`~transformers.PreTrainedTokenizer.save_pretrained` method, e.g.,
                       ``./my_model_directory/``.
                     - A path or url to a single saved vocabulary file if and only if the tokenizer only requires a
-                      single vocabulary file (like Bert or XLNet), e.g.: ``./my_model_directory/vocab.txt``.
-                      (Not applicable to all derived classes)
+                      single vocabulary file (like Bert or XLNet), e.g.: ``./my_model_directory/vocab.txt``. (Not
+                      applicable to all derived classes)
             inputs (additional positional arguments, `optional`):
                 Will be passed along to the Tokenizer ``__init__()`` method.
             config (:class:`~transformers.PreTrainedConfig`, `optional`)
@@ -269,9 +274,12 @@ class AutoTokenizer:
                 Whether or not to delete incompletely received files. Will attempt to resume the download if such a
                 file exists.
             proxies (:obj:`Dict[str, str]`, `optional`):
-                A dictionary of proxy servers to use by protocol or endpoint, e.g.,
-                :obj:`{'http': 'foo.bar:3128', 'http://hostname': 'foo.bar:4012'}`. The proxies are used on each
-                request.
+                A dictionary of proxy servers to use by protocol or endpoint, e.g., :obj:`{'http': 'foo.bar:3128',
+                'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.
+            revision(:obj:`str`, `optional`, defaults to :obj:`"main"`):
+                The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
+                git-based system for storing models and other artifacts on huggingface.co, so ``revision`` can be any
+                identifier allowed by git.
             use_fast (:obj:`bool`, `optional`, defaults to :obj:`False`):
                 Whether or not to try to load the fast version of the tokenizer.
             kwargs (additional keyword arguments, `optional`):

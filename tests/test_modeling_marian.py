@@ -21,6 +21,8 @@ from transformers.file_utils import cached_property
 from transformers.hf_api import HfApi
 from transformers.testing_utils import require_sentencepiece, require_tokenizers, require_torch, slow, torch_device
 
+from .test_modeling_common import ModelTesterMixin
+
 
 if is_torch_available():
     import torch
@@ -35,8 +37,39 @@ if is_torch_available():
     from transformers.pipelines import TranslationPipeline
 
 
+class ModelTester:
+    def __init__(self, parent):
+        self.config = MarianConfig(
+            vocab_size=99,
+            d_model=24,
+            encoder_layers=2,
+            decoder_layers=2,
+            encoder_attention_heads=2,
+            decoder_attention_heads=2,
+            encoder_ffn_dim=32,
+            decoder_ffn_dim=32,
+            max_position_embeddings=48,
+            add_final_layer_norm=True,
+            return_dict=True,
+        )
+
+    def prepare_config_and_inputs_for_common(self):
+        return self.config, {}
+
+
+@require_torch
+class SelectiveCommonTest(unittest.TestCase):
+    all_model_classes = (MarianMTModel,) if is_torch_available() else ()
+
+    test_save_load_keys_to_never_save = ModelTesterMixin.test_save_load_keys_to_never_save
+
+    def setUp(self):
+        self.model_tester = ModelTester(self)
+
+
 class ModelManagementTests(unittest.TestCase):
     @slow
+    @require_torch
     def test_model_names(self):
         model_list = HfApi().model_list()
         model_ids = [x.modelId for x in model_list if x.modelId.startswith(ORG_NAME)]
@@ -105,7 +138,7 @@ class MarianIntegrationTest(unittest.TestCase):
         )
         self.assertEqual(self.model.device, model_inputs.input_ids.device)
         generated_ids = self.model.generate(
-            model_inputs.input_ids, attention_mask=model_inputs.attention_mask, num_beams=2
+            model_inputs.input_ids, attention_mask=model_inputs.attention_mask, num_beams=2, max_length=128
         )
         generated_words = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         return generated_words
@@ -211,6 +244,8 @@ class TestMarian_RU_FR(MarianIntegrationTest):
 @require_sentencepiece
 @require_tokenizers
 class TestMarian_MT_EN(MarianIntegrationTest):
+    """Cover low resource/high perplexity setting. This breaks without adjust_logits_generation overwritten"""
+
     src = "mt"
     tgt = "en"
     src_text = ["Billi messu b'mod ġentili, Ġesù fejjaq raġel li kien milqut bil - marda kerha tal - ġdiem."]
@@ -262,6 +297,7 @@ class TestMarian_en_ROMANCE(MarianIntegrationTest):
         with self.assertRaises(ValueError):
             self.tokenizer.prepare_seq2seq_batch([""])
 
+    @slow
     def test_pipeline(self):
         device = 0 if torch_device == "cuda" else -1
         pipeline = TranslationPipeline(self.model, self.tokenizer, framework="pt", device=device)
