@@ -34,6 +34,7 @@ from .adapter_bert import (
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .configuration_roberta import RobertaConfig
 from .file_utils import (
+    ModelOutput,
     add_code_sample_docstrings,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
@@ -758,7 +759,13 @@ class RobertaModelWithHeads(BertModelHeadsMixin, RobertaPreTrainedModel):
 
         self.init_weights()
 
-    @add_start_docstrings_to_callable(ROBERTA_INPUTS_DOCSTRING.format("(batch_size, sequence_length)"))
+    @add_start_docstrings_to_model_forward(ROBERTA_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_code_sample_docstrings(
+        tokenizer_class=_TOKENIZER_FOR_DOC,
+        checkpoint="roberta-base",
+        output_type=ModelOutput,
+        config_class=_CONFIG_FOR_DOC,
+    )
     def forward(
         self,
         input_ids=None,

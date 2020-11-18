@@ -80,8 +80,8 @@ class XLMRobertaModel(RobertaModel):
 )
 class XLMRobertaModelWithHeads(RobertaModelWithHeads):
     """
-    This class overrides :class:`~transformers.RobertaModelWithHeads`. Please check the
-    superclass for the appropriate documentation alongside usage examples.
+    This class overrides :class:`~transformers.RobertaModelWithHeads`. Please check the superclass for the appropriate
+    documentation alongside usage examples.
     """
 
     config_class = XLMRobertaConfig

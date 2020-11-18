@@ -36,6 +36,7 @@ from .adapter_distilbert import (
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .configuration_distilbert import DistilBertConfig
 from .file_utils import (
+    ModelOutput,
     add_code_sample_docstrings,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
@@ -303,7 +304,7 @@ class Transformer(DistilBertTransformerAdaptersMixin, nn.Module):
         output_hidden_states=False,
         return_dict=None,
         adapter_names=None,
-    ):
+    ):  # docstyle-ignore
         """
         Parameters:
             x: torch.tensor(bs, seq_length, dim) Input sequence embedded.
@@ -537,7 +538,13 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
 
         self.init_weights()
 
-    @add_start_docstrings_to_callable(DISTILBERT_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(DISTILBERT_INPUTS_DOCSTRING.format("batch_size, num_choices"))
+    @add_code_sample_docstrings(
+        tokenizer_class=_TOKENIZER_FOR_DOC,
+        checkpoint="distilbert-base-uncased",
+        output_type=ModelOutput,
+        config_class=_CONFIG_FOR_DOC,
+    )
     def forward(
         self,
         input_ids=None,

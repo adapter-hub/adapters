@@ -55,6 +55,7 @@ _re_ignore = re.compile(r"^\s*\.\.\s+(\S+)\s*::\s*\S*\s*$")
 _re_comment = re.compile(r"\s*\.\.\s*$")
 # Matches the special tag to ignore some paragraphs.
 _re_doc_ignore = re.compile(r"(\.\.|#)\s*docstyle-ignore")
+_re_doc_ignore_file = re.compile(r"(\.\.|#)\s*docstyle-ignore-file")
 # Matches the example introduction in docstrings.
 _re_example = re.compile(r"::\s*$")
 # Matches the parameters introduction in docstrings.
@@ -406,6 +407,8 @@ def style_file_docstrings(code_file, max_len=119, check_only=False):
     """Style all docstrings in `code_file` to `max_len`."""
     with open(code_file, "r", encoding="utf-8") as f:
         code = f.read()
+    if _re_doc_ignore_file.search(code) is not None:
+        return None
     splits = code.split('"""')
     splits = [
         (s if i % 2 == 0 or _re_doc_ignore.search(splits[i - 1]) is not None else style_docstring(s, max_len=max_len))

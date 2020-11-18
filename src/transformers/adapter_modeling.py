@@ -24,7 +24,8 @@ class Activation_Function_Class(nn.Module):
         elif hidden_act.lower() == "gelu":
 
             def gelu_new(x):
-                """Implementation of the gelu activation function currently in Google Bert repo (identical to OpenAI GPT).
+                """
+                Implementation of the gelu activation function currently in Google Bert repo (identical to OpenAI GPT).
                 Also see https://arxiv.org/abs/1606.08415
                 """
                 return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
@@ -395,11 +396,12 @@ class NICECouplingBlock(nn.Module):
 
 
 class GLOWCouplingBlock(nn.Module):
-    """Coupling Block following the GLOW design. The only difference to the RealNVP coupling blocks,
-    is the fact that it uses a single subnetwork to jointly predict [s_i, t_i], instead of two separate
-    subnetworks. This reduces computational cost and speeds up learning.
-    clamp:              Soft clamping for the multiplicative component. The amplification or attenuation
-                        of each input dimension can be at most ±exp(clamp)."""
+    """
+    Coupling Block following the GLOW design. The only difference to the RealNVP coupling blocks, is the fact that it
+    uses a single subnetwork to jointly predict [s_i, t_i], instead of two separate subnetworks. This reduces
+    computational cost and speeds up learning. clamp: Soft clamping for the multiplicative component. The amplification
+    or attenuation of each input dimension can be at most ±exp(clamp).
+    """
 
     def __init__(self, dims_in, dims_c=[], non_linearity="relu", reduction_factor=2, clamp=5.0):
         super().__init__()
