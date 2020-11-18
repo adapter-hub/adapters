@@ -556,7 +556,7 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
         output_hidden_states=None,
         adapter_names=None,
         head=None,
-        return_dict=False,
+        return_dict=None,
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 

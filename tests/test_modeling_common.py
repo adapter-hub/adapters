@@ -41,6 +41,7 @@ if is_torch_available():
         MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
         MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
         MODEL_MAPPING,
+        MODEL_WITH_HEADS_MAPPING,
         AdaptiveEmbedding,
         BertConfig,
         BertModel,
@@ -218,7 +219,7 @@ class ModelTesterMixin:
         config.return_dict = True
 
         for model_class in self.all_model_classes:
-            if model_class in MODEL_MAPPING.values():
+            if model_class in MODEL_MAPPING.values() or model_class in MODEL_WITH_HEADS_MAPPING.values():
                 continue
             model = model_class(config)
             model.to(torch_device)
@@ -236,7 +237,7 @@ class ModelTesterMixin:
         config.return_dict = True
 
         for model_class in self.all_model_classes:
-            if model_class in MODEL_MAPPING.values():
+            if model_class in MODEL_MAPPING.values() or model_class in MODEL_WITH_HEADS_MAPPING.values():
                 continue
             model = model_class(config)
             model.to(torch_device)

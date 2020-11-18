@@ -429,7 +429,7 @@ class RobertaEncoder(BertEncoderAdaptersMixin, nn.Module):
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
-                        return module(*inputs, output_attentions)
+                        return module(*inputs, output_attentions, adapter_names=adapter_names)
 
                     return custom_forward
 
@@ -440,7 +440,6 @@ class RobertaEncoder(BertEncoderAdaptersMixin, nn.Module):
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,
-                    adapter_names=adapter_names,
                 )
             else:
                 layer_outputs = layer_module(
@@ -779,7 +778,7 @@ class RobertaModelWithHeads(BertModelHeadsMixin, RobertaPreTrainedModel):
         output_hidden_states=None,
         adapter_names=None,
         head=None,
-        return_dict=False,
+        return_dict=None,
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
         attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None

@@ -484,7 +484,7 @@ class BertEncoder(BertEncoderAdaptersMixin, nn.Module):
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
-                        return module(*inputs, output_attentions)
+                        return module(*inputs, output_attentions, adapter_names=adapter_names)
 
                     return custom_forward
 
@@ -495,7 +495,6 @@ class BertEncoder(BertEncoderAdaptersMixin, nn.Module):
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,
-                    adapter_names=adapter_names,
                 )
             else:
                 layer_outputs = layer_module(

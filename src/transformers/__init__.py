@@ -376,6 +376,7 @@ if is_torch_available():
         MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
         MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
         MODEL_MAPPING,
+        MODEL_WITH_HEADS_MAPPING,
         MODEL_WITH_LM_HEAD_MAPPING,
         AutoModel,
         AutoModelForCausalLM,
