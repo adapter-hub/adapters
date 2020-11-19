@@ -20,15 +20,18 @@ import copy
 import itertools
 import math
 import warnings
+from typing import Tuple
 
 import tensorflow as tf
+
+from transformers.modeling_tf_utils import TFWrappedEmbeddings
 
 from .configuration_t5 import T5Config
 from .file_utils import (
     DUMMY_INPUTS,
     DUMMY_MASK,
     add_start_docstrings,
-    add_start_docstrings_to_callable,
+    add_start_docstrings_to_model_forward,
     replace_return_docstrings,
 )
 from .modeling_tf_outputs import TFSeq2SeqLMOutput, TFSeq2SeqModelOutput
@@ -67,8 +70,8 @@ TF_T5_PRETRAINED_MODEL_ARCHIVE_LIST = [
 
 class TFT5LayerNorm(tf.keras.layers.Layer):
     def __init__(self, epsilon=1e-6, **kwargs):
-        """Construct a layernorm module in the T5 style
-        No bias and no substraction of mean.
+        """
+        Construct a layernorm module in the T5 style No bias and no subtraction of mean.
         """
         super().__init__(**kwargs)
         self.variance_epsilon = epsilon
@@ -117,8 +120,9 @@ class TFT5LayerFF(tf.keras.layers.Layer):
 class TFT5Attention(tf.keras.layers.Layer):
     NEW_ID = itertools.count()
 
-    def __init__(self, config, has_relative_attention_bias=False, **kwargs):
+    def __init__(self, config, has_relative_attention_bias=False, is_bidirectional=False, **kwargs):
         super().__init__(**kwargs)
+        self.is_bidirectional = is_bidirectional
         self.layer_id = next(TFT5Attention.NEW_ID)
         self.is_decoder = config.is_decoder
         self.use_cache = config.use_cache
@@ -155,24 +159,21 @@ class TFT5Attention(tf.keras.layers.Layer):
         Adapted from Mesh Tensorflow:
         https://github.com/tensorflow/mesh/blob/0cb87fe07da627bf0b7e60475d59f95ed6b5be3d/mesh_tensorflow/transformer/transformer_layers.py#L593
 
-        Translate relative position to a bucket number for relative attention.
-        The relative position is defined as memory_position - query_position, i.e.
-        the distance in tokens from the attending position to the attended-to
-        position.  If bidirectional=False, then positive relative positions are
-        invalid.
-        We use smaller buckets for small absolute relative_position and larger buckets
-        for larger absolute relative_positions.  All relative positions >=max_distance
-        map to the same bucket.  All relative positions <=-max_distance map to the
-        same bucket.  This should allow for more graceful generalization to longer
-        sequences than the model has been trained on.
+        Translate relative position to a bucket number for relative attention. The relative position is defined as
+        memory_position - query_position, i.e. the distance in tokens from the attending position to the attended-to
+        position. If bidirectional=False, then positive relative positions are invalid. We use smaller buckets for
+        small absolute relative_position and larger buckets for larger absolute relative_positions. All relative
+        positions >=max_distance map to the same bucket. All relative positions <=-max_distance map to the same bucket.
+        This should allow for more graceful generalization to longer sequences than the model has been trained on
+
         Args:
             relative_position: an int32 Tensor
             bidirectional: a boolean - whether the attention is bidirectional
             num_buckets: an integer
             max_distance: an integer
+
         Returns:
-            a Tensor with the same shape as relative_position, containing int32
-            values in the range [0, num_buckets)
+            a Tensor with the same shape as relative_position, containing int32 values in the range [0, num_buckets)
         """
         ret = 0
         n = -relative_position
@@ -202,7 +203,7 @@ class TFT5Attention(tf.keras.layers.Layer):
         relative_position = memory_position - context_position  # shape (qlen, klen)
         rp_bucket = self._relative_position_bucket(
             relative_position,
-            bidirectional=not self.is_decoder,
+            bidirectional=self.is_bidirectional,
             num_buckets=self.relative_attention_num_buckets,
         )
         values = self.relative_attention_bias(rp_bucket)  # shape (qlen, klen, num_heads)
@@ -215,8 +216,7 @@ class TFT5Attention(tf.keras.layers.Layer):
         mask=None,
         kv=None,
         position_bias=None,
-        cache=None,
-        past_key_value_state=None,
+        past_key_value=None,
         head_mask=None,
         query_length=None,
         use_cache=False,
@@ -228,17 +228,17 @@ class TFT5Attention(tf.keras.layers.Layer):
         """
         # Input is (bs, qlen, dim)
         # Mask is (bs, klen) (non-causal) or (bs, klen, klen)
-        # past_key_value_state[0] is (bs, n_heads, q_len - 1, dim_per_head)
+        # past_key_value[0] is (bs, n_heads, q_len - 1, dim_per_head)
         bs, qlen, dim = shape_list(input)
 
-        if past_key_value_state is not None:
+        if past_key_value is not None:
             assert self.is_decoder is True, "Encoder cannot cache past key value states"
             assert (
-                len(past_key_value_state) == 2
-            ), "past_key_value_state should have 2 past states: keys and values. Got {} past states".format(
-                len(past_key_value_state)
+                len(past_key_value) == 2
+            ), "past_key_value should have 2 past states: keys and values. Got {} past states".format(
+                len(past_key_value)
             )
-            real_qlen = qlen + shape_list(past_key_value_state[0])[2] if query_length is None else query_length
+            real_qlen = qlen + shape_list(past_key_value[0])[2] if query_length is None else query_length
         else:
             real_qlen = qlen
 
@@ -260,18 +260,18 @@ class TFT5Attention(tf.keras.layers.Layer):
         if kv is None:
             k = shape(self.k(input))  # (bs, n_heads, qlen, dim_per_head)
             v = shape(self.v(input))  # (bs, n_heads, qlen, dim_per_head)
-        elif past_key_value_state is None:
+        elif past_key_value is None:
             k = v = kv
             k = shape(self.k(k))  # (bs, n_heads, qlen, dim_per_head)
             v = shape(self.v(v))  # (bs, n_heads, qlen, dim_per_head)
 
-        if past_key_value_state is not None:
+        if past_key_value is not None:
             if kv is None:
-                k_, v_ = past_key_value_state
+                k_, v_ = past_key_value
                 k = tf.concat([k_, k], axis=2)  # (bs, n_heads, klen, dim_per_head)
                 v = tf.concat([v_, v], axis=2)  # (bs, n_heads, klen, dim_per_head)
             else:
-                k, v = past_key_value_state
+                k, v = past_key_value
 
         # to cope with keras serialization
         if self.is_decoder and cast_bool_to_primitive(use_cache, self.use_cache) is True:
@@ -288,8 +288,8 @@ class TFT5Attention(tf.keras.layers.Layer):
 
             # if key and values are already calculated
             # we want only the last query position bias
-            if past_key_value_state is not None:
-                position_bias = position_bias[:, :, -1:, :]
+            if past_key_value is not None:
+                position_bias = position_bias[:, :, -qlen:, :]
 
             if mask is not None:
                 position_bias = position_bias + mask  # (bs, n_heads, qlen, klen)
@@ -322,6 +322,7 @@ class TFT5LayerSelfAttention(tf.keras.layers.Layer):
         self.SelfAttention = TFT5Attention(
             config,
             has_relative_attention_bias=has_relative_attention_bias,
+            is_bidirectional=not config.is_decoder,
             name="SelfAttention",
         )
         self.layer_norm = TFT5LayerNorm(epsilon=config.layer_norm_epsilon, name="layer_norm")
@@ -333,7 +334,7 @@ class TFT5LayerSelfAttention(tf.keras.layers.Layer):
         attention_mask=None,
         position_bias=None,
         head_mask=None,
-        past_key_value_state=None,
+        past_key_value=None,
         use_cache=False,
         output_attentions=False,
         training=False,
@@ -344,7 +345,7 @@ class TFT5LayerSelfAttention(tf.keras.layers.Layer):
             mask=attention_mask,
             position_bias=position_bias,
             head_mask=head_mask,
-            past_key_value_state=past_key_value_state,
+            past_key_value=past_key_value,
             use_cache=use_cache,
             output_attentions=output_attentions,
             training=training,
@@ -361,6 +362,7 @@ class TFT5LayerCrossAttention(tf.keras.layers.Layer):
         self.EncDecAttention = TFT5Attention(
             config,
             has_relative_attention_bias=has_relative_attention_bias,
+            is_bidirectional=True,
             name="EncDecAttention",
         )
         self.layer_norm = TFT5LayerNorm(epsilon=config.layer_norm_epsilon, name="layer_norm")
@@ -373,7 +375,7 @@ class TFT5LayerCrossAttention(tf.keras.layers.Layer):
         attention_mask=None,
         position_bias=None,
         head_mask=None,
-        past_key_value_state=None,
+        past_key_value=None,
         query_length=None,
         use_cache=False,
         output_attentions=False,
@@ -386,7 +388,7 @@ class TFT5LayerCrossAttention(tf.keras.layers.Layer):
             kv=kv,
             position_bias=position_bias,
             head_mask=head_mask,
-            past_key_value_state=past_key_value_state,
+            past_key_value=past_key_value,
             query_length=query_length,
             use_cache=use_cache,
             output_attentions=output_attentions,
@@ -430,34 +432,34 @@ class TFT5Block(tf.keras.layers.Layer):
         encoder_attention_mask=None,
         encoder_decoder_position_bias=None,
         head_mask=None,
-        past_key_value_state=None,
+        past_key_value=None,
         use_cache=False,
         output_attentions=False,
         training=False,
     ):
 
-        if past_key_value_state is not None:
+        if past_key_value is not None:
             assert self.is_decoder, "Only decoder can use `past_key_values`"
             expected_num_past_key_values = 2 if encoder_hidden_states is None else 4
 
             error_message = "There should be {} past states. 2 (past / key) for self attention.{} Got {} past key / value states".format(
                 expected_num_past_key_values,
                 "2 (past / key) for cross attention" if expected_num_past_key_values == 4 else "",
-                len(past_key_value_state),
+                len(past_key_value),
             )
-            assert len(past_key_value_state) == expected_num_past_key_values, error_message
+            assert len(past_key_value) == expected_num_past_key_values, error_message
 
-            self_attn_past_key_value_state = past_key_value_state[:2]
-            cross_attn_past_key_value_state = past_key_value_state[2:]
+            self_attn_past_key_value = past_key_value[:2]
+            cross_attn_past_key_value = past_key_value[2:]
         else:
-            self_attn_past_key_value_state, cross_attn_past_key_value_state = None, None
+            self_attn_past_key_value, cross_attn_past_key_value = None, None
 
         self_attention_outputs = self.layer[0](
             hidden_states,
             attention_mask=attention_mask,
             position_bias=position_bias,
             head_mask=head_mask,
-            past_key_value_state=self_attn_past_key_value_state,
+            past_key_value=self_attn_past_key_value,
             use_cache=use_cache,
             output_attentions=output_attentions,
             training=training,
@@ -479,7 +481,7 @@ class TFT5Block(tf.keras.layers.Layer):
                 attention_mask=encoder_attention_mask,
                 position_bias=encoder_decoder_position_bias,
                 head_mask=head_mask,
-                past_key_value_state=cross_attn_past_key_value_state,
+                past_key_value=cross_attn_past_key_value,
                 query_length=query_length,
                 use_cache=use_cache,
                 output_attentions=output_attentions,
@@ -500,36 +502,6 @@ class TFT5Block(tf.keras.layers.Layer):
         # Add attentions if we output them
         outputs = outputs + (present_key_value_state,) + attention_outputs
         return outputs  # hidden-states, present_key_value_states, (self-attention weights), (self-attention position bias), (cross-attention weights), (cross-attention position bias)
-
-
-class _NoLayerEmbedTokens:
-    """
-    this class wraps a the TFSharedEmbeddingTokens layer into a python 'no-keras-layer'
-    class to avoid problem with weight restoring. Also it makes sure that the layer is
-    called from the correct scope to avoid problem with saving/storing the correct weights
-    """
-
-    def __init__(self, layer, abs_scope_name=None):
-        self._layer = layer
-        self._abs_scope_name = abs_scope_name
-
-    def call(self, inputs, mode="embedding"):
-        if self._abs_scope_name is None:
-            return self._layer.call(inputs, mode)
-
-        # if an abs scope name is given to the embedding variable, call variable from absolute scope
-        with tf.compat.v1.variable_scope(self._abs_scope_name, auxiliary_name_scope=False) as abs_scope_name:
-            with tf.name_scope(abs_scope_name.original_name_scope):
-                return self._layer.call(inputs, mode)
-
-    def __call__(self, inputs, mode="embedding"):
-        if self._abs_scope_name is None:
-            return self._layer(inputs, mode)
-
-        # if an abs scope name is given to the embedding variable, call variable from absolute scope
-        with tf.compat.v1.variable_scope(self._abs_scope_name, auxiliary_name_scope=False) as abs_scope_name:
-            with tf.name_scope(abs_scope_name.original_name_scope):
-                return self._layer(inputs, mode)
 
 
 ####################################################
@@ -592,7 +564,7 @@ class TFT5MainLayer(tf.keras.layers.Layer):
         output_hidden_states=None,
         training=False,
         **kwargs,
-    ):
+    ) -> Tuple:
         if isinstance(inputs, (tuple, list)):
             input_ids = inputs[0]
             attention_mask = inputs[1] if len(inputs) > 1 else attention_mask
@@ -618,34 +590,38 @@ class TFT5MainLayer(tf.keras.layers.Layer):
             output_hidden_states = inputs.get("output_hidden_states", output_hidden_states)
             assert len(inputs) <= 10, "Too many inputs."
 
-            if "past_key_value_states" in inputs:
+            if "past_key_values" in inputs:
                 warnings.warn(
-                    "The `past_key_value_states` argument is deprecated and will be removed in a future version, use `past_key_values` instead.",
+                    "The `past_key_values` argument is deprecated and will be removed in a future version, use `past_key_values` instead.",
                     FutureWarning,
                 )
-                past_key_values = inputs.pop("past_key_value_states")
+                past_key_values = inputs.pop("past_key_values")
         else:
             input_ids = inputs
-            if "past_key_value_states" in kwargs:
+            if "past_key_values" in kwargs:
                 warnings.warn(
-                    "The `past_key_value_states` argument is deprecated and will be removed in a future version, use `past_key_values` instead.",
+                    "The `past_key_values` argument is deprecated and will be removed in a future version, use `past_key_values` instead.",
                     FutureWarning,
                 )
-                past_key_values = kwargs.pop("past_key_value_states")
+                past_key_values = kwargs.pop("past_key_values")
 
         output_attentions = output_attentions if output_attentions is not None else self.output_attentions
         output_hidden_states = output_hidden_states if output_hidden_states is not None else self.output_hidden_states
         use_cache = use_cache if use_cache is not None else self.use_cache
 
         if input_ids is not None and inputs_embeds is not None:
-            raise ValueError("You cannot specify both inputs and inputs_embeds at the same time")
+            err_msg_prefix = "decoder_" if self.is_decoder else ""
+            raise ValueError(
+                f"You cannot specify both {err_msg_prefix}inputs and {err_msg_prefix}inputs_embeds at the same time"
+            )
         elif input_ids is not None:
             input_shape = shape_list(input_ids)
             input_ids = tf.reshape(input_ids, (-1, input_shape[-1]))
         elif inputs_embeds is not None:
             input_shape = shape_list(inputs_embeds)[:-1]
         else:
-            raise ValueError("You have to specify either inputs or inputs_embeds")
+            err_msg_prefix = "decoder_" if self.is_decoder else ""
+            raise ValueError(f"You have to specify either {err_msg_prefix}inputs or {err_msg_prefix}inputs_embeds")
 
         if inputs_embeds is None:
             assert self.embed_tokens is not None, "You have to intialize the model with valid token embeddings"
@@ -653,15 +629,10 @@ class TFT5MainLayer(tf.keras.layers.Layer):
 
         batch_size, seq_length = input_shape
 
-        if past_key_values is not None:
-            assert seq_length == 1, "Input shape is {}, but should be {} when using past_key_value_sates".format(
-                input_shape, (batch_size, 1)
-            )
-            # required mask seq length can be calculated via length of past
-            # key value states and seq_length = 1 for the last token
-            mask_seq_length = shape_list(past_key_values[0][0])[2] + seq_length
-        else:
-            mask_seq_length = seq_length
+        # required mask seq length can be calculated via length of past
+        mask_seq_length = (
+            shape_list(past_key_values[0][0])[2] + seq_length if past_key_values is not None else seq_length
+        )
 
         if attention_mask is None:
             attention_mask = tf.fill((batch_size, mask_seq_length), 1)
@@ -692,13 +663,13 @@ class TFT5MainLayer(tf.keras.layers.Layer):
                 causal_mask = tf.cast(causal_mask, dtype=tf.float32)
                 extended_attention_mask = causal_mask[:, None, :, :] * attention_mask[:, None, None, :]
                 if past_key_values[0] is not None:
-                    extended_attention_mask = extended_attention_mask[:, :, -1:, :]
+                    extended_attention_mask = extended_attention_mask[:, :, -seq_length:, :]
             else:
                 extended_attention_mask = attention_mask[:, None, None, :]
 
         # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
         # masked positions, this operation will create a tensor which is 0.0 for
-        # positions we want to attend and -10000.0 for masked positions.
+        # positions we want to attend and  -1e9 for masked positions.
         # Since we are adding it to the raw scores before the softmax, this is
         # effectively the same as removing these entirely.
 
@@ -711,8 +682,8 @@ class TFT5MainLayer(tf.keras.layers.Layer):
 
         if self.is_decoder and encoder_attention_mask is not None:
             # If a 2D ou 3D attention mask is provided for the cross-attention
-            # we need to make broadcastabe to [batch_size, num_heads, mask_seq_length, mask_seq_length]
-            # we need to make broadcastabe to [batch_size, num_heads, seq_length, seq_length]
+            # we need to make broadcastable to [batch_size, num_heads, mask_seq_length, mask_seq_length]
+            # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
             encoder_attention_mask = tf.cast(encoder_attention_mask, dtype=tf.float32)
             num_dims_encoder_attention_mask = len(shape_list(encoder_attention_mask))
             if num_dims_encoder_attention_mask == 3:
@@ -720,7 +691,7 @@ class TFT5MainLayer(tf.keras.layers.Layer):
             if num_dims_encoder_attention_mask == 2:
                 encoder_extended_attention_mask = encoder_attention_mask[:, None, None, :]
 
-            # T5 has a mask that can compare sequence ids, we can simulate this here with this transposistion
+            # T5 has a mask that can compare sequence ids, we can simulate this here with this transposition
             # Cf. https://github.com/tensorflow/mesh/blob/8d2465e9bc93129b913b5ccc6a59aa97abd96ec6/mesh_tensorflow/transformer/transformer_layers.py#L270
             # encoder_extended_attention_mask = tf.math.equal(encoder_extended_attention_mask,
             #                                         tf.transpose(encoder_extended_attention_mask, perm=(-1, -2)))
@@ -740,7 +711,7 @@ class TFT5MainLayer(tf.keras.layers.Layer):
 
         hidden_states = self.dropout(inputs_embeds, training=training)
 
-        for i, (layer_module, past_key_value_state) in enumerate(zip(self.block, past_key_values)):
+        for i, (layer_module, past_key_value) in enumerate(zip(self.block, past_key_values)):
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
@@ -752,7 +723,7 @@ class TFT5MainLayer(tf.keras.layers.Layer):
                 encoder_attention_mask=encoder_extended_attention_mask,
                 encoder_decoder_position_bias=encoder_decoder_position_bias,
                 head_mask=head_mask[i],
-                past_key_value_state=past_key_value_state,
+                past_key_value=past_key_value,
                 use_cache=use_cache,
                 output_attentions=output_attentions,
                 training=training,
@@ -798,8 +769,9 @@ class TFT5MainLayer(tf.keras.layers.Layer):
 # pointers for your model.
 ####################################################
 class TFT5PreTrainedModel(TFPreTrainedModel):
-    """An abstract class to handle weights initialization and
-    a simple interface for downloading and loading pretrained models.
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
     """
 
     config_class = T5Config
@@ -849,16 +821,16 @@ T5_START_DOCSTRING = r"""
 
     The T5 model was proposed in `Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer
     <https://arxiv.org/abs/1910.10683>`__ by Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang,
-    Michael Matena, Yanqi Zhou, Wei Li, Peter J. Liu.
-    It's an encoder decoder transformer pre-trained in a text-to-text denoising generative setting.
+    Michael Matena, Yanqi Zhou, Wei Li, Peter J. Liu. It's an encoder decoder transformer pre-trained in a text-to-text
+    denoising generative setting.
 
     This model inherits from :class:`~transformers.TFPreTrainedModel`. Check the superclass documentation for the
     generic methods the library implements for all its model (such as downloading or saving, resizing the input
     embeddings, pruning heads etc.)
 
-    This model is also a `tf.keras.Model <https://www.tensorflow.org/api_docs/python/tf/keras/Model>`__ subclass.
-    Use it as a regular TF 2.0 Keras Model and refer to the TF 2.0 documentation for all matter related to general
-    usage and behavior.
+    This model is also a `tf.keras.Model <https://www.tensorflow.org/api_docs/python/tf/keras/Model>`__ subclass. Use
+    it as a regular TF 2.0 Keras Model and refer to the TF 2.0 documentation for all matter related to general usage
+    and behavior.
 
     .. note::
 
@@ -867,11 +839,11 @@ T5_START_DOCSTRING = r"""
         - having all inputs as keyword arguments (like PyTorch models), or
         - having all inputs as a list, tuple or dict in the first positional arguments.
 
-        This second option is useful when using :meth:`tf.keras.Model.fit` method which currently requires having
-        all the tensors in the first argument of the model call function: :obj:`model(inputs)`.
+        This second option is useful when using :meth:`tf.keras.Model.fit` method which currently requires having all
+        the tensors in the first argument of the model call function: :obj:`model(inputs)`.
 
-        If you choose this second option, there are three possibilities you can use to gather all the input Tensors
-        in the first positional argument :
+        If you choose this second option, there are three possibilities you can use to gather all the input Tensors in
+        the first positional argument :
 
         - a single Tensor with :obj:`input_ids` only and nothing else: :obj:`model(inputs_ids)`
         - a list of varying length with one or several input Tensors IN THE ORDER given in the docstring:
@@ -881,77 +853,73 @@ T5_START_DOCSTRING = r"""
 
     Parameters:
         config (:class:`~transformers.T5Config`): Model configuration class with all the parameters of the model.
-            Initializing with a config file does not load the weights associated with the model, only the configuration.
-            Check out the :meth:`~transformers.PreTrainedModel.from_pretrained` method to load the model weights.
+            Initializing with a config file does not load the weights associated with the model, only the
+            configuration. Check out the :meth:`~transformers.PreTrainedModel.from_pretrained` method to load the model
+            weights.
 """
 
 T5_INPUTS_DOCSTRING = r"""
     Args:
         inputs (:obj:`tf.Tensor` of shape :obj:`(batch_size, sequence_length)`):
-            Indices of input sequence tokens in the vocabulary.
-            T5 is a model with relative position embeddings so you should be able to pad the inputs on
-            the right or the left.
+            Indices of input sequence tokens in the vocabulary. T5 is a model with relative position embeddings so you
+            should be able to pad the inputs on the right or the left.
 
-            Indices can be obtained using :class:`~transformers.BertTokenizer`.
-            See :func:`transformers.PreTrainedTokenizer.__call__` and
-            :func:`transformers.PreTrainedTokenizer.encode` for details.
+            Indices can be obtained using :class:`~transformers.BertTokenizer`. See
+            :func:`transformers.PreTrainedTokenizer.__call__` and :func:`transformers.PreTrainedTokenizer.encode` for
+            details.
 
-            To know more on how to prepare :obj:`inputs` for pre-training take a look at
-            `T5 Training <./t5.html#training>`__.
+            To know more on how to prepare :obj:`inputs` for pre-training take a look at `T5 Training
+            <./t5.html#training>`__.
         decoder_input_ids (:obj:`tf.Tensor` of shape :obj:`(batch_size, target_sequence_length)`, `optional`):
             Provide for sequence to sequence training. T5 uses the :obj:`pad_token_id` as the starting token for
-            :obj:`decoder_input_ids` generation.
-            If :obj:`past_key_values` is used, optionally only the last :obj:`decoder_input_ids` have to be input (see
-            :obj:`past_key_values`).
+            :obj:`decoder_input_ids` generation. If :obj:`past_key_values` is used, optionally only the last
+            :obj:`decoder_input_ids` have to be input (see :obj:`past_key_values`).
 
-            To know more on how to prepare :obj:`decoder_input_ids` for pretraining take a look at
-            `T5 Training <./t5.html#training>`__. If :obj:`decoder_input_ids` and :obj:`decoder_inputs_embeds` are both
-            unset, :obj:`decoder_input_ids` takes the value of :obj:`input_ids`.
+            To know more on how to prepare :obj:`decoder_input_ids` for pretraining take a look at `T5 Training
+            <./t5.html#training>`__. If :obj:`decoder_input_ids` and :obj:`decoder_inputs_embeds` are both unset,
+            :obj:`decoder_input_ids` takes the value of :obj:`input_ids`.
         attention_mask (:obj:`tf.Tensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-            Mask to avoid performing attention on padding token indices.
-            Mask values selected in ``[0, 1]``:
+            Mask to avoid performing attention on padding token indices. Mask values selected in ``[0, 1]``:
 
             - 1 for tokens that are **not masked**,
-            - 0 for tokens that are **maked**.
+            - 0 for tokens that are **masked**.
 
             `What are attention masks? <../glossary.html#attention-mask>`__
-        encoder_outputs (:obj:`tuple(tuple(tf.FloatTensor)`, `optional`):
-            Tuple consists of (:obj:`last_hidden_state`, :obj:`optional`: `hidden_states`, :obj:`optional`: `attentions`)
-            :obj:`last_hidden_state` of shape :obj:`(batch_size, sequence_length, hidden_size)` is a sequence of
-            hidden states at the output of the last layer of the encoder. Used in the cross-attention of the decoder.
         decoder_attention_mask (:obj:`tf.Tensor` of shape :obj:`(batch_size, tgt_seq_len)`, `optional`):
             Default behavior: generate a tensor that ignores pad tokens in :obj:`decoder_input_ids`. Causal mask will
             also be used by default.
+        encoder_outputs (:obj:`tuple(tuple(tf.FloatTensor)`, `optional`):
+            Tuple consists of (:obj:`last_hidden_state`, :obj:`optional`: `hidden_states`, :obj:`optional`:
+            `attentions`) :obj:`last_hidden_state` of shape :obj:`(batch_size, sequence_length, hidden_size)` is a
+            sequence of hidden states at the output of the last layer of the encoder. Used in the cross-attention of
+            the decoder.
         past_key_values (:obj:`tuple(tuple(tf.Tensor))` of length :obj:`config.n_layers` with each tuple having 4 tensors of shape :obj:`(batch_size, num_heads, sequence_length - 1, embed_size_per_head)`):
-            ontains precomputed key and value hidden states of the attention blocks. Can be used to speed up decoding.
+            contains precomputed key and value hidden states of the attention blocks. Can be used to speed up decoding.
 
             If :obj:`past_key_values` are used, the user can optionally input only the last :obj:`decoder_input_ids`
             (those that don't have their past key value states given to this model) of shape :obj:`(batch_size, 1)`
             instead of all :obj:`decoder_input_ids` of shape :obj:`(batch_size, sequence_length)`.
-        use_cache (:obj:`bool`, `optional`, defaults to :obj:`True`):
-            If set to :obj:`True`, ``past_key_values`` key value states are returned and can be used to speed up
-            decoding (see ``past_key_values``).
         inputs_embeds (:obj:`tf.Tensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
             Optionally, instead of passing :obj:`input_ids` you can choose to directly pass an embedded representation.
             This is useful if you want more control over how to convert :obj:`input_ids` indices into associated
             vectors than the model's internal embedding lookup matrix.
         decoder_inputs_embeds (:obj:`tf.Tensor` of shape :obj:`(batch_size, target_sequence_length, hidden_size)`, `optional`):
             Optionally, instead of passing :obj:`decoder_input_ids` you can choose to directly pass an embedded
-            representation.
-            If :obj:`past_key_values` is used, optionally only the last :obj:`decoder_inputs_embeds` have to be input
-            (see :obj:`past_key_values`).
-            This is useful if you want more control over how to convert :obj:`decoder_input_ids` indices into
-            associated vectors than the model's internal embedding lookup matrix.
+            representation. If :obj:`past_key_values` is used, optionally only the last :obj:`decoder_inputs_embeds`
+            have to be input (see :obj:`past_key_values`). This is useful if you want more control over how to convert
+            :obj:`decoder_input_ids` indices into associated vectors than the model's internal embedding lookup matrix.
 
-            If :obj:`decoder_input_ids` and :obj:`decoder_inputs_embeds` are both
-            unset, :obj:`decoder_input_embeds` takes the value of :obj:`input_embeds`.
+            If :obj:`decoder_input_ids` and :obj:`decoder_inputs_embeds` are both unset, :obj:`decoder_inputs_embeds`
+            takes the value of :obj:`inputs_embeds`.
         head_mask: (:obj:`tf.Tensor` of shape :obj:`(num_heads,)` or :obj:`(num_layers, num_heads)`, `optional`):
-            Mask to nullify selected heads of the self-attention modules.
-            Mask values selected in ``[0, 1]``:
+            Mask to nullify selected heads of the self-attention modules. Mask values selected in ``[0, 1]``:
 
             - 1 indicates the head is **not masked**,
             - 0 indicates the head is **masked**.
 
+        use_cache (:obj:`bool`, `optional`, defaults to :obj:`True`):
+            If set to :obj:`True`, :obj:`past_key_values` key value states are returned and can be used to speed up
+            decoding (see :obj:`past_key_values`).
         output_attentions (:obj:`bool`, `optional`):
             Whether or not to return the attentions tensors of all attention layers. See ``attentions`` under returned
             tensors for more detail.
@@ -978,8 +946,8 @@ class TFT5Model(TFT5PreTrainedModel):
         # retrieve correct absolute scope for embed token wrapper
         with tf.compat.v1.variable_scope("shared") as shared_abs_scope_name:
             pass
-
-        embed_tokens = _NoLayerEmbedTokens(self.shared, abs_scope_name=shared_abs_scope_name)
+        # Wraps layer to avoid problems with weight restoring and ensuring we're in the correct TF scope.
+        embed_tokens = TFWrappedEmbeddings(self.shared, abs_scope_name=shared_abs_scope_name)
 
         encoder_config = copy.deepcopy(config)
         encoder_config.use_cache = False
@@ -1001,7 +969,8 @@ class TFT5Model(TFT5PreTrainedModel):
         # retrieve correct absolute scope for embed token wrapper
         with tf.compat.v1.variable_scope("shared") as shared_abs_scope_name:
             pass
-        embed_tokens = _NoLayerEmbedTokens(self.shared, abs_scope_name=shared_abs_scope_name)
+        # Wraps layer to avoid problems with weight restoring and ensuring we're in the correct TF scope.
+        embed_tokens = TFWrappedEmbeddings(self.shared, abs_scope_name=shared_abs_scope_name)
         self.encoder.set_embed_tokens(embed_tokens)
         self.decoder.set_embed_tokens(embed_tokens)
 
@@ -1011,18 +980,18 @@ class TFT5Model(TFT5PreTrainedModel):
     def get_decoder(self):
         return self.decoder
 
-    @add_start_docstrings_to_callable(T5_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=TFSeq2SeqModelOutput, config_class=_CONFIG_FOR_DOC)
     def call(
         self,
         inputs,
         attention_mask=None,
-        encoder_outputs=None,
-        inputs_embeds=None,
-        head_mask=None,
-        past_key_values=None,
         decoder_input_ids=None,
         decoder_attention_mask=None,
+        encoder_outputs=None,
+        past_key_values=None,
+        head_mask=None,
+        inputs_embeds=None,
         decoder_inputs_embeds=None,
         use_cache=None,
         output_attentions=None,
@@ -1040,20 +1009,22 @@ class TFT5Model(TFT5PreTrainedModel):
 
             >>> tokenizer = T5Tokenizer.from_pretrained('t5-small')
             >>> model = TFT5Model.from_pretrained('t5-small')
-            >>> inputs = tokenizer.encode("Hello, my dog is cute", return_tensors="tf")  # Batch size 1
-            >>> outputs = model(inputs, decoder_input_ids=inputs)
-            >>> last_hidden_states = outputs[0]  # The last hidden-state is the first element of the output tuple
+
+            >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="tf").input_ids  # Batch size 1
+            >>> decoder_input_ids = tokenizer("Studies show that", return_tensors="tf").input_ids  # Batch size 1
+            >>> outputs = model(input_ids, decoder_input_ids=decoder_input_ids, return_dict=True)
+
 
         """
         if isinstance(inputs, (tuple, list)):
             input_ids = inputs[0]
             attention_mask = inputs[1] if len(inputs) > 1 else attention_mask
-            encoder_outputs = inputs[2] if len(inputs) > 2 else encoder_outputs
-            inputs_embeds = inputs[3] if len(inputs) > 3 else inputs_embeds
-            head_mask = inputs[4] if len(inputs) > 4 else head_mask
-            past_key_values = inputs[5] if len(inputs) > 5 else past_key_values
-            decoder_input_ids = inputs[6] if len(inputs) > 6 else decoder_input_ids
-            decoder_attention_mask = inputs[7] if len(inputs) > 7 else decoder_attention_mask
+            decoder_input_ids = inputs[2] if len(inputs) > 2 else decoder_input_ids
+            decoder_attention_mask = inputs[3] if len(inputs) > 3 else decoder_attention_mask
+            encoder_outputs = inputs[4] if len(inputs) > 4 else encoder_outputs
+            past_key_values = inputs[5] if len(inputs) > 5 else head_mask
+            head_mask = inputs[6] if len(inputs) > 6 else head_mask
+            inputs_embeds = inputs[7] if len(inputs) > 7 else inputs_embeds
             decoder_inputs_embeds = inputs[8] if len(inputs) > 8 else decoder_inputs_embeds
             use_cache = inputs[9] if len(inputs) > 9 else use_cache
             output_attentions = inputs[10] if len(inputs) > 10 else output_attentions
@@ -1066,17 +1037,16 @@ class TFT5Model(TFT5PreTrainedModel):
                 input_ids = inputs.get("inputs")
             input_ids = inputs.get("input_ids")
             attention_mask = inputs.get("attention_mask", attention_mask)
-            encoder_outputs = inputs.get("encoder_outputs", encoder_outputs)
-            inputs_embeds = inputs.get("inputs_embeds", inputs_embeds)
-            head_mask = inputs.get("head_mask", head_mask)
-            past_key_values = inputs.get("past_key_values", past_key_values)
             decoder_input_ids = inputs.get("decoder_input_ids", decoder_input_ids)
             decoder_attention_mask = inputs.get("decoder_attention_mask", decoder_attention_mask)
+            encoder_outputs = inputs.get("encoder_outputs", encoder_outputs)
+            past_key_values = inputs.get("past_key_values", past_key_values)
+            head_mask = inputs.get("head_mask", head_mask)
+            inputs_embeds = inputs.get("inputs_embeds", inputs_embeds)
             decoder_inputs_embeds = inputs.get("decoder_inputs_embeds", decoder_inputs_embeds)
             use_cache = inputs.get("use_cache", use_cache)
             output_attentions = inputs.get("output_attentions", output_attentions)
             output_hidden_states = inputs.get("output_hidden_states", output_hidden_states)
-            return_dict = inputs.get("return_dict", return_dict)
             assert len(inputs) <= 13, "Too many inputs."
 
             if "past_key_value_states" in inputs:
@@ -1096,52 +1066,43 @@ class TFT5Model(TFT5PreTrainedModel):
                 past_key_values = kwargs.pop("past_key_value_states")
 
         use_cache = use_cache if use_cache is not None else self.config.use_cache
+        output_attentions = output_attentions if output_attentions else self.config.output_attentions
+        output_hidden_states = output_hidden_states if output_hidden_states else self.config.output_hidden_states
         return_dict = return_dict if return_dict is not None else self.config.return_dict
 
         # Encode if needed (training, first prediction pass)
         if encoder_outputs is None:
             encoder_outputs = self.encoder(
-                [
-                    input_ids,
-                    attention_mask,
-                    None,
-                    None,
-                    inputs_embeds,
-                    head_mask,
-                    None,
-                    False,
-                    output_attentions,
-                    output_hidden_states,
-                ],
+                input_ids,
+                attention_mask=attention_mask,
+                encoder_hidden_states=None,
+                encoder_attention_mask=None,
+                inputs_embeds=inputs_embeds,
+                head_mask=head_mask,
+                past_key_values=None,
+                use_cache=False,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
                 training=training,
             )
 
         hidden_states = encoder_outputs[0]
 
-        # If decoding with past key value states, only the last tokens
-        # should be given as an input
-        if past_key_values is not None:
-            if decoder_input_ids is not None:
-                decoder_input_ids = decoder_input_ids[:, -1:]
-            if decoder_inputs_embeds is not None:
-                decoder_inputs_embeds = decoder_inputs_embeds[:, -1:]
-
         # Decode
         decoder_outputs = self.decoder(
-            [
-                decoder_input_ids,
-                decoder_attention_mask,
-                hidden_states,
-                attention_mask,
-                decoder_inputs_embeds,
-                head_mask,
-                past_key_values,
-                use_cache,
-                output_attentions,
-                output_hidden_states,
-            ],
+            decoder_input_ids,
+            attention_mask=decoder_attention_mask,
+            encoder_hidden_states=hidden_states,
+            encoder_attention_mask=attention_mask,
+            inputs_embeds=decoder_inputs_embeds,
+            head_mask=head_mask,
+            past_key_values=past_key_values,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
             training=training,
         )
+
         past = (
             (encoder_outputs, decoder_outputs[1]) if cast_bool_to_primitive(use_cache, self.config.use_cache) else None
         )
@@ -1149,12 +1110,6 @@ class TFT5Model(TFT5PreTrainedModel):
             if past is not None:
                 decoder_outputs = decoder_outputs[:1] + (past,) + decoder_outputs[2:]
             return decoder_outputs + encoder_outputs
-
-        # If put before, this breaks the tf compilation.
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
-        )
 
         # This is long and annoying but if we introduce return_dict at the TFT5MainLayer level (like in PyTorch)
         # TF refuses to compile anymore.
@@ -1189,8 +1144,8 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
         # retrieve correct absolute scope for embed token wrapper
         with tf.compat.v1.variable_scope("shared") as shared_abs_scope_name:
             pass
-
-        embed_tokens = _NoLayerEmbedTokens(self.shared, abs_scope_name=shared_abs_scope_name)
+        # Wraps layer to avoid problems with weight restoring and ensuring we're in the correct TF scope.
+        embed_tokens = TFWrappedEmbeddings(self.shared, abs_scope_name=shared_abs_scope_name)
 
         encoder_config = copy.deepcopy(config)
         encoder_config.use_cache = False
@@ -1211,7 +1166,8 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
         # retrieve correct absolute scope for embed token wrapper
         with tf.compat.v1.variable_scope("shared") as shared_abs_scope_name:
             pass
-        embed_tokens = _NoLayerEmbedTokens(self.shared, abs_scope_name=shared_abs_scope_name)
+        # Wraps layer to avoid problems with weight restoring and ensuring we're in the correct TF scope.
+        embed_tokens = TFWrappedEmbeddings(self.shared, abs_scope_name=shared_abs_scope_name)
         self.encoder.set_embed_tokens(embed_tokens)
         self.decoder.set_embed_tokens(embed_tokens)
 
@@ -1221,31 +1177,31 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
     def get_decoder(self):
         return self.decoder
 
-    @add_start_docstrings_to_callable(T5_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=TFSeq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
     def call(
         self,
         inputs,
         attention_mask=None,
-        encoder_outputs=None,
-        inputs_embeds=None,
-        head_mask=None,
-        past_key_values=None,
         decoder_input_ids=None,
         decoder_attention_mask=None,
+        encoder_outputs=None,
+        past_key_values=None,
+        head_mask=None,
+        inputs_embeds=None,
         decoder_inputs_embeds=None,
+        labels=None,
         use_cache=None,
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        labels=None,
         training=False,
         **kwargs,
     ):
         r"""
         labels (:obj:`tf.Tensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-            Labels for computing the cross entropy classification loss.
-            Indices should be in ``[0, ..., config.vocab_size - 1]``.
+            Labels for computing the cross entropy classification loss. Indices should be in ``[0, ...,
+            config.vocab_size - 1]``.
 
         Returns:
 
@@ -1253,33 +1209,35 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
 
             >>> from transformers import T5Tokenizer, TFT5ForConditionalGeneration
 
-            >>> tokenizer = T5Tokenizer.from_pretrained('t5-small')
+            >>> tokenizer = T5Tokenizer.from_pretrained('t5-small', return_dict=True)
             >>> model = TFT5ForConditionalGeneration.from_pretrained('t5-small')
-            >>> inputs = tokenizer.encode("Hello, my dog is cute", return_tensors="tf")  # Batch size 1
-            >>> outputs = model(inputs, decoder_input_ids=inputs)
-            >>> prediction_scores = outputs[0]
 
-            >>> tokenizer = T5Tokenizer.from_pretrained('t5-small')
-            >>> model = TFT5ForConditionalGeneration.from_pretrained('t5-small')
-            >>> inputs = tokenizer.encode("summarize: Hello, my dog is cute", return_tensors="tf")  # Batch size 1
+            >>> inputs = tokenizer('The <extra_id_0> walks in <extra_id_1> park', return_tensors='tf').input_ids
+            >>> labels = tokenizer('<extra_id_0> cute dog <extra_id_1> the <extra_id_2> </s>', return_tensors='tf').input_ids
+            >>> outputs = model(inputs, labels=labels)
+            >>> loss = outputs.loss
+            >>> logits = outputs.logits
+
+            >>> inputs = tokenizer("summarize: studies have shown that owning a dog is good for you ", return_tensors="tf").input_ids  # Batch size 1
+
             >>> result = model.generate(inputs)
 
         """
         if isinstance(inputs, (tuple, list)):
             input_ids = inputs[0]
             attention_mask = inputs[1] if len(inputs) > 1 else attention_mask
-            encoder_outputs = inputs[2] if len(inputs) > 2 else encoder_outputs
-            inputs_embeds = inputs[3] if len(inputs) > 3 else inputs_embeds
-            head_mask = inputs[4] if len(inputs) > 4 else head_mask
-            past_key_values = inputs[5] if len(inputs) > 5 else past_key_values
-            decoder_input_ids = inputs[6] if len(inputs) > 6 else decoder_input_ids
-            decoder_attention_mask = inputs[7] if len(inputs) > 7 else decoder_attention_mask
+            decoder_input_ids = inputs[2] if len(inputs) > 2 else decoder_input_ids
+            decoder_attention_mask = inputs[3] if len(inputs) > 3 else decoder_attention_mask
+            encoder_outputs = inputs[4] if len(inputs) > 4 else encoder_outputs
+            past_key_values = inputs[5] if len(inputs) > 5 else head_mask
+            head_mask = inputs[6] if len(inputs) > 6 else head_mask
+            inputs_embeds = inputs[7] if len(inputs) > 7 else inputs_embeds
             decoder_inputs_embeds = inputs[8] if len(inputs) > 8 else decoder_inputs_embeds
-            use_cache = inputs[9] if len(inputs) > 9 else use_cache
-            output_attentions = inputs[10] if len(inputs) > 10 else output_attentions
-            output_hidden_states = inputs[11] if len(inputs) > 11 else output_hidden_states
-            return_dict = inputs[12] if len(inputs) > 12 else return_dict
-            labels = inputs[13] if len(inputs) > 13 else labels
+            labels = inputs[9] if len(inputs) > 9 else labels
+            use_cache = inputs[10] if len(inputs) > 10 else use_cache
+            output_attentions = inputs[11] if len(inputs) > 11 else output_attentions
+            output_hidden_states = inputs[12] if len(inputs) > 12 else output_hidden_states
+            return_dict = inputs[13] if len(inputs) > 13 else return_dict
             assert len(inputs) <= 14, "Too many inputs."
         elif isinstance(inputs, (dict, BatchEncoding)):
             if "inputs" in inputs:
@@ -1287,18 +1245,18 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
                 input_ids = inputs.get("inputs")
             input_ids = inputs.get("input_ids")
             attention_mask = inputs.get("attention_mask", attention_mask)
-            encoder_outputs = inputs.get("encoder_outputs", encoder_outputs)
-            inputs_embeds = inputs.get("inputs_embeds", inputs_embeds)
-            head_mask = inputs.get("head_mask", head_mask)
-            past_key_values = inputs.get("past_key_values", past_key_values)
             decoder_input_ids = inputs.get("decoder_input_ids", decoder_input_ids)
             decoder_attention_mask = inputs.get("decoder_attention_mask", decoder_attention_mask)
+            encoder_outputs = inputs.get("encoder_outputs", encoder_outputs)
+            past_key_values = inputs.get("past_key_values", past_key_values)
+            head_mask = inputs.get("head_mask", head_mask)
+            inputs_embeds = inputs.get("inputs_embeds", inputs_embeds)
             decoder_inputs_embeds = inputs.get("decoder_inputs_embeds", decoder_inputs_embeds)
+            labels = inputs.get("labels", labels)
             use_cache = inputs.get("use_cache", use_cache)
             output_attentions = inputs.get("output_attentions", output_attentions)
             output_hidden_states = inputs.get("output_hidden_states", output_hidden_states)
             return_dict = inputs.get("return_dict", return_dict)
-            labels = inputs.get("labels", labels)
             assert len(inputs) <= 14, "Too many inputs."
 
             if "past_key_value_states" in inputs:
@@ -1318,24 +1276,19 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
                 past_key_values = kwargs.pop("past_key_value_states")
 
         use_cache = use_cache if use_cache is not None else self.config.use_cache
+        output_attentions = output_attentions if output_attentions else self.config.output_attentions
+        output_hidden_states = output_hidden_states if output_hidden_states else self.config.output_hidden_states
         return_dict = return_dict if return_dict is not None else self.config.return_dict
 
         # Encode if needed (training, first prediction pass)
         if encoder_outputs is None:
-            # Convert encoder inputs in embeddings if needed
             encoder_outputs = self.encoder(
-                [
-                    input_ids,
-                    attention_mask,
-                    None,
-                    None,
-                    inputs_embeds,
-                    head_mask,
-                    None,
-                    False,
-                    output_attentions,
-                    output_hidden_states,
-                ],
+                input_ids,
+                attention_mask=attention_mask,
+                inputs_embeds=inputs_embeds,
+                head_mask=head_mask,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
                 training=training,
             )
 
@@ -1355,18 +1308,16 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
 
         # Decode
         decoder_outputs = self.decoder(
-            [
-                decoder_input_ids,
-                decoder_attention_mask,
-                hidden_states,
-                attention_mask,
-                decoder_inputs_embeds,
-                head_mask,
-                past_key_values,
-                use_cache,
-                output_attentions,
-                output_hidden_states,
-            ],
+            decoder_input_ids,
+            attention_mask=decoder_attention_mask,
+            encoder_hidden_states=hidden_states,
+            encoder_attention_mask=attention_mask,
+            inputs_embeds=decoder_inputs_embeds,
+            head_mask=head_mask,
+            past_key_values=past_key_values,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
             training=training,
         )
 
@@ -1422,6 +1373,10 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
         else:
             encoder_outputs, past_key_values = past[0], past[1]
 
+        # cut decoder_input_ids if past is used
+        if past_key_values is not None:
+            inputs = inputs[:, -1:]
+
         return {
             "inputs": None,  # inputs don't have to be defined, but still need to be passed to make Keras.layer.__call__ happy
             "decoder_input_ids": inputs,  # inputs are the decoder_input_ids
@@ -1431,7 +1386,7 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
             "use_cache": use_cache,
         }
 
-    def _reorder_cache(self, past, beam_idx):
+    def _reorder_cache(self, past, beam_idx) -> Tuple:
         # if decoder past is not included in output
         # speedy decoding is disabled and no need to reorder
 
