@@ -185,7 +185,6 @@ class PredictionHeadModelTest(unittest.TestCase):
 
                     model2.load_adapter(temp_dir)
                     model2.set_active_adapters(name)
-
                 # check equal output
                 in_data = ids_tensor((1, 128), 1000)
                 output1 = model1(in_data)

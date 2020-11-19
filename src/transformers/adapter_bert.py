@@ -611,6 +611,7 @@ class ClassificationHead(PredictionHead):
         self.build(model)
 
     def forward(self, outputs, attention_mask, labels, return_dict):
+
         logits = self.head(outputs[0][:, 0])
 
         outputs = (logits,) + outputs
@@ -929,6 +930,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             )
 
     def forward_head(self, outputs, head_name=None, attention_mask=None, labels=None, return_dict=False):
+
         head_name = head_name or self.active_head
         if not head_name:
             logger.debug("No prediction head is used.")
@@ -936,7 +938,10 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
 
         if head_name not in self.config.prediction_heads:
             raise ValueError("Unknown head_name '{}'".format(head_name))
-
+        if not self.training:
+            self.config.prediction_heads[head_name].eval()
+        else:
+            self.config.prediction_heads[head_name].train()
         head = self.config.prediction_heads[head_name]
 
         return head(outputs, attention_mask, labels, return_dict)
