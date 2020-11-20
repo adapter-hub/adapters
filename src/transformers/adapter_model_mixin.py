@@ -25,6 +25,7 @@ from .adapter_utils import (
     CONFIG_NAME,
     HEAD_CONFIG_NAME,
     HEAD_WEIGHTS_NAME,
+    COMPLETE_HEADS_MODULE_NAME,
     WEIGHTS_NAME,
     inherit_doc,
     parse_adapter_names,
@@ -585,7 +586,7 @@ class PredictionHeadLoader(WeightsLoader):
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
                              and the name of the loaded weights.
         """
-        if not exists(join(save_directory, HEAD_WEIGHTS_NAME)):
+        if not exists(join(save_directory, HEAD_CONFIG_NAME)):
             if self.error_on_missing:
                 raise ValueError("Loading path should be a directory where the head is saved.")
             else:
@@ -615,6 +616,7 @@ class PredictionHeadLoader(WeightsLoader):
                 if head_name in self.model.config.prediction_heads:
                     logger.warning("Overwriting existing head '{}'".format(head_name))
                 loaded_head = torch.load(join(save_directory, HEAD_WEIGHTS_NAME))
+                # loaded_head.eval()
                 self.model.add_prediction_head(loaded_head, overwrite_ok=True)
             else:
                 if "label2id" in config.keys():
