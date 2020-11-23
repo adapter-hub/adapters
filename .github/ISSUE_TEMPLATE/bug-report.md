@@ -12,45 +12,13 @@ assignees: ''
 <!-- You can run the command `transformers-cli env` and copy-and-paste its output below.
      Don't forget to fill out the missing fields in that output! -->
      
-- `transformers` version:
+- `adapter-transformers` version:
 - Platform:
 - Python version:
 - PyTorch version (GPU?):
 - Tensorflow version (GPU?):
 - Using GPU in script?:
 - Using distributed or parallel set-up in script?:
-
-### Who can help
-<!-- Your issue will be replied to more quickly if you can figure out the right person to tag with @
- If you know how to use git blame, that is the easiest way, otherwise, here is a rough guide of **who to tag**.
- Please tag fewer than 3 people.
- 
- albert, bert, GPT2, XLM: @LysandreJik 
- tokenizers: @mfuntowicz
- Trainer: @sgugger
- Speed and Memory Benchmarks: @patrickvonplaten
- Model Cards: @julien-c
- TextGeneration: @TevenLeScao 
- examples/distillation: @VictorSanh
- nlp datasets: [different repo](https://github.com/huggingface/nlp)
- rust tokenizers: [different repo](https://github.com/huggingface/tokenizers)
- Text Generation: @patrickvonplaten @TevenLeScao
- Blenderbot: @patrickvonplaten
- Bart: @patrickvonplaten
- Marian: @patrickvonplaten
- Pegasus: @patrickvonplaten
- mBART: @patrickvonplaten
- T5: @patrickvonplaten
- Longformer/Reformer: @patrickvonplaten
- TransfoXL/XLNet: @TevenLeScao
- RAG: @patrickvonplaten, @lhoestq
- FSMT: @stas00
- examples/seq2seq: @patil-suraj
- examples/bert-loses-patience: @JetRunner
- tensorflow: @jplu
- examples/token-classification: @stefan-it
- documentation: @sgugger
- -->
 
 ## Information
 
