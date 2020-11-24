@@ -24,12 +24,7 @@ class MyTestCase(unittest.TestCase):
         model_name = "bert-base-uncased"
         model = AutoModelWithHeads.from_pretrained(model_name)
         model.register_custom_head("tag", CustomHead)
-        config = {
-            "head_type": "tag",
-            "num_labels": 3,
-            "layers": 2,
-            "activation_function": "tanh"
-        }
+        config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
         model.add_custom_head("custom_head", config)
         model.eval()
         in_data = ids_tensor((1, 128), 1000)
@@ -37,4 +32,3 @@ class MyTestCase(unittest.TestCase):
         model.add_tagging_head("tagging_head", num_labels=3, layers=2)
         output2 = model(in_data)
         self.assertEqual(output1[0].size(), output2[0].size())
-
