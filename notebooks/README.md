@@ -1,14 +1,25 @@
-# 🤗 Transformers Notebooks
+# AdapterHub & Transformers Notebooks
 
-You can find here a list of the official notebooks provided by Hugging Face.
+Here you can find a big collection of notebooks for AdapterHub and the (adapter-)Transformers library.
 
-Also, we would like to list here interesting content created by the community. 
-If you wrote some notebook(s) leveraging 🤗 Transformers and would like be listed here, please open a 
-Pull Request so it can be included under the Community notebooks. 
+The first section shows notebooks provided by AdapterHub and contained in this folder that show the different possibilities of working with adapters.
+
+The second section lists the official notebooks for the original Transformers library by HuggingFace.
+
+The third section lists notebooks created by the HuggingFace Transformers community and contributed to the Transformers repository.
+
+
+## AdapterHub notebooks 🔌
+
+| Notebook        | Description          |   |
+|:----------------|:---------------------|--:|
+| [01: Training an Adapter](https://github.com/Adapter-Hub/adapter-transformers/blob/master/notebooks/01_Adapter_Training.ipynb) | How to train a task adapter for a Transformer model | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/01_Adapter_Training.ipynb) |
+| [02: Using Adapters for Inference](https://github.com/Adapter-Hub/adapter-transformers/blob/master/notebooks/02_Adapter_Inference.ipynb) | How to download and use pre-trained adapters from AdapterHub | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/02_Adapter_Inference.ipynb) |
+| [03: Adapter Fusion](https://github.com/Adapter-Hub/adapter-transformers/blob/master/notebooks/03_Adapter_Fusion.ipynb) | How to combine multiple pre-trained adapters on a new task using AdapterFusion | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/03_Adapter_Fusion.ipynb) |
+| [04: Cross-lingual Transfer](https://github.com/Adapter-Hub/adapter-transformers/blob/master/notebooks/04_Cross_Lingual_Transfer.ipynb) | Hoe to perform zero-shot cross-lingual transfer between tasks using the MAD-X setup | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/04_Cross_Lingual_Transfer.ipynb) |
 
 
 ## Hugging Face's notebooks 🤗
-
 
 | Notebook     |      Description      |   |
 |:----------|:-------------|------:|
