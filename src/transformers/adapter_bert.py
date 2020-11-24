@@ -582,7 +582,6 @@ class PredictionHead(nn.Module):
         self.head = nn.Sequential(*pred_head)
 
         self.head.apply(model._init_weights)
-        self.head.train(self.training)
 
     def forward(self, outputs, attention_mask, labels, return_dict):
         raise NotImplementedError("Use a Prediction Head that inherits from this class")
@@ -716,7 +715,7 @@ class TaggingHead(PredictionHead):
         self.build(model)
 
     def forward(self, outputs, attention_mask, labels, return_dict):
-        logits = self.heads(outputs[0])
+        logits = self.head(outputs[0])
 
         outputs = (logits,) + outputs[2:]
         if labels is not None:
@@ -801,16 +800,49 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        self.custom_heads = {}
         self.active_head = None
 
     def _init_head_modules(self):
         if not hasattr(self.config, "prediction_heads"):
             self.config.prediction_heads = {}
         self.heads = nn.ModuleDict(dict())
+        heads_to_add = self.config.prediction_heads
+        self.config.prediction_heads = {}
         # add modules for heads in config
-        for head_name in self.config.prediction_heads:
-            self._add_prediction_head_module(head_name)
+        for head_name, config in heads_to_add.items():
+            id2label = {id_: label for label, id_ in config['label2id'].items()} if config['label2id'] else None
+            if config['head_type'] == "classification_head":
+                self.add_classification_head(head_name, config['num_labels'], config['layers'], config['activation_function'],
+                                             id2label=id2label )
+            elif config['head_type'] == "multilabel_classification":
+                self.add_classification_head(head_name, config['num_labels'], config['layers'], config['activation_function'],
+                                             multilabel=True, id2label=id2label)
+            elif config['head_type'] == "tagging":
+                self.add_tagging_head(head_name, config['num_labels'], config['layers'], config['activation_function'],
+                                             id2label=id2label)
+            elif config['head_type'] == "multiple_choice":
+                self.add_multiple_choice_head(head_name, config['num_choices'], config['layers'], config['activation_function'],
+                                             id2label=id2label)
+            elif config['head_type'] == "question_answering":
+                self.add_qa_head(head_name, config['num_labels'], config['layers'], config['activation_function'],
+                                             id2label=id2label)
+            else:
+                if config['head_type'] in self.custom_heads:
+                    self.add_custom_head(head_name, config)
+                else:
+                    raise AttributeError("Please register the PredictionHead before loading the model")
+
+          #  self._add_prediction_head_module(head_name)
+
+    def get_prediction_heads_config(self):
+        heads = {}
+        for head_name, head in self.config.prediction_heads.items():
+            heads[head_name] = head.config
+        return heads
+
+    def register_custom_head(self, identifier, head):
+        self.custom_heads[identifier] = head
 
     @property
     def active_head(self):
@@ -903,8 +935,13 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     def add_qa_head(
             self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
-        head = QuestionAnsweringHead(num_labels, layers, activation_function, id2label, self)
+        head = QuestionAnsweringHead(head_name, num_labels, layers, activation_function, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
+
+    def add_custom_head(self, head_name, config, overwrite_ok=False):
+        if config["head_type"] in self.custom_heads:
+            head = self.custom_heads[config["head_type"]](head_name, config, self)
+            self.add_prediction_head(head, overwrite_ok)
 
     def add_prediction_head(
             self,
