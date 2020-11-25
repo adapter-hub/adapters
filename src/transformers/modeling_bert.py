@@ -922,12 +922,12 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         position_ids=None,
         head_mask=None,
         inputs_embeds=None,
-        labels=None,
         output_attentions=None,
         output_hidden_states=None,
         adapter_names=None,
         head=None,
         return_dict=None,
+        **kwargs
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
         attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
@@ -950,11 +950,7 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         )
 
         outputs = self.forward_head(
-            outputs,
-            head_name=head,
-            attention_mask=attention_mask,
-            labels=labels,
-            return_dict=return_dict,
+            outputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
         )
 
         return outputs
