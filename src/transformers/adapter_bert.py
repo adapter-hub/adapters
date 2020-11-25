@@ -1,5 +1,4 @@
 import logging
-from os.path import join
 
 import torch
 from torch import nn
@@ -868,7 +867,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     @active_head.setter
     def active_head(self, head_name):
         self._active_head = head_name
-        if not head_name is None and head_name in self.config.prediction_heads:
+        if head_name is not None and head_name in self.config.prediction_heads:
             self.config.label2id = self.config.prediction_heads[head_name].config["label2id"]
 
             self.config.id2label = self.get_labels_dict(head_name)

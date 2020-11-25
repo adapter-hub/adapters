@@ -1,6 +1,5 @@
 import unittest
 
-import torch as torch
 
 from tests.test_modeling_common import ids_tensor
 from transformers.adapter_bert import PredictionHead

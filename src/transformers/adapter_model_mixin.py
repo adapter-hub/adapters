@@ -25,7 +25,6 @@ from .adapter_utils import (
     CONFIG_NAME,
     HEAD_CONFIG_NAME,
     HEAD_WEIGHTS_NAME,
-    COMPLETE_HEADS_MODULE_NAME,
     WEIGHTS_NAME,
     inherit_doc,
     parse_adapter_names,
