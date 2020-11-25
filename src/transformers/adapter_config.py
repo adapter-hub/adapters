@@ -1,3 +1,4 @@
+# docstyle-ignore-file
 import copy
 import logging
 from collections.abc import Collection, Mapping
@@ -202,8 +203,7 @@ DEFAULT_ADAPTER_CONFIG = "pfeiffer"
 
 
 class ModelAdaptersConfig(Collection):
-    """This class manages the setup and configuration of adapter modules in a pre-trained model.
-    """
+    """This class manages the setup and configuration of adapter modules in a pre-trained model."""
 
     def __init__(self, **kwargs):
         adapters_list = kwargs.pop("adapters", {})

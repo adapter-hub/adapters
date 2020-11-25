@@ -105,11 +105,13 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.set_active_adapters(adapter_setup)
 
     def add_adapter(self, adapter_name: str, config=None):
-        """Adds a new adapter module of the specified type to the model.
+        """
+        Adds a new adapter module of the specified type to the model.
 
         Args:
             adapter_name (str): The name of the adapter module to be added.
             config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
+
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used

@@ -14,6 +14,7 @@
 # limitations under the License.
 """ TF 2.0 Funnel model. """
 
+import warnings
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -26,7 +27,7 @@ from .file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
     add_start_docstrings,
-    add_start_docstrings_to_callable,
+    add_start_docstrings_to_model_forward,
     replace_return_docstrings,
 )
 from .modeling_tf_outputs import (
@@ -104,19 +105,23 @@ class TFFunnelEmbeddings(tf.keras.layers.Layer):
         mode="embedding",
         training=False,
     ):
-        """Get token embeddings of inputs.
+        """
+        Get token embeddings of inputs
+
         Args:
             inputs: list of three int64 tensors with shape [batch_size, length]: (input_ids, position_ids, token_type_ids)
-            mode: string, a valid value is one of "embedding" and "linear".
+            mode: string, a valid value is one of "embedding" and "linear"
+
         Returns:
-            outputs: (1) If mode == "embedding", output embedding tensor, float32 with
-                shape [batch_size, length, embedding_size]; (2) mode == "linear", output
-                linear tensor, float32 with shape [batch_size, length, vocab_size].
+            outputs: (1) If mode == "embedding", output embedding tensor, float32 with shape [batch_size, length,
+            embedding_size]; (2) mode == "linear", output linear tensor, float32 with shape [batch_size, length,
+            vocab_size]
+
         Raises:
             ValueError: if mode is not valid.
 
         Shared weights logic adapted from
-            https://github.com/tensorflow/models/blob/a009f4fb9d2fc4949e32192a944688925ef78659/official/transformer/v2/embedding_layer.py#L24
+        https://github.com/tensorflow/models/blob/a009f4fb9d2fc4949e32192a944688925ef78659/official/transformer/v2/embedding_layer.py#L24
         """
         if mode == "embedding":
             return self._embedding(input_ids, inputs_embeds, training=training)
@@ -137,9 +142,12 @@ class TFFunnelEmbeddings(tf.keras.layers.Layer):
         return embeddings
 
     def _linear(self, inputs):
-        """Computes logits by running inputs through a linear layer.
+        """
+        Computes logits by running inputs through a linear layer
+
         Args:
-            inputs: A float32 tensor with shape [batch_size, length, hidden_size]
+            inputs: A float32 tensor with shape [batch_size, length, hidden_size
+
         Returns:
             float32 tensor with shape [batch_size, length, vocab_size].
         """
@@ -170,19 +178,19 @@ class TFFunnelAttentionStructure:
         self.sin_dropout = tf.keras.layers.Dropout(config.hidden_dropout)
         self.cos_dropout = tf.keras.layers.Dropout(config.hidden_dropout)
         # Track where we are at in terms of pooling from the original input, e.g., by how much the sequence length was
-        # dividide.
+        # divided.
         self.pooling_mult = None
 
-    def init_attention_inputs(self, input_embeds, attention_mask=None, token_type_ids=None, training=False):
+    def init_attention_inputs(self, inputs_embeds, attention_mask=None, token_type_ids=None, training=False):
         """ Returns the attention inputs associated to the inputs of the model. """
-        # input_embeds has shape batch_size x seq_len x d_model
+        # inputs_embeds has shape batch_size x seq_len x d_model
         # attention_mask and token_type_ids have shape batch_size x seq_len
         self.pooling_mult = 1
-        self.seq_len = seq_len = input_embeds.shape[1]
-        position_embeds = self.get_position_embeds(seq_len, dtype=input_embeds.dtype, training=training)
+        self.seq_len = seq_len = inputs_embeds.shape[1]
+        position_embeds = self.get_position_embeds(seq_len, dtype=inputs_embeds.dtype, training=training)
         token_type_mat = self.token_type_ids_to_mat(token_type_ids) if token_type_ids is not None else None
         cls_mask = (
-            tf.pad(tf.ones([seq_len - 1, seq_len - 1], dtype=input_embeds.dtype), [[1, 0], [1, 0]])
+            tf.pad(tf.ones([seq_len - 1, seq_len - 1], dtype=inputs_embeds.dtype), [[1, 0], [1, 0]])
             if self.separate_cls
             else None
         )
@@ -211,7 +219,7 @@ class TFFunnelAttentionStructure:
         """
         if self.attention_type == "factorized":
             # Notations from the paper, appending A.2.2, final formula.
-            # We need to create and return the matrics phi, psi, pi and omega.
+            # We need to create and return the matrices phi, psi, pi and omega.
             pos_seq = tf.range(0, seq_len, 1.0, dtype=dtype)
             freq_seq = tf.range(0, self.d_model // 2, 1.0, dtype=dtype)
             inv_freq = 1 / (10000 ** (freq_seq / (self.d_model // 2)))
@@ -299,7 +307,7 @@ class TFFunnelAttentionStructure:
             pooled_pos = pos
 
         ref_point = pooled_pos[0] - pos[0]
-        num_remove = shift * len(pooled_pos)
+        num_remove = shift * pooled_pos.shape[0]
         max_dist = ref_point + num_remove * stride
         min_dist = pooled_pos[0] - pos[-1]
 
@@ -675,8 +683,9 @@ class TFFunnelEncoder(tf.keras.layers.Layer):
 
 
 def upsample(x, stride, target_len, separate_cls=True, truncate_seq=False):
-    """Upsample tensor `x` to match `target_len` by repeating the tokens `stride` time on the sequence length
-    dimension."""
+    """
+    Upsample tensor `x` to match `target_len` by repeating the tokens `stride` time on the sequence length dimension.
+    """
     if stride == 1:
         return x
     if separate_cls:
@@ -1010,8 +1019,9 @@ class TFFunnelClassificationHead(tf.keras.layers.Layer):
 
 
 class TFFunnelPreTrainedModel(TFPreTrainedModel):
-    """An abstract class to handle weights initialization and
-    a simple interface for downloading and loading pretrained models.
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
     """
 
     config_class = FunnelConfig
@@ -1021,19 +1031,19 @@ class TFFunnelPreTrainedModel(TFPreTrainedModel):
 @dataclass
 class TFFunnelForPreTrainingOutput(ModelOutput):
     """
-    Output type of :class:`~transformers.FunnelForPreTrainingModel`.
+    Output type of :class:`~transformers.FunnelForPreTraining`.
 
     Args:
         logits (:obj:`tf.Tensor` of shape :obj:`(batch_size, sequence_length)`):
             Prediction scores of the head (scores for each token before SoftMax).
         hidden_states (:obj:`tuple(tf.ensor)`, `optional`, returned when ``output_hidden_states=True`` is passed or when ``config.output_hidden_states=True``):
-            Tuple of :obj:`tf.Tensor` (one for the output of the embeddings + one for the output of each layer)
-            of shape :obj:`(batch_size, sequence_length, hidden_size)`.
+            Tuple of :obj:`tf.Tensor` (one for the output of the embeddings + one for the output of each layer) of
+            shape :obj:`(batch_size, sequence_length, hidden_size)`.
 
             Hidden-states of the model at the output of each layer plus the initial embedding outputs.
         attentions (:obj:`tuple(tf.Tensor)`, `optional`, returned when ``output_attentions=True`` is passed or when ``config.output_attentions=True``):
-            Tuple of :obj:`tf.Tensor` (one for each layer) of shape
-            :obj:`(batch_size, num_heads, sequence_length, sequence_length)`.
+            Tuple of :obj:`tf.Tensor` (one for each layer) of shape :obj:`(batch_size, num_heads, sequence_length,
+            sequence_length)`.
 
             Attentions weights after the attention softmax, used to compute the weighted average in the self-attention
             heads.
@@ -1046,17 +1056,16 @@ class TFFunnelForPreTrainingOutput(ModelOutput):
 
 FUNNEL_START_DOCSTRING = r"""
 
-    The Funnel Transformer model was proposed in
-    `Funnel-Transformer: Filtering out Sequential Redundancy for Efficient Language Processing
-    <https://arxiv.org/abs/2006.03236>`__ by Zihang Dai, Guokun Lai, Yiming Yang, Quoc V. Le.
+    The Funnel Transformer model was proposed in `Funnel-Transformer: Filtering out Sequential Redundancy for Efficient
+    Language Processing <https://arxiv.org/abs/2006.03236>`__ by Zihang Dai, Guokun Lai, Yiming Yang, Quoc V. Le.
 
     This model inherits from :class:`~transformers.TFPreTrainedModel`. Check the superclass documentation for the
     generic methods the library implements for all its model (such as downloading or saving, resizing the input
     embeddings, pruning heads etc.)
 
-    This model is also a `tf.keras.Model <https://www.tensorflow.org/api_docs/python/tf/keras/Model>`__ subclass.
-    Use it as a regular TF 2.0 Keras Model and refer to the TF 2.0 documentation for all matter related to general
-    usage and behavior.
+    This model is also a `tf.keras.Model <https://www.tensorflow.org/api_docs/python/tf/keras/Model>`__ subclass. Use
+    it as a regular TF 2.0 Keras Model and refer to the TF 2.0 documentation for all matter related to general usage
+    and behavior.
 
     .. note::
 
@@ -1065,11 +1074,11 @@ FUNNEL_START_DOCSTRING = r"""
         - having all inputs as keyword arguments (like PyTorch models), or
         - having all inputs as a list, tuple or dict in the first positional arguments.
 
-        This second option is useful when using :meth:`tf.keras.Model.fit` method which currently requires having
-        all the tensors in the first argument of the model call function: :obj:`model(inputs)`.
+        This second option is useful when using :meth:`tf.keras.Model.fit` method which currently requires having all
+        the tensors in the first argument of the model call function: :obj:`model(inputs)`.
 
-        If you choose this second option, there are three possibilities you can use to gather all the input Tensors
-        in the first positional argument :
+        If you choose this second option, there are three possibilities you can use to gather all the input Tensors in
+        the first positional argument :
 
         - a single Tensor with :obj:`input_ids` only and nothing else: :obj:`model(inputs_ids)`
         - a list of varying length with one or several input Tensors IN THE ORDER given in the docstring:
@@ -1079,8 +1088,9 @@ FUNNEL_START_DOCSTRING = r"""
 
     Parameters:
         config (:class:`~transformers.XxxConfig`): Model configuration class with all the parameters of the model.
-            Initializing with a config file does not load the weights associated with the model, only the configuration.
-            Check out the :meth:`~transformers.PreTrainedModel.from_pretrained` method to load the model weights.
+            Initializing with a config file does not load the weights associated with the model, only the
+            configuration. Check out the :meth:`~transformers.PreTrainedModel.from_pretrained` method to load the model
+            weights.
 """
 
 FUNNEL_INPUTS_DOCSTRING = r"""
@@ -1088,22 +1098,21 @@ FUNNEL_INPUTS_DOCSTRING = r"""
         input_ids (:obj:`Numpy array` or :obj:`tf.Tensor` of shape :obj:`({0})`):
             Indices of input sequence tokens in the vocabulary.
 
-            Indices can be obtained using :class:`~transformers.FunnelTokenizer`.
-            See :func:`transformers.PreTrainedTokenizer.__call__` and
-            :func:`transformers.PreTrainedTokenizer.encode` for details.
+            Indices can be obtained using :class:`~transformers.FunnelTokenizer`. See
+            :func:`transformers.PreTrainedTokenizer.__call__` and :func:`transformers.PreTrainedTokenizer.encode` for
+            details.
 
             `What are input IDs? <../glossary.html#input-ids>`__
         attention_mask (:obj:`Numpy array` or :obj:`tf.Tensor` of shape :obj:`({0})`, `optional`):
-            Mask to avoid performing attention on padding token indices.
-            Mask values selected in ``[0, 1]``:
+            Mask to avoid performing attention on padding token indices. Mask values selected in ``[0, 1]``:
 
             - 1 for tokens that are **not masked**,
-            - 0 for tokens that are **maked**.
+            - 0 for tokens that are **masked**.
 
             `What are attention masks? <../glossary.html#attention-mask>`__
         token_type_ids (:obj:`Numpy array` or :obj:`tf.Tensor` of shape :obj:`({0})`, `optional`):
-            Segment token indices to indicate first and second portions of the inputs.
-            Indices are selected in ``[0, 1]``:
+            Segment token indices to indicate first and second portions of the inputs. Indices are selected in ``[0,
+            1]``:
 
             - 0 corresponds to a `sentence A` token,
             - 1 corresponds to a `sentence B` token.
@@ -1128,8 +1137,10 @@ FUNNEL_INPUTS_DOCSTRING = r"""
 
 
 @add_start_docstrings(
-    """ The base Funnel Transformer Model transformer outputting raw hidden-states without upsampling head (also called
-    decoder) or any task-specific head on top.""",
+    """
+    The base Funnel Transformer Model transformer outputting raw hidden-states without upsampling head (also called
+    decoder) or any task-specific head on top.
+    """,
     FUNNEL_START_DOCSTRING,
 )
 class TFFunnelBaseModel(TFFunnelPreTrainedModel):
@@ -1137,7 +1148,7 @@ class TFFunnelBaseModel(TFFunnelPreTrainedModel):
         super().__init__(config, *inputs, **kwargs)
         self.funnel = TFFunnelBaseLayer(config, name="funnel")
 
-    @add_start_docstrings_to_callable(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_start_docstrings_to_model_forward(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
         tokenizer_class=_TOKENIZER_FOR_DOC,
         checkpoint="funnel-transformer/small-base",
@@ -1157,7 +1168,7 @@ class TFFunnelModel(TFFunnelPreTrainedModel):
         super().__init__(config, *inputs, **kwargs)
         self.funnel = TFFunnelMainLayer(config, name="funnel")
 
-    @add_start_docstrings_to_callable(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_start_docstrings_to_model_forward(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
         tokenizer_class=_TOKENIZER_FOR_DOC,
         checkpoint="funnel-transformer/small",
@@ -1169,8 +1180,9 @@ class TFFunnelModel(TFFunnelPreTrainedModel):
 
 
 @add_start_docstrings(
-    """Funnel model with a binary classification head on top as used during pre-training for identifying generated
-    tokens.""",
+    """
+    Funnel model with a binary classification head on top as used during pre-training for identifying generated tokens.
+    """,
     FUNNEL_START_DOCSTRING,
 )
 class TFFunnelForPreTraining(TFFunnelPreTrainedModel):
@@ -1180,11 +1192,11 @@ class TFFunnelForPreTraining(TFFunnelPreTrainedModel):
         self.funnel = TFFunnelMainLayer(config, name="funnel")
         self.discriminator_predictions = TFFunnelDiscriminatorPredictions(config, name="discriminator_predictions")
 
-    @add_start_docstrings_to_callable(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_start_docstrings_to_model_forward(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @replace_return_docstrings(output_type=TFFunnelForPreTrainingOutput, config_class=_CONFIG_FOR_DOC)
     def call(
         self,
-        input_ids,
+        inputs,
         attention_mask=None,
         token_type_ids=None,
         inputs_embeds=None,
@@ -1192,6 +1204,7 @@ class TFFunnelForPreTraining(TFFunnelPreTrainedModel):
         output_hidden_states=None,
         return_dict=None,
         training=False,
+        **kwargs
     ):
         r"""
         Returns:
@@ -1209,8 +1222,14 @@ class TFFunnelForPreTraining(TFFunnelPreTrainedModel):
         """
         return_dict = return_dict if return_dict is not None else self.funnel.return_dict
 
+        if inputs is None and "input_ids" in kwargs and isinstance(kwargs["input_ids"], (dict, BatchEncoding)):
+            warnings.warn(
+                "Using `input_ids` as a dictionary keyword argument is deprecated. Please use `inputs` instead."
+            )
+            inputs = kwargs["input_ids"]
+
         discriminator_hidden_states = self.funnel(
-            input_ids,
+            inputs,
             attention_mask,
             token_type_ids,
             inputs_embeds,
@@ -1240,7 +1259,7 @@ class TFFunnelForMaskedLM(TFFunnelPreTrainedModel, TFMaskedLanguageModelingLoss)
         self.funnel = TFFunnelMainLayer(config, name="funnel")
         self.lm_head = TFFunnelMaskedLMHead(config, self.funnel.embeddings, name="lm_head")
 
-    @add_start_docstrings_to_callable(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_start_docstrings_to_model_forward(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
         tokenizer_class=_TOKENIZER_FOR_DOC,
         checkpoint="funnel-transformer/small",
@@ -1261,10 +1280,9 @@ class TFFunnelForMaskedLM(TFFunnelPreTrainedModel, TFMaskedLanguageModelingLoss)
     ):
         r"""
         labels (:obj:`tf.Tensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-            Labels for computing the masked language modeling loss.
-            Indices should be in ``[-100, 0, ..., config.vocab_size]`` (see ``input_ids`` docstring)
-            Tokens with indices set to ``-100`` are ignored (masked), the loss is only computed for the tokens with labels
-            in ``[0, ..., config.vocab_size]``
+            Labels for computing the masked language modeling loss. Indices should be in ``[-100, 0, ...,
+            config.vocab_size]`` (see ``input_ids`` docstring) Tokens with indices set to ``-100`` are ignored
+            (masked), the loss is only computed for the tokens with labels in ``[0, ..., config.vocab_size]``
         """
         return_dict = return_dict if return_dict is not None else self.funnel.return_dict
         if isinstance(inputs, (tuple, list)):
@@ -1303,8 +1321,10 @@ class TFFunnelForMaskedLM(TFFunnelPreTrainedModel, TFMaskedLanguageModelingLoss)
 
 
 @add_start_docstrings(
-    """Funnel Model transformer with a sequence classification/regression head on top (a linear layer on top of
-    the pooled output) e.g. for GLUE tasks. """,
+    """
+    Funnel Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled
+    output) e.g. for GLUE tasks.
+    """,
     FUNNEL_START_DOCSTRING,
 )
 class TFFunnelForSequenceClassification(TFFunnelPreTrainedModel, TFSequenceClassificationLoss):
@@ -1315,7 +1335,7 @@ class TFFunnelForSequenceClassification(TFFunnelPreTrainedModel, TFSequenceClass
         self.funnel = TFFunnelBaseLayer(config, name="funnel")
         self.classifier = TFFunnelClassificationHead(config, config.num_labels, name="classifier")
 
-    @add_start_docstrings_to_callable(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_start_docstrings_to_model_forward(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
         tokenizer_class=_TOKENIZER_FOR_DOC,
         checkpoint="funnel-transformer/small-base",
@@ -1336,9 +1356,8 @@ class TFFunnelForSequenceClassification(TFFunnelPreTrainedModel, TFSequenceClass
     ):
         r"""
         labels (:obj:`tf.Tensor` of shape :obj:`(batch_size,)`, `optional`):
-            Labels for computing the sequence classification/regression loss.
-            Indices should be in :obj:`[0, ..., config.num_labels - 1]`.
-            If :obj:`config.num_labels == 1` a regression loss is computed (Mean-Square loss),
+            Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
+            config.num_labels - 1]`. If :obj:`config.num_labels == 1` a regression loss is computed (Mean-Square loss),
             If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
         """
         return_dict = return_dict if return_dict is not None else self.funnel.return_dict
@@ -1379,8 +1398,10 @@ class TFFunnelForSequenceClassification(TFFunnelPreTrainedModel, TFSequenceClass
 
 
 @add_start_docstrings(
-    """Funnel Model with a multiple choice classification head on top (a linear layer on top of
-    the pooled output and a softmax) e.g. for RocStories/SWAG tasks. """,
+    """
+    Funnel Model with a multiple choice classification head on top (a linear layer on top of the pooled output and a
+    softmax) e.g. for RocStories/SWAG tasks.
+    """,
     FUNNEL_START_DOCSTRING,
 )
 class TFFunnelForMultipleChoice(TFFunnelPreTrainedModel, TFMultipleChoiceLoss):
@@ -1392,14 +1413,15 @@ class TFFunnelForMultipleChoice(TFFunnelPreTrainedModel, TFMultipleChoiceLoss):
 
     @property
     def dummy_inputs(self):
-        """Dummy inputs to build the network.
+        """
+        Dummy inputs to build the network.
 
         Returns:
             tf.Tensor with dummy inputs
         """
         return {"input_ids": tf.constant(MULTIPLE_CHOICE_DUMMY_INPUTS)}
 
-    @add_start_docstrings_to_callable(FUNNEL_INPUTS_DOCSTRING.format("batch_size, num_choices, sequence_length"))
+    @add_start_docstrings_to_model_forward(FUNNEL_INPUTS_DOCSTRING.format("batch_size, num_choices, sequence_length"))
     @add_code_sample_docstrings(
         tokenizer_class=_TOKENIZER_FOR_DOC,
         checkpoint="funnel-transformer/small-base",
@@ -1420,9 +1442,9 @@ class TFFunnelForMultipleChoice(TFFunnelPreTrainedModel, TFMultipleChoiceLoss):
     ):
         r"""
         labels (:obj:`tf.Tensor` of shape :obj:`(batch_size,)`, `optional`):
-            Labels for computing the multiple choice classification loss.
-            Indices should be in ``[0, ..., num_choices]`` where :obj:`num_choices` is the size of the second dimension
-            of the input tensors. (See :obj:`input_ids` above)
+            Labels for computing the multiple choice classification loss. Indices should be in ``[0, ...,
+            num_choices]`` where :obj:`num_choices` is the size of the second dimension of the input tensors. (See
+            :obj:`input_ids` above)
         """
         if isinstance(inputs, (tuple, list)):
             input_ids = inputs[0]
@@ -1495,8 +1517,10 @@ class TFFunnelForMultipleChoice(TFFunnelPreTrainedModel, TFMultipleChoiceLoss):
 
 
 @add_start_docstrings(
-    """Funnel Model with a token classification head on top (a linear layer on top of
-    the hidden-states output) e.g. for Named-Entity-Recognition (NER) tasks. """,
+    """
+    Funnel Model with a token classification head on top (a linear layer on top of the hidden-states output) e.g. for
+    Named-Entity-Recognition (NER) tasks.
+    """,
     FUNNEL_START_DOCSTRING,
 )
 class TFFunnelForTokenClassification(TFFunnelPreTrainedModel, TFTokenClassificationLoss):
@@ -1510,7 +1534,7 @@ class TFFunnelForTokenClassification(TFFunnelPreTrainedModel, TFTokenClassificat
             config.num_labels, kernel_initializer=get_initializer(config.initializer_range), name="classifier"
         )
 
-    @add_start_docstrings_to_callable(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_start_docstrings_to_model_forward(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
         tokenizer_class=_TOKENIZER_FOR_DOC,
         checkpoint="funnel-transformer/small",
@@ -1531,8 +1555,8 @@ class TFFunnelForTokenClassification(TFFunnelPreTrainedModel, TFTokenClassificat
     ):
         r"""
         labels (:obj:`tf.Tensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-            Labels for computing the token classification loss.
-            Indices should be in ``[0, ..., config.num_labels - 1]``.
+            Labels for computing the token classification loss. Indices should be in ``[0, ..., config.num_labels -
+            1]``.
         """
         return_dict = return_dict if return_dict is not None else self.funnel.return_dict
         if isinstance(inputs, (tuple, list)):
@@ -1573,8 +1597,10 @@ class TFFunnelForTokenClassification(TFFunnelPreTrainedModel, TFTokenClassificat
 
 
 @add_start_docstrings(
-    """Funnel Model with a span classification head on top for extractive question-answering tasks like SQuAD (a linear layers on top of
-    the hidden-states output to compute `span start logits` and `span end logits`). """,
+    """
+    Funnel Model with a span classification head on top for extractive question-answering tasks like SQuAD (a linear
+    layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+    """,
     FUNNEL_START_DOCSTRING,
 )
 class TFFunnelForQuestionAnswering(TFFunnelPreTrainedModel, TFQuestionAnsweringLoss):
@@ -1587,7 +1613,7 @@ class TFFunnelForQuestionAnswering(TFFunnelPreTrainedModel, TFQuestionAnsweringL
             config.num_labels, kernel_initializer=get_initializer(config.initializer_range), name="qa_outputs"
         )
 
-    @add_start_docstrings_to_callable(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_start_docstrings_to_model_forward(FUNNEL_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
         tokenizer_class=_TOKENIZER_FOR_DOC,
         checkpoint="funnel-transformer/small",
@@ -1610,12 +1636,12 @@ class TFFunnelForQuestionAnswering(TFFunnelPreTrainedModel, TFQuestionAnsweringL
         r"""
         start_positions (:obj:`tf.Tensor` of shape :obj:`(batch_size,)`, `optional`):
             Labels for position (index) of the start of the labelled span for computing the token classification loss.
-            Positions are clamped to the length of the sequence (:obj:`sequence_length`).
-            Position outside of the sequence are not taken into account for computing the loss.
+            Positions are clamped to the length of the sequence (:obj:`sequence_length`). Position outside of the
+            sequence are not taken into account for computing the loss.
         end_positions (:obj:`tf.Tensor` of shape :obj:`(batch_size,)`, `optional`):
             Labels for position (index) of the end of the labelled span for computing the token classification loss.
-            Positions are clamped to the length of the sequence (:obj:`sequence_length`).
-            Position outside of the sequence are not taken into account for computing the loss.
+            Positions are clamped to the length of the sequence (:obj:`sequence_length`). Position outside of the
+            sequence are not taken into account for computing the loss.
         """
         return_dict = return_dict if return_dict is not None else self.funnel.return_dict
         if isinstance(inputs, (tuple, list)):
