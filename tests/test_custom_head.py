@@ -4,7 +4,7 @@ import unittest
 import torch
 
 from tests.test_modeling_common import ids_tensor
-from transformers import AutoConfig, AutoModelWithHeads, ModelAdaptersConfig
+from transformers import AutoConfig, AutoModelWithHeads
 from transformers.adapter_heads import PredictionHead
 
 
