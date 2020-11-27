@@ -2,17 +2,17 @@ import logging
 
 import torch
 from torch import nn
-from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
 from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
-from .adapter_modeling import Activation_Function_Class, Adapter, BertFusion
+from .adapter_modeling import Adapter, BertFusion
 from .adapter_utils import flatten_adapter_names, parse_adapter_names
-from .modeling_outputs import (
-    MultipleChoiceModelOutput,
-    QuestionAnsweringModelOutput,
-    SequenceClassifierOutput,
-    TokenClassifierOutput,
+from .adapter_heads import (
+    ClassificationHead,
+    MultipleChoiceHead,
+    MultiLabelClassificationHead,
+    TaggingHead,
+    QuestionAnsweringHead,
 )
 
 logger = logging.getLogger(__name__)
@@ -558,251 +558,13 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.encoder.add_fusion_layer(adapter_names)
 
 
-class PredictionHead(nn.Module):
-    def __init__(self, name):
-        super().__init__()
-        self.config = None
-        self.head = None
-        self.name = name
-
-    def build(
-        self,
-        model,
-    ):  # _init_weights):
-        model_config = model.config
-        pred_head = []
-        for l in range(self.config["layers"]):
-            pred_head.append(nn.Dropout(model_config.hidden_dropout_prob))
-            if l < self.config["layers"] - 1:
-                pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
-                pred_head.append(Activation_Function_Class(self.config["activation_function"]))
-            else:
-                if "num_labels" in self.config:
-                    pred_head.append(nn.Linear(model_config.hidden_size, self.config["num_labels"]))
-                else:  # used for multiple_choice head
-                    pred_head.append(nn.Linear(model_config.hidden_size, 1))
-        self.head = nn.Sequential(*pred_head)
-
-        self.head.apply(model._init_weights)
-
-    def forward(self, outputs, attention_mask, labels, return_dict):
-        raise NotImplementedError("Use a Prediction Head that inherits from this class")
-
-    def save_head(self, path):
-        torch.save(self, path)
-
-    @staticmethod
-    def load_head(self, path, load_as):
-        head = torch.load(path)
-        if load_as:
-            head.name = load_as
-        return head
-
-
-class ClassificationHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
-        super().__init__(head_name)
-        self.config = {
-            "head_type": "classification",
-            "num_labels": num_labels,
-            "layers": layers,
-            "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
-        }
-        self.build(model)
-
-    def forward(self, outputs, attention_mask, labels, return_dict):
-
-        logits = self.head(outputs[0][:, 0])
-
-        outputs = (logits,) + outputs
-        if labels is not None:
-            if self.config["num_labels"] == 1:
-                #  We are doing regression
-                loss_fct = MSELoss()
-                loss = loss_fct(logits.view(-1), labels.view(-1))
-            else:
-                loss_fct = CrossEntropyLoss()
-                loss = loss_fct(logits.view(-1, self.config["num_labels"]), labels.view(-1))
-            outputs = (loss,) + outputs
-
-        if return_dict:
-            return SequenceClassifierOutput(
-                loss=loss,
-                logits=logits,
-                hidden_states=outputs.hidden_states,
-                attentions=outputs.attentions,
-            )
-        else:
-            return outputs
-
-
-class MultiLabelClassificationHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
-        super().__init__(head_name)
-        self.config = {
-            "head_type": "multilabel_classification",
-            "num_labels": num_labels,
-            "layers": layers,
-            "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
-        }
-        self.build(model)
-
-    def forward(self, outputs, attention_mask, labels, return_dict):
-        logits = self.head(outputs[0][:, 0])
-
-        outputs = (logits,) + outputs[2:]
-        if labels is not None:
-            loss_fct = BCEWithLogitsLoss()
-            if labels.dtype != torch.float32:
-                labels = labels.float()
-            loss = loss_fct(logits, labels)
-            outputs = (loss,) + outputs
-
-        if return_dict:
-            return SequenceClassifierOutput(
-                loss=loss,
-                logits=logits,
-                hidden_states=outputs.hidden_states,
-                attentions=outputs.attentions,
-            )
-        else:
-            return outputs
-
-
-class MultipleChoiceHead(PredictionHead):
-    def __init__(self, head_name, num_choices, layers, activation_function, id2label, model):
-        super().__init__(head_name)
-        self.config = {
-            "head_type": "multiple_choice",
-            "num_choices": num_choices,
-            "layers": layers,
-            "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
-        }
-        self.build(model)
-
-    def forward(self, outputs, attention_mask, labels, return_dict):
-        logits = self.head(outputs[0][:, 0])
-        logits = logits.view(-1, self.config["num_choices"])
-
-        outputs = (logits,) + outputs[2:]
-        if labels is not None:
-            loss_fct = CrossEntropyLoss()
-            loss = loss_fct(logits, labels)
-            outputs = (loss,) + outputs
-
-        if return_dict:
-            return MultipleChoiceModelOutput(
-                loss=loss,
-                logits=logits,
-                hidden_states=outputs.hidden_states,
-                attentions=outputs.attentions,
-            )
-        else:
-            return outputs
-
-
-class TaggingHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
-        super().__init__(head_name)
-        self.config = {
-            "head_type": "tagging",
-            "num_labels": num_labels,
-            "layers": layers,
-            "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
-        }
-        self.build(model)
-
-    def forward(self, outputs, attention_mask, labels, return_dict):
-        logits = self.head(outputs[0])
-
-        outputs = (logits,) + outputs[2:]
-        if labels is not None:
-            loss_fct = CrossEntropyLoss()
-            # Only keep active parts of the loss
-            if attention_mask is not None:
-                active_loss = attention_mask.view(-1) == 1
-                active_logits = logits.view(-1, self.num_labels)
-                active_labels = torch.where(
-                    active_loss, labels.view(-1), torch.tensor(loss_fct.ignore_index).type_as(labels)
-                )
-                loss = loss_fct(active_logits, active_labels)
-            else:
-                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
-            outputs = (loss,) + outputs
-
-        if return_dict:
-            return TokenClassifierOutput(
-                loss=loss,
-                logits=logits,
-                hidden_states=outputs.hidden_states,
-                attentions=outputs.attentions,
-            )
-        else:
-            return outputs
-
-
-class QuestionAnsweringHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
-        super().__init__(head_name)
-        self.config = {
-            "head_type": "question_answering",
-            "num_labels": num_labels,
-            "layers": layers,
-            "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
-        }
-        self.build(model)
-
-    def forward(self, outputs, attention_mask=None, labels=None, return_dict=False):
-        logits = self.head(outputs[0])
-
-        start_logits, end_logits = logits.split(1, dim=-1)
-        start_logits = start_logits.squeeze(-1)
-        end_logits = end_logits.squeeze(-1)
-
-        outputs = (
-            start_logits,
-            end_logits,
-        ) + outputs[2:]
-        if labels is not None:
-            start_positions, end_positions = labels
-            if len(start_positions.size()) > 1:
-                start_positions = start_positions.squeeze(-1)
-            if len(end_positions.size()) > 1:
-                end_positions = end_positions.squeeze(-1)
-            # sometimes the start/end positions are outside our model inputs, we ignore these terms
-            ignored_index = start_logits.size(1)
-            start_positions.clamp_(0, ignored_index)
-            end_positions.clamp_(0, ignored_index)
-
-            loss_fct = CrossEntropyLoss(ignore_index=ignored_index)
-            start_loss = loss_fct(start_logits, start_positions)
-            end_loss = loss_fct(end_logits, end_positions)
-            total_loss = (start_loss + end_loss) / 2
-            outputs = (total_loss,) + outputs
-
-        if return_dict:
-            return QuestionAnsweringModelOutput(
-                loss=total_loss,
-                start_logits=start_logits,
-                end_logits=end_logits,
-                hidden_states=outputs.hidden_states,
-                attentions=outputs.attentions,
-            )
-        else:
-            return outputs
-
-
 class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     """Adds heads to a Bert-based module."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.custom_heads = {}
+        if not hasattr(self.config, "custom_heads"):
+            self.config.custom_heads = {}
         self.active_head = None
 
     def _init_head_modules(self):
@@ -813,43 +575,67 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.config.prediction_heads = {}
         # add modules for heads in config
         for head_name, config in heads_to_add.items():
-            id2label = {id_: label for label, id_ in config["label2id"].items()} if config["label2id"] else None
-            if config["head_type"] == "classification_head":
-                self.add_classification_head(
-                    head_name, config["num_labels"], config["layers"], config["activation_function"], id2label=id2label
-                )
-            elif config["head_type"] == "multilabel_classification":
-                self.add_classification_head(
-                    head_name,
-                    config["num_labels"],
-                    config["layers"],
-                    config["activation_function"],
-                    multilabel=True,
-                    id2label=id2label,
-                )
-            elif config["head_type"] == "tagging":
-                self.add_tagging_head(
-                    head_name, config["num_labels"], config["layers"], config["activation_function"], id2label=id2label
-                )
-            elif config["head_type"] == "multiple_choice":
-                self.add_multiple_choice_head(
-                    head_name,
-                    config["num_choices"],
-                    config["layers"],
-                    config["activation_function"],
-                    id2label=id2label,
-                )
-            elif config["head_type"] == "question_answering":
-                self.add_qa_head(
-                    head_name, config["num_labels"], config["layers"], config["activation_function"], id2label=id2label
-                )
-            else:
-                if config["head_type"] in self.custom_heads:
-                    self.add_custom_head(head_name, config)
-                else:
-                    raise AttributeError("Please register the PredictionHead before loading the model")
+            self.add_prediction_head_from_config(head_name, config)
 
-        #  self._add_prediction_head_module(head_name)
+    def add_prediction_head_from_config(self, head_name, config, overwrite_ok=False):
+        id2label = (
+            {id_: label for label, id_ in config["label2id"].items()}
+            if "label2id" in config.keys() and config["label2id"]
+            else None
+        )
+        if config["head_type"] == "classification":
+            self.add_classification_head(
+                head_name,
+                config["num_labels"],
+                config["layers"],
+                config["activation_function"],
+                id2label=id2label,
+                overwrite_ok=overwrite_ok,
+            )
+        elif config["head_type"] == "multilabel_classification":
+            self.add_classification_head(
+                head_name,
+                config["num_labels"],
+                config["layers"],
+                config["activation_function"],
+                multilabel=True,
+                id2label=id2label,
+                overwrite_ok=overwrite_ok,
+            )
+        elif config["head_type"] == "tagging":
+            self.add_tagging_head(
+                head_name,
+                config["num_labels"],
+                config["layers"],
+                config["activation_function"],
+                id2label=id2label,
+                overwrite_ok=overwrite_ok,
+            )
+        elif config["head_type"] == "multiple_choice":
+            self.add_multiple_choice_head(
+                head_name,
+                config["num_choices"],
+                config["layers"],
+                config["activation_function"],
+                id2label=id2label,
+                overwrite_ok=overwrite_ok,
+            )
+        elif config["head_type"] == "question_answering":
+            self.add_qa_head(
+                head_name,
+                config["num_labels"],
+                config["layers"],
+                config["activation_function"],
+                id2label=id2label,
+                overwrite_ok=overwrite_ok,
+            )
+        else:
+            if config["head_type"] in self.config.custom_heads:
+                self.add_custom_head(head_name, config, overwrite_ok=overwrite_ok)
+            else:
+                raise AttributeError("Please register the PredictionHead before loading the model")
+
+    #  self._add_prediction_head_module(head_name)
 
     def get_prediction_heads_config(self):
         heads = {}
@@ -858,7 +644,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         return heads
 
     def register_custom_head(self, identifier, head):
-        self.custom_heads[identifier] = head
+        self.config.custom_heads[identifier] = head
 
     @property
     def active_head(self):
@@ -955,9 +741,12 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.add_prediction_head(head, overwrite_ok)
 
     def add_custom_head(self, head_name, config, overwrite_ok=False):
-        if config["head_type"] in self.custom_heads:
-            head = self.custom_heads[config["head_type"]](head_name, config, self)
+        if config["head_type"] in self.config.custom_heads:
+            head = self.config.custom_heads[config["head_type"]](head_name, config, self)
             self.add_prediction_head(head, overwrite_ok)
+        else:
+            raise AttributeError("The given head as a head_type that is not registered as a custom head yet."
+                                 " Please register the head first.")
 
     def add_prediction_head(
         self,

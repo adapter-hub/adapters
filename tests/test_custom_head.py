@@ -1,9 +1,11 @@
+import tempfile
 import unittest
 
+import torch
 
 from tests.test_modeling_common import ids_tensor
-from transformers.adapter_bert import PredictionHead
-from transformers import AutoModelWithHeads
+from transformers.adapter_heads import PredictionHead
+from transformers import AutoModelWithHeads, ModelAdaptersConfig, AutoConfig
 
 
 class CustomHead(PredictionHead):
@@ -31,3 +33,42 @@ class MyTestCase(unittest.TestCase):
         model.add_tagging_head("tagging_head", num_labels=3, layers=2)
         output2 = model(in_data)
         self.assertEqual(output1[0].size(), output2[0].size())
+
+    def test_custom_head_from_model_config(self):
+        model_name = "bert-base-uncased"
+        model_config = AutoConfig.from_pretrained(model_name,
+                                                  custom_heads = {"tag": CustomHead})
+        model = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
+        config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
+        model.add_custom_head("custom_head", config)
+        model.eval()
+        in_data = ids_tensor((1, 128), 1000)
+        output1 = model(in_data)
+        model.add_tagging_head("tagging_head", num_labels=3, layers=2)
+        output2 = model(in_data)
+        self.assertEqual(output1[0].size(), output2[0].size())
+
+    def test_save_load_custom_head(self):
+        model_name = "bert-base-uncased"
+        model_config = AutoConfig.from_pretrained(model_name,
+                                                  custom_heads={"tag": CustomHead})
+        model1 = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
+        model2 = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
+        config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
+        model1.add_custom_head("custom_head", config)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model1.save_head(temp_dir, "custom_head")
+            model2.load_head(temp_dir)
+
+        model1.eval()
+        model2.eval()
+
+        in_data = ids_tensor((1, 128), 1000)
+        output1 = model1(in_data)
+        output2 = model2(in_data)
+        self.assertEqual(output1[0].size(), output2[0].size())
+        state1 = model1.config.prediction_heads["custom_head"].state_dict()
+        state2 = model2.config.prediction_heads["custom_head"].state_dict()
+        for ((k1, v1), (k2, v2)) in zip(state1.items(), state2.items()):
+            self.assertTrue(torch.equal(v1, v2))
