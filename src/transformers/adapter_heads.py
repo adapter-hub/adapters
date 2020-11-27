@@ -1,13 +1,13 @@
-from torch import nn
 import torch
-from torch.nn import MSELoss, CrossEntropyLoss, BCEWithLogitsLoss
+from torch import nn
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from .adapter_modeling import Activation_Function_Class
 from .modeling_outputs import (
-    SequenceClassifierOutput,
     MultipleChoiceModelOutput,
-    TokenClassifierOutput,
     QuestionAnsweringModelOutput,
+    SequenceClassifierOutput,
+    TokenClassifierOutput,
 )
 
 

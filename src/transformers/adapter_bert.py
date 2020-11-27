@@ -4,16 +4,17 @@ import torch
 from torch import nn
 
 from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
+from .adapter_heads import (
+    ClassificationHead,
+    MultiLabelClassificationHead,
+    MultipleChoiceHead,
+    QuestionAnsweringHead,
+    TaggingHead,
+)
 from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from .adapter_modeling import Adapter, BertFusion
 from .adapter_utils import flatten_adapter_names, parse_adapter_names
-from .adapter_heads import (
-    ClassificationHead,
-    MultipleChoiceHead,
-    MultiLabelClassificationHead,
-    TaggingHead,
-    QuestionAnsweringHead,
-)
+
 
 logger = logging.getLogger(__name__)
 
@@ -745,8 +746,10 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             head = self.config.custom_heads[config["head_type"]](head_name, config, self)
             self.add_prediction_head(head, overwrite_ok)
         else:
-            raise AttributeError("The given head as a head_type that is not registered as a custom head yet."
-                                 " Please register the head first.")
+            raise AttributeError(
+                "The given head as a head_type that is not registered as a custom head yet."
+                " Please register the head first."
+            )
 
     def add_prediction_head(
         self,

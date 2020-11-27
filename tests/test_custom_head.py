@@ -4,8 +4,8 @@ import unittest
 import torch
 
 from tests.test_modeling_common import ids_tensor
+from transformers import AutoConfig, AutoModelWithHeads, ModelAdaptersConfig
 from transformers.adapter_heads import PredictionHead
-from transformers import AutoModelWithHeads, ModelAdaptersConfig, AutoConfig
 
 
 class CustomHead(PredictionHead):
@@ -36,8 +36,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_custom_head_from_model_config(self):
         model_name = "bert-base-uncased"
-        model_config = AutoConfig.from_pretrained(model_name,
-                                                  custom_heads = {"tag": CustomHead})
+        model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
         model = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
         config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
         model.add_custom_head("custom_head", config)
@@ -50,8 +49,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_save_load_custom_head(self):
         model_name = "bert-base-uncased"
-        model_config = AutoConfig.from_pretrained(model_name,
-                                                  custom_heads={"tag": CustomHead})
+        model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
         model1 = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
         model2 = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
         config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}

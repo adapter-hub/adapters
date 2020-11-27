@@ -22,6 +22,7 @@ import os
 from typing import Any, Dict, Tuple
 
 from transformers.adapter_heads import PredictionHead
+
 from .adapter_utils import DataclassJSONEncoder
 from .file_utils import CONFIG_NAME, cached_path, hf_bucket_url, is_remote_url
 from .utils import logging
