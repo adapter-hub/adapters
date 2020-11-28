@@ -18,7 +18,7 @@ class Activation_Function_Class(nn.Module):
         elif hidden_act.lower() == "swish":
 
             def swish(x):
-                return x * torch.nn.functional.sigmoid(x)
+                return x * torch.sigmoid(x)
 
             self.f = swish
         elif hidden_act.lower() == "gelu":

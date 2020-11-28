@@ -42,6 +42,11 @@ class Fuse(AdapterCompositionBlock):
     def __init__(self, *fuse_stacks: List[Union[AdapterCompositionBlock, str]]):
         super().__init__(*fuse_stacks)
 
+    # TODO pull this up to all block classes?
+    @property
+    def name(self):
+        return ",".join([c if isinstance(c, str) else c.last() for c in self.children])
+
 
 class Split(AdapterCompositionBlock):
     def __init__(self, left: str, right: str, split_index: int):

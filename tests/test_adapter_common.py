@@ -43,6 +43,7 @@ class AdapterModelTest(unittest.TestCase):
                 with self.subTest(model_class=model_class, config=config_name):
                     name = f"{config_name}"
                     model.add_adapter(name, config=adapter_config)
+                    model.set_active_adapters([name])
 
                     # adapter is correctly added to config
                     self.assertTrue(name in model.config.adapters)
@@ -51,7 +52,6 @@ class AdapterModelTest(unittest.TestCase):
                     # check forward pass
                     input_ids = ids_tensor((1, 128), 1000)
                     input_data = {"input_ids": input_ids}
-                    input_data["adapter_names"] = [name]
                     adapter_output = model(**input_data)
                     base_output = model(input_ids)
                     self.assertEqual(len(adapter_output), len(base_output))
@@ -64,18 +64,20 @@ class AdapterModelTest(unittest.TestCase):
             with self.subTest(model_class=model_class):
                 name = "dummy"
                 model1.add_adapter(name)
+                model1.set_active_adapters([name])
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_adapter(temp_dir, name)
 
                     model2.load_adapter(temp_dir)
+                    model2.set_active_adapters([name])
 
                 # check if adapter was correctly loaded
                 self.assertTrue(name in model2.config.adapters)
 
                 # check equal output
                 in_data = ids_tensor((1, 128), 1000)
-                output1 = model1(in_data, adapter_names=[name])
-                output2 = model2(in_data, adapter_names=[name])
+                output1 = model1(in_data)
+                output2 = model2(in_data)
                 self.assertEqual(len(output1), len(output2))
                 self.assertTrue(torch.equal(output1[0], output2[0]))
 
@@ -85,23 +87,25 @@ class AdapterModelTest(unittest.TestCase):
             model1 = model_class(model_config())
             model1.eval()
 
-            for name, adapter_type in AdapterType.__members__.items():
-                with self.subTest(model_class=model_class, adapter_type=name):
-                    model1.add_adapter(name, adapter_type)
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        model1.save_pretrained(temp_dir)
+            with self.subTest(model_class=model_class):
+                name = "dummy"
+                model1.add_adapter(name)
+                model1.set_active_adapters([name])
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    model1.save_pretrained(temp_dir)
 
-                        model2 = model_class.from_pretrained(temp_dir)
+                    model2 = model_class.from_pretrained(temp_dir)
+                    model2.set_active_adapters([name])
 
-                    # check if adapter was correctly loaded
-                    self.assertTrue(name in model2.config.adapters.adapter_list(adapter_type))
+                # check if adapter was correctly loaded
+                self.assertTrue(name in model2.config.adapters)
 
-                    # check equal output
-                    in_data = ids_tensor((1, 128), 1000)
-                    output1 = model1(in_data, adapter_names=[name])
-                    output2 = model2(in_data, adapter_names=[name])
-                    self.assertEqual(len(output1), len(output2))
-                    self.assertTrue(torch.equal(output1[0], output2[0]))
+                # check equal output
+                in_data = ids_tensor((1, 128), 1000)
+                output1 = model1(in_data)
+                output2 = model2(in_data)
+                self.assertEqual(len(output1), len(output2))
+                self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_model_config_serialization(self):
         """PretrainedConfigurations should not raise an Exception when serializing the config dict
@@ -132,11 +136,11 @@ class PredictionHeadModelTest(unittest.TestCase):
         self.assertTrue(head_name in compare_model.config.prediction_heads)
 
         in_data = ids_tensor(input_shape, 1000)
-        model.set_active_adapters(head_name)
+        model.active_head = head_name
         output1 = model(in_data)
         self.assertEqual(output_shape, tuple(output1[0].size()))
         # check equal output
-        compare_model.set_active_adapters(head_name)
+        compare_model.active_head = head_name
         output2 = compare_model(in_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))

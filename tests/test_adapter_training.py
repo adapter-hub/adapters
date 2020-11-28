@@ -12,6 +12,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
+from transformers.adapter_composition import Fuse, Stack
 from transformers.testing_utils import require_torch
 
 
@@ -31,8 +32,8 @@ class AdapterTrainingTest(unittest.TestCase):
                 model = AutoModelWithHeads.from_pretrained(model_name)
 
                 # add two adapters: one will be trained and the other should be frozen
-                model.add_adapter("mrpc", "text_task")
-                model.add_adapter("dummy", "text_task")
+                model.add_adapter("mrpc")
+                model.add_adapter("dummy")
                 model.add_classification_head("mrpc")
 
                 self.assertIn("mrpc", model.config.adapters.adapters)
@@ -40,7 +41,7 @@ class AdapterTrainingTest(unittest.TestCase):
 
                 # train the mrpc adapter -> should be activated & unfreezed
                 model.train_adapter("mrpc")
-                self.assertEqual([["mrpc"]], model.active_adapters)
+                self.assertEqual(set(["mrpc"]), model.active_adapters.flatten())
 
                 # all weights of the adapter should be activated
                 for k, v in filter_parameters(model, "text_task_adapters.mrpc").items():
@@ -93,9 +94,9 @@ class AdapterTrainingTest(unittest.TestCase):
                 self.assertIn("sts-b", model.config.adapters.adapters)
 
                 # setup fusion
-                adapter_setup = [["mrpc", "qqp", "sts-b"]]
-                model.add_fusion(adapter_setup[0])
-                model.train_fusion(adapter_setup[0])
+                adapter_setup = Fuse("mrpc", "qqp", "sts-b")
+                model.add_fusion(adapter_setup)
+                model.train_fusion(adapter_setup)
                 model.set_active_adapters(adapter_setup)
                 self.assertEqual(adapter_setup, model.active_adapters)
 

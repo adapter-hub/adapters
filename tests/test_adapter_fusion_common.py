@@ -40,8 +40,8 @@ class AdapterFusionModelTest(unittest.TestCase):
                     model = model_class(model_config())
 
                     with self.subTest(model_class=model_class, config=config_name):
-                        name1 = f"{type_name}-{config_name}-1"
-                        name2 = f"{type_name}-{config_name}-2"
+                        name1 = f"{config_name}-1"
+                        name2 = f"{config_name}-2"
                         model.add_adapter(name1, config=adapter_config)
                         model.add_adapter(name2, config=adapter_config)
 
@@ -56,7 +56,7 @@ class AdapterFusionModelTest(unittest.TestCase):
                         # check forward pass
                         input_ids = ids_tensor((1, 128), 1000)
                         input_data = {"input_ids": input_ids}
-                        input_data["adapter_names"] = [[name1, name2]]
+                        model.set_active_adapters([[name1, name2]])
                         adapter_output = model(**input_data)
                         base_output = model(input_ids)
                         self.assertEqual(len(adapter_output), len(base_output))
@@ -102,8 +102,10 @@ class AdapterFusionModelTest(unittest.TestCase):
 
                     # check equal output
                     in_data = ids_tensor((1, 128), 1000)
-                    output1 = model1(in_data, adapter_names=[[name1, name2]])
-                    output2 = model2(in_data, adapter_names=[[name1, name2]])
+                    model1.set_active_adapters([[name1, name2]])
+                    model2.set_active_adapters([[name1, name2]])
+                    output1 = model1(in_data)
+                    output2 = model2(in_data)
                     self.assertEqual(len(output1), len(output2))
                     self.assertTrue(torch.equal(output1[0], output2[0]))
 

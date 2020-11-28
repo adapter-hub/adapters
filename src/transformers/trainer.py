@@ -298,7 +298,8 @@ class Trainer:
         self.do_save_full_model = do_save_full_model
         self.do_save_adapters = do_save_adapters
         self.do_save_adapter_fusion = do_save_adapter_fusion
-        self.adapter_names = adapter_names
+        if adapter_names is not None:
+            self.model.set_active_adapters(adapter_names)
         if is_torch_tpu_available() and isinstance(self.model, PreTrainedModel):
             # Set an xla_device flag on the model's config.
             # We'll find a more elegant and not need to do this in the future.
@@ -1098,9 +1099,6 @@ class Trainer:
 
         if self.args.past_index >= 0 and self._past is not None:
             inputs["mems"] = self._past
-
-        if self.adapter_names:
-            inputs["adapter_names"] = self.adapter_names
 
         return inputs
 

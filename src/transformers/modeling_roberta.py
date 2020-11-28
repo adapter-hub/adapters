@@ -31,7 +31,6 @@ from .adapter_bert import (
     BertOutputAdaptersMixin,
     BertSelfOutputAdaptersMixin,
 )
-from .adapter_composition import parse_composition
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .configuration_roberta import RobertaConfig
 from .file_utils import (
@@ -422,7 +421,7 @@ class RobertaEncoder(BertEncoderAdaptersMixin, nn.Module):
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
-                        return module(*inputs, output_attentions, adapter_names=adapter_names)
+                        return module(*inputs, output_attentions)
 
                     return custom_forward
 
@@ -833,7 +832,6 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
-        adapter_names=None,
         return_dict=None,
     ):
         r"""
@@ -882,14 +880,13 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
             encoder_attention_mask=encoder_attention_mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            adapter_names=adapter_names,
             return_dict=return_dict,
         )
 
         sequence_output = outputs[0]
         prediction_scores = self.lm_head(
             sequence_output,
-            inv_lang_adapter=self.bert.get_invertible_adapter(),
+            inv_lang_adapter=self.roberta.get_invertible_adapter(),
         )
 
         lm_loss = None

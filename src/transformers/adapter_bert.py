@@ -88,7 +88,7 @@ class BertAdaptersBaseMixin(ABC):
         if self.config.adapters.common_config_value(adapter_names, self.adapter_config_key):
             self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
 
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_fusion: bool):
+    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
         """Unfreezes a given list of adapters, the adapter fusion layer, or both
 
         :param adapter_names: names of adapters to unfreeze (or names of adapters part of the fusion layer to unfreeze)
@@ -96,21 +96,20 @@ class BertAdaptersBaseMixin(ABC):
         :param unfreeze_fusion: whether the adapter attention layer for the given adapters should be unfreezed
         """
         if unfreeze_adapters:
-            if isinstance(adapter_names, str):
-                adapter_names = [adapter_names]
-            for adapter_name in adapter_names:
-                layer = self.get_adapter_layer(adapter_name)
-                if layer is not None:
-                    for param in layer.parameters():
+            for adapter_name in adapter_setup.flatten():
+                if adapter_name in self.adapter_modules:
+                    for param in self.adapter_modules[adapter_name].parameters():
                         param.requires_grad = True
         if unfreeze_fusion:
-            if isinstance(adapter_names[0], str):
-                adapter_names = [adapter_names]
-            for adapter_fusion_group in adapter_names:
-                fusion_name = ",".join(adapter_fusion_group)
-                if fusion_name in self.adapter_fusion_layer:
-                    for param in self.adapter_fusion_layer[fusion_name].parameters():
+            if isinstance(adapter_setup, Fuse):
+                if adapter_setup.name in self.adapter_fusion_layer:
+                    for param in self.adapter_fusion_layer[adapter_setup.name].parameters():
                         param.requires_grad = True
+            for sub_setup in adapter_setup:
+                if isinstance(sub_setup, Fuse):
+                    if sub_setup.name in self.adapter_fusion_layer:
+                        for param in self.adapter_fusion_layer[sub_setup.name].parameters():
+                            param.requires_grad = True
 
     def get_adapter_preparams(
         self,
@@ -223,10 +222,10 @@ class BertAdaptersBaseMixin(ABC):
         return hidden_states
 
     def adapters_forward(self, hidden_states, input_tensor):
-        adapter_setup = self.config.adapters.active_setup
+        adapter_setup = self.config.adapters.active_setup if hasattr(self.config, "adapters") else None
         if adapter_setup is not None and (len(set(self.adapter_modules.keys()) & adapter_setup.flatten()) > 0):
             if isinstance(adapter_setup, Stack):
-                hidden_states = self.adapter_stack(adapter_setup, hidden_states, input_tensor)
+                hidden_states, _ = self.adapter_stack(adapter_setup, hidden_states, input_tensor)
             elif isinstance(adapter_setup, Fuse):
                 hidden_states = self.adapter_fusion(adapter_setup, hidden_states, input_tensor)
             elif isinstance(adapter_setup, Split):
@@ -287,9 +286,9 @@ class BertLayerAdaptersMixin:
         self.attention.output.add_adapter(adapter_name)
         self.output.add_adapter(adapter_name)
 
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
-        self.attention.output.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-        self.output.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool):
+        self.attention.output.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
+        self.output.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
 
 class BertEncoderAdaptersMixin:
@@ -306,9 +305,9 @@ class BertEncoderAdaptersMixin:
             if i not in leave_out:
                 layer.add_adapter(adapter_name)
 
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
+    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool):
         for layer in self.layer:
-            layer.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+            layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
 
 class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
@@ -334,7 +333,7 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        self.encoder.enable_adapters(adapter_setup.flatten(), True, False)
+        self.encoder.enable_adapters(adapter_setup, True, False)
         self.enable_invertible_adapters(adapter_setup.flatten())
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
@@ -344,7 +343,7 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        self.encoder.enable_adapters(adapter_setup.flatten(), False, True)
+        self.encoder.enable_adapters(adapter_setup, False, True)
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
         # TODO implement fusion for invertible adapters

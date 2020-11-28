@@ -9,7 +9,7 @@ from typing import Callable, List, Mapping, Optional, Tuple, Union
 import torch
 from torch import nn
 
-from .adapter_composition import AdapterCompositionBlock, parse_composition
+from .adapter_composition import AdapterCompositionBlock, Fuse, parse_composition
 from .adapter_config import (
     ADAPTERFUSION_CONFIG_MAP,
     DEFAULT_ADAPTERFUSION_CONFIG,
@@ -397,24 +397,24 @@ class AdapterLoader(WeightsLoader):
 
         # Load config of adapter
         config = self.weights_helper.load_weights_config(resolved_folder)
-        if self.adapter_type:
+        if self.adapter_type and "type" in config:
             assert config["type"] == self.adapter_type, "Loaded adapter has to be a {} adapter.".format(
                 self.adapter_type
             )
-        else:
+        elif "type" in config:
             self.adapter_type = config["type"]
 
         adapter_name = load_as or config["name"]
         # If the adapter is not part of the model, add it
         if adapter_name not in self.model.config.adapters.adapters:
-            self.model.add_adapter(adapter_name, config["type"], config=config["config"])
+            self.model.add_adapter(adapter_name, config=config["config"])
         else:
             logger.warning("Overwriting existing adapter '{}'.".format(adapter_name))
 
         # Load adapter weights
         filter_func = self.filter_func(adapter_name)
         rename_func = self.rename_func(config["name"], adapter_name)
-        _, missing_keys = self.weights_helper.load_weights(
+        missing_keys, _ = self.weights_helper.load_weights(
             resolved_folder, filter_func, rename_func=rename_func, loading_info=loading_info, in_base_model=True
         )
         missing_keys = self._fix_legacy_config(adapter_name, missing_keys)
@@ -786,7 +786,7 @@ class ModelAdaptersMixin(ABC):
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
 
-    def add_fusion(self, adapter_names, adapter_fusion_config=None, override_kwargs=None):
+    def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
         """Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 
         Args:
@@ -797,6 +797,9 @@ class ModelAdaptersMixin(ABC):
                 - the path to a file containing the adapter fusion configuration
             override_kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
         """
+        # TODO Allow nested items or directly pass Fuse block?
+        if isinstance(adapter_names, Fuse):
+            adapter_names = adapter_names.children
         if not hasattr(self.config, "adapter_fusion"):
             if override_kwargs is None:
                 override_kwargs = {}

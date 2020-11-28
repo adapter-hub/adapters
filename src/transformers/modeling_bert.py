@@ -476,7 +476,7 @@ class BertEncoder(BertEncoderAdaptersMixin, nn.Module):
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
-                        return module(*inputs, output_attentions, adapter_names=adapter_names)
+                        return module(*inputs, output_attentions)
 
                     return custom_forward
 
@@ -1225,7 +1225,6 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         labels=None,
         output_attentions=None,
         output_hidden_states=None,
-        adapter_names=None,
         return_dict=None,
         **kwargs
     ):
@@ -1259,7 +1258,6 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
             encoder_attention_mask=encoder_attention_mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            adapter_names=adapter_names,
             return_dict=return_dict,
         )
 

@@ -44,6 +44,8 @@ test-reduced:
 		--ignore-glob='tests/test_pipelines*'\
 		--ignore-glob='tests/test_hf*'\
 		--ignore-glob='tests/test_doc*'\
+		--ignore-glob='tests/test_retrieval*'\
+		--ignore-glob='tests/test_benchmark*'\
 		./tests/
 
 # Run tests for examples
