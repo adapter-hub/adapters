@@ -560,6 +560,14 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
+        input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+        inputs_embeds = (
+            inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
+            if inputs_embeds is not None
+            else None
+        )
+
         distilbert_output = self.distilbert(
             input_ids=input_ids,
             attention_mask=attention_mask,
