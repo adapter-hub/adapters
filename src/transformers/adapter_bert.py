@@ -714,7 +714,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.heads[head_name].apply(self._init_weights)
         self.heads[head_name].train(self.training)  # make sure training mode is consistent
 
-    def forward_head(self, outputs, head_name=None, attention_mask=None, labels=None, return_dict=False):
+    def forward_head(self, outputs, head_name=None, attention_mask=None, return_dict=False, **kwargs):
         head_name = head_name or self.active_head
         if not head_name:
             logger.debug("No prediction head is used.")
@@ -732,6 +732,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             logits = self.heads[head_name](sequence_output[:, 0])
 
             outputs = (logits,) + outputs[2:]
+            labels = kwargs.pop("labels", None)
             if labels is not None:
                 if head["num_labels"] == 1:
                     #  We are doing regression
@@ -756,6 +757,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             logits = self.heads[head_name](sequence_output[:, 0])
 
             outputs = (logits,) + outputs[2:]
+            labels = kwargs.pop("labels", None)
             if labels is not None:
                 loss_fct = BCEWithLogitsLoss()
                 if labels.dtype != torch.float32:
@@ -778,6 +780,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             logits = logits.view(-1, head["num_choices"])
 
             outputs = (logits,) + outputs[2:]
+            labels = kwargs.pop("labels", None)
             if labels is not None:
                 loss_fct = CrossEntropyLoss()
                 loss = loss_fct(logits, labels)
@@ -797,6 +800,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             logits = self.heads[head_name](sequence_output)
 
             outputs = (logits,) + outputs[2:]
+            labels = kwargs.pop("labels", None)
             if labels is not None:
                 loss_fct = CrossEntropyLoss()
                 # Only keep active parts of the loss
@@ -832,8 +836,9 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 start_logits,
                 end_logits,
             ) + outputs[2:]
-            if labels is not None:
-                start_positions, end_positions = labels
+            start_positions = kwargs.pop("start_positions", None)
+            end_positions = kwargs.pop("end_positions", None)
+            if start_positions is not None and end_positions is not None:
                 if len(start_positions.size()) > 1:
                     start_positions = start_positions.squeeze(-1)
                 if len(end_positions.size()) > 1:
