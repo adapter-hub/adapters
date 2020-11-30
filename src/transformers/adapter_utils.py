@@ -71,7 +71,8 @@ def _minimize_dict(d):
 
 
 def get_adapter_config_hash(config, length=16):
-    """Calculates the hash of a given adapter configuration which is used to identify this configuration.
+    """
+    Calculates the hash of a given adapter configuration which is used to identify this configuration.
 
     Returns:
         str: The resulting hash of the given config dict.
@@ -186,10 +187,12 @@ def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, fo
 
 
 def resolve_adapter_config(config: Union[dict, str], local_map=None, try_loading_from_hub=True, **kwargs) -> dict:
-    """Resolves a given adapter configuration specifier to a full configuration dictionary.
+    """
+    Resolves a given adapter configuration specifier to a full configuration dictionary.
 
     Args:
         config (Union[dict, str]): The configuration to resolve. Can be either:
+
             - a dictionary: returned without further action
             - an identifier string available in local_map
             - the path to a file containing a full adapter configuration
@@ -337,7 +340,8 @@ def pull_from_hub(
     strict: bool = False,
     **kwargs
 ) -> str:
-    """Downloads a pre-trained adapter module from Adapter-Hub
+    """
+    Downloads a pre-trained adapter module from Adapter-Hub
 
     Args:
         specifier (str): A string specifying the adapter to be loaded.
@@ -388,11 +392,13 @@ def resolve_adapter_path(
     version: str = None,
     **kwargs
 ) -> str:
-    """Resolves the path to a pre-trained adapter module.
-    Note: If attempting to resolve an adapter from the Hub, adapter_config, adapter_type and model_name must be present.
+    """
+    Resolves the path to a pre-trained adapter module. Note: If attempting to resolve an adapter from the Hub,
+    adapter_config, adapter_type and model_name must be present.
 
     Args:
         adapter_name_or_path (str): Can be either:
+
             - the path to a folder in the file system containing the adapter configuration and weights
             - an url pointing to a zip folder containing the adapter configuration and weights
             - a specifier matching a pre-trained adapter uploaded to Adapter-Hub

@@ -17,21 +17,24 @@ import random
 import unittest
 
 from transformers import is_torch_available
-from transformers.testing_utils import require_multigpu, require_torch, slow, torch_device
+from transformers.testing_utils import require_torch, require_torch_multigpu, slow, torch_device
 
 from .test_configuration_common import ConfigTester
+from .test_generation_utils import GenerationTesterMixin
 from .test_modeling_common import ModelTesterMixin, ids_tensor
 
 
 if is_torch_available():
     import torch
-    from transformers import TransfoXLConfig, TransfoXLModel, TransfoXLLMHeadModel
+
+    from transformers import TransfoXLConfig, TransfoXLLMHeadModel, TransfoXLModel
     from transformers.modeling_transfo_xl import TRANSFO_XL_PRETRAINED_MODEL_ARCHIVE_LIST
 
 
 class TransfoXLModelTester:
     def __init__(
-        self, parent,
+        self,
+        parent,
     ):
         self.parent = parent
         self.batch_size = 14
@@ -39,7 +42,7 @@ class TransfoXLModelTester:
         self.mem_len = 30
         self.key_length = self.seq_length + self.mem_len
         self.clamp_len = 15
-        self.is_training = True
+        self.is_training = False
         self.use_labels = True
         self.vocab_size = 99
         self.cutoffs = [10, 50, 80]
@@ -75,6 +78,7 @@ class TransfoXLModelTester:
             div_val=self.div_val,
             n_layer=self.num_hidden_layers,
             eos_token_id=self.eos_token_id,
+            return_dict=True,
         )
 
         return (config, input_ids_1, input_ids_2, lm_labels)
@@ -88,30 +92,26 @@ class TransfoXLModelTester:
         model.to(torch_device)
         model.eval()
 
-        hidden_states_1, mems_1 = model(input_ids_1)
-        hidden_states_2, mems_2 = model(input_ids_2, mems_1)
+        outputs1 = model(input_ids_1)
+        outputs2 = model(input_ids_2, outputs1["mems"])
         outputs = {
-            "hidden_states_1": hidden_states_1,
-            "mems_1": mems_1,
-            "hidden_states_2": hidden_states_2,
-            "mems_2": mems_2,
+            "hidden_states_1": outputs1["last_hidden_state"],
+            "mems_1": outputs1["mems"],
+            "hidden_states_2": outputs2["last_hidden_state"],
+            "mems_2": outputs2["mems"],
         }
         return outputs
 
     def check_transfo_xl_model_output(self, result):
+        self.parent.assertEqual(result["hidden_states_1"].shape, (self.batch_size, self.seq_length, self.hidden_size))
+        self.parent.assertEqual(result["hidden_states_2"].shape, (self.batch_size, self.seq_length, self.hidden_size))
         self.parent.assertListEqual(
-            list(result["hidden_states_1"].size()), [self.batch_size, self.seq_length, self.hidden_size],
+            [mem.shape for mem in result["mems_1"]],
+            [(self.mem_len, self.batch_size, self.hidden_size)] * self.num_hidden_layers,
         )
         self.parent.assertListEqual(
-            list(result["hidden_states_2"].size()), [self.batch_size, self.seq_length, self.hidden_size],
-        )
-        self.parent.assertListEqual(
-            list(list(mem.size()) for mem in result["mems_1"]),
-            [[self.mem_len, self.batch_size, self.hidden_size]] * self.num_hidden_layers,
-        )
-        self.parent.assertListEqual(
-            list(list(mem.size()) for mem in result["mems_2"]),
-            [[self.mem_len, self.batch_size, self.hidden_size]] * self.num_hidden_layers,
+            [mem.shape for mem in result["mems_2"]],
+            [(self.mem_len, self.batch_size, self.hidden_size)] * self.num_hidden_layers,
         )
 
     def create_transfo_xl_lm_head(self, config, input_ids_1, input_ids_2, lm_labels):
@@ -119,38 +119,34 @@ class TransfoXLModelTester:
         model.to(torch_device)
         model.eval()
 
-        lm_logits_1, mems_1 = model(input_ids_1)
-        loss_1, _, mems_1 = model(input_ids_1, labels=lm_labels)
-        lm_logits_2, mems_2 = model(input_ids_2, mems=mems_1)
-        loss_2, _, mems_2 = model(input_ids_2, labels=lm_labels, mems=mems_1)
+        lm_logits_1 = model(input_ids_1)["prediction_scores"]
+        outputs1 = model(input_ids_1, labels=lm_labels)
+        lm_logits_2 = model(input_ids_2, mems=outputs1["mems"])["prediction_scores"]
+        outputs2 = model(input_ids_2, labels=lm_labels, mems=outputs1["mems"])
 
         outputs = {
-            "loss_1": loss_1,
-            "mems_1": mems_1,
+            "loss_1": outputs1["losses"],
+            "mems_1": outputs1["mems"],
             "lm_logits_1": lm_logits_1,
-            "loss_2": loss_2,
-            "mems_2": mems_2,
+            "loss_2": outputs2["losses"],
+            "mems_2": outputs2["mems"],
             "lm_logits_2": lm_logits_2,
         }
         return outputs
 
     def check_transfo_xl_lm_head_output(self, result):
-        self.parent.assertListEqual(list(result["loss_1"].size()), [self.batch_size, self.seq_length - 1])
+        self.parent.assertEqual(result["loss_1"].shape, (self.batch_size, self.seq_length - 1))
+        self.parent.assertEqual(result["lm_logits_1"].shape, (self.batch_size, self.seq_length, self.vocab_size))
         self.parent.assertListEqual(
-            list(result["lm_logits_1"].size()), [self.batch_size, self.seq_length, self.vocab_size],
-        )
-        self.parent.assertListEqual(
-            list(list(mem.size()) for mem in result["mems_1"]),
-            [[self.mem_len, self.batch_size, self.hidden_size]] * self.num_hidden_layers,
+            [mem.shape for mem in result["mems_1"]],
+            [(self.mem_len, self.batch_size, self.hidden_size)] * self.num_hidden_layers,
         )
 
-        self.parent.assertListEqual(list(result["loss_2"].size()), [self.batch_size, self.seq_length - 1])
+        self.parent.assertEqual(result["loss_2"].shape, (self.batch_size, self.seq_length - 1))
+        self.parent.assertEqual(result["lm_logits_2"].shape, (self.batch_size, self.seq_length, self.vocab_size))
         self.parent.assertListEqual(
-            list(result["lm_logits_2"].size()), [self.batch_size, self.seq_length, self.vocab_size],
-        )
-        self.parent.assertListEqual(
-            list(list(mem.size()) for mem in result["mems_2"]),
-            [[self.mem_len, self.batch_size, self.hidden_size]] * self.num_hidden_layers,
+            [mem.shape for mem in result["mems_2"]],
+            [(self.mem_len, self.batch_size, self.hidden_size)] * self.num_hidden_layers,
         )
 
     def prepare_config_and_inputs_for_common(self):
@@ -161,7 +157,7 @@ class TransfoXLModelTester:
 
 
 @require_torch
-class TransfoXLModelTest(ModelTesterMixin, unittest.TestCase):
+class TransfoXLModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
     all_model_classes = (TransfoXLModel, TransfoXLLMHeadModel) if is_torch_available() else ()
     all_generative_model_classes = (TransfoXLLMHeadModel,) if is_torch_available() else ()
     test_pruning = False
@@ -209,7 +205,7 @@ class TransfoXLModelTest(ModelTesterMixin, unittest.TestCase):
         output_result = self.model_tester.create_transfo_xl_lm_head(*config_and_inputs)
         self.model_tester.check_transfo_xl_lm_head_output(output_result)
 
-    @require_multigpu
+    @require_torch_multigpu
     def test_multigpu_data_parallel_forward(self):
         # Opt-out of this test.
         pass
@@ -284,6 +280,7 @@ class TransfoXLModelTest(ModelTesterMixin, unittest.TestCase):
                 self.assertEqual(model_embed.emb_layers[layer].weight.shape[0], cloned_embeddings[layer].shape[0])
 
 
+@require_torch
 class TransfoXLModelLanguageGenerationTest(unittest.TestCase):
     @slow
     def test_lm_generate_transfo_xl_wt103(self):

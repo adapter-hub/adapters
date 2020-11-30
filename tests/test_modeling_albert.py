@@ -20,26 +20,30 @@ from transformers import is_torch_available
 from transformers.testing_utils import require_torch, slow, torch_device
 
 from .test_configuration_common import ConfigTester
-from .test_modeling_common import ModelTesterMixin, ids_tensor
+from .test_modeling_common import ModelTesterMixin, ids_tensor, random_attention_mask
 
 
 if is_torch_available():
+    import torch
+
     from transformers import (
+        MODEL_FOR_PRETRAINING_MAPPING,
         AlbertConfig,
-        AlbertModel,
-        AlbertForPreTraining,
         AlbertForMaskedLM,
         AlbertForMultipleChoice,
+        AlbertForPreTraining,
+        AlbertForQuestionAnswering,
         AlbertForSequenceClassification,
         AlbertForTokenClassification,
-        AlbertForQuestionAnswering,
+        AlbertModel,
     )
     from transformers.modeling_albert import ALBERT_PRETRAINED_MODEL_ARCHIVE_LIST
 
 
 class AlbertModelTester:
     def __init__(
-        self, parent,
+        self,
+        parent,
     ):
         self.parent = parent
         self.batch_size = 13
@@ -71,7 +75,7 @@ class AlbertModelTester:
 
         input_mask = None
         if self.use_input_mask:
-            input_mask = ids_tensor([self.batch_size, self.seq_length], vocab_size=2)
+            input_mask = random_attention_mask([self.batch_size, self.seq_length])
 
         token_type_ids = None
         if self.use_token_type_ids:
@@ -98,12 +102,10 @@ class AlbertModelTester:
             type_vocab_size=self.type_vocab_size,
             initializer_range=self.initializer_range,
             num_hidden_groups=self.num_hidden_groups,
+            return_dict=True,
         )
 
         return config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
-
-    def check_loss_output(self, result):
-        self.parent.assertListEqual(list(result["loss"].size()), [])
 
     def create_and_check_albert_model(
         self, config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
@@ -111,18 +113,11 @@ class AlbertModelTester:
         model = AlbertModel(config=config)
         model.to(torch_device)
         model.eval()
-        sequence_output, pooled_output = model(input_ids, attention_mask=input_mask, token_type_ids=token_type_ids)
-        sequence_output, pooled_output = model(input_ids, token_type_ids=token_type_ids)
-        sequence_output, pooled_output = model(input_ids)
-
-        result = {
-            "sequence_output": sequence_output,
-            "pooled_output": pooled_output,
-        }
-        self.parent.assertListEqual(
-            list(result["sequence_output"].size()), [self.batch_size, self.seq_length, self.hidden_size]
-        )
-        self.parent.assertListEqual(list(result["pooled_output"].size()), [self.batch_size, self.hidden_size])
+        result = model(input_ids, attention_mask=input_mask, token_type_ids=token_type_ids)
+        result = model(input_ids, token_type_ids=token_type_ids)
+        result = model(input_ids)
+        self.parent.assertEqual(result.last_hidden_state.shape, (self.batch_size, self.seq_length, self.hidden_size))
+        self.parent.assertEqual(result.pooler_output.shape, (self.batch_size, self.hidden_size))
 
     def create_and_check_albert_for_pretraining(
         self, config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
@@ -130,23 +125,15 @@ class AlbertModelTester:
         model = AlbertForPreTraining(config=config)
         model.to(torch_device)
         model.eval()
-        loss, prediction_scores, sop_scores = model(
+        result = model(
             input_ids,
             attention_mask=input_mask,
             token_type_ids=token_type_ids,
             labels=token_labels,
             sentence_order_label=sequence_labels,
         )
-        result = {
-            "loss": loss,
-            "prediction_scores": prediction_scores,
-            "sop_scores": sop_scores,
-        }
-        self.parent.assertListEqual(
-            list(result["prediction_scores"].size()), [self.batch_size, self.seq_length, self.vocab_size]
-        )
-        self.parent.assertListEqual(list(result["sop_scores"].size()), [self.batch_size, config.num_labels])
-        self.check_loss_output(result)
+        self.parent.assertEqual(result.prediction_logits.shape, (self.batch_size, self.seq_length, self.vocab_size))
+        self.parent.assertEqual(result.sop_logits.shape, (self.batch_size, config.num_labels))
 
     def create_and_check_albert_for_masked_lm(
         self, config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
@@ -154,17 +141,8 @@ class AlbertModelTester:
         model = AlbertForMaskedLM(config=config)
         model.to(torch_device)
         model.eval()
-        loss, prediction_scores = model(
-            input_ids, attention_mask=input_mask, token_type_ids=token_type_ids, labels=token_labels
-        )
-        result = {
-            "loss": loss,
-            "prediction_scores": prediction_scores,
-        }
-        self.parent.assertListEqual(
-            list(result["prediction_scores"].size()), [self.batch_size, self.seq_length, self.vocab_size]
-        )
-        self.check_loss_output(result)
+        result = model(input_ids, attention_mask=input_mask, token_type_ids=token_type_ids, labels=token_labels)
+        self.parent.assertEqual(result.logits.shape, (self.batch_size, self.seq_length, self.vocab_size))
 
     def create_and_check_albert_for_question_answering(
         self, config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
@@ -172,21 +150,15 @@ class AlbertModelTester:
         model = AlbertForQuestionAnswering(config=config)
         model.to(torch_device)
         model.eval()
-        loss, start_logits, end_logits = model(
+        result = model(
             input_ids,
             attention_mask=input_mask,
             token_type_ids=token_type_ids,
             start_positions=sequence_labels,
             end_positions=sequence_labels,
         )
-        result = {
-            "loss": loss,
-            "start_logits": start_logits,
-            "end_logits": end_logits,
-        }
-        self.parent.assertListEqual(list(result["start_logits"].size()), [self.batch_size, self.seq_length])
-        self.parent.assertListEqual(list(result["end_logits"].size()), [self.batch_size, self.seq_length])
-        self.check_loss_output(result)
+        self.parent.assertEqual(result.start_logits.shape, (self.batch_size, self.seq_length))
+        self.parent.assertEqual(result.end_logits.shape, (self.batch_size, self.seq_length))
 
     def create_and_check_albert_for_sequence_classification(
         self, config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
@@ -195,15 +167,8 @@ class AlbertModelTester:
         model = AlbertForSequenceClassification(config)
         model.to(torch_device)
         model.eval()
-        loss, logits = model(
-            input_ids, attention_mask=input_mask, token_type_ids=token_type_ids, labels=sequence_labels
-        )
-        result = {
-            "loss": loss,
-            "logits": logits,
-        }
-        self.parent.assertListEqual(list(result["logits"].size()), [self.batch_size, self.num_labels])
-        self.check_loss_output(result)
+        result = model(input_ids, attention_mask=input_mask, token_type_ids=token_type_ids, labels=sequence_labels)
+        self.parent.assertEqual(result.logits.shape, (self.batch_size, self.num_labels))
 
     def create_and_check_albert_for_token_classification(
         self, config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
@@ -212,13 +177,8 @@ class AlbertModelTester:
         model = AlbertForTokenClassification(config=config)
         model.to(torch_device)
         model.eval()
-        loss, logits = model(input_ids, attention_mask=input_mask, token_type_ids=token_type_ids, labels=token_labels)
-        result = {
-            "loss": loss,
-            "logits": logits,
-        }
-        self.parent.assertListEqual(list(result["logits"].size()), [self.batch_size, self.seq_length, self.num_labels])
-        self.check_loss_output(result)
+        result = model(input_ids, attention_mask=input_mask, token_type_ids=token_type_ids, labels=token_labels)
+        self.parent.assertEqual(result.logits.shape, (self.batch_size, self.seq_length, self.num_labels))
 
     def create_and_check_albert_for_multiple_choice(
         self, config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
@@ -230,17 +190,13 @@ class AlbertModelTester:
         multiple_choice_inputs_ids = input_ids.unsqueeze(1).expand(-1, self.num_choices, -1).contiguous()
         multiple_choice_token_type_ids = token_type_ids.unsqueeze(1).expand(-1, self.num_choices, -1).contiguous()
         multiple_choice_input_mask = input_mask.unsqueeze(1).expand(-1, self.num_choices, -1).contiguous()
-        loss, logits = model(
+        result = model(
             multiple_choice_inputs_ids,
             attention_mask=multiple_choice_input_mask,
             token_type_ids=multiple_choice_token_type_ids,
             labels=choice_labels,
         )
-        result = {
-            "loss": loss,
-            "logits": logits,
-        }
-        self.parent.assertListEqual(list(result["logits"].size()), [self.batch_size, self.num_choices])
+        self.parent.assertEqual(result.logits.shape, (self.batch_size, self.num_choices))
 
     def prepare_config_and_inputs_for_common(self):
         config_and_inputs = self.prepare_config_and_inputs()
@@ -273,6 +229,20 @@ class AlbertModelTest(ModelTesterMixin, unittest.TestCase):
         if is_torch_available()
         else ()
     )
+
+    # special case for ForPreTraining model
+    def _prepare_for_class(self, inputs_dict, model_class, return_labels=False):
+        inputs_dict = super()._prepare_for_class(inputs_dict, model_class, return_labels=return_labels)
+
+        if return_labels:
+            if model_class in MODEL_FOR_PRETRAINING_MAPPING.values():
+                inputs_dict["labels"] = torch.zeros(
+                    (self.model_tester.batch_size, self.model_tester.seq_length), dtype=torch.long, device=torch_device
+                )
+                inputs_dict["sentence_order_label"] = torch.zeros(
+                    self.model_tester.batch_size, dtype=torch.long, device=torch_device
+                )
+        return inputs_dict
 
     def setUp(self):
         self.model_tester = AlbertModelTester(self)

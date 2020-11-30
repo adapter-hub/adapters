@@ -1,6 +1,40 @@
-## Named Entity Recognition
+## Token classification
 
-Based on the scripts [`run_ner.py`](https://github.com/huggingface/transformers/blob/master/examples/token-classification/run_ner.py) for Pytorch and
+Fine-tuning the library models for token classification task such as Named Entity Recognition (NER) or Parts-of-speech
+tagging (POS). The main scrip `run_ner.py` leverages the 🤗 Datasets library and the Trainer API. You can easily
+customize it to your needs if you need extra processing on your datasets.
+
+It will either run on a datasets hosted on our [hub](https://huggingface.co/datasets) or with your own text files for
+training and validation.
+
+The following example fine-tunes BERT on CoNLL-2003:
+
+```bash
+python run_ner.py \
+  --model_name_or_path bert-base-uncased \
+  --dataset_name conll2003 \
+  --output_dir /tmp/test-ner \
+  --do_train \
+  --do_eval
+```
+
+or just can just run the bash script `run.sh`.
+
+To run on your own training and validation files, use the following command:
+
+```bash
+python run_ner.py \
+  --model_name_or_path bert-base-uncased \
+  --train_file path_to_train_file \
+  --validation_file path_to_validation_file \
+  --output_dir /tmp/test-ner \
+  --do_train \
+  --do_eval
+```
+
+## Old version of the script
+
+Based on the scripts [`run_ner_old.py`](https://github.com/huggingface/transformers/blob/master/examples/token-classification/run_ner_old.py) for Pytorch and
 [`run_tf_ner.py`](https://github.com/huggingface/transformers/blob/master/examples/token-classification/run_tf_ner.py) for Tensorflow 2.
 
 The following examples are covered in this section:
@@ -19,11 +53,11 @@ Data can be obtained from the [GermEval 2014](https://sites.google.com/site/germ
 Here are the commands for downloading and pre-processing train, dev and test datasets. The original data format has four (tab-separated) columns, in a pre-processing step only the two relevant columns (token and outer span NER annotation) are extracted:
 
 ```bash
-curl -L 'https://sites.google.com/site/germeval2014ner/data/NER-de-train.tsv?attredirects=0&d=1' \
+curl -L 'https://drive.google.com/uc?export=download&id=1Jjhbal535VVz2ap4v4r_rN1UEHTdLK5P' \
 | grep -v "^#" | cut -f 2,3 | tr '\t' ' ' > train.txt.tmp
-curl -L 'https://sites.google.com/site/germeval2014ner/data/NER-de-dev.tsv?attredirects=0&d=1' \
+curl -L 'https://drive.google.com/uc?export=download&id=1ZfRcQThdtAR5PPRjIDtrVP7BtXSCUBbm' \
 | grep -v "^#" | cut -f 2,3 | tr '\t' ' ' > dev.txt.tmp
-curl -L 'https://sites.google.com/site/germeval2014ner/data/NER-de-test.tsv?attredirects=0&d=1' \
+curl -L 'https://drive.google.com/uc?export=download&id=1u9mb7kNJHWQCWyweMDRMuTFoOHOfeBTH' \
 | grep -v "^#" | cut -f 2,3 | tr '\t' ' ' > test.txt.tmp
 ```
 
@@ -69,7 +103,7 @@ export SEED=1
 To start training, just run:
 
 ```bash
-python3 run_ner.py --data_dir ./ \
+python3 run_ner_old.py --data_dir ./ \
 --labels ./labels.txt \
 --model_name_or_path $BERT_MODEL \
 --output_dir $OUTPUT_DIR \
@@ -87,7 +121,7 @@ If your GPU supports half-precision training, just add the `--fp16` flag. After 
 
 #### JSON-based configuration file
 
-Instead of passing all parameters via commandline arguments, the `run_ner.py` script also supports reading parameters from a json-based configuration file:
+Instead of passing all parameters via commandline arguments, the `run_ner_old.py` script also supports reading parameters from a json-based configuration file:
 
 ```json
 {
@@ -106,7 +140,7 @@ Instead of passing all parameters via commandline arguments, the `run_ner.py` sc
 }
 ```
 
-It must be saved with a `.json` extension and can be used by running `python3 run_ner.py config.json`.
+It must be saved with a `.json` extension and can be used by running `python3 run_ner_old.py config.json`.
 
 #### Evaluation
 
@@ -134,7 +168,7 @@ On the test dataset the following results could be achieved:
 
 Run `bash run_pl.sh` from the `ner` directory. This would also install `pytorch-lightning` and the `examples/requirements.txt`. It is a shell pipeline which would automatically download, pre-process the data and run the models in `germeval-model` directory. Logs are saved in `lightning_logs` directory.
 
-Pass `--n_gpu` flag to change the number of GPUs. Default uses 1. At the end, the expected results are: `TEST RESULTS {'val_loss': tensor(0.0707), 'precision': 0.852427800698191, 'recall': 0.869537067011978, 'f1': 0.8608974358974358}`
+Pass `--gpus` flag to change the number of GPUs. Default uses 1. At the end, the expected results are: `TEST RESULTS {'val_loss': tensor(0.0707), 'precision': 0.852427800698191, 'recall': 0.869537067011978, 'f1': 0.8608974358974358}`
 
 
 #### Run the Tensorflow 2 version
@@ -250,7 +284,7 @@ cat data_wnut_17/train.txt data_wnut_17/dev.txt data_wnut_17/test.txt | cut -d "
 
 #### Run the Pytorch version
 
-Fine-tuning with the PyTorch version can be started using the `run_ner.py` script. In this example we use a JSON-based configuration file.
+Fine-tuning with the PyTorch version can be started using the `run_ner_old.py` script. In this example we use a JSON-based configuration file.
 
 This configuration file looks like:
 
@@ -274,7 +308,7 @@ This configuration file looks like:
 
 If your GPU supports half-precision training, please set `fp16` to `true`.
 
-Save this JSON-based configuration under `wnut_17.json`. The fine-tuning can be started with `python3 run_ner.py wnut_17.json`.
+Save this JSON-based configuration under `wnut_17.json`. The fine-tuning can be started with `python3 run_ner_old.py wnut_17.json`.
 
 #### Evaluation
 

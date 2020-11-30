@@ -20,23 +20,27 @@ from transformers import is_torch_available
 from transformers.testing_utils import require_torch, slow, torch_device
 
 from .test_configuration_common import ConfigTester
+from .test_generation_utils import GenerationTesterMixin
 from .test_modeling_common import ModelTesterMixin, ids_tensor
 
 
 if is_torch_available():
     import torch
+
     from transformers import (
-        OpenAIGPTConfig,
-        OpenAIGPTModel,
         OPENAI_GPT_PRETRAINED_MODEL_ARCHIVE_LIST,
-        OpenAIGPTLMHeadModel,
+        OpenAIGPTConfig,
         OpenAIGPTDoubleHeadsModel,
+        OpenAIGPTForSequenceClassification,
+        OpenAIGPTLMHeadModel,
+        OpenAIGPTModel,
     )
 
 
 class OpenAIGPTModelTester:
     def __init__(
-        self, parent,
+        self,
+        parent,
     ):
         self.parent = parent
         self.batch_size = 13
@@ -59,6 +63,7 @@ class OpenAIGPTModelTester:
         self.num_labels = 3
         self.num_choices = 4
         self.scope = None
+        self.pad_token_id = self.vocab_size - 1
 
     def prepare_config_and_inputs(self):
         input_ids = ids_tensor([self.batch_size, self.seq_length], self.vocab_size)
@@ -85,9 +90,11 @@ class OpenAIGPTModelTester:
             # hidden_dropout_prob=self.hidden_dropout_prob,
             # attention_probs_dropout_prob=self.attention_probs_dropout_prob,
             n_positions=self.max_position_embeddings,
-            n_ctx=self.max_position_embeddings
+            n_ctx=self.max_position_embeddings,
             # type_vocab_size=self.type_vocab_size,
             # initializer_range=self.initializer_range
+            pad_token_id=self.pad_token_id,
+            return_dict=True,
         )
 
         head_mask = ids_tensor([self.num_hidden_layers, self.num_attention_heads], 2)
@@ -102,50 +109,46 @@ class OpenAIGPTModelTester:
             choice_labels,
         )
 
-    def check_loss_output(self, result):
-        self.parent.assertListEqual(list(result["loss"].size()), [])
-
     def create_and_check_openai_gpt_model(self, config, input_ids, head_mask, token_type_ids, *args):
         model = OpenAIGPTModel(config=config)
         model.to(torch_device)
         model.eval()
 
-        model(input_ids, token_type_ids=token_type_ids, head_mask=head_mask)
-        model(input_ids, token_type_ids=token_type_ids)
-        (sequence_output,) = model(input_ids)
+        result = model(input_ids, token_type_ids=token_type_ids, head_mask=head_mask)
+        result = model(input_ids, token_type_ids=token_type_ids)
+        result = model(input_ids)
 
-        result = {"sequence_output": sequence_output}
-        self.parent.assertListEqual(
-            list(result["sequence_output"].size()), [self.batch_size, self.seq_length, self.hidden_size],
-        )
+        self.parent.assertEqual(result.last_hidden_state.shape, (self.batch_size, self.seq_length, self.hidden_size))
 
     def create_and_check_lm_head_model(self, config, input_ids, head_mask, token_type_ids, *args):
         model = OpenAIGPTLMHeadModel(config)
         model.to(torch_device)
         model.eval()
 
-        loss, lm_logits = model(input_ids, token_type_ids=token_type_ids, labels=input_ids)
-
-        result = {"loss": loss, "lm_logits": lm_logits}
-
-        self.parent.assertListEqual(list(result["loss"].size()), [])
-        self.parent.assertListEqual(
-            list(result["lm_logits"].size()), [self.batch_size, self.seq_length, self.vocab_size],
-        )
+        result = model(input_ids, token_type_ids=token_type_ids, labels=input_ids)
+        self.parent.assertEqual(result.loss.shape, ())
+        self.parent.assertEqual(result.logits.shape, (self.batch_size, self.seq_length, self.vocab_size))
 
     def create_and_check_double_lm_head_model(self, config, input_ids, head_mask, token_type_ids, *args):
         model = OpenAIGPTDoubleHeadsModel(config)
         model.to(torch_device)
         model.eval()
 
-        loss, lm_logits, mc_logits = model(input_ids, token_type_ids=token_type_ids, labels=input_ids)
+        result = model(input_ids, token_type_ids=token_type_ids, labels=input_ids)
+        self.parent.assertEqual(result.loss.shape, ())
+        self.parent.assertEqual(result.logits.shape, (self.batch_size, self.seq_length, self.vocab_size))
 
-        result = {"loss": loss, "lm_logits": lm_logits}
-
-        self.parent.assertListEqual(list(result["loss"].size()), [])
-        self.parent.assertListEqual(
-            list(result["lm_logits"].size()), [self.batch_size, self.seq_length, self.vocab_size],
-        )
+    def create_and_check_openai_gpt_for_sequence_classification(
+        self, config, input_ids, head_mask, token_type_ids, *args
+    ):
+        config.num_labels = self.num_labels
+        model = OpenAIGPTForSequenceClassification(config)
+        model.to(torch_device)
+        model.eval()
+        # print(config.num_labels, sequence_labels.size())
+        sequence_labels = ids_tensor([self.batch_size], self.type_sequence_label_size)
+        result = model(input_ids, token_type_ids=token_type_ids, labels=sequence_labels)
+        self.parent.assertEqual(result.logits.shape, (self.batch_size, self.num_labels))
 
     def prepare_config_and_inputs_for_common(self):
         config_and_inputs = self.prepare_config_and_inputs()
@@ -168,14 +171,39 @@ class OpenAIGPTModelTester:
 
 
 @require_torch
-class OpenAIGPTModelTest(ModelTesterMixin, unittest.TestCase):
+class OpenAIGPTModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
 
     all_model_classes = (
-        (OpenAIGPTModel, OpenAIGPTLMHeadModel, OpenAIGPTDoubleHeadsModel) if is_torch_available() else ()
+        (OpenAIGPTModel, OpenAIGPTLMHeadModel, OpenAIGPTDoubleHeadsModel, OpenAIGPTForSequenceClassification)
+        if is_torch_available()
+        else ()
     )
     all_generative_model_classes = (
         (OpenAIGPTLMHeadModel,) if is_torch_available() else ()
     )  # TODO (PVP): Add Double HeadsModel when generate() function is changed accordingly
+
+    # special case for DoubleHeads model
+    def _prepare_for_class(self, inputs_dict, model_class, return_labels=False):
+        inputs_dict = super()._prepare_for_class(inputs_dict, model_class, return_labels=return_labels)
+
+        if return_labels:
+            if model_class.__name__ == "OpenAIGPTDoubleHeadsModel":
+                inputs_dict["labels"] = torch.zeros(
+                    (self.model_tester.batch_size, self.model_tester.num_choices, self.model_tester.seq_length),
+                    dtype=torch.long,
+                    device=torch_device,
+                )
+                inputs_dict["input_ids"] = inputs_dict["labels"]
+                inputs_dict["token_type_ids"] = inputs_dict["labels"]
+                inputs_dict["mc_token_ids"] = torch.zeros(
+                    (self.model_tester.batch_size, self.model_tester.num_choices),
+                    dtype=torch.long,
+                    device=torch_device,
+                )
+                inputs_dict["mc_labels"] = torch.zeros(
+                    self.model_tester.batch_size, dtype=torch.long, device=torch_device
+                )
+        return inputs_dict
 
     def setUp(self):
         self.model_tester = OpenAIGPTModelTester(self)
@@ -195,6 +223,10 @@ class OpenAIGPTModelTest(ModelTesterMixin, unittest.TestCase):
     def test_openai_gpt_double_lm_head_model(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_double_lm_head_model(*config_and_inputs)
+
+    def test_openai_gpt_classification_model(self):
+        config_and_inputs = self.model_tester.prepare_config_and_inputs()
+        self.model_tester.create_and_check_openai_gpt_for_sequence_classification(*config_and_inputs)
 
     @slow
     def test_model_from_pretrained(self):

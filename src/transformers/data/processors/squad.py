@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 from functools import partial
 from multiprocessing import Pool, cpu_count
@@ -9,7 +8,13 @@ from tqdm import tqdm
 
 from ...file_utils import is_tf_available, is_torch_available
 from ...tokenization_bert import whitespace_tokenize
+from ...tokenization_utils_base import PreTrainedTokenizerBase, TruncationStrategy
+from ...utils import logging
 from .utils import DataProcessor
+
+
+# Store the tokenizers which insert 2 separators tokens
+MULTI_SEP_TOKENS_TOKENIZERS_SET = {"roberta", "camembert", "bart"}
 
 
 if is_torch_available():
@@ -19,7 +24,7 @@ if is_torch_available():
 if is_tf_available():
     import tensorflow as tf
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 
 def _improve_answer_span(doc_tokens, input_start, input_end, tokenizer, orig_answer_text):
@@ -83,7 +88,9 @@ def _is_whitespace(c):
     return False
 
 
-def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_query_length, is_training):
+def squad_convert_example_to_features(
+    example, max_seq_length, doc_stride, max_query_length, padding_strategy, is_training
+):
     features = []
     if is_training and not example.is_impossible:
         # Get start and end position
@@ -102,7 +109,17 @@ def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_q
     all_doc_tokens = []
     for (i, token) in enumerate(example.doc_tokens):
         orig_to_tok_index.append(len(all_doc_tokens))
-        sub_tokens = tokenizer.tokenize(token)
+        if tokenizer.__class__.__name__ in [
+            "RobertaTokenizer",
+            "LongformerTokenizer",
+            "BartTokenizer",
+            "RobertaTokenizerFast",
+            "LongformerTokenizerFast",
+            "BartTokenizerFast",
+        ]:
+            sub_tokens = tokenizer.tokenize(token, add_prefix_space=True)
+        else:
+            sub_tokens = tokenizer.tokenize(token)
         for sub_token in sub_tokens:
             tok_to_orig_index.append(i)
             all_doc_tokens.append(sub_token)
@@ -123,9 +140,13 @@ def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_q
     truncated_query = tokenizer.encode(
         example.question_text, add_special_tokens=False, truncation=True, max_length=max_query_length
     )
+
+    # Tokenizers who insert 2 SEP tokens in-between <context> & <question> need to have special handling
+    # in the way they compute mask of added tokens.
+    tokenizer_type = type(tokenizer).__name__.replace("Tokenizer", "").lower()
     sequence_added_tokens = (
         tokenizer.max_len - tokenizer.max_len_single_sentence + 1
-        if "roberta" in str(type(tokenizer)) or "camembert" in str(type(tokenizer))
+        if tokenizer_type in MULTI_SEP_TOKENS_TOKENIZERS_SET
         else tokenizer.max_len - tokenizer.max_len_single_sentence
     )
     sequence_pair_added_tokens = tokenizer.max_len - tokenizer.max_len_sentences_pair
@@ -133,11 +154,21 @@ def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_q
     span_doc_tokens = all_doc_tokens
     while len(spans) * doc_stride < len(all_doc_tokens):
 
+        # Define the side we want to truncate / pad and the text/pair sorting
+        if tokenizer.padding_side == "right":
+            texts = truncated_query
+            pairs = span_doc_tokens
+            truncation = TruncationStrategy.ONLY_SECOND.value
+        else:
+            texts = span_doc_tokens
+            pairs = truncated_query
+            truncation = TruncationStrategy.ONLY_FIRST.value
+
         encoded_dict = tokenizer.encode_plus(  # TODO(thom) update this logic
-            truncated_query if tokenizer.padding_side == "right" else span_doc_tokens,
-            span_doc_tokens if tokenizer.padding_side == "right" else truncated_query,
-            truncation="only_second" if tokenizer.padding_side == "right" else "only_first",
-            padding="max_length",
+            texts,
+            pairs,
+            truncation=truncation,
+            padding=padding_strategy,
             max_length=max_seq_length,
             return_overflowing_tokens=True,
             stride=max_seq_length - doc_stride - len(truncated_query) - sequence_pair_added_tokens,
@@ -265,7 +296,7 @@ def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_q
     return features
 
 
-def squad_convert_example_to_features_init(tokenizer_for_convert):
+def squad_convert_example_to_features_init(tokenizer_for_convert: PreTrainedTokenizerBase):
     global tokenizer
     tokenizer = tokenizer_for_convert
 
@@ -277,13 +308,14 @@ def squad_convert_examples_to_features(
     doc_stride,
     max_query_length,
     is_training,
+    padding_strategy="max_length",
     return_dataset=False,
     threads=1,
     tqdm_enabled=True,
 ):
     """
-    Converts a list of examples into a list of features that can be directly given as input to a model.
-    It is model-dependant and takes advantage of many of the tokenizer's features to create the model's inputs.
+    Converts a list of examples into a list of features that can be directly given as input to a model. It is
+    model-dependant and takes advantage of many of the tokenizer's features to create the model's inputs.
 
     Args:
         examples: list of :class:`~transformers.data.processors.squad.SquadExample`
@@ -292,10 +324,10 @@ def squad_convert_examples_to_features(
         doc_stride: The stride used when the context is too large and is split across several features.
         max_query_length: The maximum length of the query.
         is_training: whether to create features for model evaluation or model training.
+        padding_strategy: Default to "max_length". Which padding strategy to use
         return_dataset: Default False. Either 'pt' or 'tf'.
-            if 'pt': returns a torch.data.TensorDataset,
-            if 'tf': returns a tf.data.Dataset
-        threads: multiple processing threadsa-smi
+            if 'pt': returns a torch.data.TensorDataset, if 'tf': returns a tf.data.Dataset
+        threads: multiple processing threads.
 
 
     Returns:
@@ -315,9 +347,9 @@ def squad_convert_examples_to_features(
             is_training=not evaluate,
         )
     """
-
     # Defining helper methods
     features = []
+
     threads = min(threads, cpu_count())
     with Pool(threads, initializer=squad_convert_example_to_features_init, initargs=(tokenizer,)) as p:
         annotate_ = partial(
@@ -325,6 +357,7 @@ def squad_convert_examples_to_features(
             max_seq_length=max_seq_length,
             doc_stride=doc_stride,
             max_query_length=max_query_length,
+            padding_strategy=padding_strategy,
             is_training=is_training,
         )
         features = list(
@@ -335,6 +368,7 @@ def squad_convert_examples_to_features(
                 disable=not tqdm_enabled,
             )
         )
+
     new_features = []
     unique_id = 1000000000
     example_index = 0
@@ -493,8 +527,8 @@ def squad_convert_examples_to_features(
 
 class SquadProcessor(DataProcessor):
     """
-    Processor for the SQuAD data set.
-    Overriden by SquadV1Processor and SquadV2Processor, used by the version 1.1 and version 2.0 of SQuAD, respectively.
+    Processor for the SQuAD data set. overridden by SquadV1Processor and SquadV2Processor, used by the version 1.1 and
+    version 2.0 of SQuAD, respectively.
     """
 
     train_file = None
@@ -530,7 +564,7 @@ class SquadProcessor(DataProcessor):
 
         Args:
             dataset: The tfds dataset loaded from `tensorflow_datasets.load("squad")`
-            evaluate: boolean specifying if in evaluation mode or in training mode
+            evaluate: Boolean specifying if in evaluation mode or in training mode
 
         Returns:
             List of SquadExample
@@ -584,7 +618,7 @@ class SquadProcessor(DataProcessor):
         Args:
             data_dir: Directory containing the data files used for training and evaluating.
             filename: None by default, specify this if the evaluation file has a different name than the original one
-                which is `train-v1.1.json` and `train-v2.0.json` for squad versions 1.1 and 2.0 respectively.
+                which is `dev-v1.1.json` and `dev-v2.0.json` for squad versions 1.1 and 2.0 respectively.
         """
         if data_dir is None:
             data_dir = ""
@@ -612,11 +646,7 @@ class SquadProcessor(DataProcessor):
                     answer_text = None
                     answers = []
 
-                    if "is_impossible" in qa:
-                        is_impossible = qa["is_impossible"]
-                    else:
-                        is_impossible = False
-
+                    is_impossible = qa.get("is_impossible", False)
                     if not is_impossible:
                         if is_training:
                             answer = qa["answers"][0]
@@ -635,7 +665,6 @@ class SquadProcessor(DataProcessor):
                         is_impossible=is_impossible,
                         answers=answers,
                     )
-
                     examples.append(example)
         return examples
 
@@ -650,7 +679,7 @@ class SquadV2Processor(SquadProcessor):
     dev_file = "dev-v2.0.json"
 
 
-class SquadExample(object):
+class SquadExample:
     """
     A single training/test example for the Squad dataset, as loaded from disk.
 
@@ -713,11 +742,11 @@ class SquadExample(object):
             ]
 
 
-class SquadFeatures(object):
+class SquadFeatures:
     """
-    Single squad example features to be fed to a model.
-    Those features are model-specific and can be crafted from :class:`~transformers.data.processors.squad.SquadExample`
-    using the :method:`~transformers.data.processors.squad.squad_convert_examples_to_features` method.
+    Single squad example features to be fed to a model. Those features are model-specific and can be crafted from
+    :class:`~transformers.data.processors.squad.SquadExample` using the
+    :method:`~transformers.data.processors.squad.squad_convert_examples_to_features` method.
 
     Args:
         input_ids: Indices of input sequence tokens in the vocabulary.
@@ -775,7 +804,7 @@ class SquadFeatures(object):
         self.qas_id = qas_id
 
 
-class SquadResult(object):
+class SquadResult:
     """
     Constructs a SquadResult which can be used to evaluate a model's output on the SQuAD dataset.
 

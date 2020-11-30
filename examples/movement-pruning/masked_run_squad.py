@@ -181,7 +181,10 @@ def train(args, train_dataset, model, tokenizer, teacher=None):
     # Distributed training (should be after apex fp16 initialization)
     if args.local_rank != -1:
         model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True,
+            model,
+            device_ids=[args.local_rank],
+            output_device=args.local_rank,
+            find_unused_parameters=True,
         )
 
     # Train!
@@ -228,7 +231,7 @@ def train(args, train_dataset, model, tokenizer, teacher=None):
     train_iterator = trange(
         epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
     )
-    # Added here for reproductibility
+    # Added here for reproducibility
     set_seed(args)
 
     for _ in train_iterator:
@@ -304,16 +307,22 @@ def train(args, train_dataset, model, tokenizer, teacher=None):
                         attention_mask=inputs["attention_mask"],
                     )
 
-                loss_start = F.kl_div(
-                    input=F.log_softmax(start_logits_stu / args.temperature, dim=-1),
-                    target=F.softmax(start_logits_tea / args.temperature, dim=-1),
-                    reduction="batchmean",
-                ) * (args.temperature ** 2)
-                loss_end = F.kl_div(
-                    input=F.log_softmax(end_logits_stu / args.temperature, dim=-1),
-                    target=F.softmax(end_logits_tea / args.temperature, dim=-1),
-                    reduction="batchmean",
-                ) * (args.temperature ** 2)
+                loss_start = (
+                    F.kl_div(
+                        input=F.log_softmax(start_logits_stu / args.temperature, dim=-1),
+                        target=F.softmax(start_logits_tea / args.temperature, dim=-1),
+                        reduction="batchmean",
+                    )
+                    * (args.temperature ** 2)
+                )
+                loss_end = (
+                    F.kl_div(
+                        input=F.log_softmax(end_logits_stu / args.temperature, dim=-1),
+                        target=F.softmax(end_logits_tea / args.temperature, dim=-1),
+                        reduction="batchmean",
+                    )
+                    * (args.temperature ** 2)
+                )
                 loss_logits = (loss_start + loss_end) / 2.0
 
                 loss = args.alpha_distil * loss_logits + args.alpha_ce * loss
@@ -815,7 +824,7 @@ def main():
         "--final_lambda",
         default=0.0,
         type=float,
-        help="Regularization intensity (used in conjunction with `regulariation`.",
+        help="Regularization intensity (used in conjunction with `regularization`.",
     )
 
     parser.add_argument("--global_topk", action="store_true", help="Global TopK on the Scores.")
@@ -859,7 +868,10 @@ def main():
     parser.add_argument("--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer.")
     parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
     parser.add_argument(
-        "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform.",
+        "--num_train_epochs",
+        default=3.0,
+        type=float,
+        help="Total number of training epochs to perform.",
     )
     parser.add_argument(
         "--max_steps",
@@ -965,7 +977,7 @@ def main():
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = 0 if args.no_cuda else torch.cuda.device_count()
-    else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
+    else:  # Initializes the distributed backend which will take care of synchronizing nodes/GPUs
         torch.cuda.set_device(args.local_rank)
         device = torch.device("cuda", args.local_rank)
         torch.distributed.init_process_group(backend="nccl")
@@ -1086,7 +1098,7 @@ def main():
                     os.path.dirname(c)
                     for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True))
                 )
-                logging.getLogger("transformers.modeling_utils").setLevel(logging.WARN)  # Reduce model loading logs
+
         else:
             logger.info("Loading checkpoint %s for evaluation", args.model_name_or_path)
             checkpoints = [args.model_name_or_path]

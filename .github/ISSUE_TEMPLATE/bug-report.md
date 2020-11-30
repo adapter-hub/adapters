@@ -7,7 +7,18 @@ assignees: ''
 
 ---
 
-# 🐛 Bug
+
+## Environment info
+<!-- You can run the command `transformers-cli env` and copy-and-paste its output below.
+     Don't forget to fill out the missing fields in that output! -->
+     
+- `adapter-transformers` version:
+- Platform:
+- Python version:
+- PyTorch version (GPU?):
+- Tensorflow version (GPU?):
+- Using GPU in script?:
+- Using distributed or parallel set-up in script?:
 
 ## Information
 
@@ -40,15 +51,3 @@ Steps to reproduce the behavior:
 ## Expected behavior
 
 <!-- A clear and concise description of what you would expect to happen. -->
-
-## Environment info
-<!-- You can run the command `transformers-cli env` and copy-and-paste its output below.
-     Don't forget to fill out the missing fields in that output! -->
-     
-- `transformers` version:
-- Platform:
-- Python version:
-- PyTorch version (GPU?):
-- Tensorflow version (GPU?):
-- Using GPU in script?:
-- Using distributed or parallel set-up in script?:

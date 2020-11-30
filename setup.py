@@ -3,9 +3,12 @@ Simple check list from AllenNLP repo: https://github.com/allenai/allennlp/blob/m
 
 To create the package for pypi.
 
-1. Change the version in __init__.py, setup.py as well as docs/source/conf.py.
+1. Change the version in __init__.py, setup.py as well as docs/source/conf.py. Remove the master from the links in
+   the new models of the README:
+   (https://huggingface.co/transformers/master/model_doc/ -> https://huggingface.co/transformers/model_doc/)
+   then run `make fix-copies` to fix the index of the documentation.
 
-2. Unpin specific versions from setup.py (like isort).
+2. Unpin specific versions from setup.py that use a git install.
 
 2. Commit these changes with the message: "Release: VERSION"
 
@@ -41,6 +44,7 @@ To create the package for pypi.
 9. Update README.md to redirect to correct documentation.
 """
 
+import os
 import shutil
 from pathlib import Path
 
@@ -65,39 +69,50 @@ if stale_egg_info.exists():
 
 extras = {}
 
-extras["mecab"] = ["mecab-python3<1"]
+extras["ja"] = ["fugashi>=1.0", "ipadic>=1.0.0,<2.0", "unidic_lite>=1.0.7", "unidic>=1.0.2"]
 extras["sklearn"] = ["scikit-learn"]
 
 # keras2onnx and onnxconverter-common version is specific through a commit until 1.7.0 lands on pypi
 extras["tf"] = [
-    "tensorflow",
+    "tensorflow>=2.0",
     "onnxconverter-common",
     "keras2onnx"
     # "onnxconverter-common @ git+git://github.com/microsoft/onnxconverter-common.git@f64ca15989b6dc95a1f3507ff6e4c395ba12dff5#egg=onnxconverter-common",
-    # "keras2onnx @ git+git://github.com/onnx/keras-onnx.git@cbdc75cb950b16db7f0a67be96a278f8d2953b48#egg=keras2onnx"
+    # "keras2onnx @ git+git://github.com/onnx/keras-onnx.git@cbdc75cb950b16db7f0a67be96a278f8d2953b48#egg=keras2onnx",
 ]
 extras["tf-cpu"] = [
-    "tensorflow-cpu",
+    "tensorflow-cpu>=2.0",
     "onnxconverter-common",
     "keras2onnx"
     # "onnxconverter-common @ git+git://github.com/microsoft/onnxconverter-common.git@f64ca15989b6dc95a1f3507ff6e4c395ba12dff5#egg=onnxconverter-common",
-    # "keras2onnx @ git+git://github.com/onnx/keras-onnx.git@cbdc75cb950b16db7f0a67be96a278f8d2953b48#egg=keras2onnx"
+    # "keras2onnx @ git+git://github.com/onnx/keras-onnx.git@cbdc75cb950b16db7f0a67be96a278f8d2953b48#egg=keras2onnx",
 ]
-extras["torch"] = ["torch"]
+extras["torch"] = ["torch>=1.0"]
+
+if os.name == "nt":  # windows
+    extras["retrieval"] = ["datasets"] # faiss is not supported on windows
+    extras["flax"] = [] # jax is not supported on windows
+else:
+    extras["retrieval"] = ["faiss-cpu", "datasets"]
+    extras["flax"] = ["jaxlib==0.1.55", "jax>=0.2.0", "flax==0.2.2"]
+
+extras["tokenizers"] = ["tokenizers==0.9.2"]
+extras["onnxruntime"] = ["onnxruntime>=1.4.0", "onnxruntime-tools>=1.4.2"]
 
 extras["serving"] = ["pydantic", "uvicorn", "fastapi", "starlette"]
-extras["all"] = extras["serving"] + ["tensorflow", "torch"]
 
-extras["testing"] = ["pytest", "pytest-xdist", "timeout-decorator", "psutil", "pytest-subtests"]
+extras["sentencepiece"] = ["sentencepiece==0.1.91"]
+extras["retrieval"] = ["faiss-cpu", "datasets"]
+extras["testing"] = ["pytest", "pytest-xdist", "timeout-decorator", "parameterized", "psutil", "pytest-subtests"] + extras["retrieval"]
 # sphinx-rtd-theme==0.5.0 introduced big changes in the style.
-extras["docs"] = ["recommonmark", "sphinx", "sphinx-markdown-tables", "sphinx-rtd-theme==0.4.3", "sphinx-copybutton"]
-extras["quality"] = [
-    "black == 19.10b0",
-    "isort",
-    # "isort @ git+git://github.com/timothycrosley/isort.git@e63ae06ec7d70b06df9e528357650281a3d3ec22#egg=isort",
-    "flake8",
-]
-extras["dev"] = extras["testing"] + extras["quality"] + ["mecab-python3<1", "scikit-learn", "tensorflow", "torch"]
+extras["docs"] = ["recommonmark", "sphinx==3.2.1", "sphinx-markdown-tables", "sphinx-rtd-theme==0.4.3", "sphinx-copybutton"]
+extras["quality"] = ["black >= 20.8b1", "isort >= 5.5.4", "flake8 >= 3.8.3"]
+
+
+extras["all"] = extras["tf"] + extras["torch"] + extras["flax"] + extras["sentencepiece"] + extras["tokenizers"]
+
+extras["dev"] = extras["all"] + extras["testing"] + extras["quality"] + extras["ja"] + extras["docs"] + extras["sklearn"]
+
 
 setup(
     name="adapter-transformers",
@@ -114,7 +129,7 @@ setup(
     packages=find_packages("src"),
     install_requires=[
         "numpy",
-        "tokenizers == 0.8.1.rc1",
+        "tokenizers == 0.9.3",
         # dataclasses for Python versions that don't have it
         "dataclasses;python_version<'3.7'",
         # utilities from PyPA to e.g. compare versions
@@ -127,8 +142,9 @@ setup(
         "tqdm >= 4.27",
         # for OpenAI GPT
         "regex != 2019.12.17",
-        # for XLNet
-        "sentencepiece != 0.1.92",
+        # for SentencePiece models
+        "sentencepiece == 0.1.91",
+        "protobuf",
         # for XLM
         "sacremoses",
         # for adapter-cli

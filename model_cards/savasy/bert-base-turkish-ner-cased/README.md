@@ -1,3 +1,6 @@
+---
+language: tr
+---
 
 # For Turkish language, here is an easy-to-use NER application. 
  ** Türkçe için kolay bir python  NER (Bert + Transfer Learning)  (İsim Varlık Tanıma) modeli... 
@@ -29,7 +32,7 @@ export SEED=1
 ```
 Then run pre-training:
 ```
-python3 run_ner.py --data_dir ./tr-data3 \
+python3 run_ner_old.py --data_dir ./tr-data3 \
 --model_type bert \
 --labels ./tr-data/labels.txt \
 --model_name_or_path $BERT_MODEL \

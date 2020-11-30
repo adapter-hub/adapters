@@ -16,18 +16,20 @@
 """ XNLI utils (dataset loading and evaluation) """
 
 
-import logging
 import os
 
+from ...utils import logging
 from .utils import DataProcessor, InputExample
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 
 class XnliProcessor(DataProcessor):
-    """Processor for the XNLI dataset.
-    Adapted from https://github.com/google-research/bert/blob/f39e881b169b9d53bea03d2d341b31707a6c052b/run_classifier.py#L207"""
+    """
+    Processor for the XNLI dataset. Adapted from
+    https://github.com/google-research/bert/blob/f39e881b169b9d53bea03d2d341b31707a6c052b/run_classifier.py#L207
+    """
 
     def __init__(self, language, train_language=None):
         self.language = language
@@ -45,7 +47,9 @@ class XnliProcessor(DataProcessor):
             text_a = line[0]
             text_b = line[1]
             label = "contradiction" if line[2] == "contradictory" else line[2]
-            assert isinstance(text_a, str) and isinstance(text_b, str) and isinstance(label, str)
+            assert isinstance(text_a, str), f"Training input {text_a} is not a string"
+            assert isinstance(text_b, str), f"Training input {text_b} is not a string"
+            assert isinstance(label, str), f"Training label {label} is not a string"
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
@@ -63,7 +67,9 @@ class XnliProcessor(DataProcessor):
             text_a = line[6]
             text_b = line[7]
             label = line[1]
-            assert isinstance(text_a, str) and isinstance(text_b, str) and isinstance(label, str)
+            assert isinstance(text_a, str), f"Training input {text_a} is not a string"
+            assert isinstance(text_b, str), f"Training input {text_b} is not a string"
+            assert isinstance(label, str), f"Training label {label} is not a string"
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 

@@ -1,5 +1,5 @@
 ---
-language: english
+language: en
 tags:
 - exbert
 
@@ -8,6 +8,8 @@ license: mit
 
 
 # GPT-2
+
+Test the whole generation capabilities here: https://transformer.huggingface.co/doc/gpt2-large
 
 Pretrained model on English language using a causal language modeling (CLM) objective. It was introduced in
 [this paper](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
@@ -157,5 +159,5 @@ The model achieves the following results without any fine-tuning (zero-shot):
 ```
 
 <a href="https://huggingface.co/exbert/?model=gpt2">
-	<img width="300px" src="https://hf-dinosaur.huggingface.co/exbert/button.png">
+	<img width="300px" src="https://cdn-media.huggingface.co/exbert/button.png">
 </a>

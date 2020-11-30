@@ -173,7 +173,10 @@ def train(args, train_dataset, model, tokenizer, teacher=None):
     # Distributed training (should be after apex fp16 initialization)
     if args.local_rank != -1:
         model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True,
+            model,
+            device_ids=[args.local_rank],
+            output_device=args.local_rank,
+            find_unused_parameters=True,
         )
 
     # Train!
@@ -217,9 +220,12 @@ def train(args, train_dataset, model, tokenizer, teacher=None):
     tr_loss, logging_loss = 0.0, 0.0
     model.zero_grad()
     train_iterator = trange(
-        epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0],
+        epochs_trained,
+        int(args.num_train_epochs),
+        desc="Epoch",
+        disable=args.local_rank not in [-1, 0],
     )
-    set_seed(args)  # Added here for reproductibility
+    set_seed(args)  # Added here for reproducibility
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
         for step, batch in enumerate(epoch_iterator):
@@ -280,11 +286,14 @@ def train(args, train_dataset, model, tokenizer, teacher=None):
                         attention_mask=inputs["attention_mask"],
                     )
 
-                loss_logits = F.kl_div(
-                    input=F.log_softmax(logits_stu / args.temperature, dim=-1),
-                    target=F.softmax(logits_tea / args.temperature, dim=-1),
-                    reduction="batchmean",
-                ) * (args.temperature ** 2)
+                loss_logits = (
+                    F.kl_div(
+                        input=F.log_softmax(logits_stu / args.temperature, dim=-1),
+                        target=F.softmax(logits_tea / args.temperature, dim=-1),
+                        reduction="batchmean",
+                    )
+                    * (args.temperature ** 2)
+                )
 
                 loss = args.alpha_distil * loss_logits + args.alpha_ce * loss
 
@@ -529,7 +538,11 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
             processor.get_dev_examples(args.data_dir) if evaluate else processor.get_train_examples(args.data_dir)
         )
         features = convert_examples_to_features(
-            examples, tokenizer, max_length=args.max_seq_length, label_list=label_list, output_mode=output_mode,
+            examples,
+            tokenizer,
+            max_length=args.max_seq_length,
+            label_list=label_list,
+            output_mode=output_mode,
         )
         if args.local_rank in [-1, 0]:
             logger.info("Saving features into cached file %s", cached_features_file)
@@ -592,7 +605,10 @@ def main():
     )
     # Other parameters
     parser.add_argument(
-        "--config_name", default="", type=str, help="Pretrained config name or path if not the same as model_name",
+        "--config_name",
+        default="",
+        type=str,
+        help="Pretrained config name or path if not the same as model_name",
     )
     parser.add_argument(
         "--tokenizer_name",
@@ -616,17 +632,27 @@ def main():
     parser.add_argument("--do_train", action="store_true", help="Whether to run training.")
     parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
     parser.add_argument(
-        "--evaluate_during_training", action="store_true", help="Run evaluation during training at each logging step.",
+        "--evaluate_during_training",
+        action="store_true",
+        help="Run evaluation during training at each logging step.",
     )
     parser.add_argument(
-        "--do_lower_case", action="store_true", help="Set this flag if you are using an uncased model.",
+        "--do_lower_case",
+        action="store_true",
+        help="Set this flag if you are using an uncased model.",
     )
 
     parser.add_argument(
-        "--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.",
+        "--per_gpu_train_batch_size",
+        default=8,
+        type=int,
+        help="Batch size per GPU/CPU for training.",
     )
     parser.add_argument(
-        "--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.",
+        "--per_gpu_eval_batch_size",
+        default=8,
+        type=int,
+        help="Batch size per GPU/CPU for evaluation.",
     )
     parser.add_argument("--learning_rate", default=5e-5, type=float, help="The initial learning rate for Adam.")
 
@@ -679,7 +705,7 @@ def main():
         "--final_lambda",
         default=0.0,
         type=float,
-        help="Regularization intensity (used in conjunction with `regulariation`.",
+        help="Regularization intensity (used in conjunction with `regularization`.",
     )
 
     parser.add_argument("--global_topk", action="store_true", help="Global TopK on the Scores.")
@@ -723,7 +749,10 @@ def main():
     parser.add_argument("--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer.")
     parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
     parser.add_argument(
-        "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform.",
+        "--num_train_epochs",
+        default=3.0,
+        type=float,
+        help="Total number of training epochs to perform.",
     )
     parser.add_argument(
         "--max_steps",
@@ -742,10 +771,14 @@ def main():
     )
     parser.add_argument("--no_cuda", action="store_true", help="Avoid using CUDA when available")
     parser.add_argument(
-        "--overwrite_output_dir", action="store_true", help="Overwrite the content of the output directory",
+        "--overwrite_output_dir",
+        action="store_true",
+        help="Overwrite the content of the output directory",
     )
     parser.add_argument(
-        "--overwrite_cache", action="store_true", help="Overwrite the cached training and evaluation sets",
+        "--overwrite_cache",
+        action="store_true",
+        help="Overwrite the cached training and evaluation sets",
     )
     parser.add_argument("--seed", type=int, default=42, help="random seed for initialization")
 
@@ -783,7 +816,7 @@ def main():
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = 0 if args.no_cuda else torch.cuda.device_count()
-    else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
+    else:  # Initializes the distributed backend which will take care of synchronizing nodes/GPUs
         torch.cuda.set_device(args.local_rank)
         device = torch.device("cuda", args.local_rank)
         torch.distributed.init_process_group(backend="nccl")
@@ -901,7 +934,7 @@ def main():
             checkpoints = list(
                 os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True))
             )
-            logging.getLogger("transformers.modeling_utils").setLevel(logging.WARN)  # Reduce logging
+
         logger.info("Evaluate the following checkpoints: %s", checkpoints)
         for checkpoint in checkpoints:
             global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 else ""
