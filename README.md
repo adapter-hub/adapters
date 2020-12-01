@@ -40,6 +40,7 @@ HuggingFace's great documentation on getting started with _Transformers_ can be 
 
 To get started with adapters, refer to these locations:
 
+- **[Colab notebook tutorials](https://github.com/Adapter-Hub/adapter-transformers/tree/master/notebooks)**, a series notebooks providing an introduction to all the main concepts of (adapter-)transformers and AdapterHub
 - **https://docs.adapterhub.ml**, our documentation on training and using adapters with _adapter-transformers_
 - **https://adapterhub.ml** to explore available pre-trained adapter modules and share your own adapters
 - **[Examples folder](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples)** of this repository containing HuggingFace's example training scripts, many adapted for training adapters
@@ -50,18 +51,18 @@ To get started with adapters, refer to these locations:
 If you find this library useful, please cite our paper [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779):
 
 ```
-@article{pfeiffer2020AdapterHub,
+@inproceedings{pfeiffer2020AdapterHub,
     title={AdapterHub: A Framework for Adapting Transformers},
-    author={Jonas Pfeiffer and
-            Andreas R\"uckl\'{e} and
-            Clifton Poth and
-            Aishwarya Kamath and
-            Ivan Vuli\'{c} and
-            Sebastian Ruder and
-            Kyunghyun Cho and
-            Iryna Gurevych},
-    journal={arXiv preprint},
-    year={2020},
-    url={https://arxiv.org/abs/2007.07779}
+    author={Pfeiffer, Jonas and
+            R{\"u}ckl{\'e}, Andreas and
+            Poth, Clifton and
+            Kamath, Aishwarya and
+            Vuli{\'c}, Ivan and
+            Ruder, Sebastian and
+            Cho, Kyunghyun and
+            Gurevych, Iryna},
+    booktitle={Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations},
+    pages={46--54},
+    year={2020}
 }
 ```
