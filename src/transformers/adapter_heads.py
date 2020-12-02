@@ -206,6 +206,7 @@ class TaggingHead(PredictionHead):
                 outputs = (loss,) + outputs
             return outputs
 
+
 class QuestionAnsweringHead(PredictionHead):
     def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
         super().__init__(head_name)
@@ -258,4 +259,3 @@ class QuestionAnsweringHead(PredictionHead):
             )
         else:
             return outputs
-

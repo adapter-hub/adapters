@@ -955,11 +955,8 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         )
 
         outputs = self.forward_head(
-            outputs,
-            head_name=head,
-            attention_mask=attention_mask,
-            return_dict=return_dict,
-            **kwargs)
+            outputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
+        )
 
         return outputs
 
