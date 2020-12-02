@@ -1,6 +1,6 @@
 ---
-name: "\U0001F31F New adapter setup"
-about: Submit a proposal/request to implement a new adapter setup or to add a new model
+name: "\U0001F31F New adapter setup or model"
+about: Submit a proposal/request to implement a new adapter setup or to add adapters to a new model
 title: ''
 labels: 'enhancement'
 assignees: ''

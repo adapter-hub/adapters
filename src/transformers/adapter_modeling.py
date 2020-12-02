@@ -18,13 +18,14 @@ class Activation_Function_Class(nn.Module):
         elif hidden_act.lower() == "swish":
 
             def swish(x):
-                return x * torch.nn.functional.sigmoid(x)
+                return x * torch.sigmoid(x)
 
             self.f = swish
         elif hidden_act.lower() == "gelu":
 
             def gelu_new(x):
-                """Implementation of the gelu activation function currently in Google Bert repo (identical to OpenAI GPT).
+                """
+                Implementation of the gelu activation function currently in Google Bert repo (identical to OpenAI GPT).
                 Also see https://arxiv.org/abs/1606.08415
                 """
                 return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
@@ -37,6 +38,9 @@ class Activation_Function_Class(nn.Module):
 
     def forward(self, x):
         return self.f(x)
+
+
+# Single Adapter
 
 
 class Adapter(nn.Module):
@@ -78,9 +82,6 @@ class Adapter(nn.Module):
         seq_list.append(nn.Linear(self.input_size, self.down_sample))
 
         # select non-linearity
-        # TODO give more options than just relu, or pass the non_linearity directly, not as a string
-        # if non_linearity.lower() == 'relu':
-        #     self.non_linearity = nn.ReLU()
         self.non_linearity = Activation_Function_Class(non_linearity.lower())
 
         seq_list.append(self.non_linearity)
@@ -109,30 +110,26 @@ class Adapter(nn.Module):
 
         output = up
 
-        # todo add brief documentation what that means
+        # apply residual connection before layer norm if configured in this way
         if self.residual_before_ln:
             output = output + residual_input
 
-        # todo add brief documentation what that means
+        # apply layer norm if available
         if self.add_layer_norm_after:
             output = self.adapter_norm_after(output)
 
-        # todo add brief documentation what that means
+        # if residual should be applied after layer norm, apply it here
         if not self.residual_before_ln:
             output = output + residual_input
 
         return output, down, up
 
-    # This is copied from the BERT model so that this is a self containing class. This unfortunately introduces code
-    # copying so it might be better to pass the BERT model here TODO
+    # This is copied from the BertPreTrainedModel class to make this a self containing class.
     @staticmethod
     def init_bert_weights(module):
         """Initialize the weights."""
         if isinstance(module, (nn.Linear, nn.Embedding)):
-            # Slightly different from the TF version which uses truncated_normal for initialization
-            # cf https://github.com/pytorch/pytorch/pull/5617
-            # module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-            # TODO I set the std to default 0.02, this might need to be changed
+            # std defaults to 0.02, this might need to be changed
             module.weight.data.normal_(mean=0.0, std=0.02)
         elif isinstance(module, nn.LayerNorm):
             module.bias.data.zero_()
@@ -141,7 +138,14 @@ class Adapter(nn.Module):
             module.bias.data.zero_()
 
 
+# Adapter Fusion
+
+
 class BertFusion(nn.Module):
+    """
+    Implementation of an AdapterFusion block.
+    """
+
     def __init__(self, config):
         super(BertFusion, self).__init__()
         # if config.hidden_size % config.num_attention_heads != 0:
@@ -231,110 +235,30 @@ class BertFusion(nn.Module):
         return context_layer
 
 
-class AdapterFusionSentLvlDynamic(nn.Module):
-    def __init__(self, config, n_tasks):
-        super(AdapterFusionSentLvlDynamic, self).__init__()
-        self.config = config
-        # TODO
-        self.dense_size = int(config.hidden_size) // config.text_task_adapter_config["reduction_factor"]
+def get_fusion_regularization_loss(model):
+    if hasattr(model, "base_model"):
+        model = model.base_model
+    elif hasattr(model, "encoder"):
+        pass
+    else:
+        raise Exception("Model not passed correctly, please pass a transformer model with an encoder")
 
-        if (
-            not self.config.adapter_fusion["query"]
-            and not self.config.adapter_fusion["key"]
-            and not self.config.adapter_fusion["value"]
-        ):
-            self.dense = nn.Linear(self.dense_size, 1)
+    reg_loss = 0.0
+    target = torch.zeros((model.config.hidden_size, model.config.hidden_size)).fill_diagonal_(1.0).to(model.device)
+    for k, v in model.encoder.layer._modules.items():
 
-        if self.config.adapter_fusion["query"]:
-            self.query = nn.Linear(int(config.hidden_size), self.dense_size)
+        for _, layer_fusion in v.output.adapter_fusion_layer.items():
+            if hasattr(layer_fusion, "value"):
+                reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
-        if self.config.adapter_fusion["key"]:
-            self.key = nn.Linear(self.dense_size, self.dense_size)
+        for _, layer_fusion in v.attention.output.adapter_fusion_layer.items():
+            if hasattr(layer_fusion, "value"):
+                reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
-        if self.config.adapter_fusion["value"]:
-            self.value = nn.Linear(int(config.hidden_size), int(config.hidden_size))
+    return reg_loss
 
-        if self.config.adapter_fusion["temperature"]:
-            self.T = 50.0
-        else:
-            self.T = 1.0
 
-        self.reduction = self.T / 1000.0
-
-    def forward(self, query, key, value, attention_mask):
-
-        attention_mask = (attention_mask == 0).float().to(key.device).squeeze()
-
-        length = torch.sum(attention_mask, dim=1)
-
-        # attention_mask = attention_mask[:,:,None,None].repeat((1,1,key.size()[-2], key.size()[-1]))
-
-        key = key * attention_mask[:, :, None, None].repeat((1, 1, key.size()[-2], key.size()[-1]))
-        key_sent = torch.sum(key, dim=1) / length[:, None, None].repeat(1, key.size()[-2], key.size()[-1])
-
-        if (
-            self.config.adapter_fusion["query"]
-            and not self.config.adapter_fusion["key"]
-            and not self.config.adapter_fusion["value"]
-        ):
-            query = query * attention_mask[:, :, None].repeat((1, 1, query.size()[-1]))
-            query_sent = torch.sum(query, dim=1) / length[:, None].repeat(1, query.size()[-1])
-            query_enc = self.query(query_sent)
-            scores_t = torch.matmul(key_sent, query_enc[:, :, None]).squeeze(-1)
-            probs = nn.Softmax(dim=-1)(scores_t / self.T)
-
-            # result = torch.squeeze(torch.matmul(probs, value), dim=2)
-            result = torch.squeeze(torch.matmul(probs[:, None, None, :], value))
-        #     {'MR': {'devacc': 77.53, 'acc': 76.7, 'ndev': 9596, 'ntest': 9596}}
-        if (
-            self.config.adapter_fusion["query"]
-            and self.config.adapter_fusion["key"]
-            and not self.config.adapter_fusion["value"]
-        ):
-            query = query * attention_mask[:, :, None].repeat((1, 1, query.size()[-1]))
-            query_sent = torch.sum(query, dim=1) / length[:, None].repeat(1, query.size()[-1])
-            query_enc = self.query(query_sent)
-            key_enc = self.key(key_sent)
-            scores_t = torch.matmul(key_enc, query_enc[:, :, None]).squeeze(-1)
-            probs = nn.Softmax(dim=-1)(scores_t / self.T)
-
-            # result = torch.squeeze(torch.matmul(probs, value), dim=2)
-            result = torch.squeeze(torch.matmul(probs[:, None, None, :], value))
-
-        if (
-            self.config.adapter_fusion["query"]
-            and self.config.adapter_fusion["key"]
-            and self.config.adapter_fusion["value"]
-        ):
-            query = query * attention_mask[:, :, None].repeat((1, 1, query.size()[-1]))
-            query_sent = torch.sum(query, dim=1) / length[:, None].repeat(1, query.size()[-1])
-            query_enc = self.query(query_sent)
-            key_enc = self.key(key_sent)
-            value_enc = self.value(value)
-            scores_t = torch.matmul(key_enc, query_enc[:, :, None]).squeeze(-1)
-            probs = nn.Softmax(dim=-1)(scores_t / self.T)
-
-            # result = torch.squeeze(torch.matmul(probs, value), dim=2)
-            result = torch.squeeze(torch.matmul(probs[:, None, None, :], value_enc))
-
-        if (
-            not self.config.adapter_fusion["query"]
-            and not self.config.adapter_fusion["key"]
-            and not self.config.adapter_fusion["value"]
-        ):
-            # key_sent = torch.mean(key, dim=1)
-            scores = self.dense(key_sent)
-            scores_t = scores.transpose(-2, -1)
-
-            probs = nn.Softmax(dim=-1)(scores_t / self.T)
-            result = torch.squeeze(torch.matmul(probs.unsqueeze(2), value), dim=2)
-        # attention_scores = attention_scores + attention_mask
-        # weighted_value = probs.unsqueeze(1).unsqueeze(-1) * value
-        # result = torch.sum(weighted_value, dim=2)
-
-        self.T = max(self.T - self.reduction, 1.0)
-
-        return result
+# Invertible Adapters
 
 
 def get_subnet_constructor(non_linearity, reduction_factor):
@@ -369,8 +293,6 @@ class NICECouplingBlock(nn.Module):
         self.G = subnet_constructor(self.split_len1 + condition_length, self.split_len2)
 
     def forward(self, x, c=[], rev=False):
-        # x1, x2 = (x[0].narrow(1, 0, self.split_len1),
-        #           x[0].narrow(1, self.split_len1, self.split_len2))
         x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1 :])
         if not rev:
             x2_c = torch.cat([x2, *c], 1) if self.conditional else x2
@@ -384,7 +306,6 @@ class NICECouplingBlock(nn.Module):
             y1 = x1 - self.F(y2_c)
 
         return torch.cat((y1, y2), -1)
-        # return [torch.cat((y1, y2), 1)]
 
     def jacobian(self, x, rev=False):
         return 0
@@ -395,11 +316,12 @@ class NICECouplingBlock(nn.Module):
 
 
 class GLOWCouplingBlock(nn.Module):
-    """Coupling Block following the GLOW design. The only difference to the RealNVP coupling blocks,
-    is the fact that it uses a single subnetwork to jointly predict [s_i, t_i], instead of two separate
-    subnetworks. This reduces computational cost and speeds up learning.
-    clamp:              Soft clamping for the multiplicative component. The amplification or attenuation
-                        of each input dimension can be at most ±exp(clamp)."""
+    """
+    Coupling Block following the GLOW design. The only difference to the RealNVP coupling blocks, is the fact that it
+    uses a single subnetwork to jointly predict [s_i, t_i], instead of two separate subnetworks. This reduces
+    computational cost and speeds up learning. clamp: Soft clamping for the multiplicative component. The amplification
+    or attenuation of each input dimension can be at most ±exp(clamp).
+    """
 
     def __init__(self, dims_in, dims_c=[], non_linearity="relu", reduction_factor=2, clamp=5.0):
         super().__init__()
@@ -430,14 +352,9 @@ class GLOWCouplingBlock(nn.Module):
         return self.clamp * 0.636 * torch.atan(s / self.clamp)
 
     def forward(self, x, c=[], rev=False):
-        # x1, x2 = (x[0].narrow(1, 0, self.split_len1),
-        #           x[0].narrow(1, self.split_len1, self.split_len2))
-
         x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1 :])
 
         if not rev:
-            # r2 = self.s2(torch.cat([x2, *c], 1) if self.conditional else x2)
-            # s2, t2 = r2[:, :self.split_len1], r2[:, self.split_len1:]
             s2, t2 = x1.clone(), x2.clone()
             y1 = self.e(s2) * x1 + t2
 

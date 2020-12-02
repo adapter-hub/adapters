@@ -1,14 +1,37 @@
-import json
+# coding=utf-8
+# Copyright 2018 the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import dataclasses
 import os
 import tempfile
 import unittest
 
-import datasets
 import numpy as np
 
-from transformers import AutoTokenizer, PretrainedConfig, TrainingArguments, is_torch_available
+from transformers import AutoTokenizer, EvaluationStrategy, PretrainedConfig, TrainingArguments, is_torch_available
 from transformers.file_utils import WEIGHTS_NAME
-from transformers.testing_utils import get_tests_dir, require_torch, slow
+from transformers.testing_utils import (
+    get_tests_dir,
+    require_datasets,
+    require_optuna,
+    require_sentencepiece,
+    require_tokenizers,
+    require_torch,
+    slow,
+)
+from transformers.utils.hp_naming import TrialShortNamer
 
 
 if is_torch_available():
@@ -16,12 +39,16 @@ if is_torch_available():
     from torch.utils.data import IterableDataset
 
     from transformers import (
+        AutoModelForMaskedLM,
         AutoModelForSequenceClassification,
+        DataCollatorForLanguageModeling,
         GlueDataset,
         GlueDataTrainingArguments,
         LineByLineTextDataset,
         PreTrainedModel,
+        TextDataset,
         Trainer,
+        TrainerState,
     )
 
 
@@ -46,6 +73,22 @@ class RegressionDataset:
         return result
 
 
+class DynamicShapesDataset:
+    def __init__(self, length=64, seed=42, batch_size=8):
+        self.length = length
+        np.random.seed(seed)
+        sizes = np.random.randint(1, 20, (length // batch_size,))
+        # For easy batching, we make every batch_size consecutive samples the same size.
+        self.xs = [np.random.normal(size=(s,)) for s in sizes.repeat(batch_size)]
+        self.ys = [np.random.normal(size=(s,)) for s in sizes.repeat(batch_size)]
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, i):
+        return {"input_x": self.xs[i], "labels": self.ys[i]}
+
+
 class AlmostAccuracy:
     def __init__(self, thresh=0.25):
         self.thresh = thresh
@@ -67,15 +110,16 @@ class RegressionModelConfig(PretrainedConfig):
 if is_torch_available():
 
     class SampleIterableDataset(IterableDataset):
-        def __init__(self, file_path):
-            self.file_path = file_path
+        """
+        Criteria is not whether it is IterableDataset or not, criteria is whether __len__ is implemented
+        """
 
-        def parse_file(self):
-            f = open(self.file_path, "r")
-            return f.readlines()
+        def __init__(self, file_path, tokenizer):
+            self.ds = TextDataset(file_path=file_path, tokenizer=tokenizer, block_size=64)
 
         def __iter__(self):
-            return iter(self.parse_file())
+            for i in range(len(self.ds)):
+                yield self.ds[i]
 
     class RegressionModel(torch.nn.Module):
         def __init__(self, a=0, b=0, double_output=False):
@@ -122,6 +166,7 @@ if is_torch_available():
         data_collator = kwargs.pop("data_collator", None)
         optimizers = kwargs.pop("optimizers", (None, None))
         output_dir = kwargs.pop("output_dir", "./regression")
+        model_init = kwargs.pop("model_init", None)
         args = TrainingArguments(output_dir, **kwargs)
         return Trainer(
             model,
@@ -131,10 +176,13 @@ if is_torch_available():
             eval_dataset=eval_dataset,
             compute_metrics=compute_metrics,
             optimizers=optimizers,
+            model_init=model_init,
         )
 
 
 @require_torch
+@require_sentencepiece
+@require_tokenizers
 class TrainerIntegrationTest(unittest.TestCase):
     def setUp(self):
         args = TrainingArguments(".")
@@ -155,7 +203,7 @@ class TrainerIntegrationTest(unittest.TestCase):
         self.assertTrue(torch.allclose(model.b, b))
 
     def check_saved_checkpoints(self, output_dir, freq, total, is_pretrained=True):
-        file_list = [WEIGHTS_NAME, "training_args.bin", "log_history.json", "optimizer.pt", "scheduler.pt"]
+        file_list = [WEIGHTS_NAME, "training_args.bin", "optimizer.pt", "scheduler.pt", "trainer_state.json"]
         if is_pretrained:
             file_list.append("config.json")
         for step in range(freq, total, freq):
@@ -168,7 +216,7 @@ class TrainerIntegrationTest(unittest.TestCase):
         self, output_dir, freq, total, trainer, metric, greater_is_better=False, is_pretrained=True
     ):
         checkpoint = os.path.join(output_dir, f"checkpoint-{(total // freq) * freq}")
-        log_history = json.load(open(os.path.join(checkpoint, "log_history.json")))
+        log_history = TrainerState.load_from_json(os.path.join(checkpoint, "trainer_state.json")).log_history
 
         values = [d[metric] for d in log_history]
         best_value = max(values) if greater_is_better else min(values)
@@ -187,6 +235,16 @@ class TrainerIntegrationTest(unittest.TestCase):
 
         metrics = trainer.evaluate()
         self.assertEqual(metrics[metric], best_value)
+
+    def test_training_arguments_are_left_untouched(self):
+        trainer = get_regression_trainer()
+        trainer.train()
+        args = TrainingArguments("./regression")
+        dict1, dict2 = args.to_dict(), trainer.args.to_dict()
+        for key in dict1.keys():
+            # Logging dir can be slightly different as they default to something with the time.
+            if key != "logging_dir":
+                self.assertEqual(dict1[key], dict2[key])
 
     def test_reproducible_training(self):
         # Checks that training worked, model trained and seed made a reproducible training.
@@ -240,7 +298,7 @@ class TrainerIntegrationTest(unittest.TestCase):
         self.assertEqual(len(trainer.get_train_dataloader()), 66 // (16 * n_gpu))
         self.assertEqual(len(trainer.get_eval_dataloader()), 74 // (32 * n_gpu))
 
-        # Check passing a new dataset for evaluation wors
+        # Check passing a new dataset for evaluation works
         new_eval_dataset = RegressionDataset(length=128)
         self.assertEqual(len(trainer.get_eval_dataloader(new_eval_dataset)), 128 // (32 * n_gpu))
 
@@ -298,7 +356,46 @@ class TrainerIntegrationTest(unittest.TestCase):
         self.assertTrue(np.array_equal(labels[0], trainer.eval_dataset.ys[0]))
         self.assertTrue(np.array_equal(labels[1], trainer.eval_dataset.ys[1]))
 
+    def test_dynamic_shapes(self):
+        eval_dataset = DynamicShapesDataset(batch_size=self.batch_size)
+        model = RegressionModel(a=2, b=1)
+        args = TrainingArguments("./regression")
+        trainer = Trainer(model, args, eval_dataset=eval_dataset)
+
+        # Check evaluation can run to completion
+        _ = trainer.evaluate()
+
+        # Check predictions
+        preds = trainer.predict(eval_dataset)
+        for expected, seen in zip(eval_dataset.ys, preds.label_ids):
+            self.assertTrue(np.array_equal(expected, seen[: expected.shape[0]]))
+            self.assertTrue(np.all(seen[expected.shape[0] :] == -100))
+
+        for expected, seen in zip(eval_dataset.xs, preds.predictions):
+            self.assertTrue(np.array_equal(2 * expected + 1, seen[: expected.shape[0]]))
+            self.assertTrue(np.all(seen[expected.shape[0] :] == -100))
+
+        # Same tests with eval accumulation
+        args = TrainingArguments("./regression", eval_accumulation_steps=2)
+        trainer = Trainer(model, args, eval_dataset=eval_dataset)
+
+        # Check evaluation can run to completion
+        _ = trainer.evaluate()
+
+        # Check predictions
+        preds = trainer.predict(eval_dataset)
+        for expected, seen in zip(eval_dataset.ys, preds.label_ids):
+            self.assertTrue(np.array_equal(expected, seen[: expected.shape[0]]))
+            self.assertTrue(np.all(seen[expected.shape[0] :] == -100))
+
+        for expected, seen in zip(eval_dataset.xs, preds.predictions):
+            self.assertTrue(np.array_equal(2 * expected + 1, seen[: expected.shape[0]]))
+            self.assertTrue(np.all(seen[expected.shape[0] :] == -100))
+
+    @require_datasets
     def test_trainer_with_datasets(self):
+        import datasets
+
         np.random.seed(42)
         x = np.random.normal(size=(64,)).astype(np.float32)
         y = 2.0 * x + 3.0 + np.random.normal(scale=0.1, size=(64,))
@@ -367,6 +464,55 @@ class TrainerIntegrationTest(unittest.TestCase):
             trainer = get_regression_trainer(output_dir=tmpdir, save_steps=5, pretrained=False)
             trainer.train()
             self.check_saved_checkpoints(tmpdir, 5, int(self.n_epochs * 64 / self.batch_size), False)
+
+    def test_can_resume_training(self):
+        if torch.cuda.device_count() > 2:
+            # This test will fail for more than 2 GPUs since the batch size will get bigger and with the number of
+            # save_steps, the checkpoint will resume training at epoch 2 or more (so the data seen by the model
+            # won't be the same since the training dataloader is shuffled).
+            return
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = get_regression_trainer(output_dir=tmpdir, train_len=128, save_steps=5, learning_rate=0.1)
+            trainer.train()
+            (a, b) = trainer.model.a.item(), trainer.model.b.item()
+            state = dataclasses.asdict(trainer.state)
+
+            checkpoint = os.path.join(tmpdir, "checkpoint-5")
+
+            # Reinitialize trainer and load model
+            model = RegressionPreTrainedModel.from_pretrained(checkpoint)
+            trainer = Trainer(model, trainer.args, train_dataset=trainer.train_dataset)
+
+            trainer.train(model_path=checkpoint)
+            (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
+            state1 = dataclasses.asdict(trainer.state)
+            self.assertEqual(a, a1)
+            self.assertEqual(b, b1)
+            self.assertEqual(state, state1)
+
+        # With a regular model that is not a PreTrainedModel
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = get_regression_trainer(
+                output_dir=tmpdir, train_len=128, save_steps=5, learning_rate=0.1, pretrained=False
+            )
+            trainer.train()
+            (a, b) = trainer.model.a.item(), trainer.model.b.item()
+            state = dataclasses.asdict(trainer.state)
+
+            checkpoint = os.path.join(tmpdir, "checkpoint-5")
+
+            # Reinitialize trainer and load model
+            model = RegressionModel()
+            state_dict = torch.load(os.path.join(checkpoint, WEIGHTS_NAME))
+            model.load_state_dict(state_dict)
+            trainer = Trainer(model, trainer.args, train_dataset=trainer.train_dataset)
+
+            trainer.train(model_path=checkpoint)
+            (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
+            state1 = dataclasses.asdict(trainer.state)
+            self.assertEqual(a, a1)
+            self.assertEqual(b, b1)
+            self.assertEqual(state, state1)
 
     def test_load_best_model_at_end(self):
         total = int(self.n_epochs * 64 / self.batch_size)
@@ -463,13 +609,51 @@ class TrainerIntegrationTest(unittest.TestCase):
         self.assertEqual(len(dataset), 31)
 
     def test_trainer_iterable_dataset(self):
+        # Simulate Language Modeling with an IterableDataset, with no __len__ method
+        # Pick-up a tiny model, so it works on CPU
+        # See Issue #5990: https://github.com/huggingface/transformers/issues/5990
         MODEL_ID = "sshleifer/tiny-distilbert-base-cased"
-        model = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
-        train_dataset = SampleIterableDataset(PATH_SAMPLE_TEXT)
-        training_args = TrainingArguments(output_dir="./examples", no_cuda=True)
-        trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset)
+        model = AutoModelForMaskedLM.from_pretrained(MODEL_ID)
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+        train_dataset = SampleIterableDataset(file_path=PATH_SAMPLE_TEXT, tokenizer=tokenizer)
+        training_args = TrainingArguments(output_dir="./examples", no_cuda=True, max_steps=2)
+        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=True, mlm_probability=0.15)
+
+        training_args = TrainingArguments(output_dir="./examples", no_cuda=True, max_steps=2)
+        trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset, data_collator=data_collator)
+        trainer.train()
+
         loader = trainer.get_train_dataloader()
         self.assertIsInstance(loader, torch.utils.data.DataLoader)
+        self.assertIsInstance(loader.sampler, torch.utils.data.dataloader._InfiniteConstantSampler)
+
+        # Exception if giving iterable dataset and no max_steps
+        with self.assertRaises(ValueError):
+            training_args = TrainingArguments(output_dir="./examples", no_cuda=True)
+            _ = Trainer(model=model, args=training_args, train_dataset=train_dataset, data_collator=data_collator)
+
+        # Exception if eval_dataset is iterable in __init__
+        with self.assertRaises(ValueError):
+            training_args = TrainingArguments(output_dir="./examples", no_cuda=True, max_steps=2)
+            _ = Trainer(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=train_dataset,
+                data_collator=data_collator,
+            )
+
+        # Exception if predicting with iterable dataset
+        with self.assertRaises(ValueError):
+            training_args = TrainingArguments(output_dir="./examples", no_cuda=True)
+            trainer = Trainer(model=model, args=training_args, data_collator=data_collator)
+            trainer.predict(train_dataset)
+
+        # Exception if evaluating with iterable dataset
+        with self.assertRaises(ValueError):
+            training_args = TrainingArguments(output_dir="./examples", no_cuda=True)
+            trainer = Trainer(model=model, args=training_args, data_collator=data_collator)
+            trainer.evaluate(train_dataset)
 
     def test_num_train_epochs_in_training(self):
         # len(train_dl) < gradient_accumulation_steps shouldn't give ``ZeroDivisionError`` when ``max_steps`` is given.
@@ -498,3 +682,48 @@ class TrainerIntegrationTest(unittest.TestCase):
 
         # with enforced DataParallel
         assert_flos_extraction(trainer, torch.nn.DataParallel(trainer.model))
+
+
+@require_torch
+@require_optuna
+class TrainerHyperParameterIntegrationTest(unittest.TestCase):
+    def setUp(self):
+        args = TrainingArguments(".")
+        self.n_epochs = args.num_train_epochs
+        self.batch_size = args.train_batch_size
+
+    def test_hyperparameter_search(self):
+        class MyTrialShortNamer(TrialShortNamer):
+            DEFAULTS = {"a": 0, "b": 0}
+
+        def hp_space(trial):
+            return {}
+
+        def model_init(trial):
+            if trial is not None:
+                a = trial.suggest_int("a", -4, 4)
+                b = trial.suggest_int("b", -4, 4)
+            else:
+                a = 0
+                b = 0
+            config = RegressionModelConfig(a=a, b=b, double_output=False)
+
+            return RegressionPreTrainedModel(config)
+
+        def hp_name(trial):
+            return MyTrialShortNamer.shortname(trial.params)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            trainer = get_regression_trainer(
+                output_dir=tmp_dir,
+                learning_rate=0.1,
+                logging_steps=1,
+                evaluation_strategy=EvaluationStrategy.EPOCH,
+                num_train_epochs=4,
+                disable_tqdm=True,
+                load_best_model_at_end=True,
+                logging_dir="runs",
+                run_name="test",
+                model_init=model_init,
+            )
+            trainer.hyperparameter_search(direction="minimize", hp_space=hp_space, hp_name=hp_name, n_trials=4)

@@ -9,9 +9,11 @@ __pycache__/
 *.so
 
 # tests and logs
-tests/fixtures
+tests/fixtures/*
+!tests/fixtures/sample_text_no_unicode.txt
 logs/
 lightning_logs/
+lang_code_data/
 
 # Distribution / packaging
 .Python
@@ -157,5 +159,7 @@ debug.env
 #ctags
 tags
 
+# pre-commit
+.pre-commit*
 # scripts
 *.ps1

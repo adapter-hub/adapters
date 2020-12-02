@@ -1,7 +1,7 @@
 .PHONY: extra_quality_checks quality style fix-copies test test-reduced test-examples docs
 
 
-check_dirs := examples templates tests src utils
+check_dirs := examples tests src utils
 
 # Check that source code meets quality standards
 
@@ -9,6 +9,7 @@ check_dirs := examples templates tests src utils
 	# python utils/check_copies.py
 extra_quality_checks:
 	python utils/check_repo.py
+	python utils/style_doc.py src/transformers docs/source --max_len 119
 	python utils/check_adapters.py
 
 # this target runs checks on all files
@@ -16,6 +17,7 @@ quality:
 	black --check $(check_dirs)
 	isort --check-only $(check_dirs)
 	flake8 $(check_dirs)
+	python utils/style_doc.py src/transformers docs/source --max_len 119 --check_only
 	${MAKE} extra_quality_checks
 
 # Format source code automatically and check is there are any problems left that need manual fixing
@@ -23,11 +25,13 @@ quality:
 style:
 	black $(check_dirs)
 	isort $(check_dirs)
+	python utils/style_doc.py src/transformers docs/source --max_len 119
 
 # Make marked copies of snippets of codes conform to the original
 
 fix-copies:
 	python utils/check_copies.py --fix_and_overwrite
+	python utils/check_dummies.py --fix_and_overwrite
 
 # Run tests for the library
 
