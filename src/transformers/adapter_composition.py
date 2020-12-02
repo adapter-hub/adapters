@@ -57,6 +57,7 @@ class Split(AdapterCompositionBlock):
         self.split_index = split_index
 
 
+# TODO: maybe add some checks regarding depth?
 def parse_composition(adapter_composition, level=0) -> AdapterCompositionBlock:
     if isinstance(adapter_composition, AdapterCompositionBlock):
         return adapter_composition

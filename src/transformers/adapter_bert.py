@@ -123,8 +123,18 @@ class BertAdaptersBaseMixin(ABC):
 
         return hidden_states, query, residual
 
-    def adapter_stack(self, adapter_setup: Stack, hidden_states, input_tensor):
+    def adapter_stack(self, adapter_setup: Stack, hidden_states, input_tensor, lvl=0):
+        """
+        Forwards the given input through the given stack of adapters.
+        """
         for adapter_stack_layer in adapter_setup:
+            # Break if setup is too deep
+            if isinstance(adapter_stack_layer, AdapterCompositionBlock) and lvl >= 1:
+                raise ValueError(
+                    "Specified adapter setup is too deep. Cannot have {} at level {}".format(
+                        adapter_stack_layer.__class__.__name__, lvl
+                    )
+                )
             # Case 1: We have a nested fusion layer -> call fusion method
             if isinstance(adapter_stack_layer, Fuse):
                 hidden_states = self.adapter_fusion(adapter_stack_layer, hidden_states, input_tensor)
@@ -143,7 +153,10 @@ class BertAdaptersBaseMixin(ABC):
 
         return hidden_states, up
 
-    def adapter_fusion(self, adapter_setup: Fuse, hidden_states, input_tensor):
+    def adapter_fusion(self, adapter_setup: Fuse, hidden_states, input_tensor, lvl=0):
+        """
+        Performs adapter fusion with the given adapters for the given input.
+        """
         # config of _last_ fused adapter is significant
         adapter_config = self.config.adapters.get(adapter_setup.last())
         hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
@@ -153,11 +166,18 @@ class BertAdaptersBaseMixin(ABC):
         for adapter_block in adapter_setup:
             # Case 1: We have a nested stack -> call stack method
             if isinstance(adapter_block, Stack):
-                _, up = self.adapter_stack(adapter_block, hidden_states, input_tensor)
+                _, up = self.adapter_stack(adapter_block, hidden_states, input_tensor, lvl=lvl + 1)
             # Case 2: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapter_modules:
                 adapter_layer = self.adapter_modules[adapter_block]
                 _, _, up = adapter_layer(hidden_states, residual_input=residual)
+            # Case 3: nesting other composition blocks is invalid
+            elif isinstance(adapter_block, AdapterCompositionBlock):
+                raise ValueError(
+                    "Invalid adapter setup. Cannot nest {} in {}".format(
+                        adapter_block.__class__.__name__, adapter_setup.__class__.__name__
+                    )
+                )
             # Case X: No adapter which is part of this module -> ignore
             up_list.append(up)
 
@@ -165,9 +185,7 @@ class BertAdaptersBaseMixin(ABC):
             up_list = torch.stack(up_list)
             up_list = up_list.permute(1, 2, 0, 3)
 
-            fusion_name = ",".join(adapter_setup)
-
-            hidden_states = self.adapter_fusion_layer[fusion_name](
+            hidden_states = self.adapter_fusion_layer[adapter_setup.name](
                 query,
                 up_list,
                 up_list,
@@ -176,29 +194,52 @@ class BertAdaptersBaseMixin(ABC):
 
         return hidden_states
 
-    def adapter_split(self, adapter_setup: Split, hidden_states, input_tensor):
+    def adapter_split(self, adapter_setup: Split, hidden_states, input_tensor, lvl=0):
+        """
+        Splits the given input between the given adapters.
+        """
         # config of _first_ of splitted adapters is significant
         adapter_config = self.config.adapters.get(adapter_setup.first())
         hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
 
-        first_hidden_states = hidden_states[:, : adapter_setup.split_index, :]
-        second_hidden_states = hidden_states[:, adapter_setup.split_index :, :]
-        first_residual = residual[:, : adapter_setup.split_index, :]
-        second_residual = residual[:, adapter_setup.split_index :, :]
+        # split hidden representations and residuals at split index
+        split_hidden_states = [
+            hidden_states[:, : adapter_setup.split_index, :],
+            hidden_states[:, adapter_setup.split_index :, :],
+        ]
+        split_input_tensor = [
+            input_tensor[:, : adapter_setup.split_index, :],
+            input_tensor[:, adapter_setup.split_index :, :],
+        ]
+        split_residual = [
+            residual[:, : adapter_setup.split_index, :],
+            residual[:, adapter_setup.split_index :, :],
+        ]
 
-        if adapter_setup.left in self.adapter_modules:
-            first_hidden_states = self.adapter_modules[adapter_setup.left](
-                first_hidden_states, residual_input=first_residual
-            )
-        if adapter_setup.right in self.adapter_modules:
-            second_hidden_states = self.adapter_modules[adapter_setup.right](
-                second_hidden_states, residual_input=second_residual
-            )
+        for i, adapter_block in enumerate(adapter_setup):
+            # Case 1: We have a nested stack -> call stack method
+            if isinstance(adapter_block, Stack):
+                _, up = self.adapter_stack(adapter_block, split_hidden_states[i], split_input_tensor[i], lvl=lvl + 1)
+            # Case 2: We have a single adapter which is part of this module -> forward pass
+            elif adapter_block in self.adapter_modules:
+                adapter_layer = self.adapter_modules[adapter_block]
+                split_hidden_states[i], _, _ = adapter_layer(split_hidden_states[i], residual_input=split_residual[i])
+            # Case 3: nesting other composition blocks is invalid
+            elif isinstance(adapter_block, AdapterCompositionBlock):
+                raise ValueError(
+                    "Invalid adapter setup. Cannot nest {} in {}".format(
+                        adapter_block.__class__.__name__, adapter_setup.__class__.__name__
+                    )
+                )
+            # Case X: No adapter which is part of this module -> ignore
 
-        hidden_states = torch.cat((first_hidden_states, second_hidden_states), dim=1)
+        hidden_states = torch.cat(split_hidden_states, dim=1)
         return hidden_states
 
     def adapters_forward(self, hidden_states, input_tensor):
+        """
+        Called for each forward pass through adapters.
+        """
         adapter_setup = self.config.adapters.active_setup if hasattr(self.config, "adapters") else None
         if adapter_setup is not None and (len(set(self.adapter_modules.keys()) & adapter_setup.flatten()) > 0):
             if isinstance(adapter_setup, Stack):
