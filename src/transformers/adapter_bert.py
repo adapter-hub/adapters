@@ -1,3 +1,4 @@
+# docstyle-ignore-file
 import logging
 
 import torch
@@ -17,29 +18,6 @@ from .adapter_utils import flatten_adapter_names, parse_adapter_names
 
 
 logger = logging.getLogger(__name__)
-
-
-def get_fusion_regularization_loss(model):
-    if hasattr(model, "base_model"):
-        model = model.base_model
-    elif hasattr(model, "encoder"):
-        pass
-    else:
-        raise Exception("Model not passed correctly, please pass a transformer model with an encoder")
-
-    reg_loss = 0.0
-    target = torch.zeros((model.config.hidden_size, model.config.hidden_size)).fill_diagonal_(1.0).to(model.device)
-    for k, v in model.encoder.layer._modules.items():
-
-        for _, layer_fusion in v.output.adapter_fusion_layer.items():
-            if hasattr(layer_fusion, "value"):
-                reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
-        for _, layer_fusion in v.attention.output.adapter_fusion_layer.items():
-            if hasattr(layer_fusion, "value"):
-                reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
-    return reg_loss
 
 
 class BertSelfOutputAdaptersMixin:
@@ -657,6 +635,17 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         if head_name is not None and head_name in self.config.prediction_heads:
             self.config.label2id = self.config.prediction_heads[head_name].config["label2id"]
 
+            self.config.id2label = self.get_labels_dict(head_name)
+
+    @property
+    def active_head(self):
+        return self._active_head
+
+    @active_head.setter
+    def active_head(self, head_name):
+        self._active_head = head_name
+        if head_name is not None and head_name in self.config.prediction_heads:
+            self.config.label2id = self.config.prediction_heads[head_name]["label2id"]
             self.config.id2label = self.get_labels_dict(head_name)
 
     def set_active_adapters(self, adapter_names: list):

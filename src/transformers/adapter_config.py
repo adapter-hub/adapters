@@ -1,3 +1,4 @@
+# docstyle-ignore-file
 import copy
 import json
 import logging
