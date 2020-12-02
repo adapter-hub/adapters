@@ -263,7 +263,9 @@ class BertLayerAdaptersMixin:
         self.attention.output.add_adapter(adapter_name)
         self.output.add_adapter(adapter_name)
 
-    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool):
+    def enable_adapters(
+        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+    ):
         self.attention.output.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
         self.output.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
@@ -282,7 +284,9 @@ class BertEncoderAdaptersMixin:
             if i not in leave_out:
                 layer.add_adapter(adapter_name)
 
-    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool):
+    def enable_adapters(
+        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+    ):
         for layer in self.layer:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 

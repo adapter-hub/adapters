@@ -23,7 +23,7 @@ from typing import List, Tuple
 
 from transformers import is_torch_available
 from transformers.file_utils import WEIGHTS_NAME
-from transformers.testing_utils import require_torch, require_torch_multigpu, slow, torch_device
+from transformers.testing_utils import require_torch, require_torch_multi_gpu, slow, torch_device
 
 
 if is_torch_available():
@@ -136,17 +136,17 @@ class ModelTesterMixin:
                 max_diff = np.amax(np.abs(out_1 - out_2))
                 self.assertLessEqual(max_diff, 1e-5)
 
-    def test_save_load_keys_to_never_save(self):
+    def test_save_load__keys_to_ignore_on_save(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
 
         for model_class in self.all_model_classes:
             model = model_class(config)
-            keys_to_never_save = getattr(model, "keys_to_never_save", None)
-            if keys_to_never_save is None:
+            _keys_to_ignore_on_save = getattr(model, "_keys_to_ignore_on_save", None)
+            if _keys_to_ignore_on_save is None:
                 continue
 
             # check the keys are in the original state_dict
-            for k in keys_to_never_save:
+            for k in _keys_to_ignore_on_save:
                 self.assertIn(k, model.state_dict())
 
             # check that certain keys didn't get saved with the model
@@ -154,7 +154,7 @@ class ModelTesterMixin:
                 model.save_pretrained(tmpdirname)
                 output_model_file = os.path.join(tmpdirname, WEIGHTS_NAME)
                 state_dict_saved = torch.load(output_model_file)
-                for k in keys_to_never_save:
+                for k in _keys_to_ignore_on_save:
                     self.assertNotIn(k, state_dict_saved)
 
     def test_initialization(self):
@@ -463,7 +463,7 @@ class ModelTesterMixin:
             inputs = self._prepare_for_class(inputs_dict, model_class).copy()
             inputs["head_mask"] = head_mask
 
-            outputs = model(**inputs)
+            outputs = model(**inputs, return_dict=True)
 
             # Test that we can get a gradient back for importance score computation
             output = sum(t.sum() for t in outputs[0])
@@ -659,7 +659,7 @@ class ModelTesterMixin:
             model.eval()
 
             with torch.no_grad():
-                outputs = model(**self._prepare_for_class(inputs_dict, model_class), return_dict=True)
+                outputs = model(**self._prepare_for_class(inputs_dict, model_class))
             hidden_states = outputs["hidden_states"] if "hidden_states" in outputs else outputs[-1]
 
             expected_num_layers = getattr(
@@ -930,8 +930,8 @@ class ModelTesterMixin:
             with torch.no_grad():
                 model(**inputs)[0]
 
-    @require_torch_multigpu
-    def test_multigpu_data_parallel_forward(self):
+    @require_torch_multi_gpu
+    def test_multi_gpu_data_parallel_forward(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
 
         # some params shouldn't be scattered by nn.DataParallel

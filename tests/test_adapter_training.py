@@ -12,7 +12,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from transformers.adapter_composition import Fuse, Stack
+from transformers.adapter_composition import Fuse
 from transformers.testing_utils import require_torch
 
 
@@ -28,7 +28,7 @@ class AdapterTrainingTest(unittest.TestCase):
     def test_train_single_adapter(self):
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
-                tokenizer = AutoTokenizer.from_pretrained(model_name)
+                tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
                 model = AutoModelWithHeads.from_pretrained(model_name)
 
                 # add two adapters: one will be trained and the other should be frozen
@@ -81,7 +81,7 @@ class AdapterTrainingTest(unittest.TestCase):
     def test_train_adapter_fusion(self):
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
-                tokenizer = AutoTokenizer.from_pretrained(model_name)
+                tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
                 model = AutoModelForSequenceClassification.from_pretrained(model_name)
 
                 # load the adapters to be fused

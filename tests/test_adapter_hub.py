@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 
-from transformers import (
+from transformers import (  # get_adapter_config_hash,
     ADAPTER_CONFIG_MAP,
     AdapterConfig,
     AutoModel,
@@ -13,7 +13,6 @@ from transformers import (
     GlueDataTrainingArguments,
     Trainer,
     TrainingArguments,
-    get_adapter_config_hash,
     glue_compute_metrics,
 )
 from transformers.adapter_utils import find_in_index
