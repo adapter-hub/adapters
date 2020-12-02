@@ -645,7 +645,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     def active_head(self, head_name):
         self._active_head = head_name
         if head_name is not None and head_name in self.config.prediction_heads:
-            self.config.label2id = self.config.prediction_heads[head_name]["label2id"]
+            self.config.label2id = self.config.prediction_heads[head_name].config["label2id"]
             self.config.id2label = self.get_labels_dict(head_name)
 
     def set_active_adapters(self, adapter_names: list):

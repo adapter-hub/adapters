@@ -21,7 +21,7 @@ class CustomHead(PredictionHead):
 
 
 class AdapterCustomHeadTest(unittest.TestCase):
-    def test_add_costom_head(self):
+    def test_add_custom_head(self):
         model_name = "bert-base-uncased"
         model = AutoModelWithHeads.from_pretrained(model_name)
         model.register_custom_head("tag", CustomHead)

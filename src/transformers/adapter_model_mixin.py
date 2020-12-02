@@ -77,7 +77,6 @@ class WeightsLoaderHelper:
         # Get the state of all adapter modules for this task
         if head_name:
             state_dict = self.model.config.prediction_heads[head_name].state_dict()
-            # state_dict = [head for head in self.model.config.prediction_heads if filter_func(head)][0].state_dict()
         else:
             state_dict = self.state_dict(filter_func)
         # Save the adapter weights
@@ -584,9 +583,6 @@ class PredictionHeadLoader(WeightsLoader):
 
         # Save head weights
 
-        # if name and hasattr(self.model.config, "prediction_heads"):
-        # head.save_head(join(save_directory, HEAD_WEIGHTS_NAME))
-        # else:
         filter_func = self.filter_func(name)
         self.weights_helper.save_weights(save_directory, filter_func, head_name=name)
 
@@ -630,8 +626,6 @@ class PredictionHeadLoader(WeightsLoader):
                 head_name = load_as or config["name"]
                 if head_name in self.model.config.prediction_heads:
                     logger.warning("Overwriting existing head '{}'".format(head_name))
-                # loaded_head = torch.load(join(save_directory, HEAD_WEIGHTS_NAME))
-                # loaded_head.eval()
                 self.model.add_prediction_head_from_config(head_name, config["config"], overwrite_ok=True)
             else:
                 if "label2id" in config.keys():
