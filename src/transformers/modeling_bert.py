@@ -927,7 +927,7 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         adapter_names=None,
         head=None,
         return_dict=None,
-        **kwargs,
+        **kwargs
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
         attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
