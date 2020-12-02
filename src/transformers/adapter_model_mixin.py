@@ -68,14 +68,17 @@ class WeightsLoaderHelper:
             json.dump(config, f, indent=2, sort_keys=True)
         logger.info("Configuration saved in {}".format(output_config_file))
 
-    def save_weights(self, save_directory, filter_func):
+    def save_weights(self, save_directory, filter_func, head_name=None):
         if not exists(save_directory):
             mkdir(save_directory)
         else:
             assert isdir(save_directory), "Saving path should be a directory where the module weights can be saved."
 
         # Get the state of all adapter modules for this task
-        state_dict = self.state_dict(filter_func)
+        if head_name:
+            state_dict = self.model.config.prediction_heads[head_name].state_dict()
+        else:
+            state_dict = self.state_dict(filter_func)
         # Save the adapter weights
         output_file = join(save_directory, self.weights_name)
         torch.save(state_dict, output_file)
@@ -120,7 +123,15 @@ class WeightsLoaderHelper:
             )
         return missing_keys, unexpected_keys
 
-    def load_weights(self, save_directory, filter_func, rename_func=None, loading_info=None, in_base_model=False):
+    def load_weights(
+        self,
+        save_directory,
+        filter_func,
+        rename_func=None,
+        loading_info=None,
+        in_base_model=False,
+        head_name=None,
+    ):
         weights_file = join(save_directory, self.weights_name)
         # Load the weights of the adapter
         try:
@@ -137,7 +148,10 @@ class WeightsLoaderHelper:
         # Add the weights to the model
         # Make sure we are able to load base models as well as derived models (with heads)
         start_prefix = ""
-        model_to_load = self.model
+        if head_name:
+            model_to_load = self.model.config.prediction_heads[head_name]
+        else:
+            model_to_load = self.model
         has_prefix_module = any(s.startswith(self.model.base_model_prefix) for s in state_dict.keys())
         if not hasattr(self.model, self.model.base_model_prefix) and has_prefix_module:
             start_prefix = self.model.base_model_prefix + "."
@@ -551,7 +565,8 @@ class PredictionHeadLoader(WeightsLoader):
 
         # if we use a custom head, save it
         if name and hasattr(self.model.config, "prediction_heads"):
-            head_config = self.model.config.prediction_heads[name]
+            head = self.model.config.prediction_heads[name]
+            head_config = head.config
         else:
             head_config = None
 
@@ -567,8 +582,9 @@ class PredictionHeadLoader(WeightsLoader):
         self.weights_helper.save_weights_config(save_directory, config_dict)
 
         # Save head weights
+
         filter_func = self.filter_func(name)
-        self.weights_helper.save_weights(save_directory, filter_func)
+        self.weights_helper.save_weights(save_directory, filter_func, head_name=name)
 
     def load(self, save_directory, load_as=None, loading_info=None):
         """Loads a prediction head module from the given directory.
@@ -610,7 +626,7 @@ class PredictionHeadLoader(WeightsLoader):
                 head_name = load_as or config["name"]
                 if head_name in self.model.config.prediction_heads:
                     logger.warning("Overwriting existing head '{}'".format(head_name))
-                self.model.add_prediction_head(head_name, config["config"], overwrite_ok=True)
+                self.model.add_prediction_head_from_config(head_name, config["config"], overwrite_ok=True)
             else:
                 if "label2id" in config.keys():
                     self.model.config.id2label = {int(id_): label for label, id_ in config["label2id"].items()}
@@ -621,9 +637,14 @@ class PredictionHeadLoader(WeightsLoader):
             rename_func = self.rename_func(config["name"], load_as)
         else:
             rename_func = None
-        self.weights_helper.load_weights(
-            save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
-        )
+        if hasattr(self.model.config, "prediction_heads"):
+            self.weights_helper.load_weights(
+                save_directory, filter_func, rename_func=rename_func, loading_info=loading_info, head_name=head_name
+            )
+        else:
+            self.weights_helper.load_weights(
+                save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
+            )
 
         return save_directory, head_name
 
