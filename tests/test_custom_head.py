@@ -14,7 +14,7 @@ class CustomHead(PredictionHead):
         self.config = config
         self.build(model=model)
 
-    def forward(self, outputs, attention_mask, labels, return_dict):
+    def forward(self, outputs, attention_mask, return_dict, **kwargs):
         logits = self.head(outputs[0])
         outputs = (logits,) + outputs[2:]
         return outputs

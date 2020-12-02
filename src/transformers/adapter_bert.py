@@ -775,7 +775,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 f"Model already contains a head with name '{head.name}'. Use overwrite_ok=True to force overwrite."
             )
 
-    def forward_head(self, outputs, head_name=None, attention_mask=None, labels=None, return_dict=False):
+    def forward_head(self, outputs, head_name=None, attention_mask=None, return_dict=False, **kwargs):
 
         head_name = head_name or self.active_head
         if not head_name:
@@ -790,7 +790,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             self.config.prediction_heads[head_name].train()
         head = self.config.prediction_heads[head_name]
 
-        return head(outputs, attention_mask, labels, return_dict)
+        return head(outputs, attention_mask, return_dict, **kwargs)
 
     def get_labels_dict(self, head_name=None):
         """

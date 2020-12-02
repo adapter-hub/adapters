@@ -38,7 +38,7 @@ class PredictionHead(nn.Module):
 
         self.head.apply(model._init_weights)
 
-    def forward(self, outputs, attention_mask, labels, return_dict):
+    def forward(self, outputs, attention_mask, return_dict, **kwarg):
         raise NotImplementedError("Use a Prediction Head that inherits from this class")
 
     def save_head(self, path):
@@ -64,11 +64,11 @@ class ClassificationHead(PredictionHead):
         }
         self.build(model)
 
-    def forward(self, outputs, attention_mask, labels, return_dict):
+    def forward(self, outputs, attention_mask, return_dict, **kwargs):
 
         logits = self.head(outputs[0][:, 0])
-
-        outputs = (logits,) + outputs
+        loss = None
+        labels = kwargs.pop("labels", None)
         if labels is not None:
             if self.config["num_labels"] == 1:
                 #  We are doing regression
@@ -77,7 +77,6 @@ class ClassificationHead(PredictionHead):
             else:
                 loss_fct = CrossEntropyLoss()
                 loss = loss_fct(logits.view(-1, self.config["num_labels"]), labels.view(-1))
-            outputs = (loss,) + outputs
 
         if return_dict:
             return SequenceClassifierOutput(
@@ -87,6 +86,9 @@ class ClassificationHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
+            outputs = (logits,) + outputs[2:]
+            if labels is not None:
+                outputs = (loss,) + outputs
             return outputs
 
 
@@ -102,16 +104,15 @@ class MultiLabelClassificationHead(PredictionHead):
         }
         self.build(model)
 
-    def forward(self, outputs, attention_mask, labels, return_dict):
+    def forward(self, outputs, attention_mask, return_dict, **kwargs):
         logits = self.head(outputs[0][:, 0])
-
-        outputs = (logits,) + outputs[2:]
+        loss = None
+        labels = kwargs.pop("labels", None)
         if labels is not None:
             loss_fct = BCEWithLogitsLoss()
             if labels.dtype != torch.float32:
                 labels = labels.float()
             loss = loss_fct(logits, labels)
-            outputs = (loss,) + outputs
 
         if return_dict:
             return SequenceClassifierOutput(
@@ -121,6 +122,9 @@ class MultiLabelClassificationHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
+            outputs = (logits,) + outputs[2:]
+            if labels is not None:
+                outputs = (loss,) + outputs
             return outputs
 
 
@@ -136,15 +140,14 @@ class MultipleChoiceHead(PredictionHead):
         }
         self.build(model)
 
-    def forward(self, outputs, attention_mask, labels, return_dict):
+    def forward(self, outputs, attention_mask, return_dict, **kwargs):
         logits = self.head(outputs[0][:, 0])
         logits = logits.view(-1, self.config["num_choices"])
-
-        outputs = (logits,) + outputs[2:]
+        loss = None
+        labels = kwargs.pop("labels", None)
         if labels is not None:
             loss_fct = CrossEntropyLoss()
             loss = loss_fct(logits, labels)
-            outputs = (loss,) + outputs
 
         if return_dict:
             return MultipleChoiceModelOutput(
@@ -154,6 +157,9 @@ class MultipleChoiceHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
+            outputs = (logits,) + outputs[2:]
+            if labels is not None:
+                outputs = (loss,) + outputs
             return outputs
 
 
@@ -169,10 +175,11 @@ class TaggingHead(PredictionHead):
         }
         self.build(model)
 
-    def forward(self, outputs, attention_mask, labels, return_dict):
+    def forward(self, outputs, attention_mask, return_dict, **kwargs):
         logits = self.head(outputs[0])
+        loss = None
 
-        outputs = (logits,) + outputs[2:]
+        labels = kwargs.pop("labels", None)
         if labels is not None:
             loss_fct = CrossEntropyLoss()
             # Only keep active parts of the loss
@@ -185,7 +192,6 @@ class TaggingHead(PredictionHead):
                 loss = loss_fct(active_logits, active_labels)
             else:
                 loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
-            outputs = (loss,) + outputs
 
         if return_dict:
             return TokenClassifierOutput(
@@ -195,8 +201,10 @@ class TaggingHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
+            outputs = (logits,) + outputs[2:]
+            if labels is not None:
+                outputs = (loss,) + outputs
             return outputs
-
 
 class QuestionAnsweringHead(PredictionHead):
     def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
@@ -210,9 +218,9 @@ class QuestionAnsweringHead(PredictionHead):
         }
         self.build(model)
 
-    def forward(self, outputs, attention_mask=None, labels=None, return_dict=False):
-        logits = self.head(outputs[0])
-
+    def forward(self, outputs, attention_mask, return_dict, **kwargs):
+        sequence_output = outputs[0]
+        logits = self.heads[self.name](sequence_output)
         start_logits, end_logits = logits.split(1, dim=-1)
         start_logits = start_logits.squeeze(-1)
         end_logits = end_logits.squeeze(-1)
@@ -221,8 +229,10 @@ class QuestionAnsweringHead(PredictionHead):
             start_logits,
             end_logits,
         ) + outputs[2:]
-        if labels is not None:
-            start_positions, end_positions = labels
+        start_positions = kwargs.pop("start_positions", None)
+        end_positions = kwargs.pop("end_positions", None)
+        total_loss = None
+        if start_positions is not None and end_positions is not None:
             if len(start_positions.size()) > 1:
                 start_positions = start_positions.squeeze(-1)
             if len(end_positions.size()) > 1:
@@ -248,3 +258,4 @@ class QuestionAnsweringHead(PredictionHead):
             )
         else:
             return outputs
+

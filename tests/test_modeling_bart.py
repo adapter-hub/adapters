@@ -276,7 +276,7 @@ class BartHeadTests(unittest.TestCase):
         self.assertEqual(outputs["end_logits"].shape, input_ids.shape)
         self.assertIsInstance(outputs["loss"].item(), float)
 
-    @timeout_decorator.timeout(1)
+    # @timeout_decorator.timeout(1)
     def test_lm_forward(self):
         config, input_ids, batch_size = self._get_config_and_data()
         lm_labels = ids_tensor([batch_size, input_ids.shape[1]], self.vocab_size).to(torch_device)
