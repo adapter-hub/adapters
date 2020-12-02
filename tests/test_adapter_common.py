@@ -183,7 +183,6 @@ class PredictionHeadModelTest(unittest.TestCase):
 
                     model2.load_adapter(temp_dir)
                     model2.set_active_adapters(name)
-
                 # check equal output
                 in_data = ids_tensor((1, 128), 1000)
                 output1 = model1(in_data)
@@ -221,14 +220,14 @@ class PredictionHeadModelTest(unittest.TestCase):
             with self.subTest(model_class=model_class.__name__):
                 model = model_class(model_class.config_class())
                 model.add_tagging_head("dummy")
-                true_config = model.config.prediction_heads
+                true_config = model.get_prediction_heads_config()
                 with tempfile.TemporaryDirectory() as temp_dir:
                     # save
                     model.save_pretrained(temp_dir)
                     # reload
                     model = model_class.from_pretrained(temp_dir)
                 self.assertIn("dummy", model.config.prediction_heads)
-                self.assertDictEqual(true_config, model.config.prediction_heads)
+                self.assertDictEqual(true_config, model.get_prediction_heads_config())
 
 
 @require_torch
