@@ -51,7 +51,6 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler, SequentialSampler
 
-from .adapter_modeling import get_fusion_regularization_loss
 from .data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
 from .file_utils import WEIGHTS_NAME, is_datasets_available, is_in_notebook, is_torch_tpu_available
 from .modeling_auto import MODEL_FOR_QUESTION_ANSWERING_MAPPING
@@ -798,7 +797,7 @@ class Trainer:
                         hasattr(self.model.config, "adapter_fusion")
                         and self.model.config.adapter_fusion["regularization"]
                     ):
-                        fusion_reg_loss = get_fusion_regularization_loss(self.model)
+                        fusion_reg_loss = self.model.base_model.get_fusion_regularization_loss()
                         fusion_reg_loss.backward()
 
                     if self.args.fp16 and _use_native_amp:

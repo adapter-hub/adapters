@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 from .adapter_bert import (
@@ -16,12 +17,13 @@ class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMix
 
     def __init__(self, parent):
         super().__init__()
-        self._layer_norm = parent.sa_layer_norm
+        # keep a reference to the parent module without registering as a submodule
+        object.__setattr__(self, "parent", parent)
         self.config = parent.config
 
     @property
     def layer_norm(self):
-        return self._layer_norm
+        return self.parent.sa_layer_norm
 
 
 class DistilBertOutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
@@ -29,12 +31,13 @@ class DistilBertOutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
 
     def __init__(self, parent):
         super().__init__()
-        self._layer_norm = parent.output_layer_norm
+        # keep a reference to the parent module without registering as a submodule
+        object.__setattr__(self, "parent", parent)
         self.config = parent.config
 
     @property
     def layer_norm(self):
-        return self._layer_norm
+        return self.parent.output_layer_norm
 
 
 class DistilBertTransfomerBlockAdaptersMixin:
@@ -129,6 +132,21 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
     def _add_fusion_layer(self, adapter_names):
         self.transformer.add_fusion_layer(adapter_names)
+
+    def get_fusion_regularization_loss(self):
+        reg_loss = 0.0
+        target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
+        for _, v in self.transformer.layer._modules.items():
+
+            for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
+                if hasattr(layer_fusion, "value"):
+                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+            for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
+                if hasattr(layer_fusion, "value"):
+                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+        return reg_loss
 
 
 class DistilBertModelHeadsMixin(BertModelHeadsMixin):
