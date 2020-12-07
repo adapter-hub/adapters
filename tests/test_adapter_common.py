@@ -175,6 +175,14 @@ class PredictionHeadModelTest(unittest.TestCase):
                 model1.add_tagging_head("dummy")
                 self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128, 2))
 
+    def test_qa_head(self):
+        for model_class in self.model_classes:
+            model1, model2 = create_twin_models(model_class)
+
+            with self.subTest(model_class=model_class.__name__):
+                model1.add_qa_head("dummy")
+                self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128))
+
     def test_adapter_with_head(self):
         for model_class in self.model_classes:
             model1, model2 = create_twin_models(model_class)
