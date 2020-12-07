@@ -37,6 +37,7 @@ class PredictionHead(nn.Module):
         self.head = nn.Sequential(*pred_head)
 
         self.head.apply(model._init_weights)
+        self.train(model.training)  # make sure training mode is consistent
 
     def forward(self, outputs, attention_mask, return_dict, **kwarg):
         raise NotImplementedError("Use a Prediction Head that inherits from this class")
