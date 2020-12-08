@@ -953,12 +953,20 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
             adapter_names=adapter_names,
             return_dict=return_dict,
         )
+        # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
+        if not return_dict:
+            head_inputs = (outputs[0],) + outputs[2:]
+        else:
+            head_inputs = outputs
 
-        outputs = self.forward_head(
-            outputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
+        head_outputs = self.forward_head(
+            head_inputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
         )
+        # plug pooler outputs back in
+        if not return_dict:
+            head_outputs = (head_outputs[0], outputs[1]) + head_outputs[1:]
 
-        return outputs
+        return head_outputs
 
 
 @add_start_docstrings(
