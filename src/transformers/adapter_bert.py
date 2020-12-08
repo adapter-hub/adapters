@@ -9,13 +9,13 @@ from torch import nn
 from .adapter_composition import AdapterCompositionBlock, Fuse, Split, Stack, parse_composition
 from .adapter_heads import (
     ClassificationHead,
+    ModelWithFlexibleHeadsAdaptersMixin,
     MultiLabelClassificationHead,
     MultipleChoiceHead,
-    PredictionHead,
     QuestionAnsweringHead,
     TaggingHead,
 )
-from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
+from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 from .adapter_modeling import Adapter, BertFusion
 
 
@@ -113,7 +113,7 @@ class BertAdaptersBaseMixin(ABC):
         if hasattr(self.config, "adapter_fusion") and self.config.adapter_fusion["query_before_ln"]:
             query = hidden_states
 
-        if adapter_config["original_ln_before"]:
+        if adapter_config["original_ln_before"] and self.layer_norm:
             hidden_states = self.layer_norm(hidden_states + input_tensor)
 
         if not adapter_config["residual_before_ln"]:
@@ -253,11 +253,13 @@ class BertAdaptersBaseMixin(ABC):
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
 
             last_config = self.config.adapters.get(adapter_setup.last())
-            if last_config["original_ln_after"]:
+            if last_config["original_ln_after"] and self.layer_norm:
                 hidden_states = self.layer_norm(hidden_states + input_tensor)
 
-        else:
+        elif self.layer_norm:
             hidden_states = self.layer_norm(hidden_states + input_tensor)
+        else:
+            hidden_states = hidden_states + input_tensor
 
         return hidden_states
 
@@ -404,23 +406,8 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         return reg_loss
 
 
-class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
-    """Adds heads to a Bert-based module."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not hasattr(self.config, "custom_heads"):
-            self.config.custom_heads = {}
-        self.active_head = None
-
-    def _init_head_modules(self):
-        # this dict is _only_ used for saving & reloading the configs and should not be modified otherwise
-        if not hasattr(self.config, "prediction_heads"):
-            self.config.prediction_heads = {}
-        self.heads = nn.ModuleDict(dict())
-        # add modules for heads in config
-        for head_name, config in self.config.prediction_heads.items():
-            self.add_prediction_head_from_config(head_name, config)
+class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
+    """Adds flexible heads to a BERT-based model class."""
 
     def add_prediction_head_from_config(self, head_name, config, overwrite_ok=False):
         id2label = (
@@ -479,45 +466,6 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
                 self.add_custom_head(head_name, config, overwrite_ok=overwrite_ok)
             else:
                 raise AttributeError("Please register the PredictionHead before loading the model")
-
-    def get_prediction_heads_config(self):
-        heads = {}
-        for head_name, head in self.heads.items():
-            heads[head_name] = head.config
-        return heads
-
-    def register_custom_head(self, identifier, head):
-        self.config.custom_heads[identifier] = head
-
-    @property
-    def active_head(self):
-        return self._active_head
-
-    @active_head.setter
-    def active_head(self, head_name):
-        self._active_head = head_name
-        if head_name is not None and head_name in self.heads:
-            self.config.label2id = self.heads[head_name].config["label2id"]
-            self.config.id2label = self.get_labels_dict(head_name)
-
-    def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
-        """Sets the adapter modules to be used by default in every forward pass.
-        This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
-        If no adapter with the given name is found, no module of the respective type will be activated.
-        In case the calling model class supports named prediction heads, this method will attempt to activate a prediction head with the name of the last adapter in the list of passed adapter names.
-
-        Args:
-            adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
-        """
-        self.base_model.set_active_adapters(adapter_setup)
-        # use last adapter name as name of prediction head
-        if self.active_adapters:
-            head_name = self.active_adapters.last()
-            if head_name in self.heads:
-                self.active_head = head_name
-
-            else:
-                logger.info("No prediction head for task_name '{}' available.".format(head_name))
 
     def add_classification_head(
         self,
@@ -581,87 +529,3 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     ):
         head = QuestionAnsweringHead(head_name, num_labels, layers, activation_function, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
-
-    def add_custom_head(self, head_name, config, overwrite_ok=False):
-        if config["head_type"] in self.config.custom_heads:
-            head = self.config.custom_heads[config["head_type"]](head_name, config, self)
-            self.add_prediction_head(head, overwrite_ok)
-        else:
-            raise AttributeError(
-                "The given head as a head_type that is not registered as a custom head yet."
-                " Please register the head first."
-            )
-
-    def add_prediction_head(
-        self,
-        head: PredictionHead,
-        overwrite_ok: bool = False,
-    ):
-
-        if head.name not in self.heads or overwrite_ok:
-            self.heads[head.name] = head
-            # add reference to model config to save all head configs too
-            self.config.prediction_heads[head.name] = head.config
-
-            if "label2id" not in head.config.keys() or head.config["label2id"] is None:
-                if "num_labels" in head.config.keys():
-                    head.config["label2id"] = {"LABEL_" + str(num): num for num in range(head.config["num_labels"])}
-                if "num_choices" in head.config.keys():
-                    head.config["label2id"] = {"LABEL_" + str(num): num for num in range(head.config["num_choices"])}
-
-            logger.info(f"Adding head '{head.name}' with config {head.config}.")
-            #             self._add_prediction_head_module(head.name)
-            self.active_head = head.name
-
-        else:
-            raise ValueError(
-                f"Model already contains a head with name '{head.name}'. Use overwrite_ok=True to force overwrite."
-            )
-
-    def forward_head(self, outputs, head_name=None, attention_mask=None, return_dict=False, **kwargs):
-
-        head_name = head_name or self.active_head
-        if not head_name:
-            logger.debug("No prediction head is used.")
-            return outputs
-
-        if head_name not in self.heads:
-            raise ValueError("Unknown head_name '{}'".format(head_name))
-        head = self.heads[head_name]
-
-        return head(outputs, attention_mask, return_dict, **kwargs)
-
-    def get_labels_dict(self, head_name=None):
-        """
-        Returns the id2label dict for the given head
-        Args:
-            head_name: (str, optional) the name of the head which labels should be returned. Default is None.
-            If the name is None the labels of the active head are returned
-
-        Returns: id2label
-
-        """
-        if head_name is None:
-            head_name = self.active_head
-        if head_name is None:
-            raise ValueError("No head name given and no active head in the model")
-        if "label2id" in self.heads[head_name].config.keys():
-            return {id_: label for label, id_ in self.heads[head_name].config["label2id"].items()}
-        else:
-            return None
-
-    def get_labels(self, head_name=None):
-        """
-        Returns the labels the given head is assigning/predicting
-        Args:
-            head_name: (str, optional) the name of the head which labels should be returned. Default is None.
-            If the name is None the labels of the active head are returned
-
-        Returns: labels
-
-        """
-        label_dict = self.get_labels_dict(head_name)
-        if label_dict is None:
-            return None
-        else:
-            return list(label_dict.values())
