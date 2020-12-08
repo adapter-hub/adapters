@@ -37,6 +37,7 @@ from ..bart.modeling_bart import (
     BartForQuestionAnswering,
     BartForSequenceClassification,
     BartModel,
+    BartModelWithHeads,
 )
 from ..bert.modeling_bert import (
     BertForMaskedLM,
@@ -280,6 +281,7 @@ MODEL_WITH_HEADS_MAPPING = OrderedDict(
         (RobertaConfig, RobertaModelWithHeads),
         (BertConfig, BertModelWithHeads),
         (DistilBertConfig, DistilBertModelWithHeads),
+        (BartConfig, BartModelWithHeads),
     ]
 )
 

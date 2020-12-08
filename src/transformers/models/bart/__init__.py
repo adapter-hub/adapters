@@ -17,6 +17,7 @@ if is_torch_available():
         BartForQuestionAnswering,
         BartForSequenceClassification,
         BartModel,
+        BartModelWithHeads,
         PretrainedBartModel,
     )
 

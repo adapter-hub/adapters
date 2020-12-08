@@ -23,10 +23,11 @@ def filter_parameters(model, filter_string):
 @require_torch
 class AdapterTrainingTest(unittest.TestCase):
 
-    model_names = ["bert-base-uncased", "distilbert-base-uncased"]
+    model_names_single = ["bert-base-uncased", "distilbert-base-uncased", "facebook/bart-base"]
+    model_names_fusion = ["bert-base-uncased", "distilbert-base-uncased"]
 
     def test_train_single_adapter(self):
-        for model_name in self.model_names:
+        for model_name in self.model_names_single:
             with self.subTest(model_name=model_name):
                 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
                 model = AutoModelWithHeads.from_pretrained(model_name)
@@ -79,7 +80,7 @@ class AdapterTrainingTest(unittest.TestCase):
                         self.assertTrue(torch.equal(v1, v2))
 
     def test_train_adapter_fusion(self):
-        for model_name in self.model_names:
+        for model_name in self.model_names_fusion:
             with self.subTest(model_name=model_name):
                 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
                 model = AutoModelForSequenceClassification.from_pretrained(model_name)

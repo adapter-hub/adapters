@@ -6,6 +6,7 @@ import torch
 
 from transformers import (
     ADAPTER_CONFIG_MAP,
+    BartModel,
     BertModel,
     BertModelWithHeads,
     DistilBertModel,
@@ -14,6 +15,7 @@ from transformers import (
     RobertaModelWithHeads,
     XLMRobertaModel,
 )
+from transformers.models.bart.modeling_bart import BartModelWithHeads
 from transformers.testing_utils import require_torch
 
 from .test_modeling_common import ids_tensor
@@ -32,7 +34,7 @@ def create_twin_models(model_class):
 @require_torch
 class AdapterModelTest(unittest.TestCase):
 
-    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel]
+    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel, BartModel]
 
     def test_add_adapter(self):
         for model_class in self.model_classes:
@@ -124,7 +126,7 @@ class AdapterModelTest(unittest.TestCase):
 @require_torch
 class PredictionHeadModelTest(unittest.TestCase):
 
-    model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads]
+    model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads, BartModelWithHeads]
 
     def run_prediction_head_test(self, model, compare_model, head_name, input_shape=(1, 128), output_shape=(1, 2)):
         # first, check if the head is actually correctly registered as part of the pt module
@@ -140,6 +142,10 @@ class PredictionHeadModelTest(unittest.TestCase):
         self.assertTrue(head_name in compare_model.heads)
 
         in_data = ids_tensor(input_shape, 1000)
+        # this is needed e.g. for BART
+        if model.config.eos_token_id is not None:
+            in_data[:, -1] = model.config.eos_token_id
+
         model.active_head = head_name
         output1 = model(in_data)
         self.assertEqual(output_shape, tuple(output1[0].size()))
@@ -158,7 +164,7 @@ class PredictionHeadModelTest(unittest.TestCase):
                 self.run_prediction_head_test(model1, model2, "dummy")
 
     def test_multiple_choice_head(self):
-        for model_class in self.model_classes:
+        for model_class in [cls for cls in self.model_classes if hasattr(cls, "add_multiple_choice_head")]:
             model1, model2 = create_twin_models(model_class)
 
             with self.subTest(model_class=model_class.__name__):
@@ -166,7 +172,7 @@ class PredictionHeadModelTest(unittest.TestCase):
                 self.run_prediction_head_test(model1, model2, "dummy", input_shape=(2, 128))
 
     def test_tagging_head(self):
-        for model_class in self.model_classes:
+        for model_class in [cls for cls in self.model_classes if hasattr(cls, "add_tagging_head")]:
             model1, model2 = create_twin_models(model_class)
 
             with self.subTest(model_class=model_class.__name__):
@@ -174,7 +180,7 @@ class PredictionHeadModelTest(unittest.TestCase):
                 self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128, 2))
 
     def test_qa_head(self):
-        for model_class in self.model_classes:
+        for model_class in [cls for cls in self.model_classes if hasattr(cls, "add_qa_head")]:
             model1, model2 = create_twin_models(model_class)
 
             with self.subTest(model_class=model_class.__name__):
@@ -197,6 +203,10 @@ class PredictionHeadModelTest(unittest.TestCase):
                     model2.set_active_adapters(name)
                 # check equal output
                 in_data = ids_tensor((1, 128), 1000)
+                # this is needed e.g. for BART
+                if model1.config.eos_token_id is not None:
+                    in_data[:, -1] = model1.config.eos_token_id
+
                 output1 = model1(in_data)
                 output2 = model2(in_data)
                 self.assertEqual(len(output1), len(output2))
@@ -221,6 +231,10 @@ class PredictionHeadModelTest(unittest.TestCase):
 
                 # check equal output
                 in_data = ids_tensor((1, 128), 1000)
+                # this is needed e.g. for BART
+                if model1.config.eos_token_id is not None:
+                    in_data[:, -1] = model1.config.eos_token_id
+
                 output1 = model1(in_data)
                 output2 = model2(in_data)
                 self.assertEqual(len(output1), len(output2))
@@ -231,7 +245,7 @@ class PredictionHeadModelTest(unittest.TestCase):
         for model_class in self.model_classes:
             with self.subTest(model_class=model_class.__name__):
                 model = model_class(model_class.config_class())
-                model.add_tagging_head("dummy")
+                model.add_qa_head("dummy")
                 true_config = model.get_prediction_heads_config()
                 with tempfile.TemporaryDirectory() as temp_dir:
                     # save

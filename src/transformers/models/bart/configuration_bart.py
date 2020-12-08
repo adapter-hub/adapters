@@ -14,6 +14,7 @@
 # limitations under the License.
 """ BART configuration """
 
+from ...adapter_config import ModelAdaptersConfig
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
@@ -213,6 +214,13 @@ class BartConfig(PretrainedConfig):
 
         self.use_cache = use_cache
 
+        # adapter configuration
+        adapter_config_dict = common_kwargs.pop("adapters", None)
+        if adapter_config_dict:
+            self.adapters = ModelAdaptersConfig(**adapter_config_dict)
+        else:
+            self.adapters = ModelAdaptersConfig()
+
     @property
     def num_attention_heads(self) -> int:
         return self.encoder_attention_heads
@@ -220,6 +228,14 @@ class BartConfig(PretrainedConfig):
     @property
     def hidden_size(self) -> int:
         return self.d_model
+
+    @property
+    def hidden_dropout_prob(self):
+        return self.dropout
+
+    @property
+    def attention_probs_dropout_prob(self):
+        return self.attention_dropout
 
     def is_valid_mbart(self) -> bool:
         """Is the configuration aligned with the MBART paper."""
