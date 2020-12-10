@@ -9,6 +9,7 @@ from .adapter_heads import (
     ClassificationHead,
     MultiLabelClassificationHead,
     MultipleChoiceHead,
+    PredictionHead,
     QuestionAnsweringHead,
     TaggingHead,
 )
@@ -547,13 +548,12 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         self.active_head = None
 
     def _init_head_modules(self):
+        # this dict is _only_ used for saving & reloading the configs and should not be modified otherwise
         if not hasattr(self.config, "prediction_heads"):
             self.config.prediction_heads = {}
         self.heads = nn.ModuleDict(dict())
-        heads_to_add = self.config.prediction_heads
-        self.config.prediction_heads = {}
         # add modules for heads in config
-        for head_name, config in heads_to_add.items():
+        for head_name, config in self.config.prediction_heads.items():
             self.add_prediction_head_from_config(head_name, config)
 
     def add_prediction_head_from_config(self, head_name, config, overwrite_ok=False):
@@ -614,11 +614,9 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             else:
                 raise AttributeError("Please register the PredictionHead before loading the model")
 
-    #  self._add_prediction_head_module(head_name)
-
     def get_prediction_heads_config(self):
         heads = {}
-        for head_name, head in self.config.prediction_heads.items():
+        for head_name, head in self.heads.items():
             heads[head_name] = head.config
         return heads
 
@@ -632,20 +630,8 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
     @active_head.setter
     def active_head(self, head_name):
         self._active_head = head_name
-        if head_name is not None and head_name in self.config.prediction_heads:
-            self.config.label2id = self.config.prediction_heads[head_name].config["label2id"]
-
-            self.config.id2label = self.get_labels_dict(head_name)
-
-    @property
-    def active_head(self):
-        return self._active_head
-
-    @active_head.setter
-    def active_head(self, head_name):
-        self._active_head = head_name
-        if head_name is not None and head_name in self.config.prediction_heads:
-            self.config.label2id = self.config.prediction_heads[head_name].config["label2id"]
+        if head_name is not None and head_name in self.heads:
+            self.config.label2id = self.heads[head_name].config["label2id"]
             self.config.id2label = self.get_labels_dict(head_name)
 
     def set_active_adapters(self, adapter_names: list):
@@ -661,7 +647,7 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
         # use last adapter name as name of prediction head
         if self.active_adapters:
             head_name = self.active_adapters[-1][-1]
-            if head_name in self.config.prediction_heads:
+            if head_name in self.heads:
                 self.active_head = head_name
 
             else:
@@ -742,12 +728,14 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
 
     def add_prediction_head(
         self,
-        head,
-        overwrite_ok=False,
+        head: PredictionHead,
+        overwrite_ok: bool = False,
     ):
 
-        if head.name not in self.config.prediction_heads or overwrite_ok:
-            self.config.prediction_heads[head.name] = head
+        if head.name not in self.heads or overwrite_ok:
+            self.heads[head.name] = head
+            # add reference to model config to save all head configs too
+            self.config.prediction_heads[head.name] = head.config
 
             if "label2id" not in head.config.keys() or head.config["label2id"] is None:
                 if "num_labels" in head.config.keys():
@@ -771,13 +759,9 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             logger.debug("No prediction head is used.")
             return outputs
 
-        if head_name not in self.config.prediction_heads:
+        if head_name not in self.heads:
             raise ValueError("Unknown head_name '{}'".format(head_name))
-        if not self.training:
-            self.config.prediction_heads[head_name].eval()
-        else:
-            self.config.prediction_heads[head_name].train()
-        head = self.config.prediction_heads[head_name]
+        head = self.heads[head_name]
 
         return head(outputs, attention_mask, return_dict, **kwargs)
 
@@ -795,8 +779,8 @@ class BertModelHeadsMixin(ModelWithHeadsAdaptersMixin):
             head_name = self.active_head
         if head_name is None:
             raise ValueError("No head name given and no active head in the model")
-        if "label2id" in self.config.prediction_heads[head_name].config.keys():
-            return {id_: label for label, id_ in self.config.prediction_heads[head_name].config["label2id"].items()}
+        if "label2id" in self.heads[head_name].config.keys():
+            return {id_: label for label, id_ in self.heads[head_name].config["label2id"].items()}
         else:
             return None
 

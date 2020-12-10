@@ -68,17 +68,14 @@ class WeightsLoaderHelper:
             json.dump(config, f, indent=2, sort_keys=True)
         logger.info("Configuration saved in {}".format(output_config_file))
 
-    def save_weights(self, save_directory, filter_func, head_name=None):
+    def save_weights(self, save_directory, filter_func):
         if not exists(save_directory):
             mkdir(save_directory)
         else:
             assert isdir(save_directory), "Saving path should be a directory where the module weights can be saved."
 
         # Get the state of all adapter modules for this task
-        if head_name:
-            state_dict = self.model.config.prediction_heads[head_name].state_dict()
-        else:
-            state_dict = self.state_dict(filter_func)
+        state_dict = self.state_dict(filter_func)
         # Save the adapter weights
         output_file = join(save_directory, self.weights_name)
         torch.save(state_dict, output_file)
@@ -130,7 +127,6 @@ class WeightsLoaderHelper:
         rename_func=None,
         loading_info=None,
         in_base_model=False,
-        head_name=None,
     ):
         weights_file = join(save_directory, self.weights_name)
         # Load the weights of the adapter
@@ -148,10 +144,7 @@ class WeightsLoaderHelper:
         # Add the weights to the model
         # Make sure we are able to load base models as well as derived models (with heads)
         start_prefix = ""
-        if head_name:
-            model_to_load = self.model.config.prediction_heads[head_name]
-        else:
-            model_to_load = self.model
+        model_to_load = self.model
         has_prefix_module = any(s.startswith(self.model.base_model_prefix) for s in state_dict.keys())
         if not hasattr(self.model, self.model.base_model_prefix) and has_prefix_module:
             start_prefix = self.model.base_model_prefix + "."
@@ -521,7 +514,7 @@ class PredictionHeadLoader(WeightsLoader):
     A class providing methods for saving and loading prediction head modules from the file system.
 
     Model classes supporting configurable head modules via config files should provide
-    a prediction head config at `model.config.prediction_heads` and a method `add_prediction_head(head_name, config)`.
+    a prediction head dict at `model.heads` and a method `add_prediction_head(head_name, config)`.
     """
 
     def __init__(self, model, error_on_missing=True):
@@ -546,8 +539,8 @@ class PredictionHeadLoader(WeightsLoader):
         """
 
         if name:
-            if hasattr(self.model.config, "prediction_heads"):
-                if name not in self.model.config.prediction_heads:
+            if hasattr(self.model, "heads"):
+                if name not in self.model.heads:
                     if self.error_on_missing:
                         raise ValueError(f"Unknown head_name '{name}'.")
                     else:
@@ -564,8 +557,8 @@ class PredictionHeadLoader(WeightsLoader):
             assert isdir(save_directory), "Saving path should be a directory where the head can be saved."
 
         # if we use a custom head, save it
-        if name and hasattr(self.model.config, "prediction_heads"):
-            head = self.model.config.prediction_heads[name]
+        if name and hasattr(self.model, "heads"):
+            head = self.model.heads[name]
             head_config = head.config
         else:
             head_config = None
@@ -584,7 +577,7 @@ class PredictionHeadLoader(WeightsLoader):
         # Save head weights
 
         filter_func = self.filter_func(name)
-        self.weights_helper.save_weights(save_directory, filter_func, head_name=name)
+        self.weights_helper.save_weights(save_directory, filter_func)
 
     def load(self, save_directory, load_as=None, loading_info=None):
         """Loads a prediction head module from the given directory.
@@ -622,9 +615,9 @@ class PredictionHeadLoader(WeightsLoader):
                 else:
                     logger.debug("No matching prediction head found in '{}'".format(save_directory))
                     return None, None
-            if hasattr(self.model.config, "prediction_heads"):
+            if hasattr(self.model, "heads"):
                 head_name = load_as or config["name"]
-                if head_name in self.model.config.prediction_heads:
+                if head_name in self.model.heads:
                     logger.warning("Overwriting existing head '{}'".format(head_name))
                 self.model.add_prediction_head_from_config(head_name, config["config"], overwrite_ok=True)
             else:
@@ -637,14 +630,9 @@ class PredictionHeadLoader(WeightsLoader):
             rename_func = self.rename_func(config["name"], load_as)
         else:
             rename_func = None
-        if hasattr(self.model.config, "prediction_heads"):
-            self.weights_helper.load_weights(
-                save_directory, filter_func, rename_func=rename_func, loading_info=loading_info, head_name=head_name
-            )
-        else:
-            self.weights_helper.load_weights(
-                save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
-            )
+        self.weights_helper.load_weights(
+            save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
+        )
 
         return save_directory, head_name
 

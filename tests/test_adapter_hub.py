@@ -1,7 +1,13 @@
 import os
 import unittest
 
-from transformers import ADAPTER_CONFIG_MAP, AdapterConfig, BertForSequenceClassification, get_adapter_config_hash
+from transformers import (
+    ADAPTER_CONFIG_MAP,
+    AdapterConfig,
+    BertForSequenceClassification,
+    BertModelWithHeads,
+    get_adapter_config_hash,
+)
 from transformers.adapter_utils import find_in_index
 from transformers.testing_utils import require_torch
 
@@ -56,3 +62,23 @@ class AdapterHubTest(unittest.TestCase):
                 in_data = ids_tensor((1, 128), 1000)
                 output = model(in_data)
                 self.assertEqual([1, 2], list(output[0].size()))
+
+    def test_load_adapter_with_head_from_hub(self):
+        model = BertModelWithHeads.from_pretrained("bert-base-uncased")
+
+        loading_info = {}
+        adapter_name = model.load_adapter("qa/squad1@ukp", config="houlsby", version="1", loading_info=loading_info)
+
+        self.assertEqual(0, len(loading_info["missing_keys"]))
+        self.assertEqual(0, len(loading_info["unexpected_keys"]))
+
+        self.assertIn(adapter_name, model.config.adapters.adapters)
+        # check if config is valid
+        expected_hash = get_adapter_config_hash(AdapterConfig.load("houlsby"))
+        real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
+        self.assertEqual(expected_hash, real_hash)
+
+        # check size of output
+        in_data = ids_tensor((1, 128), 1000)
+        output = model(in_data)
+        self.assertEqual([1, 128], list(output[0].size()))

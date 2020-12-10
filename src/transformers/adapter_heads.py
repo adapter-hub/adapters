@@ -11,17 +11,14 @@ from .modeling_outputs import (
 )
 
 
-class PredictionHead(nn.Module):
+# Let this class inherit from nn.Sequential to provide iterable access as before
+class PredictionHead(nn.Sequential):
     def __init__(self, name):
         super().__init__()
-        self.config = None
-        self.head = None
+        self.config = {}
         self.name = name
 
-    def build(
-        self,
-        model,
-    ):  # _init_weights):
+    def build(self, model):
         model_config = model.config
         pred_head = []
         for l in range(self.config["layers"]):
@@ -34,22 +31,11 @@ class PredictionHead(nn.Module):
                     pred_head.append(nn.Linear(model_config.hidden_size, self.config["num_labels"]))
                 else:  # used for multiple_choice head
                     pred_head.append(nn.Linear(model_config.hidden_size, 1))
-        self.head = nn.Sequential(*pred_head)
+        for i, module in enumerate(pred_head):
+            self.add_module(str(i), module)
 
-        self.head.apply(model._init_weights)
-
-    def forward(self, outputs, attention_mask, return_dict, **kwarg):
-        raise NotImplementedError("Use a Prediction Head that inherits from this class")
-
-    def save_head(self, path):
-        torch.save(self, path)
-
-    @staticmethod
-    def load_head(self, path, load_as):
-        head = torch.load(path)
-        if load_as:
-            head.name = load_as
-        return head
+        self.apply(model._init_weights)
+        self.train(model.training)  # make sure training mode is consistent
 
 
 class ClassificationHead(PredictionHead):
@@ -66,7 +52,7 @@ class ClassificationHead(PredictionHead):
 
     def forward(self, outputs, attention_mask, return_dict, **kwargs):
 
-        logits = self.head(outputs[0][:, 0])
+        logits = super().forward(outputs[0][:, 0])
         loss = None
         labels = kwargs.pop("labels", None)
         if labels is not None:
@@ -105,7 +91,7 @@ class MultiLabelClassificationHead(PredictionHead):
         self.build(model)
 
     def forward(self, outputs, attention_mask, return_dict, **kwargs):
-        logits = self.head(outputs[0][:, 0])
+        logits = super().forward(outputs[0][:, 0])
         loss = None
         labels = kwargs.pop("labels", None)
         if labels is not None:
@@ -141,7 +127,7 @@ class MultipleChoiceHead(PredictionHead):
         self.build(model)
 
     def forward(self, outputs, attention_mask, return_dict, **kwargs):
-        logits = self.head(outputs[0][:, 0])
+        logits = super().forward(outputs[0][:, 0])
         logits = logits.view(-1, self.config["num_choices"])
         loss = None
         labels = kwargs.pop("labels", None)
@@ -176,7 +162,7 @@ class TaggingHead(PredictionHead):
         self.build(model)
 
     def forward(self, outputs, attention_mask, return_dict, **kwargs):
-        logits = self.head(outputs[0])
+        logits = super().forward(outputs[0])
         loss = None
 
         labels = kwargs.pop("labels", None)
@@ -221,15 +207,11 @@ class QuestionAnsweringHead(PredictionHead):
 
     def forward(self, outputs, attention_mask, return_dict, **kwargs):
         sequence_output = outputs[0]
-        logits = self.heads[self.name](sequence_output)
+        logits = super().forward(sequence_output)
         start_logits, end_logits = logits.split(1, dim=-1)
         start_logits = start_logits.squeeze(-1)
         end_logits = end_logits.squeeze(-1)
 
-        outputs = (
-            start_logits,
-            end_logits,
-        ) + outputs[2:]
         start_positions = kwargs.pop("start_positions", None)
         end_positions = kwargs.pop("end_positions", None)
         total_loss = None
@@ -247,7 +229,6 @@ class QuestionAnsweringHead(PredictionHead):
             start_loss = loss_fct(start_logits, start_positions)
             end_loss = loss_fct(end_logits, end_positions)
             total_loss = (start_loss + end_loss) / 2
-            outputs = (total_loss,) + outputs
 
         if return_dict:
             return QuestionAnsweringModelOutput(
@@ -258,4 +239,10 @@ class QuestionAnsweringHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
+            outputs = (
+                start_logits,
+                end_logits,
+            ) + outputs[2:]
+            if total_loss is not None:
+                outputs = (total_loss,) + outputs
             return outputs

@@ -129,13 +129,17 @@ class PredictionHeadModelTest(unittest.TestCase):
     model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads]
 
     def run_prediction_head_test(self, model, compare_model, head_name, input_shape=(1, 128), output_shape=(1, 2)):
+        # first, check if the head is actually correctly registered as part of the pt module
+        self.assertTrue(f"heads.{head_name}" in dict(model.named_modules()))
+
+        # save & reload
         with tempfile.TemporaryDirectory() as temp_dir:
             model.save_head(temp_dir, head_name)
 
             compare_model.load_head(temp_dir)
 
         # check if adapter was correctly loaded
-        self.assertTrue(head_name in compare_model.config.prediction_heads)
+        self.assertTrue(head_name in compare_model.heads)
 
         in_data = ids_tensor(input_shape, 1000)
         model.set_active_adapters(head_name)
@@ -170,6 +174,14 @@ class PredictionHeadModelTest(unittest.TestCase):
             with self.subTest(model_class=model_class.__name__):
                 model1.add_tagging_head("dummy")
                 self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128, 2))
+
+    def test_qa_head(self):
+        for model_class in self.model_classes:
+            model1, model2 = create_twin_models(model_class)
+
+            with self.subTest(model_class=model_class.__name__):
+                model1.add_qa_head("dummy")
+                self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128))
 
     def test_adapter_with_head(self):
         for model_class in self.model_classes:
@@ -228,7 +240,7 @@ class PredictionHeadModelTest(unittest.TestCase):
                     model.save_pretrained(temp_dir)
                     # reload
                     model = model_class.from_pretrained(temp_dir)
-                self.assertIn("dummy", model.config.prediction_heads)
+                self.assertIn("dummy", model.heads)
                 self.assertDictEqual(true_config, model.get_prediction_heads_config())
 
 
