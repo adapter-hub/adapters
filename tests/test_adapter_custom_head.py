@@ -15,7 +15,7 @@ class CustomHead(PredictionHead):
         self.build(model=model)
 
     def forward(self, outputs, attention_mask, return_dict, **kwargs):
-        logits = self.head(outputs[0])
+        logits = super().forward(outputs[0])
         outputs = (logits,) + outputs[2:]
         return outputs
 
@@ -66,7 +66,7 @@ class AdapterCustomHeadTest(unittest.TestCase):
         output1 = model1(in_data)
         output2 = model2(in_data)
         self.assertEqual(output1[0].size(), output2[0].size())
-        state1 = model1.config.prediction_heads["custom_head"].state_dict()
-        state2 = model2.config.prediction_heads["custom_head"].state_dict()
+        state1 = model1.heads["custom_head"].state_dict()
+        state2 = model2.heads["custom_head"].state_dict()
         for ((k1, v1), (k2, v2)) in zip(state1.items(), state2.items()):
             self.assertTrue(torch.equal(v1, v2))

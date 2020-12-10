@@ -21,8 +21,6 @@ import json
 import os
 from typing import Any, Dict, Tuple
 
-from transformers.adapter_heads import PredictionHead
-
 from .adapter_utils import DataclassJSONEncoder
 from .file_utils import CONFIG_NAME, cached_path, hf_bucket_url, is_remote_url
 from .utils import logging
@@ -524,10 +522,6 @@ class PretrainedConfig(object):
             output["model_type"] = self.__class__.model_type
         if hasattr(self, "adapters") and not isinstance(output["adapters"], dict):
             output["adapters"] = self.adapters.to_dict()
-        if "prediction_heads" in output.keys():
-            for head in output["prediction_heads"].keys():
-                if isinstance(output["prediction_heads"][head], PredictionHead):
-                    output["prediction_heads"][head] = output["prediction_heads"][head].config
         if "custom_heads" in output.keys():
             del output["custom_heads"]
         return output
