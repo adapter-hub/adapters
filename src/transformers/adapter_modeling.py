@@ -235,29 +235,6 @@ class BertFusion(nn.Module):
         return context_layer
 
 
-def get_fusion_regularization_loss(model):
-    if hasattr(model, "base_model"):
-        model = model.base_model
-    elif hasattr(model, "encoder"):
-        pass
-    else:
-        raise Exception("Model not passed correctly, please pass a transformer model with an encoder")
-
-    reg_loss = 0.0
-    target = torch.zeros((model.config.hidden_size, model.config.hidden_size)).fill_diagonal_(1.0).to(model.device)
-    for k, v in model.encoder.layer._modules.items():
-
-        for _, layer_fusion in v.output.adapter_fusion_layer.items():
-            if hasattr(layer_fusion, "value"):
-                reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
-        for _, layer_fusion in v.attention.output.adapter_fusion_layer.items():
-            if hasattr(layer_fusion, "value"):
-                reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
-    return reg_loss
-
-
 # Invertible Adapters
 
 
