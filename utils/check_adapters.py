@@ -3,21 +3,26 @@ from check_repo import get_models
 from transformers import ModelAdaptersMixin
 
 
-MODULES_WITH_ADAPTERS = [
-    "modeling_bert",
-    "modeling_roberta",
-    "modeling_xlm_roberta",
-    "modeling_distilbert",
+MODELS_WITH_ADAPTERS = [
+    "bert",
+    "roberta",
+    "xlm_roberta",
+    "distilbert",
 ]
 
 
 def check_models_implement_mixin():
     """Checks that all model classes belonging to modules that have adapter-support implemented properly derive the adapter mixin."""
     failures = []
-    for module in MODULES_WITH_ADAPTERS:
-        for model_name, model_class in get_models(getattr(transformers, module)):
-            if not issubclass(model_class, ModelAdaptersMixin):
-                failures.append(f"{model_name} should implement ModelAdaptersMixin.")
+    for model in dir(transformers.models):
+        if model in MODELS_WITH_ADAPTERS:
+            model_module = getattr(transformers.models, model)
+            for submodule in dir(model_module):
+                if submodule.startswith("modeling"):
+                    modeling_module = getattr(model_module, submodule)
+                    for model_name, model_class in get_models(modeling_module):
+                        if not issubclass(model_class, ModelAdaptersMixin):
+                            failures.append(f"{model_name} should implement ModelAdaptersMixin.")
     if len(failures) > 0:
         raise Exception(f"There were {len(failures)} failures:\n" + "\n".join(failures))
 

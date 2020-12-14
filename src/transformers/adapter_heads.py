@@ -345,10 +345,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
             self.config.id2label = self.get_labels_dict(head_name)
 
     def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
-        """Sets the adapter modules to be used by default in every forward pass.
-        This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
-        If no adapter with the given name is found, no module of the respective type will be activated.
-        In case the calling model class supports named prediction heads, this method will attempt to activate a prediction head with the name of the last adapter in the list of passed adapter names.
+        """
+        Sets the adapter modules to be used by default in every forward pass. This setting can be overriden by passing
+        the `adapter_names` parameter in the `foward()` pass. If no adapter with the given name is found, no module of
+        the respective type will be activated. In case the calling model class supports named prediction heads, this
+        method will attempt to activate a prediction head with the name of the last adapter in the list of passed
+        adapter names.
 
         Args:
             adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
@@ -416,7 +418,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
 
     def get_labels_dict(self, head_name=None):
         """
-        Returns the id2label dict for the given head
+        Returns the id2label dict for the given hea
+
         Args:
             head_name: (str, optional) the name of the head which labels should be returned. Default is None.
             If the name is None the labels of the active head are returned
@@ -435,7 +438,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
 
     def get_labels(self, head_name=None):
         """
-        Returns the labels the given head is assigning/predicting
+        Returns the labels the given head is assigning/predictin
+
         Args:
             head_name: (str, optional) the name of the head which labels should be returned. Default is None.
             If the name is None the labels of the active head are returned

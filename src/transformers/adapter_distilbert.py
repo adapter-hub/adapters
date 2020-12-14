@@ -92,7 +92,7 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        self.transformer.enable_adapters(adapter_setup.flatten(), True, False)
+        self.transformer.enable_adapters(adapter_setup, True, False)
         self.enable_invertible_adapters(adapter_setup.flatten())
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
@@ -102,7 +102,7 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        self.transformer.enable_adapters(adapter_setup.flatten(), False, True)
+        self.transformer.enable_adapters(adapter_setup, False, True)
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 

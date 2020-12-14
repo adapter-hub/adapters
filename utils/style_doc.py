@@ -358,14 +358,14 @@ doc_styler = DocstringStyler()
 
 def style_rst_file(doc_file, max_len=119, check_only=False):
     """ Style one rst file `doc_file` to `max_len`."""
-    with open(doc_file, "r", encoding="utf-8", newline="\n") as f:
+    with open(doc_file, "r", encoding="utf-8") as f:
         doc = f.read()
     clean_doc = rst_styler.style(doc, max_len=max_len)
 
     diff = clean_doc != doc
     if not check_only and diff:
         print(f"Overwriting content of {doc_file}.")
-        with open(doc_file, "w", encoding="utf-8", newline="\n") as f:
+        with open(doc_file, "w", encoding="utf-8") as f:
             f.write(clean_doc)
 
     return diff
@@ -405,7 +405,7 @@ def style_docstring(docstring, max_len=119):
 
 def style_file_docstrings(code_file, max_len=119, check_only=False):
     """Style all docstrings in `code_file` to `max_len`."""
-    with open(code_file, "r", encoding="utf-8", newline="\n") as f:
+    with open(code_file, "r", encoding="utf-8") as f:
         code = f.read()
     if _re_doc_ignore_file.search(code) is not None:
         return None
@@ -419,7 +419,7 @@ def style_file_docstrings(code_file, max_len=119, check_only=False):
     diff = clean_code != code
     if not check_only and diff:
         print(f"Overwriting content of {code_file}.")
-        with open(code_file, "w", encoding="utf-8", newline="\n") as f:
+        with open(code_file, "w", encoding="utf-8") as f:
             f.write(clean_code)
 
     return diff
