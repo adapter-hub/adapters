@@ -14,7 +14,7 @@ class CustomHead(PredictionHead):
         self.config = config
         self.build(model=model)
 
-    def forward(self, outputs, attention_mask, return_dict, **kwargs):
+    def forward(self, outputs, cls_output, attention_mask, return_dict, **kwargs):
         logits = super().forward(outputs[0])
         outputs = (logits,) + outputs[2:]
         return outputs
@@ -35,7 +35,7 @@ class AdapterCustomHeadTest(unittest.TestCase):
         self.assertEqual(output1[0].size(), output2[0].size())
 
     def test_custom_head_from_model_config(self):
-        model_name = "bert-base-uncased"
+        model_name = "gpt2"
         model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
         model = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
         config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}

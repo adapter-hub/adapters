@@ -34,7 +34,8 @@ class PredictionHead(nn.Sequential):
         model_config = model.config
         pred_head = []
         for l in range(self.config["layers"]):
-            pred_head.append(nn.Dropout(model_config.hidden_dropout_prob))
+            if hasattr(model_config, "hidden_dropout_prob"):
+                pred_head.append(nn.Dropout(model_config.hidden_dropout_prob))
             if l < self.config["layers"] - 1:
                 pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
                 pred_head.append(Activation_Function_Class(self.config["activation_function"]))
