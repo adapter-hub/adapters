@@ -11,7 +11,7 @@ from .adapter_bert import (
     ModelWithFlexibleHeadsAdaptersMixin
 )
 from .adapter_heads import ClassificationHead, MultiLabelClassificationHead
-from .adapter_composition import AdapterCompositionBlock, parse_composition
+from .adapter_composition import AdapterCompositionBlock, parse_composition, Fuse
 
 
 class GPT2AttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
@@ -98,6 +98,11 @@ class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
+    def enable_adapters(
+        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+    ):
+        for layer in self.h:
+            layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
 
 class GPT2LMHeadModelAdapterMixin(GPT2ModelAdapterMixin):

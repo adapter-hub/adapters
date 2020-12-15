@@ -40,6 +40,7 @@ class AdapterCustomHeadTest(unittest.TestCase):
         model = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
         config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
         model.add_adapter("ssh", "pfeiffer")
+        model.train_adapter(["ssh"])
         model.add_custom_head("custom_head", config)
         model.eval()
         in_data = ids_tensor((1, 128), 1000)
