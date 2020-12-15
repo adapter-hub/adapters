@@ -18,6 +18,7 @@ if is_torch_available():
         GPT2LMHeadModel,
         GPT2Model,
         GPT2PreTrainedModel,
+        GPT2ModelHeadsMixin,
         load_tf_weights_in_gpt2,
     )
 

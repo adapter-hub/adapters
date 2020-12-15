@@ -23,7 +23,8 @@ def filter_parameters(model, filter_string):
 @require_torch
 class AdapterTrainingTest(unittest.TestCase):
 
-    model_names = ["bert-base-uncased", "distilbert-base-uncased"]
+    model_names = [#"bert-base-uncased", "distilbert-base-uncased",
+     "gpt2"]
 
     def test_train_single_adapter(self):
         for model_name in self.model_names:

@@ -45,7 +45,14 @@ from ...modeling_utils import (
 )
 from ...utils import logging
 from .configuration_gpt2 import GPT2Config
-
+from ...adapter_gpt2 import(
+    GPT2DoubleHeadsModelOutputAdapterMixin,
+    GPT2LMHeadModelAdapterMixin,
+    GPT2ModelWithHeadsAdapterMixin,
+    GPT2DecoderBlockAdaptersMixin,
+    GPT2ModelAdapterMixin,
+    GPT2ModelHeadsMixin,
+)
 
 logger = logging.get_logger(__name__)
 
@@ -261,9 +268,10 @@ class MLP(nn.Module):
         return self.dropout(h2)
 
 
-class Block(nn.Module):
+class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
     def __init__(self, n_ctx, config, scale=False):
         super().__init__()
+        self.config = config
         hidden_size = config.n_embd
         inner_dim = config.n_inner if config.n_inner is not None else 4 * hidden_size
         self.ln_1 = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
@@ -273,6 +281,7 @@ class Block(nn.Module):
             self.crossattention = Attention(hidden_size, n_ctx, config, scale, is_cross_attention=True)
             self.ln_cross_attn = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
         self.mlp = MLP(inner_dim, config)
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -285,6 +294,7 @@ class Block(nn.Module):
         use_cache=False,
         output_attentions=False,
     ):
+        model_input = hidden_states
         attn_outputs = self.attn(
             self.ln_1(hidden_states),
             layer_past=layer_past,
@@ -316,9 +326,19 @@ class Block(nn.Module):
             hidden_states = hidden_states + attn_output
             outputs = outputs + cross_attn_outputs[2:]  # add cross attentions if we output attention weights
 
+        # Pass the parameters to the adapters and get the results
+        a_output = self.attention_adapters.adapters_forward(hidden_states, model_input)
+        # ToDo check whether position is correct
+        #ToDo what form has hidden states ?????
+        hidden_states = hidden_states + a_output
+
         feed_forward_hidden_states = self.mlp(self.ln_2(hidden_states))
+
+        feed_forward_hidden_states = self.output_adapters.adapters_forward(feed_forward_hidden_states, hidden_states)
         # residual connection
         hidden_states = hidden_states + feed_forward_hidden_states
+
+
 
         outputs = [hidden_states] + outputs
         return outputs  # hidden_states, present, (attentions, cross_attentions)
@@ -351,7 +371,7 @@ class GPT2PreTrainedModel(PreTrainedModel):
 
 
 @dataclass
-class GPT2DoubleHeadsModelOutput(ModelOutput):
+class GPT2DoubleHeadsModelOutput(GPT2DoubleHeadsModelOutputAdapterMixin, ModelOutput):
     """
     Base class for outputs of models predicting if two sentences are consecutive or not.
 
@@ -480,16 +500,16 @@ GPT2_INPUTS_DOCSTRING = r"""
     "The bare GPT2 Model transformer outputting raw hidden-states without any specific head on top.",
     GPT2_START_DOCSTRING,
 )
-class GPT2Model(GPT2PreTrainedModel):
+class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
-
         self.wte = nn.Embedding(config.vocab_size, config.n_embd)
         self.wpe = nn.Embedding(config.n_positions, config.n_embd)
         self.drop = nn.Dropout(config.embd_pdrop)
         self.h = nn.ModuleList([Block(config.n_ctx, config, scale=True) for _ in range(config.n_layer)])
         self.ln_f = nn.LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
 
+        self._init_adapter_modules()
         self.init_weights()
 
     def get_input_embeddings(self):
@@ -528,6 +548,9 @@ class GPT2Model(GPT2PreTrainedModel):
         output_hidden_states=None,
         return_dict=None,
     ):
+        if not self.active_adapters and self.has_adapters():
+            logger.warning("There are adapters available but none are passed to model.forward")
+
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -600,6 +623,7 @@ class GPT2Model(GPT2PreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
+        inputs_embeds = self.invertible_adapters_forward(inputs_embeds)
         position_embeds = self.wpe(position_ids)
         hidden_states = inputs_embeds + position_embeds
 
@@ -684,7 +708,7 @@ class GPT2Model(GPT2PreTrainedModel):
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2LMHeadModel(GPT2PreTrainedModel):
+class GPT2LMHeadModel(GPT2LMHeadModelAdapterMixin, GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head\.weight"]
 
     def __init__(self, config):
@@ -808,7 +832,7 @@ input sequence).
 """,
     GPT2_START_DOCSTRING,
 )
-class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
+class GPT2DoubleHeadsModel(GPT2ModelWithHeadsAdapterMixin, GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         config.num_labels = 1
@@ -974,7 +998,7 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2ForSequenceClassification(GPT2PreTrainedModel):
+class GPT2ForSequenceClassification(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head\.weight"]
 
     def __init__(self, config):
@@ -1074,3 +1098,57 @@ class GPT2ForSequenceClassification(GPT2PreTrainedModel):
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,
         )
+
+class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.gpt2 = GPT2Model(config)
+
+        self._init_head_modules()
+
+        self.init_weights()
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        head=None,
+        return_dict=None,
+        **kwargs
+    ):
+        input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
+        position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+        inputs_embeds = (
+            inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
+            if inputs_embeds is not None
+            else None
+        )
+
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        outputs = self.gpt2(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        outputs = self.forward_head(
+            outputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
+        )
+
+        return outputs

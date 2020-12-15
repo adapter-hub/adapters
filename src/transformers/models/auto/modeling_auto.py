@@ -101,7 +101,7 @@ from ..funnel.modeling_funnel import (
     FunnelForTokenClassification,
     FunnelModel,
 )
-from ..gpt2.modeling_gpt2 import GPT2ForSequenceClassification, GPT2LMHeadModel, GPT2Model
+from ..gpt2.modeling_gpt2 import GPT2ForSequenceClassification, GPT2LMHeadModel, GPT2Model, GPT2ModelWithHeads
 from ..layoutlm.modeling_layoutlm import LayoutLMForMaskedLM, LayoutLMForTokenClassification, LayoutLMModel
 from ..longformer.modeling_longformer import (
     LongformerForMaskedLM,
@@ -280,6 +280,7 @@ MODEL_WITH_HEADS_MAPPING = OrderedDict(
         (RobertaConfig, RobertaModelWithHeads),
         (BertConfig, BertModelWithHeads),
         (DistilBertConfig, DistilBertModelWithHeads),
+        (GPT2Config, GPT2ModelWithHeads )
     ]
 )
 
