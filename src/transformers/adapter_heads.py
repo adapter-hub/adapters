@@ -72,7 +72,7 @@ class ClassificationHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -108,7 +108,7 @@ class MultiLabelClassificationHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -143,7 +143,7 @@ class MultipleChoiceHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -187,7 +187,7 @@ class TaggingHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -242,7 +242,7 @@ class QuestionAnsweringHead(PredictionHead):
             outputs = (
                 start_logits,
                 end_logits,
-            ) + outputs[2:]
+            ) + outputs[1:]
             if total_loss is not None:
                 outputs = (total_loss,) + outputs
             return outputs
