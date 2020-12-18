@@ -767,9 +767,10 @@ class ModelAdaptersMixin(ABC):
     def active_adapters(self) -> AdapterCompositionBlock:
         return self.config.adapters.active_setup
 
-    def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def set_active_adapters(
+        self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
+    ):
         """Sets the adapter modules to be used by default in every forward pass.
-        This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
         If no adapter with the given name is found, no module of the respective type will be activated.
 
         Args:
@@ -783,6 +784,7 @@ class ModelAdaptersMixin(ABC):
                 )
 
         self.config.adapters.active_setup = adapter_setup
+        self.config.adapters.skip_layers = skip_layers
 
     def set_adapter_fusion_config(self, adapter_fusion_config, override_kwargs=None):
         """Sets the adapter fusion configuration.

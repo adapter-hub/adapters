@@ -38,11 +38,23 @@ class BertAdaptersBaseMixin(ABC):
         """Gets the name of the key by which this adapter location is identified in the adapter configuration."""
         pass
 
+    @property
+    def layer_idx(self):
+        return getattr(self, "_layer_idx", -1)
+
+    @layer_idx.setter
+    def layer_idx(self, layer_idx):
+        idx = getattr(self, "_layer_idx", layer_idx)
+        assert idx == layer_idx
+        setattr(self, "_layer_idx", idx)
+
     def _init_adapter_modules(self):
         self.adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
 
-    def add_adapter(self, adapter_name: str):
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        self.layer_idx = layer_idx
+
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config[self.adapter_config_key]:
             adapter = Adapter(
@@ -249,8 +261,15 @@ class BertAdaptersBaseMixin(ABC):
         """
         Called for each forward pass through adapters.
         """
+        skip_layer = (
+            self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
+        )
         adapter_setup = self.config.adapters.active_setup if hasattr(self.config, "adapters") else None
-        if adapter_setup is not None and (len(set(self.adapters.keys()) & adapter_setup.flatten()) > 0):
+        if (
+            not skip_layer
+            and adapter_setup is not None
+            and (len(set(self.adapters.keys()) & adapter_setup.flatten()) > 0)
+        ):
             if isinstance(adapter_setup, Stack):
                 hidden_states, _ = self.adapter_stack(adapter_setup, hidden_states, input_tensor)
             elif isinstance(adapter_setup, Fuse):
@@ -295,9 +314,9 @@ class BertLayerAdaptersMixin:
         self.attention.output.add_fusion_layer(adapter_names)
         self.output.add_fusion_layer(adapter_names)
 
-    def add_adapter(self, adapter_name: str):
-        self.attention.output.add_adapter(adapter_name)
-        self.output.add_adapter(adapter_name)
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        self.attention.output.add_adapter(adapter_name, layer_idx)
+        self.output.add_adapter(adapter_name, layer_idx)
 
     def enable_adapters(
         self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
@@ -318,7 +337,7 @@ class BertEncoderAdaptersMixin:
         leave_out = adapter_config.get("leave_out", [])
         for i, layer in enumerate(self.layer):
             if i not in leave_out:
-                layer.add_adapter(adapter_name)
+                layer.add_adapter(adapter_name, i)
 
     def enable_adapters(
         self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
