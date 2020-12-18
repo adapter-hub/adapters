@@ -49,7 +49,7 @@ class BertAdaptersBaseMixin(ABC):
 
     def add_adapter(self, adapter_name: str):
         adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config and adapter_config[self.adapter_config_key]:
+        if adapter_config and adapter_config.get(self.adapter_config_key, None):
             adapter = Adapter(
                 input_size=self.config.hidden_size,
                 down_sample=self.config.hidden_size // adapter_config["reduction_factor"],

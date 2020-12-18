@@ -2,7 +2,7 @@ from typing import Union
 
 from torch import nn
 
-from .adapter_bert import BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
+from .adapter_bert import BertAdaptersBaseMixin
 from .adapter_composition import AdapterCompositionBlock, parse_composition
 from .adapter_heads import (
     ClassificationHead,
@@ -13,12 +13,24 @@ from .adapter_heads import (
 from .adapter_model_mixin import ModelAdaptersMixin
 
 
-class BartSelfAttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):
+class BartSelfAttentionAdaptersModule(BertAdaptersBaseMixin, nn.Module):
     def __init__(self, parent):
         super().__init__()
         # keep a reference to the parent module without registering as a submodule
         object.__setattr__(self, "parent", parent)
         self.config = parent.config
+
+    @property
+    def adapter_modules(self):
+        return self.adapters
+
+    @property
+    def adapter_config_key(self):
+        return "mh_adapter"
+
+    def _init_adapter_modules(self):
+        super()._init_adapter_modules()
+        self.adapters = nn.ModuleDict(dict())
 
     @property
     def layer_norm(self):
@@ -29,12 +41,52 @@ class BartSelfAttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):
             return self.parent.self_attn_layer_norm
 
 
-class BartOutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
+class BartCrossAttentionAdaptersModule(BertAdaptersBaseMixin, nn.Module):
     def __init__(self, parent):
         super().__init__()
         # keep a reference to the parent module without registering as a submodule
         object.__setattr__(self, "parent", parent)
         self.config = parent.config
+
+    @property
+    def adapter_modules(self):
+        return self.adapters
+
+    @property
+    def adapter_config_key(self):
+        return "cross_adapter"
+
+    def _init_adapter_modules(self):
+        super()._init_adapter_modules()
+        self.adapters = nn.ModuleDict(dict())
+
+    @property
+    def layer_norm(self):
+        # if layer norm was applied before attention/ FFW block, don't use it here
+        if self.config.normalize_before:
+            return None
+        else:
+            return self.parent.encoder_attn_layer_norm
+
+
+class BartOutputAdaptersModule(BertAdaptersBaseMixin, nn.Module):
+    def __init__(self, parent):
+        super().__init__()
+        # keep a reference to the parent module without registering as a submodule
+        object.__setattr__(self, "parent", parent)
+        self.config = parent.config
+
+    @property
+    def adapter_modules(self):
+        return self.adapters
+
+    @property
+    def adapter_config_key(self):
+        return "output_adapter"
+
+    def _init_adapter_modules(self):
+        super()._init_adapter_modules()
+        self.adapters = nn.ModuleDict(dict())
 
     @property
     def layer_norm(self):
@@ -45,7 +97,7 @@ class BartOutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
             return self.parent.final_layer_norm
 
 
-class BartLayerAdaptersMixin:
+class BartEncoderLayerAdaptersMixin:
     """Adds adapters to the BartEncoderLayer or BartDecoderLayer module of BART."""
 
     def _init_adapter_modules(self):
@@ -65,6 +117,27 @@ class BartLayerAdaptersMixin:
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+
+
+class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
+    """Adds adapters to the BartEncoderLayer or BartDecoderLayer module of BART."""
+
+    def _init_adapter_modules(self):
+        super()._init_adapter_modules()
+        self.cross_attention_adapters = BartCrossAttentionAdaptersModule(self)
+        self.cross_attention_adapters._init_adapter_modules()
+
+    def add_fusion_layer(self, adapter_names):
+        super().add_fusion_layer(adapter_names)
+        self.cross_attention_adapters.add_fusion_layer(adapter_names)
+
+    def add_adapter(self, adapter_name: str):
+        super().add_adapter(adapter_name)
+        self.cross_attention_adapters.add_adapter(adapter_name)
+
+    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
+        super().enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+        self.cross_attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
 
 
 class BartEncoderDecoderAdaptersMixin:

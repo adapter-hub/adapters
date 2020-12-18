@@ -25,8 +25,9 @@ from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
 from ...adapter_bart import (
+    BartDecoderLayerAdaptersMixin,
     BartEncoderDecoderAdaptersMixin,
-    BartLayerAdaptersMixin,
+    BartEncoderLayerAdaptersMixin,
     BartModelAdaptersMixin,
     BartModelHeadsMixin,
 )
@@ -245,7 +246,7 @@ def make_padding_mask(input_ids, padding_idx=1):
 # Helper Modules
 
 
-class EncoderLayer(BartLayerAdaptersMixin, nn.Module):
+class EncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: BartConfig):
         super().__init__()
         self.config = config
@@ -397,7 +398,7 @@ class BartEncoder(BartEncoderDecoderAdaptersMixin, nn.Module):
         return BaseModelOutput(last_hidden_state=x, hidden_states=encoder_states, attentions=all_attentions)
 
 
-class DecoderLayer(BartLayerAdaptersMixin, nn.Module):
+class DecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: BartConfig):
         super().__init__()
         self.config = config
@@ -469,9 +470,7 @@ class DecoderLayer(BartLayerAdaptersMixin, nn.Module):
             output_attentions=output_attentions,
         )
         x = F.dropout(x, p=self.dropout, training=self.training)
-        x = residual + x
-        if not self.normalize_before:
-            x = self.encoder_attn_layer_norm(x)
+        x = self.cross_attention_adapters.adapters_forward(x, residual)
 
         # Fully Connected
         residual = x
