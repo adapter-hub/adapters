@@ -4,7 +4,7 @@ import logging
 import torch
 from torch import nn
 
-from .adapter_config import DEFAULT_ADAPTER_CONFIG, AdapterType
+from .adapter_config import AdapterType
 from .adapter_heads import (
     ClassificationHead,
     MultiLabelClassificationHead,
@@ -479,21 +479,6 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-
-        # language adapters
-        for language in self.config.adapters.adapter_list(AdapterType.text_lang):
-            self.encoder.add_adapter(language, AdapterType.text_lang)
-            self.add_invertible_lang_adapter(language)
-        # task adapters
-        for task in self.config.adapters.adapter_list(AdapterType.text_task):
-            self.encoder.add_adapter(task, AdapterType.text_task)
-        # fusion
-        if hasattr(self.config, "fusion_models"):
-            for fusion_adapter_names in self.config.fusion_models:
-                self.add_fusion_layer(fusion_adapter_names)
-
     def train_adapter(self, adapter_names: list):
         """Sets the model into mode for training the given adapters."""
         self.train()
@@ -514,22 +499,7 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.set_active_adapters(adapter_names)
         # TODO implement fusion for invertible adapters
 
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
-        """Adds a new adapter module of the specified type to the model.
-
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            adapter_type (AdapterType): The adapter type.
-            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
-        """
-        if not AdapterType.has(adapter_type):
-            raise ValueError("Invalid adapter type {}".format(adapter_type))
-        if not self.config.adapters.get_config(adapter_type):
-            self.config.adapters.set_config(adapter_type, config or DEFAULT_ADAPTER_CONFIG)
-        self.config.adapters.add(adapter_name, adapter_type, config=config)
+    def _add_adapter(self, adapter_name, adapter_type):
         self.encoder.add_adapter(adapter_name, adapter_type)
         if adapter_type == AdapterType.text_lang:
             self.add_invertible_lang_adapter(adapter_name)

@@ -108,6 +108,35 @@ class AdapterFusionModelTest(unittest.TestCase):
                         self.assertEqual(len(output1), len(output2))
                         self.assertTrue(torch.equal(output1[0], output2[0]))
 
+    def test_load_full_model(self):
+        for model_class in self.model_classes:
+            model_config = model_class.config_class
+            model1 = model_class(model_config())
+            model1.eval()
+
+            with self.subTest(model_class=model_class):
+                name1 = "name1"
+                name2 = "name2"
+                model1.add_adapter(name1, AdapterType.text_task)
+                model1.add_adapter(name2, AdapterType.text_task)
+                model1.add_fusion([name1, name2])
+                # save & reload model
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    model1.save_pretrained(temp_dir)
+                    model2 = model_class.from_pretrained(temp_dir)
+
+                model1.eval()
+                model2.eval()
+                # check if AdapterFusion was correctly loaded
+                self.assertTrue(model1.config.adapter_fusion_models == model2.config.adapter_fusion_models)
+
+                # check equal output
+                in_data = ids_tensor((1, 128), 1000)
+                output1 = model1(in_data, adapter_names=[[name1, name2]])
+                output2 = model2(in_data, adapter_names=[[name1, name2]])
+                self.assertEqual(len(output1), len(output2))
+                self.assertTrue(torch.equal(output1[0], output2[0]))
+
     def test_model_config_serialization(self):
         """PretrainedConfigurations should not raise an Exception when serializing the config dict
 
