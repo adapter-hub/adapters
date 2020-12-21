@@ -307,6 +307,8 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         outputs = attn_outputs[1:]
         # residual connection
         hidden_states = attn_output + hidden_states
+        a_output = self.attention_adapters.adapters_forward(self.ln_cross_attn(hidden_states), model_input)
+        hidden_states = a_output
 
         if encoder_hidden_states is not None:
             # add one self-attention block for cross-attention
@@ -314,7 +316,7 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
                 self, "crossattention"
             ), f"If `encoder_hidden_states` are passed, {self} has to be instantiated with cross-attention layers by setting `config.add_cross_attention=True`"
             cross_attn_outputs = self.crossattention(
-                self.ln_cross_attn(hidden_states),
+                hidden_states,
                 attention_mask=attention_mask,
                 head_mask=head_mask,
                 encoder_hidden_states=encoder_hidden_states,
@@ -327,11 +329,9 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
             outputs = outputs + cross_attn_outputs[2:]  # add cross attentions if we output attention weights
 
         # Pass the parameters to the adapters and get the results
-        a_output = self.attention_adapters.adapters_forward(hidden_states, model_input)
-        # ToDo check whether position is correct
-        hidden_states = a_output
 
-        feed_forward_hidden_states = self.mlp(hidden_states)
+
+        feed_forward_hidden_states = self.mlp(self.l2(hidden_states))
 
         out_adapters_states = self.output_adapters.adapters_forward(feed_forward_hidden_states, hidden_states)
         # residual connection
