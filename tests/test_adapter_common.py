@@ -13,7 +13,8 @@ from transformers import (
     RobertaModel,
     RobertaModelWithHeads,
     XLMRobertaModel,
-    GPT2Model
+    GPT2Model,
+    GPT2ModelWithHeads, AdapterType,
 )
 from transformers.testing_utils import require_torch
 
@@ -33,7 +34,8 @@ def create_twin_models(model_class):
 @require_torch
 class AdapterModelTest(unittest.TestCase):
 
-    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel, GPT2Model]
+    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel,
+                GPT2Model, GPT2ModelWithHeads]
 
     def test_add_adapter(self):
         for model_class in self.model_classes:

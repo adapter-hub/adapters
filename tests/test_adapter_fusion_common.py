@@ -12,6 +12,7 @@ from transformers import (
     PfeifferConfig,
     RobertaModel,
     XLMRobertaModel,
+    GPT2Model
 )
 from transformers.testing_utils import require_torch
 
@@ -29,7 +30,7 @@ def create_twin_models(model1):
 @require_torch
 class AdapterFusionModelTest(unittest.TestCase):
 
-    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel]
+    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel, GPT2Model]
 
     def test_add_adapter_fusion(self):
 

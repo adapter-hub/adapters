@@ -329,14 +329,13 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         # Pass the parameters to the adapters and get the results
         a_output = self.attention_adapters.adapters_forward(hidden_states, model_input)
         # ToDo check whether position is correct
-        #ToDo what form has hidden states ?????
-        hidden_states = hidden_states + a_output
+        hidden_states = a_output
 
-        feed_forward_hidden_states = self.mlp(self.ln_2(hidden_states))
+        feed_forward_hidden_states = self.mlp(hidden_states)
 
-        feed_forward_hidden_states = self.output_adapters.adapters_forward(feed_forward_hidden_states, hidden_states)
+        out_adapters_states = self.output_adapters.adapters_forward(feed_forward_hidden_states, hidden_states)
         # residual connection
-        hidden_states = hidden_states + feed_forward_hidden_states
+        hidden_states = hidden_states + out_adapters_states
 
 
 

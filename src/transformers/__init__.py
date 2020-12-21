@@ -499,6 +499,7 @@ if is_torch_available():
         GPT2ForSequenceClassification,
         GPT2LMHeadModel,
         GPT2Model,
+        GPT2ModelWithHeads,
         GPT2PreTrainedModel,
         load_tf_weights_in_gpt2,
     )
