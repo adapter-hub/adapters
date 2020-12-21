@@ -813,10 +813,6 @@ class RobertaModelWithHeads(BertModelHeadsMixin, RobertaPreTrainedModel):
         head_outputs = self.forward_head(
             head_inputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
         )
-        # plug pooler outputs back in
-        if not return_dict:
-            head_outputs = (head_outputs[0], outputs[1]) + head_outputs[1:]
-
         return head_outputs
 
 
