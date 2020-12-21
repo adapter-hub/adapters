@@ -959,10 +959,14 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         else:
             head_inputs = outputs
 
-        head_outputs = self.forward_head(
-            head_inputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
-        )
-        return head_outputs
+        if head or self.active_head:
+            head_outputs = self.forward_head(
+                head_inputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
+            )
+            return head_outputs
+        else:
+            # in case no head is used just return the output of the base model (including pooler output)
+            return outputs
 
 
 @add_start_docstrings(
