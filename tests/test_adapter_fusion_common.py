@@ -5,7 +5,6 @@ import unittest
 import torch
 
 from transformers import (
-    ADAPTER_CONFIG_MAP,
     ADAPTERFUSION_CONFIG_MAP,
     AdapterType,
     BertModel,
@@ -33,40 +32,35 @@ class AdapterFusionModelTest(unittest.TestCase):
     model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel]
 
     def test_add_adapter_fusion(self):
+        config_name = "pfeiffer"
 
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
-            for config_name, adapter_config in ADAPTER_CONFIG_MAP.items():
-                for type_name, adapter_type in AdapterType.__members__.items():
-                    for model_class in self.model_classes:
-                        model_config = model_class.config_class
-                        model = model_class(model_config())
+            for type_name, adapter_type in AdapterType.__members__.items():
+                for model_class in self.model_classes:
+                    model_config = model_class.config_class
+                    model = model_class(model_config())
 
-                        # skip configs without invertible language adapters
-                        if adapter_type == AdapterType.text_lang and not adapter_config.invertible_adapter:
-                            continue
-                        with self.subTest(model_class=model_class, config=config_name, adapter_type=type_name):
-                            name1 = f"{type_name}-{config_name}-1"
-                            name2 = f"{type_name}-{config_name}-2"
-                            model.add_adapter(name1, adapter_type, config=adapter_config)
-                            model.add_adapter(name2, adapter_type, config=adapter_config)
+                    with self.subTest(model_class=model_class, config=config_name, adapter_type=type_name):
+                        name1 = f"{type_name}-{config_name}-1"
+                        name2 = f"{type_name}-{config_name}-2"
+                        model.add_adapter(name1, adapter_type, config=config_name)
+                        model.add_adapter(name2, adapter_type, config=config_name)
 
-                            # adapter is correctly added to config
-                            self.assertTrue(name1 in model.config.adapters.adapter_list(adapter_type))
-                            self.assertTrue(name2 in model.config.adapters.adapter_list(adapter_type))
-                            self.assertEqual(adapter_config, model.config.adapters.get(name1))
-                            self.assertEqual(adapter_config, model.config.adapters.get(name2))
+                        # adapter is correctly added to config
+                        self.assertTrue(name1 in model.config.adapters.adapter_list(adapter_type))
+                        self.assertTrue(name2 in model.config.adapters.adapter_list(adapter_type))
 
-                            model.add_fusion([name1, name2], adater_fusion_config_name)
+                        model.add_fusion([name1, name2], adater_fusion_config_name)
 
-                            # check forward pass
-                            input_ids = ids_tensor((1, 128), 1000)
-                            input_data = {"input_ids": input_ids}
-                            if adapter_type == AdapterType.text_task or adapter_type == AdapterType.text_lang:
-                                input_data["adapter_names"] = [[name1, name2]]
-                            adapter_output = model(**input_data)
-                            base_output = model(input_ids)
-                            self.assertEqual(len(adapter_output), len(base_output))
-                            self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
+                        # check forward pass
+                        input_ids = ids_tensor((1, 128), 1000)
+                        input_data = {"input_ids": input_ids}
+                        if adapter_type == AdapterType.text_task or adapter_type == AdapterType.text_lang:
+                            input_data["adapter_names"] = [[name1, name2]]
+                        adapter_output = model(**input_data)
+                        base_output = model(input_ids)
+                        self.assertEqual(len(adapter_output), len(base_output))
+                        self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
 
     def test_add_adapter_fusion_different_config(self):
         for model_class in self.model_classes:

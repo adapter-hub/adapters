@@ -38,12 +38,15 @@ fix-copies:
 test:
 	python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
+# Run a reduced test suite in the CI pipeline of adapter-transformers
 test-reduced:
 	python -m pytest -n auto --dist=loadfile -s -v\
 		--ignore-glob='tests/test_tokenization*'\
 		--ignore-glob='tests/test_pipelines*'\
 		--ignore-glob='tests/test_hf*'\
 		--ignore-glob='tests/test_doc*'\
+		--ignore-glob='tests/test_benchmark*'\
+		--ignore-glob='tests/test_retrieval*'\
 		./tests/
 
 # Run tests for examples
