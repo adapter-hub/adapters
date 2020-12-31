@@ -314,7 +314,7 @@ class BertAdaptersBaseMixin(ABC):
                 hidden_states = self.adapter_split(adapter_setup, hidden_states, input_tensor)
             elif isinstance(adapter_setup, Parallel):
                 # notice that we are overriding input tensor here to keep the same dim as hidden_states for the residual
-                # in case we were blowing up the batch for parallel processing of multiple adapters for the same input
+                # in case we were repeating instances for parallel processing of multiple adapters for the same input
                 hidden_states, input_tensor = self.adapter_parallel(adapter_setup, hidden_states, input_tensor)
             else:
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
