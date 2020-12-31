@@ -39,6 +39,15 @@ class AdapterCompositionBlock(Sequence):
         return set(itertools.chain(*[[b] if isinstance(b, str) else b.flatten() for b in self.children]))
 
 
+class Parallel(AdapterCompositionBlock):
+    def __init__(self, *parallel_adapters: List[str]):
+        """Can be used to perform inference for multiple tasks (i.e., adapters) in parallel (for the same input).
+
+        See AdapterDrop https://arxiv.org/abs/2010.11918
+        """
+        super().__init__(*parallel_adapters)
+
+
 class Stack(AdapterCompositionBlock):
     def __init__(self, *stack_layers: List[Union[AdapterCompositionBlock, str]]):
         super().__init__(*stack_layers)
