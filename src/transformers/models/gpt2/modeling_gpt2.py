@@ -333,7 +333,7 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         # Pass the parameters to the adapters and get the results
 
 
-        feed_forward_hidden_states = self.mlp(self.l2(hidden_states))
+        feed_forward_hidden_states = self.mlp(self.ln_2(hidden_states))
 
         out_adapters_states = self.output_adapters.adapters_forward(feed_forward_hidden_states, hidden_states)
         # residual connection
