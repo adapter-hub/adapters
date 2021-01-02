@@ -307,7 +307,9 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         outputs = attn_outputs[1:]
         # residual connection
         hidden_states = attn_output + hidden_states
-        a_output = self.attention_adapters.adapters_forward(self.ln_cross_attn(hidden_states), model_input)
+        if encoder_hidden_states is not  None:
+            hidden_states = self.ln_cross_attn(hidden_states)
+        a_output = self.attention_adapters.adapters_forward(hidden_states, model_input)
         hidden_states = a_output
 
         if encoder_hidden_states is not None:
