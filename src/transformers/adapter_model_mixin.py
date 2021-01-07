@@ -292,16 +292,16 @@ class AdapterLoader(WeightsLoader):
             raise ValueError("Invalid adapter type {}".format(self.adapter_type))
 
     def filter_func(self, adapter_name):
-        return lambda x: "_adapters.{}.".format(adapter_name) in x
+        return lambda x: "_adapters.{}.".format(adapter_name) in x or ".adapters.{}.".format(adapter_name) in x
 
     # This dict maps the original weight names to the currently used equivalents.
     # The mapping is used by rename_func() to support loading from older weights files.
     # Old adapters will be loaded and converted to the new format automatically.
     legacy_weights_mapping = {
-        "attention_text_task_adapters": "attention_adapters",
-        "attention_text_lang_adapters": "attention_adapters",
-        "layer_text_task_adapters": "output_adapters",
-        "layer_text_lang_adapters": "output_adapters",
+        "attention_text_task_adapters": "adapters",
+        "attention_text_lang_adapters": "adapters",
+        "layer_text_task_adapters": "adapters",
+        "layer_text_lang_adapters": "adapters",
         "invertible_lang_adapters": "invertible_adapters",
     }
 
@@ -325,7 +325,7 @@ class AdapterLoader(WeightsLoader):
 
     def rename_func(self, old_name, new_name):
         return lambda k: self._rename_legacy_weights(k).replace(
-            "_adapters.{}".format(old_name), "_adapters.{}".format(new_name)
+            "adapters.{}.".format(old_name), "adapters.{}.".format(new_name)
         )
 
     def save(self, save_directory, name, meta_dict=None):
