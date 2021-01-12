@@ -97,7 +97,7 @@ class ClassificationHead(PredictionHead):
                     attentions=outputs.attentions,
                 )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -147,7 +147,7 @@ class MultiLabelClassificationHead(PredictionHead):
                     attentions=outputs.attentions,
                 )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -183,7 +183,7 @@ class MultipleChoiceHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -211,13 +211,13 @@ class TaggingHead(PredictionHead):
             # Only keep active parts of the loss
             if attention_mask is not None:
                 active_loss = attention_mask.view(-1) == 1
-                active_logits = logits.view(-1, self.num_labels)
+                active_logits = logits.view(-1, self.config["num_labels"])
                 active_labels = torch.where(
                     active_loss, labels.view(-1), torch.tensor(loss_fct.ignore_index).type_as(labels)
                 )
                 loss = loss_fct(active_logits, active_labels)
             else:
-                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+                loss = loss_fct(logits.view(-1, self.config["num_labels"]), labels.view(-1))
 
         if return_dict:
             return TokenClassifierOutput(
@@ -227,7 +227,7 @@ class TaggingHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -296,7 +296,7 @@ class QuestionAnsweringHead(PredictionHead):
             outputs = (
                 start_logits,
                 end_logits,
-            ) + outputs[2:]
+            ) + outputs[1:]
             if total_loss is not None:
                 outputs = (total_loss,) + outputs
             return outputs

@@ -14,7 +14,7 @@ from transformers import (
     RobertaModelWithHeads,
     XLMRobertaModel,
 )
-from transformers.testing_utils import require_torch
+from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
 
@@ -40,7 +40,7 @@ class AdapterModelTest(unittest.TestCase):
             model = model_class(model_config())
 
             for config_name, adapter_config in ADAPTER_CONFIG_MAP.items():
-                with self.subTest(model_class=model_class, config=config_name):
+                with self.subTest(model_class=model_class.__name__, config=config_name):
                     name = f"{config_name}"
                     model.add_adapter(name, config=adapter_config)
                     model.set_active_adapters([name])
@@ -61,7 +61,7 @@ class AdapterModelTest(unittest.TestCase):
         for model_class in self.model_classes:
             model1, model2 = create_twin_models(model_class)
 
-            with self.subTest(model_class=model_class):
+            with self.subTest(model_class=model_class.__name__):
                 name = "dummy"
                 model1.add_adapter(name)
                 model1.set_active_adapters([name])
@@ -87,7 +87,7 @@ class AdapterModelTest(unittest.TestCase):
             model1 = model_class(model_config())
             model1.eval()
 
-            with self.subTest(model_class=model_class):
+            with self.subTest(model_class=model_class.__name__):
                 name = "dummy"
                 model1.add_adapter(name)
                 model1.set_active_adapters([name])
@@ -125,8 +125,12 @@ class AdapterModelTest(unittest.TestCase):
 class PredictionHeadModelTest(unittest.TestCase):
 
     model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads]
+    batch_size = 1
+    seq_length = 128
 
-    def run_prediction_head_test(self, model, compare_model, head_name, input_shape=(1, 128), output_shape=(1, 2)):
+    def run_prediction_head_test(
+        self, model, compare_model, head_name, input_shape=None, output_shape=(1, 2), label_dict=None
+    ):
         # first, check if the head is actually correctly registered as part of the pt module
         self.assertTrue(f"heads.{head_name}" in dict(model.named_modules()))
 
@@ -139,15 +143,20 @@ class PredictionHeadModelTest(unittest.TestCase):
         # check if adapter was correctly loaded
         self.assertTrue(head_name in compare_model.heads)
 
-        in_data = ids_tensor(input_shape, 1000)
+        # make a forward pass
         model.active_head = head_name
-        output1 = model(in_data)
-        self.assertEqual(output_shape, tuple(output1[0].size()))
+        input_shape = input_shape or (self.batch_size, self.seq_length)
+        in_data = {"input_ids": ids_tensor(input_shape, 1000)}
+        if label_dict:
+            for k, v in label_dict.items():
+                in_data[k] = v
+        output1 = model(**in_data)
+        self.assertEqual(output_shape, tuple(output1[1].size()))
         # check equal output
         compare_model.active_head = head_name
-        output2 = compare_model(in_data)
+        output2 = compare_model(**in_data)
         self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.equal(output1[0], output2[0]))
+        self.assertTrue(torch.equal(output1[1], output2[1]))
 
     def test_classification_head(self):
         for model_class in self.model_classes:
@@ -155,7 +164,9 @@ class PredictionHeadModelTest(unittest.TestCase):
 
             with self.subTest(model_class=model_class.__name__):
                 model1.add_classification_head("dummy")
-                self.run_prediction_head_test(model1, model2, "dummy")
+                label_dict = {}
+                label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
+                self.run_prediction_head_test(model1, model2, "dummy", label_dict=label_dict)
 
     def test_multiple_choice_head(self):
         for model_class in self.model_classes:
@@ -163,7 +174,11 @@ class PredictionHeadModelTest(unittest.TestCase):
 
             with self.subTest(model_class=model_class.__name__):
                 model1.add_multiple_choice_head("dummy")
-                self.run_prediction_head_test(model1, model2, "dummy", input_shape=(2, 128))
+                label_dict = {}
+                label_dict["labels"] = torch.ones(self.batch_size, dtype=torch.long, device=torch_device)
+                self.run_prediction_head_test(
+                    model1, model2, "dummy", input_shape=(self.batch_size, 2, self.seq_length), label_dict=label_dict
+                )
 
     def test_tagging_head(self):
         for model_class in self.model_classes:
@@ -171,7 +186,11 @@ class PredictionHeadModelTest(unittest.TestCase):
 
             with self.subTest(model_class=model_class.__name__):
                 model1.add_tagging_head("dummy")
-                self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128, 2))
+                label_dict = {}
+                label_dict["labels"] = torch.zeros(
+                    (self.batch_size, self.seq_length), dtype=torch.long, device=torch_device
+                )
+                self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128, 2), label_dict=label_dict)
 
     def test_qa_head(self):
         for model_class in self.model_classes:
@@ -179,7 +198,10 @@ class PredictionHeadModelTest(unittest.TestCase):
 
             with self.subTest(model_class=model_class.__name__):
                 model1.add_qa_head("dummy")
-                self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128))
+                label_dict = {}
+                label_dict["start_positions"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
+                label_dict["end_positions"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
+                self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128), label_dict=label_dict)
 
     def test_adapter_with_head(self):
         for model_class in self.model_classes:

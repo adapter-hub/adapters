@@ -41,17 +41,17 @@ class AdapterExamplesTests(TestCasePlus):
         testargs = """
             run_glue_alt.py
             --model_name_or_path bert-base-uncased
-            --data_dir ./tests/fixtures/tests_samples/MRPC/
-            --task_name mrpc
+            --output_dir {tmp_dir}
+            --overwrite_output_dir
+            --train_file ./tests/fixtures/tests_samples/MRPC/train.csv
+            --validation_file ./tests/fixtures/tests_samples/MRPC/dev.csv
             --do_train
             --do_eval
-            --output_dir ./tests/fixtures/tests_samples/temp_dir
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
             --learning_rate=1e-4
             --max_steps=10
             --warmup_steps=2
-            --overwrite_output_dir
             --seed=42
             --max_seq_length=128
             --train_adapter

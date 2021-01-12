@@ -320,18 +320,6 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-
-        # add adapters specified in config; invertible adapter will only be added if required
-        for adapter_name in self.config.adapters.adapters:
-            self.encoder.add_adapter(adapter_name)
-            self.add_invertible_adapter(adapter_name)
-        # fusion
-        if hasattr(self.config, "fusion_models"):
-            for fusion_adapter_names in self.config.fusion_models:
-                self.add_fusion_layer(fusion_adapter_names)
-
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
         self.train()
@@ -352,17 +340,7 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.set_active_adapters(adapter_setup)
         # TODO implement fusion for invertible adapters
 
-    def add_adapter(self, adapter_name: str, config=None):
-        """Adds a new adapter module of the specified type to the model.
-
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
-        """
-        self.config.adapters.add(adapter_name, config=config)
+    def _add_adapter(self, adapter_name):
         self.encoder.add_adapter(adapter_name)
         self.add_invertible_adapter(adapter_name)
 

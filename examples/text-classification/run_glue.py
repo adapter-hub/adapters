@@ -257,7 +257,7 @@ def main():
 
     # Setup adapters
     if adapter_args.train_adapter:
-        task_name = data_args.task_name
+        task_name = data_args.task_name or "glue"
         # check if adapter already exists, otherwise add it
         if task_name not in model.config.adapters:
             # resolve the adapter config
@@ -301,6 +301,12 @@ def main():
             model.set_active_adapters([lang_adapter_name, task_name])
         else:
             model.set_active_adapters([task_name])
+    else:
+        if adapter_args.load_adapter or adapter_args.load_lang_adapter:
+            raise ValueError(
+                "Adapters can only be loaded in adapters training mode."
+                "Use --train_adapter to enable adapter training"
+            )
 
     # Preprocessing the datasets
     if data_args.task_name is not None:
