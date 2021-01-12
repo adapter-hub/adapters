@@ -11,6 +11,7 @@ from torch import nn
 
 from .adapter_config import (
     ADAPTERFUSION_CONFIG_MAP,
+    DEFAULT_ADAPTER_CONFIG,
     DEFAULT_ADAPTERFUSION_CONFIG,
     AdapterConfig,
     AdapterFusionConfig,
@@ -642,6 +643,7 @@ class InvertibleAdaptersMixin:
 
     def _init_adapter_modules(self):
         self.invertible_lang_adapters = nn.ModuleDict(dict())
+        super()._init_adapter_modules()
 
     def add_invertible_lang_adapter(self, language):
         if language in self.invertible_lang_adapters:
@@ -704,21 +706,19 @@ class ModelAdaptersMixin(ABC):
         elif not isinstance(config.adapters, ModelAdaptersConfig):
             config.adapters = ModelAdaptersConfig(**config.adapters)
 
-    # These methods have to be implemented by every deriving class:
-
-    @abstractmethod
-    def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
-        """Adds a new adapter module of the specified type to the model.
-
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            adapter_type (AdapterType): The adapter type.
-            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
+    def _init_adapter_modules(self):
         """
-        pass
+        This method initializes adapter modules and fusion modules from the model config.
+        """
+        # Initialize adapters from config
+        for adapter_name, config in self.config.adapters.adapters.items():
+            self._add_adapter(adapter_name, config[0])
+        # Initialize fusion from config
+        if hasattr(self.config, "adapter_fusion_models"):
+            for fusion_adapter_names in self.config.adapter_fusion_models:
+                self._add_fusion_layer(fusion_adapter_names)
+
+    # These methods have to be implemented by every deriving class:
 
     @abstractmethod
     def train_adapter(self, adapter_names: list):
@@ -728,6 +728,14 @@ class ModelAdaptersMixin(ABC):
     @abstractmethod
     def train_fusion(self, adapter_names: list):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
+        pass
+
+    @abstractmethod
+    def _add_adapter(self, adapter_name, adapter_type):
+        pass
+
+    @abstractmethod
+    def _add_fusion_layer(self, adapter_names):
         pass
 
     def has_adapters(self, adapter_type=None):
@@ -796,6 +804,24 @@ class ModelAdaptersMixin(ABC):
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
 
+    def add_adapter(self, adapter_name: str, adapter_type: AdapterType, config=None):
+        """Adds a new adapter module of the specified type to the model.
+
+        Args:
+            adapter_name (str): The name of the adapter module to be added.
+            adapter_type (AdapterType): The adapter type.
+            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
+                - the string identifier of a pre-defined configuration dictionary
+                - a configuration dictionary specifying the full config
+                - if not given, the default configuration for this adapter type will be used
+        """
+        if not AdapterType.has(adapter_type):
+            raise ValueError("Invalid adapter type {}".format(adapter_type))
+        if not self.config.adapters.get_config(adapter_type):
+            self.config.adapters.set_config(adapter_type, config or DEFAULT_ADAPTER_CONFIG)
+        self.config.adapters.add(adapter_name, adapter_type, config=config)
+        self.base_model._add_adapter(adapter_name, adapter_type)
+
     def add_fusion(self, adapter_names, adapter_fusion_config=None, override_kwargs=None):
         """Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 
@@ -815,7 +841,8 @@ class ModelAdaptersMixin(ABC):
             else:
                 self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
         elif hasattr(self.config, "adapter_fusion") and adapter_fusion_config is not None:
-            raise Warning("An AdapterFusion config has already been set and will NOT be overwritten")
+            # TODO: This behavior may be a bit unintuitive as the given argument is ignored, but we can't throw an error because of the loader.
+            logger.warning("An AdapterFusion config has already been set and will NOT be overwritten")
 
         if not hasattr(self.config, "adapter_fusion_models"):
             self.config.adapter_fusion_models = []
@@ -1035,6 +1062,12 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def train_fusion(self, adapter_names: list):
         """Sets the model in mode for training of adapter fusion determined by a list of adapter names."""
         self.base_model.train_fusion(adapter_names)
+
+    def _add_adapter(self, adapter_name, adapter_type):
+        self.base_model._add_adapter(adapter_name, adapter_type)
+
+    def _add_fusion_layer(self, adapter_names):
+        self.base_model._add_fusion_layer(adapter_names)
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)
