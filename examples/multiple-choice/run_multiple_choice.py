@@ -199,6 +199,12 @@ def main():
             model.set_active_adapters([lang_adapter_name, task_name])
         else:
             model.set_active_adapters([task_name])
+    else:
+        if adapter_args.load_adapter or adapter_args.load_lang_adapter:
+            raise ValueError(
+                "Adapters can only be loaded in adapters training mode."
+                "Use --train_adapter to enable adapter training"
+            )
 
     # Get datasets
     train_dataset = (

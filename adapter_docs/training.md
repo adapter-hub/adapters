@@ -103,7 +103,7 @@ The important flag here is `--train_adapter` which switches from fine-tuning the
 
 Training a language adapter is equally straightforward as training a task adapter. Similarly to the steps for task adapters
 described above, we add a language adapter module to an existing model training script. Here, we modified the
-[run_language_modeling.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/language-modeling/run_language_modeling.py)
+[run_language_modeling.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/contrib/legacy/run_language_modeling.py)
 script by adding the following code:
 
 ```python

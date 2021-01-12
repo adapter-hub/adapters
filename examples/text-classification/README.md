@@ -116,12 +116,10 @@ export GLUE_DIR=/path/to/glue
 export TASK_NAME=MRPC
 
 python run_glue_alt.py \
-  --model_type bert \
   --model_name_or_path bert-base-cased \
   --task_name $TASK_NAME \
   --do_train \
   --do_eval \
-  --data_dir $GLUE_DIR/$TASK_NAME \
   --max_seq_length 128 \
   --per_device_train_batch_size 32 \
   --learning_rate 1e-4 \
