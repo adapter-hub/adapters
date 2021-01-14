@@ -21,16 +21,8 @@ class BartSelfAttentionAdaptersModule(BertAdaptersBaseMixin, nn.Module):
         self.config = parent.config
 
     @property
-    def adapter_modules(self):
-        return self.adapters
-
-    @property
     def adapter_config_key(self):
         return "mh_adapter"
-
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-        self.adapters = nn.ModuleDict(dict())
 
     @property
     def layer_norm(self):
@@ -49,16 +41,8 @@ class BartCrossAttentionAdaptersModule(BertAdaptersBaseMixin, nn.Module):
         self.config = parent.config
 
     @property
-    def adapter_modules(self):
-        return self.adapters
-
-    @property
     def adapter_config_key(self):
         return "cross_adapter"
-
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-        self.adapters = nn.ModuleDict(dict())
 
     @property
     def layer_norm(self):
@@ -77,16 +61,8 @@ class BartOutputAdaptersModule(BertAdaptersBaseMixin, nn.Module):
         self.config = parent.config
 
     @property
-    def adapter_modules(self):
-        return self.adapters
-
-    @property
     def adapter_config_key(self):
         return "output_adapter"
-
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-        self.adapters = nn.ModuleDict(dict())
 
     @property
     def layer_norm(self):
@@ -167,15 +143,6 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _init_adapter_modules(self):
-        # super()._init_adapter_modules()
-
-        # add adapters specified in config; invertible adapter will only be added if required
-        for adapter_name in self.config.adapters.adapters:
-            self.encoder.add_adapter(adapter_name)
-            self.decoder.add_adapter(adapter_name)
-            # self.add_invertible_adapter(adapter_name)
-
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
         self.train()
@@ -197,19 +164,7 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
-    def add_adapter(self, adapter_name: str, config=None):
-        """
-        Adds a new adapter module of the specified type to the model.
-
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
-
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
-        """
-        self.config.adapters.add(adapter_name, config=config)
+    def _add_adapter(self, adapter_name):
         self.encoder.add_adapter(adapter_name)
         self.decoder.add_adapter(adapter_name)
         # self.add_invertible_adapter(adapter_name)
