@@ -35,6 +35,7 @@ if is_torch_available():
         GPT2LMHeadModel,
         GPT2Model,
         GPT2Tokenizer,
+        GPT2ModelWithHeads,
     )
 
 

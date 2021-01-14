@@ -353,7 +353,7 @@ class GPT2PreTrainedModel(PreTrainedModel):
 
     config_class = GPT2Config
     load_tf_weights = load_tf_weights_in_gpt2
-    base_model_prefix = "gpt2"
+    base_model_prefix = "transformer"
 
     def __init__(self, *inputs, **kwargs):
         super().__init__(*inputs, **kwargs)
@@ -1104,7 +1104,7 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
-        self.gpt2 = GPT2Model(config)
+        self.transformer = GPT2Model(config)
 
         self._init_head_modules()
 
@@ -1136,7 +1136,7 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.gpt2(
+        outputs = self.transformer(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
