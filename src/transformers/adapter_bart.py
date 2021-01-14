@@ -1,5 +1,6 @@
 from typing import Union
 
+import torch
 from torch import nn
 
 from .adapter_bert import BertAdaptersBaseMixin
@@ -172,6 +173,30 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
     def _add_fusion_layer(self, adapter_names):
         self.encoder.add_fusion_layer(adapter_names)
         self.decoder.add_fusion_layer(adapter_names)
+
+    def get_fusion_regularization_loss(self):
+        reg_loss = 0.0
+        target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
+        # encoder
+        for _, v in self.encoder.layers._modules.items():
+            for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
+                if hasattr(layer_fusion, "value"):
+                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+            for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
+                if hasattr(layer_fusion, "value"):
+                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+        # decoder
+        for _, v in self.decoder.layers._modules.items():
+            for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
+                if hasattr(layer_fusion, "value"):
+                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+            for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
+                if hasattr(layer_fusion, "value"):
+                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+        return reg_loss
 
 
 class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
