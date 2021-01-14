@@ -34,17 +34,12 @@ class BertAdaptersBaseMixin(ABC):
 
     @property
     @abstractmethod
-    def adapter_modules(self):
-        """Gets the module dict holding the adapter modules available in this block."""
-        pass
-
-    @property
-    @abstractmethod
     def adapter_config_key(self):
         """Gets the name of the key by which this adapter location is identified in the adapter configuration."""
         pass
 
     def _init_adapter_modules(self):
+        self.adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
 
     def add_adapter(self, adapter_name: str):
@@ -58,7 +53,7 @@ class BertAdaptersBaseMixin(ABC):
                 non_linearity=adapter_config["non_linearity"],
                 residual_before_ln=adapter_config["adapter_residual_before_ln"],
             )
-            self.adapter_modules[adapter_name] = adapter
+            self.adapters[adapter_name] = adapter
 
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         """See BertModel.add_fusion_layer"""
@@ -75,8 +70,8 @@ class BertAdaptersBaseMixin(ABC):
         """
         if unfreeze_adapters:
             for adapter_name in adapter_setup.flatten():
-                if adapter_name in self.adapter_modules:
-                    for param in self.adapter_modules[adapter_name].parameters():
+                if adapter_name in self.adapters:
+                    for param in self.adapters[adapter_name].parameters():
                         param.requires_grad = True
         if unfreeze_fusion:
             if isinstance(adapter_setup, Fuse):
@@ -145,8 +140,8 @@ class BertAdaptersBaseMixin(ABC):
                 hidden_states = self.adapter_split(adapter_stack_layer, hidden_states, input_tensor)
                 up = hidden_states  # TODO
             # Case 3: We have a single adapter which is part of this module -> forward pass
-            elif adapter_stack_layer in self.adapter_modules:
-                adapter_layer = self.adapter_modules[adapter_stack_layer]
+            elif adapter_stack_layer in self.adapters:
+                adapter_layer = self.adapters[adapter_stack_layer]
                 adapter_config = self.config.adapters.get(adapter_stack_layer)
                 hidden_states, _, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
                 hidden_states, _, up = adapter_layer(hidden_states, residual_input=residual)
@@ -169,8 +164,8 @@ class BertAdaptersBaseMixin(ABC):
             if isinstance(adapter_block, Stack):
                 _, up = self.adapter_stack(adapter_block, hidden_states, input_tensor, lvl=lvl + 1)
             # Case 2: We have a single adapter which is part of this module -> forward pass
-            elif adapter_block in self.adapter_modules:
-                adapter_layer = self.adapter_modules[adapter_block]
+            elif adapter_block in self.adapters:
+                adapter_layer = self.adapters[adapter_block]
                 _, _, up = adapter_layer(hidden_states, residual_input=residual)
             # Case 3: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
@@ -222,8 +217,8 @@ class BertAdaptersBaseMixin(ABC):
             if isinstance(adapter_block, Stack):
                 _, up = self.adapter_stack(adapter_block, split_hidden_states[i], split_input_tensor[i], lvl=lvl + 1)
             # Case 2: We have a single adapter which is part of this module -> forward pass
-            elif adapter_block in self.adapter_modules:
-                adapter_layer = self.adapter_modules[adapter_block]
+            elif adapter_block in self.adapters:
+                adapter_layer = self.adapters[adapter_block]
                 split_hidden_states[i], _, _ = adapter_layer(split_hidden_states[i], residual_input=split_residual[i])
             # Case 3: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
@@ -242,7 +237,7 @@ class BertAdaptersBaseMixin(ABC):
         Called for each forward pass through adapters.
         """
         adapter_setup = self.config.adapters.active_setup if hasattr(self.config, "adapters") else None
-        if adapter_setup is not None and (len(set(self.adapter_modules.keys()) & adapter_setup.flatten()) > 0):
+        if adapter_setup is not None and (len(set(self.adapters.keys()) & adapter_setup.flatten()) > 0):
             if isinstance(adapter_setup, Stack):
                 hidden_states, _ = self.adapter_stack(adapter_setup, hidden_states, input_tensor)
             elif isinstance(adapter_setup, Fuse):
@@ -268,32 +263,16 @@ class BertSelfOutputAdaptersMixin(BertAdaptersBaseMixin):
     """Adds adapters to the BertSelfOutput module."""
 
     @property
-    def adapter_modules(self):
-        return self.attention_adapters
-
-    @property
     def adapter_config_key(self):
         return "mh_adapter"
-
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-        self.attention_adapters = nn.ModuleDict(dict())
 
 
 class BertOutputAdaptersMixin(BertAdaptersBaseMixin):
     """Adds adapters to the BertOutput module."""
 
     @property
-    def adapter_modules(self):
-        return self.output_adapters
-
-    @property
     def adapter_config_key(self):
         return "output_adapter"
-
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-        self.output_adapters = nn.ModuleDict(dict())
 
 
 class BertLayerAdaptersMixin:
@@ -341,18 +320,6 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-
-        # add adapters specified in config; invertible adapter will only be added if required
-        for adapter_name in self.config.adapters.adapters:
-            self.encoder.add_adapter(adapter_name)
-            self.add_invertible_adapter(adapter_name)
-        # fusion
-        if hasattr(self.config, "fusion_models"):
-            for fusion_adapter_names in self.config.fusion_models:
-                self.add_fusion_layer(fusion_adapter_names)
-
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
         self.train()
@@ -373,17 +340,7 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.set_active_adapters(adapter_setup)
         # TODO implement fusion for invertible adapters
 
-    def add_adapter(self, adapter_name: str, config=None):
-        """Adds a new adapter module of the specified type to the model.
-
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
-        """
-        self.config.adapters.add(adapter_name, config=config)
+    def _add_adapter(self, adapter_name):
         self.encoder.add_adapter(adapter_name)
         self.add_invertible_adapter(adapter_name)
 

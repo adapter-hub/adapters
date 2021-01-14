@@ -943,12 +943,20 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
+        # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
+        if not return_dict:
+            head_inputs = (outputs[0],) + outputs[2:]
+        else:
+            head_inputs = outputs
 
-        outputs = self.forward_head(
-            outputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
-        )
-
-        return outputs
+        if head or self.active_head:
+            head_outputs = self.forward_head(
+                head_inputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
+            )
+            return head_outputs
+        else:
+            # in case no head is used just return the output of the base model (including pooler output)
+            return outputs
 
 
 @add_start_docstrings(
