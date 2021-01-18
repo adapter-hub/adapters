@@ -334,7 +334,7 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
 
         out_adapters_states = self.output_adapters.adapters_forward(feed_forward_hidden_states, hidden_states)
         # residual connection
-        hidden_states = hidden_states + out_adapters_states
+        hidden_states = out_adapters_states
         outputs = [hidden_states] + outputs
         return outputs  # hidden_states, present, (attentions, cross_attentions)
 
