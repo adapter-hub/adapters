@@ -33,9 +33,8 @@ def create_twin_models(model_class):
 
 @require_torch
 class AdapterModelTest(unittest.TestCase):
-
     model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel,
-                GPT2Model, GPT2ModelWithHeads]
+                     GPT2Model]
 
     def test_add_adapter(self):
         for model_class in self.model_classes:
@@ -126,8 +125,7 @@ class AdapterModelTest(unittest.TestCase):
 
 @require_torch
 class PredictionHeadModelTest(unittest.TestCase):
-
-    model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads]
+    model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads, GPT2ModelWithHeads]
 
     def run_prediction_head_test(self, model, compare_model, head_name, input_shape=(1, 128), output_shape=(1, 2)):
         # first, check if the head is actually correctly registered as part of the pt module
@@ -252,6 +250,8 @@ class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
 
         model_with_head = BertModelWithHeads(model_with_head_base.config)
         model_with_head.bert = model_with_head_base
+        model_with_head.cuda()
+        model_base.cuda()
 
         model_with_head.add_adapter("dummy")
 
@@ -276,6 +276,8 @@ class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
 
         model_with_head = BertModelWithHeads(model_with_head_base.config)
         model_with_head.bert = model_with_head_base
+        model_with_head.cuda()
+        model_base.cuda()
 
         model_base.add_adapter("dummy")
 
