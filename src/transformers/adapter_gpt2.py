@@ -75,7 +75,7 @@ class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
     def _add_adapter(self, adapter_name: str):
         adapter_config = self.config.adapters.get(adapter_name)
         leave_out = adapter_config.get("leave_out", [])
-        for i, layer in enumerate(self.h):
+        for i, layer in enumerate(self.base_model.h):
             if i not in leave_out:
                 layer.add_adapter(adapter_name)
 
