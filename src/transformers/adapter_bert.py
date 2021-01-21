@@ -28,9 +28,9 @@ class BertAdaptersBaseMixin(ABC):
     """
 
     # override this property if layer norm has a different name
-    #@property
-    #def layer_norm(self):
-    #    return self.LayerNorm
+    @property
+    def layer_norm(self):
+        return self.LayerNorm
 
     @property
     @abstractmethod

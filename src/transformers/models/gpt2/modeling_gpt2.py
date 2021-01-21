@@ -316,7 +316,7 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
                 self, "crossattention"
             ), f"If `encoder_hidden_states` are passed, {self} has to be instantiated with cross-attention layers by setting `config.add_cross_attention=True`"
             cross_attn_outputs = self.crossattention(
-                self.ln_cross_attn(hidden_states),
+                self.ln_cross_attn(hidden_states),      # Where Norm?
                 attention_mask=attention_mask,
                 head_mask=head_mask,
                 encoder_hidden_states=encoder_hidden_states,
@@ -334,7 +334,8 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
 
         out_adapters_states = self.output_adapters.adapters_forward(feed_forward_hidden_states, hidden_states)
         # residual connection
-        hidden_states = out_adapters_states
+        hidden_states = hidden_states + out_adapters_states
+
         outputs = [hidden_states] + outputs
         return outputs  # hidden_states, present, (attentions, cross_attentions)
 
