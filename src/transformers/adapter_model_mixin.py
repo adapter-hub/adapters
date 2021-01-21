@@ -1028,6 +1028,24 @@ class ModelAdaptersMixin(ABC):
             param.requires_grad = not freeze
         self.model_freezed = freeze
 
+    def pre_transformer_forward(self, hidden_states, *args):
+        """
+        This method should be called by every adapter-implementing model after the embedding layer and before the actual transformer.
+        The default implementation replicates the inputs if a Parallel adapter block is present.
+        Override this to include invertible adapters.
+        """
+        return_args = []
+        # replicate hidden states for each parallel adapter channel if the current setup includes a parallel block
+        if self.config.adapters.active_setup.parallel_channels > 1:
+            return_args.append(hidden_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1))
+        # replicate additional optional inputs
+        for arg in args:
+            repeats = [1] * arg.dim()
+            repeats[0] = self.config.adapters.active_setup.parallel_channels
+            return_args.append(arg.repeat(*repeats))
+
+        return return_args
+
 
 @inherit_doc
 class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):

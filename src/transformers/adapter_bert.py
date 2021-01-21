@@ -260,38 +260,33 @@ class BertAdaptersBaseMixin(ABC):
     def adapter_parallel(self, adapter_setup: Parallel, hidden_states, input_tensor):
         """For parallel execution of the adapters on the same input. This means that the input is repeated N times
         before feeding it to the adapters (where N is the number of adapters).
-
-        TODO: this POC currently only works with a batchsize of 1 (initial input). The AdapterDrop paper also reports
-        resuls with larger batchsizes, for which we have a POC in the old AdapterHub v1 (TODO: implement here)
-
-        TODO: classification heads? We need to choose different heads for different instances in the batch.
         """
         # We assume that all adapters have the same config
-        adapter_config = self.config.adapters.get(adapter_setup.children[0])
+        adapter_config = self.config.adapters.get(adapter_setup.first())
         hidden_states, _, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
 
-        # if the input batch size is equal to one, this means that here we have the first occurrence where we need to
-        # repeat the input such that we can feed it into different adapters (and then process the normal transformer
-        # layers in parallel
-        if input_tensor.shape[0] == 1:
-            # TODO change this such that we support batched input as well (which is then repeated N times)
-            # This requires comparing the input batch size to the new one after repeating the input N times
-            n_repeat = len(adapter_setup.children)
-            input_tensor = input_tensor.repeat(n_repeat, 1, 1)
-            hidden_states = hidden_states.repeat(n_repeat, 1, 1)
-            # query = query.repeat(len(flat_adapter_names), 1, 1)
-            residual = residual.repeat(n_repeat, 1, 1)
+        # The base model should handle replication of input.
+        # Therefore, we assume the (replicated) input batch to be divisible by the number of parallel channels.
+        if hidden_states.shape[0] % adapter_setup.parallel_channels != 0:
+            raise ValueError(
+                "The total input batch size in a Parallel adapter block must be divisible by the number of parallel channels."
+            )
+        orig_batch_size = hidden_states.shape[0] // adapter_setup.parallel_channels
 
         # sequentially feed different parts of the blown-up batch into different adapters
         children_hidden = []
-        for i, child in enumerate(adapter_setup.children):
-            adapter_layer = self.adapter_modules[child]
-            child_hidden_states, _, _ = adapter_layer(hidden_states[i : i + 1], residual_input=residual[i : i + 1])
+        for i, child in enumerate(adapter_setup):
+            # TODO do we want to have some nested blocks? Stack would be possible
+            adapter_layer = self.adapters[child]
+            child_hidden_states, _, _ = adapter_layer(
+                hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size],
+                residual_input=residual[i * orig_batch_size : (i + 1) * orig_batch_size],
+            )
             children_hidden.append(child_hidden_states)
 
         # concatenate all outputs and return
-        hidden_states = torch.cat(tuple(children_hidden), 0)
-        return hidden_states, input_tensor
+        hidden_states = torch.cat(children_hidden, 0)
+        return hidden_states
 
     def adapters_forward(self, hidden_states, input_tensor):
         """
@@ -313,9 +308,7 @@ class BertAdaptersBaseMixin(ABC):
             elif isinstance(adapter_setup, Split):
                 hidden_states = self.adapter_split(adapter_setup, hidden_states, input_tensor)
             elif isinstance(adapter_setup, Parallel):
-                # notice that we are overriding input tensor here to keep the same dim as hidden_states for the residual
-                # in case we were repeating instances for parallel processing of multiple adapters for the same input
-                hidden_states, input_tensor = self.adapter_parallel(adapter_setup, hidden_states, input_tensor)
+                hidden_states = self.adapter_parallel(adapter_setup, hidden_states, input_tensor)
             else:
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
 
@@ -418,6 +411,11 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
     def _add_fusion_layer(self, adapter_names):
         self.encoder.add_fusion_layer(adapter_names)
+
+    def pre_transformer_forward(self, hidden_states, *args):
+        hidden_states = self.invertible_adapters_forward(hidden_states)
+
+        return super().pre_transformer_forward(hidden_states, *args)
 
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0

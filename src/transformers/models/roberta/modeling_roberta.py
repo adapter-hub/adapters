@@ -708,7 +708,7 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
         embedding_output = self.embeddings(
             input_ids=input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds
         )
-        embedding_output = self.invertible_adapters_forward(embedding_output)
+        embedding_output, extended_attention_mask = self.pre_transformer_forward(embedding_output, extended_attention_mask)
 
         encoder_outputs = self.encoder(
             embedding_output,

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Sequence, Union
 
 import torch
 from torch import nn
@@ -309,7 +309,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
         super().__init__(*args, **kwargs)
         if not hasattr(self.config, "custom_heads"):
             self.config.custom_heads = {}
-        self.active_head = None
+        self._active_heads = []
 
     def _init_head_modules(self):
         # this dict is _only_ used for saving & reloading the configs and should not be modified otherwise
@@ -335,14 +335,22 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
 
     @property
     def active_head(self):
-        return self._active_head
+        return self._active_heads[0]
 
     @active_head.setter
     def active_head(self, head_name):
-        self._active_head = head_name
+        self._active_heads = [head_name]
         if head_name is not None and head_name in self.heads:
             self.config.label2id = self.heads[head_name].config["label2id"]
             self.config.id2label = self.get_labels_dict(head_name)
+
+    # TODO: maybe think of something better. remove properties for single head? (breaks compability)
+    @property
+    def active_heads(self):
+        return self._active_heads
+
+    def set_active_heads(self, head_names: Sequence):
+        self._active_heads = head_names
 
     def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """
@@ -405,16 +413,38 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
         self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
     ):
 
-        head_name = head_name or self.active_head
-        if not head_name:
+        if not head_name and not self.active_heads:
             logger.debug("No prediction head is used.")
             return all_outputs
+        used_heads = [head_name] if head_name else self.active_heads
 
-        if head_name not in self.heads:
-            raise ValueError("Unknown head_name '{}'".format(head_name))
-        head = self.heads[head_name]
+        for head in used_heads:
+            if head not in self.heads:
+                raise ValueError("Unknown head_name '{}'".format(head))
 
-        return head(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
+        if self.config.adapters.active_setup.parallel_channels > 1:
+            if len(used_heads) != self.config.adapters.active_setup.parallel_channels:
+                raise ValueError("The number of parallel adapters and the number of active heads must match.")
+            orig_batch_size = all_outputs[0].shape[0] // self.config.adapters.active_setup.parallel_channels
+            head_outputs = []
+            for i, head in enumerate(used_heads):
+                head_module = self.heads[head]
+                # TODO this doesn't work for dict output and probably doesn't handle all edge cases
+                head_inputs = []
+                for base_output in all_outputs:
+                    head_inputs.append(base_output[i * orig_batch_size : (i + 1) * orig_batch_size])
+                head_output = head_module(tuple(head_inputs), cls_output, attention_mask, return_dict, **kwargs)
+                head_outputs.append(head_output)
+            return head_outputs
+        elif len(used_heads) > 1:
+            head_outputs = []
+            for head in used_heads:
+                head_module = self.heads[head]
+                head_outputs.append(head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs))
+            return head_outputs
+        else:
+            head_module = self.heads[used_heads[0]]
+            return head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
 
     def get_labels_dict(self, head_name=None):
         """

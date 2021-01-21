@@ -2,9 +2,14 @@ import unittest
 
 import torch
 
-from transformers import BertConfig
+from transformers import (
+    BertConfig,
+    BertForSequenceClassification,
+    BertModelWithHeads,
+    DistilBertModelWithHeads,
+    RobertaModelWithHeads,
+)
 from transformers.adapter_composition import Fuse, Parallel, Split, Stack, parse_composition
-from transformers.models.bert.modeling_bert import BertForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
@@ -85,3 +90,33 @@ class AdapterCompositionTest(unittest.TestCase):
         inputs["input_ids"] = ids_tensor((1, 128), 1000)
         logits = self.model(**inputs).logits
         self.assertEqual(logits.shape, (4, 2))
+
+
+@require_torch
+class ParallelAdapterInferenceTest(unittest.TestCase):
+
+    model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads]
+
+    def test_parallel_inference_with_heads(self):
+        for model_class in self.model_classes:
+            model_config = model_class.config_class
+            model = model_class(model_config())
+
+            model.add_adapter("a")
+            model.add_adapter("b")
+            model.add_classification_head("a", num_labels=2)
+            model.add_classification_head("b", num_labels=3)
+
+            with self.subTest(model_class=model_class.__name__):
+
+                inputs = {}
+                inputs["input_ids"] = ids_tensor((2, 128), 1000)
+
+                model.set_active_adapters(Parallel("a", "b"))
+                model.set_active_heads(["a", "b"])
+                # TODO currently only works with return_dict=False
+                outputs = model(**inputs, return_dict=False)
+
+                self.assertEqual(len(outputs), 2)
+                self.assertEqual(outputs[0][0].shape, (2, 2))
+                self.assertEqual(outputs[1][0].shape, (2, 3))

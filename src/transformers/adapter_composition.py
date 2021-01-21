@@ -35,6 +35,10 @@ class AdapterCompositionBlock(Sequence):
         else:
             return self.children[-1].last()
 
+    @property
+    def parallel_channels(self):
+        return max([b.parallel_channels() if isinstance(b, AdapterCompositionBlock) else 1 for b in self.children])
+
     def flatten(self) -> Set[str]:
         return set(itertools.chain(*[[b] if isinstance(b, str) else b.flatten() for b in self.children]))
 
@@ -46,6 +50,10 @@ class Parallel(AdapterCompositionBlock):
         See AdapterDrop https://arxiv.org/abs/2010.11918
         """
         super().__init__(*parallel_adapters)
+
+    @property
+    def parallel_channels(self):
+        return len(self.children)
 
 
 class Stack(AdapterCompositionBlock):

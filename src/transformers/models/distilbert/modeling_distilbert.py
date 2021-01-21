@@ -493,7 +493,7 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.embeddings(input_ids)  # (bs, seq_length, dim)
-        inputs_embeds = self.invertible_adapters_forward(inputs_embeds)
+        inputs_embeds, attention_mask = self.pre_transformer_forward(inputs_embeds, attention_mask)
 
         return self.transformer(
             x=inputs_embeds,
