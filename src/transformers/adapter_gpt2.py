@@ -101,11 +101,11 @@ class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
     def enable_adapters(
         self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
     ):
-        for layer in self.h:
+        for layer in self.base_model.h:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
     def _add_fusion_layer(self, adapter_names):
-        for layer in self.h:
+        for layer in self.base_model.h:
             layer.add_fusion_layer(adapter_names)
 
 
