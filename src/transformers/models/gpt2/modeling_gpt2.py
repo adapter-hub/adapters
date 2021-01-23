@@ -1005,6 +1005,10 @@ class GPT2ForSequenceClassification(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
 
         self.init_weights()
 
+    @property
+    def invertible_adapters(self):
+        return self.base_model.invertible_adapters
+
     @add_start_docstrings_to_model_forward(GPT2_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
         tokenizer_class=_TOKENIZER_FOR_DOC,
