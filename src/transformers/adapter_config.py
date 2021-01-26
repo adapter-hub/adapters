@@ -215,6 +215,9 @@ class ModelAdaptersConfig(Collection):
         self.config_map = kwargs.pop("config_map", {})
         # TODO-V2 Save this with config?
         self.active_setup: Optional[AdapterCompositionBlock] = None
+        self.skip_layers = None
+        # TODO there must be something better than this
+        self.is_parallelized = False
 
     def __contains__(self, item):
         return item in self.adapters.keys()

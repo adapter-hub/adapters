@@ -101,6 +101,7 @@ class ParallelAdapterInferenceTest(unittest.TestCase):
         for model_class in self.model_classes:
             model_config = model_class.config_class
             model = model_class(model_config())
+            model.eval()
 
             model.add_adapter("a")
             model.add_adapter("b")
@@ -112,6 +113,14 @@ class ParallelAdapterInferenceTest(unittest.TestCase):
                 inputs = {}
                 inputs["input_ids"] = ids_tensor((2, 128), 1000)
 
+                # for reference, pass through single adapters
+                model.set_active_adapters("a")
+                model.set_active_heads("a")
+                outputs_a = model(**inputs, return_dict=False)
+                model.set_active_adapters("b")
+                model.set_active_heads("b")
+                outputs_b = model(**inputs, return_dict=False)
+
                 model.set_active_adapters(Parallel("a", "b"))
                 model.set_active_heads(["a", "b"])
                 # TODO currently only works with return_dict=False
@@ -120,3 +129,5 @@ class ParallelAdapterInferenceTest(unittest.TestCase):
                 self.assertEqual(len(outputs), 2)
                 self.assertEqual(outputs[0][0].shape, (2, 2))
                 self.assertEqual(outputs[1][0].shape, (2, 3))
+                self.assertTrue(torch.equal(outputs[0][0], outputs_a[0]))
+                self.assertTrue(torch.equal(outputs[1][0], outputs_b[0]))

@@ -187,8 +187,9 @@ class MultiHeadSelfAttention(nn.Module):
 
         q = q / math.sqrt(dim_per_head)  # (bs, n_heads, q_length, dim_per_head)
         scores = torch.matmul(q, k.transpose(2, 3))  # (bs, n_heads, q_length, k_length)
-        mask = (mask == 0).view(mask_reshp).expand_as(scores)  # (bs, n_heads, q_length, k_length)
-        scores.masked_fill_(mask, -float("inf"))  # (bs, n_heads, q_length, k_length)
+        if mask is not None:
+            mask = (mask == 0).view(mask_reshp).expand_as(scores)  # (bs, n_heads, q_length, k_length)
+            scores.masked_fill_(mask, -float("inf"))  # (bs, n_heads, q_length, k_length)
 
         weights = nn.Softmax(dim=-1)(scores)  # (bs, n_heads, q_length, k_length)
         weights = self.dropout(weights)  # (bs, n_heads, q_length, k_length)
@@ -485,7 +486,10 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
 
         device = input_ids.device if input_ids is not None else inputs_embeds.device
 
-        if attention_mask is None:
+        if self.has_parallel_adapters:
+            if attention_mask is not None:
+                raise ValueError("attention_mask cannot be used together with parallel adapter block.")
+        elif attention_mask is None:
             attention_mask = torch.ones(input_shape, device=device)  # (bs, seq_length)
 
         # Prepare head mask if needed
@@ -493,7 +497,7 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.embeddings(input_ids)  # (bs, seq_length, dim)
-        inputs_embeds, attention_mask = self.pre_transformer_forward(inputs_embeds, attention_mask)
+        inputs_embeds = self.pre_transformer_forward(inputs_embeds)
 
         return self.transformer(
             x=inputs_embeds,

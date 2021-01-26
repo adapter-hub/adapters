@@ -335,7 +335,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
 
     @property
     def active_head(self):
-        return self._active_heads[0]
+        return self._active_heads[0] if len(self._active_heads) > 0 else None
 
     @active_head.setter
     def active_head(self, head_name):
@@ -422,7 +422,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
             if head not in self.heads:
                 raise ValueError("Unknown head_name '{}'".format(head))
 
-        if self.config.adapters.active_setup.parallel_channels > 1:
+        if self.has_parallel_adapters:
             if len(used_heads) != self.config.adapters.active_setup.parallel_channels:
                 raise ValueError("The number of parallel adapters and the number of active heads must match.")
             orig_batch_size = all_outputs[0].shape[0] // self.config.adapters.active_setup.parallel_channels
