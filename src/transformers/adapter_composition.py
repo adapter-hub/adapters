@@ -42,7 +42,7 @@ class Fuse(AdapterCompositionBlock):
     def __init__(self, *fuse_stacks: List[Union[AdapterCompositionBlock, str]]):
         super().__init__(*fuse_stacks)
 
-    # TODO pull this up to all block classes?
+    # TODO-V2 pull this up to all block classes?
     @property
     def name(self):
         return ",".join([c if isinstance(c, str) else c.last() for c in self.children])
@@ -57,7 +57,7 @@ class Split(AdapterCompositionBlock):
         self.split_index = split_index
 
 
-# TODO: maybe add some checks regarding depth?
+# TODO-V2: maybe add some checks regarding depth?
 def parse_composition(adapter_composition, level=0) -> AdapterCompositionBlock:
     if isinstance(adapter_composition, AdapterCompositionBlock):
         return adapter_composition

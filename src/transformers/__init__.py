@@ -2,7 +2,7 @@
 # There's no way to ignore "F401 '...' imported but unused" warnings in this
 # module, but to preserve other warnings. So, don't check this module at all.
 
-__version__ = "1.1.1"
+__version__ = "2.0.0a1"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
 # default Python logging output behavior when present.
@@ -305,8 +305,6 @@ if is_torch_available():
         resolve_adapter_config,
         resolve_adapter_path,
     )
-
-    # TODO add more
 
 
 # Modeling

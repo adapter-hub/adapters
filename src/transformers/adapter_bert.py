@@ -134,11 +134,11 @@ class BertAdaptersBaseMixin(ABC):
             # Case 1: We have a nested fusion layer -> call fusion method
             if isinstance(adapter_stack_layer, Fuse):
                 hidden_states = self.adapter_fusion(adapter_stack_layer, hidden_states, input_tensor)
-                up = hidden_states  # TODO
+                up = hidden_states  # TODO-V2
             # Case 2: We have a nested split layer -> call split method
             elif isinstance(adapter_stack_layer, Split):
                 hidden_states = self.adapter_split(adapter_stack_layer, hidden_states, input_tensor)
-                up = hidden_states  # TODO
+                up = hidden_states  # TODO-V2
             # Case 3: We have a single adapter which is part of this module -> forward pass
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
