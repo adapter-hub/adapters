@@ -13,6 +13,12 @@ class AdapterCompositionBlock(Sequence):
     def __len__(self):
         return len(self.children)
 
+    def __eq__(self, o: object) -> bool:
+        if isinstance(o, type(self)):
+            return all([c1 == c2 for c1, c2 in zip(self.children, o.children)])
+        else:
+            return False
+
     def __repr__(self):
         child_repr = ", ".join(map(str, self.children))
         return f"{self.__class__.__name__}[{child_repr}]"
@@ -57,9 +63,36 @@ class Split(AdapterCompositionBlock):
         self.split_index = split_index
 
 
-# TODO-V2: maybe add some checks regarding depth?
-def parse_composition(adapter_composition, level=0) -> AdapterCompositionBlock:
+# Mapping each composition block type to the allowed nested types
+ALLOWED_NESTINGS = {
+    Stack: [str, Fuse, Split],
+    Fuse: [str, Stack],
+    Split: [str, Split, Stack],
+}
+
+
+def validate_composition(adapter_composition: AdapterCompositionBlock, level=0):
+    if level > 1 and not (isinstance(adapter_composition, Stack) or isinstance(adapter_composition, str)):
+        raise ValueError(f"Adapter setup is too deep. Cannot have {adapter_composition} at level {level}.")
     if isinstance(adapter_composition, AdapterCompositionBlock):
+        for child in adapter_composition:
+            if not type(child) in ALLOWED_NESTINGS[type(adapter_composition)]:
+                raise ValueError(f"Adapter setup is invalid. Cannot nest {child} in {adapter_composition}")
+            # recursively validate children
+            validate_composition(child, level=level + 1)
+
+
+def parse_composition(adapter_composition, level=0) -> AdapterCompositionBlock:
+    """
+    Parses and validates a setup of adapters.
+
+    Args:
+        adapter_composition: The adapter setup to be parsed.
+        level (int, optional): If set to none, disables validation. Defaults to 0.
+    """
+    if isinstance(adapter_composition, AdapterCompositionBlock):
+        if level is not None:
+            validate_composition(adapter_composition, level=level)
         return adapter_composition
     elif isinstance(adapter_composition, str):
         if level == 0:

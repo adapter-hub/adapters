@@ -133,21 +133,24 @@ class BertAdaptersBaseMixin(ABC):
                 )
             # Case 1: We have a nested fusion layer -> call fusion method
             if isinstance(adapter_stack_layer, Fuse):
-                hidden_states = self.adapter_fusion(adapter_stack_layer, hidden_states, input_tensor)
-                up = hidden_states  # TODO-V2
+                hidden_states = self.adapter_fusion(adapter_stack_layer, hidden_states, input_tensor, lvl=lvl + 1)
             # Case 2: We have a nested split layer -> call split method
             elif isinstance(adapter_stack_layer, Split):
-                hidden_states = self.adapter_split(adapter_stack_layer, hidden_states, input_tensor)
-                up = hidden_states  # TODO-V2
+                hidden_states = self.adapter_split(adapter_stack_layer, hidden_states, input_tensor, lvl=lvl + 1)
             # Case 3: We have a single adapter which is part of this module -> forward pass
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
                 adapter_config = self.config.adapters.get(adapter_stack_layer)
                 hidden_states, _, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
                 hidden_states, _, up = adapter_layer(hidden_states, residual_input=residual)
+                # as this stack might be part of a fusion block, return the adapter up-projection output here
+                # together with the final output (with potential residuals & norms)
+                return hidden_states, up
             # Case X: No adapter which is part of this module -> ignore
 
-        return hidden_states, up
+        # If we got here, we either has another nested composition block
+        # or no adapter was found. In both cases, we don't need to set the second return value for fusion
+        return hidden_states, None
 
     def adapter_fusion(self, adapter_setup: Fuse, hidden_states, input_tensor, lvl=0):
         """
@@ -163,10 +166,13 @@ class BertAdaptersBaseMixin(ABC):
             # Case 1: We have a nested stack -> call stack method
             if isinstance(adapter_block, Stack):
                 _, up = self.adapter_stack(adapter_block, hidden_states, input_tensor, lvl=lvl + 1)
+                if up is not None:  # could be none if stack is empty
+                    up_list.append(up)
             # Case 2: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapters:
                 adapter_layer = self.adapters[adapter_block]
                 _, _, up = adapter_layer(hidden_states, residual_input=residual)
+                up_list.append(up)
             # Case 3: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
                 raise ValueError(
@@ -175,7 +181,6 @@ class BertAdaptersBaseMixin(ABC):
                     )
                 )
             # Case X: No adapter which is part of this module -> ignore
-            up_list.append(up)
 
         if len(up_list) > 0:
             up_list = torch.stack(up_list)
@@ -215,12 +220,19 @@ class BertAdaptersBaseMixin(ABC):
         for i, adapter_block in enumerate(adapter_setup):
             # Case 1: We have a nested stack -> call stack method
             if isinstance(adapter_block, Stack):
-                _, up = self.adapter_stack(adapter_block, split_hidden_states[i], split_input_tensor[i], lvl=lvl + 1)
-            # Case 2: We have a single adapter which is part of this module -> forward pass
+                split_hidden_states[i], _ = self.adapter_stack(
+                    adapter_block, split_hidden_states[i], split_input_tensor[i], lvl=lvl + 1
+                )
+            # Case 2: We have a nested split -> recursively call split
+            elif isinstance(adapter_block, Split):
+                split_hidden_states[i] = self.adapter_split(
+                    adapter_block, split_hidden_states[i], split_input_tensor[i], lvl=lvl + 1
+                )
+            # Case 3: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapters:
                 adapter_layer = self.adapters[adapter_block]
                 split_hidden_states[i], _, _ = adapter_layer(split_hidden_states[i], residual_input=split_residual[i])
-            # Case 3: nesting other composition blocks is invalid
+            # Case 4: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
                 raise ValueError(
                     "Invalid adapter setup. Cannot nest {} in {}".format(

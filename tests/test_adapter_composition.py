@@ -3,11 +3,28 @@ import unittest
 import torch
 
 from transformers import BertConfig
-from transformers.adapter_composition import Fuse, Split, Stack
+from transformers.adapter_composition import Fuse, Split, Stack, parse_composition
 from transformers.models.bert.modeling_bert import BertForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
+
+
+class AdapterCompositionParsingTest(unittest.TestCase):
+    def test_parse_lists(self):
+        self.assertEqual(Stack("a"), parse_composition("a"))
+        self.assertEqual(Stack("a", "b", "c"), parse_composition(["a", "b", "c"]))
+        self.assertEqual(Stack("a", Fuse("b", "c")), parse_composition(["a", ["b", "c"]]))
+
+    def test_to_deep(self):
+        self.assertRaises(ValueError, lambda: parse_composition(Stack("a", Fuse("b", Stack(Fuse("c", "d"), "e")))))
+
+    def test_invalid_nesting_fusion(self):
+        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Fuse("a", "b"), "c")))
+        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Split("a", "b", 128), "c")))
+
+    def test_invalid_nesting_split(self):
+        self.assertRaises(ValueError, lambda: parse_composition(Split("a", Fuse("b", "c"), 128)))
 
 
 @require_torch
@@ -52,5 +69,11 @@ class AdapterCompositionTest(unittest.TestCase):
         self.model.add_fusion(Fuse("a", "b"))
 
         self.model.set_active_adapters(Stack("a", Split("c", "d", split_index=64), Fuse("a", "b")))
+
+        self.training_pass()
+
+    def test_nested_split(self):
+        # split into two stacks
+        self.model.set_active_adapters(Split(Split("a", "b", split_index=32), "c", split_index=64))
 
         self.training_pass()

@@ -776,7 +776,6 @@ class ModelAdaptersMixin(ABC):
             adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
         adapter_setup = parse_composition(adapter_setup)
-        # TODO-V2: temporary solution for validating adapter names
         for adapter_name in adapter_setup.flatten():
             if adapter_name not in self.config.adapters.adapters:
                 raise ValueError(
