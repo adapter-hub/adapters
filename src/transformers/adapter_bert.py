@@ -123,7 +123,7 @@ class BertAdaptersBaseMixin(ABC):
         """
         Forwards the given input through the given stack of adapters.
         """
-        for adapter_stack_layer in adapter_setup:
+        for i, adapter_stack_layer in enumerate(adapter_setup):
             # Break if setup is too deep
             if isinstance(adapter_stack_layer, AdapterCompositionBlock) and lvl >= 1:
                 raise ValueError(
@@ -144,11 +144,12 @@ class BertAdaptersBaseMixin(ABC):
                 hidden_states, _, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
                 hidden_states, _, up = adapter_layer(hidden_states, residual_input=residual)
                 # as this stack might be part of a fusion block, return the adapter up-projection output here
-                # together with the final output (with potential residuals & norms)
-                return hidden_states, up
+                # together with the final output (with potential residuals & norms) if we reached the last block of the stack
+                if i == len(adapter_setup) - 1:
+                    return hidden_states, up
             # Case X: No adapter which is part of this module -> ignore
 
-        # If we got here, we either has another nested composition block
+        # If we got here, we either had another nested composition block
         # or no adapter was found. In both cases, we don't need to set the second return value for fusion
         return hidden_states, None
 
