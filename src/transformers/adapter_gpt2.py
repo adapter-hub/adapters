@@ -25,7 +25,7 @@ class GPT2AttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
 
     @property
     def layer_norm(self):
-        return self.parent.ln_1
+        return None #self.parent.ln_1
 
 class GPT2OutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
     """Adds output adapters to the Transformer module of DistilBert."""
@@ -38,7 +38,7 @@ class GPT2OutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
 
     @property
     def layer_norm(self):
-        return self.parent.ln_2
+        return None# self.parent.ln_2
 
 class GPT2DoubleHeadsModelOutputAdapterMixin():
     pass
