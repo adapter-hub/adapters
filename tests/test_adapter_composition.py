@@ -117,7 +117,6 @@ class ParallelAdapterInferenceTest(unittest.TestCase):
             model.add_classification_head("b", num_labels=3)
 
             with self.subTest(model_class=model_class.__name__):
-
                 inputs = {}
                 inputs["input_ids"] = ids_tensor((2, 128), 1000)
 
@@ -138,3 +137,27 @@ class ParallelAdapterInferenceTest(unittest.TestCase):
                 self.assertEqual(outputs[1][0].shape, (2, 3))
                 self.assertTrue(torch.equal(outputs[0][0], outputs_a[0]))
                 self.assertTrue(torch.equal(outputs[1][0], outputs_b[0]))
+
+    def test_parallel_inference_with_wrong_number_of_heads(self):
+        for model_class in self.model_classes:
+            model_config = model_class.config_class
+            model = model_class(model_config())
+            model.eval()
+
+            model.add_adapter("a")
+            model.add_adapter("b")
+            model.add_classification_head("a", num_labels=2)
+
+            with self.subTest(model_class=model_class.__name__):
+
+                inputs = {}
+                inputs["input_ids"] = ids_tensor((2, 128), 1000)
+
+                model.set_active_adapters(Parallel("a", "b"))
+                model.set_active_heads(["a"])
+                with self.assertRaises(ValueError):
+                    model(**inputs)
+
+                model.active_head = "a"
+                with self.assertRaises(ValueError):
+                    model(**inputs)
