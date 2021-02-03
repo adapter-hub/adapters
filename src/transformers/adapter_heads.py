@@ -345,7 +345,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
             self.config.label2id = self.heads[head_name].config["label2id"]
             self.config.id2label = self.get_labels_dict(head_name)
 
-    # TODO: maybe think of something better. remove properties for single head? (breaks compability)
+    # TODO: maybe think of something better. remove properties for single head? (breaks compatibility)
     @property
     def active_heads(self):
         return self._active_heads
