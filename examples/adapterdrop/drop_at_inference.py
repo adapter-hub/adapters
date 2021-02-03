@@ -1,7 +1,6 @@
 import torch
 
 from src.transformers import AutoModelForSequenceClassification, AutoTokenizer
-from transformers.adapter_composition import Stack
 
 
 if __name__ == "__main__":

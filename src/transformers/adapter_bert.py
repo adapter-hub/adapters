@@ -322,15 +322,11 @@ class BertAdaptersBaseMixin(ABC):
         """
         Called for each forward pass through adapters.
         """
-        skip_layer = (
+        adapter_setup = self.config.adapters.active_setup if hasattr(self.config, "adapters") else None
+        skip_adapters = adapter_setup is None or (
             self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
         )
-        adapter_setup = self.config.adapters.active_setup if hasattr(self.config, "adapters") else None
-        if (
-            not skip_layer
-            and adapter_setup is not None
-            and (len(set(self.adapters.keys()) & adapter_setup.flatten()) > 0)
-        ):
+        if not skip_adapters and (len(set(self.adapters.keys()) & adapter_setup.flatten()) > 0):
             if isinstance(adapter_setup, Stack):
                 hidden_states, _, input_tensor = self.adapter_stack(adapter_setup, hidden_states, input_tensor)
             elif isinstance(adapter_setup, Fuse):

@@ -45,7 +45,8 @@ class AdapterCompositionBlock(Sequence):
 
 class Parallel(AdapterCompositionBlock):
     def __init__(self, *parallel_adapters: List[str]):
-        """Can be used to perform inference for multiple tasks (i.e., adapters) in parallel (for the same input).
+        """
+        Can be used to perform inference for multiple tasks (i.e., adapters) in parallel (for the same input).
 
         See AdapterDrop https://arxiv.org/abs/2010.11918
         """
