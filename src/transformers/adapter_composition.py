@@ -37,7 +37,7 @@ class AdapterCompositionBlock(Sequence):
 
     @property
     def parallel_channels(self):
-        return max([b.parallel_channels() if isinstance(b, AdapterCompositionBlock) else 1 for b in self.children])
+        return max([b.parallel_channels if isinstance(b, AdapterCompositionBlock) else 1 for b in self.children])
 
     def flatten(self) -> Set[str]:
         return set(itertools.chain(*[[b] if isinstance(b, str) else b.flatten() for b in self.children]))
@@ -82,9 +82,10 @@ class Split(AdapterCompositionBlock):
 
 # Mapping each composition block type to the allowed nested types
 ALLOWED_NESTINGS = {
-    Stack: [str, Fuse, Split],
+    Stack: [str, Fuse, Split, Parallel],
     Fuse: [str, Stack],
     Split: [str, Split, Stack],
+    Parallel: [str, Stack],
 }
 
 

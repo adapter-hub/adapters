@@ -91,6 +91,14 @@ class AdapterCompositionTest(unittest.TestCase):
         logits = self.model(**inputs).logits
         self.assertEqual(logits.shape, (4, 2))
 
+    def test_nested_parallel(self):
+        self.model.set_active_adapters(Stack("a", Parallel(Stack("b", "c"), "d")))
+
+        inputs = {}
+        inputs["input_ids"] = ids_tensor((1, 128), 1000)
+        logits = self.model(**inputs).logits
+        self.assertEqual(logits.shape, (2, 2))
+
 
 @require_torch
 class ParallelAdapterInferenceTest(unittest.TestCase):
@@ -116,15 +124,14 @@ class ParallelAdapterInferenceTest(unittest.TestCase):
                 # for reference, pass through single adapters
                 model.set_active_adapters("a")
                 model.set_active_heads("a")
-                outputs_a = model(**inputs, return_dict=False)
+                outputs_a = model(**inputs)
                 model.set_active_adapters("b")
                 model.set_active_heads("b")
-                outputs_b = model(**inputs, return_dict=False)
+                outputs_b = model(**inputs)
 
                 model.set_active_adapters(Parallel("a", "b"))
                 model.set_active_heads(["a", "b"])
-                # TODO currently only works with return_dict=False
-                outputs = model(**inputs, return_dict=False)
+                outputs = model(**inputs)
 
                 self.assertEqual(len(outputs), 2)
                 self.assertEqual(outputs[0][0].shape, (2, 2))

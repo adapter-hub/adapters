@@ -9,6 +9,7 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from .adapter_composition import AdapterCompositionBlock
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .adapter_modeling import Activation_Function_Class
+from .file_utils import ModelOutput
 from .modeling_outputs import (
     MultipleChoiceModelOutput,
     QuestionAnsweringModelOutput,
@@ -429,11 +430,18 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
             head_outputs = []
             for i, head in enumerate(used_heads):
                 head_module = self.heads[head]
-                # TODO this doesn't work for dict output and probably doesn't handle all edge cases
-                head_inputs = []
-                for base_output in all_outputs:
-                    head_inputs.append(base_output[i * orig_batch_size : (i + 1) * orig_batch_size])
-                head_output = head_module(tuple(head_inputs), cls_output, attention_mask, return_dict, **kwargs)
+                # TODO check possible edge cases here
+                if isinstance(all_outputs, ModelOutput):
+                    # rebuild the model output object from the split output
+                    head_inputs = {}
+                    for key, base_output in all_outputs.items():
+                        head_inputs[key] = base_output[i * orig_batch_size : (i + 1) * orig_batch_size]
+                    head_inputs = all_outputs.__class__(**head_inputs)
+                else:
+                    head_inputs = tuple()
+                    for base_output in all_outputs:
+                        head_inputs = head_inputs + (base_output[i * orig_batch_size : (i + 1) * orig_batch_size],)
+                head_output = head_module(head_inputs, cls_output, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
             return head_outputs
         elif len(used_heads) > 1:

@@ -149,7 +149,12 @@ class BertAdaptersBaseMixin(ABC):
             # Case 2: We have a nested split layer -> call split method
             elif isinstance(adapter_stack_layer, Split):
                 hidden_states = self.adapter_split(adapter_stack_layer, hidden_states, input_tensor, lvl=lvl + 1)
-            # Case 3: We have a single adapter which is part of this module -> forward pass
+            # Case 3: We have a nested parallel layer -> call parallel method
+            elif isinstance(adapter_stack_layer, Parallel):
+                hidden_states, input_tensor = self.adapter_parallel(
+                    adapter_stack_layer, hidden_states, input_tensor, lvl=lvl + 1
+                )
+            # Case 4: We have a single adapter which is part of this module -> forward pass
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
                 adapter_config = self.config.adapters.get(adapter_stack_layer)
@@ -158,12 +163,12 @@ class BertAdaptersBaseMixin(ABC):
                 # as this stack might be part of a fusion block, return the adapter up-projection output here
                 # together with the final output (with potential residuals & norms) if we reached the last block of the stack
                 if i == len(adapter_setup) - 1:
-                    return hidden_states, up
+                    return hidden_states, up, input_tensor
             # Case X: No adapter which is part of this module -> ignore
 
         # If we got here, we either had another nested composition block
         # or no adapter was found. In both cases, we don't need to set the second return value for fusion
-        return hidden_states, None
+        return hidden_states, None, input_tensor
 
     def adapter_fusion(self, adapter_setup: Fuse, hidden_states, input_tensor, lvl=0):
         """
@@ -178,7 +183,7 @@ class BertAdaptersBaseMixin(ABC):
         for adapter_block in adapter_setup:
             # Case 1: We have a nested stack -> call stack method
             if isinstance(adapter_block, Stack):
-                _, up = self.adapter_stack(adapter_block, hidden_states, input_tensor, lvl=lvl + 1)
+                _, up, _ = self.adapter_stack(adapter_block, hidden_states, input_tensor, lvl=lvl + 1)
                 if up is not None:  # could be none if stack is empty
                     up_list.append(up)
             # Case 2: We have a single adapter which is part of this module -> forward pass
@@ -233,7 +238,7 @@ class BertAdaptersBaseMixin(ABC):
         for i, adapter_block in enumerate(adapter_setup):
             # Case 1: We have a nested stack -> call stack method
             if isinstance(adapter_block, Stack):
-                split_hidden_states[i], _ = self.adapter_stack(
+                split_hidden_states[i], _, _ = self.adapter_stack(
                     adapter_block, split_hidden_states[i], split_input_tensor[i], lvl=lvl + 1
                 )
             # Case 2: We have a nested split -> recursively call split
@@ -257,7 +262,7 @@ class BertAdaptersBaseMixin(ABC):
         hidden_states = torch.cat(split_hidden_states, dim=1)
         return hidden_states
 
-    def adapter_parallel(self, adapter_setup: Parallel, hidden_states, input_tensor):
+    def adapter_parallel(self, adapter_setup: Parallel, hidden_states, input_tensor, lvl=0):
         """For parallel execution of the adapters on the same input. This means that the input is repeated N times
         before feeding it to the adapters (where N is the number of adapters).
         """
@@ -283,13 +288,31 @@ class BertAdaptersBaseMixin(ABC):
         # sequentially feed different parts of the blown-up batch into different adapters
         children_hidden = []
         for i, child in enumerate(adapter_setup):
-            # TODO do we want to have some nested blocks? Stack would be possible
-            adapter_layer = self.adapters[child]
-            child_hidden_states, _, _ = adapter_layer(
-                hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size],
-                residual_input=residual[i * orig_batch_size : (i + 1) * orig_batch_size],
-            )
-            children_hidden.append(child_hidden_states)
+            # Case 1: We have a nested stack -> call stack method
+            if isinstance(child, Stack):
+                child_hidden_states, _, _ = self.adapter_stack(
+                    child,
+                    hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    input_tensor[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    lvl=lvl + 1,
+                )
+                children_hidden.append(child_hidden_states)
+            # Case 2: We have a single adapter which is part of this module -> forward pass
+            elif child in self.adapters:
+                adapter_layer = self.adapters[child]
+                child_hidden_states, _, _ = adapter_layer(
+                    hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    residual_input=residual[i * orig_batch_size : (i + 1) * orig_batch_size],
+                )
+                children_hidden.append(child_hidden_states)
+            # Case 3: nesting other composition blocks is invalid
+            elif isinstance(child, AdapterCompositionBlock):
+                raise ValueError(
+                    "Invalid adapter setup. Cannot nest {} in {}".format(
+                        child.__class__.__name__, adapter_setup.__class__.__name__
+                    )
+                )
+            # Case X: No adapter which is part of this module -> ignore
 
         # concatenate all outputs and return
         hidden_states = torch.cat(children_hidden, 0)
@@ -309,7 +332,7 @@ class BertAdaptersBaseMixin(ABC):
             and (len(set(self.adapters.keys()) & adapter_setup.flatten()) > 0)
         ):
             if isinstance(adapter_setup, Stack):
-                hidden_states, _ = self.adapter_stack(adapter_setup, hidden_states, input_tensor)
+                hidden_states, _, input_tensor = self.adapter_stack(adapter_setup, hidden_states, input_tensor)
             elif isinstance(adapter_setup, Fuse):
                 hidden_states = self.adapter_fusion(adapter_setup, hidden_states, input_tensor)
             elif isinstance(adapter_setup, Split):
