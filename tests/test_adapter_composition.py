@@ -2,9 +2,14 @@ import unittest
 
 import torch
 
-from transformers import BertConfig
-from transformers.adapter_composition import Fuse, Split, Stack, parse_composition
-from transformers.models.bert.modeling_bert import BertForSequenceClassification
+from transformers import (
+    BertConfig,
+    BertForSequenceClassification,
+    BertModelWithHeads,
+    DistilBertModelWithHeads,
+    RobertaModelWithHeads,
+)
+from transformers.adapter_composition import Fuse, Parallel, Split, Stack, parse_composition
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
@@ -77,3 +82,82 @@ class AdapterCompositionTest(unittest.TestCase):
         self.model.set_active_adapters(Split(Split("a", "b", split_index=32), "c", split_index=64))
 
         self.training_pass()
+
+    def test_parallel(self):
+        self.model.set_active_adapters(Parallel("a", "b", "c", "d"))
+
+        inputs = {}
+        inputs["input_ids"] = ids_tensor((1, 128), 1000)
+        logits = self.model(**inputs).logits
+        self.assertEqual(logits.shape, (4, 2))
+
+    def test_nested_parallel(self):
+        self.model.set_active_adapters(Stack("a", Parallel(Stack("b", "c"), "d")))
+
+        inputs = {}
+        inputs["input_ids"] = ids_tensor((1, 128), 1000)
+        logits = self.model(**inputs).logits
+        self.assertEqual(logits.shape, (2, 2))
+
+
+@require_torch
+class ParallelAdapterInferenceTest(unittest.TestCase):
+
+    model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads]
+
+    def test_parallel_inference_with_heads(self):
+        for model_class in self.model_classes:
+            model_config = model_class.config_class
+            model = model_class(model_config())
+            model.eval()
+
+            model.add_adapter("a")
+            model.add_adapter("b")
+            model.add_classification_head("a", num_labels=2)
+            model.add_classification_head("b", num_labels=3)
+
+            with self.subTest(model_class=model_class.__name__):
+                inputs = {}
+                inputs["input_ids"] = ids_tensor((2, 128), 1000)
+
+                # for reference, pass through single adapters
+                model.set_active_adapters("a")
+                model.active_head = "a"
+                outputs_a = model(**inputs)
+                model.set_active_adapters("b")
+                model.active_head = "b"
+                outputs_b = model(**inputs)
+
+                model.set_active_adapters(Parallel("a", "b"))
+                model.active_head = ["a", "b"]
+                outputs = model(**inputs)
+
+                self.assertEqual(len(outputs), 2)
+                self.assertEqual(outputs[0][0].shape, (2, 2))
+                self.assertEqual(outputs[1][0].shape, (2, 3))
+                self.assertTrue(torch.equal(outputs[0][0], outputs_a[0]))
+                self.assertTrue(torch.equal(outputs[1][0], outputs_b[0]))
+
+    def test_parallel_inference_with_wrong_number_of_heads(self):
+        for model_class in self.model_classes:
+            model_config = model_class.config_class
+            model = model_class(model_config())
+            model.eval()
+
+            model.add_adapter("a")
+            model.add_adapter("b")
+            model.add_classification_head("a", num_labels=2)
+
+            with self.subTest(model_class=model_class.__name__):
+
+                inputs = {}
+                inputs["input_ids"] = ids_tensor((2, 128), 1000)
+
+                model.set_active_adapters(Parallel("a", "b"))
+                model.active_head = ["a"]
+                with self.assertRaises(ValueError):
+                    model(**inputs)
+
+                model.active_head = "a"
+                with self.assertRaises(ValueError):
+                    model(**inputs)

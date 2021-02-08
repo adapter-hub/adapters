@@ -764,12 +764,20 @@ class ModelAdaptersMixin(ABC):
         return len(self.config.adapters.adapters) > 0
 
     @property
+    def has_parallel_adapters(self) -> bool:
+        if self.config.adapters.active_setup:
+            return self.config.adapters.active_setup.parallel_channels > 1
+        else:
+            return False
+
+    @property
     def active_adapters(self) -> AdapterCompositionBlock:
         return self.config.adapters.active_setup
 
-    def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def set_active_adapters(
+        self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
+    ):
         """Sets the adapter modules to be used by default in every forward pass.
-        This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
         If no adapter with the given name is found, no module of the respective type will be activated.
 
         Args:
@@ -783,6 +791,7 @@ class ModelAdaptersMixin(ABC):
                 )
 
         self.config.adapters.active_setup = adapter_setup
+        self.config.adapters.skip_layers = skip_layers
 
     def set_adapter_fusion_config(self, adapter_fusion_config, override_kwargs=None):
         """Sets the adapter fusion configuration.
@@ -1025,6 +1034,14 @@ class ModelAdaptersMixin(ABC):
         for param in self.base_model.parameters():
             param.requires_grad = not freeze
         self.model_freezed = freeze
+
+    def pre_transformer_forward(self, hidden_states, *args):
+        """
+        This method should be called by every adapter-implementing model after the embedding layer and before the actual transformer.
+        Override this to include invertible adapters.
+        """
+        self.config.adapters.is_parallelized = False
+        return hidden_states
 
 
 @inherit_doc

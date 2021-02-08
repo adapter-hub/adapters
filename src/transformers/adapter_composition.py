@@ -35,8 +35,26 @@ class AdapterCompositionBlock(Sequence):
         else:
             return self.children[-1].last()
 
+    @property
+    def parallel_channels(self):
+        return max([b.parallel_channels if isinstance(b, AdapterCompositionBlock) else 1 for b in self.children])
+
     def flatten(self) -> Set[str]:
         return set(itertools.chain(*[[b] if isinstance(b, str) else b.flatten() for b in self.children]))
+
+
+class Parallel(AdapterCompositionBlock):
+    def __init__(self, *parallel_adapters: List[str]):
+        """
+        Can be used to perform inference for multiple tasks (i.e., adapters) in parallel (for the same input).
+
+        See AdapterDrop https://arxiv.org/abs/2010.11918
+        """
+        super().__init__(*parallel_adapters)
+
+    @property
+    def parallel_channels(self):
+        return len(self.children)
 
 
 class Stack(AdapterCompositionBlock):
@@ -65,9 +83,10 @@ class Split(AdapterCompositionBlock):
 
 # Mapping each composition block type to the allowed nested types
 ALLOWED_NESTINGS = {
-    Stack: [str, Fuse, Split],
+    Stack: [str, Fuse, Split, Parallel],
     Fuse: [str, Stack],
     Split: [str, Split, Stack],
+    Parallel: [str, Stack],
 }
 
 
