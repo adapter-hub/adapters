@@ -69,4 +69,4 @@ An example of a full identifier following this format might look like `qa/squad1
     In many cases, you don't have to give the full string identifier with all three components to successfully load an adapter from the Hub. You can drop the `<username>` you don't care about the uploader of the adapter.  Also, if the resulting identifier is still unique, you can drop the ``<task>`` or the ``<subtask>``. So, ``qa/squad1.1``, ``squad1.1`` or ``squad1.1@example-org`` all may be valid identifiers.
 ```
 
-For more background information on the identifier string format and the Hub index structure, you can also refer to the [specification document](https://github.com/adapter-hub/hub/blob/master/spec.md) on GitHub.
+For more background information on the identifier string format and the Hub index structure, you can also refer to the [specification document](https://github.com/adapter-hub/hub/blob/master/spec.md#) on GitHub.

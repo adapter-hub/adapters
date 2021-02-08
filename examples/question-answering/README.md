@@ -2,7 +2,7 @@
 
 ## SQuAD
 
-Based on the script [`run_squad.py`](https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_squad.py).
+Based on the script [`run_squad.py`](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/question-answering/run_squad.py).
 
 #### Fine-tuning BERT on SQuAD1.0
 
