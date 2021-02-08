@@ -1,3 +1,4 @@
+# TODO: Replace this with a proper colab notebook
 import torch
 
 from src.transformers import AutoModelForSequenceClassification, AutoTokenizer

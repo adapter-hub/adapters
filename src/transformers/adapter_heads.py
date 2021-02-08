@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Sequence, Union
+from typing import List, Union
 
 import torch
 from torch import nn
@@ -335,23 +335,34 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
         self.config.custom_heads[identifier] = head
 
     @property
-    def active_head(self):
-        return self._active_heads[0] if len(self._active_heads) > 0 else None
+    def active_head(self) -> Union[str, List[str]]:
+        """
+        The active prediction head configuration of this model. Can be either the name of a single available head
+        (string) or a list of multiple available heads. In case of a list of heads, the same base model is forwarded
+        through all specified heads.
+
+        Returns:
+            Union[str, List[str]]: A string or a list of strings describing the active head configuration.
+        """
+        if not self._active_heads:
+            return None
+        elif len(self._active_heads) == 1:
+            return self._active_heads[0]
+        else:
+            return self._active_heads
 
     @active_head.setter
-    def active_head(self, head_name):
-        self._active_heads = [head_name]
-        if head_name is not None and head_name in self.heads:
-            self.config.label2id = self.heads[head_name].config["label2id"]
-            self.config.id2label = self.get_labels_dict(head_name)
-
-    # TODO: maybe think of something better. remove properties for single head? (breaks compatibility)
-    @property
-    def active_heads(self):
-        return self._active_heads
-
-    def set_active_heads(self, head_names: Sequence):
-        self._active_heads = head_names
+    def active_head(self, head_name_or_list: Union[str, List[str]]):
+        if isinstance(head_name_or_list, str):
+            if head_name_or_list and head_name_or_list not in self.heads:
+                raise ValueError(f"Model does not contain a head with name '{head_name_or_list}'.")
+            self._active_heads = [head_name_or_list] if head_name_or_list else None
+            # If we set a single head, also switch the label mapping. For multiple head, that doesn't make sense?
+            if head_name_or_list:
+                self.config.label2id = self.heads[head_name_or_list].config["label2id"]
+                self.config.id2label = self.get_labels_dict(head_name_or_list)
+        else:
+            self._active_heads = head_name_or_list
 
     def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """
@@ -414,10 +425,10 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
         self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
     ):
 
-        if not head_name and not self.active_heads:
+        if not head_name and not self.active_head:
             logger.debug("No prediction head is used.")
             return all_outputs
-        used_heads = [head_name] if head_name else self.active_heads
+        used_heads = [head_name] if head_name else self._active_heads
 
         for head in used_heads:
             if head not in self.heads:
