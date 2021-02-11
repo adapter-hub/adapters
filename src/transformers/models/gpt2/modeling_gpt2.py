@@ -47,8 +47,6 @@ from ...utils import logging
 from .configuration_gpt2 import GPT2Config
 from ...adapter_gpt2 import(
     GPT2DoubleHeadsModelOutputAdapterMixin,
-    GPT2LMHeadModelAdapterMixin,
-    GPT2ModelWithHeadsAdapterMixin,
     GPT2DecoderBlockAdaptersMixin,
     GPT2ModelAdapterMixin,
     GPT2ModelHeadsMixin,
@@ -704,7 +702,7 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2LMHeadModel(GPT2LMHeadModelAdapterMixin, GPT2PreTrainedModel):
+class GPT2LMHeadModel(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head\.weight"]
 
     def __init__(self, config):
@@ -828,7 +826,7 @@ input sequence).
 """,
     GPT2_START_DOCSTRING,
 )
-class GPT2DoubleHeadsModel(GPT2ModelWithHeadsAdapterMixin, GPT2PreTrainedModel):
+class GPT2DoubleHeadsModel(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         config.num_labels = 1

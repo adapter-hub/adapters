@@ -109,9 +109,6 @@ class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
             layer.add_fusion_layer(adapter_names)
 
 
-class GPT2LMHeadModelAdapterMixin(GPT2ModelAdapterMixin):
-    pass
-
 class GPT2ModelWithHeadsAdapterMixin(GPT2ModelAdapterMixin):
     pass
 
