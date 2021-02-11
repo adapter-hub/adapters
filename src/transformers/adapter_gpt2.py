@@ -221,4 +221,7 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
             head = ClassificationHead(head_name, num_labels, layers, activation_function, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
 
-
+class GPT2LMModelMixin(GPT2ModelAdapterMixin):
+    @property
+    def invertible_adapters(self):
+        return self.base_model.invertible_adapters

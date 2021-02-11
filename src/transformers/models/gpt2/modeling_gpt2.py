@@ -50,6 +50,7 @@ from ...adapter_gpt2 import(
     GPT2DecoderBlockAdaptersMixin,
     GPT2ModelAdapterMixin,
     GPT2ModelHeadsMixin,
+    GPT2LMModelMixin,
 )
 
 logger = logging.get_logger(__name__)
@@ -704,11 +705,13 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2LMHeadModel(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
+class GPT2LMHeadModel(GPT2LMModelMixin, GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head\.weight"]
 
     def __init__(self, config):
         super().__init__(config)
+
+        self.num_labels = config.num_labels
         self.transformer = GPT2Model(config)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
@@ -1102,7 +1105,6 @@ class GPT2ForSequenceClassification(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
 class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
-
         self.transformer = GPT2Model(config)
 
         self._init_head_modules()
