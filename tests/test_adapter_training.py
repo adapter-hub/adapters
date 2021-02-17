@@ -45,10 +45,10 @@ class AdapterTrainingTest(unittest.TestCase):
                 self.assertEqual(set(["mrpc"]), model.active_adapters.flatten())
 
                 # all weights of the adapter should be activated
-                for k, v in filter_parameters(model, "adapters.mrpc").items():
+                for k, v in filter_parameters(model, "adapters.mrpc.").items():
                     self.assertTrue(v.requires_grad, k)
                 # all weights of the adapter not used for training should be freezed
-                for k, v in filter_parameters(model, "adapters.dummy").items():
+                for k, v in filter_parameters(model, "adapters.dummy.").items():
                     self.assertFalse(v.requires_grad, k)
                 # weights of the model should be freezed (check on some examples)
                 for k, v in filter_parameters(model, "encoder.layer.0.attention").items():
@@ -102,7 +102,7 @@ class AdapterTrainingTest(unittest.TestCase):
                 self.assertEqual(adapter_setup, model.active_adapters)
 
                 # all weights of the adapters should be frozen (test for one)
-                for k, v in filter_parameters(model, "adapters.a").items():
+                for k, v in filter_parameters(model, "adapters.a.").items():
                     self.assertFalse(v.requires_grad, k)
                 # all weights of the fusion layer should be activated
                 for k, v in filter_parameters(model, "adapter_fusion_layer").items():

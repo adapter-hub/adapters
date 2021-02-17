@@ -834,14 +834,21 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
 
         device = input_ids.device if input_ids is not None else inputs_embeds.device
 
-        if attention_mask is None:
-            attention_mask = torch.ones(input_shape, device=device)
         if token_type_ids is None:
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=device)
 
-        # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
-        # ourselves in which case we just need to make it broadcastable to all heads.
-        extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(attention_mask, input_shape, device)
+        if self.has_parallel_adapters:
+            if attention_mask is not None:
+                raise ValueError("attention_mask cannot be used together with parallel adapter block.")
+            extended_attention_mask = None
+        else:
+            if attention_mask is None:
+                attention_mask = torch.ones(input_shape, device=device)
+            # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
+            # ourselves in which case we just need to make it broadcastable to all heads.
+            extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(
+                attention_mask, input_shape, device
+            )
 
         # If a 2D or 3D attention mask is provided for the cross-attention
         # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
@@ -864,7 +871,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         embedding_output = self.embeddings(
             input_ids=input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds
         )
-        embedding_output = self.invertible_adapters_forward(embedding_output)
+        embedding_output = self.pre_transformer_forward(embedding_output)
 
         encoder_outputs = self.encoder(
             embedding_output,

@@ -13,7 +13,7 @@ from .adapter_composition import AdapterCompositionBlock, parse_composition
 from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
-class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
+class DistilBertSelfAttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):
     """Adds attention adapters to the Transformer module of DistilBert."""
 
     def __init__(self, parent):
@@ -27,7 +27,7 @@ class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMix
         return self.parent.sa_layer_norm
 
 
-class DistilBertOutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
+class DistilBertOutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
     """Adds output adapters to the Transformer module of DistilBert."""
 
     def __init__(self, parent):
@@ -54,9 +54,9 @@ class DistilBertTransfomerBlockAdaptersMixin:
         self.attention_adapters.add_fusion_layer(adapter_names)
         self.output_adapters.add_fusion_layer(adapter_names)
 
-    def add_adapter(self, adapter_name: str):
-        self.attention_adapters.add_adapter(adapter_name)
-        self.output_adapters.add_adapter(adapter_name)
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        self.attention_adapters.add_adapter(adapter_name, layer_idx)
+        self.output_adapters.add_adapter(adapter_name, layer_idx)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
@@ -100,6 +100,11 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
     def _add_fusion_layer(self, adapter_names):
         self.transformer.add_fusion_layer(adapter_names)
+
+    def pre_transformer_forward(self, hidden_states, *args):
+        hidden_states = self.invertible_adapters_forward(hidden_states)
+
+        return super().pre_transformer_forward(hidden_states, *args)
 
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0

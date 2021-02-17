@@ -320,7 +320,7 @@ class AdapterLoader(WeightsLoader):
             if len(inv_adapter_keys) > 0:
                 del self.model.base_model.invertible_adapters[adapter_name]
                 missing_keys = [k for k in missing_keys if k not in inv_adapter_keys]
-                # TODO remove invertible_adapter from config
+                # TODO-V2 remove invertible_adapter from config
         return missing_keys
 
     def rename_func(self, old_name, new_name):
@@ -764,26 +764,35 @@ class ModelAdaptersMixin(ABC):
         return len(self.config.adapters.adapters) > 0
 
     @property
+    def has_parallel_adapters(self) -> bool:
+        if self.config.adapters.active_setup:
+            return self.config.adapters.active_setup.parallel_channels > 1
+        else:
+            return False
+
+    @property
     def active_adapters(self) -> AdapterCompositionBlock:
         return self.config.adapters.active_setup
 
-    def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def set_active_adapters(
+        self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
+    ):
         """Sets the adapter modules to be used by default in every forward pass.
-        This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
         If no adapter with the given name is found, no module of the respective type will be activated.
 
         Args:
             adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
         adapter_setup = parse_composition(adapter_setup)
-        # TODO: temporary solution for validating adapter names
-        for adapter_name in adapter_setup.flatten():
-            if adapter_name not in self.config.adapters.adapters:
-                raise ValueError(
-                    f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
-                )
+        if adapter_setup:
+            for adapter_name in adapter_setup.flatten():
+                if adapter_name not in self.config.adapters.adapters:
+                    raise ValueError(
+                        f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
+                    )
 
         self.config.adapters.active_setup = adapter_setup
+        self.config.adapters.skip_layers = skip_layers
 
     def set_adapter_fusion_config(self, adapter_fusion_config, override_kwargs=None):
         """Sets the adapter fusion configuration.
@@ -827,7 +836,7 @@ class ModelAdaptersMixin(ABC):
                 - the path to a file containing the adapter fusion configuration
             override_kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
         """
-        # TODO Allow nested items or directly pass Fuse block?
+        # TODO-V2 Allow nested items or directly pass Fuse block?
         if isinstance(adapter_names, Fuse):
             adapter_names = adapter_names.children
         if not hasattr(self.config, "adapter_fusion"):
@@ -838,7 +847,7 @@ class ModelAdaptersMixin(ABC):
             else:
                 self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
         elif hasattr(self.config, "adapter_fusion") and adapter_fusion_config is not None:
-            # TODO: This behavior may be a bit unintuitive as the given argument is ignored, but we can't throw an error because of the loader.
+            # This behavior may be a bit unintuitive as the given argument is ignored, but we can't throw an error because of the loader.
             logger.warning("An AdapterFusion config has already been set and will NOT be overwritten")
 
         if not hasattr(self.config, "adapter_fusion_models"):
@@ -1026,6 +1035,14 @@ class ModelAdaptersMixin(ABC):
         for param in self.base_model.parameters():
             param.requires_grad = not freeze
         self.model_freezed = freeze
+
+    def pre_transformer_forward(self, hidden_states, *args):
+        """
+        This method should be called by every adapter-implementing model after the embedding layer and before the actual transformer.
+        Override this to include invertible adapters.
+        """
+        self.config.adapters.is_parallelized = False
+        return hidden_states
 
 
 @inherit_doc

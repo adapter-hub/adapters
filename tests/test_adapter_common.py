@@ -11,6 +11,10 @@ from transformers import (
     BertModelWithHeads,
     DistilBertModel,
     DistilBertModelWithHeads,
+    HoulsbyConfig,
+    HoulsbyInvConfig,
+    PfeifferConfig,
+    PfeifferInvConfig,
     RobertaModel,
     RobertaModelWithHeads,
     XLMRobertaModel,
@@ -40,10 +44,11 @@ class AdapterModelTest(unittest.TestCase):
         for model_class in self.model_classes:
             model_config = model_class.config_class
             model = model_class(model_config())
+            model.eval()
 
-            for config_name, adapter_config in ADAPTER_CONFIG_MAP.items():
-                with self.subTest(model_class=model_class.__name__, config=config_name):
-                    name = f"{config_name}"
+            for adapter_config in [PfeifferConfig(), HoulsbyConfig()]:
+                with self.subTest(model_class=model_class.__name__, config=adapter_config.__class__.__name__):
+                    name = adapter_config.__class__.__name__
                     model.add_adapter(name, config=adapter_config)
                     model.set_active_adapters([name])
 
@@ -55,9 +60,44 @@ class AdapterModelTest(unittest.TestCase):
                     input_ids = ids_tensor((1, 128), 1000)
                     input_data = {"input_ids": input_ids}
                     adapter_output = model(**input_data)
-                    base_output = model(input_ids)
+                    model.set_active_adapters(None)
+                    base_output = model(**input_data)
                     self.assertEqual(len(adapter_output), len(base_output))
                     self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
+
+    def test_add_adapter_with_invertible(self):
+        for model_class in self.model_classes:
+            model_config = model_class.config_class
+            model = model_class(model_config())
+            model.eval()
+
+            for adapter_config in [PfeifferInvConfig(), HoulsbyInvConfig()]:
+                with self.subTest(model_class=model_class.__name__, config=adapter_config.__class__.__name__):
+                    name = adapter_config.__class__.__name__
+                    model.add_adapter(name, config=adapter_config)
+                    model.set_active_adapters([name])
+
+                    # adapter is correctly added to config
+                    self.assertTrue(name in model.config.adapters)
+                    self.assertEqual(adapter_config, model.config.adapters.get(name))
+
+                    # invertible adapter is correctly added and returned
+                    self.assertTrue(name in model.invertible_adapters)
+                    self.assertEqual(model.invertible_adapters[name], model.get_invertible_adapter())
+
+                    # all invertible adapter weights should be activated for training
+                    for param in model.invertible_adapters[name].parameters():
+                        self.assertTrue(param.requires_grad)
+
+                    # check forward pass
+                    input_ids = ids_tensor((1, 128), 1000)
+                    input_data = {"input_ids": input_ids}
+                    adapter_output = model(**input_data)
+                    # make sure the output is different without invertible adapter
+                    del model.invertible_adapters[name]
+                    adapter_output_no_inv = model(**input_data)
+                    self.assertEqual(len(adapter_output), len(adapter_output_no_inv))
+                    self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
 
     def test_load_adapter(self):
         for model_class in self.model_classes:
