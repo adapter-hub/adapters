@@ -783,7 +783,7 @@ class ModelAdaptersMixin(ABC):
         Args:
             adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
-        adapter_setup = parse_composition(adapter_setup)
+        adapter_setup = parse_composition(adapter_setup, model_type=self.config.model_type)
         if adapter_setup:
             for adapter_name in adapter_setup.flatten():
                 if adapter_name not in self.config.adapters.adapters:
@@ -1036,13 +1036,15 @@ class ModelAdaptersMixin(ABC):
             param.requires_grad = not freeze
         self.model_freezed = freeze
 
-    def pre_transformer_forward(self, hidden_states, *args):
+    def pre_transformer_forward(self):
         """
-        This method should be called by every adapter-implementing model after the embedding layer and before the actual transformer.
-        Override this to include invertible adapters.
+        This method should be called by every adapter-implementing model at the very beginning of the forward() method.
         """
+        # some warnings if we don't use available adapters
+        if not self.active_adapters and self.has_adapters():
+            logger.warning("There are adapters available but none are passed to model.forward")
+
         self.config.adapters.is_parallelized = False
-        return hidden_states
 
 
 @inherit_doc

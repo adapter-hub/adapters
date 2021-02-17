@@ -118,6 +118,7 @@ class ParallelAdapterInferenceTest(unittest.TestCase):
 
             with self.subTest(model_class=model_class.__name__):
                 inputs = {}
+                inputs["attention_mask"] = torch.ones((2, 128))
                 inputs["input_ids"] = ids_tensor((2, 128), 1000)
 
                 # for reference, pass through single adapters

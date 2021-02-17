@@ -447,6 +447,8 @@ class RobertaEncoder(BertEncoderAdaptersMixin, nn.Module):
                     output_attentions,
                 )
             hidden_states = layer_outputs[0]
+            attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
+
             if output_attentions:
                 all_self_attentions = all_self_attentions + (layer_outputs[1],)
                 if self.config.add_cross_attention:
@@ -663,9 +665,7 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        # some warnings if we don't use available adapters
-        if not self.active_adapters and self.has_adapters():
-            logger.warning("There are adapters available but none are passed to model.forward")
+        self.pre_transformer_forward()
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
@@ -678,21 +678,14 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
 
         device = input_ids.device if input_ids is not None else inputs_embeds.device
 
+        if attention_mask is None:
+            attention_mask = torch.ones(input_shape, device=device)
         if token_type_ids is None:
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=device)
 
-        if self.has_parallel_adapters:
-            if attention_mask is not None:
-                raise ValueError("attention_mask cannot be used together with parallel adapter block.")
-            extended_attention_mask = None
-        else:
-            if attention_mask is None:
-                attention_mask = torch.ones(input_shape, device=device)
-            # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
-            # ourselves in which case we just need to make it broadcastable to all heads.
-            extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(
-                attention_mask, input_shape, device
-            )
+        # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
+        # ourselves in which case we just need to make it broadcastable to all heads.
+        extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(attention_mask, input_shape, device)
 
         # If a 2D or 3D attention mask is provided for the cross-attention
         # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
@@ -715,7 +708,7 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
         embedding_output = self.embeddings(
             input_ids=input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds
         )
-        embedding_output = self.pre_transformer_forward(embedding_output)
+        embedding_output = self.invertible_adapters_forward(embedding_output)
 
         encoder_outputs = self.encoder(
             embedding_output,

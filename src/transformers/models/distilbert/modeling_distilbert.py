@@ -187,9 +187,8 @@ class MultiHeadSelfAttention(nn.Module):
 
         q = q / math.sqrt(dim_per_head)  # (bs, n_heads, q_length, dim_per_head)
         scores = torch.matmul(q, k.transpose(2, 3))  # (bs, n_heads, q_length, k_length)
-        if mask is not None:
-            mask = (mask == 0).view(mask_reshp).expand_as(scores)  # (bs, n_heads, q_length, k_length)
-            scores.masked_fill_(mask, -float("inf"))  # (bs, n_heads, q_length, k_length)
+        mask = (mask == 0).view(mask_reshp).expand_as(scores)  # (bs, n_heads, q_length, k_length)
+        scores.masked_fill_(mask, -float("inf"))  # (bs, n_heads, q_length, k_length)
 
         weights = nn.Softmax(dim=-1)(scores)  # (bs, n_heads, q_length, k_length)
         weights = self.dropout(weights)  # (bs, n_heads, q_length, k_length)
@@ -320,6 +319,7 @@ class Transformer(DistilBertTransformerAdaptersMixin, nn.Module):
                 x=hidden_state, attn_mask=attn_mask, head_mask=head_mask[i], output_attentions=output_attentions
             )
             hidden_state = layer_outputs[-1]
+            attn_mask = self.adjust_attention_mask_for_parallel(hidden_state, attn_mask)
 
             if output_attentions:
                 assert len(layer_outputs) == 2
@@ -471,9 +471,7 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        # some warnings if we don't use available adapters
-        if not self.active_adapters and self.has_adapters():
-            logger.warning("There are adapters available but none are passed to model.forward")
+        self.pre_transformer_forward()
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
@@ -486,10 +484,7 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
 
         device = input_ids.device if input_ids is not None else inputs_embeds.device
 
-        if self.has_parallel_adapters:
-            if attention_mask is not None:
-                raise ValueError("attention_mask cannot be used together with parallel adapter block.")
-        elif attention_mask is None:
+        if attention_mask is None:
             attention_mask = torch.ones(input_shape, device=device)  # (bs, seq_length)
 
         # Prepare head mask if needed
@@ -497,7 +492,7 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.embeddings(input_ids)  # (bs, seq_length, dim)
-        inputs_embeds = self.pre_transformer_forward(inputs_embeds)
+        inputs_embeds = self.invertible_adapters_forward(inputs_embeds)
 
         return self.transformer(
             x=inputs_embeds,
