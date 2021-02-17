@@ -109,7 +109,9 @@ def parse_composition(adapter_composition, level=0) -> AdapterCompositionBlock:
         adapter_composition: The adapter setup to be parsed.
         level (int, optional): If set to none, disables validation. Defaults to 0.
     """
-    if isinstance(adapter_composition, AdapterCompositionBlock):
+    if not adapter_composition:
+        return None
+    elif isinstance(adapter_composition, AdapterCompositionBlock):
         if level is not None:
             validate_composition(adapter_composition, level=level)
         return adapter_composition

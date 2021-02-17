@@ -280,9 +280,11 @@ if is_torch_available():
         AdapterFusionConfig,
         DynamicAdapterFusionConfig,
         HoulsbyConfig,
+        HoulsbyInvConfig,
         InvertibleAdapterConfig,
         ModelAdaptersConfig,
         PfeifferConfig,
+        PfeifferInvConfig,
         StaticAdapterFusionConfig,
     )
     from .adapter_model_mixin import (

@@ -784,11 +784,12 @@ class ModelAdaptersMixin(ABC):
             adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
         adapter_setup = parse_composition(adapter_setup)
-        for adapter_name in adapter_setup.flatten():
-            if adapter_name not in self.config.adapters.adapters:
-                raise ValueError(
-                    f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
-                )
+        if adapter_setup:
+            for adapter_name in adapter_setup.flatten():
+                if adapter_name not in self.config.adapters.adapters:
+                    raise ValueError(
+                        f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
+                    )
 
         self.config.adapters.active_setup = adapter_setup
         self.config.adapters.skip_layers = skip_layers
