@@ -13,7 +13,7 @@ from .adapter_composition import AdapterCompositionBlock, parse_composition
 from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
-class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
+class DistilBertSelfAttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):
     """Adds attention adapters to the Transformer module of DistilBert."""
 
     def __init__(self, parent):
@@ -27,7 +27,7 @@ class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMix
         return self.parent.sa_layer_norm
 
 
-class DistilBertOutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
+class DistilBertOutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
     """Adds output adapters to the Transformer module of DistilBert."""
 
     def __init__(self, parent):
