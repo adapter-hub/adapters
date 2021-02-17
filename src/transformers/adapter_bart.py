@@ -14,7 +14,15 @@ from .adapter_heads import (
 from .adapter_model_mixin import ModelAdaptersMixin
 
 
-class BartSelfAttentionAdaptersModule(BertAdaptersBaseMixin, nn.Module):
+class BartAdaptersBaseMixin(BertAdaptersBaseMixin):
+    def adapters_forward(self, hidden_states, input_tensor):
+        # SEQ x B x H -> B x SEQ x H
+        hidden_states, input_tensor = hidden_states.transpose(0, 1), input_tensor.transpose(0, 1)
+        hidden_states = super().adapters_forward(hidden_states, input_tensor)
+        return hidden_states.transpose(0, 1)
+
+
+class BartSelfAttentionAdaptersModule(BartAdaptersBaseMixin, nn.Module):
     def __init__(self, parent):
         super().__init__()
         # keep a reference to the parent module without registering as a submodule
@@ -34,7 +42,7 @@ class BartSelfAttentionAdaptersModule(BertAdaptersBaseMixin, nn.Module):
             return self.parent.self_attn_layer_norm
 
 
-class BartCrossAttentionAdaptersModule(BertAdaptersBaseMixin, nn.Module):
+class BartCrossAttentionAdaptersModule(BartAdaptersBaseMixin, nn.Module):
     def __init__(self, parent):
         super().__init__()
         # keep a reference to the parent module without registering as a submodule
@@ -54,7 +62,7 @@ class BartCrossAttentionAdaptersModule(BertAdaptersBaseMixin, nn.Module):
             return self.parent.encoder_attn_layer_norm
 
 
-class BartOutputAdaptersModule(BertAdaptersBaseMixin, nn.Module):
+class BartOutputAdaptersModule(BartAdaptersBaseMixin, nn.Module):
     def __init__(self, parent):
         super().__init__()
         # keep a reference to the parent module without registering as a submodule
@@ -87,9 +95,9 @@ class BartEncoderLayerAdaptersMixin:
         self.attention_adapters.add_fusion_layer(adapter_names)
         self.output_adapters.add_fusion_layer(adapter_names)
 
-    def add_adapter(self, adapter_name: str):
-        self.attention_adapters.add_adapter(adapter_name)
-        self.output_adapters.add_adapter(adapter_name)
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        self.attention_adapters.add_adapter(adapter_name, layer_idx)
+        self.output_adapters.add_adapter(adapter_name, layer_idx)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
@@ -108,9 +116,9 @@ class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
         super().add_fusion_layer(adapter_names)
         self.cross_attention_adapters.add_fusion_layer(adapter_names)
 
-    def add_adapter(self, adapter_name: str):
-        super().add_adapter(adapter_name)
-        self.cross_attention_adapters.add_adapter(adapter_name)
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        super().add_adapter(adapter_name, layer_idx)
+        self.cross_attention_adapters.add_adapter(adapter_name, layer_idx)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         super().enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
@@ -124,12 +132,12 @@ class BartEncoderDecoderAdaptersMixin:
         for layer in self.layers:
             layer.add_fusion_layer(adapter_names)
 
-    def add_adapter(self, adapter_name: str):
+    def add_adapter(self, adapter_name: str, layer_idx_offset: int = 0):
         adapter_config = self.config.adapters.get(adapter_name)
         leave_out = adapter_config.get("leave_out", [])
-        for i, layer in enumerate(self.layers):
+        for i, layer in enumerate(self.layers, start=layer_idx_offset):
             if i not in leave_out:
-                layer.add_adapter(adapter_name)
+                layer.add_adapter(adapter_name, i)
 
     def enable_adapters(
         self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
@@ -151,7 +159,7 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
         adapter_setup = parse_composition(adapter_setup)
         self.encoder.enable_adapters(adapter_setup, True, False)
         self.decoder.enable_adapters(adapter_setup, True, False)
-        # self.enable_invertible_adapters(adapter_setup.flatten())
+        self.encoder.enable_invertible_adapters(adapter_setup.flatten())
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
@@ -167,8 +175,9 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
 
     def _add_adapter(self, adapter_name):
         self.encoder.add_adapter(adapter_name)
-        self.decoder.add_adapter(adapter_name)
-        # self.add_invertible_adapter(adapter_name)
+        # make sure the layers in encoder & decoder are numbered from 0 to len(encoder+decoder)
+        self.decoder.add_adapter(adapter_name, layer_idx_offset=len(self.encoder.layers))
+        self.encoder.add_invertible_adapter(adapter_name)
 
     def _add_fusion_layer(self, adapter_names):
         self.encoder.add_fusion_layer(adapter_names)
@@ -197,6 +206,19 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
         return reg_loss
+
+    # In BART, the invertible adapters are implemented by the encoder module.
+    # Therefore, relay mixin calls to the encoder here.
+
+    @property
+    def invertible_adapters(self):
+        return self.encoder.invertible_adapters
+
+    def add_invertible_adapter(self, adapter_name: str):
+        return self.encoder.add_invertible_adapter(self, adapter_name)
+
+    def get_invertible_adapter(self):
+        return self.encoder.get_invertible_adapter()
 
 
 class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):

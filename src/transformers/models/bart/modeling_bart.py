@@ -31,7 +31,7 @@ from ...adapter_bart import (
     BartModelAdaptersMixin,
     BartModelHeadsMixin,
 )
-from ...adapter_model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapter_model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -299,7 +299,7 @@ class EncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
         return x, attn_weights
 
 
-class BartEncoder(BartEncoderDecoderAdaptersMixin, nn.Module):
+class BartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, nn.Module):
     """
     Transformer encoder consisting of *config.encoder_layers* self attention layers. Each layer is a
     :class:`EncoderLayer`.
@@ -364,6 +364,8 @@ class BartEncoder(BartEncoderDecoderAdaptersMixin, nn.Module):
         x = inputs_embeds + embed_pos
         x = self.layernorm_embedding(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
+
+        x = self.invertible_adapters_forward(x)
 
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
@@ -1118,6 +1120,7 @@ class BartForConditionalGeneration(ModelWithHeadsAdaptersMixin, PretrainedBartMo
             return_dict=return_dict,
         )
         lm_logits = F.linear(outputs[0], self.model.shared.weight, bias=self.final_logits_bias)
+        lm_logits = self.model.encoder.invertible_adapters_forward(lm_logits, rev=True)
 
         masked_lm_loss = None
         if labels is not None:
