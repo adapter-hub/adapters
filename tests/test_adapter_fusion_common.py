@@ -37,13 +37,15 @@ class AdapterFusionModelTest(unittest.TestCase):
                     self.assertEqual(asdict(adapter_config), asdict(model.config.adapters.get(name2)))
 
                     model.add_fusion([name1, name2], adater_fusion_config_name)
+                    model.eval()
 
                     # check forward pass
                     input_ids = ids_tensor((1, 128), 1000)
                     input_data = {"input_ids": input_ids}
                     model.set_active_adapters([[name1, name2]])
                     adapter_output = model(**input_data)
-                    base_output = model(input_ids)
+                    model.set_active_adapters(None)
+                    base_output = model(**input_data)
                     self.assertEqual(len(adapter_output), len(base_output))
                     self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
 
