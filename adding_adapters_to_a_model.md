@@ -1,0 +1,56 @@
+# Adding Adapters to a Model
+
+This document gives an overview on how `adapter-transformers` integrates adapter modules into the model architectures of HuggingFace Transformers.
+It can be used as a guide to add adapter support to new model architectures.
+
+Before we start to go into implementation details, first some important design philosophies of `adapter-transformers`:
+
+- _Adapters should integrate seamlessly with existing model classes_: This means (a) if a model architecture supports adapters, it should be possible to use them with all model classes of this architecture and (b) adapters should be entirely opt-in, i.e. the model classes still must work without adapters.
+- _Changes to the original should be minimal_: `adapter-transformers` tries to avoid changes to the original HF code as far as possible. We extensively use Python mixins to achieve this.
+
+Now we go through the integration of adapters into an existing model architecture step by step.
+
+**The following steps might not be applicable to every model architecture.**
+
+## Implementation
+
+❓ Each model architecture with adapter support has a main `adapter_<model_type>.py` module (e.g. `adapter_distilbert.py` for `modeling_distilbert.py`) that provides the required adapter mixins for each modeling component (e.g. there is a `DistilBertTransfomerBlockAdaptersMixin` for the `TransformerBlock` of DistilBERT etc.).
+This is the central module to implement.
+
+**📝 Steps**
+
+- Add a new `adapter_<model_type>.py` module for your architecture (or reuse an existing if possible).
+    - There usually should be one mixin that derives from `BertAdaptersBaseMixin` or has it as a child module.
+    - The mixin for the whole base model class (e.g. `BertModel`) should derive from `ModelAdaptersMixin` and (if possible) `InvertibleAdaptersMixin`.
+    - Have a look at existing examples, e.g. `adapter_distilbert.py`, `adapter_bert.py`.
+- Implement the mixins on the modeling classes (`modeling_<model_type>.py`).
+    - Make sure the calls to `adapters_forward()` are added in the right places.
+- Patch the model configuration `configuration_<model_type>` to correctly set the adapter configuration (`ModelAdaptersCondfig`).
+
+❓ Adapter-supporting architectures have a new model class `<model_type>ModelWithHeads`.
+These classes allow flexible adding of and switching between multiple prediction heads of different types.
+
+**📝 Steps**
+
+- In `modeling_<model_type>.py`, add a new `<model_type>ModelWithHeads` class.
+    - This class should implement a mixin (in `adapter_<model_type>.py`) which derives from `ModelWithFlexibleHeadsAdaptersMixin`
+    - In the mixin, add methods for those prediction heads that make sense for the new model architecture.
+- Add `<model_type>ModelWithHeads` to the `MODEL_WITH_HEADS_MAPPING` mapping in `modeling_auto.py` and to `__init__.py`.
+
+## Testing
+
+❓ In addition to the general HuggingFace model tests, there are adapter-specific test cases (usually starting with `test_adapter_`).
+
+**📝 Steps**
+
+- Add the new model architecture to `MODELS_WITH_ADAPTERS` in `test_adapter_common.py` and to `test_adapter_training.py`.
+- Add `<model_type>ModelWithHeads` to `test_modeling_<model_type>.py`.
+- Append `<model_type>` to the list in `check_adapters.py`.
+
+## Documentation
+
+❓ The documentation for `adapter-transformers` lives in the `adapter_docs` folder.
+
+**📝 Steps**
+
+- Add `adapter_docs/classes/<model_type>.rst` (oriented at the doc file in the HF docs, make sure to include `<model_type>ModelWithHeads` and the HF notice, then show the file in the index).
