@@ -34,6 +34,10 @@ class TestSaveLabel(unittest.TestCase):
         ]
         self.label_map: Dict[int, str] = {i: label for i, label in enumerate(self.labels)}
         self.config = BertConfig(
+            hidden_size=32,
+            num_hidden_layers=4,
+            num_attention_heads=4,
+            intermediate_size=37,
             num_labels=len(self.labels),
             id2label=self.label_map,
             label2id={label: i for i, label in enumerate(self.labels)},
