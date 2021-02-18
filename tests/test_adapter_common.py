@@ -6,28 +6,68 @@ import torch
 
 from transformers import (
     ADAPTER_CONFIG_MAP,
-    BartModel,
-    BertModel,
+    AutoModel,
+    BartConfig,
+    BertConfig,
     BertModelWithHeads,
-    DistilBertModel,
-    DistilBertModelWithHeads,
+    DistilBertConfig,
     HoulsbyConfig,
     HoulsbyInvConfig,
     PfeifferConfig,
     PfeifferInvConfig,
-    RobertaModel,
-    RobertaModelWithHeads,
-    XLMRobertaModel,
+    RobertaConfig,
 )
-from transformers.models.bart.modeling_bart import BartModelWithHeads
-from transformers.testing_utils import require_torch, torch_device
+from transformers.testing_utils import require_torch
 
 from .test_modeling_common import ids_tensor
 
 
-def create_twin_models(model_class):
-    model_config = model_class.config_class
-    model1 = model_class(model_config())
+def make_config(config_class, **kwargs):
+    return lambda: config_class(**kwargs)
+
+
+MODELS_WITH_ADAPTERS = {
+    BertConfig: make_config(
+        BertConfig,
+        hidden_size=32,
+        num_hidden_layers=4,
+        num_attention_heads=4,
+        intermediate_size=37,
+    ),
+    RobertaConfig: make_config(
+        RobertaConfig,
+        hidden_size=32,
+        num_hidden_layers=4,
+        num_attention_heads=4,
+        intermediate_size=37,
+    ),
+    DistilBertConfig: make_config(
+        DistilBertConfig,
+        dim=32,
+        n_layers=4,
+        n_heads=4,
+        hidden_dim=37,
+    ),
+    BartConfig: make_config(
+        BartConfig,
+        d_model=16,
+        encoder_layers=2,
+        decoder_layers=2,
+        encoder_attention_heads=4,
+        decoder_attention_heads=4,
+        encoder_ffn_dim=4,
+        decoder_ffn_dim=4,
+    ),
+}
+
+
+def create_twin_models(model_class, config_creator=None):
+    if config_creator:
+        model_config = config_creator()
+        model1 = model_class.from_config(model_config)
+    else:
+        model_config = model_class.config_class()
+        model1 = model_class(model_config)
     model1.eval()
     # create a twin initialized with the same random weights
     model2 = copy.deepcopy(model1)
@@ -37,17 +77,13 @@ def create_twin_models(model_class):
 
 @require_torch
 class AdapterModelTest(unittest.TestCase):
-
-    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel, BartModel]
-
     def test_add_adapter(self):
-        for model_class in self.model_classes:
-            model_config = model_class.config_class
-            model = model_class(model_config())
+        for config in MODELS_WITH_ADAPTERS.values():
+            model = AutoModel.from_config(config())
             model.eval()
 
             for adapter_config in [PfeifferConfig(), HoulsbyConfig()]:
-                with self.subTest(model_class=model_class.__name__, config=adapter_config.__class__.__name__):
+                with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                     name = adapter_config.__class__.__name__
                     model.add_adapter(name, config=adapter_config)
                     model.set_active_adapters([name])
@@ -66,13 +102,12 @@ class AdapterModelTest(unittest.TestCase):
                     self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
 
     def test_add_adapter_with_invertible(self):
-        for model_class in self.model_classes:
-            model_config = model_class.config_class
-            model = model_class(model_config())
+        for config in MODELS_WITH_ADAPTERS.values():
+            model = AutoModel.from_config(config())
             model.eval()
 
             for adapter_config in [PfeifferInvConfig(), HoulsbyInvConfig()]:
-                with self.subTest(model_class=model_class.__name__, config=adapter_config.__class__.__name__):
+                with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                     name = adapter_config.__class__.__name__
                     model.add_adapter(name, config=adapter_config)
                     model.set_active_adapters([name])
@@ -100,10 +135,10 @@ class AdapterModelTest(unittest.TestCase):
                     self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
 
     def test_load_adapter(self):
-        for model_class in self.model_classes:
-            model1, model2 = create_twin_models(model_class)
+        for config in MODELS_WITH_ADAPTERS.values():
+            model1, model2 = create_twin_models(AutoModel, config)
 
-            with self.subTest(model_class=model_class.__name__):
+            with self.subTest(model_class=model1.__class__.__name__):
                 name = "dummy"
                 model1.add_adapter(name)
                 model1.set_active_adapters([name])
@@ -124,19 +159,18 @@ class AdapterModelTest(unittest.TestCase):
                 self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_load_full_model(self):
-        for model_class in self.model_classes:
-            model_config = model_class.config_class
-            model1 = model_class(model_config())
+        for config in MODELS_WITH_ADAPTERS.values():
+            model1 = AutoModel.from_config(config())
             model1.eval()
 
-            with self.subTest(model_class=model_class.__name__):
+            with self.subTest(model_class=model1.__class__.__name__):
                 name = "dummy"
                 model1.add_adapter(name)
                 model1.set_active_adapters([name])
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_pretrained(temp_dir)
 
-                    model2 = model_class.from_pretrained(temp_dir)
+                    model2 = AutoModel.from_pretrained(temp_dir)
                     model2.set_active_adapters([name])
 
                 # check if adapter was correctly loaded
@@ -154,173 +188,18 @@ class AdapterModelTest(unittest.TestCase):
 
         See, e.g., PretrainedConfig.to_json_string()
         """
-        for model_class in self.model_classes:
+        for config in MODELS_WITH_ADAPTERS.values():
             for k, v in ADAPTER_CONFIG_MAP.items():
-                model_config = model_class.config_class
-                model = model_class(model_config())
+                model = AutoModel.from_config(config())
                 model.add_adapter("test", config=v)
                 # should not raise an exception
                 model.config.to_json_string()
 
 
 @require_torch
-class PredictionHeadModelTest(unittest.TestCase):
-
-    model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads, BartModelWithHeads]
-    batch_size = 1
-    seq_length = 128
-
-    def run_prediction_head_test(
-        self, model, compare_model, head_name, input_shape=None, output_shape=(1, 2), label_dict=None
-    ):
-        # first, check if the head is actually correctly registered as part of the pt module
-        self.assertTrue(f"heads.{head_name}" in dict(model.named_modules()))
-
-        # save & reload
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model.save_head(temp_dir, head_name)
-
-            compare_model.load_head(temp_dir)
-
-        # check if adapter was correctly loaded
-        self.assertTrue(head_name in compare_model.heads)
-
-        # make a forward pass
-        model.active_head = head_name
-        input_shape = input_shape or (self.batch_size, self.seq_length)
-        in_data = {"input_ids": ids_tensor(input_shape, 1000)}
-        # this is needed e.g. for BART
-        if model.config.eos_token_id is not None:
-            in_data["input_ids"][:, -1] = model.config.eos_token_id
-        if label_dict:
-            for k, v in label_dict.items():
-                in_data[k] = v
-        output1 = model(**in_data)
-        self.assertEqual(output_shape, tuple(output1[1].size()))
-        # check equal output
-        compare_model.active_head = head_name
-        output2 = compare_model(**in_data)
-        self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.equal(output1[1], output2[1]))
-
-    def test_classification_head(self):
-        for model_class in self.model_classes:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                model1.add_classification_head("dummy")
-                label_dict = {}
-                label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
-                self.run_prediction_head_test(model1, model2, "dummy", label_dict=label_dict)
-
-    def test_multiple_choice_head(self):
-        for model_class in [cls for cls in self.model_classes if hasattr(cls, "add_multiple_choice_head")]:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                model1.add_multiple_choice_head("dummy")
-                label_dict = {}
-                label_dict["labels"] = torch.ones(self.batch_size, dtype=torch.long, device=torch_device)
-                self.run_prediction_head_test(
-                    model1, model2, "dummy", input_shape=(self.batch_size, 2, self.seq_length), label_dict=label_dict
-                )
-
-    def test_tagging_head(self):
-        for model_class in [cls for cls in self.model_classes if hasattr(cls, "add_tagging_head")]:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                model1.add_tagging_head("dummy")
-                label_dict = {}
-                label_dict["labels"] = torch.zeros(
-                    (self.batch_size, self.seq_length), dtype=torch.long, device=torch_device
-                )
-                self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128, 2), label_dict=label_dict)
-
-    def test_qa_head(self):
-        for model_class in [cls for cls in self.model_classes if hasattr(cls, "add_qa_head")]:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                model1.add_qa_head("dummy")
-                label_dict = {}
-                label_dict["start_positions"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
-                label_dict["end_positions"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
-                self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128), label_dict=label_dict)
-
-    def test_adapter_with_head(self):
-        for model_class in self.model_classes:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                name = "dummy"
-                model1.add_adapter(name)
-                model1.add_classification_head(name, num_labels=3)
-                model1.set_active_adapters(name)
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    model1.save_adapter(temp_dir, name)
-
-                    model2.load_adapter(temp_dir)
-                    model2.set_active_adapters(name)
-                # check equal output
-                in_data = ids_tensor((1, 128), 1000)
-                # this is needed e.g. for BART
-                if model1.config.eos_token_id is not None:
-                    in_data[:, -1] = model1.config.eos_token_id
-
-                output1 = model1(in_data)
-                output2 = model2(in_data)
-                self.assertEqual(len(output1), len(output2))
-                self.assertTrue(torch.equal(output1[0], output2[0]))
-                self.assertEqual(3, output1[0].size()[1])
-
-    def test_adapter_with_head_load_as(self):
-        for model_class in self.model_classes:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                name = "dummy"
-                model1.add_adapter(name)
-                model1.add_classification_head(name, num_labels=3)
-                model1.set_active_adapters(name)
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    model1.save_adapter(temp_dir, name)
-
-                    # reload using a different name
-                    model2.load_adapter(temp_dir, load_as="new_name")
-                    model2.set_active_adapters("new_name")
-
-                # check equal output
-                in_data = ids_tensor((1, 128), 1000)
-                # this is needed e.g. for BART
-                if model1.config.eos_token_id is not None:
-                    in_data[:, -1] = model1.config.eos_token_id
-
-                output1 = model1(in_data)
-                output2 = model2(in_data)
-                self.assertEqual(len(output1), len(output2))
-                self.assertTrue(torch.equal(output1[0], output2[0]))
-                self.assertEqual(3, output1[0].size()[1])
-
-    def test_load_full_model(self):
-        for model_class in self.model_classes:
-            with self.subTest(model_class=model_class.__name__):
-                model = model_class(model_class.config_class())
-                model.add_qa_head("dummy")
-                true_config = model.get_prediction_heads_config()
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    # save
-                    model.save_pretrained(temp_dir)
-                    # reload
-                    model = model_class.from_pretrained(temp_dir)
-                self.assertIn("dummy", model.heads)
-                self.assertDictEqual(true_config, model.get_prediction_heads_config())
-
-
-@require_torch
 class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
     def test_loading_adapter_weights_with_prefix(self):
-        model_base, model_with_head_base = create_twin_models(BertModel)
+        model_base, model_with_head_base = create_twin_models(AutoModel, MODELS_WITH_ADAPTERS[BertConfig])
 
         model_with_head = BertModelWithHeads(model_with_head_base.config)
         model_with_head.bert = model_with_head_base
@@ -344,7 +223,7 @@ class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_loading_adapter_weights_without_prefix(self):
-        model_base, model_with_head_base = create_twin_models(BertModel)
+        model_base, model_with_head_base = create_twin_models(AutoModel, MODELS_WITH_ADAPTERS[BertConfig])
 
         model_with_head = BertModelWithHeads(model_with_head_base.config)
         model_with_head.bert = model_with_head_base

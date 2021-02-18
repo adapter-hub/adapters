@@ -5,44 +5,26 @@ from dataclasses import asdict
 
 import torch
 
-from transformers import (
-    ADAPTERFUSION_CONFIG_MAP,
-    BartModel,
-    BertModel,
-    DistilBertModel,
-    PfeifferConfig,
-    RobertaModel,
-    XLMRobertaModel,
-)
+from transformers import ADAPTERFUSION_CONFIG_MAP, AutoModel, PfeifferConfig
 from transformers.adapter_config import AdapterConfig
 from transformers.testing_utils import require_torch
 
+from .test_adapter_common import MODELS_WITH_ADAPTERS
 from .test_modeling_common import ids_tensor
-
-
-def create_twin_models(model1):
-    model1.eval()
-    # create a twin initialized with the same random weights
-    model2 = copy.deepcopy(model1)
-    model2.eval()
-    return model1, model2
 
 
 @require_torch
 class AdapterFusionModelTest(unittest.TestCase):
-
-    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel, BartModel]
-
     def test_add_adapter_fusion(self):
         config_name = "pfeiffer"
         adapter_config = AdapterConfig.load(config_name)
 
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
-            for model_class in self.model_classes:
-                model_config = model_class.config_class
-                model = model_class(model_config())
+            for config in MODELS_WITH_ADAPTERS.values():
+                model = AutoModel.from_config(config())
+                model.eval()
 
-                with self.subTest(model_class=model_class.__name__, config=config_name):
+                with self.subTest(model_class=model.__class__.__name__, config=config_name):
                     name1 = f"{config_name}-1"
                     name2 = f"{config_name}-2"
                     model.add_adapter(name1, config=config_name)
@@ -66,9 +48,9 @@ class AdapterFusionModelTest(unittest.TestCase):
                     self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
 
     def test_add_adapter_fusion_different_config(self):
-        for model_class in self.model_classes:
-            model_config = model_class.config_class
-            model = model_class(model_config())
+        for config in MODELS_WITH_ADAPTERS.values():
+            model = AutoModel.from_config(config())
+            model.eval()
 
             # fusion between a and b should be possible whereas fusion between a and c should fail
             model.add_adapter("a", config=PfeifferConfig(reduction_factor=16))
@@ -83,15 +65,16 @@ class AdapterFusionModelTest(unittest.TestCase):
 
     def test_load_adapter_fusion(self):
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
-            for model_class in self.model_classes:
-                with self.subTest(model_class=model_class.__name__):
-                    model_config = model_class.config_class
-                    model1 = model_class(model_config())
+            for config in MODELS_WITH_ADAPTERS.values():
+                model1 = AutoModel.from_config(config())
+
+                with self.subTest(model_class=model1.__class__.__name__):
                     name1 = "name1"
                     name2 = "name2"
                     model1.add_adapter(name1)
                     model1.add_adapter(name2)
-                    model1, model2 = create_twin_models(model1)
+
+                    model2 = copy.deepcopy(model1)
 
                     model1.add_fusion([name1, name2], adater_fusion_config_name)
                     with tempfile.TemporaryDirectory() as temp_dir:
@@ -113,12 +96,11 @@ class AdapterFusionModelTest(unittest.TestCase):
                     self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_load_full_model(self):
-        for model_class in self.model_classes:
-            model_config = model_class.config_class
-            model1 = model_class(model_config())
+        for config in MODELS_WITH_ADAPTERS.values():
+            model1 = AutoModel.from_config(config())
             model1.eval()
 
-            with self.subTest(model_class=model_class.__name__):
+            with self.subTest(model_class=model1.__class__.__name__):
                 name1 = "name1"
                 name2 = "name2"
                 model1.add_adapter(name1)
@@ -127,7 +109,7 @@ class AdapterFusionModelTest(unittest.TestCase):
                 # save & reload model
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_pretrained(temp_dir)
-                    model2 = model_class.from_pretrained(temp_dir)
+                    model2 = AutoModel.from_pretrained(temp_dir)
 
                 model1.eval()
                 model2.eval()
@@ -148,10 +130,9 @@ class AdapterFusionModelTest(unittest.TestCase):
 
         See, e.g., PretrainedConfig.to_json_string()
         """
-        for model_class in self.model_classes:
+        for config in MODELS_WITH_ADAPTERS.values():
             for k, v in ADAPTERFUSION_CONFIG_MAP.items():
-                model_config = model_class.config_class
-                model = model_class(model_config())
+                model = AutoModel.from_config(config())
                 model.add_adapter("test1")
                 model.add_adapter("test2")
                 model.add_fusion(["test1", "test2"], adapter_fusion_config=v)
