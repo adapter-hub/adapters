@@ -89,11 +89,23 @@ ALLOWED_NESTINGS = {
     Parallel: [str, Stack],
 }
 
+# Some composition blocks might not be supported by all models.
+# Add a whitelist of models for those here.
+SUPPORTED_MODELS = {
+    Parallel: ["bert", "roberta", "distilbert"],
+}
 
-def validate_composition(adapter_composition: AdapterCompositionBlock, level=0):
+
+def validate_composition(adapter_composition: AdapterCompositionBlock, level=0, model_type=None):
     if level > 1 and not (isinstance(adapter_composition, Stack) or isinstance(adapter_composition, str)):
         raise ValueError(f"Adapter setup is too deep. Cannot have {adapter_composition} at level {level}.")
     if isinstance(adapter_composition, AdapterCompositionBlock):
+        block_type = type(adapter_composition)
+        if model_type and block_type in SUPPORTED_MODELS:
+            if model_type not in SUPPORTED_MODELS[block_type]:
+                raise ValueError(
+                    f"Models of type {model_type} don't support adapter composition using {block_type.__name__}."
+                )
         for child in adapter_composition:
             if not type(child) in ALLOWED_NESTINGS[type(adapter_composition)]:
                 raise ValueError(f"Adapter setup is invalid. Cannot nest {child} in {adapter_composition}")
@@ -101,7 +113,7 @@ def validate_composition(adapter_composition: AdapterCompositionBlock, level=0):
             validate_composition(child, level=level + 1)
 
 
-def parse_composition(adapter_composition, level=0) -> AdapterCompositionBlock:
+def parse_composition(adapter_composition, level=0, model_type=None) -> AdapterCompositionBlock:
     """
     Parses and validates a setup of adapters.
 
@@ -113,7 +125,7 @@ def parse_composition(adapter_composition, level=0) -> AdapterCompositionBlock:
         return None
     elif isinstance(adapter_composition, AdapterCompositionBlock):
         if level is not None:
-            validate_composition(adapter_composition, level=level)
+            validate_composition(adapter_composition, level=level, model_type=model_type)
         return adapter_composition
     elif isinstance(adapter_composition, str):
         if level == 0:

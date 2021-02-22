@@ -406,6 +406,13 @@ class BertEncoderAdaptersMixin:
         for layer in self.layer:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
+    def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
+        if hidden_states.shape[0] != attention_mask.shape[0]:
+            repeats = [1] * len(attention_mask.shape)
+            repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
+            attention_mask = attention_mask.repeat(*repeats)
+        return attention_mask
+
 
 class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     """Adds adapters to the BertModel module."""
@@ -439,11 +446,6 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
     def _add_fusion_layer(self, adapter_names):
         self.encoder.add_fusion_layer(adapter_names)
-
-    def pre_transformer_forward(self, hidden_states, *args):
-        hidden_states = self.invertible_adapters_forward(hidden_states)
-
-        return super().pre_transformer_forward(hidden_states, *args)
 
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0

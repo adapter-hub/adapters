@@ -101,11 +101,6 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     def _add_fusion_layer(self, adapter_names):
         self.transformer.add_fusion_layer(adapter_names)
 
-    def pre_transformer_forward(self, hidden_states, *args):
-        hidden_states = self.invertible_adapters_forward(hidden_states)
-
-        return super().pre_transformer_forward(hidden_states, *args)
-
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0
         target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
