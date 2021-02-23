@@ -7,6 +7,9 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoModelWithHeads,
     AutoTokenizer,
+    BartConfig,
+    BertConfig,
+    DistilBertConfig,
     GlueDataset,
     GlueDataTrainingArguments,
     Trainer,
@@ -14,6 +17,8 @@ from transformers import (
 )
 from transformers.adapter_composition import Fuse
 from transformers.testing_utils import require_torch
+
+from .test_adapter_common import MODELS_WITH_ADAPTERS
 
 
 def filter_parameters(model, filter_string):
@@ -23,13 +28,17 @@ def filter_parameters(model, filter_string):
 @require_torch
 class AdapterTrainingTest(unittest.TestCase):
 
-    model_names = ["bert-base-uncased", "distilbert-base-uncased", "facebook/bart-base"]
+    tokenizer_names = {
+        BertConfig: "bert-base-uncased",
+        DistilBertConfig: "distilbert-base-uncased",
+        BartConfig: "facebook/bart-base",
+    }
 
     def test_train_single_adapter(self):
-        for model_name in self.model_names:
-            with self.subTest(model_name=model_name):
-                tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
-                model = AutoModelWithHeads.from_pretrained(model_name)
+        for config_class, tokenizer_name in self.tokenizer_names.items():
+            with self.subTest(model_config=config_class.__name__):
+                tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
+                model = AutoModelWithHeads.from_config(MODELS_WITH_ADAPTERS[config_class]())
 
                 # add two adapters: one will be trained and the other should be frozen
                 model.add_adapter("mrpc")
@@ -61,7 +70,7 @@ class AdapterTrainingTest(unittest.TestCase):
                 )
                 train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
                 training_args = TrainingArguments(
-                    output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=5, no_cuda=True
+                    output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
                 )
 
                 # evaluate
@@ -79,10 +88,10 @@ class AdapterTrainingTest(unittest.TestCase):
                         self.assertTrue(torch.equal(v1, v2))
 
     def test_train_adapter_fusion(self):
-        for model_name in self.model_names:
-            with self.subTest(model_name=model_name):
-                tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
-                model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        for config_class, tokenizer_name in self.tokenizer_names.items():
+            with self.subTest(model_config=config_class.__name__):
+                tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
+                model = AutoModelForSequenceClassification.from_config(MODELS_WITH_ADAPTERS[config_class]())
 
                 # add the adapters to be fused
                 model.add_adapter("a")
@@ -118,7 +127,7 @@ class AdapterTrainingTest(unittest.TestCase):
                 )
                 train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
                 training_args = TrainingArguments(
-                    output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=5, no_cuda=True
+                    output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
                 )
 
                 # evaluate
