@@ -16,7 +16,7 @@ from transformers import (
     PfeifferConfig,
     PfeifferInvConfig,
     RobertaConfig,
-)
+    GPT2Config)
 from transformers.testing_utils import require_torch
 
 from .test_modeling_common import ids_tensor
@@ -47,6 +47,9 @@ MODELS_WITH_ADAPTERS = {
         n_layers=4,
         n_heads=4,
         hidden_dim=37,
+    ),
+    GPT2Config: make_config(
+        GPT2Config,
     ),
 }
 

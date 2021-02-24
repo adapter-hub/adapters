@@ -45,7 +45,7 @@ class GPT2DoubleHeadsModelOutputAdapterMixin:
     pass
 
 
-class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
+class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -80,7 +80,7 @@ class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
         leave_out = adapter_config.get("leave_out", [])
         for i, layer in enumerate(self.base_model.h):
             if i not in leave_out:
-                layer.add_adapter(adapter_name)
+                layer.add_adapter(adapter_name, i)
 
         self.add_invertible_adapter(adapter_name)
 
@@ -129,9 +129,9 @@ class GPT2DecoderBlockAdaptersMixin(BertEncoderAdaptersMixin):
         self.attention_adapters.add_fusion_layer(adapter_names)
         self.output_adapters.add_fusion_layer(adapter_names)
 
-    def add_adapter(self, adapter_name: str):
-        self.attention_adapters.add_adapter(adapter_name)
-        self.output_adapters.add_adapter(adapter_name)
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        self.attention_adapters.add_adapter(adapter_name, layer_idx)
+        self.output_adapters.add_adapter(adapter_name, layer_idx)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
@@ -163,33 +163,6 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
                 config["layers"],
                 config["activation_function"],
                 multilabel=True,
-                id2label=id2label,
-                overwrite_ok=overwrite_ok,
-            )
-        elif config["head_type"] == "tagging":
-            self.add_tagging_head(
-                head_name,
-                config["num_labels"],
-                config["layers"],
-                config["activation_function"],
-                id2label=id2label,
-                overwrite_ok=overwrite_ok,
-            )
-        elif config["head_type"] == "multiple_choice":
-            self.add_multiple_choice_head(
-                head_name,
-                config["num_choices"],
-                config["layers"],
-                config["activation_function"],
-                id2label=id2label,
-                overwrite_ok=overwrite_ok,
-            )
-        elif config["head_type"] == "question_answering":
-            self.add_qa_head(
-                head_name,
-                config["num_labels"],
-                config["layers"],
-                config["activation_function"],
                 id2label=id2label,
                 overwrite_ok=overwrite_ok,
             )
