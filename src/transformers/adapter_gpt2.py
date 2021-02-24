@@ -25,7 +25,8 @@ class GPT2AttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
 
     @property
     def layer_norm(self):
-        return None #self.parent.ln_1
+        return None  # self.parent.ln_1
+
 
 class GPT2OutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
     """Adds output adapters to the Transformer module of DistilBert."""
@@ -38,10 +39,12 @@ class GPT2OutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
 
     @property
     def layer_norm(self):
-        return None# self.parent.ln_2
+        return None  # self.parent.ln_2
+
 
 class GPT2DoubleHeadsModelOutputAdapterMixin():
     pass
+
 
 class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
     def __init__(self, *args, **kwargs):
@@ -71,7 +74,6 @@ class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
         self.config.adapters.add(adapter_name, config=config)
         self._add_adapter(adapter_name)
 
-
     def _add_adapter(self, adapter_name: str):
         adapter_config = self.config.adapters.get(adapter_name)
         leave_out = adapter_config.get("leave_out", [])
@@ -99,7 +101,7 @@ class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
         self.set_active_adapters(adapter_setup)
 
     def enable_adapters(
-        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+            self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
     ):
         for layer in self.base_model.h:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
@@ -111,6 +113,7 @@ class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
 
 class GPT2ModelWithHeadsAdapterMixin(GPT2ModelAdapterMixin):
     pass
+
 
 class GPT2DecoderBlockAdaptersMixin(BertEncoderAdaptersMixin):
     """Adds adapters to the TransformerBlock module of DistilBert."""
@@ -132,6 +135,7 @@ class GPT2DecoderBlockAdaptersMixin(BertEncoderAdaptersMixin):
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+
 
 class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     """Adds flexible heads to a BERT-based model class."""
@@ -195,14 +199,14 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
                 raise AttributeError("Please register the PredictionHead before loading the model")
 
     def add_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        overwrite_ok=False,
-        multilabel=False,
-        id2label=None,
+            self,
+            head_name,
+            num_labels=2,
+            layers=2,
+            activation_function="tanh",
+            overwrite_ok=False,
+            multilabel=False,
+            id2label=None,
     ):
         """Adds a sequence classification head on top of the model.
 
@@ -220,6 +224,7 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         else:
             head = ClassificationHead(head_name, num_labels, layers, activation_function, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
+
 
 class GPT2LMModelMixin(GPT2ModelAdapterMixin):
     @property
