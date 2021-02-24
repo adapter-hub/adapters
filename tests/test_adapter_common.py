@@ -6,13 +6,16 @@ import torch
 
 from transformers import (
     ADAPTER_CONFIG_MAP,
+    AutoModel,
+    BertConfig,
     BertModel,
     BertModelWithHeads,
-    DistilBertModel,
-    DistilBertModelWithHeads,
-    RobertaModel,
-    RobertaModelWithHeads,
-    XLMRobertaModel,
+    DistilBertConfig,
+    HoulsbyConfig,
+    HoulsbyInvConfig,
+    PfeifferConfig,
+    PfeifferInvConfig,
+    RobertaConfig,
 )
 from transformers.testing_utils import require_torch
 

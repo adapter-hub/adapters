@@ -8,7 +8,7 @@ from .adapter_bert import (
     BertSelfOutputAdaptersMixin,
     ModelWithFlexibleHeadsAdaptersMixin,
 )
-from .adapter_composition import AdapterCompositionBlock, Fuse, parse_composition
+from .adapter_composition import AdapterCompositionBlock, parse_composition
 from .adapter_heads import ClassificationHead, MultiLabelClassificationHead
 from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
