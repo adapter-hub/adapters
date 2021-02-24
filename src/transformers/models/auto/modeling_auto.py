@@ -280,7 +280,7 @@ MODEL_WITH_HEADS_MAPPING = OrderedDict(
         (RobertaConfig, RobertaModelWithHeads),
         (BertConfig, BertModelWithHeads),
         (DistilBertConfig, DistilBertModelWithHeads),
-        (GPT2Config, GPT2ModelWithHeads )
+        (GPT2Config, GPT2ModelWithHeads),
     ]
 )
 

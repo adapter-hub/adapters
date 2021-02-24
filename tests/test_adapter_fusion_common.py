@@ -5,19 +5,8 @@ from dataclasses import asdict
 
 import torch
 
-from transformers import (
-    ADAPTER_CONFIG_MAP,
-    ADAPTERFUSION_CONFIG_MAP,
-    BertModel,
-    DistilBertModel,
-    PfeifferConfig,
-    RobertaModel,
-    XLMRobertaModel,
-    GPT2Model
-)
 from transformers import ADAPTERFUSION_CONFIG_MAP, AutoModel, PfeifferConfig
 from transformers.adapter_config import AdapterConfig
-
 from transformers.testing_utils import require_torch
 
 from .test_adapter_common import MODELS_WITH_ADAPTERS
@@ -26,10 +15,6 @@ from .test_modeling_common import ids_tensor
 
 @require_torch
 class AdapterFusionModelTest(unittest.TestCase):
-
-
-    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel, GPT2Model]
-
     def test_add_adapter_fusion(self):
         config_name = "pfeiffer"
         adapter_config = AdapterConfig.load(config_name)

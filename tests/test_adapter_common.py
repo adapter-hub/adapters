@@ -6,25 +6,13 @@ import torch
 
 from transformers import (
     ADAPTER_CONFIG_MAP,
-    AutoModel,
-    BertConfig,
+    BertModel,
     BertModelWithHeads,
-<<<<<<< HEAD
     DistilBertModel,
     DistilBertModelWithHeads,
     RobertaModel,
     RobertaModelWithHeads,
     XLMRobertaModel,
-    GPT2Model,
-    GPT2ModelWithHeads, AdapterType,
-=======
-    DistilBertConfig,
-    HoulsbyConfig,
-    HoulsbyInvConfig,
-    PfeifferConfig,
-    PfeifferInvConfig,
-    RobertaConfig,
->>>>>>> v2
 )
 from transformers.testing_utils import require_torch
 
@@ -76,12 +64,6 @@ def create_twin_models(model_class, config_creator=None):
 
 @require_torch
 class AdapterModelTest(unittest.TestCase):
-<<<<<<< HEAD
-    model_classes = [BertModel, RobertaModel, XLMRobertaModel, DistilBertModel,
-                     GPT2Model]
-
-=======
->>>>>>> v2
     def test_add_adapter(self):
         for config in MODELS_WITH_ADAPTERS.values():
             model = AutoModel.from_config(config())
@@ -202,135 +184,12 @@ class AdapterModelTest(unittest.TestCase):
 
 
 @require_torch
-class PredictionHeadModelTest(unittest.TestCase):
-    model_classes = [BertModelWithHeads, RobertaModelWithHeads, DistilBertModelWithHeads, GPT2ModelWithHeads]
-
-    def run_prediction_head_test(self, model, compare_model, head_name, input_shape=(1, 128), output_shape=(1, 2)):
-        # first, check if the head is actually correctly registered as part of the pt module
-        self.assertTrue(f"heads.{head_name}" in dict(model.named_modules()))
-
-        # save & reload
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model.save_head(temp_dir, head_name)
-
-            compare_model.load_head(temp_dir)
-
-        # check if adapter was correctly loaded
-        self.assertTrue(head_name in compare_model.heads)
-
-        in_data = ids_tensor(input_shape, 1000)
-        model.active_head = head_name
-        output1 = model(in_data)
-        self.assertEqual(output_shape, tuple(output1[0].size()))
-        # check equal output
-        compare_model.active_head = head_name
-        output2 = compare_model(in_data)
-        self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.equal(output1[0], output2[0]))
-
-    def test_classification_head(self):
-        for model_class in self.model_classes:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                model1.add_classification_head("dummy")
-                self.run_prediction_head_test(model1, model2, "dummy")
-
-    def test_multiple_choice_head(self):
-        for model_class in self.model_classes:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                model1.add_multiple_choice_head("dummy")
-                self.run_prediction_head_test(model1, model2, "dummy", input_shape=(2, 128))
-
-    def test_tagging_head(self):
-        for model_class in self.model_classes:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                model1.add_tagging_head("dummy")
-                self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128, 2))
-
-    def test_qa_head(self):
-        for model_class in self.model_classes:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                model1.add_qa_head("dummy")
-                self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128))
-
-    def test_adapter_with_head(self):
-        for model_class in self.model_classes:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                name = "dummy"
-                model1.add_adapter(name)
-                model1.add_classification_head(name, num_labels=3)
-                model1.set_active_adapters(name)
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    model1.save_adapter(temp_dir, name)
-
-                    model2.load_adapter(temp_dir)
-                    model2.set_active_adapters(name)
-                # check equal output
-                in_data = ids_tensor((1, 128), 1000)
-                output1 = model1(in_data)
-                output2 = model2(in_data)
-                self.assertEqual(len(output1), len(output2))
-                self.assertTrue(torch.equal(output1[0], output2[0]))
-                self.assertEqual(3, output1[0].size()[1])
-
-    def test_adapter_with_head_load_as(self):
-        for model_class in self.model_classes:
-            model1, model2 = create_twin_models(model_class)
-
-            with self.subTest(model_class=model_class.__name__):
-                name = "dummy"
-                model1.add_adapter(name)
-                model1.add_classification_head(name, num_labels=3)
-                model1.set_active_adapters(name)
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    model1.save_adapter(temp_dir, name)
-
-                    # reload using a different name
-                    model2.load_adapter(temp_dir, load_as="new_name")
-                    model2.set_active_adapters("new_name")
-
-                # check equal output
-                in_data = ids_tensor((1, 128), 1000)
-                output1 = model1(in_data)
-                output2 = model2(in_data)
-                self.assertEqual(len(output1), len(output2))
-                self.assertTrue(torch.equal(output1[0], output2[0]))
-                self.assertEqual(3, output1[0].size()[1])
-
-    def test_load_full_model(self):
-        for model_class in self.model_classes:
-            with self.subTest(model_class=model_class.__name__):
-                model = model_class(model_class.config_class())
-                model.add_tagging_head("dummy")
-                true_config = model.get_prediction_heads_config()
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    # save
-                    model.save_pretrained(temp_dir)
-                    # reload
-                    model = model_class.from_pretrained(temp_dir)
-                self.assertIn("dummy", model.heads)
-                self.assertDictEqual(true_config, model.get_prediction_heads_config())
-
-
-@require_torch
-
 class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
     def test_loading_adapter_weights_with_prefix(self):
-        model_base, model_with_head_base = create_twin_models(AutoModel, MODELS_WITH_ADAPTERS[BertConfig])
+        model_base, model_with_head_base = create_twin_models(BertModel)
 
         model_with_head = BertModelWithHeads(model_with_head_base.config)
         model_with_head.bert = model_with_head_base
-        model_with_head.cuda()
-        model_base.cuda()
 
         model_with_head.add_adapter("dummy")
 
@@ -355,8 +214,6 @@ class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
 
         model_with_head = BertModelWithHeads(model_with_head_base.config)
         model_with_head.bert = model_with_head_base
-        model_with_head.cuda()
-        model_base.cuda()
 
         model_base.add_adapter("dummy")
 

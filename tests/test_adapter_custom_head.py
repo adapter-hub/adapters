@@ -4,7 +4,7 @@ import unittest
 import torch
 
 from tests.test_modeling_common import ids_tensor
-from transformers import AutoConfig, AutoModelWithHeads, AdapterType
+from transformers import AutoConfig, AutoModelWithHeads
 from transformers.adapter_heads import PredictionHead
 
 
@@ -13,7 +13,6 @@ class CustomHead(PredictionHead):
         super().__init__(name)
         self.config = config
         self.build(model=model)
-
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
         logits = super().forward(outputs[0])
@@ -36,19 +35,17 @@ class AdapterCustomHeadTest(unittest.TestCase):
         self.assertEqual(output1[0].size(), output2[0].size())
 
     def test_custom_head_from_model_config(self):
-        model_name = "gpt2"
+        model_name = "bert-base-uncased"
         model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
         model = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
         config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
-        model.add_adapter("ssh", "pfeiffer")
-        model.train_adapter(["ssh"])
         model.add_custom_head("custom_head", config)
         model.eval()
         in_data = ids_tensor((1, 128), 1000)
         output1 = model(in_data)
-        #model.add_tagging_head("tagging_head", num_labels=3, layers=2)
-        #output2 = model(in_data)
-        #self.assertEqual(output1[0].size(), output2[0].size())
+        model.add_tagging_head("tagging_head", num_labels=3, layers=2)
+        output2 = model(in_data)
+        self.assertEqual(output1[0].size(), output2[0].size())
 
     def test_save_load_custom_head(self):
         model_name = "bert-base-uncased"

@@ -24,6 +24,13 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...adapter_gpt2 import (
+    GPT2DecoderBlockAdaptersMixin,
+    GPT2DoubleHeadsModelOutputAdapterMixin,
+    GPT2LMModelMixin,
+    GPT2ModelAdapterMixin,
+    GPT2ModelHeadsMixin,
+)
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -45,13 +52,7 @@ from ...modeling_utils import (
 )
 from ...utils import logging
 from .configuration_gpt2 import GPT2Config
-from ...adapter_gpt2 import (
-    GPT2DoubleHeadsModelOutputAdapterMixin,
-    GPT2DecoderBlockAdaptersMixin,
-    GPT2ModelAdapterMixin,
-    GPT2ModelHeadsMixin,
-    GPT2LMModelMixin,
-)
+
 
 logger = logging.get_logger(__name__)
 
@@ -115,7 +116,7 @@ def load_tf_weights_in_gpt2(model, config, gpt2_checkpoint_path):
                 pointer = pointer[num]
         try:
             assert (
-                    pointer.shape == array.shape
+                pointer.shape == array.shape
             ), f"Pointer shape {pointer.shape} and array shape {array.shape} mismatched"
         except AssertionError as e:
             e.args += (pointer.shape, array.shape)
@@ -175,7 +176,7 @@ class Attention(nn.Module):
 
         if not self.is_cross_attention:
             # if only "normal" attention layer implements causal mask
-            mask = self.bias[:, :, ns - nd: ns, :ns]
+            mask = self.bias[:, :, ns - nd : ns, :ns]
             w = torch.where(mask.bool(), w, self.masked_bias.to(w.dtype))
 
         if attention_mask is not None:
@@ -208,15 +209,15 @@ class Attention(nn.Module):
             return x.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
 
     def forward(
-            self,
-            hidden_states,
-            layer_past=None,
-            attention_mask=None,
-            head_mask=None,
-            encoder_hidden_states=None,
-            encoder_attention_mask=None,
-            use_cache=False,
-            output_attentions=False,
+        self,
+        hidden_states,
+        layer_past=None,
+        attention_mask=None,
+        head_mask=None,
+        encoder_hidden_states=None,
+        encoder_attention_mask=None,
+        use_cache=False,
+        output_attentions=False,
     ):
         if encoder_hidden_states is not None:
             assert hasattr(
@@ -283,15 +284,15 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         self._init_adapter_modules()
 
     def forward(
-            self,
-            hidden_states,
-            layer_past=None,
-            attention_mask=None,
-            head_mask=None,
-            encoder_hidden_states=None,
-            encoder_attention_mask=None,
-            use_cache=False,
-            output_attentions=False,
+        self,
+        hidden_states,
+        layer_past=None,
+        attention_mask=None,
+        head_mask=None,
+        encoder_hidden_states=None,
+        encoder_attention_mask=None,
+        use_cache=False,
+        output_attentions=False,
     ):
         model_input = hidden_states
         attn_outputs = self.attn(
@@ -315,8 +316,7 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
                 self, "crossattention"
             ), f"If `encoder_hidden_states` are passed, {self} has to be instantiated with cross-attention layers by setting `config.add_cross_attention=True`"
             cross_attn_outputs = self.crossattention(
-                self.ln_cross_attn(
-                    hidden_states),
+                self.ln_cross_attn(hidden_states),
                 attention_mask=attention_mask,
                 head_mask=head_mask,
                 encoder_hidden_states=encoder_hidden_states,
@@ -529,20 +529,20 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
     )
     def forward(
-            self,
-            input_ids=None,
-            past_key_values=None,
-            attention_mask=None,
-            token_type_ids=None,
-            position_ids=None,
-            head_mask=None,
-            inputs_embeds=None,
-            encoder_hidden_states=None,
-            encoder_attention_mask=None,
-            use_cache=None,
-            output_attentions=None,
-            output_hidden_states=None,
-            return_dict=None,
+        self,
+        input_ids=None,
+        past_key_values=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        encoder_hidden_states=None,
+        encoder_attention_mask=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
     ):
         if not self.active_adapters and self.has_adapters():
             logger.warning("There are adapters available but none are passed to model.forward")
@@ -755,21 +755,21 @@ class GPT2LMHeadModel(GPT2LMModelMixin, GPT2PreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
     )
     def forward(
-            self,
-            input_ids=None,
-            past_key_values=None,
-            attention_mask=None,
-            token_type_ids=None,
-            position_ids=None,
-            head_mask=None,
-            inputs_embeds=None,
-            encoder_hidden_states=None,
-            encoder_attention_mask=None,
-            labels=None,
-            use_cache=None,
-            output_attentions=None,
-            output_hidden_states=None,
-            return_dict=None,
+        self,
+        input_ids=None,
+        past_key_values=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        encoder_hidden_states=None,
+        encoder_attention_mask=None,
+        labels=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -875,22 +875,22 @@ class GPT2DoubleHeadsModel(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     @add_start_docstrings_to_model_forward(GPT2_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=GPT2DoubleHeadsModelOutput, config_class=_CONFIG_FOR_DOC)
     def forward(
-            self,
-            input_ids=None,
-            past_key_values=None,
-            attention_mask=None,
-            token_type_ids=None,
-            position_ids=None,
-            head_mask=None,
-            inputs_embeds=None,
-            mc_token_ids=None,
-            labels=None,
-            mc_labels=None,
-            use_cache=None,
-            output_attentions=None,
-            output_hidden_states=None,
-            return_dict=None,
-            **kwargs,
+        self,
+        input_ids=None,
+        past_key_values=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        mc_token_ids=None,
+        labels=None,
+        mc_labels=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        **kwargs,
     ):
         r"""
         mc_token_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, num_choices)`, `optional`, default to index of the last token of the input):
@@ -1019,19 +1019,19 @@ class GPT2ForSequenceClassification(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
     )
     def forward(
-            self,
-            input_ids=None,
-            past_key_values=None,
-            attention_mask=None,
-            token_type_ids=None,
-            position_ids=None,
-            head_mask=None,
-            inputs_embeds=None,
-            labels=None,
-            use_cache=None,
-            output_attentions=None,
-            output_hidden_states=None,
-            return_dict=None,
+        self,
+        input_ids=None,
+        past_key_values=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1063,7 +1063,7 @@ class GPT2ForSequenceClassification(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
             batch_size, sequence_length = inputs_embeds.shape[:2]
 
         assert (
-                self.config.pad_token_id is not None or batch_size == 1
+            self.config.pad_token_id is not None or batch_size == 1
         ), "Cannot handle batch sizes > 1 if no padding token is defined."
         if self.config.pad_token_id is None:
             sequence_lengths = -1
@@ -1112,18 +1112,18 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
         self.init_weights()
 
     def forward(
-            self,
-            input_ids=None,
-            attention_mask=None,
-            token_type_ids=None,
-            position_ids=None,
-            head_mask=None,
-            inputs_embeds=None,
-            output_attentions=None,
-            output_hidden_states=None,
-            head=None,
-            return_dict=None,
-            **kwargs
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        head=None,
+        return_dict=None,
+        **kwargs
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
         attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None

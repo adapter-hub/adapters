@@ -1,17 +1,16 @@
 from typing import Union
 
 from torch import nn
-import torch
 
-from .adapter_model_mixin import ModelAdaptersMixin, InvertibleAdaptersMixin
 from .adapter_bert import (
     BertEncoderAdaptersMixin,
-    BertSelfOutputAdaptersMixin,
     BertOutputAdaptersMixin,
-    ModelWithFlexibleHeadsAdaptersMixin
+    BertSelfOutputAdaptersMixin,
+    ModelWithFlexibleHeadsAdaptersMixin,
 )
+from .adapter_composition import AdapterCompositionBlock, Fuse, parse_composition
 from .adapter_heads import ClassificationHead, MultiLabelClassificationHead
-from .adapter_composition import AdapterCompositionBlock, parse_composition, Fuse
+from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
 class GPT2AttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
@@ -42,7 +41,7 @@ class GPT2OutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
         return None  # self.parent.ln_2
 
 
-class GPT2DoubleHeadsModelOutputAdapterMixin():
+class GPT2DoubleHeadsModelOutputAdapterMixin:
     pass
 
 
@@ -62,11 +61,13 @@ class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
                 self.add_fusion_layer(fusion_adapter_names)
 
     def add_adapter(self, adapter_name: str, config=None):
-        """Adds a new adapter module of the specified type to the model.
+        """
+        Adds a new adapter module of the specified type to the model.
 
         Args:
             adapter_name (str): The name of the adapter module to be added.
             config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
+
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
@@ -101,7 +102,7 @@ class GPT2ModelAdapterMixin(ModelAdaptersMixin, InvertibleAdaptersMixin):
         self.set_active_adapters(adapter_setup)
 
     def enable_adapters(
-            self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
     ):
         for layer in self.base_model.h:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
@@ -199,16 +200,17 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
                 raise AttributeError("Please register the PredictionHead before loading the model")
 
     def add_classification_head(
-            self,
-            head_name,
-            num_labels=2,
-            layers=2,
-            activation_function="tanh",
-            overwrite_ok=False,
-            multilabel=False,
-            id2label=None,
+        self,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        overwrite_ok=False,
+        multilabel=False,
+        id2label=None,
     ):
-        """Adds a sequence classification head on top of the model.
+        """
+        Adds a sequence classification head on top of the model.
 
         Args:
             head_name (str): The name of the head.
