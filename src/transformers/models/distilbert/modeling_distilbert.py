@@ -319,6 +319,7 @@ class Transformer(DistilBertTransformerAdaptersMixin, nn.Module):
                 x=hidden_state, attn_mask=attn_mask, head_mask=head_mask[i], output_attentions=output_attentions
             )
             hidden_state = layer_outputs[-1]
+            attn_mask = self.adjust_attention_mask_for_parallel(hidden_state, attn_mask)
 
             if output_attentions:
                 assert len(layer_outputs) == 2
@@ -470,9 +471,7 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        # some warnings if we don't use available adapters
-        if not self.active_adapters and self.has_adapters():
-            logger.warning("There are adapters available but none are passed to model.forward")
+        self.pre_transformer_forward()
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")

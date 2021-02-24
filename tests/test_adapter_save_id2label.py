@@ -2,7 +2,7 @@ import unittest
 from tempfile import TemporaryDirectory
 from typing import Dict
 
-from transformers import AutoConfig, AutoModelForTokenClassification, AutoModelWithHeads, BertForSequenceClassification
+from transformers import BertConfig, BertForSequenceClassification, BertModelWithHeads
 
 
 def get_default(num_label):
@@ -33,16 +33,18 @@ class TestSaveLabel(unittest.TestCase):
             "X",
         ]
         self.label_map: Dict[int, str] = {i: label for i, label in enumerate(self.labels)}
-        self.model_name = "bert-base-uncased"
-        self.config = AutoConfig.from_pretrained(
-            self.model_name,
+        self.config = BertConfig(
+            hidden_size=32,
+            num_hidden_layers=4,
+            num_attention_heads=4,
+            intermediate_size=37,
             num_labels=len(self.labels),
             id2label=self.label_map,
             label2id={label: i for i, label in enumerate(self.labels)},
         )
 
     def test_classification_model_head_labels(self):
-        model = AutoModelForTokenClassification.from_pretrained(self.model_name, config=self.config)
+        model = BertForSequenceClassification(self.config)
         with TemporaryDirectory() as temp_dir:
             model.save_head(temp_dir)
             model.load_head(temp_dir)
@@ -51,7 +53,7 @@ class TestSaveLabel(unittest.TestCase):
         self.assertDictEqual(self.label_map, model.get_labels_dict())
 
     def test_sequ_classification_model_head_labels(self):
-        model = BertForSequenceClassification.from_pretrained(self.model_name, config=self.config)
+        model = BertForSequenceClassification(self.config)
         with TemporaryDirectory() as temp_dir:
             model.save_head(temp_dir)
             model.load_head(temp_dir)
@@ -60,25 +62,25 @@ class TestSaveLabel(unittest.TestCase):
         self.assertDictEqual(self.label_map, model.get_labels_dict())
 
     def test_model_with_heads_tagging_head_labels(self):
-        model = AutoModelWithHeads.from_pretrained(self.model_name, config=self.config)
+        model = BertModelWithHeads(self.config)
         model.add_tagging_head("test_head", num_labels=len(self.labels), id2label=self.label_map)
         with TemporaryDirectory() as temp_dir:
             model.save_head(temp_dir, "test_head")
             model.load_head(temp_dir)
         # this is just loaded to test whether loading an adapter changes the label information
-        model.load_adapter("sst-2", "text_task")
+        model.add_adapter("sst-2")
 
         self.assertEqual(self.labels, model.get_labels())
         self.assertDictEqual(self.label_map, model.get_labels_dict())
 
     def test_multiple_heads_label(self):
-        model = AutoModelWithHeads.from_pretrained(self.model_name, config=self.config)
+        model = BertModelWithHeads(self.config)
         model.add_tagging_head("test_head", num_labels=len(self.labels), id2label=self.label_map)
         with TemporaryDirectory() as temp_dir:
             model.save_head(temp_dir, "test_head")
             model.load_head(temp_dir)
         # adapter loaded for testing whether it changes label information
-        model.load_adapter("sst-2", "text_task")
+        model.add_adapter("sst-2")
         model.add_classification_head("classification_head")
         default_label, default_label_dict = get_default(2)
 
@@ -86,7 +88,7 @@ class TestSaveLabel(unittest.TestCase):
         self.assertEqual(model.get_labels_dict("classification_head"), default_label_dict)
 
     def test_model_with_heads_multiple_heads(self):
-        model = AutoModelWithHeads.from_pretrained(self.model_name, config=self.config)
+        model = BertModelWithHeads(self.config)
         model.add_tagging_head("test_head", num_labels=len(self.labels), id2label=self.label_map)
         model.add_classification_head("second_head", num_labels=5)
         with TemporaryDirectory() as temp_dir:
@@ -94,7 +96,7 @@ class TestSaveLabel(unittest.TestCase):
             model.load_head(temp_dir + "/test_head")
             model.save_head(temp_dir + "/second_head", "second_head")
             model.load_head(temp_dir + "/second_head")
-        model.load_adapter("sst-2", "text_task")
+        model.add_adapter("sst-2")
 
         self.assertEqual(model.get_labels("test_head"), self.labels)
         self.assertEqual(model.get_labels_dict("test_head"), self.label_map)

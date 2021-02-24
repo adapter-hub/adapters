@@ -61,7 +61,7 @@ class AdapterHubTest(unittest.TestCase):
 
                 self.assertEqual(0, len(loading_info["missing_keys"]))
 
-                # TODO hotfix for unnecessary weights in old adapters
+                # TODO-V2 hotfix for unnecessary weights in old adapters
                 unexpected_keys = [k for k in loading_info["unexpected_keys"] if "adapter_attention" not in k]
                 self.assertEqual(0, len(unexpected_keys))
 
@@ -69,7 +69,7 @@ class AdapterHubTest(unittest.TestCase):
                 self.assertNotIn(adapter_name, model.base_model.invertible_adapters)
 
                 # check if config is valid
-                # TODO temporarily commented out as loaded PfeifferConfig does not match local version
+                # TODO-V2 temporarily commented out as loaded PfeifferConfig does not match local version
                 # expected_hash = get_adapter_config_hash(AdapterConfig.load(config))
                 # real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
                 # self.assertEqual(expected_hash, real_hash)
@@ -106,7 +106,7 @@ class AdapterHubTest(unittest.TestCase):
 
                 self.assertEqual(0, len(loading_info["missing_keys"]))
 
-                # TODO hotfix for unnecessary weights in old adapters
+                # TODO-V2 hotfix for unnecessary weights in old adapters
                 unexpected_keys = [k for k in loading_info["unexpected_keys"] if "adapter_attention" not in k]
                 self.assertEqual(0, len(unexpected_keys))
 
@@ -115,7 +115,7 @@ class AdapterHubTest(unittest.TestCase):
                 self.assertIn(adapter_name, model.invertible_adapters)
 
                 # check if config is valid
-                # TODO hashes are not guaranteed to be equal because of invertible adapters
+                # TODO-V2 hashes are not guaranteed to be equal because of invertible adapters
                 # expected_hash = get_adapter_config_hash(config)
                 # real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
                 # self.assertEqual(expected_hash, real_hash)

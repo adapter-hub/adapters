@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import List, Union
 
 import torch
 from torch import nn
@@ -9,6 +9,7 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from .adapter_composition import AdapterCompositionBlock
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .adapter_modeling import Activation_Function_Class
+from .file_utils import ModelOutput
 from .modeling_outputs import (
     MultipleChoiceModelOutput,
     QuestionAnsweringModelOutput,
@@ -98,7 +99,7 @@ class ClassificationHead(PredictionHead):
                     attentions=outputs.attentions,
                 )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -148,7 +149,7 @@ class MultiLabelClassificationHead(PredictionHead):
                     attentions=outputs.attentions,
                 )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -184,7 +185,7 @@ class MultipleChoiceHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -212,13 +213,13 @@ class TaggingHead(PredictionHead):
             # Only keep active parts of the loss
             if attention_mask is not None:
                 active_loss = attention_mask.view(-1) == 1
-                active_logits = logits.view(-1, self.num_labels)
+                active_logits = logits.view(-1, self.config["num_labels"])
                 active_labels = torch.where(
                     active_loss, labels.view(-1), torch.tensor(loss_fct.ignore_index).type_as(labels)
                 )
                 loss = loss_fct(active_logits, active_labels)
             else:
-                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+                loss = loss_fct(logits.view(-1, self.config["num_labels"]), labels.view(-1))
 
         if return_dict:
             return TokenClassifierOutput(
@@ -228,7 +229,7 @@ class TaggingHead(PredictionHead):
                 attentions=outputs.attentions,
             )
         else:
-            outputs = (logits,) + outputs[2:]
+            outputs = (logits,) + outputs[1:]
             if labels is not None:
                 outputs = (loss,) + outputs
             return outputs
@@ -297,7 +298,7 @@ class QuestionAnsweringHead(PredictionHead):
             outputs = (
                 start_logits,
                 end_logits,
-            ) + outputs[2:]
+            ) + outputs[1:]
             if total_loss is not None:
                 outputs = (total_loss,) + outputs
             return outputs
@@ -310,7 +311,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
         super().__init__(*args, **kwargs)
         if not hasattr(self.config, "custom_heads"):
             self.config.custom_heads = {}
-        self.active_head = None
+        self._active_heads = []
 
     def _init_head_modules(self):
         # this dict is _only_ used for saving & reloading the configs and should not be modified otherwise
@@ -335,21 +336,42 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
         self.config.custom_heads[identifier] = head
 
     @property
-    def active_head(self):
-        return self._active_head
+    def active_head(self) -> Union[str, List[str]]:
+        """
+        The active prediction head configuration of this model. Can be either the name of a single available head
+        (string) or a list of multiple available heads. In case of a list of heads, the same base model is forwarded
+        through all specified heads.
+
+        Returns:
+            Union[str, List[str]]: A string or a list of strings describing the active head configuration.
+        """
+        if not self._active_heads:
+            return None
+        elif len(self._active_heads) == 1:
+            return self._active_heads[0]
+        else:
+            return self._active_heads
 
     @active_head.setter
-    def active_head(self, head_name):
-        self._active_head = head_name
-        if head_name is not None and head_name in self.heads:
-            self.config.label2id = self.heads[head_name].config["label2id"]
-            self.config.id2label = self.get_labels_dict(head_name)
+    def active_head(self, head_name_or_list: Union[str, List[str]]):
+        if isinstance(head_name_or_list, str):
+            if head_name_or_list and head_name_or_list not in self.heads:
+                raise ValueError(f"Model does not contain a head with name '{head_name_or_list}'.")
+            self._active_heads = [head_name_or_list] if head_name_or_list else None
+            # If we set a single head, also switch the label mapping. For multiple head, that doesn't make sense?
+            if head_name_or_list:
+                self.config.label2id = self.heads[head_name_or_list].config["label2id"]
+                self.config.id2label = self.get_labels_dict(head_name_or_list)
+        else:
+            self._active_heads = head_name_or_list
 
     def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
-        """Sets the adapter modules to be used by default in every forward pass.
-        This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
-        If no adapter with the given name is found, no module of the respective type will be activated.
-        In case the calling model class supports named prediction heads, this method will attempt to activate a prediction head with the name of the last adapter in the list of passed adapter names.
+        """
+        Sets the adapter modules to be used by default in every forward pass. This setting can be overriden by passing
+        the `adapter_names` parameter in the `foward()` pass. If no adapter with the given name is found, no module of
+        the respective type will be activated. In case the calling model class supports named prediction heads, this
+        method will attempt to activate a prediction head with the name of the last adapter in the list of passed
+        adapter names.
 
         Args:
             adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
@@ -404,20 +426,50 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
         self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
     ):
 
-        head_name = head_name or self.active_head
-        if not head_name:
+        if not head_name and not self.active_head:
             logger.debug("No prediction head is used.")
             return all_outputs
+        used_heads = [head_name] if head_name else self._active_heads
 
-        if head_name not in self.heads:
-            raise ValueError("Unknown head_name '{}'".format(head_name))
-        head = self.heads[head_name]
+        for head in used_heads:
+            if head not in self.heads:
+                raise ValueError("Unknown head_name '{}'".format(head))
 
-        return head(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
+        if self.has_parallel_adapters:
+            if len(used_heads) != self.config.adapters.active_setup.parallel_channels:
+                raise ValueError("The number of parallel adapters and the number of active heads must match.")
+            orig_batch_size = all_outputs[0].shape[0] // self.config.adapters.active_setup.parallel_channels
+            head_outputs = []
+            for i, head in enumerate(used_heads):
+                head_module = self.heads[head]
+                # TODO check possible edge cases here
+                if isinstance(all_outputs, ModelOutput):
+                    # rebuild the model output object from the split output
+                    head_inputs = {}
+                    for key, base_output in all_outputs.items():
+                        head_inputs[key] = base_output[i * orig_batch_size : (i + 1) * orig_batch_size]
+                    head_inputs = all_outputs.__class__(**head_inputs)
+                else:
+                    head_inputs = tuple()
+                    for base_output in all_outputs:
+                        head_inputs = head_inputs + (base_output[i * orig_batch_size : (i + 1) * orig_batch_size],)
+                head_output = head_module(head_inputs, cls_output, attention_mask, return_dict, **kwargs)
+                head_outputs.append(head_output)
+            return head_outputs
+        elif len(used_heads) > 1:
+            head_outputs = []
+            for head in used_heads:
+                head_module = self.heads[head]
+                head_outputs.append(head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs))
+            return head_outputs
+        else:
+            head_module = self.heads[used_heads[0]]
+            return head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
 
     def get_labels_dict(self, head_name=None):
         """
-        Returns the id2label dict for the given head
+        Returns the id2label dict for the given hea
+
         Args:
             head_name: (str, optional) the name of the head which labels should be returned. Default is None.
             If the name is None the labels of the active head are returned
@@ -436,7 +488,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
 
     def get_labels(self, head_name=None):
         """
-        Returns the labels the given head is assigning/predicting
+        Returns the labels the given head is assigning/predictin
+
         Args:
             head_name: (str, optional) the name of the head which labels should be returned. Default is None.
             If the name is None the labels of the active head are returned

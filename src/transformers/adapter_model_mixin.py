@@ -292,16 +292,16 @@ class AdapterLoader(WeightsLoader):
             raise ValueError("Invalid adapter type {}".format(self.adapter_type))
 
     def filter_func(self, adapter_name):
-        return lambda x: "_adapters.{}.".format(adapter_name) in x
+        return lambda x: "_adapters.{}.".format(adapter_name) in x or ".adapters.{}.".format(adapter_name) in x
 
     # This dict maps the original weight names to the currently used equivalents.
     # The mapping is used by rename_func() to support loading from older weights files.
     # Old adapters will be loaded and converted to the new format automatically.
     legacy_weights_mapping = {
-        "attention_text_task_adapters": "attention_adapters",
-        "attention_text_lang_adapters": "attention_adapters",
-        "layer_text_task_adapters": "output_adapters",
-        "layer_text_lang_adapters": "output_adapters",
+        "attention_text_task_adapters": "adapters",
+        "attention_text_lang_adapters": "adapters",
+        "layer_text_task_adapters": "adapters",
+        "layer_text_lang_adapters": "adapters",
         "invertible_lang_adapters": "invertible_adapters",
     }
 
@@ -320,12 +320,12 @@ class AdapterLoader(WeightsLoader):
             if len(inv_adapter_keys) > 0:
                 del self.model.base_model.invertible_adapters[adapter_name]
                 missing_keys = [k for k in missing_keys if k not in inv_adapter_keys]
-                # TODO remove invertible_adapter from config
+                # TODO-V2 remove invertible_adapter from config
         return missing_keys
 
     def rename_func(self, old_name, new_name):
         return lambda k: self._rename_legacy_weights(k).replace(
-            "_adapters.{}".format(old_name), "_adapters.{}".format(new_name)
+            "adapters.{}.".format(old_name), "adapters.{}.".format(new_name)
         )
 
     def save(self, save_directory, name, meta_dict=None):
@@ -659,6 +659,7 @@ class InvertibleAdaptersMixin:
 
     def _init_adapter_modules(self):
         self.invertible_adapters = nn.ModuleDict(dict())
+        super()._init_adapter_modules()
 
     def add_invertible_adapter(self, adapter_name: str):
         """Adds an invertible adapter module for the adapter with the given name.
@@ -727,20 +728,19 @@ class ModelAdaptersMixin(ABC):
         elif not isinstance(config.adapters, ModelAdaptersConfig):
             config.adapters = ModelAdaptersConfig(**config.adapters)
 
-    # These methods have to be implemented by every deriving class:
-
-    @abstractmethod
-    def add_adapter(self, adapter_name: str, config=None):
-        """Adds a new adapter module of the specified type to the model.
-
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
+    def _init_adapter_modules(self):
         """
-        pass
+        This method initializes adapter modules and fusion modules from the model config.
+        """
+        # Initialize adapters from config
+        for adapter_name in self.config.adapters:
+            self._add_adapter(adapter_name)
+        # Initialize fusion from config
+        if hasattr(self.config, "adapter_fusion_models"):
+            for fusion_adapter_names in self.config.adapter_fusion_models:
+                self._add_fusion_layer(fusion_adapter_names)
+
+    # These methods have to be implemented by every deriving class:
 
     @abstractmethod
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
@@ -752,30 +752,47 @@ class ModelAdaptersMixin(ABC):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         pass
 
+    @abstractmethod
+    def _add_adapter(self, adapter_name):
+        pass
+
+    @abstractmethod
+    def _add_fusion_layer(self, adapter_names):
+        pass
+
     def has_adapters(self):
         return len(self.config.adapters.adapters) > 0
+
+    @property
+    def has_parallel_adapters(self) -> bool:
+        if self.config.adapters.active_setup:
+            return self.config.adapters.active_setup.parallel_channels > 1
+        else:
+            return False
 
     @property
     def active_adapters(self) -> AdapterCompositionBlock:
         return self.config.adapters.active_setup
 
-    def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def set_active_adapters(
+        self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
+    ):
         """Sets the adapter modules to be used by default in every forward pass.
-        This setting can be overriden by passing the `adapter_names` parameter in the `foward()` pass.
         If no adapter with the given name is found, no module of the respective type will be activated.
 
         Args:
             adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
-        adapter_setup = parse_composition(adapter_setup)
-        # TODO: temporary solution for validating adapter names
-        for adapter_name in adapter_setup.flatten():
-            if adapter_name not in self.config.adapters.adapters:
-                raise ValueError(
-                    f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
-                )
+        adapter_setup = parse_composition(adapter_setup, model_type=self.config.model_type)
+        if adapter_setup:
+            for adapter_name in adapter_setup.flatten():
+                if adapter_name not in self.config.adapters.adapters:
+                    raise ValueError(
+                        f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
+                    )
 
         self.config.adapters.active_setup = adapter_setup
+        self.config.adapters.skip_layers = skip_layers
 
     def set_adapter_fusion_config(self, adapter_fusion_config, override_kwargs=None):
         """Sets the adapter fusion configuration.
@@ -795,6 +812,19 @@ class ModelAdaptersMixin(ABC):
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
 
+    def add_adapter(self, adapter_name: str, config=None):
+        """Adds a new adapter module of the specified type to the model.
+
+        Args:
+            adapter_name (str): The name of the adapter module to be added.
+            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
+                - the string identifier of a pre-defined configuration dictionary
+                - a configuration dictionary specifying the full config
+                - if not given, the default configuration for this adapter type will be used
+        """
+        self.config.adapters.add(adapter_name, config=config)
+        self.base_model._add_adapter(adapter_name)
+
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
         """Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 
@@ -806,7 +836,7 @@ class ModelAdaptersMixin(ABC):
                 - the path to a file containing the adapter fusion configuration
             override_kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
         """
-        # TODO Allow nested items or directly pass Fuse block?
+        # TODO-V2 Allow nested items or directly pass Fuse block?
         if isinstance(adapter_names, Fuse):
             adapter_names = adapter_names.children
         if not hasattr(self.config, "adapter_fusion"):
@@ -817,7 +847,8 @@ class ModelAdaptersMixin(ABC):
             else:
                 self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
         elif hasattr(self.config, "adapter_fusion") and adapter_fusion_config is not None:
-            raise Warning("An AdapterFusion config has already been set and will NOT be overwritten")
+            # This behavior may be a bit unintuitive as the given argument is ignored, but we can't throw an error because of the loader.
+            logger.warning("An AdapterFusion config has already been set and will NOT be overwritten")
 
         if not hasattr(self.config, "adapter_fusion_models"):
             self.config.adapter_fusion_models = []
@@ -1005,6 +1036,16 @@ class ModelAdaptersMixin(ABC):
             param.requires_grad = not freeze
         self.model_freezed = freeze
 
+    def pre_transformer_forward(self):
+        """
+        This method should be called by every adapter-implementing model at the very beginning of the forward() method.
+        """
+        # some warnings if we don't use available adapters
+        if not self.active_adapters and self.has_adapters():
+            logger.warning("There are adapters available but none are passed to model.forward")
+
+        self.config.adapters.is_parallelized = False
+
 
 @inherit_doc
 class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
@@ -1032,6 +1073,12 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         self.base_model.train_fusion(adapter_setup)
+
+    def _add_adapter(self, adapter_name, adapter_type):
+        self.base_model._add_adapter(adapter_name, adapter_type)
+
+    def _add_fusion_layer(self, adapter_names):
+        self.base_model._add_fusion_layer(adapter_names)
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)

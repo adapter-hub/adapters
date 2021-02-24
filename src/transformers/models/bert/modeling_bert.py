@@ -503,6 +503,8 @@ class BertEncoder(BertEncoderAdaptersMixin, nn.Module):
                     output_attentions,
                 )
             hidden_states = layer_outputs[0]
+            attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
+
             if output_attentions:
                 all_self_attentions = all_self_attentions + (layer_outputs[1],)
                 if self.config.add_cross_attention:
@@ -819,9 +821,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        # some warnings if we don't use available adapters
-        if not self.active_adapters and self.has_adapters():
-            logger.warning("There are adapters available but none are passed to model.forward")
+        self.pre_transformer_forward()
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
@@ -943,12 +943,20 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
+        # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
+        if not return_dict:
+            head_inputs = (outputs[0],) + outputs[2:]
+        else:
+            head_inputs = outputs
 
-        outputs = self.forward_head(
-            outputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
-        )
-
-        return outputs
+        if head or self.active_head:
+            head_outputs = self.forward_head(
+                head_inputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
+            )
+            return head_outputs
+        else:
+            # in case no head is used just return the output of the base model (including pooler output)
+            return outputs
 
 
 @add_start_docstrings(
