@@ -127,10 +127,7 @@ def train(args, train_dataset, model, tokenizer):
     # Distributed training (should be after apex fp16 initialization)
     if args.local_rank != -1:
         model = torch.nn.parallel.DistributedDataParallel(
-            model,
-            device_ids=[args.local_rank],
-            output_device=args.local_rank,
-            find_unused_parameters=True,
+            model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True
         )
 
     # Train!
@@ -162,20 +159,14 @@ def train(args, train_dataset, model, tokenizer):
             logger.info("  Continuing training from checkpoint, will skip to saved global_step")
             logger.info("  Continuing training from epoch %d", epochs_trained)
             logger.info("  Continuing training from global step %d", global_step)
-            logger.info(
-                "  Will skip the first %d steps in the first epoch",
-                steps_trained_in_current_epoch,
-            )
+            logger.info("  Will skip the first %d steps in the first epoch", steps_trained_in_current_epoch)
         except ValueError:
             logger.info("  Starting fine-tuning.")
 
     tr_loss, logging_loss = 0.0, 0.0
     model.zero_grad()
     train_iterator = trange(
-        epochs_trained,
-        int(args.num_train_epochs),
-        desc="Epoch",
-        disable=args.local_rank not in [-1, 0],
+        epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
     )
     # Added here for reproductibility
     set_seed(args)
@@ -247,11 +238,7 @@ def train(args, train_dataset, model, tokenizer):
                         for key, value in results.items():
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
                     tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
-                    tb_writer.add_scalar(
-                        "loss",
-                        (tr_loss - logging_loss) / args.logging_steps,
-                        global_step,
-                    )
+                    tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
 
                 # Save model checkpoint
@@ -366,11 +353,7 @@ def evaluate(args, model, tokenizer, prefix=""):
             all_results.append(result)
 
     evalTime = timeit.default_timer() - start_time
-    logger.info(
-        "  Evaluation done in total %f secs (%f sec per example)",
-        evalTime,
-        evalTime / len(dataset),
-    )
+    logger.info("  Evaluation done in total %f secs (%f sec per example)", evalTime, evalTime / len(dataset))
 
     # Compute predictions
     output_prediction_file = os.path.join(args.output_dir, "predictions_{}.json".format(prefix))
@@ -483,10 +466,7 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
 
         if args.local_rank in [-1, 0]:
             logger.info("Saving features into cached file %s", cached_features_file)
-            torch.save(
-                {"features": features, "dataset": dataset, "examples": examples},
-                cached_features_file,
-            )
+            torch.save({"features": features, "dataset": dataset, "examples": examples}, cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
         # Make sure only the first process in distributed training process the dataset, and the others
@@ -922,6 +902,12 @@ def main():
             model.set_active_adapters([lang_adapter_name, task_name])
         else:
             model.set_active_adapters([task_name])
+    else:
+        if args.load_adapter or args.load_lang_adapter:
+            raise ValueError(
+                "Adapters can only be loaded in adapters training mode."
+                "Use --train_adapter to enable adapter training"
+            )
 
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab

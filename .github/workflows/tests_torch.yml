@@ -10,7 +10,7 @@ on:
       - 'tests/**'
       - 'utils/**'
   pull_request:
-    branches: [ 'master' ]
+    branches: [ 'master', 'v2' ]
     paths:
       - 'src/**'
       - 'examples/**'
@@ -39,6 +39,7 @@ jobs:
         run: |
           make quality
   run_reduced_tests_torch:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

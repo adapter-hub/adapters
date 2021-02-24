@@ -45,10 +45,10 @@ class AdapterTrainingTest(unittest.TestCase):
                 self.assertEqual(set(["mrpc"]), model.active_adapters.flatten())
 
                 # all weights of the adapter should be activated
-                for k, v in filter_parameters(model, "text_task_adapters.mrpc").items():
+                for k, v in filter_parameters(model, "adapters.mrpc.").items():
                     self.assertTrue(v.requires_grad, k)
                 # all weights of the adapter not used for training should be freezed
-                for k, v in filter_parameters(model, "text_task_adapters.dummy").items():
+                for k, v in filter_parameters(model, "adapters.dummy.").items():
                     self.assertFalse(v.requires_grad, k)
                 # weights of the model should be freezed (check on some examples)
                 for k, v in filter_parameters(model, "encoder.layer.0.attention").items():
@@ -85,24 +85,24 @@ class AdapterTrainingTest(unittest.TestCase):
                 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
                 model = AutoModelForSequenceClassification.from_pretrained(model_name)
 
-                # load the adapters to be fused
-                model.load_adapter("sts/mrpc@ukp", with_head=False)
-                model.load_adapter("sts/qqp@ukp", with_head=False)
-                model.load_adapter("sts/sts-b@ukp", with_head=False)
+                # add the adapters to be fused
+                model.add_adapter("a")
+                model.add_adapter("b")
+                model.add_adapter("c")
 
-                self.assertIn("mrpc", model.config.adapters.adapters)
-                self.assertIn("qqp", model.config.adapters.adapters)
-                self.assertIn("sts-b", model.config.adapters.adapters)
+                self.assertIn("a", model.config.adapters.adapters)
+                self.assertIn("b", model.config.adapters.adapters)
+                self.assertIn("c", model.config.adapters.adapters)
 
                 # setup fusion
-                adapter_setup = Fuse("mrpc", "qqp", "sts-b")
+                adapter_setup = Fuse("a", "b", "c")
                 model.add_fusion(adapter_setup)
                 model.train_fusion(adapter_setup)
                 model.set_active_adapters(adapter_setup)
                 self.assertEqual(adapter_setup, model.active_adapters)
 
                 # all weights of the adapters should be frozen (test for one)
-                for k, v in filter_parameters(model, "text_task_adapters.mrpc").items():
+                for k, v in filter_parameters(model, "adapters.a.").items():
                     self.assertFalse(v.requires_grad, k)
                 # all weights of the fusion layer should be activated
                 for k, v in filter_parameters(model, "adapter_fusion_layer").items():
@@ -131,7 +131,7 @@ class AdapterTrainingTest(unittest.TestCase):
                 trainer.train()
 
                 for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
-                    if "adapter_fusion_layer" in k1 or "classifier" in k1:
+                    if "adapter_fusion_layer" in k1 or "classifier" in k1 or "classification_head" in k1:
                         self.assertFalse(torch.equal(v1, v2), k1)
                     else:
                         self.assertTrue(torch.equal(v1, v2), k1)

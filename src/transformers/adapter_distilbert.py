@@ -13,7 +13,7 @@ from .adapter_composition import AdapterCompositionBlock, parse_composition
 from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
-class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
+class DistilBertSelfAttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):
     """Adds attention adapters to the Transformer module of DistilBert."""
 
     def __init__(self, parent):
@@ -27,7 +27,7 @@ class DistilBertSelfAttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMix
         return self.parent.sa_layer_norm
 
 
-class DistilBertOutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
+class DistilBertOutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
     """Adds output adapters to the Transformer module of DistilBert."""
 
     def __init__(self, parent):
@@ -54,9 +54,9 @@ class DistilBertTransfomerBlockAdaptersMixin:
         self.attention_adapters.add_fusion_layer(adapter_names)
         self.output_adapters.add_fusion_layer(adapter_names)
 
-    def add_adapter(self, adapter_name: str):
-        self.attention_adapters.add_adapter(adapter_name)
-        self.output_adapters.add_adapter(adapter_name)
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        self.attention_adapters.add_adapter(adapter_name, layer_idx)
+        self.output_adapters.add_adapter(adapter_name, layer_idx)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
@@ -75,24 +75,12 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-
-        # add adapters specified in config; invertible adapter will only be added if required
-        for adapter_name in self.config.adapters.adapters:
-            self.transformer.add_adapter(adapter_name)
-            self.add_invertible_adapter(adapter_name)
-        # fusion
-        if hasattr(self.config, "fusion_models"):
-            for fusion_adapter_names in self.config.fusion_models:
-                self.add_fusion_layer(fusion_adapter_names)
-
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        self.transformer.enable_adapters(adapter_setup.flatten(), True, False)
+        self.transformer.enable_adapters(adapter_setup, True, False)
         self.enable_invertible_adapters(adapter_setup.flatten())
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
@@ -102,23 +90,11 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        self.transformer.enable_adapters(adapter_setup.flatten(), False, True)
+        self.transformer.enable_adapters(adapter_setup, False, True)
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
-    def add_adapter(self, adapter_name: str, config=None):
-        """
-        Adds a new adapter module of the specified type to the model.
-
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
-
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
-        """
-        self.config.adapters.add(adapter_name, config=config)
+    def _add_adapter(self, adapter_name):
         self.transformer.add_adapter(adapter_name)
         self.add_invertible_adapter(adapter_name)
 

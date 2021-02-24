@@ -119,7 +119,7 @@ extras["dev"] = extras["all"] + extras["testing"] + extras["quality"] + extras["
 
 setup(
     name="adapter-transformers",
-    version="1.1.0",
+    version="2.0.0a1",
     author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, based on work by Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Sam Shleifer, Patrick von Platen, Google AI Language Team Authors, Open AI team Authors, Facebook AI Authors, Carnegie Mellon University Authors",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A friendly fork of Huggingface's Transformers, adding Adapters to PyTorch language models",
