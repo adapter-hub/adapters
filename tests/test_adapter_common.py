@@ -51,6 +51,8 @@ MODELS_WITH_ADAPTERS = {
     ),
     GPT2Config: make_config(
         GPT2Config,
+        # pad_token_id=tokenizer.eos_token_id,
+
     ),
 }
 
