@@ -31,7 +31,6 @@ class AdapterTrainingTest(unittest.TestCase):
                 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
                 if tokenizer.pad_token is None:
                     tokenizer.pad_token = tokenizer.eos_token
-                    tokenizer.pad_token_id = tokenizer.eos_token_id
                 model = AutoModelWithHeads.from_pretrained(model_name)
 
                 # add two adapters: one will be trained and the other should be frozen
@@ -87,7 +86,6 @@ class AdapterTrainingTest(unittest.TestCase):
                 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
                 if tokenizer.pad_token is None:
                     tokenizer.pad_token = tokenizer.eos_token
-                    tokenizer.pad_token_id = tokenizer.eos_token_id
                 model = AutoModelForSequenceClassification.from_pretrained(model_name)
 
                 # add the adapters to be fused
