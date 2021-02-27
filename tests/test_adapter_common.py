@@ -11,12 +11,13 @@ from transformers import (
     BertModel,
     BertModelWithHeads,
     DistilBertConfig,
+    GPT2Config,
     HoulsbyConfig,
     HoulsbyInvConfig,
     PfeifferConfig,
     PfeifferInvConfig,
     RobertaConfig,
-    GPT2Config)
+)
 from transformers.testing_utils import require_torch
 
 from .test_modeling_common import ids_tensor
