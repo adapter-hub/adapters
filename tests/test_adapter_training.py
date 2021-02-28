@@ -4,6 +4,7 @@ import unittest
 import torch
 
 from transformers import (
+    AutoConfig,
     AutoModelForSequenceClassification,
     AutoModelWithHeads,
     AutoTokenizer,
@@ -11,7 +12,7 @@ from transformers import (
     GlueDataTrainingArguments,
     Trainer,
     TrainingArguments,
-    AutoConfig)
+)
 from transformers.adapter_composition import Fuse
 from transformers.testing_utils import require_torch
 

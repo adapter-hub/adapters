@@ -1,5 +1,6 @@
 from typing import Union
 
+import torch
 from torch import nn
 
 from .adapter_bert import (
@@ -110,6 +111,21 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     def _add_fusion_layer(self, adapter_names):
         for layer in self.base_model.h:
             layer.add_fusion_layer(adapter_names)
+
+    def get_fusion_regularization_loss(self):
+        reg_loss = 0.0
+        target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
+        for _, v in self.base_model.h._modules.items():
+
+            for _, layer_fusion in v.output.adapter_fusion_layer.items():
+                if hasattr(layer_fusion, "value"):
+                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+            for _, layer_fusion in v.attention.output.adapter_fusion_layer.items():
+                if hasattr(layer_fusion, "value"):
+                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+        return reg_loss
 
 
 class GPT2ModelWithHeadsAdapterMixin(GPT2ModelAdapterMixin):
