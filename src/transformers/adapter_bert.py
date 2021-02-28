@@ -393,7 +393,7 @@ class BertEncoderAdaptersMixin:
         for layer in self.layer:
             layer.add_fusion_layer(adapter_names)
 
-    def get_fusion_regularization_lossadd_adapter(self, adapter_name: str):
+    def add_adapter(self, adapter_name: str):
         adapter_config = self.config.adapters.get(adapter_name)
         leave_out = adapter_config.get("leave_out", [])
         for i, layer in enumerate(self.layer):

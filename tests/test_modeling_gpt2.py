@@ -33,8 +33,8 @@ if is_torch_available():
         GPT2DoubleHeadsModel,
         GPT2ForSequenceClassification,
         GPT2LMHeadModel,
-        GPT2ModelWithHeads,
         GPT2Model,
+        GPT2ModelWithHeads,
         GPT2Tokenizer,
     )
 
