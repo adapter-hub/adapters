@@ -117,11 +117,11 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
         for _, v in self.base_model.h._modules.items():
 
-            for _, layer_fusion in v.output.adapter_fusion_layer.items():
+            for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
                 if hasattr(layer_fusion, "value"):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
-            for _, layer_fusion in v.attention.output.adapter_fusion_layer.items():
+            for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
                 if hasattr(layer_fusion, "value"):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
