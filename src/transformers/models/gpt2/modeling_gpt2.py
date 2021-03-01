@@ -1101,7 +1101,13 @@ class GPT2ForSequenceClassification(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
             attentions=transformer_outputs.attentions,
         )
 
-
+@add_start_docstrings(
+    """
+The GPT2 Model that allows the loading of different heads  dor different tasks. 
+This enables a flexible use of the models and adpters.
+""",
+    GPT2_START_DOCSTRING,
+)
 class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
