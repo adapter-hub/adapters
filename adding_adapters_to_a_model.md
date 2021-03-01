@@ -25,7 +25,8 @@ This is the central module to implement.
     - Have a look at existing examples, e.g. `adapter_distilbert.py`, `adapter_bert.py`.
 - Implement the mixins on the modeling classes (`modeling_<model_type>.py`).
     - Make sure the calls to `adapters_forward()` are added in the right places.
-- Patch the model configuration `configuration_<model_type>` to correctly set the adapter configuration (`ModelAdaptersCondfig`).
+- Add the mixin for config classes, `ModelConfigAdaptersMixin`, to the model configuration class in `configuration_<model_type>`.
+    - There are some naming differences on the config attributes of different model architectures. The adapter implementation requires some additional attributes with a specific name to be available. These currently are `hidden_dropout_prob` and `attention_probs_dropout_prob` as in the `BertConfig` class.
 
 ❓ Adapter-supporting architectures have a new model class `<model_type>ModelWithHeads`.
 These classes allow flexible adding of and switching between multiple prediction heads of different types.
