@@ -54,3 +54,9 @@ These classes allow flexible adding of and switching between multiple prediction
 **📝 Steps**
 
 - Add `adapter_docs/classes/<model_type>.rst` (oriented at the doc file in the HF docs, make sure to include `<model_type>ModelWithHeads` and the HF notice, then show the file in the index).
+
+## Training Example Adapters
+
+❓ To make sure the new adapter implementation works properly, it is useful to train some example adapters and compare the training results to full model fine-tuning. Ideally, this would include training adapters on one (or more) tasks that are good for demonstrating the new model architecture (e.g. GLUE benchmark for BERT, summarization for BART) and uploading them to AdapterHub.
+
+HuggingFace already provides example training scripts for many tasks, some of them have already been modified to support adapter training (see https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples).
