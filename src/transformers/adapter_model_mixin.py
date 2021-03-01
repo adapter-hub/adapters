@@ -668,7 +668,7 @@ class InvertibleAdaptersMixin:
         Args:
             adapter_name (str): The name of the adapter for which to add an invertible adapter module.
         """
-        if adapter_name in self.base_model.invertible_adapters:
+        if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config["invertible_adapter"]:

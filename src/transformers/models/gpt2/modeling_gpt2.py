@@ -607,7 +607,7 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
             encoder_hidden_shape = (encoder_batch_size, encoder_sequence_length)
             if encoder_attention_mask is None:
                 encoder_attention_mask = torch.ones(encoder_hidden_shape, device=device)
-            encoder_attention_mask = self.base_model.invert_attention_mask(encoder_attention_mask)
+            encoder_attention_mask = self.invert_attention_mask(encoder_attention_mask)
         else:
             encoder_attention_mask = None
 
@@ -1101,10 +1101,11 @@ class GPT2ForSequenceClassification(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
             attentions=transformer_outputs.attentions,
         )
 
+
 @add_start_docstrings(
     """
-The GPT2 Model that allows the loading of different heads  dor different tasks. 
-This enables a flexible use of the models and adpters.
+The GPT2 Model that allows the loading of different heads dor different tasks. This enables a flexible use of the
+models and adpters.
 """,
     GPT2_START_DOCSTRING,
 )
