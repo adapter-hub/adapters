@@ -17,7 +17,7 @@ According to the abstract,
   of up to 6 ROUGE.
 
 .. note::
-    This class is nearly identical to the PyTorch implementation of BERT in Huggingface Transformers.
+    This class is nearly identical to the PyTorch implementation of BART in Huggingface Transformers.
     For more information, visit `the corresponding section in their documentation <https://huggingface.co/transformers/model_doc/bart.html>`_.
 
 

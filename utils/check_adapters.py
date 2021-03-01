@@ -9,6 +9,7 @@ MODELS_WITH_ADAPTERS = [
     "xlm_roberta",
     "distilbert",
     "bart",
+    "mbart",
 ]
 
 
