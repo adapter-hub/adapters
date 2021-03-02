@@ -154,7 +154,12 @@ class AdapterTrainingTest(unittest.TestCase):
                 trainer.train()
 
                 for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
-                    if "adapter_fusion_layer" in k1 or "classifier" in k1 or "classification_head" in k1:
+                    if (
+                        "adapter_fusion_layer" in k1
+                        or "classifier" in k1
+                        or "classification_head" in k1
+                        or "score" in k1
+                    ):
                         self.assertFalse(torch.equal(v1, v2), k1)
                     else:
                         self.assertTrue(torch.equal(v1, v2), k1)

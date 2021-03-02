@@ -118,5 +118,5 @@ TFGPT2DoubleHeadsModel
 GPT2ModelWithHeads
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: transformers.TFGPT2DoubleHeadsModel
+.. autoclass:: transformers.GPT2ModelWithHeads
     :members: call
