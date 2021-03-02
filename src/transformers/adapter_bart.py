@@ -83,7 +83,7 @@ class BartOutputAdaptersModule(BartAdaptersBaseMixin, nn.Module):
 
 
 class BartEncoderLayerAdaptersMixin:
-    """Adds adapters to the BartEncoderLayer or BartDecoderLayer module of BART."""
+    """Adds adapters to the BartEncoderLayer module of BART."""
 
     def _init_adapter_modules(self):
         self.attention_adapters = BartSelfAttentionAdaptersModule(self)
@@ -105,7 +105,7 @@ class BartEncoderLayerAdaptersMixin:
 
 
 class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
-    """Adds adapters to the BartEncoderLayer or BartDecoderLayer module of BART."""
+    """Adds adapters to the BartDecoderLayer module of BART."""
 
     def _init_adapter_modules(self):
         super()._init_adapter_modules()
@@ -147,7 +147,7 @@ class BartEncoderDecoderAdaptersMixin:
 
 
 class BartModelAdaptersMixin(ModelAdaptersMixin):
-    """Adds adapters to the DistilBert module."""
+    """Adds adapters to the BartModel class."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
