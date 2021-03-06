@@ -33,7 +33,9 @@ Tips:
 Hugging Face showcasing the generative capabilities of several models. GPT-2 is one of them and is available in five
 different sizes: small, medium, large, xl and a distilled version of the small checkpoint: `distilgpt-2`.
 
-The original code can be found `here <https://openai.com/blog/better-language-models/>`__.
+.. note::
+    This class is nearly identical to the PyTorch implementation of BERT in Huggingface Transformers.
+    For more information, visit `the corresponding section in their documentation <https://huggingface.co/transformers/model_doc/bert.html>`_.
 
 
 GPT2Config
@@ -94,24 +96,9 @@ GPT2ForSequenceClassification
 .. autoclass:: transformers.GPT2ForSequenceClassification
     :members: forward
 
-
-TFGPT2Model
+GPT2ModelWithHeads
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: transformers.TFGPT2Model
-    :members: call
-
-
-TFGPT2LMHeadModel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.TFGPT2LMHeadModel
-    :members: call
-
-
-TFGPT2DoubleHeadsModel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.TFGPT2DoubleHeadsModel
-    :members: call
+.. autoclass:: transformers.GPT2ModelWithHeads
+    :members: forward
 

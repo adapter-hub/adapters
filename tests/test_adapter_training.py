@@ -33,7 +33,7 @@ class AdapterTrainingTest(unittest.TestCase):
                 if tokenizer.pad_token is None:
                     tokenizer.pad_token = tokenizer.eos_token
                     config = AutoConfig.from_pretrained(
-                        "gpt2",
+                        model_name,
                         pad_token_id=tokenizer.eos_token_id,
                     )
                     model = AutoModelWithHeads.from_pretrained(
@@ -97,7 +97,7 @@ class AdapterTrainingTest(unittest.TestCase):
                 if tokenizer.pad_token is None:
                     tokenizer.pad_token = tokenizer.eos_token
                     config = AutoConfig.from_pretrained(
-                        "gpt2",
+                        model_name,
                         pad_token_id=tokenizer.eos_token_id,
                     )
                     model = AutoModelForSequenceClassification.from_pretrained(
@@ -130,8 +130,7 @@ class AdapterTrainingTest(unittest.TestCase):
                 for k, v in filter_parameters(model, "adapter_fusion_layer").items():
                     self.assertTrue(v.requires_grad, k)
                 # weights of the model should be freezed (check on some examples)
-                # doesn't make sense for GPT2 since there is no encoder
-                for k, v in filter_parameters(model, "0.attn").items():
+                for k, v in filter_parameters(model, "encoder.layer.0.attention").items():
                     self.assertFalse(v.requires_grad, k)
 
                 state_dict_pre = copy.deepcopy(model.state_dict())
