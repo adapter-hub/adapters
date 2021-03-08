@@ -657,9 +657,9 @@ class PredictionHeadLoader(WeightsLoader):
 class InvertibleAdaptersMixin:
     """Mixin for Transformer models adding invertible adapters."""
 
-    def _init_adapter_modules(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.invertible_adapters = nn.ModuleDict(dict())
-        super()._init_adapter_modules()
 
     def add_invertible_adapter(self, adapter_name: str):
         """Adds an invertible adapter module for the adapter with the given name.
@@ -692,8 +692,8 @@ class InvertibleAdaptersMixin:
 
     def get_invertible_adapter(self):
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if self.active_adapters is not None and len(self.active_adapters) > 0:
-            first_adapter = self.active_adapters.first()
+        if self.config.adapters.active_setup is not None and len(self.config.adapters.active_setup) > 0:
+            first_adapter = self.config.adapters.active_setup.first()
             if first_adapter in self.invertible_adapters:
                 return self.invertible_adapters[first_adapter]
         return None
@@ -706,8 +706,8 @@ class InvertibleAdaptersMixin:
 
     def invertible_adapters_forward(self, hidden_states, rev=False):
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if self.active_adapters is not None and len(self.active_adapters) > 0:
-            first_adapter = self.active_adapters.first()
+        if self.config.adapters.active_setup is not None and len(self.config.adapters.active_setup) > 0:
+            first_adapter = self.config.adapters.active_setup.first()
             if first_adapter in self.invertible_adapters:
                 hidden_states = self.invertible_adapters[first_adapter](hidden_states, rev=rev)
 

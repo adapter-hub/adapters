@@ -55,10 +55,12 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    :maxdepth: 1
    :caption: Supported Models
 
+   classes/bart
    classes/bert
+   classes/distilbert
+   classes/mbart
    classes/roberta
    classes/xlmroberta
-   classes/distilbert
 
 
 Citation

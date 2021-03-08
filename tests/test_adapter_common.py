@@ -7,6 +7,7 @@ import torch
 from transformers import (
     ADAPTER_CONFIG_MAP,
     AutoModel,
+    BartConfig,
     BertConfig,
     BertModelWithHeads,
     DistilBertConfig,
@@ -46,6 +47,16 @@ MODELS_WITH_ADAPTERS = {
         n_layers=4,
         n_heads=4,
         hidden_dim=37,
+    ),
+    BartConfig: make_config(
+        BartConfig,
+        d_model=16,
+        encoder_layers=2,
+        decoder_layers=2,
+        encoder_attention_heads=4,
+        decoder_attention_heads=4,
+        encoder_ffn_dim=4,
+        decoder_ffn_dim=4,
     ),
 }
 

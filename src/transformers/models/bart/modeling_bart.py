@@ -24,7 +24,16 @@ from torch import Tensor, nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
+from ...adapter_bart import (
+    BartDecoderLayerAdaptersMixin,
+    BartEncoderDecoderAdaptersMixin,
+    BartEncoderLayerAdaptersMixin,
+    BartModelAdaptersMixin,
+    BartModelHeadsMixin,
+)
+from ...adapter_model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...file_utils import (
+    ModelOutput,
     add_code_sample_docstrings,
     add_end_docstrings,
     add_start_docstrings,
@@ -237,9 +246,11 @@ def make_padding_mask(input_ids, padding_idx=1):
 # Helper Modules
 
 
-class EncoderLayer(nn.Module):
+class EncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: BartConfig):
         super().__init__()
+        self.config = config
+
         self.embed_dim = config.d_model
         self.self_attn = Attention(self.embed_dim, config.encoder_attention_heads, dropout=config.attention_dropout)
         self.normalize_before = config.normalize_before
@@ -250,6 +261,8 @@ class EncoderLayer(nn.Module):
         self.fc1 = nn.Linear(self.embed_dim, config.encoder_ffn_dim)
         self.fc2 = nn.Linear(config.encoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = LayerNorm(self.embed_dim)
+
+        self._init_adapter_modules()
 
     def forward(self, x, encoder_padding_mask, output_attentions=False):
         """
@@ -270,9 +283,7 @@ class EncoderLayer(nn.Module):
             query=x, key=x, key_padding_mask=encoder_padding_mask, output_attentions=output_attentions
         )
         x = F.dropout(x, p=self.dropout, training=self.training)
-        x = residual + x
-        if not self.normalize_before:
-            x = self.self_attn_layer_norm(x)
+        x = self.attention_adapters.adapters_forward(x, residual)
 
         residual = x
         if self.normalize_before:
@@ -281,16 +292,14 @@ class EncoderLayer(nn.Module):
         x = F.dropout(x, p=self.activation_dropout, training=self.training)
         x = self.fc2(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
-        x = residual + x
-        if not self.normalize_before:
-            x = self.final_layer_norm(x)
+        x = self.output_adapters.adapters_forward(x, residual)
         if torch.isinf(x).any() or torch.isnan(x).any():
             clamp_value = torch.finfo(x.dtype).max - 1000
             x = torch.clamp(x, min=-clamp_value, max=clamp_value)
         return x, attn_weights
 
 
-class BartEncoder(nn.Module):
+class BartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, nn.Module):
     """
     Transformer encoder consisting of *config.encoder_layers* self attention layers. Each layer is a
     :class:`EncoderLayer`.
@@ -301,6 +310,7 @@ class BartEncoder(nn.Module):
 
     def __init__(self, config: BartConfig, embed_tokens):
         super().__init__()
+        self.config = config
 
         self.dropout = config.dropout
         self.layerdrop = config.encoder_layerdrop
@@ -355,6 +365,8 @@ class BartEncoder(nn.Module):
         x = self.layernorm_embedding(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
 
+        x = self.invertible_adapters_forward(x)
+
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
 
@@ -388,9 +400,11 @@ class BartEncoder(nn.Module):
         return BaseModelOutput(last_hidden_state=x, hidden_states=encoder_states, attentions=all_attentions)
 
 
-class DecoderLayer(nn.Module):
+class DecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: BartConfig):
         super().__init__()
+        self.config = config
+
         self.embed_dim = config.d_model
 
         self.self_attn = Attention(
@@ -414,6 +428,8 @@ class DecoderLayer(nn.Module):
         self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
         self.fc2 = nn.Linear(config.decoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = LayerNorm(self.embed_dim)
+
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -441,9 +457,7 @@ class DecoderLayer(nn.Module):
             output_attentions=output_attentions,
         )
         x = F.dropout(x, p=self.dropout, training=self.training)
-        x = residual + x
-        if not self.normalize_before:
-            x = self.self_attn_layer_norm(x)
+        x = self.attention_adapters.adapters_forward(x, residual)
 
         # Cross-Attention Block
         residual = x
@@ -458,9 +472,7 @@ class DecoderLayer(nn.Module):
             output_attentions=output_attentions,
         )
         x = F.dropout(x, p=self.dropout, training=self.training)
-        x = residual + x
-        if not self.normalize_before:
-            x = self.encoder_attn_layer_norm(x)
+        x = self.cross_attention_adapters.adapters_forward(x, residual)
 
         # Fully Connected
         residual = x
@@ -470,9 +482,7 @@ class DecoderLayer(nn.Module):
         x = F.dropout(x, p=self.activation_dropout, training=self.training)
         x = self.fc2(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
-        x = residual + x
-        if not self.normalize_before:
-            x = self.final_layer_norm(x)
+        x = self.output_adapters.adapters_forward(x, residual)
         return (
             x,
             self_attn_weights,
@@ -481,7 +491,7 @@ class DecoderLayer(nn.Module):
         )  # layer_state = cache for decoding
 
 
-class BartDecoder(nn.Module):
+class BartDecoder(BartEncoderDecoderAdaptersMixin, nn.Module):
     """
     Transformer decoder consisting of *config.decoder_layers* layers. Each layer is a :class:`DecoderLayer`
 
@@ -492,6 +502,8 @@ class BartDecoder(nn.Module):
 
     def __init__(self, config: BartConfig, embed_tokens: nn.Embedding):
         super().__init__()
+        self.config = config
+
         self.dropout = config.dropout
         self.layerdrop = config.decoder_layerdrop
         self.do_blenderbot_90_layernorm = config.do_blenderbot_90_layernorm  # layernorm variant
@@ -828,7 +840,7 @@ def _get_shape(t):
     "The bare BART Model outputting raw hidden-states without any specific head on top.",
     BART_START_DOCSTRING,
 )
-class BartModel(PretrainedBartModel):
+class BartModel(BartModelAdaptersMixin, PretrainedBartModel):
     def __init__(self, config: BartConfig):
         super().__init__(config)
 
@@ -837,6 +849,8 @@ class BartModel(PretrainedBartModel):
 
         self.encoder = BartEncoder(config, self.shared)
         self.decoder = BartDecoder(config, self.shared)
+
+        self._init_adapter_modules()
 
         self.init_weights()
 
@@ -870,6 +884,9 @@ class BartModel(PretrainedBartModel):
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        # some warnings if we don't use available adapters
+        if not self.active_adapters and self.has_adapters():
+            logger.warning("There are adapters available but none are passed to model.forward")
 
         # make masks if user doesn't supply
         if not use_cache:
@@ -942,9 +959,80 @@ class BartModel(PretrainedBartModel):
 
 
 @add_start_docstrings(
+    "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
+)
+class BartModelWithHeads(BartModelHeadsMixin, PretrainedBartModel):
+    def __init__(self, config: BartConfig, **kwargs):
+        super().__init__(config, **kwargs)
+        self.model = BartModel(config)
+
+        self._init_head_modules()
+
+    @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
+    @add_code_sample_docstrings(
+        tokenizer_class=_TOKENIZER_FOR_DOC,
+        checkpoint="facebook/bart-large",
+        output_type=ModelOutput,
+        config_class=_CONFIG_FOR_DOC,
+    )
+    def forward(
+        self,
+        input_ids,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        encoder_outputs=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        head=None,
+        return_dict=None,
+        **kwargs
+    ):
+        r"""
+        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
+            Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
+            config.num_labels - 1]`. If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if "labels" in kwargs or "start_positions" in kwargs and "end_positions" in kwargs:
+            use_cache = False
+
+        outputs = self.model(
+            input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            decoder_attention_mask=decoder_attention_mask,
+            encoder_outputs=encoder_outputs,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        # sequence classification based on last token in sequence
+        x = outputs[0]  # last hidden state
+        eos_mask = input_ids.eq(self.config.eos_token_id)
+        if len(torch.unique(eos_mask.sum(1))) > 1:
+            raise ValueError("All examples must have the same number of <eos> tokens.")
+        cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
+
+        head_outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            cls_output=cls_representation,
+            attention_mask=attention_mask,
+            return_dict=return_dict,
+            **kwargs,
+        )
+
+        return head_outputs
+
+
+@add_start_docstrings(
     "The BART Model with a language modeling head. Can be used for summarization.", BART_START_DOCSTRING
 )
-class BartForConditionalGeneration(PretrainedBartModel):
+class BartForConditionalGeneration(ModelWithHeadsAdaptersMixin, PretrainedBartModel):
     base_model_prefix = "model"
     _keys_to_ignore_on_load_missing = [r"final_logits_bias", r"encoder\.version", r"decoder\.version"]
 
@@ -1032,6 +1120,7 @@ class BartForConditionalGeneration(PretrainedBartModel):
             return_dict=return_dict,
         )
         lm_logits = F.linear(outputs[0], self.model.shared.weight, bias=self.final_logits_bias)
+        lm_logits = self.model.encoder.invertible_adapters_forward(lm_logits, rev=True)
 
         masked_lm_loss = None
         if labels is not None:
@@ -1104,7 +1193,7 @@ class BartForConditionalGeneration(PretrainedBartModel):
     """,
     BART_START_DOCSTRING,
 )
-class BartForSequenceClassification(PretrainedBartModel):
+class BartForSequenceClassification(ModelWithHeadsAdaptersMixin, PretrainedBartModel):
     def __init__(self, config: BartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = BartModel(config)
@@ -1193,7 +1282,7 @@ class BartForSequenceClassification(PretrainedBartModel):
     """,
     BART_START_DOCSTRING,
 )
-class BartForQuestionAnswering(PretrainedBartModel):
+class BartForQuestionAnswering(ModelWithHeadsAdaptersMixin, PretrainedBartModel):
     def __init__(self, config):
         super().__init__(config)
 

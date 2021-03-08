@@ -39,6 +39,7 @@ if is_torch_available():
         BartForQuestionAnswering,
         BartForSequenceClassification,
         BartModel,
+        BartModelWithHeads,
         BartTokenizer,
         BartTokenizerFast,
         BertConfig,
@@ -131,7 +132,13 @@ def prepare_bart_inputs_dict(
 @require_torch
 class BARTModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
     all_model_classes = (
-        (BartModel, BartForConditionalGeneration, BartForSequenceClassification, BartForQuestionAnswering)
+        (
+            BartModel,
+            BartModelWithHeads,
+            BartForConditionalGeneration,
+            BartForSequenceClassification,
+            BartForQuestionAnswering,
+        )
         if is_torch_available()
         else ()
     )
