@@ -15,7 +15,7 @@
 """ DistilBERT model configuration """
 
 
-from ...adapter_config import ModelAdaptersConfig
+from ...adapter_model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
@@ -33,7 +33,7 @@ DISTILBERT_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class DistilBertConfig(PretrainedConfig):
+class DistilBertConfig(ModelConfigAdaptersMixin, PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a :class:`~transformers.DistilBertModel` or a
     :class:`~transformers.TFDistilBertModel`. It is used to instantiate a DistilBERT model according to the specified
@@ -125,13 +125,6 @@ class DistilBertConfig(PretrainedConfig):
         self.initializer_range = initializer_range
         self.qa_dropout = qa_dropout
         self.seq_classif_dropout = seq_classif_dropout
-
-        # adapter configuration
-        adapter_config_dict = kwargs.pop("adapters", None)
-        if adapter_config_dict:
-            self.adapters = ModelAdaptersConfig(**adapter_config_dict)
-        else:
-            self.adapters = ModelAdaptersConfig()
 
     @property
     def hidden_size(self):
