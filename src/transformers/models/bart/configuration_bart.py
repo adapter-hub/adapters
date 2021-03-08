@@ -14,7 +14,7 @@
 # limitations under the License.
 """ BART configuration """
 
-from ...adapter_config import ModelAdaptersConfig
+from ...adapter_model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
@@ -32,7 +32,7 @@ BART_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class BartConfig(PretrainedConfig):
+class BartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a :class:`~transformers.BartModel`. It is used to
     instantiate a BART model according to the specified arguments, defining the model architecture.
@@ -213,13 +213,6 @@ class BartConfig(PretrainedConfig):
         self.do_blenderbot_90_layernorm = do_blenderbot_90_layernorm
 
         self.use_cache = use_cache
-
-        # adapter configuration
-        adapter_config_dict = common_kwargs.pop("adapters", None)
-        if adapter_config_dict:
-            self.adapters = ModelAdaptersConfig(**adapter_config_dict)
-        else:
-            self.adapters = ModelAdaptersConfig()
 
     @property
     def num_attention_heads(self) -> int:
