@@ -34,7 +34,8 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install .[torch,quality]
+          pip install torch==1.7.*
+          pip install .[quality]
       - name: Check Quality
         run: |
           make quality
@@ -54,7 +55,8 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install .[sklearn,torch,testing]
+          pip install torch==1.7.*
+          pip install .[sklearn,testing]
           pip install datasets
       - name: Test
         run: |
