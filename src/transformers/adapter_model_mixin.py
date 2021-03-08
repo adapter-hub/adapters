@@ -714,6 +714,26 @@ class InvertibleAdaptersMixin:
         return hidden_states
 
 
+class ModelConfigAdaptersMixin(ABC):
+    """
+    Mixin for model config classes, adding support for adapters.
+
+    Besides adding this mixin to the config class of a model supporting adapters,
+    make sure the following attributes/ properties are present:
+    hidden_dropout_prob, attention_probs_dropout_prob.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # adapter configuration
+        adapter_config_dict = kwargs.pop("adapters", None)
+        if adapter_config_dict:
+            self.adapters = ModelAdaptersConfig(**adapter_config_dict)
+        else:
+            self.adapters = ModelAdaptersConfig()
+
+
 class ModelAdaptersMixin(ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
