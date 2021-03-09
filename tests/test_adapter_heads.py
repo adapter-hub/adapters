@@ -35,6 +35,9 @@ class PredictionHeadModelTest(unittest.TestCase):
         model.active_head = head_name
         input_shape = input_shape or (self.batch_size, self.seq_length)
         in_data = {"input_ids": ids_tensor(input_shape, 1000)}
+        # this is needed e.g. for BART
+        if model.config.eos_token_id is not None:
+            in_data["input_ids"][:, -1] = model.config.eos_token_id
         if label_dict:
             for k, v in label_dict.items():
                 in_data[k] = v
@@ -119,6 +122,10 @@ class PredictionHeadModelTest(unittest.TestCase):
                     model2.set_active_adapters(name)
                 # check equal output
                 in_data = ids_tensor((1, 128), 1000)
+                # this is needed e.g. for BART
+                if model1.config.eos_token_id is not None:
+                    in_data[:, -1] = model1.config.eos_token_id
+
                 output1 = model1(in_data)
                 output2 = model2(in_data)
                 self.assertEqual(len(output1), len(output2))
@@ -143,6 +150,10 @@ class PredictionHeadModelTest(unittest.TestCase):
 
                 # check equal output
                 in_data = ids_tensor((1, 128), 1000)
+                # this is needed e.g. for BART
+                if model1.config.eos_token_id is not None:
+                    in_data[:, -1] = model1.config.eos_token_id
+
                 output1 = model1(in_data)
                 output2 = model2(in_data)
                 self.assertEqual(len(output1), len(output2))

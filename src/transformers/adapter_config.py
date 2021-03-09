@@ -65,6 +65,7 @@ class AdapterConfig(Mapping):
     output_adapter: bool
     non_linearity: str
     reduction_factor: int
+    cross_adapter: bool = False
     invertible_adapter: Optional[InvertibleAdapterConfig] = None
     leave_out: List[int] = field(default_factory=list)
 

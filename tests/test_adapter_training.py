@@ -8,8 +8,12 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoModelWithHeads,
     AutoTokenizer,
+    BartConfig,
+    BertConfig,
+    DistilBertConfig,
     GlueDataset,
     GlueDataTrainingArguments,
+    GPT2Config,
     Trainer,
     TrainingArguments,
 )
@@ -24,7 +28,12 @@ def filter_parameters(model, filter_string):
 @require_torch
 class AdapterTrainingTest(unittest.TestCase):
 
-    model_names = ["gpt2"]  # "bert-base-uncased", "distilbert-base-uncased",
+    tokenizer_names = {
+        BertConfig: "bert-base-uncased",
+        DistilBertConfig: "distilbert-base-uncased",
+        BartConfig: "facebook/bart-base",
+        GPT2Config: "gpt2",
+    }
 
     def test_train_single_adapter(self):
         for model_name in self.model_names:
@@ -73,7 +82,7 @@ class AdapterTrainingTest(unittest.TestCase):
                 )
                 train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
                 training_args = TrainingArguments(
-                    output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=5, no_cuda=True
+                    output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
                 )
 
                 # evaluate
@@ -141,7 +150,7 @@ class AdapterTrainingTest(unittest.TestCase):
                 )
                 train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
                 training_args = TrainingArguments(
-                    output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=5, no_cuda=True
+                    output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
                 )
 
                 # evaluate

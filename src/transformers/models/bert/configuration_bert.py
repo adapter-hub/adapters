@@ -15,7 +15,7 @@
 # limitations under the License.
 """ BERT model configuration """
 
-from ...adapter_config import ModelAdaptersConfig
+from ...adapter_model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
@@ -49,7 +49,7 @@ BERT_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class BertConfig(PretrainedConfig):
+class BertConfig(ModelConfigAdaptersMixin, PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a :class:`~transformers.BertModel` or a
     :class:`~transformers.TFBertModel`. It is used to instantiate a BERT model according to the specified arguments,
@@ -141,10 +141,3 @@ class BertConfig(PretrainedConfig):
         self.initializer_range = initializer_range
         self.layer_norm_eps = layer_norm_eps
         self.gradient_checkpointing = gradient_checkpointing
-
-        # adapter configuration
-        adapter_config_dict = kwargs.pop("adapters", None)
-        if adapter_config_dict:
-            self.adapters = ModelAdaptersConfig(**adapter_config_dict)
-        else:
-            self.adapters = ModelAdaptersConfig()

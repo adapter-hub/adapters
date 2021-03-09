@@ -37,6 +37,7 @@ from ..bart.modeling_bart import (
     BartForQuestionAnswering,
     BartForSequenceClassification,
     BartModel,
+    BartModelWithHeads,
 )
 from ..bert.modeling_bert import (
     BertForMaskedLM,
@@ -101,7 +102,7 @@ from ..funnel.modeling_funnel import (
     FunnelForTokenClassification,
     FunnelModel,
 )
-from ..gpt2.modeling_gpt2 import GPT2ForSequenceClassification, GPT2LMHeadModel, GPT2Model, GPT2ModelWithHeads
+from ..gpt2.modeling_gpt2 import GPT2ForSequenceClassification, GPT2LMHeadModel, GPT2Model
 from ..layoutlm.modeling_layoutlm import LayoutLMForMaskedLM, LayoutLMForTokenClassification, LayoutLMModel
 from ..longformer.modeling_longformer import (
     LongformerForMaskedLM,
@@ -280,7 +281,7 @@ MODEL_WITH_HEADS_MAPPING = OrderedDict(
         (RobertaConfig, RobertaModelWithHeads),
         (BertConfig, BertModelWithHeads),
         (DistilBertConfig, DistilBertModelWithHeads),
-        (GPT2Config, GPT2ModelWithHeads),
+        (BartConfig, BartModelWithHeads),
     ]
 )
 

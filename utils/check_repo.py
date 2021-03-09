@@ -70,7 +70,7 @@ IGNORE_NON_DOCUMENTED = [
     "DistilBertModelWithHeads",
     "RobertaModelWithHeads",
     "XLMRobertaModelWithHeads",
-    "GPT2ModelWithHeads",
+    "BartModelWithHeads",
 ]
 
 # Update this dict with any special correspondance model name (used in modeling_xxx.py) to doc file.

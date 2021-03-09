@@ -7,8 +7,8 @@ import torch
 from transformers import (
     ADAPTER_CONFIG_MAP,
     AutoModel,
+    BartConfig,
     BertConfig,
-    BertModel,
     BertModelWithHeads,
     DistilBertConfig,
     GPT2Config,
@@ -48,6 +48,16 @@ MODELS_WITH_ADAPTERS = {
         n_layers=4,
         n_heads=4,
         hidden_dim=37,
+    ),
+    BartConfig: make_config(
+        BartConfig,
+        d_model=16,
+        encoder_layers=2,
+        decoder_layers=2,
+        encoder_attention_heads=4,
+        decoder_attention_heads=4,
+        encoder_ffn_dim=4,
+        decoder_ffn_dim=4,
     ),
     GPT2Config: make_config(
         GPT2Config,
@@ -193,7 +203,7 @@ class AdapterModelTest(unittest.TestCase):
 @require_torch
 class PrefixedAdapterWeightsLoadingTest(unittest.TestCase):
     def test_loading_adapter_weights_with_prefix(self):
-        model_base, model_with_head_base = create_twin_models(BertModel)
+        model_base, model_with_head_base = create_twin_models(AutoModel, MODELS_WITH_ADAPTERS[BertConfig])
 
         model_with_head = BertModelWithHeads(model_with_head_base.config)
         model_with_head.bert = model_with_head_base
