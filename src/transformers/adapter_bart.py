@@ -222,47 +222,14 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
 
 
 class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
-    """Adds flexible heads to a BART model."""
-
-    def add_prediction_head_from_config(self, head_name, config, overwrite_ok=False):
-        id2label = (
-            {id_: label for label, id_ in config["label2id"].items()}
-            if "label2id" in config.keys() and config["label2id"]
-            else None
-        )
-        if config["head_type"] == "classification":
-            self.add_classification_head(
-                head_name,
-                config["num_labels"],
-                config["layers"],
-                config["activation_function"],
-                id2label=id2label,
-                overwrite_ok=overwrite_ok,
-            )
-        elif config["head_type"] == "multilabel_classification":
-            self.add_classification_head(
-                head_name,
-                config["num_labels"],
-                config["layers"],
-                config["activation_function"],
-                multilabel=True,
-                id2label=id2label,
-                overwrite_ok=overwrite_ok,
-            )
-        elif config["head_type"] == "question_answering":
-            self.add_qa_head(
-                head_name,
-                config["num_labels"],
-                config["layers"],
-                config["activation_function"],
-                id2label=id2label,
-                overwrite_ok=overwrite_ok,
-            )
-        else:
-            if config["head_type"] in self.config.custom_heads:
-                self.add_custom_head(head_name, config, overwrite_ok=overwrite_ok)
-            else:
-                raise AttributeError("Please register the PredictionHead before loading the model")
+    """
+    Adds flexible heads to a BART model.
+    """
+    head_types = {
+        "classification": ClassificationHead,
+        "multilabel_classification": MultiLabelClassificationHead,
+        "question_answering": QuestionAnsweringHead,
+    }
 
     def add_classification_head(
         self,
@@ -287,9 +254,9 @@ class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         """
 
         if multilabel:
-            head = MultiLabelClassificationHead(head_name, num_labels, layers, activation_function, id2label, self)
+            head = MultiLabelClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
         else:
-            head = ClassificationHead(head_name, num_labels, layers, activation_function, id2label, self)
+            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
         self.add_prediction_head(head, overwrite_ok)
 
     def add_qa_head(
@@ -301,5 +268,5 @@ class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         overwrite_ok=False,
         id2label=None,
     ):
-        head = QuestionAnsweringHead(head_name, num_labels, layers, activation_function, id2label, self)
+        head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
         self.add_prediction_head(head, overwrite_ok)

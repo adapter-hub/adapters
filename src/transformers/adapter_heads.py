@@ -52,7 +52,15 @@ class PredictionHead(nn.Sequential):
 
 
 class ClassificationHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
+    def __init__(
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        id2label=None,
+    ):
         super().__init__(head_name)
         self.config = {
             "head_type": "classification",
@@ -105,7 +113,15 @@ class ClassificationHead(PredictionHead):
 
 
 class MultiLabelClassificationHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
+    def __init__(
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        id2label=None,
+    ):
         super().__init__(head_name)
         self.config = {
             "head_type": "multilabel_classification",
@@ -155,7 +171,15 @@ class MultiLabelClassificationHead(PredictionHead):
 
 
 class MultipleChoiceHead(PredictionHead):
-    def __init__(self, head_name, num_choices, layers, activation_function, id2label, model):
+    def __init__(
+        self,
+        model,
+        head_name,
+        num_choices=2,
+        layers=2,
+        activation_function="tanh",
+        id2label=None,
+    ):
         super().__init__(head_name)
         self.config = {
             "head_type": "multiple_choice",
@@ -191,7 +215,15 @@ class MultipleChoiceHead(PredictionHead):
 
 
 class TaggingHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
+    def __init__(
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=1,
+        activation_function="tanh",
+        id2label=None,
+    ):
         super().__init__(head_name)
         self.config = {
             "head_type": "tagging",
@@ -235,7 +267,15 @@ class TaggingHead(PredictionHead):
 
 
 class QuestionAnsweringHead(PredictionHead):
-    def __init__(self, head_name, num_labels, layers, activation_function, id2label, model):
+    def __init__(
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=1,
+        activation_function="tanh",
+        id2label=None,
+    ):
         super().__init__(head_name)
         self.config = {
             "head_type": "question_answering",
@@ -304,7 +344,11 @@ class QuestionAnsweringHead(PredictionHead):
 
 
 class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
-    """Adds flexible prediction heads to a model class. Implemented by the XModelWithHeads classes."""
+    """
+    Adds flexible prediction heads to a model class. Implemented by the XModelWithHeads classes.
+    """
+
+    head_types: dict = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -321,9 +365,31 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
         for head_name, config in self.config.prediction_heads.items():
             self.add_prediction_head_from_config(head_name, config)
 
-    @abstractmethod
     def add_prediction_head_from_config(self, head_name, config, overwrite_ok=False):
-        pass
+        head_type = config.pop("head_type")
+        # handle cases when id2label, label2id or both are available
+        id2label = config.pop("id2label", None)
+        if not id2label:
+            label2id = config.pop("label2id", None)
+            if label2id:
+                id2label = {id_: label for label, id_ in label2id.items()}
+        else:
+            # don't pass label2id to head_class
+            config.pop("label2id", None)
+        if head_type in self.head_types:
+            head_class = self.head_types[head_type]
+            head = head_class(self, head_name, id2label=id2label, **config)
+            self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+        elif head_type in self.config.custom_heads:
+            # TODO-AH we have to readd the head type here
+            config["head_type"] = head_type
+            self.add_custom_head(head_name, config, overwrite_ok=overwrite_ok)
+        else:
+            raise AttributeError(
+                "Given head type '{}' is not known. Please register this head type before loading the model".format(
+                    head_type
+                )
+            )
 
     def get_prediction_heads_config(self):
         heads = {}
@@ -441,7 +507,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
             head_outputs = []
             for i, head in enumerate(used_heads):
                 head_module = self.heads[head]
-                # TODO check possible edge cases here
+                # TODO-AH check possible edge cases here
                 if isinstance(all_outputs, ModelOutput):
                     # rebuild the model output object from the split output
                     head_inputs = {}
