@@ -1,5 +1,4 @@
 import logging
-from abc import ABC, abstractmethod
 from typing import List, Union
 
 import torch
@@ -38,12 +37,17 @@ class PredictionHead(nn.Sequential):
             pred_head.append(nn.Dropout(model_config.hidden_dropout_prob))
             if l < self.config["layers"] - 1:
                 pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
-                pred_head.append(Activation_Function_Class(self.config["activation_function"]))
+                if self.config["activation_function"]:
+                    pred_head.append(Activation_Function_Class(self.config["activation_function"]))
             else:
                 if "num_labels" in self.config:
                     pred_head.append(nn.Linear(model_config.hidden_size, self.config["num_labels"]))
-                else:  # used for multiple_choice head
+                elif "num_choices" in self.config:  # used for multiple_choice head
                     pred_head.append(nn.Linear(model_config.hidden_size, 1))
+                else:
+                    pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
+                    if self.config["activation_function"]:
+                        pred_head.append(Activation_Function_Class(self.config["activation_function"]))
         for i, module in enumerate(pred_head):
             self.add_module(str(i), module)
 
@@ -343,7 +347,7 @@ class QuestionAnsweringHead(PredictionHead):
             return outputs
 
 
-class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
+class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     """
     Adds flexible prediction heads to a model class. Implemented by the XModelWithHeads classes.
     """
@@ -381,7 +385,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
             head = head_class(self, head_name, id2label=id2label, **config)
             self.add_prediction_head(head, overwrite_ok=overwrite_ok)
         elif head_type in self.config.custom_heads:
-            # TODO-AH we have to readd the head type here
+            # we have to re-add the head type for custom heads
             config["head_type"] = head_type
             self.add_custom_head(head_name, config, overwrite_ok=overwrite_ok)
         else:
@@ -479,7 +483,6 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, ABC):
                     head.config["label2id"] = {"LABEL_" + str(num): num for num in range(head.config["num_choices"])}
 
             logger.info(f"Adding head '{head.name}' with config {head.config}.")
-            #             self._add_prediction_head_module(head.name)
             self.active_head = head.name
 
         else:
