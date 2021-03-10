@@ -3,6 +3,7 @@ import unittest
 
 import torch
 
+from tests.test_adapter_common import MODELS_WITH_ADAPTERS
 from transformers import (
     AutoConfig,
     AutoModelForSequenceClassification,
@@ -36,21 +37,21 @@ class AdapterTrainingTest(unittest.TestCase):
     }
 
     def test_train_single_adapter(self):
-        for model_name in self.model_names:
-            with self.subTest(model_name=model_name):
-                tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+        for config_class, tokenizer_name in self.tokenizer_names.items():
+            with self.subTest(model_config=config_class.__name__):
+                tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
                 if tokenizer.pad_token is None:
                     tokenizer.pad_token = tokenizer.eos_token
                     config = AutoConfig.from_pretrained(
-                        model_name,
+                        MODELS_WITH_ADAPTERS[config_class](),
                         pad_token_id=tokenizer.eos_token_id,
                     )
-                    model = AutoModelWithHeads.from_pretrained(
-                        model_name,
+                    model = AutoModelWithHeads.from_config(
+                        MODELS_WITH_ADAPTERS[config_class](),
                         config=config,
                     )
                 else:
-                    model = AutoModelWithHeads.from_pretrained(model_name)
+                    model = model = AutoModelWithHeads.from_config(MODELS_WITH_ADAPTERS[config_class]())
 
                 # add two adapters: one will be trained and the other should be frozen
                 model.add_adapter("mrpc")
@@ -100,21 +101,21 @@ class AdapterTrainingTest(unittest.TestCase):
                         self.assertTrue(torch.equal(v1, v2))
 
     def test_train_adapter_fusion(self):
-        for model_name in self.model_names:
-            with self.subTest(model_name=model_name):
-                tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+        for config_class, tokenizer_name in self.tokenizer_names.items():
+            with self.subTest(model_config=config_class.__name__):
+                tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
                 if tokenizer.pad_token is None:
                     tokenizer.pad_token = tokenizer.eos_token
                     config = AutoConfig.from_pretrained(
-                        model_name,
+                        MODELS_WITH_ADAPTERS[config_class](),
                         pad_token_id=tokenizer.eos_token_id,
                     )
-                    model = AutoModelForSequenceClassification.from_pretrained(
-                        model_name,
+                    model = AutoModelForSequenceClassification.from_config(
+                        MODELS_WITH_ADAPTERS[config_class](),
                         config=config,
                     )
                 else:
-                    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+                    model = AutoModelForSequenceClassification.from_config(MODELS_WITH_ADAPTERS[config_class]())
 
                 # add the adapters to be fused
                 model.add_adapter("a")
