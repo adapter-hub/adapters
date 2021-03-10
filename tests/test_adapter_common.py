@@ -61,6 +61,11 @@ MODELS_WITH_ADAPTERS = {
     ),
     GPT2Config: make_config(
         GPT2Config,
+        n_embd=32,
+        n_layer=4,
+        n_head=4,
+        # set pad token to eos token
+        pad_token_id=50256,
     ),
 }
 
