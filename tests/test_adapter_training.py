@@ -30,9 +30,9 @@ def filter_parameters(model, filter_string):
 class AdapterTrainingTest(unittest.TestCase):
 
     tokenizer_names = {
-        BertConfig: "bert-base-uncased",
-        DistilBertConfig: "distilbert-base-uncased",
-        BartConfig: "facebook/bart-base",
+        #BertConfig: "bert-base-uncased",
+        #DistilBertConfig: "distilbert-base-uncased",
+        #BartConfig: "facebook/bart-base",
         GPT2Config: "gpt2",
     }
 
@@ -42,16 +42,8 @@ class AdapterTrainingTest(unittest.TestCase):
                 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
                 if tokenizer.pad_token is None:
                     tokenizer.pad_token = tokenizer.eos_token
-                    config = AutoConfig.from_pretrained(
-                        MODELS_WITH_ADAPTERS[config_class](),
-                        pad_token_id=tokenizer.eos_token_id,
-                    )
-                    model = AutoModelWithHeads.from_config(
-                        MODELS_WITH_ADAPTERS[config_class](),
-                        config=config,
-                    )
-                else:
-                    model = AutoModelWithHeads.from_config(MODELS_WITH_ADAPTERS[config_class]())
+                    MODELS_WITH_ADAPTERS[config_class]().pad_token_id = tokenizer.eos_token_id,
+                model = AutoModelWithHeads.from_config(MODELS_WITH_ADAPTERS[config_class]())
 
                 # add two adapters: one will be trained and the other should be frozen
                 model.add_adapter("mrpc")
@@ -106,18 +98,10 @@ class AdapterTrainingTest(unittest.TestCase):
                 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
                 if tokenizer.pad_token is None:
                     tokenizer.pad_token = tokenizer.eos_token
-                    config = AutoConfig.from_pretrained(
-                        MODELS_WITH_ADAPTERS[config_class](),
-                        pad_token_id=tokenizer.eos_token_id,
-                    )
-                    model = AutoModelForSequenceClassification.from_config(
-                        MODELS_WITH_ADAPTERS[config_class](),
-                        config=config,
-                    )
-                else:
-                    model = AutoModelForSequenceClassification.from_config(MODELS_WITH_ADAPTERS[config_class]())
+                    MODELS_WITH_ADAPTERS[config_class]().pad_token_id = tokenizer.eos_token_id,
+                model = AutoModelForSequenceClassification.from_config(MODELS_WITH_ADAPTERS[config_class]())
 
-                # add the adapters to be fused
+                # add th e adapters to be fused
                 model.add_adapter("a")
                 model.add_adapter("b")
                 model.add_adapter("c")
