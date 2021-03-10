@@ -61,8 +61,6 @@ MODELS_WITH_ADAPTERS = {
     ),
     GPT2Config: make_config(
         GPT2Config,
-        n_layer=4,
-
     ),
 }
 
