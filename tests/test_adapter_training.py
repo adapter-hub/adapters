@@ -5,7 +5,6 @@ import torch
 
 from tests.test_adapter_common import MODELS_WITH_ADAPTERS
 from transformers import (
-    AutoConfig,
     AutoModelForSequenceClassification,
     AutoModelWithHeads,
     AutoTokenizer,
