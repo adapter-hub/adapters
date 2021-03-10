@@ -51,7 +51,7 @@ class AdapterTrainingTest(unittest.TestCase):
                         config=config,
                     )
                 else:
-                    model = model = AutoModelWithHeads.from_config(MODELS_WITH_ADAPTERS[config_class]())
+                    model = AutoModelWithHeads.from_config(MODELS_WITH_ADAPTERS[config_class]())
 
                 # add two adapters: one will be trained and the other should be frozen
                 model.add_adapter("mrpc")
