@@ -10,7 +10,7 @@ from .adapter_heads import (
     MultiLabelClassificationHead,
     QuestionAnsweringHead,
 )
-from .adapter_layer_mixin import AdapterLayerBaseMixin
+from .adapter_layer import AdapterLayerBaseMixin
 from .adapter_model_mixin import ModelAdaptersMixin
 
 

@@ -32,7 +32,7 @@ RobertaModel
 
 
 RobertaModelWithHeads
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: transformers.RobertaModelWithHeads
     :members:

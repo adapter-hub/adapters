@@ -46,8 +46,8 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    classes/adapter_config
    classes/model_adapters_config
    classes/adapter_modules
+   classes/adapter_layer
    classes/model_mixins
-   classes/bert_mixins
    classes/adapter_utils
    classes/weights_loaders
 
@@ -55,12 +55,12 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    :maxdepth: 1
    :caption: Supported Models
 
-   classes/bart
-   classes/bert
-   classes/distilbert
-   classes/mbart
-   classes/roberta
-   classes/xlmroberta
+   classes/models/bart
+   classes/models/bert
+   classes/models/distilbert
+   classes/models/mbart
+   classes/models/roberta
+   classes/models/xlmroberta
 
 
 Citation

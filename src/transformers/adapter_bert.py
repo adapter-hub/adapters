@@ -12,7 +12,7 @@ from .adapter_heads import (
     QuestionAnsweringHead,
     TaggingHead,
 )
-from .adapter_layer_mixin import AdapterLayerBaseMixin
+from .adapter_layer import AdapterLayerBaseMixin
 from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 

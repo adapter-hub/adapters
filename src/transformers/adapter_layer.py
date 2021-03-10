@@ -64,9 +64,10 @@ class AdapterLayerBaseMixin(ABC):
         """
         Unfreezes a given list of adapters, the adapter fusion layer, or both
 
-        :param adapter_names: names of adapters to unfreeze (or names of adapters part of the fusion layer to unfreeze)
-        :param unfreeze_adapters: whether the adapters themselves should be unfreezed :param unfreeze_fusion: whether
-        the adapter attention layer for the given adapters should be unfreezed
+        Args:
+            adapter_names: names of adapters to unfreeze (or names of adapters part of the fusion layer to unfreeze)
+            unfreeze_adapters: whether the adapters themselves should be unfreezed
+            unfreeze_fusion: whether the adapter attention layer for the given adapters should be unfreezed
         """
         if unfreeze_adapters:
             for adapter_name in adapter_setup.flatten():

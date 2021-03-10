@@ -287,6 +287,8 @@ if is_torch_available():
         PfeifferInvConfig,
         StaticAdapterFusionConfig,
     )
+    from .adapter_heads import ModelWithFlexibleHeadsAdaptersMixin
+    from .adapter_layer import AdapterLayerBaseMixin
     from .adapter_loading import (
         AdapterFusionLoader,
         AdapterLoader,
