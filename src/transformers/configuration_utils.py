@@ -19,7 +19,7 @@
 import copy
 import json
 import os
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Union
 
 from .adapter_utils import DataclassJSONEncoder
 from .file_utils import CONFIG_NAME, cached_path, hf_bucket_url, is_remote_url
@@ -96,6 +96,12 @@ class PretrainedConfig(object):
           sentences are finished per batch or not.
         - **num_beams** (:obj:`int`, `optional`, defaults to 1) -- Number of beams for beam search that will be used by
           default in the :obj:`generate` method of the model. 1 means no beam search.
+        - **num_beam_groups** (:obj:`int`, `optional`, defaults to 1) -- Number of groups to divide :obj:`num_beams`
+          into in order to ensure diversity among different groups of beams that will be used by default in the
+          :obj:`generate` method of the model. 1 means no group beam search.
+        - **diversity_penalty** (:obj:`float`, `optional`, defaults to 0.0) -- Value to control diversity for group
+          beam search. that will be used by default in the :obj:`generate` method of the model. 0 means no diversity
+          penalty. The higher the penalty, the more diverse are the outputs.
         - **temperature** (:obj:`float`, `optional`, defaults to 1) -- The value used to module the next token
           probabilities that will be used by default in the :obj:`generate` method of the model. Must be strictly
           positive.
@@ -186,6 +192,8 @@ class PretrainedConfig(object):
         self.do_sample = kwargs.pop("do_sample", False)
         self.early_stopping = kwargs.pop("early_stopping", False)
         self.num_beams = kwargs.pop("num_beams", 1)
+        self.num_beam_groups = kwargs.pop("num_beam_groups", 1)
+        self.diversity_penalty = kwargs.pop("diversity_penalty", 0.0)
         self.temperature = kwargs.pop("temperature", 1.0)
         self.top_k = kwargs.pop("top_k", 50)
         self.top_p = kwargs.pop("top_p", 1.0)
@@ -263,13 +271,13 @@ class PretrainedConfig(object):
         self.id2label = {i: "LABEL_{}".format(i) for i in range(num_labels)}
         self.label2id = dict(zip(self.id2label.values(), self.id2label.keys()))
 
-    def save_pretrained(self, save_directory: str):
+    def save_pretrained(self, save_directory: Union[str, os.PathLike]):
         """
         Save a configuration object to the directory ``save_directory``, so that it can be re-loaded using the
         :func:`~transformers.PretrainedConfig.from_pretrained` class method.
 
         Args:
-            save_directory (:obj:`str`):
+            save_directory (:obj:`str` or :obj:`os.PathLike`):
                 Directory where the configuration JSON file will be saved (will be created if it does not exist).
         """
         if os.path.isfile(save_directory):
@@ -282,13 +290,13 @@ class PretrainedConfig(object):
         logger.info("Configuration saved in {}".format(output_config_file))
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path: str, **kwargs) -> "PretrainedConfig":
+    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs) -> "PretrainedConfig":
         r"""
         Instantiate a :class:`~transformers.PretrainedConfig` (or a derived class) from a pretrained model
         configuration.
 
         Args:
-            pretrained_model_name_or_path (:obj:`str`):
+            pretrained_model_name_or_path (:obj:`str` or :obj:`os.PathLike`):
                 This can be either:
 
                 - a string, the `model id` of a pretrained model configuration hosted inside a model repo on
@@ -298,7 +306,7 @@ class PretrainedConfig(object):
                   :func:`~transformers.PretrainedConfig.save_pretrained` method, e.g., ``./my_model_directory/``.
                 - a path or url to a saved configuration JSON `file`, e.g.,
                   ``./my_model_directory/configuration.json``.
-            cache_dir (:obj:`str`, `optional`):
+            cache_dir (:obj:`str` or :obj:`os.PathLike`, `optional`):
                 Path to a directory in which a downloaded pretrained model configuration should be cached if the
                 standard cache should not be used.
             force_download (:obj:`bool`, `optional`, defaults to :obj:`False`):
@@ -310,6 +318,9 @@ class PretrainedConfig(object):
             proxies (:obj:`Dict[str, str]`, `optional`):
                 A dictionary of proxy servers to use by protocol or endpoint, e.g., :obj:`{'http': 'foo.bar:3128',
                 'http://hostname': 'foo.bar:4012'}.` The proxies are used on each request.
+            use_auth_token (:obj:`str` or `bool`, `optional`):
+                The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
+                generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`).
             revision(:obj:`str`, `optional`, defaults to :obj:`"main"`):
                 The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
                 git-based system for storing models and other artifacts on huggingface.co, so ``revision`` can be any
@@ -324,6 +335,10 @@ class PretrainedConfig(object):
                 The values in kwargs of any keys which are configuration attributes will be used to override the loaded
                 values. Behavior concerning key/value pairs whose keys are *not* configuration attributes is controlled
                 by the ``return_unused_kwargs`` keyword parameter.
+
+        .. note::
+
+            Passing :obj:`use_auth_token=True` is required when you want to use a private model.
 
         Returns:
             :class:`PretrainedConfig`: The configuration object instantiated from this pretrained model.
@@ -347,13 +362,15 @@ class PretrainedConfig(object):
         return cls.from_dict(config_dict, **kwargs)
 
     @classmethod
-    def get_config_dict(cls, pretrained_model_name_or_path: str, **kwargs) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def get_config_dict(
+        cls, pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         From a ``pretrained_model_name_or_path``, resolve to a dictionary of parameters, to be used for instantiating a
         :class:`~transformers.PretrainedConfig` using ``from_dict``.
 
         Parameters:
-            pretrained_model_name_or_path (:obj:`str`):
+            pretrained_model_name_or_path (:obj:`str` or :obj:`os.PathLike`):
                 The identifier of the pre-trained checkpoint from which we want the dictionary of parameters.
 
         Returns:
@@ -364,9 +381,11 @@ class PretrainedConfig(object):
         force_download = kwargs.pop("force_download", False)
         resume_download = kwargs.pop("resume_download", False)
         proxies = kwargs.pop("proxies", None)
+        use_auth_token = kwargs.pop("use_auth_token", None)
         local_files_only = kwargs.pop("local_files_only", False)
         revision = kwargs.pop("revision", None)
 
+        pretrained_model_name_or_path = str(pretrained_model_name_or_path)
         if os.path.isdir(pretrained_model_name_or_path):
             config_file = os.path.join(pretrained_model_name_or_path, CONFIG_NAME)
         elif os.path.isfile(pretrained_model_name_or_path) or is_remote_url(pretrained_model_name_or_path):
@@ -385,6 +404,7 @@ class PretrainedConfig(object):
                 proxies=proxies,
                 resume_download=resume_download,
                 local_files_only=local_files_only,
+                use_auth_token=use_auth_token,
             )
             # Load config dict
             config_dict = cls._dict_from_json_file(resolved_config_file)
@@ -454,12 +474,12 @@ class PretrainedConfig(object):
             return config
 
     @classmethod
-    def from_json_file(cls, json_file: str) -> "PretrainedConfig":
+    def from_json_file(cls, json_file: Union[str, os.PathLike]) -> "PretrainedConfig":
         """
         Instantiates a :class:`~transformers.PretrainedConfig` from the path to a JSON file of parameters.
 
         Args:
-            json_file (:obj:`str`):
+            json_file (:obj:`str` or :obj:`os.PathLike`):
                 Path to the JSON file containing the parameters.
 
         Returns:
@@ -470,7 +490,7 @@ class PretrainedConfig(object):
         return cls(**config_dict)
 
     @classmethod
-    def _dict_from_json_file(cls, json_file: str):
+    def _dict_from_json_file(cls, json_file: Union[str, os.PathLike]):
         with open(json_file, "r", encoding="utf-8") as reader:
             text = reader.read()
         return json.loads(text)
@@ -544,12 +564,12 @@ class PretrainedConfig(object):
             config_dict = self.to_dict()
         return json.dumps(config_dict, indent=2, sort_keys=True, cls=DataclassJSONEncoder) + "\n"
 
-    def to_json_file(self, json_file_path: str, use_diff: bool = True):
+    def to_json_file(self, json_file_path: Union[str, os.PathLike], use_diff: bool = True):
         """
         Save this instance to a JSON file.
 
         Args:
-            json_file_path (:obj:`str`):
+            json_file_path (:obj:`str` or :obj:`os.PathLike`):
                 Path to the JSON file in which this configuration instance's parameters will be saved.
             use_diff (:obj:`bool`, `optional`, defaults to :obj:`True`):
                 If set to ``True``, only the difference between the config instance and the default

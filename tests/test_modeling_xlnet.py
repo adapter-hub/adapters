@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2018 The Google AI Language Team Authors.
+# Copyright 2020 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -588,6 +588,10 @@ class XLNetModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase)
         self.model_tester.set_seed()
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_xlnet_qa(*config_and_inputs)
+
+    def test_retain_grad_hidden_states_attentions(self):
+        # xlnet cannot keep gradients in attentions or hidden states
+        return
 
     @slow
     def test_model_from_pretrained(self):
