@@ -30,6 +30,7 @@ from transformers import (
     AutoConfig,
     AutoModelForMultipleChoice,
     AutoTokenizer,
+    DataCollatorWithPadding,
     EvalPrediction,
     HfArgumentParser,
     MultiLingAdapterArguments,
@@ -244,6 +245,9 @@ def main():
         preds = np.argmax(p.predictions, axis=1)
         return {"acc": simple_accuracy(preds, p.label_ids)}
 
+    # Data collator
+    data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8) if training_args.fp16 else None
+
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
@@ -251,6 +255,7 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
+        data_collator=data_collator,
         do_save_full_model=not adapter_args.train_adapter,
         do_save_adapters=adapter_args.train_adapter,
     )

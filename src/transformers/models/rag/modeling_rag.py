@@ -102,6 +102,12 @@ class RetrievAugLMMarginOutput(ModelOutput):
 
             Attentions weights of the generator decoder, after the attention softmax, used to compute the weighted
             average in the self-attention heads.
+        generator_cross_attentions (:obj:`tuple(torch.FloatTensor)`, `optional`, returned when ``output_attentions=True`` is passed or when ``config.output_attentions=True``):
+            Tuple of :obj:`torch.FloatTensor` (one for each layer) of shape :obj:`(batch_size, num_heads,
+            sequence_length, sequence_length)`.
+
+            Cross-attentions weights of the generator decoder, after the attention softmax, used to compute the
+            weighted average in the cross-attention heads.
     """
 
     loss: Optional[torch.FloatTensor] = None
@@ -120,6 +126,7 @@ class RetrievAugLMMarginOutput(ModelOutput):
     generator_enc_attentions: Optional[Tuple[torch.FloatTensor]] = None
     generator_dec_hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     generator_dec_attentions: Optional[Tuple[torch.FloatTensor]] = None
+    generator_cross_attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 
 @dataclass
@@ -186,6 +193,12 @@ class RetrievAugLMOutput(ModelOutput):
 
             Attentions weights of the generator decoder, after the attention softmax, used to compute the weighted
             average in the self-attention heads.
+        generator_cross_attentions (:obj:`tuple(torch.FloatTensor)`, `optional`, returned when ``output_attentions=True`` is passed or when ``config.output_attentions=True``):
+            Tuple of :obj:`torch.FloatTensor` (one for each layer) of shape :obj:`(batch_size, num_heads,
+            sequence_length, sequence_length)`.
+
+            Cross-attentions weights of the generator decoder, after the attention softmax, used to compute the
+            weighted average in the cross-attention heads.
     """
 
     logits: torch.FloatTensor = None
@@ -203,6 +216,7 @@ class RetrievAugLMOutput(ModelOutput):
     generator_enc_attentions: Optional[Tuple[torch.FloatTensor]] = None
     generator_dec_hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     generator_dec_attentions: Optional[Tuple[torch.FloatTensor]] = None
+    generator_cross_attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 
 class RagPreTrainedModel(PreTrainedModel):
@@ -398,6 +412,8 @@ RAG_FORWARD_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. :class:`~transformers.RagConfig`, used to initialize
             the model, specifies which generator to use, it also specifies a compatible generator tokenizer. Use that
             tokenizer class to obtain the indices.
+
+            `What are input IDs? <../glossary.html#input-ids>`__
         attention_mask (:obj:`torch.Tensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
             Mask to avoid performing attention on padding token indices. Mask values selected in ``[0, 1]``:
 
@@ -619,6 +635,7 @@ class RagModel(RagPreTrainedModel):
             decoder_attention_mask=decoder_attention_mask,
             past_key_values=past_key_values,
             use_cache=use_cache,
+            output_attentions=output_attentions,
             return_dict=True,
         )
 
@@ -655,6 +672,7 @@ class RagModel(RagPreTrainedModel):
             generator_enc_attentions=gen_outputs.encoder_attentions,
             generator_dec_hidden_states=gen_outputs.decoder_hidden_states,
             generator_dec_attentions=gen_outputs.decoder_attentions,
+            generator_cross_attentions=gen_outputs.cross_attentions,
         )
 
 
@@ -803,6 +821,7 @@ class RagSequenceForGeneration(RagPreTrainedModel):
             generator_enc_attentions=outputs.generator_enc_attentions,
             generator_dec_hidden_states=outputs.generator_dec_hidden_states,
             generator_dec_attentions=outputs.generator_dec_attentions,
+            generator_cross_attentions=outputs.generator_cross_attentions,
         )
 
     @property
@@ -1264,6 +1283,7 @@ class RagTokenForGeneration(RagPreTrainedModel):
             generator_enc_attentions=outputs.generator_enc_attentions,
             generator_dec_hidden_states=outputs.generator_dec_hidden_states,
             generator_dec_attentions=outputs.generator_dec_attentions,
+            generator_cross_attentions=outputs.generator_cross_attentions,
         )
 
     @torch.no_grad()
@@ -1286,6 +1306,7 @@ class RagTokenForGeneration(RagPreTrainedModel):
         eos_token_id=None,
         length_penalty=None,
         no_repeat_ngram_size=None,
+        encoder_no_repeat_ngram_size=None,
         repetition_penalty=None,
         bad_words_ids=None,
         num_return_sequences=None,
@@ -1352,6 +1373,9 @@ class RagTokenForGeneration(RagPreTrainedModel):
                 order to encourage the model to produce longer sequences.
             no_repeat_ngram_size (:obj:`int`, `optional`, defaults to 0):
                 If set to int > 0, all ngrams of that size can only occur once.
+            encoder_no_repeat_ngram_size (:obj:`int`, `optional`, defaults to 0):
+                If set to int > 0, all ngrams of that size that occur in the ``encoder_input_ids`` cannot occur in the
+                ``decoder_input_ids``.
             bad_words_ids(:obj:`List[int]`, `optional`):
                 List of token ids that are not allowed to be generated. In order to get the tokens of the words that
                 should not appear in the generated text, use :obj:`tokenizer.encode(bad_word, add_prefix_space=True)`.
@@ -1470,6 +1494,8 @@ class RagTokenForGeneration(RagPreTrainedModel):
         pre_processor = self._get_logits_processor(
             repetition_penalty=repetition_penalty,
             no_repeat_ngram_size=no_repeat_ngram_size,
+            encoder_no_repeat_ngram_size=encoder_no_repeat_ngram_size,
+            encoder_input_ids=context_input_ids,
             bad_words_ids=bad_words_ids,
             min_length=min_length,
             eos_token_id=eos_token_id,
@@ -1486,7 +1512,7 @@ class RagTokenForGeneration(RagPreTrainedModel):
                 )
             return self.greedy_search(
                 input_ids,
-                pre_processor=pre_processor,
+                logits_processor=pre_processor,
                 max_length=max_length,
                 pad_token_id=pad_token_id,
                 eos_token_id=eos_token_id,
@@ -1509,7 +1535,7 @@ class RagTokenForGeneration(RagPreTrainedModel):
             return self.beam_search(
                 input_ids,
                 beam_scorer,
-                pre_processor=pre_processor,
+                logits_processor=pre_processor,
                 max_length=max_length,
                 pad_token_id=pad_token_id,
                 eos_token_id=eos_token_id,

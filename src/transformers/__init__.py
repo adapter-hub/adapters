@@ -105,6 +105,8 @@ _import_structure = {
     ],
     "models": [],
     # Models
+    "models.wav2vec2": ["WAV_2_VEC_2_PRETRAINED_CONFIG_ARCHIVE_MAP", "Wav2Vec2Config", "Wav2Vec2Tokenizer"],
+    "models.convbert": ["CONVBERT_PRETRAINED_CONFIG_ARCHIVE_MAP", "ConvBertConfig", "ConvBertTokenizer"],
     "models.albert": ["ALBERT_PRETRAINED_CONFIG_ARCHIVE_MAP", "AlbertConfig"],
     "models.auto": [
         "ALL_PRETRAINED_CONFIG_ARCHIVE_MAP",
@@ -255,6 +257,7 @@ else:
 # tokenziers-backed objects
 if is_tokenizers_available():
     # Fast tokenizers
+    _import_structure["models.convbert"].append("ConvBertTokenizerFast")
     _import_structure["models.albert"].append("AlbertTokenizerFast")
     _import_structure["models.bart"].append("BartTokenizerFast")
     _import_structure["models.barthez"].append("BarthezTokenizerFast")
@@ -304,6 +307,7 @@ if is_torch_available():
         "DataCollator",
         "DataCollatorForLanguageModeling",
         "DataCollatorForPermutationLanguageModeling",
+        "DataCollatorForSeq2Seq",
         "DataCollatorForSOP",
         "DataCollatorForTokenClassification",
         "DataCollatorForWholeWordMask",
@@ -339,6 +343,30 @@ if is_torch_available():
     _import_structure["generation_utils"] = ["top_k_top_p_filtering"]
     _import_structure["modeling_utils"] = ["Conv1D", "PreTrainedModel", "apply_chunking_to_forward", "prune_layer"]
     # PyTorch models structure
+
+    _import_structure["models.wav2vec2"].extend(
+        [
+            "WAV_2_VEC_2_PRETRAINED_MODEL_ARCHIVE_LIST",
+            "Wav2Vec2ForCTC",
+            "Wav2Vec2ForMaskedLM",
+            "Wav2Vec2Model",
+            "Wav2Vec2PreTrainedModel",
+        ]
+    )
+    _import_structure["models.convbert"].extend(
+        [
+            "CONVBERT_PRETRAINED_MODEL_ARCHIVE_LIST",
+            "ConvBertForMaskedLM",
+            "ConvBertForMultipleChoice",
+            "ConvBertForQuestionAnswering",
+            "ConvBertForSequenceClassification",
+            "ConvBertForTokenClassification",
+            "ConvBertLayer",
+            "ConvBertModel",
+            "ConvBertPreTrainedModel",
+            "load_tf_weights_in_convbert",
+        ]
+    )
     _import_structure["models.albert"].extend(
         [
             "ALBERT_PRETRAINED_MODEL_ARCHIVE_LIST",
@@ -384,6 +412,7 @@ if is_torch_available():
     _import_structure["models.bart"].extend(
         [
             "BART_PRETRAINED_MODEL_ARCHIVE_LIST",
+            "BartForCausalLM",
             "BartForConditionalGeneration",
             "BartForQuestionAnswering",
             "BartForSequenceClassification",
@@ -421,6 +450,7 @@ if is_torch_available():
             "BLENDERBOT_PRETRAINED_MODEL_ARCHIVE_LIST",
             "BlenderbotForConditionalGeneration",
             "BlenderbotModel",
+            "BlenderbotForCausalLM",
         ]
     )
     _import_structure["models.blenderbot_small"].extend(
@@ -428,6 +458,7 @@ if is_torch_available():
             "BLENDERBOT_SMALL_PRETRAINED_MODEL_ARCHIVE_LIST",
             "BlenderbotSmallForConditionalGeneration",
             "BlenderbotSmallModel",
+            "BlenderbotSmallForCausalLM",
         ]
     )
     _import_structure["models.camembert"].extend(
@@ -456,7 +487,10 @@ if is_torch_available():
             "DEBERTA_PRETRAINED_MODEL_ARCHIVE_LIST",
             "DebertaForSequenceClassification",
             "DebertaModel",
+            "DebertaForMaskedLM",
             "DebertaPreTrainedModel",
+            "DebertaForTokenClassification",
+            "DebertaForQuestionAnswering",
         ]
     )
     _import_structure["models.distilbert"].extend(
@@ -578,9 +612,10 @@ if is_torch_available():
             "LxmertXLayer",
         ]
     )
-    _import_structure["models.marian"].extend(["MarianModel", "MarianMTModel"])
+    _import_structure["models.marian"].extend(["MarianModel", "MarianMTModel", "MarianForCausalLM"])
     _import_structure["models.mbart"].extend(
         [
+            "MBartForCausalLM",
             "MBartForConditionalGeneration",
             "MBartForQuestionAnswering",
             "MBartForSequenceClassification",
@@ -629,7 +664,9 @@ if is_torch_available():
             "load_tf_weights_in_openai_gpt",
         ]
     )
-    _import_structure["models.pegasus"].extend(["PegasusForConditionalGeneration", "PegasusModel"])
+    _import_structure["models.pegasus"].extend(
+        ["PegasusForConditionalGeneration", "PegasusModel", "PegasusForCausalLM"]
+    )
     _import_structure["models.prophetnet"].extend(
         [
             "PROPHETNET_PRETRAINED_MODEL_ARCHIVE_LIST",
@@ -792,6 +829,20 @@ if is_tf_available():
         "shape_list",
     ]
     # TensorFlow models structure
+
+    _import_structure["models.convbert"].extend(
+        [
+            "TF_CONVBERT_PRETRAINED_MODEL_ARCHIVE_LIST",
+            "TFConvBertForMaskedLM",
+            "TFConvBertForMultipleChoice",
+            "TFConvBertForQuestionAnswering",
+            "TFConvBertForSequenceClassification",
+            "TFConvBertForTokenClassification",
+            "TFConvBertLayer",
+            "TFConvBertModel",
+            "TFConvBertPreTrainedModel",
+        ]
+    )
     _import_structure["models.albert"].extend(
         [
             "TF_ALBERT_PRETRAINED_MODEL_ARCHIVE_LIST",
@@ -1251,6 +1302,7 @@ if TYPE_CHECKING:
         BlenderbotSmallTokenizer,
     )
     from .models.camembert import CAMEMBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, CamembertConfig
+    from .models.convbert import CONVBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, ConvBertConfig, ConvBertTokenizer
     from .models.ctrl import CTRL_PRETRAINED_CONFIG_ARCHIVE_MAP, CTRLConfig, CTRLTokenizer
     from .models.deberta import DEBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP, DebertaConfig, DebertaTokenizer
     from .models.distilbert import DISTILBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, DistilBertConfig, DistilBertTokenizer
@@ -1296,6 +1348,7 @@ if TYPE_CHECKING:
         TransfoXLCorpus,
         TransfoXLTokenizer,
     )
+    from .models.wav2vec2 import WAV_2_VEC_2_PRETRAINED_CONFIG_ARCHIVE_MAP, Wav2Vec2Config, Wav2Vec2Tokenizer
     from .models.xlm import XLM_PRETRAINED_CONFIG_ARCHIVE_MAP, XLMConfig, XLMTokenizer
     from .models.xlm_prophetnet import XLM_PROPHETNET_PRETRAINED_CONFIG_ARCHIVE_MAP, XLMProphetNetConfig
     from .models.xlm_roberta import XLM_ROBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP, XLMRobertaConfig
@@ -1375,6 +1428,7 @@ if TYPE_CHECKING:
         from .models.barthez import BarthezTokenizerFast
         from .models.bert import BertTokenizerFast
         from .models.camembert import CamembertTokenizerFast
+        from .models.convbert import ConvBertTokenizerFast
         from .models.distilbert import DistilBertTokenizerFast
         from .models.dpr import DPRContextEncoderTokenizerFast, DPRQuestionEncoderTokenizerFast, DPRReaderTokenizerFast
         from .models.electra import ElectraTokenizerFast
@@ -1415,6 +1469,7 @@ if TYPE_CHECKING:
             DataCollator,
             DataCollatorForLanguageModeling,
             DataCollatorForPermutationLanguageModeling,
+            DataCollatorForSeq2Seq,
             DataCollatorForSOP,
             DataCollatorForTokenClassification,
             DataCollatorForWholeWordMask,
@@ -1489,6 +1544,7 @@ if TYPE_CHECKING:
         )
         from .models.bart import (
             BART_PRETRAINED_MODEL_ARCHIVE_LIST,
+            BartForCausalLM,
             BartForConditionalGeneration,
             BartForQuestionAnswering,
             BartForSequenceClassification,
@@ -1518,11 +1574,13 @@ if TYPE_CHECKING:
         )
         from .models.blenderbot import (
             BLENDERBOT_PRETRAINED_MODEL_ARCHIVE_LIST,
+            BlenderbotForCausalLM,
             BlenderbotForConditionalGeneration,
             BlenderbotModel,
         )
         from .models.blenderbot_small import (
             BLENDERBOT_SMALL_PRETRAINED_MODEL_ARCHIVE_LIST,
+            BlenderbotSmallForCausalLM,
             BlenderbotSmallForConditionalGeneration,
             BlenderbotSmallModel,
         )
@@ -1536,6 +1594,18 @@ if TYPE_CHECKING:
             CamembertForTokenClassification,
             CamembertModel,
         )
+        from .models.convbert import (
+            CONVBERT_PRETRAINED_MODEL_ARCHIVE_LIST,
+            ConvBertForMaskedLM,
+            ConvBertForMultipleChoice,
+            ConvBertForQuestionAnswering,
+            ConvBertForSequenceClassification,
+            ConvBertForTokenClassification,
+            ConvBertLayer,
+            ConvBertModel,
+            ConvBertPreTrainedModel,
+            load_tf_weights_in_convbert,
+        )
         from .models.ctrl import (
             CTRL_PRETRAINED_MODEL_ARCHIVE_LIST,
             CTRLForSequenceClassification,
@@ -1545,7 +1615,10 @@ if TYPE_CHECKING:
         )
         from .models.deberta import (
             DEBERTA_PRETRAINED_MODEL_ARCHIVE_LIST,
+            DebertaForMaskedLM,
+            DebertaForQuestionAnswering,
             DebertaForSequenceClassification,
+            DebertaForTokenClassification,
             DebertaModel,
             DebertaPreTrainedModel,
         )
@@ -1648,8 +1721,9 @@ if TYPE_CHECKING:
             LxmertVisualFeatureEncoder,
             LxmertXLayer,
         )
-        from .models.marian import MarianModel, MarianMTModel
+        from .models.marian import MarianForCausalLM, MarianModel, MarianMTModel
         from .models.mbart import (
+            MBartForCausalLM,
             MBartForConditionalGeneration,
             MBartForQuestionAnswering,
             MBartForSequenceClassification,
@@ -1691,7 +1765,7 @@ if TYPE_CHECKING:
             OpenAIGPTPreTrainedModel,
             load_tf_weights_in_openai_gpt,
         )
-        from .models.pegasus import PegasusForConditionalGeneration, PegasusModel
+        from .models.pegasus import PegasusForCausalLM, PegasusForConditionalGeneration, PegasusModel
         from .models.prophetnet import (
             PROPHETNET_PRETRAINED_MODEL_ARCHIVE_LIST,
             ProphetNetDecoder,
@@ -1757,6 +1831,13 @@ if TYPE_CHECKING:
             TransfoXLModel,
             TransfoXLPreTrainedModel,
             load_tf_weights_in_transfo_xl,
+        )
+        from .models.wav2vec2 import (
+            WAV_2_VEC_2_PRETRAINED_MODEL_ARCHIVE_LIST,
+            Wav2Vec2ForCTC,
+            Wav2Vec2ForMaskedLM,
+            Wav2Vec2Model,
+            Wav2Vec2PreTrainedModel,
         )
         from .models.xlm import (
             XLM_PRETRAINED_MODEL_ARCHIVE_LIST,
@@ -1890,6 +1971,17 @@ if TYPE_CHECKING:
             TFCamembertForSequenceClassification,
             TFCamembertForTokenClassification,
             TFCamembertModel,
+        )
+        from .models.convbert import (
+            TF_CONVBERT_PRETRAINED_MODEL_ARCHIVE_LIST,
+            TFConvBertForMaskedLM,
+            TFConvBertForMultipleChoice,
+            TFConvBertForQuestionAnswering,
+            TFConvBertForSequenceClassification,
+            TFConvBertForTokenClassification,
+            TFConvBertLayer,
+            TFConvBertModel,
+            TFConvBertPreTrainedModel,
         )
         from .models.ctrl import (
             TF_CTRL_PRETRAINED_MODEL_ARCHIVE_LIST,

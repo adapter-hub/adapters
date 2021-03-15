@@ -112,6 +112,11 @@ class TestFinetuneTrainer(TestCasePlus):
     def test_finetune_trainer_deepspeed(self):
         self.finetune_trainer_quick(deepspeed=True)
 
+    @require_torch_multi_gpu
+    @require_deepspeed
+    def test_finetune_trainer_deepspeed_grad_acum(self):
+        self.finetune_trainer_quick(deepspeed=True, extra_args_str="--gradient_accumulation_steps 2")
+
     @slow
     def test_finetune_trainer_slow(self):
         # There is a missing call to __init__process_group somewhere
@@ -169,7 +174,7 @@ class TestFinetuneTrainer(TestCasePlus):
             --logging_steps 0
             --save_steps {str(eval_steps)}
             --eval_steps {str(eval_steps)}
-            --sortish_sampler
+            --group_by_length
             --label_smoothing_factor 0.1
             --adafactor
             --task translation
