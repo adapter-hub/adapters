@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from ..file_utils import add_end_docstrings, is_tf_available, is_torch_available
 from ..modelcard import ModelCard
+from ..models.auto.modeling_auto import MODEL_WITH_HEADS_MAPPING
 from ..tokenization_utils import PreTrainedTokenizer, TruncationStrategy
 from ..utils import logging
 
@@ -570,6 +571,8 @@ class Pipeline(_ScikitCompat):
         """
         if not isinstance(supported_models, list):  # Create from a model mapping
             supported_models = [item[1].__name__ for item in supported_models.items()]
+        for item in MODEL_WITH_HEADS_MAPPING.values():
+            supported_models.append(item.__name__)
         if self.model.__class__.__name__ not in supported_models:
             raise PipelineException(
                 self.task,
