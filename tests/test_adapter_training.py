@@ -99,7 +99,7 @@ class AdapterTrainingTest(unittest.TestCase):
                     MODELS_WITH_ADAPTERS[config_class]().pad_token_id = (tokenizer.eos_token_id,)
                 model = AutoModelForSequenceClassification.from_config(MODELS_WITH_ADAPTERS[config_class]())
 
-                # add th e adapters to be fused
+                # add the adapters to be fused
                 model.add_adapter("a")
                 model.add_adapter("b")
                 model.add_adapter("c")
