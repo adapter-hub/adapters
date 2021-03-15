@@ -34,8 +34,8 @@ python run_ner.py \
 
 ## Old version of the script
 
-Based on the scripts [`run_ner_old.py`](https://github.com/huggingface/transformers/blob/master/examples/token-classification/run_ner_old.py) for Pytorch and
-[`run_tf_ner.py`](https://github.com/huggingface/transformers/blob/master/examples/token-classification/run_tf_ner.py) for Tensorflow 2.
+Based on the scripts [`run_ner_old.py`](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/token-classification/run_ner_old.py) for Pytorch and
+[`run_tf_ner.py`](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/token-classification/run_tf_ner.py) for Tensorflow 2.
 
 The following examples are covered in this section:
 

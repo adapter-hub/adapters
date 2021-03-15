@@ -68,7 +68,7 @@ Citation
 
 .. code-block:: bibtex
 
-   @article{pfeiffer2020AdapterHub,
+   @inproceedings{pfeiffer2020AdapterHub,
       title={AdapterHub: A Framework for Adapting Transformers},
       author={Jonas Pfeiffer and
                Andreas R\"uckl\'{e} and
@@ -78,9 +78,12 @@ Citation
                Sebastian Ruder and
                Kyunghyun Cho and
                Iryna Gurevych},
-      journal={arXiv preprint},
+      booktitle={Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP 2020): Systems Demonstrations},
       year={2020},
-      url={https://arxiv.org/abs/2007.07779}
+      address = "Online",
+      publisher = "Association for Computational Linguistics",
+      url = "https://www.aclweb.org/anthology/2020.emnlp-demos.7",
+      pages = "46--54",
    }
 
 
