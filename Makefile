@@ -76,4 +76,4 @@ test-examples:
 # Check that docs can build
 
 docs:
-	cd docs && make html SPHINXOPTS="-W"
+	cd docs && make html SPHINXOPTS="-W -j 4"

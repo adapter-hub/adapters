@@ -26,7 +26,7 @@ To create the package for pypi.
 
 2. Commit these changes with the message: "Release: VERSION"
 
-3. Add a tag in git to mark the release: "git tag VERSION -m'Adds tag VERSION for pypi' "
+3. Add a tag in git to mark the release: "git tag VERSION -m 'Adds tag VERSION for pypi' "
    Push the tag to git: git push --tags origin master
 
 4. Build both the sources and the wheel. Do not change anything in setup.py between
@@ -99,6 +99,7 @@ _deps = [
     "flake8>=3.8.3",
     "flax>=0.2.2",
     "fugashi>=1.0",
+    "importlib_metadata",
     "ipadic>=1.0.0,<2.0",
     "isort>=5.5.4",
     "jax>=0.2.0",
@@ -127,8 +128,8 @@ _deps = [
     "sphinx-rtd-theme==0.4.3",  # sphinx-rtd-theme==0.5.0 introduced big changes in the style.
     "sphinx==3.2.1",
     "starlette",
-    "tensorflow-cpu>=2.0",
-    "tensorflow>=2.0",
+    "tensorflow-cpu>=2.3",
+    "tensorflow>=2.3",
     "timeout-decorator",
     "tokenizers==0.9.4",
     "torch>=1.0",
@@ -228,10 +229,13 @@ extras["dev"] = (
     + extras["modelcreation"]
 )
 
+extras["torchhub"] = deps_list("filelock", "importlib_metadata", "numpy", "packaging", "protobuf", "regex",
+                               "requests", "sacremoses", "sentencepiece", "torch", "tokenizers", "tqdm")
 
 # when modifying the following list, make sure to update src/transformers/dependency_versions_check.py
 install_requires = [
     deps["dataclasses"] + ";python_version<'3.7'",  # dataclasses for Python versions that don't have it
+    deps["importlib_metadata"] + ";python_version<'3.8'",  # importlib_metadata for Python versions that don't have it
     deps["filelock"],  # filesystem locks, e.g., to prevent parallel downloads
     deps["numpy"],
     deps["packaging"],  # utilities from PyPA to e.g., compare versions
