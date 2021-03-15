@@ -101,4 +101,3 @@ GPT2ModelWithHeads
 
 .. autoclass:: transformers.GPT2ModelWithHeads
     :members: forward
-

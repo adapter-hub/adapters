@@ -42,8 +42,26 @@ class GPT2OutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
         return None
 
 
-class GPT2DoubleHeadsModelOutputAdapterMixin:
-    pass
+class GPT2DecoderBlockAdaptersMixin(BertEncoderAdaptersMixin):
+    """Adds adapters to the TransformerBlock module of DistilBert."""
+
+    def _init_adapter_modules(self):
+        self.attention_adapters = GPT2AttentionAdaptersModule(self)
+        self.output_adapters = GPT2OutputAdaptersModule(self)
+        self.attention_adapters._init_adapter_modules()
+        self.output_adapters._init_adapter_modules()
+
+    def add_fusion_layer(self, adapter_names):
+        self.attention_adapters.add_fusion_layer(adapter_names)
+        self.output_adapters.add_fusion_layer(adapter_names)
+
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        self.attention_adapters.add_adapter(adapter_name, layer_idx)
+        self.output_adapters.add_adapter(adapter_name, layer_idx)
+
+    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
+        self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+        self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
 
 
 class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
@@ -128,32 +146,6 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         return reg_loss
 
 
-class GPT2ModelWithHeadsAdapterMixin(GPT2ModelAdapterMixin):
-    pass
-
-
-class GPT2DecoderBlockAdaptersMixin(BertEncoderAdaptersMixin):
-    """Adds adapters to the TransformerBlock module of DistilBert."""
-
-    def _init_adapter_modules(self):
-        self.attention_adapters = GPT2AttentionAdaptersModule(self)
-        self.output_adapters = GPT2OutputAdaptersModule(self)
-        self.attention_adapters._init_adapter_modules()
-        self.output_adapters._init_adapter_modules()
-
-    def add_fusion_layer(self, adapter_names):
-        self.attention_adapters.add_fusion_layer(adapter_names)
-        self.output_adapters.add_fusion_layer(adapter_names)
-
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        self.attention_adapters.add_adapter(adapter_name, layer_idx)
-        self.output_adapters.add_adapter(adapter_name, layer_idx)
-
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
-        self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-        self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-
-
 class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     """Adds flexible heads to a BERT-based model class."""
 
@@ -215,9 +207,3 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         else:
             head = ClassificationHead(head_name, num_labels, layers, activation_function, id2label, self)
         self.add_prediction_head(head, overwrite_ok)
-
-
-class GPT2LMModelMixin(GPT2ModelAdapterMixin):
-    @property
-    def invertible_adapters(self):
-        return self.base_model.invertible_adapters

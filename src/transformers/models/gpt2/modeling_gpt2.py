@@ -24,13 +24,8 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
-from ...adapter_gpt2 import (
-    GPT2DecoderBlockAdaptersMixin,
-    GPT2DoubleHeadsModelOutputAdapterMixin,
-    GPT2LMModelMixin,
-    GPT2ModelAdapterMixin,
-    GPT2ModelHeadsMixin,
-)
+from ...adapter_gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin, GPT2ModelHeadsMixin
+from ...adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -294,7 +289,6 @@ class Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         use_cache=False,
         output_attentions=False,
     ):
-        model_input = hidden_states
         attn_outputs = self.attn(
             self.ln_1(hidden_states),
             layer_past=layer_past,
@@ -367,7 +361,7 @@ class GPT2PreTrainedModel(PreTrainedModel):
 
 
 @dataclass
-class GPT2DoubleHeadsModelOutput(GPT2DoubleHeadsModelOutputAdapterMixin, ModelOutput):
+class GPT2DoubleHeadsModelOutput(ModelOutput):
     """
     Base class for outputs of models predicting if two sentences are consecutive or not.
 
@@ -704,7 +698,7 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2LMHeadModel(GPT2LMModelMixin, GPT2PreTrainedModel):
+class GPT2LMHeadModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head\.weight"]
 
     def __init__(self, config):
@@ -830,7 +824,7 @@ input sequence).
 """,
     GPT2_START_DOCSTRING,
 )
-class GPT2DoubleHeadsModel(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
+class GPT2DoubleHeadsModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         config.num_labels = 1
@@ -996,7 +990,7 @@ class GPT2DoubleHeadsModel(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2ForSequenceClassification(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
+class GPT2ForSequenceClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head\.weight"]
 
     def __init__(self, config):
@@ -1006,10 +1000,6 @@ class GPT2ForSequenceClassification(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         self.score = nn.Linear(config.n_embd, self.num_labels, bias=False)
 
         self.init_weights()
-
-    @property
-    def invertible_adapters(self):
-        return self.base_model.invertible_adapters
 
     @add_start_docstrings_to_model_forward(GPT2_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
@@ -1132,16 +1122,6 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
         return_dict=None,
         **kwargs
     ):
-        # input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
-        # attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
-        # token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
-        # position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
-        # inputs_embeds = (
-        #     inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
-        #     if inputs_embeds is not None
-        #     else None
-        # )
-
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         outputs = self.transformer(
@@ -1156,8 +1136,35 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
             return_dict=return_dict,
         )
 
+        if input_ids is not None:
+            batch_size, _ = input_ids.shape[:2]
+        else:
+            batch_size, _ = inputs_embeds.shape[:2]
+
+        assert (
+            self.config.pad_token_id is not None or batch_size == 1
+        ), "Cannot handle batch sizes > 1 if no padding token is defined."
+        if self.config.pad_token_id is None:
+            sequence_lengths = -1
+        else:
+            if input_ids is not None:
+                sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
+            else:
+                sequence_lengths = -1
+                logger.warning(
+                    f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
+                    f"unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                )
+
+        cls_logits = outputs[0][range(batch_size), sequence_lengths]
+
         outputs = self.forward_head(
-            outputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
+            outputs,
+            head_name=head,
+            cls_output=cls_logits,
+            attention_mask=attention_mask,
+            return_dict=return_dict,
+            **kwargs,
         )
 
         return outputs
