@@ -225,6 +225,7 @@ class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     """
     Adds flexible heads to a BART model.
     """
+
     head_types = {
         "classification": ClassificationHead,
         "multilabel_classification": MultiLabelClassificationHead,

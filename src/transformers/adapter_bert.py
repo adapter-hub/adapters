@@ -467,6 +467,7 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     """
     Adds flexible heads to a BERT-based model class.
     """
+
     head_types = {
         "classification": ClassificationHead,
         "multilabel_classification": MultiLabelClassificationHead,
