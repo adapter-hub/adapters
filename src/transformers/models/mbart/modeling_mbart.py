@@ -25,7 +25,16 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
+from ...adapter_bart import (
+    BartDecoderLayerAdaptersMixin,
+    BartEncoderDecoderAdaptersMixin,
+    BartEncoderLayerAdaptersMixin,
+    BartModelAdaptersMixin,
+    BartModelHeadsMixin,
+)
+from ...adapter_model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...file_utils import (
+    ModelOutput,
     add_code_sample_docstrings,
     add_end_docstrings,
     add_start_docstrings,
@@ -273,9 +282,11 @@ class MBartAttention(nn.Module):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-class MBartEncoderLayer(nn.Module):
+class MBartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: MBartConfig):
         super().__init__()
+        self.config = config
+
         self.embed_dim = config.d_model
         self.self_attn = MBartAttention(
             embed_dim=self.embed_dim,
@@ -289,6 +300,8 @@ class MBartEncoderLayer(nn.Module):
         self.fc1 = nn.Linear(self.embed_dim, config.encoder_ffn_dim)
         self.fc2 = nn.Linear(config.encoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -317,7 +330,7 @@ class MBartEncoderLayer(nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
 
         residual = hidden_states
         hidden_states = self.final_layer_norm(hidden_states)
@@ -325,7 +338,7 @@ class MBartEncoderLayer(nn.Module):
         hidden_states = F.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
 
         if torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any():
             clamp_value = torch.finfo(hidden_states.dtype).max - 1000
@@ -339,9 +352,11 @@ class MBartEncoderLayer(nn.Module):
         return outputs
 
 
-class MBartDecoderLayer(nn.Module):
+class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: MBartConfig):
         super().__init__()
+        self.config = config
+
         self.embed_dim = config.d_model
 
         self.self_attn = MBartAttention(
@@ -365,6 +380,8 @@ class MBartDecoderLayer(nn.Module):
         self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
         self.fc2 = nn.Linear(config.decoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -410,7 +427,7 @@ class MBartDecoderLayer(nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
 
         # Cross-Attention Block
         cross_attn_present_key_value = None
@@ -430,7 +447,7 @@ class MBartDecoderLayer(nn.Module):
                 output_attentions=output_attentions,
             )
             hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
-            hidden_states = residual + hidden_states
+            hidden_states = self.cross_attention_adapters.adapters_forward(hidden_states, residual)
 
             # add cross-attn to positions 3,4 of present_key_value tuple
             present_key_value = present_key_value + cross_attn_present_key_value
@@ -442,7 +459,7 @@ class MBartDecoderLayer(nn.Module):
         hidden_states = F.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
 
         outputs = (hidden_states,)
 
@@ -649,7 +666,7 @@ MBART_INPUTS_DOCSTRING = r"""
 """
 
 
-class MBartEncoder(MBartPreTrainedModel):
+class MBartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, MBartPreTrainedModel):
     """
     Transformer encoder consisting of *config.encoder_layers* self attention layers. Each layer is a
     :class:`MBartEncoderLayer`.
@@ -661,6 +678,7 @@ class MBartEncoder(MBartPreTrainedModel):
 
     def __init__(self, config: MBartConfig, embed_tokens: Optional[nn.Embedding] = None):
         super().__init__(config)
+        self.config = config
 
         self.dropout = config.dropout
         self.layerdrop = config.encoder_layerdrop
@@ -759,6 +777,8 @@ class MBartEncoder(MBartPreTrainedModel):
         hidden_states = self.layernorm_embedding(hidden_states)
         hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
 
+        hidden_states = self.invertible_adapters_forward(hidden_states)
+
         # expand attention_mask
         if attention_mask is not None:
             # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
@@ -819,7 +839,7 @@ class MBartEncoder(MBartPreTrainedModel):
         )
 
 
-class MBartDecoder(MBartPreTrainedModel):
+class MBartDecoder(BartEncoderDecoderAdaptersMixin, MBartPreTrainedModel):
     """
     Transformer decoder consisting of *config.decoder_layers* layers. Each layer is a :class:`MBartDecoderLayer`
 
@@ -830,6 +850,8 @@ class MBartDecoder(MBartPreTrainedModel):
 
     def __init__(self, config: MBartConfig, embed_tokens: Optional[nn.Embedding] = None):
         super().__init__(config)
+        self.config = config
+
         self.dropout = config.dropout
         self.layerdrop = config.decoder_layerdrop
         self.padding_idx = config.pad_token_id
@@ -1093,7 +1115,7 @@ class MBartDecoder(MBartPreTrainedModel):
     "The bare MBART Model outputting raw hidden-states without any specific head on top.",
     MBART_START_DOCSTRING,
 )
-class MBartModel(MBartPreTrainedModel):
+class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
     def __init__(self, config: MBartConfig):
         super().__init__(config)
 
@@ -1102,6 +1124,8 @@ class MBartModel(MBartPreTrainedModel):
 
         self.encoder = MBartEncoder(config, self.shared)
         self.decoder = MBartDecoder(config, self.shared)
+
+        self._init_adapter_modules()
 
         self.init_weights()
 
@@ -1149,6 +1173,9 @@ class MBartModel(MBartPreTrainedModel):
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        # some warnings if we don't use available adapters
+        if not self.active_adapters and self.has_adapters():
+            logger.warning("There are adapters available but none are passed to model.forward")
 
         # different to other models, MBart automatically creates decoder_input_ids from
         # input_ids if no decoder_input_ids are provided
@@ -1205,9 +1232,88 @@ class MBartModel(MBartPreTrainedModel):
 
 
 @add_start_docstrings(
+    "MBART Model with the option to add multiple flexible prediction heads on top.", MBART_START_DOCSTRING
+)
+class MBartModelWithHeads(BartModelHeadsMixin, MBartPreTrainedModel):
+    def __init__(self, config: MBartConfig, **kwargs):
+        super().__init__(config, **kwargs)
+        self.model = MBartModel(config)
+
+        self._init_head_modules()
+
+    @add_start_docstrings_to_model_forward(MBART_INPUTS_DOCSTRING)
+    @add_code_sample_docstrings(
+        tokenizer_class=_TOKENIZER_FOR_DOC,
+        checkpoint="facebook/mbart-large-cc25",
+        output_type=Seq2SeqSequenceClassifierOutput,
+        config_class=_CONFIG_FOR_DOC,
+    )
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        encoder_outputs=None,
+        inputs_embeds=None,
+        decoder_inputs_embeds=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        head=None,
+        return_dict=None,
+        **kwargs
+    ):
+        r"""
+        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
+            Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
+            config.num_labels - 1]`. If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if "labels" in kwargs or "start_positions" in kwargs and "end_positions" in kwargs:
+            use_cache = False
+
+        outputs = self.model(
+            input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            decoder_attention_mask=decoder_attention_mask,
+            head_mask=head_mask,
+            decoder_head_mask=decoder_head_mask,
+            encoder_outputs=encoder_outputs,
+            inputs_embeds=inputs_embeds,
+            decoder_inputs_embeds=decoder_inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        # sequence classification based on last token in sequence
+        x = outputs[0]  # last hidden state
+        eos_mask = input_ids.eq(self.config.eos_token_id)
+        if len(torch.unique(eos_mask.sum(1))) > 1:
+            raise ValueError("All examples must have the same number of <eos> tokens.")
+        cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
+
+        head_outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            cls_output=cls_representation,
+            attention_mask=attention_mask,
+            return_dict=return_dict,
+            **kwargs,
+        )
+
+        return head_outputs
+
+
+@add_start_docstrings(
     "The MBART Model with a language modeling head. Can be used for summarization.", MBART_START_DOCSTRING
 )
-class MBartForConditionalGeneration(MBartPreTrainedModel):
+class MBartForConditionalGeneration(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
     base_model_prefix = "model"
     _keys_to_ignore_on_load_missing = [
         r"final_logits_bias",
@@ -1302,7 +1408,8 @@ class MBartForConditionalGeneration(MBartPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-        lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias
+        lm_logits = self.model.encoder.invertible_adapters_forward(outputs[0], rev=True)
+        lm_logits = self.lm_head(lm_logits) + self.final_logits_bias
 
         masked_lm_loss = None
         if labels is not None:
@@ -1369,7 +1476,7 @@ class MBartForConditionalGeneration(MBartPreTrainedModel):
     """,
     MBART_START_DOCSTRING,
 )
-class MBartForSequenceClassification(MBartPreTrainedModel):
+class MBartForSequenceClassification(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
     def __init__(self, config: MBartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = MBartModel(config)
@@ -1476,7 +1583,7 @@ class MBartForSequenceClassification(MBartPreTrainedModel):
     """,
     MBART_START_DOCSTRING,
 )
-class MBartForQuestionAnswering(MBartPreTrainedModel):
+class MBartForQuestionAnswering(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1605,7 +1712,7 @@ class MBartDecoderWrapper(MBartPreTrainedModel):
 
 
 # Copied from transformers.models.bart.modeling_bart.BartForCausalLM with Bart->MBart
-class MBartForCausalLM(MBartPreTrainedModel):
+class MBartForCausalLM(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         config = copy.deepcopy(config)
@@ -1753,7 +1860,8 @@ class MBartForCausalLM(MBartPreTrainedModel):
             return_dict=return_dict,
         )
 
-        logits = self.lm_head(outputs[0])
+        logits = self.model.encoder.invertible_adapters_forward(outputs[0], rev=True)
+        logits = self.lm_head(logits)
 
         loss = None
         if labels is not None:

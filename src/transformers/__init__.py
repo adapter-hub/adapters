@@ -625,6 +625,7 @@ if is_torch_available():
             "MBartForQuestionAnswering",
             "MBartForSequenceClassification",
             "MBartModel",
+            "MBartModelWithHeads",
         ]
     )
     _import_structure["models.mmbt"].extend(["MMBTForClassification", "MMBTModel", "ModalEmbeddings"])
@@ -1742,6 +1743,7 @@ if TYPE_CHECKING:
             MBartForQuestionAnswering,
             MBartForSequenceClassification,
             MBartModel,
+            MBartModelWithHeads,
         )
         from .models.mmbt import MMBTForClassification, MMBTModel, ModalEmbeddings
         from .models.mobilebert import (

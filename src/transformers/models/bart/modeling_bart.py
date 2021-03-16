@@ -275,9 +275,11 @@ class BartAttention(nn.Module):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-class BartEncoderLayer(nn.Module):
+class BartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: BartConfig):
         super().__init__()
+        self.config = config
+
         self.embed_dim = config.d_model
         self.self_attn = BartAttention(
             embed_dim=self.embed_dim,
@@ -291,6 +293,8 @@ class BartEncoderLayer(nn.Module):
         self.fc1 = nn.Linear(self.embed_dim, config.encoder_ffn_dim)
         self.fc2 = nn.Linear(config.encoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -318,16 +322,14 @@ class BartEncoderLayer(nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
-        hidden_states = self.self_attn_layer_norm(hidden_states)
+        hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
 
         residual = hidden_states
         hidden_states = self.activation_fn(self.fc1(hidden_states))
         hidden_states = F.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
-        hidden_states = self.final_layer_norm(hidden_states)
+        hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
 
         if torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any():
             clamp_value = torch.finfo(hidden_states.dtype).max - 1000
@@ -341,9 +343,11 @@ class BartEncoderLayer(nn.Module):
         return outputs
 
 
-class BartDecoderLayer(nn.Module):
+class BartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: BartConfig):
         super().__init__()
+        self.config = config
+
         self.embed_dim = config.d_model
 
         self.self_attn = BartAttention(
@@ -367,6 +371,8 @@ class BartDecoderLayer(nn.Module):
         self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
         self.fc2 = nn.Linear(config.decoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -411,8 +417,7 @@ class BartDecoderLayer(nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
-        hidden_states = self.self_attn_layer_norm(hidden_states)
+        hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
 
         # Cross-Attention Block
         cross_attn_present_key_value = None
@@ -431,8 +436,7 @@ class BartDecoderLayer(nn.Module):
                 output_attentions=output_attentions,
             )
             hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
-            hidden_states = residual + hidden_states
-            hidden_states = self.encoder_attn_layer_norm(hidden_states)
+            hidden_states = self.cross_attention_adapters.adapters_forward(hidden_states, residual)
 
             # add cross-attn to positions 3,4 of present_key_value tuple
             present_key_value = present_key_value + cross_attn_present_key_value
@@ -443,8 +447,7 @@ class BartDecoderLayer(nn.Module):
         hidden_states = F.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
-        hidden_states = self.final_layer_norm(hidden_states)
+        hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
 
         outputs = (hidden_states,)
 
@@ -653,7 +656,7 @@ BART_INPUTS_DOCSTRING = r"""
 """
 
 
-class BartEncoder(BartPretrainedModel):
+class BartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, BartPretrainedModel):
     """
     Transformer encoder consisting of *config.encoder_layers* self attention layers. Each layer is a
     :class:`BartEncoderLayer`.
@@ -763,6 +766,8 @@ class BartEncoder(BartPretrainedModel):
         hidden_states = self.layernorm_embedding(hidden_states)
         hidden_states = F.dropout(hidden_states, p=self.dropout, training=self.training)
 
+        hidden_states = self.invertible_adapters_forward(hidden_states)
+
         # expand attention_mask
         if attention_mask is not None:
             # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
@@ -821,7 +826,7 @@ class BartEncoder(BartPretrainedModel):
         )
 
 
-class BartDecoder(BartPretrainedModel):
+class BartDecoder(BartEncoderDecoderAdaptersMixin, BartPretrainedModel):
     """
     Transformer decoder consisting of *config.decoder_layers* layers. Each layer is a :class:`BartDecoderLayer`
 
@@ -1215,7 +1220,7 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
 @add_start_docstrings(
     "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
 )
-class BartModelWithHeads(BartModelHeadsMixin, PretrainedBartModel):
+class BartModelWithHeads(BartModelHeadsMixin, BartPretrainedModel):
     def __init__(self, config: BartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = BartModel(config)
@@ -1231,11 +1236,15 @@ class BartModelWithHeads(BartModelHeadsMixin, PretrainedBartModel):
     )
     def forward(
         self,
-        input_ids,
+        input_ids=None,
         attention_mask=None,
         decoder_input_ids=None,
         decoder_attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
         encoder_outputs=None,
+        inputs_embeds=None,
+        decoder_inputs_embeds=None,
         use_cache=None,
         output_attentions=None,
         output_hidden_states=None,
@@ -1258,7 +1267,11 @@ class BartModelWithHeads(BartModelHeadsMixin, PretrainedBartModel):
             attention_mask=attention_mask,
             decoder_input_ids=decoder_input_ids,
             decoder_attention_mask=decoder_attention_mask,
+            head_mask=head_mask,
+            decoder_head_mask=decoder_head_mask,
             encoder_outputs=encoder_outputs,
+            inputs_embeds=inputs_embeds,
+            decoder_inputs_embeds=decoder_inputs_embeds,
             use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
@@ -1382,8 +1395,8 @@ class BartForConditionalGeneration(ModelWithHeadsAdaptersMixin, BartPretrainedMo
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-        lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias
-        lm_logits = self.model.encoder.invertible_adapters_forward(lm_logits, rev=True)
+        lm_logits = self.model.encoder.invertible_adapters_forward(outputs[0], rev=True)
+        lm_logits = self.lm_head(lm_logits) + self.final_logits_bias
 
         masked_lm_loss = None
         if labels is not None:
@@ -1692,7 +1705,7 @@ class BartDecoderWrapper(BartPretrainedModel):
         return self.decoder(*args, **kwargs)
 
 
-class BartForCausalLM(BartPretrainedModel):
+class BartForCausalLM(ModelWithHeadsAdaptersMixin, BartPretrainedModel):
     def __init__(self, config):
         super().__init__(config)
         config = copy.deepcopy(config)
@@ -1840,7 +1853,8 @@ class BartForCausalLM(BartPretrainedModel):
             return_dict=return_dict,
         )
 
-        logits = self.lm_head(outputs[0])
+        logits = self.model.encoder.invertible_adapters_forward(outputs[0], rev=True)
+        logits = self.lm_head(logits)
 
         loss = None
         if labels is not None:

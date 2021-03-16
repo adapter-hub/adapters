@@ -14,15 +14,7 @@ from .adapter_heads import (
 from .adapter_model_mixin import ModelAdaptersMixin
 
 
-class BartAdaptersBaseMixin(BertAdaptersBaseMixin):
-    def adapters_forward(self, hidden_states, input_tensor):
-        # SEQ x B x H -> B x SEQ x H
-        hidden_states, input_tensor = hidden_states.transpose(0, 1), input_tensor.transpose(0, 1)
-        hidden_states = super().adapters_forward(hidden_states, input_tensor)
-        return hidden_states.transpose(0, 1)
-
-
-class BartSelfAttentionAdaptersModule(BartAdaptersBaseMixin, nn.Module):
+class BartSelfAttentionAdaptersModule(BertAdaptersBaseMixin, nn.Module):
     def __init__(self, parent):
         super().__init__()
         # keep a reference to the parent module without registering as a submodule
@@ -35,14 +27,14 @@ class BartSelfAttentionAdaptersModule(BartAdaptersBaseMixin, nn.Module):
 
     @property
     def layer_norm(self):
-        # if layer norm was applied before attention/ FFW block, don't use it here
-        if self.config.normalize_before:
+        # MBart has layer norms before each component
+        if self.config.model_type == "mbart":
             return None
         else:
             return self.parent.self_attn_layer_norm
 
 
-class BartCrossAttentionAdaptersModule(BartAdaptersBaseMixin, nn.Module):
+class BartCrossAttentionAdaptersModule(BertAdaptersBaseMixin, nn.Module):
     def __init__(self, parent):
         super().__init__()
         # keep a reference to the parent module without registering as a submodule
@@ -55,14 +47,14 @@ class BartCrossAttentionAdaptersModule(BartAdaptersBaseMixin, nn.Module):
 
     @property
     def layer_norm(self):
-        # if layer norm was applied before attention/ FFW block, don't use it here
-        if self.config.normalize_before:
+        # MBart has layer norms before each component
+        if self.config.model_type == "mbart":
             return None
         else:
             return self.parent.encoder_attn_layer_norm
 
 
-class BartOutputAdaptersModule(BartAdaptersBaseMixin, nn.Module):
+class BartOutputAdaptersModule(BertAdaptersBaseMixin, nn.Module):
     def __init__(self, parent):
         super().__init__()
         # keep a reference to the parent module without registering as a submodule
@@ -75,8 +67,8 @@ class BartOutputAdaptersModule(BartAdaptersBaseMixin, nn.Module):
 
     @property
     def layer_norm(self):
-        # if layer norm was applied before attention/ FFW block, don't use it here
-        if self.config.normalize_before:
+        # MBart has layer norms before each component
+        if self.config.model_type == "mbart":
             return None
         else:
             return self.parent.final_layer_norm

@@ -153,6 +153,7 @@ from ..mbart.modeling_mbart import (
     MBartForQuestionAnswering,
     MBartForSequenceClassification,
     MBartModel,
+    MBartModelWithHeads,
 )
 from ..mobilebert.modeling_mobilebert import (
     MobileBertForMaskedLM,
@@ -353,6 +354,7 @@ MODEL_WITH_HEADS_MAPPING = OrderedDict(
         (BertConfig, BertModelWithHeads),
         (DistilBertConfig, DistilBertModelWithHeads),
         (BartConfig, BartModelWithHeads),
+        (MBartConfig, MBartModelWithHeads),
     ]
 )
 
