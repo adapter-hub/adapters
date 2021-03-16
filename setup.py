@@ -115,6 +115,7 @@ _deps = [
     "psutil",
     "pydantic",
     "pytest",
+    "pytest-subtests",
     "pytest-xdist",
     "python>=3.6.0",
     "recommonmark",

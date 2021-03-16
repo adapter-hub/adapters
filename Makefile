@@ -22,10 +22,10 @@ deps_table_update:
 # Check that source code meets quality standards
 
 # NOTE FOR adapter-transformers: The following check is skipped as not all copies implement adapters yet
-	# python utils/check_copies.py
+# python utils/check_copies.py
+# python utils/check_table.py
+# python utils/check_dummies.py
 extra_quality_checks: deps_table_update
-	python utils/check_table.py
-	python utils/check_dummies.py
 	python utils/check_repo.py
 	python utils/style_doc.py src/transformers docs/source --max_len 119
 	python utils/check_adapters.py
@@ -44,6 +44,10 @@ style: deps_table_update
 	black $(check_dirs)
 	isort $(check_dirs)
 	python utils/style_doc.py src/transformers docs/source --max_len 119
+
+# Super fast fix and check target that only works on relevant modified files since the branch was made
+
+fixup: modified_only_fixup extra_quality_checks
 
 # Make marked copies of snippets of codes conform to the original
 

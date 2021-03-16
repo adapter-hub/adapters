@@ -28,6 +28,7 @@ deps = {
     "psutil": "psutil",
     "pydantic": "pydantic",
     "pytest": "pytest",
+    "pytest-subtests": "pytest-subtests",
     "pytest-xdist": "pytest-xdist",
     "python": "python>=3.6.0",
     "recommonmark": "recommonmark",

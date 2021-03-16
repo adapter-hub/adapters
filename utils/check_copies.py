@@ -15,7 +15,6 @@
 
 import argparse
 import glob
-import importlib
 import os
 import re
 import tempfile
@@ -304,4 +303,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     check_copies(args.fix_and_overwrite)
-    check_model_table(args.fix_and_overwrite)

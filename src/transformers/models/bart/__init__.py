@@ -60,6 +60,7 @@ if TYPE_CHECKING:
             BartForQuestionAnswering,
             BartForSequenceClassification,
             BartModel,
+            BartModelWithHeads,
             BartPretrainedModel,
             PretrainedBartModel,
         )

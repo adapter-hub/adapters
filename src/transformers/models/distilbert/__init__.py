@@ -72,6 +72,7 @@ if TYPE_CHECKING:
             DistilBertForSequenceClassification,
             DistilBertForTokenClassification,
             DistilBertModel,
+            DistilBertModelWithHeads,
             DistilBertPreTrainedModel,
         )
 

@@ -102,6 +102,7 @@ if TYPE_CHECKING:
             MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING,
             MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
             MODEL_MAPPING,
+            MODEL_WITH_HEADS_MAPPING,
             MODEL_WITH_LM_HEAD_MAPPING,
             AutoModel,
             AutoModelForCausalLM,

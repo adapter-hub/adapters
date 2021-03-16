@@ -81,6 +81,7 @@ if TYPE_CHECKING:
             XLMRobertaForSequenceClassification,
             XLMRobertaForTokenClassification,
             XLMRobertaModel,
+            XLMRobertaModelWithHeads,
         )
 
     if is_tf_available():

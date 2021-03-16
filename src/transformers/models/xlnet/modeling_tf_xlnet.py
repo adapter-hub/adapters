@@ -627,11 +627,6 @@ class TFXLNetMainLayer(tf.keras.layers.Layer):
         else:
             inputs["use_mems"] = self.use_mems_eval
 
-        if training:
-            use_mems = use_mems if use_mems is not None else self.use_mems_train
-        else:
-            use_mems = use_mems if use_mems is not None else self.use_mems_eval
-
         # the original code for XLNet uses shapes [len, bsz] with the batch dimension at the end
         # but we want a unified interface in the library with the batch size on the first dimension
         # so we move here the first dimension (batch) to the end

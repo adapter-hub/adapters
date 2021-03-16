@@ -23,11 +23,6 @@ from .test_modeling_flax_common import FlaxModelTesterMixin, ids_tensor, random_
 
 
 if is_flax_available():
-    import os
-
-    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.12"  # assumed parallelism: 8
-
-    import jax
     from transformers.models.roberta.modeling_flax_roberta import FlaxRobertaModel
 
 

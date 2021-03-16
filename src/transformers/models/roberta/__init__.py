@@ -82,6 +82,7 @@ if TYPE_CHECKING:
             RobertaForSequenceClassification,
             RobertaForTokenClassification,
             RobertaModel,
+            RobertaModelWithHeads,
         )
 
     if is_tf_available():

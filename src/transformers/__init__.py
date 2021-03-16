@@ -394,6 +394,7 @@ if is_torch_available():
             "MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING",
             "MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING",
             "MODEL_MAPPING",
+            "MODEL_WITH_HEADS_MAPPING",
             "MODEL_WITH_LM_HEAD_MAPPING",
             "AutoModel",
             "AutoModelForCausalLM",
@@ -406,6 +407,7 @@ if is_torch_available():
             "AutoModelForSequenceClassification",
             "AutoModelForTableQuestionAnswering",
             "AutoModelForTokenClassification",
+            "AutoModelWithHeads",
             "AutoModelWithLMHead",
         ]
     )
@@ -417,6 +419,7 @@ if is_torch_available():
             "BartForQuestionAnswering",
             "BartForSequenceClassification",
             "BartModel",
+            "BartModelWithHeads",
             "BartPretrainedModel",
             "PretrainedBartModel",
         ]
@@ -434,6 +437,7 @@ if is_torch_available():
             "BertLayer",
             "BertLMHeadModel",
             "BertModel",
+            "BertModelWithHeads",
             "BertPreTrainedModel",
             "load_tf_weights_in_bert",
         ]
@@ -502,6 +506,7 @@ if is_torch_available():
             "DistilBertForSequenceClassification",
             "DistilBertForTokenClassification",
             "DistilBertModel",
+            "DistilBertModelWithHeads",
             "DistilBertPreTrainedModel",
         ]
     )
@@ -704,6 +709,7 @@ if is_torch_available():
             "RobertaForSequenceClassification",
             "RobertaForTokenClassification",
             "RobertaModel",
+            "RobertaModelWithHeads",
         ]
     )
     _import_structure["models.squeezebert"].extend(
@@ -782,6 +788,7 @@ if is_torch_available():
             "XLMRobertaForSequenceClassification",
             "XLMRobertaForTokenClassification",
             "XLMRobertaModel",
+            "XLMRobertaModelWithHeads",
         ]
     )
     _import_structure["models.xlnet"].extend(
@@ -816,6 +823,48 @@ else:
     from .utils import dummy_pt_objects
 
     _import_structure["utils.dummy_pt_objects"] = [name for name in dir(dummy_pt_objects) if not name.startswith("_")]
+
+# Adapters
+if is_torch_available():
+    _import_structure["adapter_config"] = [
+        "ADAPTER_CONFIG_MAP",
+        "ADAPTERFUSION_CONFIG_MAP",
+        "DEFAULT_ADAPTER_CONFIG",
+        "DEFAULT_ADAPTERFUSION_CONFIG",
+        "AdapterConfig",
+        "AdapterFusionConfig",
+        "DynamicAdapterFusionConfig",
+        "HoulsbyConfig",
+        "HoulsbyInvConfig",
+        "InvertibleAdapterConfig",
+        "ModelAdaptersConfig",
+        "PfeifferConfig",
+        "PfeifferInvConfig",
+        "StaticAdapterFusionConfig",
+    ]
+    _import_structure["adapter_model_mixin"] = [
+        "AdapterFusionLoader",
+        "AdapterLoader",
+        "ModelAdaptersMixin",
+        "ModelWithHeadsAdaptersMixin",
+        "PredictionHeadLoader",
+        "WeightsLoader",
+        "WeightsLoaderHelper",
+    ]
+    _import_structure["adapter_training"] = [
+        "AdapterArguments",
+        "MultiLingAdapterArguments",
+    ]
+    _import_structure["adapter_utils"] = [
+        "ADAPTER_CACHE",
+        "ADAPTER_HUB_INDEX_FILE",
+        "ADAPTER_HUB_URL",
+        "AdapterType",
+        "get_adapter_config_hash",
+        "pull_from_hub",
+        "resolve_adapter_config",
+        "resolve_adapter_path",
+    ]
 
 # TensorFlow-backed objects
 if is_tf_available():
@@ -1156,46 +1205,6 @@ else:
     ]
 
 
-# Adapters
-if is_torch_available():
-    from .adapter_config import (
-        ADAPTER_CONFIG_MAP,
-        ADAPTERFUSION_CONFIG_MAP,
-        DEFAULT_ADAPTER_CONFIG,
-        DEFAULT_ADAPTERFUSION_CONFIG,
-        AdapterConfig,
-        AdapterFusionConfig,
-        DynamicAdapterFusionConfig,
-        HoulsbyConfig,
-        HoulsbyInvConfig,
-        InvertibleAdapterConfig,
-        ModelAdaptersConfig,
-        PfeifferConfig,
-        PfeifferInvConfig,
-        StaticAdapterFusionConfig,
-    )
-    from .adapter_model_mixin import (
-        AdapterFusionLoader,
-        AdapterLoader,
-        ModelAdaptersMixin,
-        ModelWithHeadsAdaptersMixin,
-        PredictionHeadLoader,
-        WeightsLoader,
-        WeightsLoaderHelper,
-    )
-    from .adapter_training import AdapterArguments, MultiLingAdapterArguments
-    from .adapter_utils import (
-        ADAPTER_CACHE,
-        ADAPTER_HUB_INDEX_FILE,
-        ADAPTER_HUB_URL,
-        AdapterType,
-        get_adapter_config_hash,
-        pull_from_hub,
-        resolve_adapter_config,
-        resolve_adapter_path,
-    )
-
-
 # Direct imports for type-checking
 if TYPE_CHECKING:
     # Configuration
@@ -1528,6 +1537,7 @@ if TYPE_CHECKING:
             MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING,
             MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
             MODEL_MAPPING,
+            MODEL_WITH_HEADS_MAPPING,
             MODEL_WITH_LM_HEAD_MAPPING,
             AutoModel,
             AutoModelForCausalLM,
@@ -1540,6 +1550,7 @@ if TYPE_CHECKING:
             AutoModelForSequenceClassification,
             AutoModelForTableQuestionAnswering,
             AutoModelForTokenClassification,
+            AutoModelWithHeads,
             AutoModelWithLMHead,
         )
         from .models.bart import (
@@ -1549,6 +1560,7 @@ if TYPE_CHECKING:
             BartForQuestionAnswering,
             BartForSequenceClassification,
             BartModel,
+            BartModelWithHeads,
             BartPretrainedModel,
             PretrainedBartModel,
         )
@@ -1564,6 +1576,7 @@ if TYPE_CHECKING:
             BertLayer,
             BertLMHeadModel,
             BertModel,
+            BertModelWithHeads,
             BertPreTrainedModel,
             load_tf_weights_in_bert,
         )
@@ -1630,6 +1643,7 @@ if TYPE_CHECKING:
             DistilBertForSequenceClassification,
             DistilBertForTokenClassification,
             DistilBertModel,
+            DistilBertModelWithHeads,
             DistilBertPreTrainedModel,
         )
         from .models.dpr import (
@@ -1796,6 +1810,7 @@ if TYPE_CHECKING:
             RobertaForSequenceClassification,
             RobertaForTokenClassification,
             RobertaModel,
+            RobertaModelWithHeads,
         )
         from .models.squeezebert import (
             SQUEEZEBERT_PRETRAINED_MODEL_ARCHIVE_LIST,
@@ -1867,6 +1882,7 @@ if TYPE_CHECKING:
             XLMRobertaForSequenceClassification,
             XLMRobertaForTokenClassification,
             XLMRobertaModel,
+            XLMRobertaModelWithHeads,
         )
         from .models.xlnet import (
             XLNET_PRETRAINED_MODEL_ARCHIVE_LIST,
@@ -1900,6 +1916,45 @@ if TYPE_CHECKING:
         from .trainer_seq2seq import Seq2SeqTrainer
     else:
         from .utils.dummy_pt_objects import *
+
+    # Adapters
+    if is_torch_available():
+        from .adapter_config import (
+            ADAPTER_CONFIG_MAP,
+            ADAPTERFUSION_CONFIG_MAP,
+            DEFAULT_ADAPTER_CONFIG,
+            DEFAULT_ADAPTERFUSION_CONFIG,
+            AdapterConfig,
+            AdapterFusionConfig,
+            DynamicAdapterFusionConfig,
+            HoulsbyConfig,
+            HoulsbyInvConfig,
+            InvertibleAdapterConfig,
+            ModelAdaptersConfig,
+            PfeifferConfig,
+            PfeifferInvConfig,
+            StaticAdapterFusionConfig,
+        )
+        from .adapter_model_mixin import (
+            AdapterFusionLoader,
+            AdapterLoader,
+            ModelAdaptersMixin,
+            ModelWithHeadsAdaptersMixin,
+            PredictionHeadLoader,
+            WeightsLoader,
+            WeightsLoaderHelper,
+        )
+        from .adapter_training import AdapterArguments, MultiLingAdapterArguments
+        from .adapter_utils import (
+            ADAPTER_CACHE,
+            ADAPTER_HUB_INDEX_FILE,
+            ADAPTER_HUB_URL,
+            AdapterType,
+            get_adapter_config_hash,
+            pull_from_hub,
+            resolve_adapter_config,
+            resolve_adapter_path,
+        )
 
     # TensorFlow
     if is_tf_available():

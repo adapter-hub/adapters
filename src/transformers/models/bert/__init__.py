@@ -36,6 +36,24 @@ if is_tokenizers_available():
     _import_structure["tokenization_bert_fast"] = ["BertTokenizerFast"]
 
 if is_torch_available():
+    _import_structure["modeling_bert"] = [
+        "BERT_PRETRAINED_MODEL_ARCHIVE_LIST",
+        "BertForMaskedLM",
+        "BertForMultipleChoice",
+        "BertForNextSentencePrediction",
+        "BertForPreTraining",
+        "BertForQuestionAnswering",
+        "BertForSequenceClassification",
+        "BertForTokenClassification",
+        "BertLayer",
+        "BertLMHeadModel",
+        "BertModel",
+        "BertModelWithHeads",
+        "BertPreTrainedModel",
+        "load_tf_weights_in_bert",
+    ]
+
+if is_tf_available():
     _import_structure["modeling_tf_bert"] = [
         "TF_BERT_PRETRAINED_MODEL_ARCHIVE_LIST",
         "TFBertEmbeddings",
@@ -52,6 +70,7 @@ if is_torch_available():
         "TFBertPreTrainedModel",
     ]
 
+if is_flax_available():
     _import_structure["modeling_flax_bert"] = ["FlaxBertForMaskedLM", "FlaxBertModel"]
 
 
@@ -75,6 +94,7 @@ if TYPE_CHECKING:
             BertLayer,
             BertLMHeadModel,
             BertModel,
+            BertModelWithHeads,
             BertPreTrainedModel,
             load_tf_weights_in_bert,
         )
