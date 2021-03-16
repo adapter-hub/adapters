@@ -28,7 +28,8 @@ author = u'huggingface'
 # The short X.Y version
 version = u''
 # The full version, including alpha/beta/rc tags
-release = u'4.3.0'
+release = u'4.4.0'
+
 # Prefix link to point to master, comment this during version release and uncomment below line
 extlinks = {'prefix_link': ('https://github.com/huggingface/transformers/blob/master/%s', '')}
 # Prefix link to always point to corresponding version, uncomment this during version release
@@ -97,7 +98,8 @@ html_theme = 'sphinx_rtd_theme'
 # documentation.
 #
 html_theme_options = {
-    'analytics_id': 'UA-83738774-2'
+    'analytics_id': 'UA-83738774-2',
+    'navigation_with_keys': True
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

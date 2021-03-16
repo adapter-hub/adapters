@@ -28,6 +28,7 @@ deps_table_update:
 extra_quality_checks: deps_table_update
 	python utils/check_repo.py
 	python utils/style_doc.py src/transformers docs/source --max_len 119
+	python utils/class_mapping_update.py
 	python utils/check_adapters.py
 
 # this target runs checks on all files
@@ -81,3 +82,18 @@ test-examples:
 
 docs:
 	cd docs && make html SPHINXOPTS="-W -j 4"
+
+# Release stuff
+
+pre-release:
+	python utils/release.py
+
+pre-patch:
+	python utils/release.py --patch
+
+post-release:
+	python utils/release.py --post_release
+
+post-patch:
+	python utils/release.py --post_release --patch
+

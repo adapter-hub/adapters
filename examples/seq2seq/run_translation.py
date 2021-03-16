@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # coding=utf-8
 # Copyright The HuggingFace Team and The HuggingFace Inc. team. All rights reserved.
 #
@@ -19,7 +20,6 @@ Fine-tuning the library models for sequence to sequence.
 
 import logging
 import os
-import re
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
@@ -35,13 +35,18 @@ from transformers import (
     DataCollatorForSeq2Seq,
     HfArgumentParser,
     MBartTokenizer,
+    MBartTokenizerFast,
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
     default_data_collator,
     set_seed,
 )
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
+from transformers.utils import check_min_version
 
+
+# Will error if the minimal version of Transformers is not installed. Remove at your own risks.
+check_min_version("4.4.0")
 
 logger = logging.getLogger(__name__)
 
@@ -88,31 +93,28 @@ class DataTrainingArguments:
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
 
-    task: str = field(
-        default="summarization",
-        metadata={
-            "help": "The name of the task, should be summarization (or summarization_{dataset} for evaluating "
-            "pegasus) or translation (or translation_{xx}_to_{yy})."
-        },
-    )
+    source_lang: str = field(default=None, metadata={"help": "Source language id for translation."})
+    target_lang: str = field(default=None, metadata={"help": "Target language id for translation."})
+
     dataset_name: Optional[str] = field(
         default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
     dataset_config_name: Optional[str] = field(
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
     )
-    text_column: Optional[str] = field(
-        default=None,
-        metadata={"help": "The name of the column in the datasets containing the full texts (for summarization)."},
-    )
-    summary_column: Optional[str] = field(
-        default=None,
-        metadata={"help": "The name of the column in the datasets containing the summaries (for summarization)."},
-    )
-    train_file: Optional[str] = field(default=None, metadata={"help": "The input training data file (a text file)."})
+    train_file: Optional[str] = field(default=None, metadata={"help": "The input training data file (a jsonlines)."})
     validation_file: Optional[str] = field(
         default=None,
-        metadata={"help": "An optional input evaluation data file to evaluate the perplexity on (a text file)."},
+        metadata={
+            "help": "An optional input evaluation data file to evaluate the metrics (sacreblue) on "
+            "a jsonlines file."
+        },
+    )
+    test_file: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "An optional input test data file to evaluate the metrics (sacreblue) on " "a jsonlines file."
+        },
     )
     overwrite_cache: bool = field(
         default=False, metadata={"help": "Overwrite the cached training and evaluation sets"}
@@ -166,9 +168,20 @@ class DataTrainingArguments:
             "value if set."
         },
     )
-    source_lang: Optional[str] = field(default=None, metadata={"help": "Source language id for translation."})
-    target_lang: Optional[str] = field(default=None, metadata={"help": "Target language id for translation."})
-    eval_beams: Optional[int] = field(default=None, metadata={"help": "Number of beams to use for evaluation."})
+    max_test_samples: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "For debugging purposes or quicker training, truncate the number of test examples to this "
+            "value if set."
+        },
+    )
+    num_beams: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "Number of beams to use for evaluation. This argument will be passed to ``model.generate``, "
+            "which is used during ``evaluate`` and ``predict``."
+        },
+    )
     ignore_pad_token_for_loss: bool = field(
         default=True,
         metadata={
@@ -182,34 +195,17 @@ class DataTrainingArguments:
     def __post_init__(self):
         if self.dataset_name is None and self.train_file is None and self.validation_file is None:
             raise ValueError("Need either a dataset name or a training/validation file.")
-        else:
-            if self.train_file is not None:
-                extension = self.train_file.split(".")[-1]
-                assert extension in ["csv", "json"], "`train_file` should be a csv or a json file."
-            if self.validation_file is not None:
-                extension = self.validation_file.split(".")[-1]
-                assert extension in ["csv", "json"], "`validation_file` should be a csv or a json file."
-        if not self.task.startswith("summarization") and not self.task.startswith("translation"):
-            raise ValueError(
-                "`task` should be summarization, summarization_{dataset}, translation or translation_{xx}_to_{yy}."
-            )
+        elif self.source_lang is None or self.target_lang is None:
+            raise ValueError("Need to specify the source language and the target language.")
+
+        if self.train_file is not None:
+            extension = self.train_file.split(".")[-1]
+            assert extension == "json", "`train_file` should be a json file."
+        if self.validation_file is not None:
+            extension = self.validation_file.split(".")[-1]
+            assert extension == "json", "`validation_file` should be a json file."
         if self.val_max_target_length is None:
             self.val_max_target_length = self.max_target_length
-
-
-summarization_name_mapping = {
-    "amazon_reviews_multi": ("review_body", "review_title"),
-    "big_patent": ("description", "abstract"),
-    "cnn_dailymail": ("article", "highlights"),
-    "orange_sum": ("text", "summary"),
-    "pn_summary": ("article", "summary"),
-    "psc": ("extract_text", "summary_text"),
-    "samsum": ("dialogue", "summary"),
-    "thaisum": ("body", "summary"),
-    "xglue": ("news_body", "news_title"),
-    "xsum": ("document", "summary"),
-    "wiki_summary": ("article", "highlights"),
-}
 
 
 def main():
@@ -224,6 +220,18 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    if data_args.source_prefix is None and model_args.model_name_or_path in [
+        "t5-small",
+        "t5-base",
+        "t5-large",
+        "t5-3b",
+        "t5-11b",
+    ]:
+        logger.warning(
+            "You're running a t5 model but didn't provide a source prefix, which is expected, e.g. with "
+            "`--source_prefix 'translate English to German: ' `"
+        )
 
     # Detecting last checkpoint.
     last_checkpoint = None
@@ -261,13 +269,10 @@ def main():
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    # Get the datasets: you can either provide your own CSV/JSON training and evaluation files (see below)
+    # Get the datasets: you can either provide your own JSON training and evaluation files (see below)
     # or just provide the name of one of the public datasets available on the hub at https://huggingface.co/datasets/
     # (the dataset will be downloaded automatically from the datasets Hub).
     #
-    # For CSV/JSON files in the summarization task, this script will use the first column for the full texts and the
-    # second column for the summaries (unless you specify column names for this with the `text_column` and
-    # `summary_column` arguments).
     # For translation, only JSON files are supported, with one field named "translation" containing two keys for the
     # source and target languages (unless you adapt what follows).
     #
@@ -284,6 +289,9 @@ def main():
         if data_args.validation_file is not None:
             data_files["validation"] = data_args.validation_file
             extension = data_args.validation_file.split(".")[-1]
+        if data_args.test_file is not None:
+            data_files["test"] = data_args.test_file
+            extension = data_args.test_file.split(".")[-1]
         datasets = load_dataset(extension, data_files=data_files)
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
@@ -316,81 +324,57 @@ def main():
     )
 
     # Set decoder_start_token_id
-    if model.config.decoder_start_token_id is None and isinstance(tokenizer, MBartTokenizer):
-        model.config.decoder_start_token_id = tokenizer.lang_code_to_id[data_args.target_lang]
+    if model.config.decoder_start_token_id is None and isinstance(tokenizer, (MBartTokenizer, MBartTokenizerFast)):
+        assert (
+            data_args.target_lang is not None and data_args.source_lang is not None
+        ), "mBart requires --target_lang and --source_lang"
+        if isinstance(tokenizer, MBartTokenizer):
+            model.config.decoder_start_token_id = tokenizer.lang_code_to_id[data_args.target_lang]
+        else:
+            model.config.decoder_start_token_id = tokenizer.convert_tokens_to_ids(data_args.target_lang)
+
     if model.config.decoder_start_token_id is None:
         raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
 
-    # Get the default prefix if None is passed.
-    if data_args.source_prefix is None:
-        task_specific_params = model.config.task_specific_params
-        if task_specific_params is not None:
-            prefix = task_specific_params.get("prefix", "")
-        else:
-            prefix = ""
-    else:
-        prefix = data_args.source_prefix
+    prefix = data_args.source_prefix if data_args.source_prefix is not None else ""
 
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
     if training_args.do_train:
         column_names = datasets["train"].column_names
-    else:
+    elif training_args.do_eval:
         column_names = datasets["validation"].column_names
+    elif training_args.do_predict:
+        column_names = datasets["test"].column_names
+    else:
+        logger.info("There is nothing to do. Please pass `do_train`, `do_eval` and/or `do_predict`.")
+        return
 
     # For translation we set the codes of our source and target languages (only useful for mBART, the others will
     # ignore those attributes).
-    if data_args.task.startswith("translation"):
+    if isinstance(tokenizer, (MBartTokenizer, MBartTokenizerFast)):
         if data_args.source_lang is not None:
             tokenizer.src_lang = data_args.source_lang
         if data_args.target_lang is not None:
             tokenizer.tgt_lang = data_args.target_lang
 
-    # To serialize preprocess_function below, each of those four variables needs to be defined (even if we won't use
-    # them all).
-    source_lang, target_lang, text_column, summary_column = None, None, None, None
-
-    if data_args.task.startswith("summarization"):
-        # Get the column names for input/target.
-        dataset_columns = summarization_name_mapping.get(data_args.dataset_name, None)
-        if data_args.text_column is None:
-            text_column = dataset_columns[0] if dataset_columns is not None else column_names[0]
-        else:
-            text_column = data_args.text_column
-        if data_args.summary_column is None:
-            summary_column = dataset_columns[1] if dataset_columns is not None else column_names[1]
-        else:
-            summary_column = data_args.summary_column
-    else:
-        # Get the language codes for input/target.
-        lang_search = re.match("translation_([a-z]+)_to_([a-z]+)", data_args.task)
-        if data_args.source_lang is not None:
-            source_lang = data_args.source_lang.split("_")[0]
-        else:
-            assert (
-                lang_search is not None
-            ), "Provide a source language via --source_lang or rename your task 'translation_xx_to_yy'."
-            source_lang = lang_search.groups()[0]
-
-        if data_args.target_lang is not None:
-            target_lang = data_args.target_lang.split("_")[0]
-        else:
-            assert (
-                lang_search is not None
-            ), "Provide a target language via --target_lang or rename your task 'translation_xx_to_yy'."
-            target_lang = lang_search.groups()[1]
+    # Get the language codes for input/target.
+    source_lang = data_args.source_lang.split("_")[0]
+    target_lang = data_args.target_lang.split("_")[0]
 
     # Temporarily set max_target_length for training.
     max_target_length = data_args.max_target_length
     padding = "max_length" if data_args.pad_to_max_length else False
 
+    if training_args.label_smoothing_factor > 0 and not hasattr(model, "prepare_decoder_input_ids_from_labels"):
+        logger.warn(
+            "label_smoothing is enabled but the `prepare_decoder_input_ids_from_labels` method is not defined for"
+            f"`{model.__class__.__name__}`. This will lead to loss being calculated twice and will take up more memory"
+        )
+
     def preprocess_function(examples):
-        if data_args.task.startswith("translation"):
-            inputs = [ex[source_lang] for ex in examples["translation"]]
-            targets = [ex[target_lang] for ex in examples["translation"]]
-        else:
-            inputs = examples[text_column]
-            targets = examples[summary_column]
+        inputs = [ex[source_lang] for ex in examples["translation"]]
+        targets = [ex[target_lang] for ex in examples["translation"]]
         inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True)
 
@@ -410,6 +394,8 @@ def main():
 
     if training_args.do_train:
         train_dataset = datasets["train"]
+        if "train" not in datasets:
+            raise ValueError("--do_train requires a train dataset")
         if data_args.max_train_samples is not None:
             train_dataset = train_dataset.select(range(data_args.max_train_samples))
         train_dataset = train_dataset.map(
@@ -422,10 +408,27 @@ def main():
 
     if training_args.do_eval:
         max_target_length = data_args.val_max_target_length
+        if "validation" not in datasets:
+            raise ValueError("--do_eval requires a validation dataset")
         eval_dataset = datasets["validation"]
         if data_args.max_val_samples is not None:
             eval_dataset = eval_dataset.select(range(data_args.max_val_samples))
         eval_dataset = eval_dataset.map(
+            preprocess_function,
+            batched=True,
+            num_proc=data_args.preprocessing_num_workers,
+            remove_columns=column_names,
+            load_from_cache_file=not data_args.overwrite_cache,
+        )
+
+    if training_args.do_predict:
+        max_target_length = data_args.val_max_target_length
+        if "test" not in datasets:
+            raise ValueError("--do_predict requires a test dataset")
+        test_dataset = datasets["test"]
+        if data_args.max_test_samples is not None:
+            test_dataset = test_dataset.select(range(data_args.max_test_samples))
+        test_dataset = test_dataset.map(
             preprocess_function,
             batched=True,
             num_proc=data_args.preprocessing_num_workers,
@@ -440,13 +443,19 @@ def main():
     else:
         data_collator = DataCollatorForSeq2Seq(
             tokenizer,
+            model=model,
             label_pad_token_id=label_pad_token_id,
             pad_to_multiple_of=8 if training_args.fp16 else None,
         )
 
     # Metric
-    metric_name = "rouge" if data_args.task.startswith("summarization") else "sacrebleu"
-    metric = load_metric(metric_name)
+    metric = load_metric("sacrebleu")
+
+    def postprocess_text(preds, labels):
+        preds = [pred.strip() for pred in preds]
+        labels = [[label.strip()] for label in labels]
+
+        return preds, labels
 
     def compute_metrics(eval_preds):
         preds, labels = eval_preds
@@ -459,22 +468,14 @@ def main():
         decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
 
         # Some simple post-processing
-        decoded_preds = [pred.strip() for pred in decoded_preds]
-        decoded_labels = [label.strip() for label in decoded_labels]
-        if metric_name == "sacrebleu":
-            decoded_labels = [[label] for label in decoded_labels]
+        decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
 
         result = metric.compute(predictions=decoded_preds, references=decoded_labels)
-
-        # Extract a few results from ROUGE
-        if metric_name == "rouge":
-            result = {key: value.mid.fmeasure * 100 for key, value in result.items()}
-        else:
-            result = {"bleu": result["score"]}
+        result = {"bleu": result["score"]}
 
         prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
         result["gen_len"] = np.mean(prediction_lens)
-
+        result = {k: round(v, 4) for k, v in result.items()}
         return result
 
     # Initialize our Trainer
@@ -499,31 +500,55 @@ def main():
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
-        output_train_file = os.path.join(training_args.output_dir, "train_results.txt")
-        if trainer.is_world_process_zero():
-            with open(output_train_file, "w") as writer:
-                logger.info("***** Train results *****")
-                for key, value in sorted(train_result.metrics.items()):
-                    logger.info(f"  {key} = {value}")
-                    writer.write(f"{key} = {value}\n")
+        metrics = train_result.metrics
+        max_train_samples = (
+            data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
+        )
+        metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
-            # Need to save the state, since Trainer.save_model saves only the tokenizer with the model
-            trainer.state.save_to_json(os.path.join(training_args.output_dir, "trainer_state.json"))
+        trainer.log_metrics("train", metrics)
+        trainer.save_metrics("train", metrics)
+        trainer.save_state()
 
     # Evaluation
     results = {}
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
 
-        results = trainer.evaluate()
+        metrics = trainer.evaluate(
+            max_length=data_args.val_max_target_length, num_beams=data_args.num_beams, metric_key_prefix="eval"
+        )
+        max_val_samples = data_args.max_val_samples if data_args.max_val_samples is not None else len(eval_dataset)
+        metrics["eval_samples"] = min(max_val_samples, len(eval_dataset))
 
-        output_eval_file = os.path.join(training_args.output_dir, "eval_results_seq2seq.txt")
+        trainer.log_metrics("eval", metrics)
+        trainer.save_metrics("eval", metrics)
+
+    if training_args.do_predict:
+        logger.info("*** Test ***")
+
+        test_results = trainer.predict(
+            test_dataset,
+            metric_key_prefix="test",
+            max_length=data_args.val_max_target_length,
+            num_beams=data_args.num_beams,
+        )
+        metrics = test_results.metrics
+        max_test_samples = data_args.max_test_samples if data_args.max_test_samples is not None else len(test_dataset)
+        metrics["test_samples"] = min(max_test_samples, len(test_dataset))
+
+        trainer.log_metrics("test", metrics)
+        trainer.save_metrics("test", metrics)
+
         if trainer.is_world_process_zero():
-            with open(output_eval_file, "w") as writer:
-                logger.info("***** Eval results *****")
-                for key, value in sorted(results.items()):
-                    logger.info(f"  {key} = {value}")
-                    writer.write(f"{key} = {value}\n")
+            if training_args.predict_with_generate:
+                test_preds = tokenizer.batch_decode(
+                    test_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
+                )
+                test_preds = [pred.strip() for pred in test_preds]
+                output_test_preds_file = os.path.join(training_args.output_dir, "test_generations.txt")
+                with open(output_test_preds_file, "w") as writer:
+                    writer.write("\n".join(test_preds))
 
     return results
 
