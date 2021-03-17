@@ -14,7 +14,7 @@ from .adapter_heads import ClassificationHead, MultiLabelClassificationHead
 from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
-class GPT2AttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
+class GPT2AttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):
     """Adds attention adapters to the Transformer module of DistilBert."""
 
     def __init__(self, parent):
@@ -28,7 +28,7 @@ class GPT2AttentionAdaptersModule(nn.Module, BertSelfOutputAdaptersMixin):
         return None
 
 
-class GPT2OutputAdaptersModule(nn.Module, BertOutputAdaptersMixin):
+class GPT2OutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
     """Adds output adapters to the Transformer module of DistilBert."""
 
     def __init__(self, parent):

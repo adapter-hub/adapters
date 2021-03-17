@@ -110,8 +110,11 @@ class AdapterLayerBaseMixin(ABC):
         if hasattr(self.config, "adapter_fusion") and self.config.adapter_fusion["query_before_ln"]:
             query = hidden_states
 
-        if adapter_config["original_ln_before"] and self.layer_norm:
-            hidden_states = self.layer_norm(hidden_states + input_tensor)
+        if adapter_config["original_ln_before"]:
+            if self.layer_norm:
+                hidden_states = self.layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
 
         if not adapter_config["residual_before_ln"]:
             residual = hidden_states
@@ -332,8 +335,11 @@ class AdapterLayerBaseMixin(ABC):
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
 
             last_config = self.config.adapters.get(adapter_setup.last())
-            if last_config["original_ln_after"] and self.layer_norm:
-                hidden_states = self.layer_norm(hidden_states + input_tensor)
+            if last_config["original_ln_after"]:
+                if self.layer_norm:
+                    hidden_states = self.layer_norm(hidden_states + input_tensor)
+                else:
+                    hidden_states = hidden_states + input_tensor
 
         elif self.layer_norm:
             hidden_states = self.layer_norm(hidden_states + input_tensor)
