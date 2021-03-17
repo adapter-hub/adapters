@@ -11,6 +11,7 @@ from transformers import (
     BertConfig,
     BertModelWithHeads,
     DistilBertConfig,
+    GPT2Config,
     HoulsbyConfig,
     HoulsbyInvConfig,
     PfeifferConfig,
@@ -57,6 +58,14 @@ MODELS_WITH_ADAPTERS = {
         decoder_attention_heads=4,
         encoder_ffn_dim=4,
         decoder_ffn_dim=4,
+    ),
+    GPT2Config: make_config(
+        GPT2Config,
+        n_embd=32,
+        n_layer=4,
+        n_head=4,
+        # set pad token to eos token
+        pad_token_id=50256,
     ),
 }
 

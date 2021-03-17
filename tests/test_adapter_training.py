@@ -3,6 +3,7 @@ import unittest
 
 import torch
 
+from tests.test_adapter_common import MODELS_WITH_ADAPTERS
 from transformers import (
     AutoModelForSequenceClassification,
     AutoModelWithHeads,
@@ -12,13 +13,12 @@ from transformers import (
     DistilBertConfig,
     GlueDataset,
     GlueDataTrainingArguments,
+    GPT2Config,
     Trainer,
     TrainingArguments,
 )
 from transformers.adapter_composition import Fuse
 from transformers.testing_utils import require_torch
-
-from .test_adapter_common import MODELS_WITH_ADAPTERS
 
 
 def filter_parameters(model, filter_string):
@@ -32,12 +32,15 @@ class AdapterTrainingTest(unittest.TestCase):
         BertConfig: "bert-base-uncased",
         DistilBertConfig: "distilbert-base-uncased",
         BartConfig: "facebook/bart-base",
+        GPT2Config: "gpt2",
     }
 
     def test_train_single_adapter(self):
         for config_class, tokenizer_name in self.tokenizer_names.items():
             with self.subTest(model_config=config_class.__name__):
                 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
+                if tokenizer.pad_token is None:
+                    tokenizer.pad_token = tokenizer.eos_token
                 model = AutoModelWithHeads.from_config(MODELS_WITH_ADAPTERS[config_class]())
 
                 # add two adapters: one will be trained and the other should be frozen
@@ -91,6 +94,9 @@ class AdapterTrainingTest(unittest.TestCase):
         for config_class, tokenizer_name in self.tokenizer_names.items():
             with self.subTest(model_config=config_class.__name__):
                 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
+                if tokenizer.pad_token is None:
+                    tokenizer.pad_token = tokenizer.eos_token
+                    MODELS_WITH_ADAPTERS[config_class]().pad_token_id = (tokenizer.eos_token_id,)
                 model = AutoModelForSequenceClassification.from_config(MODELS_WITH_ADAPTERS[config_class]())
 
                 # add the adapters to be fused
@@ -139,7 +145,12 @@ class AdapterTrainingTest(unittest.TestCase):
                 trainer.train()
 
                 for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
-                    if "adapter_fusion_layer" in k1 or "classifier" in k1 or "classification_head" in k1:
+                    if (
+                        "adapter_fusion_layer" in k1
+                        or "classifier" in k1
+                        or "classification_head" in k1
+                        or "score" in k1
+                    ):
                         self.assertFalse(torch.equal(v1, v2), k1)
                     else:
                         self.assertTrue(torch.equal(v1, v2), k1)
