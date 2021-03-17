@@ -3,7 +3,6 @@ from typing import Union
 import torch
 from torch import nn
 
-from .adapter_bert import BertAdaptersBaseMixin
 from .adapter_composition import AdapterCompositionBlock, parse_composition
 from .adapter_heads import (
     ClassificationHead,
@@ -11,10 +10,11 @@ from .adapter_heads import (
     MultiLabelClassificationHead,
     QuestionAnsweringHead,
 )
+from .adapter_layer import AdapterLayerBaseMixin
 from .adapter_model_mixin import ModelAdaptersMixin
 
 
-class BartAdaptersBaseMixin(BertAdaptersBaseMixin):
+class BartAdaptersBaseMixin(AdapterLayerBaseMixin):
     def adapters_forward(self, hidden_states, input_tensor):
         # SEQ x B x H -> B x SEQ x H
         hidden_states, input_tensor = hidden_states.transpose(0, 1), input_tensor.transpose(0, 1)

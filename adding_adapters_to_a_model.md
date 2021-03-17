@@ -20,7 +20,7 @@ This is the central module to implement.
 **📝 Steps**
 
 - Add a new `adapter_<model_type>.py` module for your architecture (or reuse an existing if possible).
-    - There usually should be one mixin that derives from `BertAdaptersBaseMixin` or has it as a child module.
+    - There usually should be one mixin that derives from `AdapterLayerBaseMixin` or has it as a child module.
     - The mixin for the whole base model class (e.g. `BertModel`) should derive from `ModelAdaptersMixin` and (if possible) `InvertibleAdaptersMixin`.
     - Have a look at existing examples, e.g. `adapter_distilbert.py`, `adapter_bert.py`.
 - Implement the mixins on the modeling classes (`modeling_<model_type>.py`).
@@ -54,7 +54,7 @@ These classes allow flexible adding of and switching between multiple prediction
 
 **📝 Steps**
 
-- Add `adapter_docs/classes/<model_type>.rst` (oriented at the doc file in the HF docs, make sure to include `<model_type>ModelWithHeads` and the HF notice, then show the file in the index).
+- Add `adapter_docs/classes/models/<model_type>.rst` (oriented at the doc file in the HF docs, make sure to include `<model_type>ModelWithHeads` and the HF notice, then show the file in the index).
 
 ## Training Example Adapters
 

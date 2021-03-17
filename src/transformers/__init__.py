@@ -287,14 +287,20 @@ if is_torch_available():
         PfeifferInvConfig,
         StaticAdapterFusionConfig,
     )
-    from .adapter_model_mixin import (
+    from .adapter_heads import ModelWithFlexibleHeadsAdaptersMixin
+    from .adapter_layer import AdapterLayerBaseMixin
+    from .adapter_loading import (
         AdapterFusionLoader,
         AdapterLoader,
-        ModelAdaptersMixin,
-        ModelWithHeadsAdaptersMixin,
         PredictionHeadLoader,
         WeightsLoader,
         WeightsLoaderHelper,
+    )
+    from .adapter_model_mixin import (
+        InvertibleAdaptersMixin,
+        ModelAdaptersMixin,
+        ModelConfigAdaptersMixin,
+        ModelWithHeadsAdaptersMixin,
     )
     from .adapter_training import AdapterArguments, MultiLingAdapterArguments
     from .adapter_utils import (
