@@ -144,14 +144,24 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def _init_adapter_modules(self):
+        super()._init_adapter_modules()
+        if hasattr(self, "encoder"):
+            # In BART, the invertible adapters are implemented by the encoder module.
+            # Therefore, relay mixin calls to the encoder here.
+            self.invertible_adapters = self.encoder.invertible_adapters
+            self.add_invertible_adapter = self.encoder.add_invertible_adapter
+            self.get_invertible_adapter = self.encoder.get_invertible_adapter
+
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        self.encoder.enable_adapters(adapter_setup, True, False)
+        if hasattr(self, "encoder"):
+            self.encoder.enable_adapters(adapter_setup, True, False)
+            self.encoder.enable_invertible_adapters(adapter_setup.flatten())
         self.decoder.enable_adapters(adapter_setup, True, False)
-        self.encoder.enable_invertible_adapters(adapter_setup.flatten())
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
@@ -160,33 +170,39 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        self.encoder.enable_adapters(adapter_setup, False, True)
+        if hasattr(self, "encoder"):
+            self.encoder.enable_adapters(adapter_setup, False, True)
         self.decoder.enable_adapters(adapter_setup, False, True)
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
     def _add_adapter(self, adapter_name):
-        self.encoder.add_adapter(adapter_name)
-        # make sure the layers in encoder & decoder are numbered from 0 to len(encoder+decoder)
-        self.decoder.add_adapter(adapter_name, layer_idx_offset=len(self.encoder.layers))
-        self.encoder.add_invertible_adapter(adapter_name)
+        if hasattr(self, "encoder"):
+            self.encoder.add_adapter(adapter_name)
+            # make sure the layers in encoder & decoder are numbered from 0 to len(encoder+decoder)
+            self.decoder.add_adapter(adapter_name, layer_idx_offset=len(self.encoder.layers))
+            self.encoder.add_invertible_adapter(adapter_name)
+        else:
+            self.decoder.add_adapter(adapter_name)
 
     def _add_fusion_layer(self, adapter_names):
-        self.encoder.add_fusion_layer(adapter_names)
+        if hasattr(self, "encoder"):
+            self.encoder.add_fusion_layer(adapter_names)
         self.decoder.add_fusion_layer(adapter_names)
 
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0
         target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
         # encoder
-        for _, v in self.encoder.layers._modules.items():
-            for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+        if hasattr(self, "encoder"):
+            for _, v in self.encoder.layers._modules.items():
+                for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
+                    if hasattr(layer_fusion, "value"):
+                        reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
-            for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+                for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
+                    if hasattr(layer_fusion, "value"):
+                        reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
         # decoder
         for _, v in self.decoder.layers._modules.items():
             for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
@@ -198,19 +214,6 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
         return reg_loss
-
-    # In BART, the invertible adapters are implemented by the encoder module.
-    # Therefore, relay mixin calls to the encoder here.
-
-    @property
-    def invertible_adapters(self):
-        return self.encoder.invertible_adapters
-
-    def add_invertible_adapter(self, adapter_name: str):
-        return self.encoder.add_invertible_adapter(self, adapter_name)
-
-    def get_invertible_adapter(self):
-        return self.encoder.get_invertible_adapter()
 
 
 class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):

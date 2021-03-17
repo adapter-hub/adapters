@@ -1690,7 +1690,7 @@ class MBartForQuestionAnswering(ModelWithHeadsAdaptersMixin, MBartPreTrainedMode
 
 
 # Copied from transformers.models.bart.modeling_bart.BartDecoderWrapper with Bart->MBart
-class MBartDecoderWrapper(MBartPreTrainedModel):
+class MBartDecoderWrapper(BartModelAdaptersMixin, MBartPreTrainedModel):
     """
     This wrapper class is a helper class to correctly load pretrained checkpoints when the causal language model is
     used in combination with the :class:`~transformers.EncoderDecoderModel` framework.
@@ -1700,7 +1700,13 @@ class MBartDecoderWrapper(MBartPreTrainedModel):
         super().__init__(config)
         self.decoder = MBartDecoder(config)
 
+        self._init_adapter_modules()
+
     def forward(self, *args, **kwargs):
+        # some warnings if we don't use available adapters
+        if not self.active_adapters and self.has_adapters():
+            logger.warning("There are adapters available but none are passed to model.forward")
+
         return self.decoder(*args, **kwargs)
 
 
@@ -1708,10 +1714,12 @@ class MBartDecoderWrapper(MBartPreTrainedModel):
 class MBartForCausalLM(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
-        config = copy.deepcopy(config)
-        config.is_decoder = True
-        config.is_encoder_decoder = False
-        self.model = MBartDecoderWrapper(config)
+        decoder_config = copy.deepcopy(config)
+        # HACK adapter config should reference the same object
+        decoder_config.adapters = config.adapters
+        decoder_config.is_decoder = True
+        decoder_config.is_encoder_decoder = False
+        self.model = MBartDecoderWrapper(decoder_config)
 
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 
@@ -1853,8 +1861,7 @@ class MBartForCausalLM(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
             return_dict=return_dict,
         )
 
-        logits = self.model.encoder.invertible_adapters_forward(outputs[0], rev=True)
-        logits = self.lm_head(logits)
+        logits = self.lm_head(outputs[0])
 
         loss = None
         if labels is not None:
