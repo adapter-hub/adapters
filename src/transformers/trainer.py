@@ -824,15 +824,34 @@ class Trainer:
         else:
             logger.info("\n\nTraining completed. Do not forget to share your model on huggingface.co/models =)\n\n")
         if self.args.load_best_model_at_end and self.state.best_model_checkpoint is not None:
-            logger.info(
-                f"Loading best model from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
-            )
-            if isinstance(model, PreTrainedModel):
-                self.model = model.from_pretrained(self.state.best_model_checkpoint)
-                self.model = self.model.to(self.args.device)
-            else:
-                state_dict = torch.load(os.path.join(self.state.best_model_checkpoint, WEIGHTS_NAME))
-                self.model.load_state_dict(state_dict)
+            if self.do_save_full_model:
+                logger.info(
+                    f"Loading best model from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+                )
+                if isinstance(model, PreTrainedModel):
+                    self.model = model.from_pretrained(self.state.best_model_checkpoint)
+                else:
+                    state_dict = torch.load(os.path.join(self.state.best_model_checkpoint, WEIGHTS_NAME))
+                    self.model.load_state_dict(state_dict)
+            if self.do_save_adapters:
+                logger.info(
+                    f"Loading best adapter(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+                )
+                # attempt to re-load all adapters from checkpoint
+                for adapter in self.model.config.adapters.adapters:
+                    adapter_dir = os.path.join(self.state.best_model_checkpoint, adapter)
+                    if os.path.exists(adapter_dir):
+                        self.model.load_adapter(adapter_dir)
+            if self.do_save_adapter_fusion:
+                logger.info(
+                    f"Loading best adapter fusion(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+                )
+                # attempt to re-load all adapter fusions from checkpoint
+                for fusion in self.model.config.adapter_fusion_models:
+                    fusion_dir = os.path.join(self.state.best_model_checkpoint, fusion)
+                    if os.path.exists(fusion_dir):
+                        self.model.load_adapter_fusion(fusion_dir)
+            self.model = self.model.to(self.args.device)
 
         if self._total_flos is not None:
             self.store_flos()

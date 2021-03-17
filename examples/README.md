@@ -1,5 +1,12 @@
 # Examples
 
+---
+**NOTE for adapter-transformers: These are the example scripts from [HuggingFace Transformers](https://github.com/huggingface/transformers/tree/master/examples).
+Some scripts have been modified to support adapter training (see table below).
+For instructions on adapter training, please refer to the [Training section in the Adapter-Hub documentation](https://docs.adapterhub.ml/training).**
+
+---
+
 Version 2.9 of `transformers` introduced a new [`Trainer`](https://github.com/adapter-hub/adapter-transformers/blob/master/src/transformers/trainer.py) class for PyTorch, and its equivalent [`TFTrainer`](https://github.com/adapter-hub/adapter-transformers/blob/master/src/transformers/trainer_tf.py) for TF 2.
 Running the examples requires PyTorch 1.3.1+ or TensorFlow 2.2+.
 
@@ -9,24 +16,22 @@ Here is the list of all our examples:
 - with information on whether they are **built on top of `Trainer`/`TFTrainer`** (if not, they still work, they might just lack some features),
 - whether or not they leverage the [🤗 Datasets](https://github.com/huggingface/datasets) library.
 
-**Note**: For more information on training Adapters, please refer to the [Training section in the Adapter-Hub documentation](https://docs.adapterhub.ml/training).
-
 
 ## The Big Table of Tasks
 
 | Task | Example datasets | Adapter support (pytorch) | Trainer support | TFTrainer support | 🤗 Datasets
 |---|---|:---:|:---:|:---:|:---:|
-| [**`language-modeling`**](https://github.com/huggingface/transformers/tree/master/examples/language-modeling)       | Raw text        | ✅ | ✅ | -  | ✅
-| [**`text-classification`**](https://github.com/huggingface/transformers/tree/master/examples/text-classification)   | GLUE, XNLI      | ✅ | ✅ | ✅ | ✅
-| [**`token-classification`**](https://github.com/huggingface/transformers/tree/master/examples/token-classification) | CoNLL NER       | ✅|  ✅ | ✅ | ✅
-| [**`multiple-choice`**](https://github.com/huggingface/transformers/tree/master/examples/multiple-choice)           | SWAG, RACE, ARC | ✅ | ✅ | ✅ | -
-| [**`question-answering`**](https://github.com/huggingface/transformers/tree/master/examples/question-answering)     | SQuAD           | ✅| ✅ | ✅ | -
-| [**`text-generation`**](https://github.com/huggingface/transformers/tree/master/examples/text-generation)           | -               | - | n/a | n/a | -
-| [**`distillation`**](https://github.com/huggingface/transformers/tree/master/examples/distillation)                 | All             | - | - | -  | -
-| [**`summarization`**](https://github.com/huggingface/transformers/tree/master/examples/seq2seq)                     | CNN/Daily Mail  | - | ✅  | - | -
-| [**`translation`**](https://github.com/huggingface/transformers/tree/master/examples/seq2seq)                       | WMT             | - | ✅  | - | -
-| [**`bertology`**](https://github.com/huggingface/transformers/tree/master/examples/bertology)                       | -               | - | - | - | -
-| [**`adversarial`**](https://github.com/huggingface/transformers/tree/master/examples/adversarial)                   | HANS            | - | ✅ | - | -
+| [**`language-modeling`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/language-modeling)       | Raw text        | ✅ | ✅ | -  | ✅
+| [**`text-classification`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/text-classification)   | GLUE, XNLI      | ✅ | ✅ | ✅ | ✅
+| [**`token-classification`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/token-classification) | CoNLL NER       | ✅|  ✅ | ✅ | ✅
+| [**`multiple-choice`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/multiple-choice)           | SWAG, RACE, ARC | ✅ | ✅ | ✅ | -
+| [**`question-answering`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/question-answering)     | SQuAD           | ✅| ✅ | ✅ | -
+| [**`text-generation`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/text-generation)           | -               | - | n/a | n/a | -
+| [**`distillation`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/distillation)                 | All             | - | - | -  | -
+| [**`summarization`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/seq2seq)                     | CNN/Daily Mail  | - | ✅  | - | -
+| [**`translation`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/seq2seq)                       | WMT             | - | ✅  | - | -
+| [**`bertology`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/bertology)                       | -               | - | - | - | -
+| [**`adversarial`**](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/adversarial)                   | HANS            | - | ✅ | - | -
 
 
 <br>
@@ -57,7 +62,7 @@ When using Tensorflow, TPUs are supported out of the box as a `tf.distribute.Str
 When using PyTorch, we support TPUs thanks to `pytorch/xla`. For more context and information on how to setup your TPU environment refer to Google's documentation and to the
 very detailed [pytorch/xla README](https://github.com/pytorch/xla/blob/master/README.md).
 
-In this repo, we provide a very simple launcher script named [xla_spawn.py](https://github.com/huggingface/transformers/tree/master/examples/xla_spawn.py) that lets you run our example scripts on multiple TPU cores without any boilerplate.
+In this repo, we provide a very simple launcher script named [xla_spawn.py](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/xla_spawn.py) that lets you run our example scripts on multiple TPU cores without any boilerplate.
 Just pass a `--num_cores` flag to this script, then your regular training script with its arguments (this is similar to the `torch.distributed.launch` helper for torch.distributed). 
 Note that this approach does not work for examples that use `pytorch-lightning`.
 
