@@ -71,6 +71,9 @@ test-reduced:
 		--ignore-glob='tests/test_doc*'\
 		--ignore-glob='tests/test_retrieval*'\
 		--ignore-glob='tests/test_benchmark*'\
+		--ignore-glob='tests/test_offline*'\
+		--ignore-glob='tests/test_feature_extraction*'\
+		--ignore-glob='tests/test_modeling_speech_to_text*'\
 		./tests/
 
 # Run tests for examples
