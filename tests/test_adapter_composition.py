@@ -3,10 +3,9 @@ import unittest
 import torch
 
 from transformers import AutoModelWithHeads, BertConfig, BertForSequenceClassification
-from transformers.adapter_composition import SUPPORTED_MODELS, Fuse, Parallel, Split, Stack, parse_composition
+from transformers.adapter_composition import Fuse, Parallel, Split, Stack, parse_composition
 from transformers.testing_utils import require_torch, torch_device
 
-from .test_adapter_common import MODELS_WITH_ADAPTERS
 from .test_modeling_common import ids_tensor
 
 
@@ -96,63 +95,54 @@ class AdapterCompositionTest(unittest.TestCase):
 
 
 @require_torch
-class ParallelAdapterInferenceTest(unittest.TestCase):
-
-    model_config_creators = [v for k, v in MODELS_WITH_ADAPTERS.items() if k.model_type in SUPPORTED_MODELS[Parallel]]
-
+class ParallelAdapterInferenceTestMixin:
     def test_parallel_inference_with_heads(self):
-        for config_creator in self.model_config_creators:
-            model = AutoModelWithHeads.from_config(config_creator())
+        model = AutoModelWithHeads.from_config(self.config())
 
-            model.add_adapter("a")
-            model.add_adapter("b")
-            model.add_classification_head("a", num_labels=2)
-            model.add_classification_head("b", num_labels=3)
+        model.add_adapter("a")
+        model.add_adapter("b")
+        model.add_classification_head("a", num_labels=2)
+        model.add_classification_head("b", num_labels=3)
+        model.eval()
 
-            model.eval()
+        inputs = {}
+        inputs["attention_mask"] = torch.randint(0, 2, size=(2, 128))
+        inputs["input_ids"] = ids_tensor((2, 128), 1000)
 
-            with self.subTest(model_class=model.__class__.__name__):
-                inputs = {}
-                inputs["attention_mask"] = torch.randint(0, 2, size=(2, 128))
-                inputs["input_ids"] = ids_tensor((2, 128), 1000)
+        # for reference, pass through single adapters
+        model.set_active_adapters("a")
+        model.active_head = "a"
+        outputs_a = model(**inputs)
+        model.set_active_adapters("b")
+        model.active_head = "b"
+        outputs_b = model(**inputs)
 
-                # for reference, pass through single adapters
-                model.set_active_adapters("a")
-                model.active_head = "a"
-                outputs_a = model(**inputs)
-                model.set_active_adapters("b")
-                model.active_head = "b"
-                outputs_b = model(**inputs)
+        model.set_active_adapters(Parallel("a", "b"))
+        model.active_head = ["a", "b"]
+        outputs = model(**inputs)
 
-                model.set_active_adapters(Parallel("a", "b"))
-                model.active_head = ["a", "b"]
-                outputs = model(**inputs)
-
-                self.assertEqual(len(outputs), 2)
-                self.assertEqual(outputs[0][0].shape, (2, 2))
-                self.assertEqual(outputs[1][0].shape, (2, 3))
-                self.assertTrue(torch.allclose(outputs[0][0], outputs_a[0]))
-                self.assertTrue(torch.allclose(outputs[1][0], outputs_b[0]))
+        self.assertEqual(len(outputs), 2)
+        self.assertEqual(outputs[0][0].shape, (2, 2))
+        self.assertEqual(outputs[1][0].shape, (2, 3))
+        self.assertTrue(torch.allclose(outputs[0][0], outputs_a[0]))
+        self.assertTrue(torch.allclose(outputs[1][0], outputs_b[0]))
 
     def test_parallel_inference_with_wrong_number_of_heads(self):
-        for config_creator in self.model_config_creators:
-            model = AutoModelWithHeads.from_config(config_creator())
-            model.eval()
+        model = AutoModelWithHeads.from_config(self.config())
+        model.eval()
 
-            model.add_adapter("a")
-            model.add_adapter("b")
-            model.add_classification_head("a", num_labels=2)
+        model.add_adapter("a")
+        model.add_adapter("b")
+        model.add_classification_head("a", num_labels=2)
 
-            with self.subTest(model_class=model.__class__.__name__):
+        inputs = {}
+        inputs["input_ids"] = ids_tensor((2, 128), 1000)
 
-                inputs = {}
-                inputs["input_ids"] = ids_tensor((2, 128), 1000)
+        model.set_active_adapters(Parallel("a", "b"))
+        model.active_head = ["a"]
+        with self.assertRaises(ValueError):
+            model(**inputs)
 
-                model.set_active_adapters(Parallel("a", "b"))
-                model.active_head = ["a"]
-                with self.assertRaises(ValueError):
-                    model(**inputs)
-
-                model.active_head = "a"
-                with self.assertRaises(ValueError):
-                    model(**inputs)
+        model.active_head = "a"
+        with self.assertRaises(ValueError):
+            model(**inputs)

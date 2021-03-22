@@ -44,8 +44,9 @@ These classes allow flexible adding of and switching between multiple prediction
 
 **📝 Steps**
 
-- Add the new model architecture to `MODELS_WITH_ADAPTERS` in `test_adapter_common.py` and to `test_adapter_training.py`.
+- Add a new `<model_type>AdapterTest` class in `test_adapter.py` similar to the existing classes (e.g. `BertAdapterTest`).
 - Add `<model_type>ModelWithHeads` to `test_modeling_<model_type>.py`.
+- Insert `test_modeling_<model_type>` into the list of tested modules in `utils/run_tests.py`.
 - Append `<model_type>` to the list in `check_adapters.py`.
 
 ## Documentation

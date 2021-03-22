@@ -62,19 +62,18 @@ fix-copies:
 test:
 	python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
+# Run the adapter tests
+
+test-adapter:
+	python -m pytest -n auto --dist=loadfile -s -v\
+		-k test_adapter\
+		--ignore-glob='tests/test_tokenization*'\
+		--ignore-glob='tests/test_processor*'\
+		./tests/
+
 # Run a reduced test suite in the CI pipeline of adapter-transformers
 test-reduced:
-	python -m pytest -n auto --dist=loadfile -s -v\
-		--ignore-glob='tests/test_tokenization*'\
-		--ignore-glob='tests/test_pipelines*'\
-		--ignore-glob='tests/test_hf*'\
-		--ignore-glob='tests/test_doc*'\
-		--ignore-glob='tests/test_retrieval*'\
-		--ignore-glob='tests/test_benchmark*'\
-		--ignore-glob='tests/test_offline*'\
-		--ignore-glob='tests/test_feature_extraction*'\
-		--ignore-glob='tests/test_modeling_speech_to_text*'\
-		./tests/
+	python utils/run_tests.py
 
 # Run tests for examples
 
