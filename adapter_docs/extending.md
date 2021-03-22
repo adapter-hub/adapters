@@ -1,14 +1,10 @@
 # Extending the Library
 
-## Integrating new transformer models
+## Integrating new Transformer models
 
-Currently, the `adapter-transformers` library integrates adapter modules to language models base on `BERT`. However, the integration into new models is possible. `adapter-transformers` defines two abstract base classes that provide a generic adapter management setup:
-- [`ModelAdaptersMixin`](classes/model_mixins.html#modeladaptersmixin)
-- [`ModelWithHeadsAdaptersMixin`](classes/model_mixins.html#modelwithheadsadaptersmixin)
-
-Depending on its type, every adapter-supporting model should derive from one of these mixin classes. `ModelAdaptersMixin` is intended for base model classes which do not provide task-specific prediction heads (e.g. `BertModel`, `RobertaModel`) whereas `ModelWithHeadsAdaptersMixin` should be used for models with prediction heads, such as `BertForSequenceClassification` or `BertModelWithHeads`.
-
-Both classes specify a minimal number of abstract methods, such as `add_adapter()`, which must be implemented by every deriving model class. For the implementation details, refer to the [class documentation of the base classes](classes/model_mixins.md) or the [reference BERT implementation](classes/bert_mixins.md).
+Currently, not all model types included in HuggingFace's `transformers` support adapters yet.
+However, it is possible to the existing adapter implementation to new models.
+For a detailed guide, refer to [Adding Adapters to a Model](https://github.com/Adapter-Hub/adapter-transformers/blob/master/adding_adapters_to_a_model.md).
 
 ## Loading custom module weights
 

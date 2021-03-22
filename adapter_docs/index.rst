@@ -58,6 +58,7 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    classes/models/bart
    classes/models/bert
    classes/models/distilbert
+   classes/models/gpt2
    classes/models/mbart
    classes/models/roberta
    classes/models/xlmroberta

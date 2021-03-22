@@ -36,6 +36,7 @@ RobertaModelWithHeads
 
 .. autoclass:: transformers.RobertaModelWithHeads
     :members:
+    :inherited-members: RobertaPreTrainedModel
 
 
 RobertaForMaskedLM
