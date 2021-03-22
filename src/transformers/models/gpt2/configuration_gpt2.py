@@ -191,3 +191,11 @@ class GPT2Config(PretrainedConfig):
     @property
     def num_hidden_layers(self):
         return self.n_layer
+
+    @property
+    def hidden_dropout_prob(self):
+        return self.resid_pdrop
+
+    @property
+    def attention_probs_dropout_prob(self):
+        return self.attn_pdrop

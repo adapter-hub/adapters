@@ -46,8 +46,8 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    classes/adapter_config
    classes/model_adapters_config
    classes/adapter_modules
+   classes/adapter_layer
    classes/model_mixins
-   classes/bert_mixins
    classes/adapter_utils
    classes/weights_loaders
 
@@ -55,12 +55,12 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    :maxdepth: 1
    :caption: Supported Models
 
-   classes/bart
-   classes/bert
-   classes/distilbert
-   classes/mbart
-   classes/roberta
-   classes/xlmroberta
+   classes/models/bart
+   classes/models/bert
+   classes/models/distilbert
+   classes/models/mbart
+   classes/models/roberta
+   classes/models/xlmroberta
 
 
 Citation
@@ -68,7 +68,7 @@ Citation
 
 .. code-block:: bibtex
 
-   @article{pfeiffer2020AdapterHub,
+   @inproceedings{pfeiffer2020AdapterHub,
       title={AdapterHub: A Framework for Adapting Transformers},
       author={Jonas Pfeiffer and
                Andreas R\"uckl\'{e} and
@@ -78,9 +78,12 @@ Citation
                Sebastian Ruder and
                Kyunghyun Cho and
                Iryna Gurevych},
-      journal={arXiv preprint},
+      booktitle={Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP 2020): Systems Demonstrations},
       year={2020},
-      url={https://arxiv.org/abs/2007.07779}
+      address = "Online",
+      publisher = "Association for Computational Linguistics",
+      url = "https://www.aclweb.org/anthology/2020.emnlp-demos.7",
+      pages = "46--54",
    }
 
 

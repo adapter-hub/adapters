@@ -129,7 +129,7 @@ from ..funnel.modeling_funnel import (
     FunnelForTokenClassification,
     FunnelModel,
 )
-from ..gpt2.modeling_gpt2 import GPT2ForSequenceClassification, GPT2LMHeadModel, GPT2Model
+from ..gpt2.modeling_gpt2 import GPT2ForSequenceClassification, GPT2LMHeadModel, GPT2Model, GPT2ModelWithHeads
 from ..ibert.modeling_ibert import (
     IBertForMaskedLM,
     IBertForMultipleChoice,
@@ -378,6 +378,7 @@ MODEL_WITH_HEADS_MAPPING = OrderedDict(
         (DistilBertConfig, DistilBertModelWithHeads),
         (BartConfig, BartModelWithHeads),
         (MBartConfig, MBartModelWithHeads),
+        (GPT2Config, GPT2ModelWithHeads),
     ]
 )
 

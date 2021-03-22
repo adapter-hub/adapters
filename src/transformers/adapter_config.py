@@ -1,4 +1,3 @@
-# docstyle-ignore-file
 import copy
 import logging
 from collections.abc import Collection, Mapping
@@ -101,10 +100,12 @@ class AdapterConfig(Mapping):
 
     @classmethod
     def load(cls, config: Union[dict, str], download_kwargs=None, **kwargs):
-        """Loads a given adapter configuration specifier into a full AdapterConfig instance.
+        """
+        Loads a given adapter configuration specifier into a full AdapterConfig instance.
 
         Args:
             config (Union[dict, str]): The configuration to load. Can be either:
+
                 - a dictionary representing the full config
                 - an identifier string available in ADAPTER_CONFIG_MAP
                 - the path to a file containing a full adapter configuration
@@ -134,8 +135,7 @@ class AdapterConfig(Mapping):
 @dataclass
 class PfeifferConfig(AdapterConfig):
     """
-    The adapter architecture proposed by Pfeiffer et. al., 2020.
-    Described in https://arxiv.org/pdf/2005.00247.pdf.
+    The adapter architecture proposed by Pfeiffer et. al., 2020. Described in https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     original_ln_before: bool = True
@@ -153,8 +153,7 @@ class PfeifferConfig(AdapterConfig):
 @dataclass
 class PfeifferInvConfig(PfeifferConfig):
     """
-    The adapter architecture proposed by Pfeiffer et. al., 2020.
-    Described in https://arxiv.org/pdf/2005.00247.pdf.
+    The adapter architecture proposed by Pfeiffer et. al., 2020. Described in https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     invertible_adapter: Optional[dict] = InvertibleAdapterConfig(
@@ -165,8 +164,7 @@ class PfeifferInvConfig(PfeifferConfig):
 @dataclass
 class HoulsbyConfig(AdapterConfig):
     """
-    The adapter architecture proposed by Houlsby et. al., 2019.
-    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    The adapter architecture proposed by Houlsby et. al., 2019. Described in https://arxiv.org/pdf/1902.00751.pdf.
     """
 
     original_ln_before: bool = False
@@ -184,8 +182,7 @@ class HoulsbyConfig(AdapterConfig):
 @dataclass
 class HoulsbyInvConfig(HoulsbyConfig):
     """
-    The adapter architecture proposed by Houlsby et. al., 2019.
-    Described in https://arxiv.org/pdf/1902.00751.pdf.
+    The adapter architecture proposed by Houlsby et. al., 2019. Described in https://arxiv.org/pdf/1902.00751.pdf.
     """
 
     invertible_adapter: Optional[dict] = InvertibleAdapterConfig(
@@ -230,7 +227,8 @@ class ModelAdaptersConfig(Collection):
         return len(self.adapters)
 
     def get(self, adapter_name: str):
-        """Gets the config dictionary for a given adapter.
+        """
+        Gets the config dictionary for a given adapter.
 
         Args:
             adapter_name (str): The name of the adapter.
@@ -251,7 +249,8 @@ class ModelAdaptersConfig(Collection):
         return config
 
     def add(self, adapter_name: str, config: Optional[Union[str, dict]] = None):
-        """Adds a new adapter of the name to the model config.
+        """
+        Adds a new adapter of the name to the model config.
 
         Args:
             adapter_name (str): The name of the adapter.
@@ -275,7 +274,9 @@ class ModelAdaptersConfig(Collection):
         logger.info(f"Adding adapter '{adapter_name}'.")
 
     def common_config_value(self, adapter_names: list, attribute: str):
-        """Checks whether all adapters in a list share the same config setting for a given attribute and returns the shared value.
+        """
+        Checks whether all adapters in a list share the same config setting for a given attribute and returns the
+        shared value.
 
         Args:
             adapter_names (list): The adapters to check.
@@ -359,10 +360,12 @@ class AdapterFusionConfig(Mapping):
 
     @classmethod
     def load(cls, config: Union[dict, str], **kwargs):
-        """Loads a given adapter fusion configuration specifier into a full AdapterFusionConfig instance.
+        """
+        Loads a given adapter fusion configuration specifier into a full AdapterFusionConfig instance.
 
         Args:
             config (Union[dict, str]): The configuration to load. Can be either:
+
                 - a dictionary representing the full config
                 - an identifier string available in ADAPTERFUSION_CONFIG_MAP
                 - the path to a file containing a full adapter fusion configuration
@@ -382,8 +385,7 @@ class AdapterFusionConfig(Mapping):
 @dataclass
 class StaticAdapterFusionConfig(AdapterFusionConfig):
     """
-    Static version of adapter fusion without a value matrix.
-    Described in https://arxiv.org/pdf/2005.00247.pdf.
+    Static version of adapter fusion without a value matrix. Described in https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     key: bool = True
@@ -400,8 +402,8 @@ class StaticAdapterFusionConfig(AdapterFusionConfig):
 @dataclass
 class DynamicAdapterFusionConfig(AdapterFusionConfig):
     """
-    Dynamic version of adapter fusion with a value matrix and regularization.
-    Described in https://arxiv.org/pdf/2005.00247.pdf.
+    Dynamic version of adapter fusion with a value matrix and regularization. Described in
+    https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     key: bool = True

@@ -20,7 +20,7 @@ model.add_classification_head("mrpc", num_labels=2)
 The line above adds a binary sequence classification head on top of our model.
 As this head is named, we could add multiple other heads with different names to the same model.
 This is especially useful if used together with matching adapter modules.
-For more about the different head types and the configuration options, refer to [the class reference](classes/bert_mixins.md#transformers.adapter_bert.BertModelHeadsMixin).
+For more about the different head types and the configuration options, refer to [the class reference](classes/bert_mixins.html#transformers.adapter_bert.BertModelHeadsMixin).
 
 Now, of course, we would like to train our classification head together with an adapter, so let's add one:
 ```python
@@ -43,7 +43,7 @@ After training has completed, we can save our whole setup (adapter module _and_ 
 model.save_adapter("/path/to/dir", "mrpc", with_head=True)
 ```
 
-Now, we just have to [share our work with the world](contributing.md#add-your-pre-trained-adapter).
+Now, we just have to [share our work with the world](contributing.html#add-your-pre-trained-adapter).
 After we published our adapter together with its head in the Hub, anyone else can load both adapter and head by using the same model class.
 
 Alternatively, we can also save and load the prediction head separately from an adapter module:

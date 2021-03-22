@@ -1158,16 +1158,35 @@ class Trainer:
             elif self.args.local_rank != -1:
                 dist.barrier()
 
-            logger.info(
-                f"Loading best model from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
-            )
-            if isinstance(self.model, PreTrainedModel):
-                self.model = self.model.from_pretrained(self.state.best_model_checkpoint)
-                if self.place_model_on_device:
-                    self.model = self.model.to(self.args.device)
-            else:
-                state_dict = torch.load(os.path.join(self.state.best_model_checkpoint, WEIGHTS_NAME))
-                self.model.load_state_dict(state_dict)
+            if self.do_save_full_model:
+                logger.info(
+                    f"Loading best model from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+                )
+                if isinstance(model, PreTrainedModel):
+                    self.model = model.from_pretrained(self.state.best_model_checkpoint)
+                else:
+                    state_dict = torch.load(os.path.join(self.state.best_model_checkpoint, WEIGHTS_NAME))
+                    self.model.load_state_dict(state_dict)
+            if self.do_save_adapters:
+                logger.info(
+                    f"Loading best adapter(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+                )
+                # attempt to re-load all adapters from checkpoint
+                for adapter in self.model.config.adapters.adapters:
+                    adapter_dir = os.path.join(self.state.best_model_checkpoint, adapter)
+                    if os.path.exists(adapter_dir):
+                        self.model.load_adapter(adapter_dir)
+            if self.do_save_adapter_fusion:
+                logger.info(
+                    f"Loading best adapter fusion(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+                )
+                # attempt to re-load all adapter fusions from checkpoint
+                for fusion in self.model.config.adapter_fusion_models:
+                    fusion_dir = os.path.join(self.state.best_model_checkpoint, fusion)
+                    if os.path.exists(fusion_dir):
+                        self.model.load_adapter_fusion(fusion_dir)
+            if self.place_model_on_device:
+                self.model = self.model.to(self.args.device)
 
             if self.deepspeed:
                 self.deepspeed.load_checkpoint(

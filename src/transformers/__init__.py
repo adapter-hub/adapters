@@ -625,6 +625,7 @@ if is_torch_available():
             "GPT2ForSequenceClassification",
             "GPT2LMHeadModel",
             "GPT2Model",
+            "GPT2ModelWithHeads",
             "GPT2PreTrainedModel",
             "load_tf_weights_in_gpt2",
         ]
@@ -910,14 +911,22 @@ if is_torch_available():
         "PfeifferInvConfig",
         "StaticAdapterFusionConfig",
     ]
-    _import_structure["adapter_model_mixin"] = [
+    _import_structure["adapter_heads"] = ["ModelWithFlexibleHeadsAdaptersMixin"]
+    _import_structure["adapter_layer"] = [
+        "AdapterLayerBaseMixin",
+    ]
+    _import_structure["adapter_loading"] = [
         "AdapterFusionLoader",
         "AdapterLoader",
-        "ModelAdaptersMixin",
-        "ModelWithHeadsAdaptersMixin",
         "PredictionHeadLoader",
         "WeightsLoader",
         "WeightsLoaderHelper",
+    ]
+    _import_structure["adapter_model_mixin"] = [
+        "InvertibleAdaptersMixin",
+        "ModelAdaptersMixin",
+        "ModelConfigAdaptersMixin",
+        "ModelWithHeadsAdaptersMixin",
     ]
     _import_structure["adapter_training"] = [
         "AdapterArguments",
@@ -1802,6 +1811,7 @@ if TYPE_CHECKING:
             GPT2ForSequenceClassification,
             GPT2LMHeadModel,
             GPT2Model,
+            GPT2ModelWithHeads,
             GPT2PreTrainedModel,
             load_tf_weights_in_gpt2,
         )
@@ -2054,14 +2064,20 @@ if TYPE_CHECKING:
             PfeifferInvConfig,
             StaticAdapterFusionConfig,
         )
-        from .adapter_model_mixin import (
+        from .adapter_heads import ModelWithFlexibleHeadsAdaptersMixin
+        from .adapter_layer import AdapterLayerBaseMixin
+        from .adapter_loading import (
             AdapterFusionLoader,
             AdapterLoader,
-            ModelAdaptersMixin,
-            ModelWithHeadsAdaptersMixin,
             PredictionHeadLoader,
             WeightsLoader,
             WeightsLoaderHelper,
+        )
+        from .adapter_model_mixin import (
+            InvertibleAdaptersMixin,
+            ModelAdaptersMixin,
+            ModelConfigAdaptersMixin,
+            ModelWithHeadsAdaptersMixin,
         )
         from .adapter_training import AdapterArguments, MultiLingAdapterArguments
         from .adapter_utils import (

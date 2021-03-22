@@ -46,7 +46,7 @@ python run_glue_alt.py \
 
 ## PyTorch version
 
-Based on the script [`run_glue.py`](https://github.com/huggingface/transformers/blob/master/examples/text-classification/run_glue.py).
+Based on the script [`run_glue.py`](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue.py).
 
 Fine-tuning the library models for sequence classification on the GLUE benchmark: [General Language Understanding
 Evaluation](https://gluebenchmark.com/). This script can fine-tune any of the models on the [hub](https://huggingface.co/models)
@@ -233,7 +233,7 @@ python run_tf_text_classification.py \
 
 ## XNLI
 
-Based on the script [`run_xnli.py`](https://github.com/huggingface/transformers/blob/master/examples/text-classification/run_xnli.py).
+Based on the script [`run_xnli.py`](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_xnli.py).
 
 [XNLI](https://www.nyu.edu/projects/bowman/xnli/) is a crowd-sourced dataset based on [MultiNLI](http://www.nyu.edu/projects/bowman/multinli/). It is an evaluation benchmark for cross-lingual text representations. Pairs of text are labeled with textual entailment annotations for 15 different languages (including both high-resource language such as English and low-resource languages such as Swahili).
 

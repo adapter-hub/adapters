@@ -156,7 +156,6 @@ class BertFusion(nn.Module):
         self.output_attentions = config.output_attentions
 
         self.dense_size = int(config.hidden_size)
-
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
         if (

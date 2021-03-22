@@ -35,6 +35,7 @@ if is_torch_available():
         GPT2ForSequenceClassification,
         GPT2LMHeadModel,
         GPT2Model,
+        GPT2ModelWithHeads,
         GPT2Tokenizer,
     )
 
@@ -393,7 +394,7 @@ class GPT2ModelTester:
 class GPT2ModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
 
     all_model_classes = (
-        (GPT2Model, GPT2LMHeadModel, GPT2DoubleHeadsModel, GPT2ForSequenceClassification)
+        (GPT2Model, GPT2LMHeadModel, GPT2DoubleHeadsModel, GPT2ForSequenceClassification, GPT2ModelWithHeads)
         if is_torch_available()
         else ()
     )
