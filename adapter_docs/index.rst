@@ -28,9 +28,11 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    installation
    quickstart
    adapters
+   adapter_composition
    training
    prediction_heads
    extending
+   v2_transition
 
 .. toctree::
    :maxdepth: 2
