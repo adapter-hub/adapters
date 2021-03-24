@@ -281,7 +281,6 @@ if is_torch_available():
         DynamicAdapterFusionConfig,
         HoulsbyConfig,
         HoulsbyInvConfig,
-        InvertibleAdapterConfig,
         ModelAdaptersConfig,
         PfeifferConfig,
         PfeifferInvConfig,
