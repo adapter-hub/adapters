@@ -161,6 +161,10 @@ class ModelAdaptersMixin(ABC):
     def active_adapters(self) -> AdapterCompositionBlock:
         return self.config.adapters.active_setup
 
+    @active_adapters.setter
+    def active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+        self.set_active_adapters(adapter_setup)
+
     def set_active_adapters(
         self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
     ):
