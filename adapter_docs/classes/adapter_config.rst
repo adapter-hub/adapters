@@ -21,9 +21,6 @@ Single Adapter
 .. autoclass:: transformers.HoulsbyInvConfig
     :members:
 
-.. autoclass:: transformers.InvertibleAdapterConfig
-    :members:
-
 Adapter Fusion
 ~~~~~~~~~~~~~~~
 

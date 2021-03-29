@@ -110,15 +110,16 @@ class ParallelAdapterInferenceTestMixin:
         inputs["input_ids"] = ids_tensor((2, 128), 1000)
 
         # for reference, pass through single adapters
-        model.set_active_adapters("a")
+        model.active_adapters = "a"
         model.active_head = "a"
         outputs_a = model(**inputs)
-        model.set_active_adapters("b")
+        model.active_adapters = "b"
         model.active_head = "b"
         outputs_b = model(**inputs)
 
-        model.set_active_adapters(Parallel("a", "b"))
-        model.active_head = ["a", "b"]
+        model.active_adapters = Parallel("a", "b")
+        # active_adapters should set parallel heads too
+        self.assertEqual(model.active_head, ["a", "b"])
         outputs = model(**inputs)
 
         self.assertEqual(len(outputs), 2)
@@ -138,7 +139,7 @@ class ParallelAdapterInferenceTestMixin:
         inputs = {}
         inputs["input_ids"] = ids_tensor((2, 128), 1000)
 
-        model.set_active_adapters(Parallel("a", "b"))
+        model.active_adapters = Parallel("a", "b")
         model.active_head = ["a"]
         with self.assertRaises(ValueError):
             model(**inputs)

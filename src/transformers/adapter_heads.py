@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from .adapter_composition import AdapterCompositionBlock
+from .adapter_composition import AdapterCompositionBlock, Parallel, Stack
 from .adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from .adapter_modeling import Activation_Function_Class
 from .file_utils import ModelOutput
@@ -448,12 +448,16 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         self.base_model.set_active_adapters(adapter_setup)
         # use last adapter name as name of prediction head
         if self.active_adapters:
-            head_name = self.active_adapters.last()
-            if head_name in self.heads:
-                self.active_head = head_name
+            final_block = self.active_adapters
+            if isinstance(final_block, Stack):
+                final_block = final_block.children[-1]
 
+            if isinstance(final_block, str) and final_block in self.heads:
+                self.active_head = final_block
+            elif isinstance(final_block, Parallel):
+                self.active_head = [a if isinstance(a, str) else a.last for a in final_block.children]
             else:
-                logger.info("No prediction head for task_name '{}' available.".format(head_name))
+                logger.info("Could not identify '{}' as a valid prediction head.".format(final_block))
 
     def add_custom_head(self, head_name, config, overwrite_ok=False):
         if config["head_type"] in self.config.custom_heads:
