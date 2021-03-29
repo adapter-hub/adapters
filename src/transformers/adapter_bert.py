@@ -127,7 +127,6 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
             for _, layer_fusion in v.attention.output.adapter_fusion_layer.items():
                 if hasattr(layer_fusion, "value"):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-        reg_loss.requires_grad = True
         return reg_loss
 
 
