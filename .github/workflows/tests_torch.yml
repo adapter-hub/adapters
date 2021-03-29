@@ -55,7 +55,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==1.7.*
+          pip install torch
           pip install .[sklearn,testing]
           pip install datasets
       - name: Test

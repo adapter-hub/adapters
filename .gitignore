@@ -160,5 +160,9 @@ tags
 
 # pre-commit
 .pre-commit*
+
 # scripts
 *.ps1
+
+# .lock
+*.lock
