@@ -870,7 +870,8 @@ class Trainer:
             if resume_from_checkpoint is None:
                 raise ValueError(f"No valid checkpoint found in output directory ({self.args.output_dir})")
 
-        if resume_from_checkpoint is not None and os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
+        if resume_from_checkpoint is not None and (os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)) or
+                                                   os.path.isdir(os.path.join(resume_from_checkpoint, ADAPTER_NAME))) :
             logger.info(f"Loading model from {resume_from_checkpoint}).")
 
             if isinstance(self.model, PreTrainedModel):
