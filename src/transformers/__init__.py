@@ -3,6 +3,7 @@
 # module, but to preserve other warnings. So, don't check this module at all.
 
 __version__ = "2.0.0a1"
+__hf_version__ = "4.4.2"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
 # default Python logging output behavior when present.
