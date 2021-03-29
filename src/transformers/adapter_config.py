@@ -12,45 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class InvertibleAdapterConfig(Mapping):
-    """Base class that models the architecture of an invertible adapter module."""
-
-    block_type: str
-    non_linearity: str
-    reduction_factor: int
-
-    # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
-    # Therefore, we don't allow changing attribute values if set once.
-    def __setattr__(self, name, value):
-        if name in self.__dict__:
-            raise FrozenInstanceError()
-        else:
-            object.__setattr__(self, name, value)
-
-    def __delattr__(self, name):
-        raise FrozenInstanceError()
-
-    def __getitem__(self, key):
-        return self.__dict__[key]
-
-    def __iter__(self):
-        return iter(self.__dict__)
-
-    def __len__(self):
-        return len(self.__dict__)
-
-    def to_dict(self):
-        return asdict(self)
-
-    def replace(self, **changes):
-        return replace(self, **changes)
-
-    @classmethod
-    def from_dict(cls, config):
-        return cls(**config)
-
-
-@dataclass
 class AdapterConfig(Mapping):
     """Base class that models the architecture of an adapter."""
 
@@ -64,8 +25,9 @@ class AdapterConfig(Mapping):
     output_adapter: bool
     non_linearity: str
     reduction_factor: int
+    inv_adapter: Optional[str] = None
+    inv_adapter_reduction_factor: Optional[int] = None
     cross_adapter: bool = False
-    invertible_adapter: Optional[InvertibleAdapterConfig] = None
     leave_out: List[int] = field(default_factory=list)
 
     # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
@@ -73,6 +35,12 @@ class AdapterConfig(Mapping):
     def __setattr__(self, name, value):
         if name in self.__dict__:
             raise FrozenInstanceError()
+        elif name == "invertible_adapter":
+            # This is for backwards compatibility. In v1, invertible adapters were specified in a nested config dict.
+            # Now, we have two config keys directly in the adapter config.
+            if value:
+                object.__setattr__(self, "inv_adapter", value["block_type"])
+                object.__setattr__(self, "inv_adapter_reduction_factor", value["reduction_factor"])
         else:
             object.__setattr__(self, name, value)
 
@@ -96,7 +64,20 @@ class AdapterConfig(Mapping):
 
     @classmethod
     def from_dict(cls, config):
-        return cls(**config)
+        if isinstance(config, AdapterConfig):
+            return config
+
+        # the constructor does not accept additional kwargs, so add them separately
+        defined_kwargs, new_kwargs = {}, {}
+        for k, v in config.items():
+            if k in cls.__annotations__:
+                defined_kwargs[k] = v
+            else:
+                new_kwargs[k] = v
+        obj = cls(**defined_kwargs)
+        for k, v in new_kwargs.items():
+            setattr(obj, k, v)
+        return obj
 
     @classmethod
     def load(cls, config: Union[dict, str], download_kwargs=None, **kwargs):
@@ -156,9 +137,8 @@ class PfeifferInvConfig(PfeifferConfig):
     The adapter architecture proposed by Pfeiffer et. al., 2020. Described in https://arxiv.org/pdf/2005.00247.pdf.
     """
 
-    invertible_adapter: Optional[dict] = InvertibleAdapterConfig(
-        block_type="nice", non_linearity="relu", reduction_factor=2
-    )
+    inv_adapter: Optional[str] = "nice"
+    inv_adapter_reduction_factor: Optional[int] = 2
 
 
 @dataclass
@@ -185,9 +165,8 @@ class HoulsbyInvConfig(HoulsbyConfig):
     The adapter architecture proposed by Houlsby et. al., 2019. Described in https://arxiv.org/pdf/1902.00751.pdf.
     """
 
-    invertible_adapter: Optional[dict] = InvertibleAdapterConfig(
-        block_type="nice", non_linearity="relu", reduction_factor=2
-    )
+    inv_adapter: Optional[str] = "nice"
+    inv_adapter_reduction_factor: Optional[int] = 2
 
 
 ADAPTER_CONFIG_MAP = {

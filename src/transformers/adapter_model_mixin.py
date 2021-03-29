@@ -9,6 +9,7 @@ from .adapter_composition import AdapterCompositionBlock, Fuse, parse_compositio
 from .adapter_config import (
     ADAPTERFUSION_CONFIG_MAP,
     DEFAULT_ADAPTERFUSION_CONFIG,
+    AdapterConfig,
     AdapterFusionConfig,
     ModelAdaptersConfig,
     get_adapter_config_hash,
@@ -39,22 +40,21 @@ class InvertibleAdaptersMixin:
         if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
         adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config and adapter_config["invertible_adapter"]:
-            inv_adap_config = adapter_config["invertible_adapter"]
-            if inv_adap_config["block_type"] == "nice":
+        if adapter_config and adapter_config["inv_adapter"]:
+            if adapter_config["inv_adapter"] == "nice":
                 inv_adap = NICECouplingBlock(
                     [[self.config.hidden_size]],
-                    non_linearity=inv_adap_config["non_linearity"],
-                    reduction_factor=inv_adap_config["reduction_factor"],
+                    non_linearity=adapter_config["non_linearity"],
+                    reduction_factor=adapter_config["inv_adapter_reduction_factor"],
                 )
-            elif inv_adap_config["block_type"] == "glow":
+            elif adapter_config["inv_adapter"] == "glow":
                 inv_adap = GLOWCouplingBlock(
                     [[self.config.hidden_size]],
-                    non_linearity=inv_adap_config["non_linearity"],
-                    reduction_factor=inv_adap_config["reduction_factor"],
+                    non_linearity=adapter_config["non_linearity"],
+                    reduction_factor=adapter_config["inv_adapter_reduction_factor"],
                 )
             else:
-                raise ValueError(f"Invalid invertible adapter type '{inv_adap_config['block_type']}'.")
+                raise ValueError(f"Invalid invertible adapter type '{adapter_config['inv_adapter']}'.")
             self.invertible_adapters[adapter_name] = inv_adap
             self.invertible_adapters[adapter_name].apply(Adapter.init_bert_weights)
 
@@ -218,6 +218,8 @@ class ModelAdaptersMixin(ABC):
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
         """
+        if isinstance(config, dict):
+            config = AdapterConfig.from_dict(config)  # ensure config is ok and up-to-date
         self.config.adapters.add(adapter_name, config=config)
         self.base_model._add_adapter(adapter_name)
 
