@@ -1,5 +1,5 @@
 import logging
-from typing import List, Union, Optional
+from typing import List, Optional, Union
 
 import torch
 from torch import nn
@@ -434,7 +434,9 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         else:
             self._active_heads = head_name_or_list
 
-    def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None):
+    def set_active_adapters(
+        self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
+    ):
         """
         Sets the adapter modules to be used by default in every forward pass. This setting can be overriden by passing
         the `adapter_names` parameter in the `foward()` pass. If no adapter with the given name is found, no module of
