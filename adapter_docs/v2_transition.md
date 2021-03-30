@@ -2,7 +2,7 @@
 
 Version 2 of `adapter-transformers` brings a lot of new features and changes to the library.
 This document gives an overview on what's new and which library changes to look out for when upgrading from v1 to v2.
-Potentially breaking changes are marked with "⚠️".
+Sections with potentially breaking changes are marked with "⚠️".
 
 ## What's new
 
@@ -24,14 +24,14 @@ as used in the _MAD-X_ framework for cross-lingual transfer.
 `Split` describes splitting the input sequences between two adapters at a specified index.
 Thus, in the shown setup, in each adapter layer, the input is first passed through adapter `a` before being split up between adapters `b` and `c` and passed through both adapters in parallel.
 
-Besides the two blocks shown, `adapter-transformers` currently also includes a `Fuse` block (for _AdapterFusion_) and a `Parallel` block (see below).
+Besides the two blocks shown, `adapter-transformers` currently also includes a `Fuse` block (for [_AdapterFusion_](https://arxiv.org/pdf/2005.00247.pdf)) and a `Parallel` block (see below).
 All of these blocks derive from `AdapterCompositionBlock`, and they can be combined in flexibly in many ways.
 For more information on specifying the active adapters using `active_adapters` and the new composition blocks,
 refer to the [corresponding section in our documentation](adapter_composition.md).
 
 ### New model support: Adapters for BART and GPT-2
 
-The two new model architectures added in v2.0.0, BART and GPT-2, start the process of integrating adapters into sequence-to-sequence models, with more to come.
+The two new model architectures added in v2.0, BART and GPT-2, start the process of integrating adapters into sequence-to-sequence models, with more to come.
 
 We have [a separate blog post]() presenting our results when training adapters on both models and new adapters in the Hub.
 
@@ -49,7 +49,9 @@ Version 2.0.0 upgrades the underlying HuggingFace Transformers library from v3.5
 
 ## What has changed
 
-### Unified handling of all adapter types ⚠️
+### Unified handling of all adapter types
+
+_Includes breaking changes ⚠️_
 
 The new version removes the hard distinction between _task_ and _language_ adapters (realized using the `AdapterType` enumeration in v1) everywhere in the library.
 Instead, all adapters use the same set of methods.
@@ -82,7 +84,9 @@ model.add_adapter("name", AdapterType.text_task, config="pfeiffer")
 model.add_adapter("name", config="pfeiffer+inv")
 ```
 
-### Removal of `adapter_names` parameter in model forward() ⚠️
+### Removal of `adapter_names` parameter in model forward()
+
+_Includes breaking changes ⚠️_
 
 In v1, it was possible to specify the active adapters using the `adapter_names` parameter in each call to the model's `forward()` method.
 With the integration of the new, unified mechanism for specifying adapter setups using composition blocks, this parameter was dropped.
@@ -100,9 +104,11 @@ model.active_adapters = "awesome_adapter"
 model(**input_data)
 ```
 
-## More (internal) changes
+## Internal changes
 
-### Changes to adapter weights dictionaries and config ⚠️
+### Changes to adapter weights dictionaries and config
+
+_Includes breaking changes ⚠️_
 
 With the unification of different adapter types and other internal refactorings, the names of the modules holding the adapters have changed.
 This affects the weights dictionaries exported by `save_adapter()`, making the adapters incompatible _in name_.
