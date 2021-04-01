@@ -116,7 +116,6 @@ _is_native_amp_available = False
 
 DEFAULT_CALLBACKS = [DefaultFlowCallback]
 DEFAULT_PROGRESS_CALLBACK = ProgressCallback
-ADAPTER_NAME = "adapter/"
 
 if is_in_notebook():
     from .utils.notebook import NotebookProgressCallback
@@ -249,8 +248,8 @@ class Trainer:
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
         do_save_full_model: bool = True,
-        do_save_adapters: bool = False,
-        do_save_adapter_fusion: bool = False,
+        do_save_adapters: bool = True,
+        do_save_adapter_fusion: bool = True,
         adapter_names: Optional[List[List[str]]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
     ):
@@ -870,18 +869,22 @@ class Trainer:
             if resume_from_checkpoint is None:
                 raise ValueError(f"No valid checkpoint found in output directory ({self.args.output_dir})")
 
-        if resume_from_checkpoint is not None and (os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)) or
-                                                   os.path.isdir(os.path.join(resume_from_checkpoint, ADAPTER_NAME))) :
+        if resume_from_checkpoint is not None and os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
             logger.info(f"Loading model from {resume_from_checkpoint}).")
 
             if isinstance(self.model, PreTrainedModel):
                 self.model = self.model.from_pretrained(resume_from_checkpoint)
                 model_reloaded = True
-            if os.path.isdir(os.path.join(resume_from_checkpoint, ADAPTER_NAME)):
-                self.model.load_adapter(os.path.join(resume_from_checkpoint, ADAPTER_NAME))
-            if not isinstance(self.model, PreTrainedModel):
+            else:
                 state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME))
                 self.model.load_state_dict(state_dict)
+
+            for file_name in os.listdir(resume_from_checkpoint):
+                if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
+                    if "," in file_name:
+                        self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
+                    else:
+                        self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
 
         # If model was re-initialized, put it on the right device and update self.model_wrapped
         if model_reloaded:
@@ -1611,8 +1614,6 @@ class Trainer:
         logger.info("Saving model checkpoint to %s", output_dir)
         # Save a trained model and configuration using `save_pretrained()`.
         # They can then be reloaded using `from_pretrained()`
-        if self.model.active_adapters:
-            self.model.save_adapter(os.path.join(output_dir, ADAPTER_NAME))
         if not isinstance(self.model, PreTrainedModel):
             if isinstance(unwrap_model(self.model), PreTrainedModel):
                 if state_dict is None:
@@ -1624,9 +1625,9 @@ class Trainer:
                     state_dict = self.model.state_dict()
                 torch.save(state_dict, os.path.join(output_dir, WEIGHTS_NAME))
         else:
-            if self.do_save_adapters:
+            if self.do_save_adapters and hasattr(self.model.config, "adapters"):
                 self.model.save_all_adapters(output_dir)
-            if self.do_save_adapter_fusion:
+            if self.do_save_adapter_fusion and hasattr(self.model.config, "adapter_fusion"):
                 self.model.save_all_adapter_fusions(output_dir)
             if self.do_save_full_model:
                 self.model.save_pretrained(output_dir, state_dict=state_dict)
