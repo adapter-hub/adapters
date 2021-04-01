@@ -1,9 +1,5 @@
-import copy
 import unittest
-from tempfile import TemporaryDirectory
-
 import torch
-from datasets import load_dataset
 
 from transformers import AutoModel, TrainingArguments, GlueDataset, GlueDataTrainingArguments, AutoTokenizer, Trainer, \
     AutoModelForSequenceClassification
@@ -13,22 +9,11 @@ from transformers.adapter_composition import Fuse
 class TestAdapterTrainer(unittest.TestCase):
     def test_resume_training(self):
 
-        def encode_batch(batch):
-            """Encodes a batch of input data using the model tokenizer."""
-            return tokenizer(batch["sentence1"], batch["sentence2"], max_length=80, truncation=True,
-                             padding="max_length")
-
-        TASK = "mrpc"
-        dataset = load_dataset("glue", TASK)
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-
-        # Encode the input data
-        print(dataset["train"][0])
-        dataset = dataset.map(encode_batch, batched=True)
-        # The transformers model expects the target class column to be named "labels"
-        dataset.rename_column_("label", "labels")
-        # Transform to pytorch tensors and only output the required columns
-        dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+        )
+        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
         model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
         model.add_adapter("adapter")
@@ -47,7 +32,7 @@ class TestAdapterTrainer(unittest.TestCase):
         trainer = Trainer(
             model=model,
             args=training_args,
-            train_dataset=dataset["train"],
+            train_dataset=train_dataset,
         )
 
         trainer.train()
@@ -58,7 +43,7 @@ class TestAdapterTrainer(unittest.TestCase):
         trainer_resume = Trainer(
             model=model_resume,
             args=TrainingArguments(do_train=True, max_steps=1, output_dir="./examples"),
-            train_dataset=dataset["train"]
+            train_dataset=train_dataset
         )
         trainer_resume.train(resume_from_checkpoint=True)
 
@@ -74,17 +59,11 @@ class TestAdapterTrainer(unittest.TestCase):
             return tokenizer(batch["sentence1"], batch["sentence2"], max_length=80, truncation=True,
                              padding="max_length")
 
-        TASK = "mrpc"
-        dataset = load_dataset("glue", TASK)
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-
-        # Encode the input data
-        print(dataset["train"][0])
-        dataset = dataset.map(encode_batch, batched=True)
-        # The transformers model expects the target class column to be named "labels"
-        dataset.rename_column_("label", "labels")
-        # Transform to pytorch tensors and only output the required columns
-        dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+        )
+        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
         model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
         model.add_adapter("adapter")
@@ -104,7 +83,7 @@ class TestAdapterTrainer(unittest.TestCase):
         trainer = Trainer(
             model=model,
             args=training_args,
-            train_dataset=dataset["train"],
+            train_dataset=train_dataset,
         )
 
         trainer.train()
@@ -116,7 +95,7 @@ class TestAdapterTrainer(unittest.TestCase):
         trainer_resume = Trainer(
             model=model_resume,
             args=TrainingArguments(do_train=True, max_steps=1, output_dir="./examples"),
-            train_dataset=dataset["train"]
+            train_dataset=train_dataset,
         )
         trainer_resume.train(resume_from_checkpoint=True)
 
