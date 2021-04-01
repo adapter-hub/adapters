@@ -1,8 +1,15 @@
 import unittest
+
 import torch
 
-from transformers import AutoModel, TrainingArguments, GlueDataset, GlueDataTrainingArguments, AutoTokenizer, Trainer, \
-    AutoModelForSequenceClassification
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    GlueDataset,
+    GlueDataTrainingArguments,
+    Trainer,
+    TrainingArguments,
+)
 from transformers.adapter_composition import Fuse
 
 
@@ -43,7 +50,7 @@ class TestAdapterTrainer(unittest.TestCase):
         trainer_resume = Trainer(
             model=model_resume,
             args=TrainingArguments(do_train=True, max_steps=1, output_dir="./examples"),
-            train_dataset=train_dataset
+            train_dataset=train_dataset,
         )
         trainer_resume.train(resume_from_checkpoint=True)
 
@@ -56,8 +63,9 @@ class TestAdapterTrainer(unittest.TestCase):
     def test_resume_training_with_fusion(self):
         def encode_batch(batch):
             """Encodes a batch of input data using the model tokenizer."""
-            return tokenizer(batch["sentence1"], batch["sentence2"], max_length=80, truncation=True,
-                             padding="max_length")
+            return tokenizer(
+                batch["sentence1"], batch["sentence2"], max_length=80, truncation=True, padding="max_length"
+            )
 
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         data_args = GlueDataTrainingArguments(
@@ -106,5 +114,5 @@ class TestAdapterTrainer(unittest.TestCase):
             self.assertTrue(torch.equal(v1, v2), k1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
