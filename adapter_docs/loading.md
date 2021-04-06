@@ -20,23 +20,16 @@ In the minimal case, that's everything we need to specify to load a pre-trained 
 To examine what's happening underneath in a bit more detail, let's first write out the full method call with all relevant arguments explicitly stated:
 
 ```python
-model.load_adapter('sst-2', AdapterType.text_task, config='pfeiffer', model_name='bert-base-uncased', version=1, load_as='sst')
+model.load_adapter('sst-2', config='pfeiffer', model_name='bert-base-uncased', version=1, load_as='sst')
 ```
 
 We will go through the different arguments and their meaning one by one:
 
 - The first argument passed to the method specifies the name of the adapter we want to load from Adapter-Hub. The library will search for an available adapter module with this name that matches the model architecture as well as the adapter type and configuration we requested. As the identifier `sst-2` resolves to a unique entry in the Hub, the corresponding adapter can be successfully loaded based on this information. To get an overview of all available adapter identifiers, please refer to [the Adapter-Hub website](https://adapterhub.ml/explore). The different format options of the identifier string are further described in [How adapter resolving works](#how-adapter-resolving-works).
 
-- The second argument specifies the type of adapter we want to load. In this case, we load a *task* adapter which is the default setting if we don't explicitly state this argument. All other possible adapter types are defined in the `AdapterType` (e.g. we could load a language adapter using `AdapterType.text_lang`) enumeration and explained in more detail on the [Introduction to Adapters](/adapters) page.
-
 - The `config` argument defines the adapter architecture the loaded adapter should have.
 The value of this parameter can be either a string identifier for one of the predefined architectures, the identifier of an architecture available in the Hub or a dictionary representing a full adapter configuration.
 Based on this information, the library will only search for pre-trained adapter modules having the same configuration.
-
-```eval_rst
-.. tip::
-    If the config parameter is not specified, the loading method will fall back to default adapter architectures, first for the requested adapter type and then to a global default. To set the default architecture for an adapter type, you can use ``model.set_adapter_config()``, e.g. ``model.set_adapter_config(AdapterType.text_task, 'houlsby')``. Now, ``load_adapter()`` would always search for adapters in ``houlsby`` architecture by default.
-```
 
 - Adapter modules trained on different pre-trained language models in general can not be used interchangeably.
 Therefore, we need to make sure to load an adapter matching the language model we are using.

@@ -30,8 +30,8 @@ ADAPTERFUSION_CONFIG_NAME = "adapter_fusion_config.json"
 ADAPTERFUSION_WEIGHTS_NAME = "pytorch_model_adapter_fusion.bin"
 
 ADAPTER_IDENTIFIER_PATTERN = r"[0-9a-zA-Z\-_\/@]{2,}"
-ADAPTER_HUB_URL = "https://raw.githubusercontent.com/Adapter-Hub/Hub/master/dist/"
-ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index_{}/{}.json"
+ADAPTER_HUB_URL = "https://raw.githubusercontent.com/Adapter-Hub/Hub/master/dist/v2/"
+ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index/{}.json"
 ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
 
 # the download cache
@@ -235,14 +235,13 @@ def _dict_extract(d, primary_key, secondary_key=None):
 
 def find_in_index(
     identifier: str,
-    adapter_type: AdapterType,
     model_name: str,
     adapter_config: Optional[dict] = None,
     strict: bool = False,
     index_file: str = None,
 ) -> Optional[str]:
     if not index_file:
-        index_file = download_cached(ADAPTER_HUB_INDEX_FILE.format(adapter_type, model_name))
+        index_file = download_cached(ADAPTER_HUB_INDEX_FILE.format(model_name))
     if not index_file:
         raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
     with open(index_file, "r") as f:
@@ -311,7 +310,6 @@ def get_checksum(file_entry: dict):
 
 def pull_from_hub(
     specifier: str,
-    adapter_type: AdapterType,
     model_name: str,
     adapter_config: Optional[Union[dict, str]] = None,
     version: str = None,
@@ -323,7 +321,6 @@ def pull_from_hub(
 
     Args:
         specifier (str): A string specifying the adapter to be loaded.
-        adapter_type (AdapterType): The adapter type.
         model_name (str): The identifier of the pre-trained model for which to load an adapter.
         adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
@@ -332,15 +329,13 @@ def pull_from_hub(
     Returns:
         str: The local path to which the adapter has been downloaded.
     """
-    if not adapter_type:
-        raise ValueError("Adapter type must be specified.")
-    elif not model_name:
+    if not model_name:
         raise ValueError("Unable to resolve adapter without the name of a model. Please specify model_name.")
     # resolve config if it's an identifier
     if adapter_config:
         adapter_config = resolve_adapter_config(adapter_config)
     # search the correct entry in the index
-    hub_entry_url = find_in_index(specifier, adapter_type, model_name, adapter_config=adapter_config, strict=strict)
+    hub_entry_url = find_in_index(specifier, model_name, adapter_config=adapter_config, strict=strict)
     if not hub_entry_url:
         raise EnvironmentError("No adapter with name '{}' was found in the adapter index.".format(specifier))
     hub_entry = http_get_json(hub_entry_url)
@@ -364,7 +359,6 @@ def pull_from_hub(
 
 def resolve_adapter_path(
     adapter_name_or_path,
-    adapter_type: AdapterType = AdapterType.text_task,
     model_name: str = None,
     adapter_config: Union[dict, str] = None,
     version: str = None,
@@ -372,7 +366,7 @@ def resolve_adapter_path(
 ) -> str:
     """
     Resolves the path to a pre-trained adapter module. Note: If attempting to resolve an adapter from the Hub,
-    adapter_config, adapter_type and model_name must be present.
+    adapter_config and model_name must be present.
 
     Args:
         adapter_name_or_path (str): Can be either:
@@ -380,7 +374,6 @@ def resolve_adapter_path(
             - the path to a folder in the file system containing the adapter configuration and weights
             - an url pointing to a zip folder containing the adapter configuration and weights
             - a specifier matching a pre-trained adapter uploaded to Adapter-Hub
-        adapter_type (AdapterType, optional): The adapter type.
         model_name (str, optional): The identifier of the pre-trained model for which to load an adapter.
         adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
@@ -408,10 +401,8 @@ def resolve_adapter_path(
             )
     # matches possible form of identifier in hub
     elif re.fullmatch(ADAPTER_IDENTIFIER_PATTERN, adapter_name_or_path):
-        if not adapter_type:  # make sure we have set an adapter_type
-            adapter_type = AdapterType.text_task
         return pull_from_hub(
-            adapter_name_or_path, adapter_type, model_name, adapter_config=adapter_config, version=version, **kwargs
+            adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
         )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
