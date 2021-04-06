@@ -46,7 +46,7 @@ from transformers.utils import check_min_version
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.4.0")
+check_min_version("4.5.0")
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +264,7 @@ def main():
     # Set the verbosity to info of the Transformers logger (on main process only):
     if is_main_process(training_args.local_rank):
         transformers.utils.logging.set_verbosity_info()
-    logger.info("Training/evaluation parameters %s", training_args)
+    logger.info(f"Training/evaluation parameters {training_args}")
 
     # Set seed before initializing model.
     set_seed(training_args.seed)
