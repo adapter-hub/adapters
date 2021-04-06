@@ -37,11 +37,13 @@ We have [a separate blog post]() presenting our results when training adapters o
 
 ### AdapterDrop
 
-Version 2 of `adapter-transformers` integrates some new ideas introduced in the _AdapterDrop_ paper [(Rückle et al., 2020)](https://arxiv.org/pdf/2010.11918.pdf). This includes _robust_ adapter training by dynamically dropping adapters from random layers in each training step.
-Robust _AdapterDrop_ training is presented on an example [in this Colab notebook](https://github.com/Adapter-Hub/adapter-transformers/blob/master/notebooks/Adapter_Drop_Training.ipynb).
+Version 2 of `adapter-transformers` integrates some of the key ideas presented in _AdapterDrop_ [(Rücklé et al., 2020)](https://arxiv.org/pdf/2010.11918.pdf), namely, (1) parallel multi-task inference and (2) _robust_ AdapterDrop training. 
 
-Additionally, `adapter-transformers` enables parallel multi-task inference on different adapters via the `Parallel` adapter composition block.
-You can find out more about this feature [here](adapter_composition.html#parallel).
+Parallel multi-task inference, for any given input, runs multiple task adapters in parallel and thereby achieves considerable improvements in inference speed compared to sequentially running multiple Transformer models (see the paper for more details). The `Parallel` adapter composition block implements this behavior, which we describe in more detail [here](adapter_composition.html#parallel).
+
+A central advantage of multi-task inference is that it shares the computations in lower transformer layers across all inference tasks (before the first adapter block). Dropping out adapters from lower transformer layers can thus result in even faster inference speeds, but it often comes at the cost of lower accuracies. To allow for _dynamic_ adjustment of the number of dropped adapter layers at run-time regarding the available computational resources, we introduce _robust_ adapter training. This technique drops adapters from a random number of lower transformer layers in each training step. The resulting adapter can be adjusted at run-time regarding the number of dropped layers, to dynamically select between a higher accuracy or faster inference speeds.
+We present an example for robust _AdapterDrop_ training [in this Colab notebook](https://github.com/Adapter-Hub/adapter-transformers/blob/master/notebooks/Adapter_Drop_Training.ipynb).
+
 
 ### Transformers upgrade
 
@@ -112,7 +114,7 @@ _Includes breaking changes ⚠️_
 
 With the unification of different adapter types and other internal refactorings, the names of the modules holding the adapters have changed.
 This affects the weights dictionaries exported by `save_adapter()`, making the adapters incompatible _in name_.
-Nonetheless, rhis does not visibly affect loading older adapters with the new version.
+Nonetheless, this does not visibly affect loading older adapters with the new version.
 When loading an adapter trained with v1 in a newer version, `adapter-transformers` will automatically convert the weights to the new format.
 However, loading adapters trained with newer versions into an earlier v1.x version of the library does not work.
 
