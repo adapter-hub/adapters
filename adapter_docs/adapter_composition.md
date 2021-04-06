@@ -52,7 +52,7 @@ For backwards compatibility, you can still do this, although it is recommended t
 The `Fuse` block can be used to activate a fusion layer of adapters.
 _AdapterFusion_ is a non-destructive way to combine the knowledge of multiple pre-trained adapters on a new downstream task, proposed by [Pfeiffer et al., 2021](https://arxiv.org/pdf/2005.00247.pdf).
 In the following example, we activate the adapters `d`, `e` and `f` as well as the fusion layer that combines the outputs of all three.
-The fusion layer is added 
+The fusion layer is added beforehand using `model.add_fusion()` where we specify the names of the adapters which should be fused.
 
 ```python
 import transformers.adapters.composition as ac
