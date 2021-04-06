@@ -2401,6 +2401,8 @@ else:
             # Special handling for the version, which is a constant from this module and not imported in a submodule.
             if name == "__version__":
                 return __version__
+            elif name == "__hf_version__":
+                return __hf_version__
             return super().__getattr__(name)
 
     sys.modules[__name__] = _LazyModule(__name__, _import_structure)
