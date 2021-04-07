@@ -59,7 +59,7 @@ Furthermore, pre-defined architectures can be loaded from the Hub:
 # load "pfeiffer" config from Hub, but replace the reduction factor
 config = AdapterConfig.load("pfeiffer", reduction_factor=12)
 # add a new adapter with the loaded config
-model.add_adapter("dummy", AdapterType.text_task, config=config)
+model.add_adapter("dummy", config=config)
 ```
 
  You can also [add your own architecture to the Hub](contributing.html#add-a-new-adapter-architecture).
