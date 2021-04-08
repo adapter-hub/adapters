@@ -3,6 +3,7 @@
 # module, but to preserve other warnings. So, don't check this module at all.
 
 __version__ = "2.0.0a1"
+__hf_version__ = "4.4.2"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
 # default Python logging output behavior when present.
@@ -905,7 +906,6 @@ if is_torch_available():
         "DynamicAdapterFusionConfig",
         "HoulsbyConfig",
         "HoulsbyInvConfig",
-        "InvertibleAdapterConfig",
         "ModelAdaptersConfig",
         "PfeifferConfig",
         "PfeifferInvConfig",
@@ -2060,7 +2060,6 @@ if TYPE_CHECKING:
             DynamicAdapterFusionConfig,
             HoulsbyConfig,
             HoulsbyInvConfig,
-            InvertibleAdapterConfig,
             ModelAdaptersConfig,
             PfeifferConfig,
             PfeifferInvConfig,
@@ -2400,6 +2399,8 @@ else:
             # Special handling for the version, which is a constant from this module and not imported in a submodule.
             if name == "__version__":
                 return __version__
+            elif name == "__hf_version__":
+                return __hf_version__
             return super().__getattr__(name)
 
     sys.modules[__name__] = _LazyModule(__name__, _import_structure)
