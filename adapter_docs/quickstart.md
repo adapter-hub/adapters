@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Currently, *adapter-transformers* adds adapter components to all transformer models based on BERT and using PyTorch.
+Currently, *adapter-transformers* adds adapter components to the transformer models BERT, RoBERTa, XLM-RoBERTa, DistillBERT, GPT-2 and BART.
 For working with adapters, a couple of methods for creation (e.g. `add_adapter()`), loading (e.g. `load_adapter()`) and
 storing (e.g. `save_adapter()`) are added to the model classes. In the following, we will briefly go through some examples.
 
@@ -15,7 +15,7 @@ storing (e.g. `save_adapter()`) are added to the model classes. In the following
 
 ## Quick Tour: Using a pre-trained adapter for inference
 
-_We also have a Quickstart Colab notebook for adapter inference:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/website/blob/master/app/static/notebooks/Adapter_Quickstart_Inference.ipynb)
+_We also have a Quickstart Colab notebook for adapter inference:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/Adapter-Hub/adapter-transformers/blob/master/notebooks/02_Adapter_Inference.ipynb)
 
 The following example shows the usage of a basic pre-trained transformer model with adapters.
 Our goal here is to predict the sentiment of a given sentence.
@@ -82,6 +82,5 @@ Similar to how the weights of the full model are saved, the `save_adapter()` wil
 
 ## Quick Tour: Adapter training
 
-_We also have a Quickstart Colab notebook for adapter training:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/website/blob/master/app/static/notebooks/Adapter_Quickstart_Training.ipynb)
-
+_We also have a Quickstart Colab notebook for adapter training:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/Adapter-Hub/adapter-transformers/blob/master/notebooks/01_Adapter_Training.ipynb)
 For more examples on training different adapter setups, refer to the section on [Adapter Training](training.md).
