@@ -96,7 +96,7 @@ class AdapterHubTest(unittest.TestCase):
         return lambda p: glue_compute_metrics(task_name, np.argmax(p.predictions, axis=1), p.label_ids)
 
     def test_load_lang_adapter_from_hub(self):
-        for config in ["pfeiffer", "houlsby"]:
+        for config in ["pfeiffer+inv", "houlsby+inv"]:
             with self.subTest(config=config):
                 model = AutoModel.from_pretrained("bert-base-multilingual-cased")
                 config = AdapterConfig.load(config, non_linearity="gelu", reduction_factor=2)
