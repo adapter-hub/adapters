@@ -5,7 +5,7 @@ import os
 import sys
 from unittest.mock import patch
 
-from transformers.testing_utils import TestCasePlus, require_torch_non_multigpu_but_fix_me
+from transformers.testing_utils import TestCasePlus, require_torch_non_multi_gpu
 
 
 SRC_DIRS = [
@@ -24,7 +24,7 @@ sys.path.extend(SRC_DIRS)
 if SRC_DIRS is not None:
     import run_fusion_glue
     import run_glue_alt
-    import run_squad
+    import run_qa
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -33,7 +33,7 @@ logger = logging.getLogger()
 
 
 class AdapterExamplesTests(TestCasePlus):
-    @require_torch_non_multigpu_but_fix_me
+    @require_torch_non_multi_gpu
     def test_run_glue_adapters(self):
         stream_handler = logging.StreamHandler(sys.stdout)
         logger.addHandler(stream_handler)
@@ -64,7 +64,7 @@ class AdapterExamplesTests(TestCasePlus):
             for value in result.values():
                 self.assertGreaterEqual(value, 0.75)
 
-    @require_torch_non_multigpu_but_fix_me
+    @require_torch_non_multi_gpu
     def test_run_fusion_glue(self):
         stream_handler = logging.StreamHandler(sys.stdout)
         logger.addHandler(stream_handler)
@@ -92,33 +92,34 @@ class AdapterExamplesTests(TestCasePlus):
             for value in result.values():
                 self.assertGreaterEqual(value, 0.5)
 
-    @require_torch_non_multigpu_but_fix_me
+    @require_torch_non_multi_gpu
     def test_run_squad_adapters(self):
         stream_handler = logging.StreamHandler(sys.stdout)
         logger.addHandler(stream_handler)
 
         testargs = """
-            run_squad.py
-            --model_type=bert
-            --model_name_or_path=bert-base-uncased
-            --data_dir=./tests/fixtures/tests_samples/SQUAD
-            --model_name=bert-base-uncased
-            --output_dir=./tests/fixtures/tests_samples/temp_dir
-            --max_steps=20
-            --warmup_steps=2
+            run_qa.py
+            --model_name_or_path bert-base-uncased
+            --dataset_name squad 
             --do_train
             --do_eval
-            --version_2_with_negative
-            --learning_rate=2e-4
-            --per_gpu_train_batch_size=2
-            --per_gpu_eval_batch_size=1
+            --output_dir=./tests/fixtures/tests_samples/temp_dir
+            --per_device_train_batch_size=2
+            --per_device_eval_batch_size=1
+            --learning_rate 2e-4
+            --max_steps=20
+            --warmup_steps=2
+            --max_val_samples=14
+            --max_train_samples=14
             --overwrite_output_dir
             --seed=42
+            --max_seq_length 128
+            --doc_stride=0
             --train_adapter
             --adapter_config=houlsby
             --adapter_reduction_factor=8
         """.split()
         with patch.object(sys, "argv", testargs):
-            result = run_squad.main()
+            result = run_qa.main()
             self.assertGreaterEqual(result["f1"], 30)
-            self.assertGreaterEqual(result["exact"], 30)
+            self.assertGreaterEqual(result["exact_match"], 30)
