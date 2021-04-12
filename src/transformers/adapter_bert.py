@@ -116,6 +116,7 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0
+
         target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
         for _, v in self.encoder.layer._modules.items():
 
@@ -126,7 +127,6 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
             for _, layer_fusion in v.attention.output.adapter_fusion_layer.items():
                 if hasattr(layer_fusion, "value"):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
         return reg_loss
 
 
