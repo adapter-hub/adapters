@@ -35,7 +35,6 @@ from transformers import (
     WEIGHTS_NAME,
     AdamW,
     AdapterConfig,
-    AdapterType,
     AutoConfig,
     AutoModelForQuestionAnswering,
     AutoTokenizer,
@@ -871,7 +870,6 @@ def main():
             if args.load_adapter:
                 model.load_adapter(
                     args.load_adapter,
-                    AdapterType.text_task,
                     config=adapter_config,
                     load_as=task_name,
                 )
@@ -889,7 +887,6 @@ def main():
             # load the language adapter from Hub
             lang_adapter_name = model.load_adapter(
                 args.load_lang_adapter,
-                AdapterType.text_lang,
                 config=lang_adapter_config,
                 load_as=args.language,
             )
@@ -993,13 +990,11 @@ def main():
             if args.train_adapter:
                 model.load_adapter(
                     os.path.join(checkpoint, task_name) if args.do_train else args.load_task_adapter,
-                    AdapterType.text_task,
                     load_as=task_name,
                 )
                 if args.language:
                     lang_adapter_name = model.load_adapter(
                         os.path.join(checkpoint, args.language) if args.do_train else args.load_lang_adapter,
-                        AdapterType.text_lang,
                         load_as=args.language,
                     )
                 else:
