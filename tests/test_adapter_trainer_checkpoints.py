@@ -45,6 +45,7 @@ class TestAdapterTrainer(unittest.TestCase):
         )
 
         trainer.train()
+        # create second model that should resume the training of the first
         model_resume = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
         model_resume.add_adapter("adapter")
         model_resume.add_adapter("additional_adapter")
