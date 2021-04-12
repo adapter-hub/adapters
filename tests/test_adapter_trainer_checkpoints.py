@@ -18,7 +18,7 @@ class TestAdapterTrainer(unittest.TestCase):
 
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+            task_name="mrpc", data_dir="./fixtures/tests_samples/MRPC", overwrite_cache=True
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
@@ -73,7 +73,7 @@ class TestAdapterTrainer(unittest.TestCase):
 
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+            task_name="mrpc", data_dir="./fixtures/tests_samples/MRPC", overwrite_cache=True
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
