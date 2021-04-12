@@ -18,7 +18,7 @@ class TestAdapterTrainer(unittest.TestCase):
 
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+            task_name="mrpc", data_dir="./fixtures/tests_samples/MRPC", overwrite_cache=True
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
@@ -40,6 +40,8 @@ class TestAdapterTrainer(unittest.TestCase):
             model=model,
             args=training_args,
             train_dataset=train_dataset,
+            do_save_adapters=True,
+            do_save_full_model=False,
         )
 
         trainer.train()
@@ -58,7 +60,8 @@ class TestAdapterTrainer(unittest.TestCase):
 
         for ((k1, v1), (k2, v2)) in zip(trainer.model.state_dict().items(), trainer_resume.model.state_dict().items()):
             self.assertEqual(k1, k2)
-            self.assertTrue(torch.equal(v1, v2), k1)
+            if "adapter" in k1:
+                self.assertTrue(torch.equal(v1, v2), k1)
 
     def test_resume_training_with_fusion(self):
         def encode_batch(batch):
@@ -69,7 +72,7 @@ class TestAdapterTrainer(unittest.TestCase):
 
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+            task_name="mrpc", data_dir="./fixtures/tests_samples/MRPC", overwrite_cache=True
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
@@ -92,6 +95,9 @@ class TestAdapterTrainer(unittest.TestCase):
             model=model,
             args=training_args,
             train_dataset=train_dataset,
+            do_save_adapters=True,
+            do_save_full_model=False,
+            do_save_adapter_fusion=True,
         )
 
         trainer.train()
@@ -111,7 +117,8 @@ class TestAdapterTrainer(unittest.TestCase):
 
         for ((k1, v1), (k2, v2)) in zip(trainer.model.state_dict().items(), trainer_resume.model.state_dict().items()):
             self.assertEqual(k1, k2)
-            self.assertTrue(torch.equal(v1, v2), k1)
+            if "adapter" in k1:
+                self.assertTrue(torch.equal(v1, v2), k1)
 
 
 if __name__ == "__main__":

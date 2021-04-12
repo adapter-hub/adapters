@@ -248,8 +248,8 @@ class Trainer:
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
         do_save_full_model: bool = True,
-        do_save_adapters: bool = True,
-        do_save_adapter_fusion: bool = True,
+        do_save_adapters: bool = False,
+        do_save_adapter_fusion: bool = False,
         adapter_names: Optional[List[List[str]]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
     ):
@@ -878,7 +878,7 @@ class Trainer:
             else:
                 state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME))
                 self.model.load_state_dict(state_dict)
-
+        if resume_from_checkpoint is not None:
             for file_name in os.listdir(resume_from_checkpoint):
                 if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
                     if "," in file_name:
@@ -1625,9 +1625,9 @@ class Trainer:
                     state_dict = self.model.state_dict()
                 torch.save(state_dict, os.path.join(output_dir, WEIGHTS_NAME))
         else:
-            if self.do_save_adapters and hasattr(self.model.config, "adapters"):
+            if self.do_save_adapters:
                 self.model.save_all_adapters(output_dir)
-            if self.do_save_adapter_fusion and hasattr(self.model.config, "adapter_fusion"):
+            if self.do_save_adapter_fusion:
                 self.model.save_all_adapter_fusions(output_dir)
             if self.do_save_full_model:
                 self.model.save_pretrained(output_dir, state_dict=state_dict)
