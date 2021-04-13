@@ -930,7 +930,6 @@ class Trainer:
         if resume_from_checkpoint is not None:
             if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
 
-
                 logger.info(f"Loading model from {resume_from_checkpoint}).")
 
                 if self.deepspeed:
@@ -948,6 +947,9 @@ class Trainer:
                         self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
                     else:
                         self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
+                        adapter_reloaded = True
+            if not (os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)) or adapter_reloaded):
+                raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
 
         # If model was re-initialized, put it on the right device and update self.model_wrapped
         if model_reloaded:
