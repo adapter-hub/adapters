@@ -926,7 +926,7 @@ class Trainer:
             resume_from_checkpoint = get_last_checkpoint(self.args.output_dir)
             if resume_from_checkpoint is None:
                 raise ValueError(f"No valid checkpoint found in output directory ({self.args.output_dir})")
-
+        adapter_reloaded = False
         if resume_from_checkpoint is not None:
             if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
 
@@ -941,13 +941,15 @@ class Trainer:
                 else:
                     state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME))
                     self.model.load_state_dict(state_dict)
-            for file_name in os.listdir(resume_from_checkpoint):
-                if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
-                    if "," in file_name:
-                        self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
-                    else:
-                        self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
-                        adapter_reloaded = True
+            if os.path.isdir(resume_from_checkpoint):
+                for file_name in os.listdir(resume_from_checkpoint):
+                    if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
+                        if "," in file_name:
+                            self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
+                            adapter_reloaded = False
+                        else:
+                            self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
+                            adapter_reloaded = True
             if not (os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)) or adapter_reloaded):
                 raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
 
