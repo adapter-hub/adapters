@@ -946,7 +946,7 @@ class Trainer:
                     if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
                         if "," in file_name:
                             self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
-                            adapter_reloaded = False
+                            adapter_reloaded = True
                         else:
                             self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
                             adapter_reloaded = True
