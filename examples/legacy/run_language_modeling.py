@@ -36,7 +36,6 @@ from transformers import (
     MODEL_WITH_LM_HEAD_MAPPING,
     AdapterArguments,
     AdapterConfig,
-    AdapterType,
     AutoConfig,
     AutoModelWithLMHead,
     AutoTokenizer,
@@ -290,7 +289,6 @@ def main():
             if adapter_args.load_adapter:
                 model.load_adapter(
                     adapter_args.load_adapter,
-                    AdapterType.text_lang,
                     config=adapter_config,
                     load_as=language,
                 )

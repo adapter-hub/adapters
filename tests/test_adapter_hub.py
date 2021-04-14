@@ -42,7 +42,7 @@ class AdapterHubTest(unittest.TestCase):
         for sample in self.search_samples:
             with self.subTest(sample=sample):
                 config = ADAPTER_CONFIG_MAP[sample[1]] if sample[1] else None
-                found_entry = find_in_index(sample[0], None, None, config, index_file=SAMPLE_INDEX)
+                found_entry = find_in_index(sample[0], None, config, index_file=SAMPLE_INDEX)
                 self.assertEqual(sample[2], found_entry)
 
     def test_load_task_adapter_from_hub(self):
@@ -60,19 +60,15 @@ class AdapterHubTest(unittest.TestCase):
                 )
 
                 self.assertEqual(0, len(loading_info["missing_keys"]))
-
-                # TODO-V2 hotfix for unnecessary weights in old adapters
-                unexpected_keys = [k for k in loading_info["unexpected_keys"] if "adapter_attention" not in k]
-                self.assertEqual(0, len(unexpected_keys))
+                self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
                 self.assertIn(adapter_name, model.config.adapters.adapters)
                 self.assertNotIn(adapter_name, model.base_model.invertible_adapters)
 
                 # check if config is valid
-                # TODO-V2 temporarily commented out as loaded PfeifferConfig does not match local version
-                # expected_hash = get_adapter_config_hash(AdapterConfig.load(config))
-                # real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
-                # self.assertEqual(expected_hash, real_hash)
+                expected_hash = get_adapter_config_hash(AdapterConfig.load(config))
+                real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
+                self.assertEqual(expected_hash, real_hash)
 
                 # setup dataset
                 data_args = GlueDataTrainingArguments(
@@ -102,20 +98,17 @@ class AdapterHubTest(unittest.TestCase):
                 config = AdapterConfig.load(config, non_linearity="gelu", reduction_factor=2)
 
                 loading_info = {}
-                adapter_name = model.load_adapter("fi/wiki@ukp", "text_lang", config=config, loading_info=loading_info)
+                adapter_name = model.load_adapter("fi/wiki@ukp", config=config, loading_info=loading_info)
 
                 self.assertEqual(0, len(loading_info["missing_keys"]))
-
-                # TODO-V2 hotfix for unnecessary weights in old adapters
-                unexpected_keys = [k for k in loading_info["unexpected_keys"] if "adapter_attention" not in k]
-                self.assertEqual(0, len(unexpected_keys))
+                self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
                 # check if adapter & invertible adapter were added
                 self.assertIn(adapter_name, model.config.adapters.adapters)
                 self.assertIn(adapter_name, model.invertible_adapters)
 
                 # check if config is valid
-                # TODO-V2 hashes are not guaranteed to be equal because of invertible adapters
+                # TODO-AH hashes are not guaranteed to be equal because of legacy keys in lang adapter config
                 # expected_hash = get_adapter_config_hash(config)
                 # real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
                 # self.assertEqual(expected_hash, real_hash)

@@ -32,7 +32,6 @@ import transformers
 from filelock import FileLock
 from transformers import (
     AdapterConfig,
-    AdapterType,
     AutoConfig,
     AutoModelForSeq2SeqLM,
     AutoTokenizer,
@@ -385,7 +384,6 @@ def main():
             if adapter_args.load_adapter:
                 model.load_adapter(
                     adapter_args.load_adapter,
-                    AdapterType.text_task,
                     config=adapter_config,
                     load_as=task_name,
                 )
@@ -403,7 +401,6 @@ def main():
             # load the language adapter from Hub
             lang_adapter_name = model.load_adapter(
                 adapter_args.load_lang_adapter,
-                AdapterType.text_lang,
                 config=lang_adapter_config,
                 load_as=adapter_args.language,
             )

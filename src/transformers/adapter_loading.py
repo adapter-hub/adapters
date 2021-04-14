@@ -310,7 +310,13 @@ class AdapterLoader(WeightsLoader):
             if len(inv_adapter_keys) > 0:
                 del self.model.base_model.invertible_adapters[adapter_name]
                 missing_keys = [k for k in missing_keys if k not in inv_adapter_keys]
-                # TODO-V2 remove invertible_adapter from config
+                # remove invertible_adapter from config
+                adapter_config_name = self.model.config.adapters.adapters[adapter_name]
+                if adapter_config_name in self.model.config.adapters.config_map:
+                    adapter_config = self.model.config.adapters.config_map[adapter_config_name]
+                    self.model.config.adapters.config_map[adapter_config_name] = adapter_config.replace(
+                        inv_adapter=None, inv_adapter_reduction_factor=None
+                    )
         return missing_keys
 
     def rename_func(self, old_name, new_name):
@@ -388,7 +394,6 @@ class AdapterLoader(WeightsLoader):
         model_name = self.model.model_name or model_name
         resolved_folder = resolve_adapter_path(
             adapter_name_or_path,
-            self.adapter_type,
             model_name,
             adapter_config=requested_config,
             version=version,
