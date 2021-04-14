@@ -16,7 +16,7 @@ from .adapter_config import (
 )
 from .adapter_loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .adapter_modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
-from .adapter_utils import AdapterType, inherit_doc
+from .adapter_utils import inherit_doc
 
 
 logger = logging.getLogger(__name__)
@@ -313,7 +313,6 @@ class ModelAdaptersMixin(ABC):
     def load_adapter(
         self,
         adapter_name_or_path: str,
-        adapter_type: AdapterType = None,
         config: Union[dict, str] = None,
         version: str = None,
         model_name: str = None,
@@ -330,8 +329,6 @@ class ModelAdaptersMixin(ABC):
                 - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
                 - a path to a directory containing adapter weights saved using `model.saved_adapter()`
                 - a URL pointing to a zip folder containing a saved adapter module
-            adapter_type (AdapterType, optional): The type of adapter to be loaded. If not specified, text_task will be
-                    used for adapters loaded from the Hub.
             config (dict or str, optional): The requested configuration of the adapter.
                 If not specified, will be either: - the default adapter config for the requested adapter if specified -
                 the global default adapter config
@@ -343,16 +340,13 @@ class ModelAdaptersMixin(ABC):
         Returns:
             str: The name with which the adapter was added to the model.
         """
-        if AdapterType.has(adapter_type) or not adapter_type:
-            loader = AdapterLoader(self, adapter_type)
-            load_dir, load_name = loader.load(adapter_name_or_path, config, version, model_name, load_as, **kwargs)
-            # load additional custom weights
-            if custom_weights_loaders:
-                for weights_loader in custom_weights_loaders:
-                    weights_loader.load(load_dir, load_as=load_as, loading_info=kwargs.get("loading_info", None))
-            return load_name
-        else:
-            raise ValueError("Invalid adapter type '{}'.".format(adapter_type))
+        loader = AdapterLoader(self)
+        load_dir, load_name = loader.load(adapter_name_or_path, config, version, model_name, load_as, **kwargs)
+        # load additional custom weights
+        if custom_weights_loaders:
+            for weights_loader in custom_weights_loaders:
+                weights_loader.load(load_dir, load_as=load_as, loading_info=kwargs.get("loading_info", None))
+        return load_name
 
     def load_adapter_fusion(
         self,
@@ -480,8 +474,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         self.base_model.train_fusion(adapter_setup)
 
-    def _add_adapter(self, adapter_name, adapter_type):
-        self.base_model._add_adapter(adapter_name, adapter_type)
+    def _add_adapter(self, adapter_name):
+        self.base_model._add_adapter(adapter_name)
 
     def _add_fusion_layer(self, adapter_names):
         self.base_model._add_fusion_layer(adapter_names)
@@ -517,7 +511,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def load_adapter(
         self,
         adapter_name_or_path: str,
-        adapter_type: AdapterType = None,
         config: Union[dict, str] = None,
         version: str = None,
         model_name: str = None,
@@ -532,7 +525,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
         return super().load_adapter(
             adapter_name_or_path,
-            adapter_type=adapter_type,
             config=config,
             version=version,
             model_name=model_name,

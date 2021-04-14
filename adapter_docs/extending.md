@@ -34,7 +34,6 @@ You can also upload these weights to the Hub and then load them from there toget
 ```python
 model.load_adapter(
     "adapter_name",
-    adapter_type="text_task",
     custom_weights_loaders=[MyCustomWeightsLoader]
 )
 ```
