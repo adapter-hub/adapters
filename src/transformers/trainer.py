@@ -254,8 +254,8 @@ class Trainer:
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
         do_save_full_model: bool = True,
-        do_save_adapters: bool = True,
-        do_save_adapter_fusion: bool = True,
+        do_save_adapters: bool = False,
+        do_save_adapter_fusion: bool = False,
         adapter_names: Optional[List[List[str]]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
     ):
@@ -930,17 +930,6 @@ class Trainer:
         if resume_from_checkpoint is not None:
             if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
 
-<<<<<<< HEAD
-        if resume_from_checkpoint is not None and os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
-            logger.info(f"Loading model from {resume_from_checkpoint}).")
-
-            if isinstance(self.model, PreTrainedModel):
-                self.model = self.model.from_pretrained(resume_from_checkpoint)
-                model_reloaded = True
-            else:
-                state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME))
-                self.model.load_state_dict(state_dict)
-=======
                 logger.info(f"Loading model from {resume_from_checkpoint}).")
 
                 if self.deepspeed:
@@ -963,14 +952,6 @@ class Trainer:
                             adapter_reloaded = True
             if not (os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)) or adapter_reloaded):
                 raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
->>>>>>> v2
-
-            for file_name in os.listdir(resume_from_checkpoint):
-                if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
-                    if "," in file_name:
-                        self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
-                    else:
-                        self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
 
         # If model was re-initialized, put it on the right device and update self.model_wrapped
         if model_reloaded:
@@ -1736,9 +1717,9 @@ class Trainer:
                     state_dict = self.model.state_dict()
                 torch.save(state_dict, os.path.join(output_dir, WEIGHTS_NAME))
         else:
-            if self.do_save_adapters and hasattr(self.model.config, "adapters"):
+            if self.do_save_adapters:
                 self.model.save_all_adapters(output_dir)
-            if self.do_save_adapter_fusion and hasattr(self.model.config, "adapter_fusion"):
+            if self.do_save_adapter_fusion:
                 self.model.save_all_adapter_fusions(output_dir)
             if self.do_save_full_model:
                 self.model.save_pretrained(output_dir, state_dict=state_dict)
