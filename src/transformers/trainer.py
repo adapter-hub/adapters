@@ -926,22 +926,32 @@ class Trainer:
             resume_from_checkpoint = get_last_checkpoint(self.args.output_dir)
             if resume_from_checkpoint is None:
                 raise ValueError(f"No valid checkpoint found in output directory ({self.args.output_dir})")
-
+        adapter_reloaded = False
         if resume_from_checkpoint is not None:
-            if not os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
+            if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
+
+                logger.info(f"Loading model from {resume_from_checkpoint}).")
+
+                if self.deepspeed:
+                    # will be resumed in init_deepspeed
+                    pass
+                elif isinstance(self.model, PreTrainedModel):
+                    self.model = self.model.from_pretrained(resume_from_checkpoint)
+                    model_reloaded = True
+                else:
+                    state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME))
+                    self.model.load_state_dict(state_dict)
+            if os.path.isdir(resume_from_checkpoint):
+                for file_name in os.listdir(resume_from_checkpoint):
+                    if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
+                        if "," in file_name:
+                            self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
+                            adapter_reloaded = True
+                        else:
+                            self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
+                            adapter_reloaded = True
+            if not (os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)) or adapter_reloaded):
                 raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
-
-            logger.info(f"Loading model from {resume_from_checkpoint}).")
-
-            if self.deepspeed:
-                # will be resumed in init_deepspeed
-                pass
-            elif isinstance(self.model, PreTrainedModel):
-                self.model = self.model.from_pretrained(resume_from_checkpoint)
-                model_reloaded = True
-            else:
-                state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME))
-                self.model.load_state_dict(state_dict)
 
         # If model was re-initialized, put it on the right device and update self.model_wrapped
         if model_reloaded:
