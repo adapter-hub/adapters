@@ -46,7 +46,7 @@ model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
 ```
 
 Having loaded the model, we now add a pre-trained task adapter that is useful to our task from Adapter Hub.
-As we're doing sentiment classification, we use [an adapter trained on the SST-2 dataset](https://adapterhub.ml/adapters/ukp/bert-base-uncased-sst_pfeiffer/) in this case.
+As we're doing sentiment classification, we use [an adapter trained on the SST-2 dataset](https://adapterhub.ml/adapters/ukp/bert-base-uncased_sentiment_sst-2_pfeiffer/) in this case.
 The task prediction head loaded together with the adapter gives us a class label for our sentence:
 
 ```python
