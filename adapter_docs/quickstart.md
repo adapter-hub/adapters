@@ -15,7 +15,7 @@ storing (e.g. `save_adapter()`) are added to the model classes. In the following
 
 ## Quick Tour: Using a pre-trained adapter for inference
 
-_We also have a Quickstart Colab notebook for adapter inference:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github.com/Adapter-Hub/adapter-transformers/blob/master/notebooks/02_Adapter_Inference.ipynb)
+_We also have a Quickstart Colab notebook for adapter inference:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/02_Adapter_Inference.ipynb)
 
 The following example shows the usage of a basic pre-trained transformer model with adapters.
 Our goal here is to predict the sentiment of a given sentence.
@@ -82,5 +82,5 @@ Similar to how the weights of the full model are saved, the `save_adapter()` wil
 
 ## Quick Tour: Adapter training
 
-_We also have a Quickstart Colab notebook for adapter training:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github.com/Adapter-Hub/adapter-transformers/blob/master/notebooks/01_Adapter_Training.ipynb)
+_We also have a Quickstart Colab notebook for adapter training:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/01_Adapter_Training.ipynb)
 For more examples on training different adapter setups, refer to the section on [Adapter Training](training.md).
