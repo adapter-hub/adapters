@@ -46,6 +46,7 @@ DistilBertModelWithHeads
 
 .. autoclass:: transformers.DistilBertModelWithHeads
     :members:
+    :inherited-members: DistilBertPreTrainedModel
 
 
 DistilBertForMaskedLM

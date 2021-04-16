@@ -65,15 +65,20 @@ GPT2 specific outputs
 .. autoclass:: transformers.models.gpt2.modeling_gpt2.GPT2DoubleHeadsModelOutput
     :members:
 
-.. autoclass:: transformers.models.gpt2.modeling_tf_gpt2.TFGPT2DoubleHeadsModelOutput
-    :members:
-
 
 GPT2Model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: transformers.GPT2Model
     :members: forward
+
+
+GPT2ModelWithHeads
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.GPT2ModelWithHeads
+    :members:
+    :inherited-members: GPT2PreTrainedModel
 
 
 GPT2LMHeadModel
@@ -94,10 +99,4 @@ GPT2ForSequenceClassification
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: transformers.GPT2ForSequenceClassification
-    :members: forward
-
-GPT2ModelWithHeads
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.GPT2ModelWithHeads
     :members: forward
