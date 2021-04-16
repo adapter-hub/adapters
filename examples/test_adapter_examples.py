@@ -100,13 +100,14 @@ class AdapterExamplesTests(TestCasePlus):
         testargs = """
             run_qa.py
             --model_name_or_path bert-base-uncased
-            --dataset_name squad 
+            --train_file=./tests/fixtures/tests_samples/SQUAD/sample.json
+            --validation_file=./tests/fixtures/tests_samples/SQUAD/sample.json
             --do_train
             --do_eval
             --output_dir=./tests/fixtures/tests_samples/temp_dir
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
-            --learning_rate 2e-4
+            --learning_rate 2e-3
             --max_steps=20
             --warmup_steps=2
             --max_val_samples=14
