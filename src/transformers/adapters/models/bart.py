@@ -3,15 +3,15 @@ from typing import Union
 import torch
 from torch import nn
 
-from .adapter_composition import AdapterCompositionBlock, parse_composition
-from .adapter_heads import (
+from ..composition import AdapterCompositionBlock, parse_composition
+from ..heads import (
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
     MultiLabelClassificationHead,
     QuestionAnsweringHead,
 )
-from .adapter_layer import AdapterLayerBaseMixin
-from .adapter_model_mixin import ModelAdaptersMixin
+from ..layer import AdapterLayerBaseMixin
+from ..model_mixin import ModelAdaptersMixin
 
 
 class BartSelfAttentionAdaptersModule(AdapterLayerBaseMixin, nn.Module):

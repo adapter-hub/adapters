@@ -3,8 +3,8 @@ from typing import Union
 
 import torch
 
-from .adapter_composition import AdapterCompositionBlock, parse_composition
-from .adapter_heads import (
+from ..composition import AdapterCompositionBlock, parse_composition
+from ..heads import (
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
     MultiLabelClassificationHead,
@@ -12,8 +12,8 @@ from .adapter_heads import (
     QuestionAnsweringHead,
     TaggingHead,
 )
-from .adapter_layer import AdapterLayerBaseMixin
-from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..layer import AdapterLayerBaseMixin
+from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
 logger = logging.getLogger(__name__)

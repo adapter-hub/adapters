@@ -3,15 +3,15 @@ from typing import Union
 import torch
 from torch import nn
 
-from .adapter_bert import (
+from ..composition import AdapterCompositionBlock, parse_composition
+from ..heads import ClassificationHead, MultiLabelClassificationHead
+from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from .bert import (
     BertEncoderAdaptersMixin,
     BertOutputAdaptersMixin,
     BertSelfOutputAdaptersMixin,
     ModelWithFlexibleHeadsAdaptersMixin,
 )
-from .adapter_composition import AdapterCompositionBlock, parse_composition
-from .adapter_heads import ClassificationHead, MultiLabelClassificationHead
-from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
 class GPT2AttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):

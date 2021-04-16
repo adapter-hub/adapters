@@ -25,8 +25,8 @@ import torch.utils.checkpoint
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
-from ...adapter_gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin, GPT2ModelHeadsMixin
-from ...adapter_model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.models.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin, GPT2ModelHeadsMixin
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,

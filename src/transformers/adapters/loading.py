@@ -7,8 +7,8 @@ from typing import Callable, Mapping, Tuple
 
 import torch
 
-from .adapter_config import AdapterConfig, build_full_config
-from .adapter_utils import (
+from .configuration import AdapterConfig, build_full_config
+from .utils import (
     ADAPTERFUSION_CONFIG_NAME,
     ADAPTERFUSION_WEIGHTS_NAME,
     CONFIG_NAME,

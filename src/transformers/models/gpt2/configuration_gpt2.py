@@ -15,6 +15,7 @@
 # limitations under the License.
 """ OpenAI GPT-2 configuration """
 
+from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
@@ -30,7 +31,7 @@ GPT2_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class GPT2Config(PretrainedConfig):
+class GPT2Config(ModelConfigAdaptersMixin, PretrainedConfig):
     """
     This is the configuration class to store the configuration of a :class:`~transformers.GPT2Model` or a
     :class:`~transformers.TFGPT2Model`. It is used to instantiate a GPT-2 model according to the specified arguments,

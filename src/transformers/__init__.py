@@ -947,7 +947,7 @@ else:
 
 # Adapters
 if is_torch_available():
-    _import_structure["adapter_config"] = [
+    _import_structure["adapters.configuration"] = [
         "ADAPTER_CONFIG_MAP",
         "ADAPTERFUSION_CONFIG_MAP",
         "DEFAULT_ADAPTER_CONFIG",
@@ -962,26 +962,26 @@ if is_torch_available():
         "PfeifferInvConfig",
         "StaticAdapterFusionConfig",
     ]
-    _import_structure["adapter_heads"] = ["ModelWithFlexibleHeadsAdaptersMixin"]
-    _import_structure["adapter_layer"] = ["AdapterLayerBaseMixin"]
-    _import_structure["adapter_loading"] = [
+    _import_structure["adapters.heads"] = ["ModelWithFlexibleHeadsAdaptersMixin"]
+    _import_structure["adapters.layer"] = ["AdapterLayerBaseMixin"]
+    _import_structure["adapters.loading"] = [
         "AdapterFusionLoader",
         "AdapterLoader",
         "PredictionHeadLoader",
         "WeightsLoader",
         "WeightsLoaderHelper",
     ]
-    _import_structure["adapter_model_mixin"] = [
+    _import_structure["adapters.model_mixin"] = [
         "InvertibleAdaptersMixin",
         "ModelAdaptersMixin",
         "ModelConfigAdaptersMixin",
         "ModelWithHeadsAdaptersMixin",
     ]
-    _import_structure["adapter_training"] = [
+    _import_structure["adapters.training"] = [
         "AdapterArguments",
         "MultiLingAdapterArguments",
     ]
-    _import_structure["adapter_utils"] = [
+    _import_structure["adapters.utils"] = [
         "ADAPTER_CACHE",
         "ADAPTER_HUB_INDEX_FILE",
         "ADAPTER_HUB_URL",
@@ -2203,23 +2203,23 @@ if TYPE_CHECKING:
             PfeifferInvConfig,
             StaticAdapterFusionConfig,
         )
-        from .adapter_heads import ModelWithFlexibleHeadsAdaptersMixin
-        from .adapter_layer import AdapterLayerBaseMixin
-        from .adapter_loading import (
+        from .adapters.heads import ModelWithFlexibleHeadsAdaptersMixin
+        from .adapters.layer import AdapterLayerBaseMixin
+        from .adapters.loading import (
             AdapterFusionLoader,
             AdapterLoader,
             PredictionHeadLoader,
             WeightsLoader,
             WeightsLoaderHelper,
         )
-        from .adapter_model_mixin import (
+        from .adapters.model_mixin import (
             InvertibleAdaptersMixin,
             ModelAdaptersMixin,
             ModelConfigAdaptersMixin,
             ModelWithHeadsAdaptersMixin,
         )
-        from .adapter_training import AdapterArguments, MultiLingAdapterArguments
-        from .adapter_utils import (
+        from .adapters.training import AdapterArguments, MultiLingAdapterArguments
+        from .adapters.utils import (
             ADAPTER_CACHE,
             ADAPTER_HUB_INDEX_FILE,
             ADAPTER_HUB_URL,

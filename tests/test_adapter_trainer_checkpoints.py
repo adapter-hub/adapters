@@ -10,7 +10,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from transformers.adapter_composition import Fuse
+from transformers.adapters.composition import Fuse
 
 
 class TestAdapterTrainer(unittest.TestCase):
