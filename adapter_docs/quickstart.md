@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Currently, *adapter-transformers* adds adapter components to the transformer models BERT, RoBERTa, XLM-RoBERTa, DistillBERT, GPT-2 and BART.
+Currently, *adapter-transformers* adds adapter components to the PyTorch implementations of all transformer models listed in the *Supported Models* section.
 For working with adapters, a couple of methods for creation (e.g. `add_adapter()`), loading (e.g. `load_adapter()`) and
 storing (e.g. `save_adapter()`) are added to the model classes. In the following, we will briefly go through some examples.
 
