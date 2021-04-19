@@ -17,7 +17,7 @@ from transformers import (  # get_adapter_config_hash,
     get_adapter_config_hash,
     glue_compute_metrics,
 )
-from transformers.adapter_utils import find_in_index
+from transformers.adapters.utils import find_in_index
 from transformers.testing_utils import require_torch
 
 from .test_modeling_common import ids_tensor

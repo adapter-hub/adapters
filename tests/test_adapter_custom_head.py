@@ -5,7 +5,7 @@ import torch
 
 from tests.test_modeling_common import ids_tensor
 from transformers import AutoConfig, AutoModelWithHeads
-from transformers.adapter_heads import PredictionHead
+from transformers.adapters.heads import PredictionHead
 
 
 class CustomHead(PredictionHead):

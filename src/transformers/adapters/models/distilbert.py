@@ -3,14 +3,9 @@ from typing import Union
 import torch
 from torch import nn
 
-from .adapter_bert import (
-    BertEncoderAdaptersMixin,
-    BertModelHeadsMixin,
-    BertOutputAdaptersMixin,
-    BertSelfOutputAdaptersMixin,
-)
-from .adapter_composition import AdapterCompositionBlock, parse_composition
-from .adapter_model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..composition import AdapterCompositionBlock, parse_composition
+from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from .bert import BertEncoderAdaptersMixin, BertModelHeadsMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
 
 
 class DistilBertSelfAttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):

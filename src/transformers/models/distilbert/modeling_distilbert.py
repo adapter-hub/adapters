@@ -26,13 +26,13 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import gelu
-from ...adapter_distilbert import (
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.models.distilbert import (
     DistilBertModelAdaptersMixin,
     DistilBertModelHeadsMixin,
     DistilBertTransfomerBlockAdaptersMixin,
     DistilBertTransformerAdaptersMixin,
 )
-from ...adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,

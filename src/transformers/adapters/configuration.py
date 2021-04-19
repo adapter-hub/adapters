@@ -4,8 +4,8 @@ from collections.abc import Collection, Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass, replace
 from typing import List, Optional, Sequence, Union
 
-from .adapter_composition import AdapterCompositionBlock
-from .adapter_utils import get_adapter_config_hash, resolve_adapter_config
+from .composition import AdapterCompositionBlock
+from .utils import get_adapter_config_hash, resolve_adapter_config
 
 
 logger = logging.getLogger(__name__)

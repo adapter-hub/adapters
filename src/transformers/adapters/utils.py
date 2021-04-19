@@ -17,7 +17,7 @@ from zipfile import ZipFile, is_zipfile
 import requests
 from filelock import FileLock
 
-from .file_utils import get_from_cache, is_remote_url, torch_cache_home
+from ..file_utils import get_from_cache, is_remote_url, torch_cache_home
 
 
 logger = logging.getLogger(__name__)

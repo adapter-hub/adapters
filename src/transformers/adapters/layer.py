@@ -4,8 +4,8 @@ from typing import List, Union
 import torch
 from torch import nn
 
-from .adapter_composition import AdapterCompositionBlock, Fuse, Parallel, Split, Stack
-from .adapter_modeling import Adapter, BertFusion
+from .composition import AdapterCompositionBlock, Fuse, Parallel, Split, Stack
+from .modeling import Adapter, BertFusion
 
 
 class AdapterLayerBaseMixin(ABC):

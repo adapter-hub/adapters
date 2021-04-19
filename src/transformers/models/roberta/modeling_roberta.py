@@ -23,7 +23,8 @@ import torch.utils.checkpoint
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN, gelu
-from ...adapter_bert import (
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.models.bert import (
     BertEncoderAdaptersMixin,
     BertLayerAdaptersMixin,
     BertModelAdaptersMixin,
@@ -31,7 +32,6 @@ from ...adapter_bert import (
     BertOutputAdaptersMixin,
     BertSelfOutputAdaptersMixin,
 )
-from ...adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
