@@ -126,6 +126,13 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         for layer in self.base_model.h:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
+    def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
+        if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
+            repeats = [1] * len(attention_mask.shape)
+            repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
+            attention_mask = attention_mask.repeat(*repeats)
+        return attention_mask
+
     def _add_fusion_layer(self, adapter_names):
         for layer in self.base_model.h:
             layer.add_fusion_layer(adapter_names)

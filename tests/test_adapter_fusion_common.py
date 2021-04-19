@@ -7,8 +7,6 @@ import torch
 from transformers import ADAPTERFUSION_CONFIG_MAP, AdapterConfig, AutoModel, PfeifferConfig
 from transformers.testing_utils import require_torch
 
-from .test_modeling_common import ids_tensor
-
 
 @require_torch
 class AdapterFusionModelTestMixin:
@@ -36,7 +34,7 @@ class AdapterFusionModelTestMixin:
                 model.eval()
 
                 # check forward pass
-                input_ids = ids_tensor((1, 128), 1000)
+                input_ids = self.get_input_samples((1, 128), config=model.config)
                 input_data = {"input_ids": input_ids}
                 model.set_active_adapters([[name1, name2]])
                 adapter_output = model(**input_data)
@@ -83,7 +81,7 @@ class AdapterFusionModelTestMixin:
                 self.assertTrue(model1.config.adapter_fusion_models == model2.config.adapter_fusion_models)
 
                 # check equal output
-                in_data = ids_tensor((1, 128), 1000)
+                in_data = self.get_input_samples((1, 128), config=model1.config)
                 model1.set_active_adapters([[name1, name2]])
                 model2.set_active_adapters([[name1, name2]])
                 output1 = model1(in_data)
@@ -111,7 +109,7 @@ class AdapterFusionModelTestMixin:
         self.assertTrue(model1.config.adapter_fusion_models == model2.config.adapter_fusion_models)
 
         # check equal output
-        in_data = ids_tensor((1, 128), 1000)
+        in_data = self.get_input_samples((1, 128), config=model1.config)
         model1.set_active_adapters([[name1, name2]])
         model2.set_active_adapters([[name1, name2]])
         output1 = model1(in_data)

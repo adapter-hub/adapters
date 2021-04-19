@@ -92,7 +92,7 @@ ALLOWED_NESTINGS = {
 # Some composition blocks might not be supported by all models.
 # Add a whitelist of models for those here.
 SUPPORTED_MODELS = {
-    Parallel: ["bert", "roberta", "distilbert"],
+    Parallel: ["bert", "roberta", "distilbert", "bart", "mbart", "gpt2"],
 }
 
 

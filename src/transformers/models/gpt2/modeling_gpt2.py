@@ -625,8 +625,7 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         output_hidden_states=None,
         return_dict=None,
     ):
-        if not self.active_adapters and self.has_adapters():
-            logger.warning("There are adapters available but none are passed to model.forward")
+        self.pre_transformer_forward()
 
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
@@ -770,6 +769,11 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
                 )
 
             hidden_states = outputs[0]
+            attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
+            # HACK: if output_shape is identical to hidden states shape except for batch size, update output_shape
+            if output_shape[1:] == hidden_states.size()[1:]:
+                output_shape = hidden_states.size()
+
             if use_cache is True:
                 presents = presents + (outputs[1],)
 
@@ -1346,10 +1350,7 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
             return_dict=return_dict,
         )
 
-        if input_ids is not None:
-            batch_size, _ = input_ids.shape[:2]
-        else:
-            batch_size, _ = inputs_embeds.shape[:2]
+        batch_size = outputs[0].shape[0]
 
         assert (
             self.config.pad_token_id is not None or batch_size == 1
@@ -1359,6 +1360,7 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
         else:
             if input_ids is not None:
                 sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
+                sequence_lengths = self.transformer.adjust_attention_mask_for_parallel(outputs[0], sequence_lengths)
             else:
                 sequence_lengths = -1
                 logger.warning(
