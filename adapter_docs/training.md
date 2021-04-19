@@ -42,7 +42,7 @@ if task_name not in model.config.adapters:
         config=adapter_config
     )
 # Enable adapter training
-model.train_adapter([task_name])
+model.train_adapter(task_name)
 ```
 
 ```eval_rst
@@ -53,7 +53,9 @@ model.train_adapter([task_name])
     ``freeze_model(False)``.
 ```
 
-Besides this, we only have to make sure that the task adapter and prediction head are activated so that they are used in every forward pass. There are two ways to specify the adapter modules to be used. Either we can pass the parameter `adapter_names` in every call to `model.forward()`, or we can set the adapters to be used by default beforehand:
+Besides this, we only have to make sure that the task adapter and prediction head are activated so that they are used in every forward pass. To specify the adapter modules to use, we can use the `model.set_active_adapters()` 
+method and pass the adapter setup. If you only use a single adapter, you can simply pass the name of the adapter. For more information
+on complex setups checkout the [Composition Blocks](https://docs.adapterhub.ml/adapter_composition.html).
 
 ```python
 model.set_active_adapters(task_name)
@@ -116,7 +118,7 @@ if language not in model.config.adapters:
     )
     model.add_adapter(language, config=adapter_config)
 # Freeze all model weights except of those of this adapter & use this adapter in every forward pass
-model.train_adapter([language])
+model.train_adapter(language)
 ```
 
 Training a language adapter on BERT then may look like the following:
