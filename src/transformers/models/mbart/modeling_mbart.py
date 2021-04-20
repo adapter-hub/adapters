@@ -25,14 +25,14 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
-from ...adapter_bart import (
+from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ...adapters.models.bart import (
     BartDecoderLayerAdaptersMixin,
     BartEncoderDecoderAdaptersMixin,
     BartEncoderLayerAdaptersMixin,
     BartModelAdaptersMixin,
     BartModelHeadsMixin,
 )
-from ...adapter_model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,

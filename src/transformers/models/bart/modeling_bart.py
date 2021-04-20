@@ -26,14 +26,14 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
-from ...adapter_bart import (
+from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ...adapters.models.bart import (
     BartDecoderLayerAdaptersMixin,
     BartEncoderDecoderAdaptersMixin,
     BartEncoderLayerAdaptersMixin,
     BartModelAdaptersMixin,
     BartModelHeadsMixin,
 )
-from ...adapter_model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -489,6 +489,7 @@ class BartClassificationHead(nn.Module):
 class BartPretrainedModel(PreTrainedModel):
     config_class = BartConfig
     base_model_prefix = "model"
+    _keys_to_ignore_on_load_unexpected = [r"encoder\.version", r"decoder\.version"]
 
     def _init_weights(self, module):
         std = self.config.init_std
@@ -1301,12 +1302,7 @@ class BartModelWithHeads(BartModelHeadsMixin, BartPretrainedModel):
 )
 class BartForConditionalGeneration(ModelWithHeadsAdaptersMixin, BartPretrainedModel):
     base_model_prefix = "model"
-    _keys_to_ignore_on_load_missing = [
-        r"final_logits_bias",
-        r"encoder\.version",
-        r"decoder\.version",
-        r"lm_head\.weight",
-    ]
+    _keys_to_ignore_on_load_missing = [r"final_logits_bias", r"lm_head\.weight"]
 
     def __init__(self, config: BartConfig):
         super().__init__(config)

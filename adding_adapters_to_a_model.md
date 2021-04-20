@@ -21,10 +21,12 @@ This is the central module to implement.
 
 - Add a new `adapter_<model_type>.py` module for your architecture (or reuse an existing if possible).
     - There usually should be one mixin that derives from `AdapterLayerBaseMixin` or has it as a child module.
-    - The mixin for the whole base model class (e.g. `BertModel`) should derive from `ModelAdaptersMixin` and (if possible) `InvertibleAdaptersMixin`.
+    - The mixin for the whole base model class (e.g. `BertModel`) should derive from `ModelAdaptersMixin` and (if possible) `InvertibleAdaptersMixin`. Make sure to implement the abstract methods these mixins might define.
     - Have a look at existing examples, e.g. `adapter_distilbert.py`, `adapter_bert.py`.
 - Implement the mixins on the modeling classes (`modeling_<model_type>.py`).
     - Make sure the calls to `adapters_forward()` are added in the right places.
+    - The base model class (e.g. `BertModel`) should implement the mixin derived from `ModelAdaptersMixin` you created previously.
+    - The model classes with heads (e.g. `BertForSequenceClassification`) should directly implement `ModelWithHeadsAdaptersMixin`.
 - Add the mixin for config classes, `ModelConfigAdaptersMixin`, to the model configuration class in `configuration_<model_type>`.
     - There are some naming differences on the config attributes of different model architectures. The adapter implementation requires some additional attributes with a specific name to be available. These currently are `hidden_dropout_prob` and `attention_probs_dropout_prob` as in the `BertConfig` class.
 

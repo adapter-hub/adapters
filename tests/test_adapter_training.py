@@ -11,7 +11,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from transformers.adapter_composition import Fuse
+from transformers.adapters.composition import Fuse
 from transformers.testing_utils import require_torch
 
 

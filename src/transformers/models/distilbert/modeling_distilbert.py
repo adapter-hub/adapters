@@ -26,13 +26,13 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import gelu
-from ...adapter_distilbert import (
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.models.distilbert import (
     DistilBertModelAdaptersMixin,
     DistilBertModelHeadsMixin,
     DistilBertTransfomerBlockAdaptersMixin,
     DistilBertTransformerAdaptersMixin,
 )
-from ...adapter_model_mixin import ModelWithHeadsAdaptersMixin
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -166,7 +166,7 @@ class MultiHeadSelfAttention(nn.Module):
         """
         bs, q_length, dim = query.size()
         k_length = key.size(1)
-        # assert dim == self.dim, 'Dimensions do not match: %s input vs %s configured' % (dim, self.dim)
+        # assert dim == self.dim, f'Dimensions do not match: {dim} input vs {self.dim} configured'
         # assert key.size() == value.size()
 
         dim_per_head = self.dim // self.n_heads
@@ -215,9 +215,7 @@ class FFN(nn.Module):
         self.seq_len_dim = 1
         self.lin1 = nn.Linear(in_features=config.dim, out_features=config.hidden_dim)
         self.lin2 = nn.Linear(in_features=config.hidden_dim, out_features=config.dim)
-        assert config.activation in ["relu", "gelu"], "activation ({}) must be in ['relu', 'gelu']".format(
-            config.activation
-        )
+        assert config.activation in ["relu", "gelu"], f"activation ({config.activation}) must be in ['relu', 'gelu']"
         self.activation = gelu if config.activation == "gelu" else nn.ReLU()
 
     def forward(self, input):

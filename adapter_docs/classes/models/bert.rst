@@ -36,6 +36,7 @@ BertModelWithHeads
 
 .. autoclass:: transformers.BertModelWithHeads
     :members:
+    :inherited-members: BertPreTrainedModel
 
 
 BertForPreTraining

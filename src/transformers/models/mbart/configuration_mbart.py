@@ -14,7 +14,7 @@
 # limitations under the License.
 """ MBART model configuration """
 
-from ...adapter_model_mixin import ModelConfigAdaptersMixin
+from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
