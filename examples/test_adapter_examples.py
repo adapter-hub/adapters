@@ -160,15 +160,3 @@ class AdapterExamplesTests(TestCasePlus):
                    "--train_adapter".split()
         with patch.object(sys, "argv", testargs):
             run_mlm.main()
-
-    @require_torch_non_multi_gpu
-    def test_generation(self):
-        stream_handler = logging.StreamHandler(sys.stdout)
-        logger.addHandler(stream_handler)
-        testargs = "run_generation.py " \
-                   "--model_type gpt2 " \
-                   "--model_name_or_path gpt2 " \
-                   "--prompt Test " \
-                   "--adapter_path ./test_adapter/adapter_poem".split()
-        with patch.object(sys, "argv", testargs):
-            run_generation.main()
