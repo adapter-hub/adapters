@@ -40,7 +40,7 @@ from transformers import (
     default_data_collator,
     set_seed, AdapterArguments, AdapterType, AdapterConfig, MultiLingAdapterArguments,
 )
-from transformers.adapter_composition import Fuse
+from transformers.adapters.composition import Fuse
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 from transformers.utils import check_min_version
 from utils_qa import postprocess_qa_predictions

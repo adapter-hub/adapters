@@ -930,17 +930,6 @@ class Trainer:
         if resume_from_checkpoint is not None:
             if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
 
-<<<<<<< HEAD
-        if resume_from_checkpoint is not None and os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
-            logger.info(f"Loading model from {resume_from_checkpoint}).")
-
-            if isinstance(self.model, PreTrainedModel):
-                self.model = self.model.from_pretrained(resume_from_checkpoint)
-                model_reloaded = True
-            else:
-                state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME))
-                self.model.load_state_dict(state_dict)
-=======
                 logger.info(f"Loading model from {resume_from_checkpoint}).")
 
                 if self.deepspeed:
@@ -963,7 +952,6 @@ class Trainer:
                             adapter_reloaded = True
             if not (os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)) or adapter_reloaded):
                 raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
->>>>>>> v2
 
             for file_name in os.listdir(resume_from_checkpoint):
                 if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):

@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 from transformers.testing_utils import TestCasePlus, require_torch_non_multi_gpu
 
-
 SRC_DIRS = [
     os.path.join(os.path.dirname(__file__), dirname)
     for dirname in [
@@ -20,12 +19,13 @@ SRC_DIRS = [
 ]
 sys.path.extend(SRC_DIRS)
 
-
 if SRC_DIRS is not None:
     import run_fusion_glue
     import run_glue_alt
     import run_qa
-
+    import run_clm
+    import run_mlm
+    import run_generation
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -124,3 +124,43 @@ class AdapterExamplesTests(TestCasePlus):
             result = run_qa.main()
             self.assertGreaterEqual(result["f1"], 30)
             self.assertGreaterEqual(result["exact_match"], 30)
+
+    @require_torch_non_multi_gpu
+    def test_clm(self):
+        stream_handler = logging.StreamHandler(sys.stdout)
+        logger.addHandler(stream_handler)
+        testargs = "run_clm.py " \
+                   "--model_name_or_path gpt2 " \
+                   "--dataset_name wikitext " \
+                   "--dataset_config_name wikitext-2-raw-v1 " \
+                   "--do_train --do_eval " \
+                   "--output_dir /tmp/test-clm " \
+                   "--max_steps=10 " \
+                   "--train_adapter".split()
+        with patch.object(sys, "argv", testargs):
+            reults = run_clm.main()
+
+    def test_mlm(self):
+        stream_handler = logging.StreamHandler(sys.stdout)
+        logger.addHandler(stream_handler)
+        testargs = "run_mlm.py " \
+                   "--model_name_or_path bert-base-uncased " \
+                   "--dataset_name wikitext " \
+                   "--dataset_config_name wikitext-2-raw-v1 " \
+                   "--do_train --do_eval " \
+                   "--output_dir /tmp/test-clm " \
+                   "--max_steps=10 " \
+                   "--train_adapter".split()
+        with patch.object(sys, "argv", testargs):
+            results = run_mlm.main()
+
+    @require_torch_non_multi_gpu
+    def test_generation(self):
+        stream_handler = logging.StreamHandler(sys.stdout)
+        logger.addHandler(stream_handler)
+        testargs = "run_generation.py " \
+                   "--model_type gpt2" \
+                   "--model_name_or_path gpt2 " \
+                   "--adapter_path /test_adapter/poem".split()
+        with patch.object(sys, "argv", testargs):
+            run_generation.main()
