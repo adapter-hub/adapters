@@ -146,24 +146,24 @@ def main():
 
     # ~~~~~ Here comes the interesting part of setting up AdapterFusion training ~~~~~
 
-    from transformers.adapter_config import PfeifferConfig
+    from transformers.adapters.configuration import PfeifferConfig
 
     # First, load the pre-trained adapters we want to fuse from Hub
-    model.load_adapter("sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/multinli@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/rte@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sts/mrpc@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sts/qqp@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/cosmosqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/csqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/hellaswag@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/siqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/winogrande@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/cb@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/sick@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/scitail@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("qa/boolq@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sentiment/imdb@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sentiment/sst-2@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/multinli@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/rte@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sts/mrpc@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sts/qqp@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/cosmosqa@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/csqa@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/hellaswag@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/siqa@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/winogrande@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/cb@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/sick@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/scitail@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("qa/boolq@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sentiment/imdb@ukp", config=PfeifferConfig(), with_head=False)
 
     adapter_setup = [
         [
