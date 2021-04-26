@@ -23,7 +23,6 @@ sys.path.extend(SRC_DIRS)
 if SRC_DIRS is not None:
     import run_clm
     import run_fusion_glue
-    import run_generation
     import run_glue_alt
     import run_mlm
     import run_qa
