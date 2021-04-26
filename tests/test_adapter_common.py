@@ -1,4 +1,5 @@
 import copy
+import random
 import tempfile
 
 import torch
@@ -12,9 +13,7 @@ from transformers import (
     PfeifferConfig,
     PfeifferInvConfig,
 )
-from transformers.testing_utils import require_torch
-
-from .test_modeling_common import ids_tensor
+from transformers.testing_utils import require_torch, torch_device
 
 
 def create_twin_models(model_class, config_creator=None):
@@ -33,6 +32,22 @@ def create_twin_models(model_class, config_creator=None):
 
 @require_torch
 class AdapterModelTestMixin:
+    def get_input_samples(self, shape, vocab_size=5000, config=None):
+        total_dims = 1
+        for dim in shape:
+            total_dims *= dim
+
+        values = []
+        for _ in range(total_dims):
+            values.append(random.randint(0, vocab_size - 1))
+        input_ids = torch.tensor(data=values, dtype=torch.long, device=torch_device).view(shape).contiguous()
+        # this is needed e.g. for BART
+        if config and config.eos_token_id is not None:
+            input_ids[input_ids == config.eos_token_id] = random.randint(0, config.eos_token_id - 1)
+            input_ids[:, -1] = config.eos_token_id
+
+        return input_ids
+
     def test_add_adapter(self):
         model = AutoModel.from_config(self.config())
         model.eval()
@@ -48,7 +63,7 @@ class AdapterModelTestMixin:
                 self.assertEqual(adapter_config, model.config.adapters.get(name))
 
                 # check forward pass
-                input_ids = ids_tensor((1, 128), 1000)
+                input_ids = self.get_input_samples((1, 128), config=model.config)
                 input_data = {"input_ids": input_ids}
                 adapter_output = model(**input_data)
                 model.set_active_adapters(None)
@@ -79,7 +94,7 @@ class AdapterModelTestMixin:
                     self.assertTrue(param.requires_grad)
 
                 # check forward pass
-                input_ids = ids_tensor((1, 128), 1000)
+                input_ids = self.get_input_samples((1, 128), config=model.config)
                 input_data = {"input_ids": input_ids}
                 adapter_output = model(**input_data)
                 # make sure the output is different without invertible adapter
@@ -104,9 +119,9 @@ class AdapterModelTestMixin:
         self.assertTrue(name in model2.config.adapters)
 
         # check equal output
-        in_data = ids_tensor((1, 128), 1000)
-        output1 = model1(in_data)
-        output2 = model2(in_data)
+        input_ids = self.get_input_samples((1, 128), config=model1.config)
+        output1 = model1(input_ids)
+        output2 = model2(input_ids)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
@@ -127,9 +142,9 @@ class AdapterModelTestMixin:
         self.assertTrue(name in model2.config.adapters)
 
         # check equal output
-        in_data = ids_tensor((1, 128), 1000)
-        output1 = model1(in_data)
-        output2 = model2(in_data)
+        input_ids = self.get_input_samples((1, 128), config=model1.config)
+        output1 = model1(input_ids)
+        output2 = model2(input_ids)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
@@ -162,12 +177,9 @@ class AdapterModelTestMixin:
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
         # check equal output
-        in_data = ids_tensor((1, 128), 1000)
-        # this is needed e.g. for BART
-        if model_with_head.config.eos_token_id is not None:
-            in_data[:, -1] = model_with_head.config.eos_token_id
-        output1 = model_with_head(in_data)
-        output2 = model_base(in_data)
+        input_ids = self.get_input_samples((1, 128), config=model_with_head.config)
+        output1 = model_with_head(input_ids)
+        output2 = model_base(input_ids)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
@@ -189,11 +201,8 @@ class AdapterModelTestMixin:
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
         # check equal output
-        in_data = ids_tensor((1, 128), 1000)
-        # this is needed e.g. for BART
-        if model_with_head.config.eos_token_id is not None:
-            in_data[:, -1] = model_with_head.config.eos_token_id
-        output1 = model_with_head(in_data)
-        output2 = model_base(in_data)
+        input_ids = self.get_input_samples((1, 128), config=model_with_head.config)
+        output1 = model_with_head(input_ids)
+        output2 = model_base(input_ids)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))

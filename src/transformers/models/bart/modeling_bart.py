@@ -814,6 +814,7 @@ class BartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, Bart
                     )
 
                 hidden_states = layer_outputs[0]
+                attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
 
             if output_attentions:
                 all_attentions = all_attentions + (layer_outputs[1],)
@@ -1065,6 +1066,7 @@ class BartDecoder(BartEncoderDecoderAdaptersMixin, BartPretrainedModel):
                     use_cache=use_cache,
                 )
             hidden_states = layer_outputs[0]
+            attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
 
             if use_cache:
                 next_decoder_cache += (layer_outputs[3 if output_attentions else 1],)
@@ -1165,9 +1167,7 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        # some warnings if we don't use available adapters
-        if not self.active_adapters and self.has_adapters():
-            logger.warning("There are adapters available but none are passed to model.forward")
+        self.pre_transformer_forward()
 
         if encoder_outputs is None:
             encoder_outputs = self.encoder(
@@ -1187,6 +1187,10 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
                 attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
             )
 
+        # inflate all decoder inputs according to encoder output
+        decoder_input_ids, decoder_attention_mask, attention_mask = self.adjust_tensors_for_parallel(
+            encoder_outputs[0], decoder_input_ids, decoder_attention_mask, attention_mask
+        )
         # decoder outputs consists of (dec_features, past_key_value, dec_hidden, dec_attn)
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
@@ -1281,6 +1285,7 @@ class BartModelWithHeads(BartModelHeadsMixin, BartPretrainedModel):
         # sequence classification based on last token in sequence
         x = outputs[0]  # last hidden state
         eos_mask = input_ids.eq(self.config.eos_token_id)
+        eos_mask = self.model.encoder.adjust_attention_mask_for_parallel(x, eos_mask)
         if len(torch.unique(eos_mask.sum(1))) > 1:
             raise ValueError("All examples must have the same number of <eos> tokens.")
         cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
@@ -1529,6 +1534,7 @@ class BartForSequenceClassification(ModelWithHeadsAdaptersMixin, BartPretrainedM
         hidden_states = outputs[0]  # last hidden state
 
         eos_mask = input_ids.eq(self.config.eos_token_id)
+        eos_mask = self.model.encoder.adjust_attention_mask_for_parallel(hidden_states, eos_mask)
 
         if len(torch.unique(eos_mask.sum(1))) > 1:
             raise ValueError("All examples must have the same number of <eos> tokens.")
@@ -1691,9 +1697,7 @@ class BartDecoderWrapper(BartModelAdaptersMixin, BartPretrainedModel):
         self._init_adapter_modules()
 
     def forward(self, *args, **kwargs):
-        # some warnings if we don't use available adapters
-        if not self.active_adapters and self.has_adapters():
-            logger.warning("There are adapters available but none are passed to model.forward")
+        self.pre_transformer_forward()
 
         return self.decoder(*args, **kwargs)
 

@@ -6,7 +6,6 @@ from transformers import MODEL_WITH_HEADS_MAPPING, AutoModelWithHeads
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_adapter_common import create_twin_models
-from .test_modeling_common import ids_tensor
 
 
 @require_torch
@@ -33,10 +32,7 @@ class PredictionHeadModelTestMixin:
         # make a forward pass
         model.active_head = head_name
         input_shape = input_shape or (self.batch_size, self.seq_length)
-        in_data = {"input_ids": ids_tensor(input_shape, 1000)}
-        # this is needed e.g. for BART
-        if model.config.eos_token_id is not None:
-            in_data["input_ids"][:, -1] = model.config.eos_token_id
+        in_data = {"input_ids": self.get_input_samples(input_shape, config=model.config)}
         if label_dict:
             for k, v in label_dict.items():
                 in_data[k] = v
@@ -108,11 +104,7 @@ class PredictionHeadModelTestMixin:
             model2.load_adapter(temp_dir)
             model2.set_active_adapters(name)
         # check equal output
-        in_data = ids_tensor((1, 128), 1000)
-        # this is needed e.g. for BART
-        if model1.config.eos_token_id is not None:
-            in_data[:, -1] = model1.config.eos_token_id
-
+        in_data = self.get_input_samples((1, 128), config=model1.config)
         output1 = model1(in_data)
         output2 = model2(in_data)
         self.assertEqual(len(output1), len(output2))
@@ -134,11 +126,7 @@ class PredictionHeadModelTestMixin:
             model2.set_active_adapters("new_name")
 
         # check equal output
-        in_data = ids_tensor((1, 128), 1000)
-        # this is needed e.g. for BART
-        if model1.config.eos_token_id is not None:
-            in_data[:, -1] = model1.config.eos_token_id
-
+        in_data = self.get_input_samples((1, 128), config=model1.config)
         output1 = model1(in_data)
         output2 = model2(in_data)
         self.assertEqual(len(output1), len(output2))

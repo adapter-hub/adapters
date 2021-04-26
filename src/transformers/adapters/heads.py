@@ -527,7 +527,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                     head_inputs = tuple()
                     for base_output in all_outputs:
                         head_inputs = head_inputs + (base_output[i * orig_batch_size : (i + 1) * orig_batch_size],)
-                head_output = head_module(head_inputs, cls_output, attention_mask, return_dict, **kwargs)
+                if cls_output is not None:
+                    head_cls_input = cls_output[i * orig_batch_size : (i + 1) * orig_batch_size]
+                else:
+                    head_cls_input = None
+                head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
             return head_outputs
         elif len(used_heads) > 1:

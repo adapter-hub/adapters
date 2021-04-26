@@ -78,6 +78,7 @@ class BartAdapterTest(
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
+    ParallelAdapterInferenceTestMixin,
     unittest.TestCase,
 ):
     config_class = BartConfig
@@ -99,6 +100,7 @@ class MBartAdapterTest(
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
+    ParallelAdapterInferenceTestMixin,
     unittest.TestCase,
 ):
     config_class = MBartConfig
@@ -120,6 +122,7 @@ class GPT2AdapterTest(
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
+    ParallelAdapterInferenceTestMixin,
     unittest.TestCase,
 ):
     config_class = GPT2Config

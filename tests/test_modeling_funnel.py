@@ -41,7 +41,7 @@ if is_torch_available():
 
 
 class FunnelModelTester:
-    """You can also import this e.g, from .test_modeling_funnel import FunnelModelTester"""
+    """You can also import this e.g, from .test_modeling_funnel import FunnelModelTester """
 
     def __init__(
         self,
