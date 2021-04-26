@@ -137,6 +137,13 @@ class BartEncoderDecoderAdaptersMixin:
         for layer in self.layers:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
+    def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
+        if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
+            repeats = [1] * len(attention_mask.shape)
+            repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
+            attention_mask = attention_mask.repeat(*repeats)
+        return attention_mask
+
 
 class BartModelAdaptersMixin(ModelAdaptersMixin):
     """Adds adapters to the BartModel class."""
@@ -214,6 +221,18 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
         return reg_loss
+
+    def adjust_tensors_for_parallel(self, hidden_states, *tensors):
+        outputs = []
+        for tensor in tensors:
+            if tensor is not None and hidden_states.shape[0] != tensor.shape[0]:
+                repeats = [1] * len(tensor.shape)
+                repeats[0] = hidden_states.shape[0] // tensor.shape[0]
+                new_tensor = tensor.repeat(*repeats)
+                outputs.append(new_tensor)
+            else:
+                outputs.append(tensor)
+        return tuple(outputs)
 
 
 class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
