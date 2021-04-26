@@ -238,7 +238,7 @@ class AdapterExamplesTests(TestCasePlus):
     #         "--prompt=Hello",
     #         "--length=10",
     #         "--seed=42",
-    #         "--adapter_path=./test_adapter/adapter_poem",
+    #         "--load_adapter=./test_adapter/adapter_poem",
     #     ]
     #
     #     if is_cuda_and_apex_available():
