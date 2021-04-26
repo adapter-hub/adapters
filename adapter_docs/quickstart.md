@@ -3,7 +3,6 @@
 ## Introduction
 
 Currently, *adapter-transformers* adds adapter components to the PyTorch implementations of all transformer models listed in the *Supported Models* section.
-
 For working with adapters, a couple of methods for creation (e.g. `add_adapter()`), loading (e.g. `load_adapter()`) and
 storing (e.g. `save_adapter()`) are added to the model classes. In the following, we will briefly go through some examples.
 
@@ -16,9 +15,7 @@ storing (e.g. `save_adapter()`) are added to the model classes. In the following
 
 ## Quick Tour: Using a pre-trained adapter for inference
 
-
 _We also have a Quickstart Colab notebook for adapter inference:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/02_Adapter_Inference.ipynb)
-
 
 The following example shows the usage of a basic pre-trained transformer model with adapters.
 Our goal here is to predict the sentiment of a given sentence.
