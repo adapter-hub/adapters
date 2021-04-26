@@ -228,7 +228,7 @@ class AdapterExamplesTests(TestCasePlus):
             result = get_results(tmp_dir)
             self.assertLess(result["perplexity"], 42)
 
-    # ToDo: Add Adapter to load
+    # TODO: Add Adapter to load
     # def test_generation_adapter(self):
     #     stream_handler = logging.StreamHandler(sys.stdout)
     #     logger.addHandler(stream_handler)
