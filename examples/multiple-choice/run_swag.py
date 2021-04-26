@@ -41,6 +41,7 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
+from transformers.adapters.composition import Fuse
 from transformers.file_utils import PaddingStrategy
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_utils import get_last_checkpoint, is_main_process

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import torch
 
-from examples.test_examples import get_results, is_cuda_and_apex_available
+from examples.test_examples import get_results
 from transformers.testing_utils import TestCasePlus, get_gpu_count, require_torch_non_multi_gpu, slow, torch_device
 
 
