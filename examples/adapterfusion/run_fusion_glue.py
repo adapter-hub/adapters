@@ -146,24 +146,24 @@ def main():
 
     # ~~~~~ Here comes the interesting part of setting up AdapterFusion training ~~~~~
 
-    from transformers.adapter_config import PfeifferConfig
+    from transformers.adapters.configuration import PfeifferConfig
 
     # First, load the pre-trained adapters we want to fuse from Hub
-    model.load_adapter("sentiment/sst-2@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/multinli@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/rte@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sts/mrpc@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sts/qqp@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/cosmosqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/csqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/hellaswag@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/siqa@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/winogrande@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/cb@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/sick@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/scitail@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("qa/boolq@ukp", "text_task", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sentiment/imdb@ukp", "text_task", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sentiment/sst-2@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/multinli@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/rte@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sts/mrpc@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sts/qqp@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/cosmosqa@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/csqa@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/hellaswag@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/siqa@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("comsense/winogrande@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/cb@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/sick@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("nli/scitail@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("qa/boolq@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sentiment/imdb@ukp", config=PfeifferConfig(), with_head=False)
 
     adapter_setup = [
         [
@@ -222,7 +222,7 @@ def main():
         trainer.save_model()
         # For convenience, we also re-save the tokenizer to the same directory,
         # so that you can share your model easily on huggingface.co/models =)
-        if trainer.is_world_master():
+        if trainer.is_world_process_zero():
             tokenizer.save_pretrained(training_args.output_dir)
 
     # Evaluation
@@ -242,7 +242,7 @@ def main():
             output_eval_file = os.path.join(
                 training_args.output_dir, f"eval_results_{eval_dataset.args.task_name}.txt"
             )
-            if trainer.is_world_master():
+            if trainer.is_world_process_zero():
                 with open(output_eval_file, "w") as writer:
                     logger.info("***** Eval results {} *****".format(eval_dataset.args.task_name))
                     for key, value in eval_result.items():
@@ -266,7 +266,7 @@ def main():
             output_test_file = os.path.join(
                 training_args.output_dir, f"test_results_{test_dataset.args.task_name}.txt"
             )
-            if trainer.is_world_master():
+            if trainer.is_world_process_zero():
                 with open(output_test_file, "w") as writer:
                     logger.info("***** Test results {} *****".format(test_dataset.args.task_name))
                     writer.write("index\tprediction\n")

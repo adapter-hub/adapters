@@ -29,17 +29,20 @@ from datasets import load_dataset, load_metric
 import transformers
 from trainer_qa import QuestionAnsweringTrainer
 from transformers import (
+    AdapterConfig,
     AutoConfig,
     AutoModelForQuestionAnswering,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
     HfArgumentParser,
+    MultiLingAdapterArguments,
     PreTrainedTokenizerFast,
     TrainingArguments,
     default_data_collator,
     set_seed,
 )
+from transformers.adapters.composition import Fuse
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 from transformers.utils import check_min_version
 from utils_qa import postprocess_qa_predictions
@@ -199,13 +202,15 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, MultiLingAdapterArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, adapter_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
-        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+        model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     # Detecting last checkpoint.
     last_checkpoint = None
@@ -308,6 +313,51 @@ def main():
             "requirement"
         )
 
+    # Setup adapters
+    if adapter_args.train_adapter:
+        task_name = data_args.dataset_name or "squad"
+        # check if adapter already exists otherwise add it
+        if task_name not in model.config.adapters:
+            # resolve adapter config
+            adapter_config = AdapterConfig.load(
+                adapter_args.adapter_config,
+                non_linearity=adapter_args.adapter_non_linearity,
+                reduction_factor=adapter_args.adapter_reduction_factor,
+            )
+            # load adapter from hub if specified
+            if adapter_args.load_adapter:
+                model.load_adapter(adapter_args.load_adapter, config=adapter_config, load_as=task_name)
+            else:
+                model.add_adapter(task_name, config=adapter_config)
+        # optionally load  a pretrained language adapter
+        if adapter_args.load_lang_adapter:
+            # resolve language adapter config
+            lang_adapter_config = AdapterConfig.load(
+                adapter_args.lang_adapter_config,
+                non_linearity=adapter_args.lang_adapter_non_linearity,
+                reduction_factor=adapter_args.lang_adapter_reduction_factor,
+            )
+            # load language adapter from Hub
+            lang_adapter_name = model.load_adapter(
+                adapter_args.load_lang_adapter,
+                config=lang_adapter_config,
+                load_as=adapter_args.language,
+            )
+        else:
+            lang_adapter_name = None
+        # Freeze all model weights except of those in this adapter
+        model.train_adapter(task_name)
+        # Set the adapters to be used in every forward pass
+        if lang_adapter_name:
+            model.set_active_adapters(Fuse(lang_adapter_name, task_name))
+        else:
+            model.set_active_adapters(task_name)
+    else:
+        if adapter_args.load_adapter or adapter_args.load_lang_adapter:
+            raise ValueError(
+                "Adapters can only be loaded in adapters training mode."
+                "Use --train_adapter to enable adapter_training"
+            )
     # Preprocessing the datasets.
     # Preprocessing is slighlty different for training and evaluation.
     if training_args.do_train:
@@ -553,6 +603,8 @@ def main():
         data_collator=data_collator,
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
+        do_save_full_model=not adapter_args.train_adapter,
+        do_save_adapters=adapter_args.train_adapter,
     )
 
     # Training
@@ -586,6 +638,7 @@ def main():
 
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
+        return metrics
 
     # Prediction
     if training_args.do_predict:

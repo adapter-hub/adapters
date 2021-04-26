@@ -196,6 +196,7 @@ def main():
         action="store_true",
         help="Whether to use 16-bit (mixed) precision (through NVIDIA apex) instead of 32-bit",
     )
+    parser.add_argument("--load_adapter", type=str, default=None, help="Path to a trained adapter")
     args = parser.parse_args()
 
     args.device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
@@ -215,6 +216,11 @@ def main():
     tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
     model = model_class.from_pretrained(args.model_name_or_path)
     model.to(args.device)
+
+    # Setup adapters
+    if args.load_adapter:
+        model.load_adapter(args.load_adapter, load_as="generation")
+        model.set_active_adapters(["generation"])
 
     if args.fp16:
         model.half()

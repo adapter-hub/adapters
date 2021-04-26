@@ -29,3 +29,14 @@ python run_generation.py \
     --model_type=gpt2 \
     --model_name_or_path=gpt2
 ```
+
+This can also be done by using a trained adapter. With the `--adapter_path` argument you can specify an adapter to load 
+for language generation.
+
+Example with adapter:  
+```bash
+python run_generation.py \
+    --model_type=gpt2 \
+    --model_name_or_path=gpt2
+    --load_adapter=./tmp/poem
+```
