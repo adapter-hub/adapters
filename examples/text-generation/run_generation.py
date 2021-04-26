@@ -219,12 +219,8 @@ def main():
 
     # Setup adapters
     if args.adapter_path:
-        model.load_adapter(
-            args.adapter_path,
-            load_as="generation"
-        )
+        model.load_adapter(args.adapter_path, load_as="generation")
         model.set_active_adapters(["generation"])
-
 
     if args.fp16:
         model.half()

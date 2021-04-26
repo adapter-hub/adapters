@@ -118,23 +118,15 @@ class GlueDataset(Dataset):
         # Make sure only the first process in distributed training processes the dataset,
         # and the others will use the cache.
         lock_path = cached_features_file + ".lock"
-        #with FileLock(lock_path):
+        with FileLock(lock_path):
 
-        if os.path.exists(cached_features_file) and not args.overwrite_cache:
-            start = time.time()
-            self.features = torch.load(cached_features_file)
-            logger.info(
-                f"Loading features from cached file {cached_features_file} [took %.3f s]", time.time() - start
-            )
-        else:
-            logger.info(f"Creating features from dataset file at {args.data_dir}")
-
-            if mode == Split.dev:
-                examples = self.processor.get_dev_examples(args.data_dir)
-            elif mode == Split.test:
-                examples = self.processor.get_test_examples(args.data_dir)
+            if os.path.exists(cached_features_file) and not args.overwrite_cache:
+                start = time.time()
+                self.features = torch.load(cached_features_file)
+                logger.info(
+                    f"Loading features from cached file {cached_features_file} [took %.3f s]", time.time() - start
+                )
             else:
-
                 logger.info(f"Creating features from dataset file at {args.data_dir}")
 
                 if mode == Split.dev:
