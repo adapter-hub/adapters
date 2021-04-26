@@ -1487,7 +1487,7 @@ def tf_required(func):
 
 
 def is_tensor(x):
-    """ Tests if ``x`` is a :obj:`torch.Tensor`, :obj:`tf.Tensor` or :obj:`np.ndarray`. """
+    """Tests if ``x`` is a :obj:`torch.Tensor`, :obj:`tf.Tensor` or :obj:`np.ndarray`."""
     if is_torch_available():
         import torch
 

@@ -335,7 +335,7 @@ class TrainerIntegrationDeepSpeed(TestCasePlus, TrainerIntegrationCommon):
 @require_deepspeed
 @require_torch_gpu
 class TestDeepSpeed(TestCasePlus):
-    """ This class is for testing via an external script """
+    """This class is for testing via an external script"""
 
     @require_torch_multi_gpu
     def test_basic_distributed(self):
