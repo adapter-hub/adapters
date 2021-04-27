@@ -99,7 +99,7 @@ model.active_adapters = ac.Split("g", "h", split_index=64)
 ## `Parallel`
 
 The `Parallel` can be used to enable parallel multi-task inference on different adapters, each with their own prediction head.
-Parallel adapter inference was first used in _AdapterDrop: On the Efficiency of Adapters in Transformers_ [(Rückle et al., 2020)](https://arxiv.org/pdf/2010.11918.pdf).
+Parallel adapter inference was first used in _AdapterDrop: On the Efficiency of Adapters in Transformers_ [(Rücklé et al., 2020)](https://arxiv.org/pdf/2010.11918.pdf).
 
 In the following example, we load two adapters for semantic textual similarity (sts) from the Hub, one trained on the STS benchmark, the other trained on the MRPC dataset.
 We activate a parallel setup where the input is passed through both adapters and their respective prediction heads.
