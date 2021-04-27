@@ -15,6 +15,49 @@ limitations under the License.
 
 # Examples
 
+This folder contains a subset of [the example scripts provided by HuggingFace for the Transformers library](https://github.com/huggingface/transformers/tree/master/examples).
+Most of the scripts here have been modified to support training adapters instead of full model fine-tuning.
+
+Before getting started with an example script, make sure to have everything set up.
+It is best to install the latest `adapter-transformers` version from the repository:
+```
+git clone https://github.com/adapter-hub/adapter-transformers
+cd transformers
+pip install .
+```
+
+Now, switch to an examples folder and run:
+```
+pip install -r requirements.txt
+```
+
+Currently, scripts for these tasks support adapters:
+
+| Task | Description |
+| --- | --- |
+| [**`language-modeling`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/language-modeling) | Causal & Masked language modeling
+| [**`multiple-choice`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/multiple-choice) | SWAG Dataset
+| [**`question-answering`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/question-answering) | SQuAD-style QA
+| [**`summarization`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/seq2seq) | Summarization, e.g. on CNN/Dailymail or XSum
+| [**`text-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/text-classification) | GLUE benchmark
+| [**`text-generation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/text-generation) | Text generation, e.g. using GPT-2
+| [**`token-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/token-classification) | NER, e.g. on CoNLL2003
+| [**`translation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/seq2seq) | Machine translation, e.g. on WMT tasks
+
+All scripts listed above which can be used for training provide a new `--train_adapter` option that switches between full fine-tuning and adapter training.
+Loading pre-trained adapters can be done via `--load_adapter`.
+You can find all additional, adapter-specific, command-line options [here](https://github.com/Adapter-Hub/adapter-transformers/blob/master/src/transformers/adapters/training.py).
+
+Fore more information and examples on training adapters, please refer to these locations:
+- The section on adapter training [in the AdapterHub documentation](https://docs.adapterhub.ml/training).
+- Our [collection of Colab notebook tutorials](https://github.com/Adapter-Hub/adapter-transformers/tree/master/notebooks).
+
+---
+
+**NOTE: Below, you find the original, unmodified, documentation by HuggingFace. Check out [their examples folder](https://github.com/huggingface/transformers/tree/master/examples) for more example scripts.**
+
+---
+
 This folder contains actively maintained examples of use of 🤗 Transformers organized along NLP tasks. If you are looking for an example that used to be in this folder, it may have moved to our [research projects](https://github.com/huggingface/transformers/tree/master/examples/research_projects) subfolder (which contains frozen snapshots of research projects) or to the [legacy](https://github.com/huggingface/transformers/tree/master/examples/legacy) subfolder.
 
 While we strive to present as many use cases as possible, the scripts in this folder are just examples. It is expected that they won't work out-of-the box on your specific problem and that you will be required to change a few lines of code to adapt them to your needs. To help you with that, all the PyTorch versions of the examples fully expose the preprocessing of the data. This way, you can easily tweak them.
