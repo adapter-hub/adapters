@@ -52,13 +52,16 @@ class AdapterLayerBaseMixin(ABC):
                 non_linearity=adapter_config["non_linearity"],
                 residual_before_ln=adapter_config["adapter_residual_before_ln"],
             )
+            adapter.train(self.training)  # make sure training mode is consistent
             self.adapters[adapter_name] = adapter
 
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
         if self.config.adapters.common_config_value(adapter_names, self.adapter_config_key):
-            self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
+            fusion = BertFusion(self.config)
+            fusion.train(self.training)  # make sure training mode is consistent
+            self.adapter_fusion_layer[",".join(adapter_names)] = fusion
 
     def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
         """
