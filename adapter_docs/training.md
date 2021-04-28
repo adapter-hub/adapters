@@ -8,14 +8,16 @@ To run the scripts, make sure you have the latest version of the repository and 
 git clone https://github.com/adapter-hub/adapter-transformers
 cd transformers
 pip install .
-pip install -r ./examples/requirements.txt
+pip install -r ./examples/<your_examples_folder>/requirements.txt
 ```
 
 ## Train a Task Adapter
 
-Training a task adapter module on a dataset only requires minor modifications from training the full model. Suppose we have an existing script for training a Transformer model, here we will use HuggingFace's [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue.py) example script for training on the GLUE dataset.
+Training a task adapter module on a dataset only requires minor modifications from training the full model.
+Suppose we have an existing script for training a Transformer model, here we will use HuggingFace's [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue.py) example script for training on the GLUE dataset.
 
-In our example, we replaced the built-in `AutoModelForSequenceClassification` class with the `AutoModelWithHeads` class introduced by `adapter-transformers` (learn more about prediction heads [here](prediction_heads.md)). Therefore, the model instantiation changed to:
+In our example, we replaced the built-in `AutoModelForSequenceClassification` class with the `AutoModelWithHeads` class introduced by `adapter-transformers` (learn more about prediction heads [here](prediction_heads.md)).
+Therefore, the model instantiation changed to:
 
 ```python
 model = AutoModelWithHeads.from_pretrained(
@@ -69,15 +71,13 @@ We also adapted [various other example scripts](https://github.com/Adapter-Hub/a
 To start adapter training on a GLUE task, you can run something similar to:
 
 ```
-export GLUE_DIR=/path/to/glue
-export TASK_NAME=MNLI
+export TASK_NAME=mrpc
 
 python run_glue_alt.py \
-  --model_name_or_path bert-base-cased \
+  --model_name_or_path bert-base-uncased \
   --task_name $TASK_NAME \
   --do_train \
   --do_eval \
-  --data_dir $GLUE_DIR/$TASK_NAME \
   --max_seq_length 128 \
   --per_device_train_batch_size 32 \
   --learning_rate 1e-4 \
@@ -103,47 +103,31 @@ The important flag here is `--train_adapter` which switches from fine-tuning the
 ## Train a Language Adapter
 
 Training a language adapter is equally straightforward as training a task adapter. Similarly to the steps for task adapters
-described above, we add a language adapter module to an existing model training script. Here, we modified the
-[run_language_modeling.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/contrib/legacy/run_language_modeling.py)
-script by adding the following code:
+described above, we add a language adapter module to an existing model training script. Here, we modified HuggingFace's [run_mlm.py](https://github.com/Adapter-Hub/adapter-transformers/blob/v2/examples/language-modeling/run_mlm.py) script for masked language modeling with BERT-based models.
 
-```python
-# check if language adapter already exists, otherwise add it
-if language not in model.config.adapters:
-    # resolve the adapter config
-    adapter_config = AdapterConfig.load(
-        adapter_args.adapter_config,
-        non_linearity=adapter_args.adapter_non_linearity,
-        reduction_factor=adapter_args.adapter_reduction_factor,
-    )
-    model.add_adapter(language, config=adapter_config)
-# Freeze all model weights except of those of this adapter & use this adapter in every forward pass
-model.train_adapter(language)
-```
+Training a language adapter on BERT using this script may look like the following:
 
-Training a language adapter on BERT then may look like the following:
+```bash
+export TRAIN_FILE=/path/to/dataset/train
+export VALIDATION_FILE=/path/to/dataset/validation
 
-```
-export TRAIN_FILE=/path/to/dataset/wiki.train.raw
-export TEST_FILE=/path/to/dataset/wiki.test.raw
-
-python run_language_modeling.py \
-    --output_dir=output \
-    --model_type=bert \
-    --model_name_or_path=bert-base-uncased \
+python run_mlm.py \
+    --model_name_or_path bert-base-uncased \
+    --train_file $TRAIN_FILE \
+    --validation_file $VALIDATION_FILE \
     --do_train \
-    --train_data_file=$TRAIN_FILE \
     --do_eval \
-    --eval_data_file=$TEST_FILE \
-    --mlm \
-    --language en \
+    --learning_rate 1e-4 \
+    --num_train_epochs 10.0 \
+    --output_dir /tmp/test-mlm \
     --train_adapter \
-    --adapter_config pfeiffer
+    --adapter_config "pfeiffer+inv"
 ```
 
 ## Train AdapterFusion
 
-We provide an example for training _AdapterFusion_ ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00247)) on the GLUE dataset: [run_fusion_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_fusion_glue.py). You can adapt this script to train AdapterFusion with different pre-trained adapters on your own dataset.
+We provide an example for training _AdapterFusion_ ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00247)) on the GLUE dataset: [run_fusion_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/adapterfusion/run_fusion_glue.py). 
+You can adapt this script to train AdapterFusion with different pre-trained adapters on your own dataset.
 
 ```eval_rst
 .. important::
