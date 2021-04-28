@@ -26,6 +26,15 @@ They are presented in more detail in the following.
 
 ## `Stack`
 
+```eval_rst
+.. figure:: img/stacking_adapters.png
+    :height: 300
+    :align: center
+    :alt: Illustration of stacking adapters.
+
+    Stacking adapters using the 'Stack' block.
+```
+
 The `Stack` block can be used to stack multiple adapters on top of each other.
 This kind of adapter composition is used e.g. in the _MAD-X_ framework for cross-lingual transfer [(Pfeiffer et al., 2020)](https://arxiv.org/pdf/2005.00052.pdf), where language and task adapters are stacked on top of each other.
 For more, check out [this Colab notebook](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/04_Cross_Lingual_Transfer.ipynb) on cross-lingual transfer.
@@ -48,6 +57,15 @@ In v1.x of `adapter-transformers`, stacking adapters was done using a list of ad
 For backwards compatibility, you can still do this, although it is recommended to use the new syntax.
 
 ## `Fuse`
+
+```eval_rst
+.. figure:: img/Fusion.png
+    :height: 300
+    :align: center
+    :alt: Illustration of AdapterFusion.
+
+    Fusing adapters with AdapterFusion.
+```
 
 The `Fuse` block can be used to activate a fusion layer of adapters.
 _AdapterFusion_ is a non-destructive way to combine the knowledge of multiple pre-trained adapters on a new downstream task, proposed by [Pfeiffer et al., 2021](https://arxiv.org/pdf/2005.00247.pdf).
@@ -80,6 +98,15 @@ For backwards compatibility, you can still do this, although it is recommended t
 
 ## `Split`
 
+```eval_rst
+.. figure:: img/splitting_adapters.png
+    :height: 300
+    :align: center
+    :alt: Illustration of splitting adapters.
+
+    Splitting the input between two adapters using the 'Stack' block.
+```
+
 The `Split` block can be used to split an input sequence between two adapters.
 This is done by specifying a split index, at which the sequences should be divided.
 In the following example, we split each input sequence between adapters `g` and `h`.
@@ -97,6 +124,15 @@ model.active_adapters = ac.Split("g", "h", split_index=64)
 ```
 
 ## `Parallel`
+
+```eval_rst
+.. figure:: img/parallel.png
+    :height: 300
+    :align: center
+    :alt: Illustration of parallel adapter inference.
+
+    Parallel adapter inference as implemented by the 'Parallel' block. The input is replicated at the first layer with parallel adapters.
+```
 
 The `Parallel` can be used to enable parallel multi-task inference on different adapters, each with their own prediction head.
 Parallel adapter inference was first used in _AdapterDrop: On the Efficiency of Adapters in Transformers_ [(Rücklé et al., 2020)](https://arxiv.org/pdf/2010.11918.pdf).
@@ -137,8 +173,9 @@ model.active_adapters = ac.Stack("a", ac.Split("b", "c", split_index=60))
 However, combinations of adapter composition blocks cannot be arbitrarily deep. All currently supported possibilities are visualized in the figure below. 
 
 ```eval_rst
-.. figure:: adapter_blocks_nesting.png
-    :width: 500
+.. figure:: img/adapter_blocks_nesting.png
+    :height: 300
+    :align: center
     :alt: Adapter composition block combinations
 
     Allowed nestings of adapter composition blocks.
