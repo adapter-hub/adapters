@@ -18,14 +18,14 @@ import transformers.adapters.composition as ac
 model.active_adapters = ac.Stack("a", ac.Split("b", "c", split_index=60))
 ```
 
-As we see, the basic building blocks of this setup are simple objects representing different possibilities to combine single adapters.
-In the example, `Stack` describes stacking layers of adapters on top of each other,
+As we can see, the basic building blocks of this setup are simple objects representing different possibilities to combine single adapters.
+In the example, `Stack` describes stacking adapters layers on top of each other,
 as used in the _MAD-X_ framework for cross-lingual transfer.
-`Split` describes splitting the input sequences between two adapters at a specified index.
-Thus, in the shown setup, in each adapter layer, the input is first passed through adapter `a` before being split up between adapters `b` and `c` and passed through both adapters in parallel.
+`Split` results in splitting the input sequences between two adapters at a specified `split_index`.
+In the depicted setup, at every transformer layer the token representations are first passed through adapter `a` before being split at the `split_index` and passed through adapters `b` and `c` respectively.
 
 Besides the two blocks shown, `adapter-transformers` currently also includes a `Fuse` block (for [_AdapterFusion_](https://arxiv.org/pdf/2005.00247.pdf)) and a `Parallel` block (see below).
-All of these blocks derive from `AdapterCompositionBlock`, and they can be combined in flexibly in many ways.
+All of these blocks are derived from `AdapterCompositionBlock`, and they can be flexibly combined providing many imaginable scenarios.
 For more information on specifying the active adapters using `active_adapters` and the new composition blocks,
 refer to the [corresponding section in our documentation](adapter_composition.md).
 
@@ -33,7 +33,7 @@ refer to the [corresponding section in our documentation](adapter_composition.md
 
 The two new model architectures added in v2.0, BART and GPT-2, start the process of integrating adapters into sequence-to-sequence models, with more to come.
 
-We have [a separate blog post]() presenting our results when training adapters on both models and new adapters in the Hub.
+We have [a separate blog post](https://adapterhub.ml/blog/2021/04/adapters-for-bart-and-gpt2/) presenting our results when training adapters on both models and new adapters in the Hub.
 
 ### AdapterDrop
 
@@ -123,4 +123,5 @@ Additionally, there have been some changes in the saved configuration dictionary
 ### Refactorings in adapter implementations
 
 There have been some refactorings mainly in the adapter mixin implementations.
-Further details can be found [in the guide for adding adapters to a new model](https://github.com/Adapter-Hub/adapter-transformers/blob/master/adding_adapters_to_a_model.md).
+Most importantly, all adapter-related code has been moved to the `transformers.adapters` namespace.
+Further details on the implementation can be found [in the guide for adding adapters to a new model](https://github.com/Adapter-Hub/adapter-transformers/blob/master/adding_adapters_to_a_model.md).
