@@ -135,7 +135,7 @@ class ModelAdaptersMixin(ABC):
         pass
 
     @abstractmethod
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         pass
 
@@ -470,9 +470,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         """Sets the model into mode for training the given adapters."""
         self.base_model.train_adapter(adapter_setup)
 
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.base_model.train_fusion(adapter_setup)
+        self.base_model.train_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
 
     def _add_adapter(self, adapter_name):
         self.base_model._add_adapter(adapter_name)
