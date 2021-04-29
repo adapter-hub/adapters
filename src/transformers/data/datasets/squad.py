@@ -1,3 +1,17 @@
+# Copyright 2020 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import time
 from dataclasses import dataclass, field
@@ -9,7 +23,7 @@ from torch.utils.data.dataset import Dataset
 
 from filelock import FileLock
 
-from ...modeling_auto import MODEL_FOR_QUESTION_ANSWERING_MAPPING
+from ...models.auto.modeling_auto import MODEL_FOR_QUESTION_ANSWERING_MAPPING
 from ...tokenization_utils import PreTrainedTokenizer
 from ...utils import logging
 from ..processors.squad import SquadFeatures, SquadV1Processor, SquadV2Processor, squad_convert_examples_to_features
@@ -117,12 +131,7 @@ class SquadDataset(Dataset):
         version_tag = "v2" if args.version_2_with_negative else "v1"
         cached_features_file = os.path.join(
             cache_dir if cache_dir is not None else args.data_dir,
-            "cached_{}_{}_{}_{}".format(
-                mode.value,
-                tokenizer.__class__.__name__,
-                str(args.max_seq_length),
-                version_tag,
-            ),
+            f"cached_{mode.value}_{tokenizer.__class__.__name__}_{args.max_seq_length}_{version_tag}",
         )
 
         # Make sure only the first process in distributed training processes the dataset,
@@ -170,7 +179,7 @@ class SquadDataset(Dataset):
                 )
                 # ^ This seems to take a lot of time so I want to investigate why and how we can improve.
                 logger.info(
-                    "Saving features into cached file %s [took %.3f s]", cached_features_file, time.time() - start
+                    f"Saving features into cached file {cached_features_file} [took {time.time() - start:.3f} s]"
                 )
 
     def __len__(self):

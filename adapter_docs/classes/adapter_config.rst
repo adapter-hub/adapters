@@ -12,10 +12,13 @@ Single Adapter
 .. autoclass:: transformers.PfeifferConfig
     :members:
 
+.. autoclass:: transformers.PfeifferInvConfig
+    :members:
+
 .. autoclass:: transformers.HoulsbyConfig
     :members:
 
-.. autoclass:: transformers.InvertibleAdapterConfig
+.. autoclass:: transformers.HoulsbyInvConfig
     :members:
 
 Adapter Fusion

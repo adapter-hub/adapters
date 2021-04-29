@@ -1,4 +1,18 @@
+#!/usr/bin/env python
 # coding=utf-8
+# Copyright 2020 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """ Fine-tuning the library models for sequence classification."""
 
 
@@ -21,6 +35,12 @@ from transformers import (
     TFTrainer,
     TFTrainingArguments,
 )
+from transformers.utils import logging as hf_logging
+
+
+hf_logging.set_verbosity_info()
+hf_logging.enable_default_handler()
+hf_logging.enable_explicit_format()
 
 
 def get_tfds(
@@ -45,7 +65,7 @@ def get_tfds(
     label_name = features_name.pop(label_column_id)
     label_list = list(set(ds[list(files.keys())[0]][label_name]))
     label2id = {label: i for i, label in enumerate(label_list)}
-    input_names = ["input_ids"] + tokenizer.model_input_names
+    input_names = tokenizer.model_input_names
     transformed_ds = {}
 
     if len(features_name) == 1:
@@ -176,7 +196,8 @@ class ModelArguments:
     # If you want to tweak more attributes on your tokenizer, you should do it in a distinct script,
     # or just modify its tokenizer_config.json.
     cache_dir: Optional[str] = field(
-        default=None, metadata={"help": "Where do you want to store the pretrained models downloaded from s3"}
+        default=None,
+        metadata={"help": "Where do you want to store the pretrained models downloaded from huggingface.co"},
     )
 
 
@@ -204,12 +225,10 @@ def main():
         level=logging.INFO,
     )
     logger.info(
-        "n_replicas: %s, distributed training: %s, 16-bits training: %s",
-        training_args.n_replicas,
-        bool(training_args.n_replicas > 1),
-        training_args.fp16,
+        f"n_replicas: {training_args.n_replicas}, distributed training: {bool(training_args.n_replicas > 1)}, "
+        f"16-bits training: {training_args.fp16}"
     )
-    logger.info("Training/evaluation parameters %s", training_args)
+    logger.info(f"Training/evaluation parameters {training_args}")
 
     # Load pretrained model and tokenizer
     #
@@ -272,7 +291,6 @@ def main():
     results = {}
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
-
         result = trainer.evaluate()
         output_eval_file = os.path.join(training_args.output_dir, "eval_results.txt")
 
@@ -280,8 +298,8 @@ def main():
             logger.info("***** Eval results *****")
 
             for key, value in result.items():
-                logger.info("  %s = %s", key, value)
-                writer.write("%s = %s\n" % (key, value))
+                logger.info(f"  {key} = {value}")
+                writer.write(f"{key} = {value}\n")
 
             results.update(result)
 

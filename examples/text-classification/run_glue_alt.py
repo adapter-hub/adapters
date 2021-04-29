@@ -32,7 +32,6 @@ from datasets import load_dataset, load_metric
 import transformers
 from transformers import (
     AdapterConfig,
-    AdapterType,
     AutoConfig,
     AutoModelWithHeads,
     AutoTokenizer,
@@ -267,7 +266,7 @@ def main():
     if adapter_args.train_adapter:
         task_name = data_args.task_name or "glue"
         # check if adapter already exists, otherwise add it
-        if task_name not in model.config.adapters.adapter_list(AdapterType.text_task):
+        if task_name not in model.config.adapters:
             # resolve the adapter config
             adapter_config = AdapterConfig.load(
                 adapter_args.adapter_config,
@@ -278,13 +277,12 @@ def main():
             if adapter_args.load_adapter:
                 model.load_adapter(
                     adapter_args.load_adapter,
-                    AdapterType.text_task,
                     config=adapter_config,
                     load_as=task_name,
                 )
             # otherwise, add a fresh adapter
             else:
-                model.add_adapter(task_name, AdapterType.text_task, config=adapter_config)
+                model.add_adapter(task_name, config=adapter_config)
         # optionally load a pre-trained language adapter
         if adapter_args.load_lang_adapter:
             # resolve the language adapter config
@@ -296,7 +294,6 @@ def main():
             # load the language adapter from Hub
             lang_adapter_name = model.load_adapter(
                 adapter_args.load_lang_adapter,
-                AdapterType.text_lang,
                 config=lang_adapter_config,
                 load_as=adapter_args.language,
             )

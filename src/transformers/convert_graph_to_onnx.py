@@ -1,3 +1,17 @@
+# Copyright 2020 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from argparse import ArgumentParser
 from os import listdir, makedirs
 from pathlib import Path
@@ -5,8 +19,7 @@ from typing import Dict, List, Optional, Tuple
 
 from packaging.version import Version, parse
 
-from transformers import is_tf_available, is_torch_available
-from transformers.file_utils import ModelOutput
+from transformers.file_utils import ModelOutput, is_tf_available, is_torch_available
 from transformers.pipelines import Pipeline, pipeline
 from transformers.tokenization_utils import BatchEncoding
 
@@ -141,7 +154,7 @@ def ensure_valid_input(model, tokens, input_names):
             print(f"{arg_name} is not present in the generated input list.")
             break
 
-    print("Generated inputs order: {}".format(ordered_input_names))
+    print(f"Generated inputs order: {ordered_input_names}")
     return ordered_input_names, tuple(model_args)
 
 
@@ -209,7 +222,9 @@ def infer_shapes(nlp: Pipeline, framework: str) -> Tuple[List[str], List[str], D
     return input_vars, output_names, dynamic_axes, tokens
 
 
-def load_graph_from_args(pipeline_name: str, framework: str, model: str, tokenizer: Optional[str] = None) -> Pipeline:
+def load_graph_from_args(
+    pipeline_name: str, framework: str, model: str, tokenizer: Optional[str] = None, **models_kwargs
+) -> Pipeline:
     """
     Convert the set of arguments provided through the CLI to an actual pipeline reference (tokenizer + model
 
@@ -235,7 +250,7 @@ def load_graph_from_args(pipeline_name: str, framework: str, model: str, tokeniz
     print(f"Loading pipeline (model: {model}, tokenizer: {tokenizer})")
 
     # Allocate tokenizer and model
-    return pipeline(pipeline_name, model=model, tokenizer=tokenizer, framework=framework)
+    return pipeline(pipeline_name, model=model, tokenizer=tokenizer, framework=framework, model_kwargs=models_kwargs)
 
 
 def convert_pytorch(nlp: Pipeline, opset: int, output: Path, use_external_format: bool):
@@ -322,6 +337,7 @@ def convert(
     tokenizer: Optional[str] = None,
     use_external_format: bool = False,
     pipeline_name: str = "feature-extraction",
+    **model_kwargs
 ):
     """
     Convert the pipeline object to the ONNX Intermediate Representation (IR) format
@@ -334,6 +350,7 @@ def convert(
         tokenizer: The name of the model to load for the pipeline, default to the model's name if not provided
         use_external_format: Split the model definition from its parameters to allow model bigger than 2GB (PyTorch only)
         pipeline_name: The kind of pipeline to instantiate (ner, question-answering, etc.)
+        model_kwargs: Keyword arguments to be forwarded to the model constructor
 
     Returns:
 
@@ -341,7 +358,7 @@ def convert(
     print(f"ONNX opset version set to: {opset}")
 
     # Load the pipeline
-    nlp = load_graph_from_args(pipeline_name, framework, model, tokenizer)
+    nlp = load_graph_from_args(pipeline_name, framework, model, tokenizer, **model_kwargs)
 
     if not output.parent.exists():
         print(f"Creating folder {output.parent}")

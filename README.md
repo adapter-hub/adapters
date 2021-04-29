@@ -1,3 +1,19 @@
+<!---
+Copyright 2020 The AdapterHub Team. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 <p align="center">
 <img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapter-transformers/master/adapter_docs/logo.png" />
 </p>
@@ -15,12 +31,13 @@ A friendly fork of HuggingFace's <i>Transformers</i>, adding Adapters to PyTorch
 
 `adapter-transformers` is an extension of [HuggingFace's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
 
-This library can be used as a drop-in replacement for HuggingFace Transformers and regularly synchronizes new upstream changes.
+_💡 Important: This library can be used as a drop-in replacement for HuggingFace Transformers and regularly synchronizes new upstream changes.
+Thus, most files in this repository are direct copies from the HuggingFace Transformers source, modified only with changes required for the adapter implementations._
 
 ## Quick tour
 
-_adapter-transformers_ currently supports **Python 3.6+** and **PyTorch 1.1.0+**.
-After [installing PyTorch](https://pytorch.org/get-started/locally/), you can install _adapter-transformers_ from PyPI ...
+`adapter-transformers` currently supports **Python 3.6+** and **PyTorch 1.3.1+**.
+After [installing PyTorch](https://pytorch.org/get-started/locally/), you can install `adapter-transformers` from PyPI ...
 
 ```
 pip install -U adapter-transformers
@@ -36,7 +53,7 @@ pip install .
 
 ## Getting Started
 
-HuggingFace's great documentation on getting started with _Transformers_ can be found [here](https://huggingface.co/transformers/index.html). _adapter-transformers_ is fully compatible with _Transformers_.
+HuggingFace's great documentation on getting started with _Transformers_ can be found [here](https://huggingface.co/transformers/index.html). `adapter-transformers` is fully compatible with _Transformers_.
 
 To get started with adapters, refer to these locations:
 
@@ -48,7 +65,7 @@ To get started with adapters, refer to these locations:
 
 ## Citation
 
-If you find this library useful, please cite our paper [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779):
+If you use this library for your work, please consider citing our paper [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779):
 
 ```
 @inproceedings{pfeiffer2020AdapterHub,

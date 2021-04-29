@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # coding=utf-8
 # Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
 # Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
@@ -33,6 +34,12 @@ from transformers import (
     squad_convert_examples_to_features,
 )
 from transformers.data.processors.squad import SquadV1Processor, SquadV2Processor
+from transformers.utils import logging as hf_logging
+
+
+hf_logging.set_verbosity_info()
+hf_logging.enable_default_handler()
+hf_logging.enable_explicit_format()
 
 
 logger = logging.getLogger(__name__)
@@ -57,7 +64,8 @@ class ModelArguments:
     # If you want to tweak more attributes on your tokenizer, you should do it in a distinct script,
     # or just modify its tokenizer_config.json.
     cache_dir: Optional[str] = field(
-        default=None, metadata={"help": "Where do you want to store the pretrained models downloaded from s3"}
+        default=None,
+        metadata={"help": "Where do you want to store the pretrained models downloaded from huggingface.co"},
     )
 
 
@@ -140,12 +148,10 @@ def main():
         level=logging.INFO,
     )
     logger.info(
-        "n_replicas: %s, distributed training: %s, 16-bits training: %s",
-        training_args.n_replicas,
-        bool(training_args.n_replicas > 1),
-        training_args.fp16,
+        f"n_replicas: {training_args.n_replicas}, distributed training: {bool(training_args.n_replicas > 1)}, "
+        f"16-bits training: {training_args.fp16}"
     )
-    logger.info("Training/evaluation parameters %s", training_args)
+    logger.info(f"Training/evaluation parameters {training_args}")
 
     # Prepare Question-Answering task
     # Load pretrained model and tokenizer

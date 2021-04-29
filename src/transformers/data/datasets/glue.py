@@ -1,3 +1,17 @@
+# Copyright 2020 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import time
 import warnings
@@ -87,12 +101,7 @@ class GlueDataset(Dataset):
         # Load data features from cache or dataset file
         cached_features_file = os.path.join(
             cache_dir if cache_dir is not None else args.data_dir,
-            "cached_{}_{}_{}_{}".format(
-                mode.value,
-                tokenizer.__class__.__name__,
-                str(args.max_seq_length),
-                args.task_name,
-            ),
+            f"cached_{mode.value}_{tokenizer.__class__.__name__}_{args.max_seq_length}_{args.task_name}",
         )
         label_list = self.processor.get_labels()
         if args.task_name in ["mnli", "mnli-mm"] and tokenizer.__class__.__name__ in (
@@ -139,7 +148,7 @@ class GlueDataset(Dataset):
                 torch.save(self.features, cached_features_file)
                 # ^ This seems to take a lot of time so I want to investigate why and how we can improve.
                 logger.info(
-                    "Saving features into cached file %s [took %.3f s]", cached_features_file, time.time() - start
+                    f"Saving features into cached file {cached_features_file} [took {time.time() - start:.3f} s]"
                 )
 
     def __len__(self):

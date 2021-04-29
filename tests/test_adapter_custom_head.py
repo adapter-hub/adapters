@@ -5,7 +5,7 @@ import torch
 
 from tests.test_modeling_common import ids_tensor
 from transformers import AutoConfig, AutoModelWithHeads
-from transformers.adapter_heads import PredictionHead
+from transformers.adapters.heads import PredictionHead
 
 
 class CustomHead(PredictionHead):
@@ -14,7 +14,7 @@ class CustomHead(PredictionHead):
         self.config = config
         self.build(model=model)
 
-    def forward(self, outputs, attention_mask, return_dict, **kwargs):
+    def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
         logits = super().forward(outputs[0])
         outputs = (logits,) + outputs[2:]
         return outputs

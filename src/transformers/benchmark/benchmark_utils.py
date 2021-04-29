@@ -1,5 +1,18 @@
 # This file is adapted from the AllenNLP library at https://github.com/allenai/allennlp
-# Copyright by the AllenNLP authors.
+
+# Copyright 2020 The HuggingFace Team and the AllenNLP authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Utilities for working with the local dataset cache.
 """
@@ -17,9 +30,8 @@ from multiprocessing import Pipe, Process, Queue
 from multiprocessing.connection import Connection
 from typing import Callable, Iterable, List, NamedTuple, Optional, Union
 
-from transformers import AutoConfig, PretrainedConfig
-from transformers import __version__ as version
-
+from .. import AutoConfig, PretrainedConfig
+from .. import __version__ as version
 from ..file_utils import is_psutil_available, is_py3nvml_available, is_tf_available, is_torch_available
 from ..utils import logging
 from .benchmark_args_utils import BenchmarkArguments
@@ -327,7 +339,7 @@ def start_memory_tracing(
 
         - `modules_to_trace`: (None, string, list/tuple of string) if None, all events are recorded if string or list
           of strings: only events from the listed module/sub-module will be recorded (e.g. 'fairseq' or
-          'transformers.modeling_gpt2')
+          'transformers.models.gpt2.modeling_gpt2')
         - `modules_not_to_trace`: (None, string, list/tuple of string) if None, no module is avoided if string or list
           of strings: events from the listed module/sub-module will not be recorded (e.g. 'torch')
         - `events_to_trace`: string or list of string of events to be recorded (see official python doc for
@@ -746,9 +758,7 @@ class Benchmark(ABC):
 
         if self.args.env_print:
             self.print_fn("\n" + 20 * "=" + ("ENVIRONMENT INFORMATION").center(40) + 20 * "=")
-            self.print_fn(
-                "\n".join(["- {}: {}".format(prop, val) for prop, val in self.environment_info.items()]) + "\n"
-            )
+            self.print_fn("\n".join([f"- {prop}: {val}" for prop, val in self.environment_info.items()]) + "\n")
 
         if self.args.save_to_csv:
             with open(self.args.env_info_csv_file, mode="w", newline="") as csv_file:
@@ -876,9 +886,7 @@ class Benchmark(ABC):
         self.print_fn("Saving results to csv.")
         with open(filename, mode="w") as csv_file:
 
-            assert len(self.args.model_names) > 0, "At least 1 model should be defined, but got {}".format(
-                self.model_names
-            )
+            assert len(self.args.model_names) > 0, f"At least 1 model should be defined, but got {self.model_names}"
 
             fieldnames = ["model", "batch_size", "sequence_length"]
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames + ["result"])

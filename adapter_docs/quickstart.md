@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Currently, *adapter-transformers* adds adapter components to all transformer models based on BERT and using PyTorch.
+Currently, *adapter-transformers* adds adapter components to the PyTorch implementations of all transformer models listed in the *Supported Models* section.
 For working with adapters, a couple of methods for creation (e.g. `add_adapter()`), loading (e.g. `load_adapter()`) and
 storing (e.g. `save_adapter()`) are added to the model classes. In the following, we will briefly go through some examples.
 
@@ -15,7 +15,7 @@ storing (e.g. `save_adapter()`) are added to the model classes. In the following
 
 ## Quick Tour: Using a pre-trained adapter for inference
 
-_We also have a Quickstart Colab notebook for adapter inference:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/website/blob/master/app/static/notebooks/Adapter_Quickstart_Inference.ipynb)
+_We also have a Quickstart Colab notebook for adapter inference:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/02_Adapter_Inference.ipynb)
 
 The following example shows the usage of a basic pre-trained transformer model with adapters.
 Our goal here is to predict the sentiment of a given sentence.
@@ -46,7 +46,7 @@ model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
 ```
 
 Having loaded the model, we now add a pre-trained task adapter that is useful to our task from Adapter Hub.
-As we're doing sentiment classification, we use [an adapter trained on the SST-2 dataset](https://adapterhub.ml/adapters/ukp/bert-base-uncased-sst_pfeiffer/) in this case.
+As we're doing sentiment classification, we use [an adapter trained on the SST-2 dataset](https://adapterhub.ml/adapters/ukp/bert-base-uncased_sentiment_sst-2_pfeiffer/) in this case.
 The task prediction head loaded together with the adapter gives us a class label for our sentence:
 
 ```python
@@ -82,6 +82,5 @@ Similar to how the weights of the full model are saved, the `save_adapter()` wil
 
 ## Quick Tour: Adapter training
 
-_We also have a Quickstart Colab notebook for adapter training:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/website/blob/master/app/static/notebooks/Adapter_Quickstart_Training.ipynb)
-
+_We also have a Quickstart Colab notebook for adapter training:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/01_Adapter_Training.ipynb)
 For more examples on training different adapter setups, refer to the section on [Adapter Training](training.md).

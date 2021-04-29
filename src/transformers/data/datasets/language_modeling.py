@@ -1,3 +1,17 @@
+# Copyright 2020 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import os
 import pickle
@@ -50,11 +64,7 @@ class TextDataset(Dataset):
         directory, filename = os.path.split(file_path)
         cached_features_file = os.path.join(
             cache_dir if cache_dir is not None else directory,
-            "cached_lm_{}_{}_{}".format(
-                tokenizer.__class__.__name__,
-                str(block_size),
-                filename,
-            ),
+            f"cached_lm_{tokenizer.__class__.__name__}_{block_size}_{filename}",
         )
 
         # Make sure only the first process in distributed training processes the dataset,
@@ -91,7 +101,7 @@ class TextDataset(Dataset):
                 with open(cached_features_file, "wb") as handle:
                     pickle.dump(self.examples, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 logger.info(
-                    "Saving features into cached file %s [took %.3f s]", cached_features_file, time.time() - start
+                    f"Saving features into cached file {cached_features_file} [took {time.time() - start:.3f} s]"
                 )
 
     def __len__(self):
@@ -117,7 +127,7 @@ class LineByLineTextDataset(Dataset):
         # Here, we do not cache the features, operating under the assumption
         # that we will soon use fast multithreaded tokenizers from the
         # `tokenizers` repo everywhere =)
-        logger.info("Creating features from dataset file at %s", file_path)
+        logger.info(f"Creating features from dataset file at {file_path}")
 
         with open(file_path, encoding="utf-8") as f:
             lines = [line for line in f.read().splitlines() if (len(line) > 0 and not line.isspace())]
@@ -150,8 +160,8 @@ class LineByLineWithRefDataset(Dataset):
         # Here, we do not cache the features, operating under the assumption
         # that we will soon use fast multithreaded tokenizers from the
         # `tokenizers` repo everywhere =)
-        logger.info("Creating features from dataset file at %s", file_path)
-        logger.info("Use ref segment results at %s", ref_path)
+        logger.info(f"Creating features from dataset file at {file_path}")
+        logger.info(f"Use ref segment results at {ref_path}")
         with open(file_path, encoding="utf-8") as f:
             data = f.readlines()  # use this method to avoid delimiter '\u2029' to split a line
         data = [line.strip() for line in data if len(line) > 0 and not line.isspace()]
@@ -229,7 +239,7 @@ class LineByLineWithSOPTextDataset(Dataset):
         # to `block_size` anyways, so short sequences are generally wasted
         # computation. However, we *sometimes*
         # (i.e., short_seq_prob == 0.1 == 10% of the time) want to use shorter
-        # sequences to minimize the mismatch between pre-training and fine-tuning.
+        # sequences to minimize the mismatch between pretraining and fine-tuning.
         # The `target_seq_length` is just a rough target however, whereas
         # `block_size` is a hard limit.
         target_seq_length = max_num_tokens
@@ -351,11 +361,7 @@ class TextDatasetForNextSentencePrediction(Dataset):
         directory, filename = os.path.split(file_path)
         cached_features_file = os.path.join(
             directory,
-            "cached_nsp_{}_{}_{}".format(
-                tokenizer.__class__.__name__,
-                str(block_size),
-                filename,
-            ),
+            f"cached_nsp_{tokenizer.__class__.__name__}_{block_size}_{filename}",
         )
 
         self.tokenizer = tokenizer
@@ -413,7 +419,7 @@ class TextDatasetForNextSentencePrediction(Dataset):
                 with open(cached_features_file, "wb") as handle:
                     pickle.dump(self.examples, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 logger.info(
-                    "Saving features into cached file %s [took %.3f s]", cached_features_file, time.time() - start
+                    f"Saving features into cached file {cached_features_file} [took {time.time() - start:.3f} s]"
                 )
 
     def create_examples_from_document(self, document: List[List[int]], doc_index: int):
@@ -425,7 +431,7 @@ class TextDatasetForNextSentencePrediction(Dataset):
         # to `block_size` anyways, so short sequences are generally wasted
         # computation. However, we *sometimes*
         # (i.e., short_seq_prob == 0.1 == 10% of the time) want to use shorter
-        # sequences to minimize the mismatch between pre-training and fine-tuning.
+        # sequences to minimize the mismatch between pretraining and fine-tuning.
         # The `target_seq_length` is just a rough target however, whereas
         # `block_size` is a hard limit.
         target_seq_length = max_num_tokens

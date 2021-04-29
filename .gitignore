@@ -134,7 +134,6 @@ dmypy.json
 tensorflow_code
 
 # Models
-models
 proc_data
 
 # examples
@@ -161,5 +160,9 @@ tags
 
 # pre-commit
 .pre-commit*
+
 # scripts
 *.ps1
+
+# .lock
+*.lock

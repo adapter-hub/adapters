@@ -28,9 +28,11 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    installation
    quickstart
    adapters
+   adapter_composition
    training
    prediction_heads
    extending
+   v2_transition
 
 .. toctree::
    :maxdepth: 2
@@ -46,8 +48,8 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    classes/adapter_config
    classes/model_adapters_config
    classes/adapter_modules
+   classes/adapter_layer
    classes/model_mixins
-   classes/bert_mixins
    classes/adapter_utils
    classes/weights_loaders
 
@@ -55,10 +57,13 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    :maxdepth: 1
    :caption: Supported Models
 
-   classes/bert
-   classes/roberta
-   classes/xlmroberta
-   classes/distilbert
+   classes/models/bart
+   classes/models/bert
+   classes/models/distilbert
+   classes/models/gpt2
+   classes/models/mbart
+   classes/models/roberta
+   classes/models/xlmroberta
 
 
 Citation

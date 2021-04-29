@@ -10,7 +10,7 @@ on:
       - 'tests/**'
       - 'utils/**'
   pull_request:
-    branches: [ 'master' ]
+    branches: [ 'master', 'v2' ]
     paths:
       - 'src/**'
       - 'examples/**'
@@ -34,7 +34,8 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install .[torch,quality]
+          pip install torch==1.7.*
+          pip install .[quality]
       - name: Check Quality
         run: |
           make quality
@@ -54,7 +55,8 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install .[sklearn,torch,testing]
+          pip install torch
+          pip install .[sklearn,testing,sentencepiece]
           pip install datasets
       - name: Test
         run: |

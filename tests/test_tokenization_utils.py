@@ -12,15 +12,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 import pickle
+import tempfile
 import unittest
 from typing import Callable, Optional
 
 import numpy as np
 
-from transformers import BatchEncoding, BertTokenizer, BertTokenizerFast, PreTrainedTokenizer, TensorType, TokenSpan
-from transformers.testing_utils import require_tf, require_tokenizers, require_torch, slow
-from transformers.tokenization_gpt2 import GPT2Tokenizer
+from transformers import (
+    BatchEncoding,
+    BertTokenizer,
+    BertTokenizerFast,
+    PreTrainedTokenizer,
+    PreTrainedTokenizerFast,
+    TensorType,
+    TokenSpan,
+    is_tokenizers_available,
+)
+from transformers.models.gpt2.tokenization_gpt2 import GPT2Tokenizer
+from transformers.testing_utils import CaptureStderr, require_flax, require_tf, require_tokenizers, require_torch, slow
+
+
+if is_tokenizers_available():
+    from tokenizers import Tokenizer
+    from tokenizers.models import WordPiece
 
 
 class TokenizerUtilsTest(unittest.TestCase):
@@ -156,6 +172,10 @@ class TokenizerUtilsTest(unittest.TestCase):
         tensor_batch = batch.convert_to_tensors(tensor_type="np")
         self.assertEqual(tensor_batch["inputs"].shape, (2, 3))
         self.assertEqual(tensor_batch["labels"].shape, (2,))
+        # test converting the converted
+        with CaptureStderr() as cs:
+            tensor_batch = batch.convert_to_tensors(tensor_type="np")
+        self.assertFalse(len(cs.err), msg=f"should have no warning, but got {cs.err}")
 
         batch = BatchEncoding({"inputs": [1, 2, 3], "labels": 0})
         tensor_batch = batch.convert_to_tensors(tensor_type="np", prepend_batch_axis=True)
@@ -168,6 +188,10 @@ class TokenizerUtilsTest(unittest.TestCase):
         tensor_batch = batch.convert_to_tensors(tensor_type="pt")
         self.assertEqual(tensor_batch["inputs"].shape, (2, 3))
         self.assertEqual(tensor_batch["labels"].shape, (2,))
+        # test converting the converted
+        with CaptureStderr() as cs:
+            tensor_batch = batch.convert_to_tensors(tensor_type="pt")
+        self.assertFalse(len(cs.err), msg=f"should have no warning, but got {cs.err}")
 
         batch = BatchEncoding({"inputs": [1, 2, 3], "labels": 0})
         tensor_batch = batch.convert_to_tensors(tensor_type="pt", prepend_batch_axis=True)
@@ -180,9 +204,29 @@ class TokenizerUtilsTest(unittest.TestCase):
         tensor_batch = batch.convert_to_tensors(tensor_type="tf")
         self.assertEqual(tensor_batch["inputs"].shape, (2, 3))
         self.assertEqual(tensor_batch["labels"].shape, (2,))
+        # test converting the converted
+        with CaptureStderr() as cs:
+            tensor_batch = batch.convert_to_tensors(tensor_type="tf")
+        self.assertFalse(len(cs.err), msg=f"should have no warning, but got {cs.err}")
 
         batch = BatchEncoding({"inputs": [1, 2, 3], "labels": 0})
         tensor_batch = batch.convert_to_tensors(tensor_type="tf", prepend_batch_axis=True)
+        self.assertEqual(tensor_batch["inputs"].shape, (1, 3))
+        self.assertEqual(tensor_batch["labels"].shape, (1,))
+
+    @require_flax
+    def test_batch_encoding_with_labels_jax(self):
+        batch = BatchEncoding({"inputs": [[1, 2, 3], [4, 5, 6]], "labels": [0, 1]})
+        tensor_batch = batch.convert_to_tensors(tensor_type="jax")
+        self.assertEqual(tensor_batch["inputs"].shape, (2, 3))
+        self.assertEqual(tensor_batch["labels"].shape, (2,))
+        # test converting the converted
+        with CaptureStderr() as cs:
+            tensor_batch = batch.convert_to_tensors(tensor_type="jax")
+        self.assertFalse(len(cs.err), msg=f"should have no warning, but got {cs.err}")
+
+        batch = BatchEncoding({"inputs": [1, 2, 3], "labels": 0})
+        tensor_batch = batch.convert_to_tensors(tensor_type="jax", prepend_batch_axis=True)
         self.assertEqual(tensor_batch["inputs"].shape, (1, 3))
         self.assertEqual(tensor_batch["labels"].shape, (1,))
 
@@ -224,3 +268,15 @@ class TokenizerUtilsTest(unittest.TestCase):
         batch = tokenizer.pad(features, padding=True, return_tensors="tf")
         self.assertTrue(isinstance(batch["input_ids"], tf.Tensor))
         self.assertEqual(batch["input_ids"].numpy().tolist(), [[0, 1, 2, tokenizer.pad_token_id], [0, 1, 2, 3]])
+
+    @require_tokenizers
+    def test_instantiation_from_tokenizers(self):
+        bert_tokenizer = Tokenizer(WordPiece(unk_token="[UNK]"))
+        PreTrainedTokenizerFast(tokenizer_object=bert_tokenizer)
+
+    @require_tokenizers
+    def test_instantiation_from_tokenizers_json_file(self):
+        bert_tokenizer = Tokenizer(WordPiece(unk_token="[UNK]"))
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            bert_tokenizer.save(os.path.join(tmpdirname, "tokenizer.json"))
+            PreTrainedTokenizerFast(tokenizer_file=os.path.join(tmpdirname, "tokenizer.json"))

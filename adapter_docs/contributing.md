@@ -14,10 +14,10 @@ git clone git@github.com:<YOUR_GITHUB_USER>/Hub.git
 cd Hub
 ```
 
-3. (optional) Set up the Python environment. This is useful to be able to perform some validation checks before submitting your contributions back to our repository:
+3. Set up the Python environment. This includes the `adapter-hub-cli` which helps in preparing your adapters for the Hub.
 
 ```bash
-pip install -r scripts/requirements.txt
+pip install -U ./scripts/.
 ```
 
 As you're fully set up now, you can proceed on the specific steps if your contribution:
@@ -36,31 +36,35 @@ Let's go through the upload process step by step:
 
 1. After the training of your adapter has finished, we first would want to save its weights to the local file system:
     ```python
-    model.save_adapter("/path/to/save/folder", "your-adapter-name")
+    model.save_adapter("/path/to/adapter/folder", "your-adapter-name")
     ```
 
-2. Zip the files in the created folder and upload the zip folder to your server space.
-
-3. Now, we start the submission of your adapter to the Hub: After setting up your repository as described in the [Getting started section](#getting-started), create a subfolder for your user/ organization in the `adapters` folder.
-
-    In your subfolder, create a YAML file describing your new adapter. You can start by copying the content of our [template YAML](https://github.com/adapter-hub/hub/blob/master/TEMPLATES/adapter.template.yaml). Only a few fields in the template are required for every submission but the more you fill, the better others can find your adapter. Especially make sure to set a download URL pointing to your uploaded weights folder.
+2. Pack your adapter with the `adapter-hub-cli`. Start the CLI by giving it the path to your saved adapter:
+    ```
+    adapter-hub-cli pack /path/to/adapter/folder
+    ```
+    `adapter-hub-cli` will search for available adapters in the path you specify and interactively lead you through the packing process.
 
     ```eval_rst
     .. note::
         The configuration of the adapter is specified by an identifier string in the YAML file. This string should refer to an adapter architecture available in the Hub. If you use a new or custom architecture, make sure to also `add an entry for your architecture <#add-a-new-adapter-architecture>`_ to the repo. 
     ```
 
-4. (optional) After you completed filling the YAML adapter card, you can perform some validation checks to make sure your info card is correct (make sure to have the Python requirements set up as described in [Getting started](#getting-started)):
+3. After step 2, a zipped adapter package and a corresponding YAML adapter card should have been created.
+    - Upload the zip package to your server space and move the YAML file into a subfolder for your user/ organization in the `adapters` folder of the cloned Hub repository.
+    - In the YAML adapter card, consider filling out some additional fields not filled out automatically, e.g. a description of your adapter is very useful!
+    Especially make sure to set a download URL pointing to your uploaded zip package.
 
+4. (optional) After you completed filling the YAML adapter card, you can perform some validation checks to make sure everything looks right:
     ```
-    python scripts/check.py -f adapters/<your_subfolder>/<your_adapter_card>
+    adapter-hub-cli check adapters/<your_subfolder>/<your_adapter_card>.yaml
     ```
 
-4. Almost finished: Now create [a pull request](https://github.com/Adapter-Hub/Hub/pulls) from your fork back to our repository.
+5. Almost finished: Now create [a pull request](https://github.com/Adapter-Hub/Hub/pulls) from your fork back to our repository.
 
     _We will perform some automatic checks on your PR to make sure the files you added are correct and the provided download links are valid. Keep an eye on the results of these checks!_
 
-5. That's it! Your adapter will become available via our website as soon as your pull request is accepted! 🎉🚀
+6. That's it! Your adapter will become available via our website as soon as your pull request is accepted! 🎉🚀
 
 
 ## Add a new adapter architecture
