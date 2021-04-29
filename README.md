@@ -27,7 +27,7 @@ A friendly fork of HuggingFace's <i>Transformers</i>, adding Adapters to PyTorch
 
 ![Tests](https://github.com/Adapter-Hub/adapter-transformers/workflows/Tests/badge.svg)
 [![GitHub](https://img.shields.io/github/license/adapter-hub/adapter-transformers.svg?color=blue)](https://github.com/adapter-hub/adapter-transformers/blob/master/LICENSE)
-![PyPI](https://img.shields.io/pypi/v/adapter-transformers)
+[![PyPI](https://img.shields.io/pypi/v/adapter-transformers)](https://pypi.org/project/adapter-transformers/)
 
 `adapter-transformers` is an extension of [HuggingFace's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
 
