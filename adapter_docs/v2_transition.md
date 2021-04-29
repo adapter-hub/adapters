@@ -31,9 +31,9 @@ refer to the [corresponding section in our documentation](adapter_composition.md
 
 ### New model support: Adapters for BART and GPT-2
 
-v2 adds support for BART and GPT-2, marking a new type of models we support in the framework, namely sequence-to-sequence models (more to come!)
+Version 2 adds support for BART and GPT-2, marking a new type of models we support in the framework, namely sequence-to-sequence models (more to come!)
 
-We have [a separate blog post](https://adapterhub.ml/blog/2021/04/adapters-for-bart-and-gpt2/) that studies the effectiveness of adapters within these two models in greater detail! This blog post also includes a hands-on example where we train GPT-2 to generate poetry.
+We have [a separate blog post](https://adapterhub.ml/blog/2021/04/adapters-for-bart-and-gpt2/) that studies the effectiveness of adapters within these two models in greater detail. This blog post also includes a hands-on example where we train GPT-2 to generate poetry.
 
 ### AdapterDrop
 
