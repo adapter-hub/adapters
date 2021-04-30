@@ -1,14 +1,10 @@
 # Extending the Library
 
-## Integrating new transformer models
+## Integrating new Transformer models
 
-Currently, the `adapter-transformers` library integrates adapter modules to language models base on `BERT`. However, the integration into new models is possible. `adapter-transformers` defines two abstract base classes that provide a generic adapter management setup:
-- [`ModelAdaptersMixin`](classes/model_mixins.md#modeladaptersmixin)
-- [`ModelWithHeadsAdaptersMixin`](classes/model_mixins.md#modelwithheadsadaptersmixin)
-
-Depending on its type, every adapter-supporting model should derive from one of these mixin classes. `ModelAdaptersMixin` is intended for base model classes which do not provide task-specific prediction heads (e.g. `BertModel`, `RobertaModel`) whereas `ModelWithHeadsAdaptersMixin` should be used for models with prediction heads, such as `BertForSequenceClassification` or `BertModelWithHeads`.
-
-Both classes specify a minimal number of abstract methods, such as `add_adapter()`, which must be implemented by every deriving model class. For the implementation details, refer to the [class documentation of the base classes](classes/model_mixins.md) or the [reference BERT implementation](classes/bert_mixins.md).
+Currently, not all model types included in HuggingFace's `transformers` support adapters yet.
+However, it is possible to the existing adapter implementation to new models.
+For a detailed guide, refer to [Adding Adapters to a Model](https://github.com/Adapter-Hub/adapter-transformers/blob/master/adding_adapters_to_a_model.md).
 
 ## Loading custom module weights
 
@@ -16,7 +12,7 @@ Both classes specify a minimal number of abstract methods, such as `add_adapter(
 However, countless additional module integrations into language models are thinkable.
 To provide a basis for such new custom model plugins, `adapter-transformers` integrates a basic mechanism to save and load custom weights.
 
-All adapter and head module weights are extracted, saved and loaded by implementations of the [`WeightsLoader`](classes/weights_loaders.md#weightsloader) class, the two preincluded being [`AdapterLoader`](classes/weights_loaders.md#adapterloader) and [`PredictionHeadLoader`](classes/weights_loaders.md#predictionheadloader). To add basic saving and loading functionalities to your custom module weights, you can implement a new subclass of `WeightsLoader`. The two required abstract methods to be implemented are:
+All adapter and head module weights are extracted, saved and loaded by implementations of the [`WeightsLoader`](classes/weights_loaders.html#weightsloader) class, the two preincluded being [`AdapterLoader`](classes/weights_loaders.html#adapterloader) and [`PredictionHeadLoader`](classes/weights_loaders.html#predictionheadloader). To add basic saving and loading functionalities to your custom module weights, you can implement a new subclass of `WeightsLoader`. The two required abstract methods to be implemented are:
 
 - `filter_func(self, name: str) -> Callable[[str], bool]`: The callable returned by this method is used to extract the module weights to be saved or loaded based on their names.
 
@@ -34,7 +30,6 @@ You can also upload these weights to the Hub and then load them from there toget
 ```python
 model.load_adapter(
     "adapter_name",
-    adapter_type="text_task",
     custom_weights_loaders=[MyCustomWeightsLoader]
 )
 ```

@@ -23,15 +23,21 @@ from unittest.mock import patch
 
 import numpy as np
 
+from transformers import BartTokenizer, T5Tokenizer
 from transformers.file_utils import cached_property, is_datasets_available, is_faiss_available, is_torch_available
-from transformers.testing_utils import require_torch, slow, torch_device
-from transformers.tokenization_bart import BartTokenizer
-from transformers.tokenization_bert import VOCAB_FILES_NAMES as DPR_VOCAB_FILES_NAMES
-from transformers.tokenization_dpr import DPRQuestionEncoderTokenizer
-from transformers.tokenization_roberta import VOCAB_FILES_NAMES as BART_VOCAB_FILES_NAMES
-from transformers.tokenization_t5 import T5Tokenizer
+from transformers.models.bert.tokenization_bert import VOCAB_FILES_NAMES as DPR_VOCAB_FILES_NAMES
+from transformers.models.dpr.tokenization_dpr import DPRQuestionEncoderTokenizer
+from transformers.models.roberta.tokenization_roberta import VOCAB_FILES_NAMES as BART_VOCAB_FILES_NAMES
+from transformers.testing_utils import (
+    require_sentencepiece,
+    require_tokenizers,
+    require_torch,
+    require_torch_non_multi_gpu,
+    slow,
+    torch_device,
+)
 
-from .test_modeling_bart import ModelTester as BartModelTester
+from .test_modeling_bart import BartModelTester
 from .test_modeling_dpr import DPRModelTester
 from .test_modeling_t5 import T5ModelTester
 
@@ -68,7 +74,7 @@ def _assert_tensors_equal(a, b, atol=1e-12, prefix=""):
             return True
         raise
     except Exception:
-        msg = "{} != {}".format(a, b)
+        msg = f"{a} != {b}"
         if prefix:
             msg = prefix + ": " + msg
         raise AssertionError(msg)
@@ -83,12 +89,13 @@ def require_retrieval(test_case):
 
     """
     if not (is_torch_available() and is_datasets_available() and is_faiss_available()):
-        test_case = unittest.skip("test requires PyTorch")(test_case)
+        test_case = unittest.skip("test requires PyTorch, datasets and faiss")(test_case)
     return test_case
 
 
 @require_torch
 @require_retrieval
+@require_sentencepiece
 class RagTestMixin:
 
     all_model_classes = (
@@ -98,7 +105,7 @@ class RagTestMixin:
     )
 
     retrieval_vector_size = 32
-    n_docs = 2
+    n_docs = 3
     max_combined_length = 16
 
     def setUp(self):
@@ -186,15 +193,19 @@ class RagTestMixin:
     def get_retriever(self, config):
         dataset = Dataset.from_dict(
             {
-                "id": ["0", "1"],
-                "text": ["foo", "bar"],
-                "title": ["Foo", "Bar"],
-                "embeddings": [np.ones(self.retrieval_vector_size), 2 * np.ones(self.retrieval_vector_size)],
+                "id": ["0", "1", "3"],
+                "text": ["foo", "bar", "qux"],
+                "title": ["Foo", "Bar", "Qux"],
+                "embeddings": [
+                    np.ones(self.retrieval_vector_size),
+                    2 * np.ones(self.retrieval_vector_size),
+                    3 * np.ones(self.retrieval_vector_size),
+                ],
             }
         )
         dataset.add_faiss_index("embeddings", string_factory="Flat", metric_type=faiss.METRIC_INNER_PRODUCT)
         tokenizer = self.bart_tokenizer if config.generator.model_type == "bart" else self.t5_tokenizer
-        with patch("transformers.retrieval_rag.load_dataset") as mock_load_dataset:
+        with patch("transformers.models.rag.retrieval_rag.load_dataset") as mock_load_dataset:
             mock_load_dataset.return_value = dataset
             retriever = RagRetriever(
                 config,
@@ -234,6 +245,53 @@ class RagTestMixin:
             )
             # doc scores
             self.assertEqual(outputs.doc_scores.shape, (input_ids.shape[0], self.n_docs))
+
+    def check_model_generate_from_context_input_ids(
+        self, config, input_ids, attention_mask, decoder_input_ids, decoder_attention_mask, **kwargs
+    ):
+        self.assertIsNotNone(config.question_encoder)
+        self.assertIsNotNone(config.generator)
+
+        retriever = self.get_retriever(config)
+
+        for model_class in self.all_model_classes:
+            model = model_class(config).to(torch_device)
+            model.eval()
+            self.assertTrue(model.config.is_encoder_decoder)
+
+            question_hidden_states = model.question_encoder(input_ids, attention_mask=attention_mask)[0]
+
+            out = retriever(
+                input_ids,
+                question_hidden_states.cpu().detach().to(torch.float32).numpy(),
+                prefix=config.generator.prefix,
+                return_tensors="pt",
+            )
+
+            context_input_ids, context_attention_mask, retrieved_doc_embeds = (
+                out["context_input_ids"],
+                out["context_attention_mask"],
+                out["retrieved_doc_embeds"],
+            )
+
+            # cast
+            retrieved_doc_embeds = retrieved_doc_embeds.to(question_hidden_states)
+            context_input_ids = context_input_ids.to(input_ids)
+            context_attention_mask = context_attention_mask.to(input_ids)
+
+            # compute doc_scores
+            doc_scores = torch.bmm(question_hidden_states.unsqueeze(1), retrieved_doc_embeds.transpose(1, 2)).squeeze(
+                1
+            )
+
+            outputs = model.generate(
+                context_input_ids=context_input_ids,
+                context_attention_mask=context_attention_mask,
+                doc_scores=doc_scores,
+                do_deduplication=True,
+            )
+
+            self.assertIsNotNone(outputs)
 
     def check_model_generate(
         self, config, input_ids, attention_mask, decoder_input_ids, decoder_attention_mask, **kwargs
@@ -315,6 +373,125 @@ class RagTestMixin:
             # doc scores
             self.assertEqual(outputs.doc_scores.shape, (input_ids.shape[0], self.n_docs))
 
+    def check_model_custom_n_docs(
+        self, config, input_ids, attention_mask, decoder_input_ids, decoder_attention_mask, n_docs, **kwargs
+    ):
+        self.assertIsNotNone(config.question_encoder)
+        self.assertIsNotNone(config.generator)
+
+        retriever = self.get_retriever(config)
+
+        for model_class in self.all_model_classes:
+            model = model_class(config).to(torch_device)
+            model.eval()
+            self.assertTrue(model.config.is_encoder_decoder)
+
+            question_hidden_states = model.question_encoder(input_ids, attention_mask=attention_mask)[0]
+
+            out = retriever(
+                input_ids,
+                question_hidden_states.cpu().detach().to(torch.float32).numpy(),
+                prefix=config.generator.prefix,
+                return_tensors="pt",
+                n_docs=n_docs,
+            )
+
+            context_input_ids, context_attention_mask, retrieved_doc_embeds = (
+                out["context_input_ids"],
+                out["context_attention_mask"],
+                out["retrieved_doc_embeds"],
+            )
+
+            # cast
+            retrieved_doc_embeds = retrieved_doc_embeds.to(question_hidden_states)
+            context_input_ids = context_input_ids.to(input_ids)
+            context_attention_mask = context_attention_mask.to(input_ids)
+
+            # compute doc_scores
+            doc_scores = torch.bmm(question_hidden_states.unsqueeze(1), retrieved_doc_embeds.transpose(1, 2)).squeeze(
+                1
+            )
+
+            outputs = model(
+                context_input_ids=context_input_ids,
+                context_attention_mask=context_attention_mask,
+                doc_scores=doc_scores,
+                decoder_input_ids=decoder_input_ids,
+                decoder_attention_mask=decoder_attention_mask,
+                n_docs=n_docs,
+            )
+
+            # logits
+            self.assertEqual(
+                outputs.logits.shape,
+                (n_docs * decoder_input_ids.shape[0], decoder_input_ids.shape[1], config.generator.vocab_size),
+            )
+            # generator encoder last hidden states
+            self.assertEqual(
+                outputs.generator_enc_last_hidden_state.shape,
+                (n_docs * decoder_input_ids.shape[0], self.max_combined_length, config.generator.hidden_size),
+            )
+            # doc scores
+            self.assertEqual(outputs.doc_scores.shape, (input_ids.shape[0], n_docs))
+
+    def check_model_with_mismatch_n_docs_value(
+        self,
+        config,
+        input_ids,
+        attention_mask,
+        decoder_input_ids,
+        decoder_attention_mask,
+        retriever_n_docs,
+        generator_n_docs,
+        **kwargs
+    ):
+        self.assertIsNotNone(config.question_encoder)
+        self.assertIsNotNone(config.generator)
+
+        retriever = self.get_retriever(config)
+
+        for model_class in self.all_model_classes:
+            model = model_class(config).to(torch_device)
+            model.eval()
+            self.assertTrue(model.config.is_encoder_decoder)
+
+            question_hidden_states = model.question_encoder(input_ids, attention_mask=attention_mask)[0]
+
+            out = retriever(
+                input_ids,
+                question_hidden_states.cpu().detach().to(torch.float32).numpy(),
+                prefix=config.generator.prefix,
+                return_tensors="pt",
+                n_docs=retriever_n_docs,
+            )
+
+            context_input_ids, context_attention_mask, retrieved_doc_embeds = (
+                out["context_input_ids"],
+                out["context_attention_mask"],
+                out["retrieved_doc_embeds"],
+            )
+
+            # cast
+            retrieved_doc_embeds = retrieved_doc_embeds.to(question_hidden_states)
+            context_input_ids = context_input_ids.to(input_ids)
+            context_attention_mask = context_attention_mask.to(input_ids)
+
+            # compute doc_scores
+            doc_scores = torch.bmm(question_hidden_states.unsqueeze(1), retrieved_doc_embeds.transpose(1, 2)).squeeze(
+                1
+            )
+
+            self.assertRaises(
+                AssertionError,
+                model.__call__,
+                context_input_ids=context_input_ids,
+                context_attention_mask=context_attention_mask,
+                doc_scores=doc_scores,
+                decoder_input_ids=decoder_input_ids,
+                decoder_attention_mask=decoder_attention_mask,
+                n_docs=generator_n_docs,
+            )
+
     def check_model_with_encoder_outputs(
         self, config, input_ids, attention_mask, decoder_input_ids, decoder_attention_mask, **kwargs
     ):
@@ -373,6 +550,17 @@ class RagTestMixin:
         inputs_dict = self.config_and_inputs
         self.check_model_generate(**inputs_dict)
 
+    def test_model_with_custom_n_docs(self):
+        inputs_dict = self.config_and_inputs
+        inputs_dict["n_docs"] = 1
+        self.check_model_custom_n_docs(**inputs_dict)
+
+    def test_model_with_mismatch_n_docs_value(self):
+        inputs_dict = self.config_and_inputs
+        inputs_dict["retriever_n_docs"] = 3
+        inputs_dict["generator_n_docs"] = 2
+        self.check_model_with_mismatch_n_docs_value(**inputs_dict)
+
 
 @require_torch
 @require_retrieval
@@ -394,7 +582,6 @@ class RagDPRBartTest(RagTestMixin, unittest.TestCase):
             n_docs=self.n_docs,
             retrieval_vector_size=self.retrieval_vector_size,
             max_combined_length=self.max_combined_length,
-            use_cache=False,
         )
 
         return {
@@ -413,7 +600,7 @@ class RagDPRT5Test(RagTestMixin, unittest.TestCase):
     def config_and_inputs(self):
         question_encoder_tester = DPRModelTester(self)
         dpr_config_and_inputs = question_encoder_tester.prepare_config_and_inputs()
-        generator_tester = T5ModelTester(self, vocab_size=1100, n_positions=30)
+        generator_tester = T5ModelTester(self, vocab_size=1100)
         t5_config_and_inputs = generator_tester.prepare_config_and_inputs()
 
         (question_encoder_config, input_ids, _, input_mask, _, _, _) = dpr_config_and_inputs
@@ -424,7 +611,6 @@ class RagDPRT5Test(RagTestMixin, unittest.TestCase):
             n_docs=self.n_docs,
             retrieval_vector_size=self.retrieval_vector_size,
             max_combined_length=self.max_combined_length,
-            use_cache=False,
         )
 
         return {
@@ -438,6 +624,9 @@ class RagDPRT5Test(RagTestMixin, unittest.TestCase):
 
 @require_torch
 @require_retrieval
+@require_sentencepiece
+@require_tokenizers
+@require_torch_non_multi_gpu
 class RagModelIntegrationTests(unittest.TestCase):
     @cached_property
     def sequence_model(self):
@@ -614,8 +803,8 @@ class RagModelIntegrationTests(unittest.TestCase):
             generator_tokenizer=rag_decoder_tokenizer,
         )
 
-        rag_token = self.sequence_model
-        rag_token.set_retriever(rag_retriever)
+        rag_sequence = self.sequence_model
+        rag_sequence.set_retriever(rag_retriever)
 
         input_ids = rag_question_encoder_tokenizer(
             "who sings does he love me with reba", return_tensors="pt"
@@ -623,9 +812,9 @@ class RagModelIntegrationTests(unittest.TestCase):
 
         input_ids = input_ids.to(torch_device)
 
-        output_ids = rag_token.generate(
+        output_ids = rag_sequence.generate(
             input_ids,
-            decoder_start_token_id=rag_token.generator.config.decoder_start_token_id,
+            decoder_start_token_id=rag_sequence.generator.config.decoder_start_token_id,
             num_beams=2,
             num_return_sequences=2,
         )
@@ -651,13 +840,6 @@ class RagModelIntegrationTests(unittest.TestCase):
             "when is the last time the philadelphia won the superbowl",
             "what is the most current adobe flash player version",
             "how many episodes are there in dragon ball z",
-            "what is the first step in the evolution of the eye",
-            "where is gall bladder situated in human body",
-            "what is the main mineral in lithium batteries",
-            "who is the president of usa right now",
-            "where do the greasers live in the outsiders",
-            "panda is a national animal of which country",
-            "what is the name of manchester united stadium",
         ]
 
     @slow
@@ -666,7 +848,7 @@ class RagModelIntegrationTests(unittest.TestCase):
         retriever = RagRetriever.from_pretrained(
             "facebook/rag-sequence-nq", index_name="exact", use_dummy_dataset=True
         )
-        rag_sequence = RagTokenForGeneration.from_pretrained("facebook/rag-sequence-nq", retriever=retriever).to(
+        rag_sequence = RagSequenceForGeneration.from_pretrained("facebook/rag-sequence-nq", retriever=retriever).to(
             torch_device
         )
 
@@ -696,13 +878,56 @@ class RagModelIntegrationTests(unittest.TestCase):
             " 1980",
             " 7.0",
             " 8",
-            " reticular formation",
-            " walls of the abdomen",
-            " spodumene",
-            " obama",
-            " grainger's compound",
-            " japan",
-            " old trafford stadium",
+        ]
+        self.assertListEqual(outputs, EXPECTED_OUTPUTS)
+
+    @slow
+    def test_rag_sequence_generate_batch_from_context_input_ids(self):
+        tokenizer = RagTokenizer.from_pretrained("facebook/rag-sequence-nq")
+        retriever = RagRetriever.from_pretrained(
+            "facebook/rag-sequence-nq", index_name="exact", use_dummy_dataset=True
+        )
+        rag_sequence = RagSequenceForGeneration.from_pretrained("facebook/rag-sequence-nq", retriever=retriever).to(
+            torch_device
+        )
+
+        input_dict = tokenizer(
+            self.test_data_questions,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        )
+
+        input_ids = input_dict.input_ids.to(torch_device)
+        attention_mask = input_dict.attention_mask.to(torch_device)
+
+        question_hidden_states = rag_sequence.question_encoder(input_ids, attention_mask=attention_mask)[0]
+        docs_dict = retriever(
+            input_ids.cpu().detach().numpy(), question_hidden_states.cpu().detach().numpy(), return_tensors="pt"
+        )
+        doc_scores = torch.bmm(
+            question_hidden_states.unsqueeze(1),
+            docs_dict["retrieved_doc_embeds"].to(torch_device).float().transpose(1, 2),
+        ).squeeze(1)
+
+        output_ids = rag_sequence.generate(
+            context_input_ids=docs_dict["context_input_ids"].to(torch_device),
+            context_attention_mask=docs_dict["context_attention_mask"].to(torch_device),
+            doc_scores=doc_scores.to(torch_device),
+            do_deduplication=True,
+        )
+
+        outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+
+        EXPECTED_OUTPUTS = [
+            " albert einstein",
+            " june 22, 2018",
+            " amplitude modulation",
+            " tim besley ( chairman )",
+            " june 20, 2018",
+            " 1980",
+            " 7.0",
+            " 8",
         ]
         self.assertListEqual(outputs, EXPECTED_OUTPUTS)
 
@@ -740,13 +965,6 @@ class RagModelIntegrationTests(unittest.TestCase):
             " the 1970s",
             " 7.1. 2",
             " 13",
-            " step by step",
-            " stomach",
-            " spodumene",
-            " obama",
-            " northern new jersey",
-            " india",
-            " united stadium",
         ]
         self.assertListEqual(outputs, EXPECTED_OUTPUTS)
 

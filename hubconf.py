@@ -1,3 +1,17 @@
+# Copyright 2020 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import sys
 
@@ -8,15 +22,16 @@ sys.path.append(SRC_DIR)
 from transformers import (
     AutoConfig,
     AutoModel,
+    AutoModelForCausalLM,
+    AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
-    AutoModelWithLMHead,
     AutoTokenizer,
     add_start_docstrings,
 )
 
 
-dependencies = ["torch", "numpy", "tokenizers", "filelock", "requests", "tqdm", "regex", "sentencepiece", "sacremoses"]
+dependencies = ["torch", "numpy", "tokenizers", "filelock", "requests", "tqdm", "regex", "sentencepiece", "sacremoses", "importlib_metadata"]
 
 
 @add_start_docstrings(AutoConfig.__doc__)
@@ -25,7 +40,7 @@ def config(*args, **kwargs):
                 # Using torch.hub !
                 import torch
 
-                config = torch.hub.load('huggingface/transformers', 'config', 'bert-base-uncased')  # Download configuration from S3 and cache.
+                config = torch.hub.load('huggingface/transformers', 'config', 'bert-base-uncased')  # Download configuration from huggingface.co and cache.
                 config = torch.hub.load('huggingface/transformers', 'config', './test/bert_saved_model/')  # E.g. config (or model) was saved using `save_pretrained('./test/saved_model/')`
                 config = torch.hub.load('huggingface/transformers', 'config', './test/bert_saved_model/my_configuration.json')
                 config = torch.hub.load('huggingface/transformers', 'config', 'bert-base-uncased', output_attentions=True, foo=False)
@@ -45,7 +60,7 @@ def tokenizer(*args, **kwargs):
         # Using torch.hub !
         import torch
 
-        tokenizer = torch.hub.load('huggingface/transformers', 'tokenizer', 'bert-base-uncased')    # Download vocabulary from S3 and cache.
+        tokenizer = torch.hub.load('huggingface/transformers', 'tokenizer', 'bert-base-uncased')    # Download vocabulary from huggingface.co and cache.
         tokenizer = torch.hub.load('huggingface/transformers', 'tokenizer', './test/bert_saved_model/')  # E.g. tokenizer was saved using `save_pretrained('./test/saved_model/')`
 
     """
@@ -59,12 +74,12 @@ def model(*args, **kwargs):
             # Using torch.hub !
             import torch
 
-            model = torch.hub.load('huggingface/transformers', 'model', 'bert-base-uncased')    # Download model and configuration from S3 and cache.
+            model = torch.hub.load('huggingface/transformers', 'model', 'bert-base-uncased')    # Download model and configuration from huggingface.co and cache.
             model = torch.hub.load('huggingface/transformers', 'model', './test/bert_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
             model = torch.hub.load('huggingface/transformers', 'model', 'bert-base-uncased', output_attentions=True)  # Update configuration during loading
             assert model.config.output_attentions == True
             # Loading from a TF checkpoint file instead of a PyTorch model (slower)
-            config = AutoConfig.from_json_file('./tf_model/bert_tf_model_config.json')
+            config = AutoConfig.from_pretrained('./tf_model/bert_tf_model_config.json')
             model = torch.hub.load('huggingface/transformers', 'model', './tf_model/bert_tf_checkpoint.ckpt.index', from_tf=True, config=config)
 
         """
@@ -72,22 +87,41 @@ def model(*args, **kwargs):
     return AutoModel.from_pretrained(*args, **kwargs)
 
 
-@add_start_docstrings(AutoModelWithLMHead.__doc__)
-def modelWithLMHead(*args, **kwargs):
+@add_start_docstrings(AutoModelForCausalLM.__doc__)
+def modelForCausalLM(*args, **kwargs):
     r"""
         # Using torch.hub !
         import torch
 
-        model = torch.hub.load('huggingface/transformers', 'modelWithLMHead', 'bert-base-uncased')    # Download model and configuration from S3 and cache.
-        model = torch.hub.load('huggingface/transformers', 'modelWithLMHead', './test/bert_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
-        model = torch.hub.load('huggingface/transformers', 'modelWithLMHead', 'bert-base-uncased', output_attentions=True)  # Update configuration during loading
+        model = torch.hub.load('huggingface/transformers', 'modelForCausalLM', 'gpt2')    # Download model and configuration from huggingface.co and cache.
+        model = torch.hub.load('huggingface/transformers', 'modelForCausalLM', './test/saved_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
+        model = torch.hub.load('huggingface/transformers', 'modelForCausalLM', 'gpt2', output_attentions=True)  # Update configuration during loading
         assert model.config.output_attentions == True
         # Loading from a TF checkpoint file instead of a PyTorch model (slower)
-        config = AutoConfig.from_json_file('./tf_model/bert_tf_model_config.json')
-        model = torch.hub.load('huggingface/transformers', 'modelWithLMHead', './tf_model/bert_tf_checkpoint.ckpt.index', from_tf=True, config=config)
+        config = AutoConfig.from_pretrained('./tf_model/gpt_tf_model_config.json')
+        model = torch.hub.load('huggingface/transformers', 'modelForCausalLM', './tf_model/gpt_tf_checkpoint.ckpt.index', from_tf=True, config=config)
 
     """
-    return AutoModelWithLMHead.from_pretrained(*args, **kwargs)
+    return AutoModelForCausalLM.from_pretrained(*args, **kwargs)
+
+
+@add_start_docstrings(AutoModelForMaskedLM.__doc__)
+def modelForMaskedLM(*args, **kwargs):
+    r"""
+            # Using torch.hub !
+            import torch
+
+            model = torch.hub.load('huggingface/transformers', 'modelForMaskedLM', 'bert-base-uncased')    # Download model and configuration from huggingface.co and cache.
+            model = torch.hub.load('huggingface/transformers', 'modelForMaskedLM', './test/bert_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
+            model = torch.hub.load('huggingface/transformers', 'modelForMaskedLM', 'bert-base-uncased', output_attentions=True)  # Update configuration during loading
+            assert model.config.output_attentions == True
+            # Loading from a TF checkpoint file instead of a PyTorch model (slower)
+            config = AutoConfig.from_pretrained('./tf_model/bert_tf_model_config.json')
+            model = torch.hub.load('huggingface/transformers', 'modelForMaskedLM', './tf_model/bert_tf_checkpoint.ckpt.index', from_tf=True, config=config)
+
+        """
+
+    return AutoModelForMaskedLM.from_pretrained(*args, **kwargs)
 
 
 @add_start_docstrings(AutoModelForSequenceClassification.__doc__)
@@ -96,12 +130,12 @@ def modelForSequenceClassification(*args, **kwargs):
             # Using torch.hub !
             import torch
 
-            model = torch.hub.load('huggingface/transformers', 'modelForSequenceClassification', 'bert-base-uncased')    # Download model and configuration from S3 and cache.
+            model = torch.hub.load('huggingface/transformers', 'modelForSequenceClassification', 'bert-base-uncased')    # Download model and configuration from huggingface.co and cache.
             model = torch.hub.load('huggingface/transformers', 'modelForSequenceClassification', './test/bert_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
             model = torch.hub.load('huggingface/transformers', 'modelForSequenceClassification', 'bert-base-uncased', output_attentions=True)  # Update configuration during loading
             assert model.config.output_attentions == True
             # Loading from a TF checkpoint file instead of a PyTorch model (slower)
-            config = AutoConfig.from_json_file('./tf_model/bert_tf_model_config.json')
+            config = AutoConfig.from_pretrained('./tf_model/bert_tf_model_config.json')
             model = torch.hub.load('huggingface/transformers', 'modelForSequenceClassification', './tf_model/bert_tf_checkpoint.ckpt.index', from_tf=True, config=config)
 
         """
@@ -115,12 +149,12 @@ def modelForQuestionAnswering(*args, **kwargs):
         # Using torch.hub !
         import torch
 
-        model = torch.hub.load('huggingface/transformers', 'modelForQuestionAnswering', 'bert-base-uncased')    # Download model and configuration from S3 and cache.
+        model = torch.hub.load('huggingface/transformers', 'modelForQuestionAnswering', 'bert-base-uncased')    # Download model and configuration from huggingface.co and cache.
         model = torch.hub.load('huggingface/transformers', 'modelForQuestionAnswering', './test/bert_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
         model = torch.hub.load('huggingface/transformers', 'modelForQuestionAnswering', 'bert-base-uncased', output_attentions=True)  # Update configuration during loading
         assert model.config.output_attentions == True
         # Loading from a TF checkpoint file instead of a PyTorch model (slower)
-        config = AutoConfig.from_json_file('./tf_model/bert_tf_model_config.json')
+        config = AutoConfig.from_pretrained('./tf_model/bert_tf_model_config.json')
         model = torch.hub.load('huggingface/transformers', 'modelForQuestionAnswering', './tf_model/bert_tf_checkpoint.ckpt.index', from_tf=True, config=config)
 
     """

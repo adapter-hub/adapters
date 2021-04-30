@@ -1,22 +1,35 @@
+# Copyright 2020 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import os
 import shutil
 import tempfile
 from unittest import TestCase
 
-from transformers.configuration_bart import BartConfig
-from transformers.configuration_dpr import DPRConfig
+from transformers import BartTokenizer, BartTokenizerFast, DPRQuestionEncoderTokenizer, DPRQuestionEncoderTokenizerFast
 from transformers.file_utils import is_datasets_available, is_faiss_available, is_torch_available
-from transformers.testing_utils import require_datasets, require_faiss, require_torch
-from transformers.tokenization_bart import BartTokenizer
-from transformers.tokenization_bert import VOCAB_FILES_NAMES as DPR_VOCAB_FILES_NAMES
-from transformers.tokenization_dpr import DPRQuestionEncoderTokenizer
-from transformers.tokenization_roberta import VOCAB_FILES_NAMES as BART_VOCAB_FILES_NAMES
+from transformers.models.bart.configuration_bart import BartConfig
+from transformers.models.bert.tokenization_bert import VOCAB_FILES_NAMES as DPR_VOCAB_FILES_NAMES
+from transformers.models.dpr.configuration_dpr import DPRConfig
+from transformers.models.roberta.tokenization_roberta import VOCAB_FILES_NAMES as BART_VOCAB_FILES_NAMES
+from transformers.testing_utils import require_datasets, require_faiss, require_tokenizers, require_torch, slow
 
 
 if is_torch_available() and is_datasets_available() and is_faiss_available():
-    from transformers.configuration_rag import RagConfig
-    from transformers.tokenization_rag import RagTokenizer
+    from transformers.models.rag.configuration_rag import RagConfig
+    from transformers.models.rag.tokenization_rag import RagTokenizer
 
 
 @require_faiss
@@ -96,6 +109,7 @@ class RagTokenizerTest(TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdirname)
 
+    @require_tokenizers
     def test_save_load_pretrained_with_saved_config(self):
 
         save_dir = os.path.join(self.tmpdirname, "rag_tokenizer")
@@ -104,7 +118,53 @@ class RagTokenizerTest(TestCase):
         rag_config.save_pretrained(save_dir)
         rag_tokenizer.save_pretrained(save_dir)
         new_rag_tokenizer = RagTokenizer.from_pretrained(save_dir, config=rag_config)
-        self.assertIsInstance(new_rag_tokenizer.question_encoder, DPRQuestionEncoderTokenizer)
-        self.assertEqual(new_rag_tokenizer.question_encoder.vocab, rag_tokenizer.question_encoder.vocab)
-        self.assertIsInstance(new_rag_tokenizer.generator, BartTokenizer)
-        self.assertEqual(new_rag_tokenizer.generator.encoder, rag_tokenizer.generator.encoder)
+        self.assertIsInstance(new_rag_tokenizer.question_encoder, DPRQuestionEncoderTokenizerFast)
+        self.assertEqual(new_rag_tokenizer.question_encoder.get_vocab(), rag_tokenizer.question_encoder.get_vocab())
+        self.assertIsInstance(new_rag_tokenizer.generator, BartTokenizerFast)
+        self.assertEqual(new_rag_tokenizer.generator.get_vocab(), rag_tokenizer.generator.get_vocab())
+
+    @slow
+    def test_pretrained_token_nq_tokenizer(self):
+        tokenizer = RagTokenizer.from_pretrained("facebook/rag-token-nq")
+        input_strings = [
+            "who got the first nobel prize in physics",
+            "when is the next deadpool movie being released",
+            "which mode is used for short wave broadcast service",
+            "who is the owner of reading football club",
+            "when is the next scandal episode coming out",
+            "when is the last time the philadelphia won the superbowl",
+            "what is the most current adobe flash player version",
+            "how many episodes are there in dragon ball z",
+            "what is the first step in the evolution of the eye",
+            "where is gall bladder situated in human body",
+            "what is the main mineral in lithium batteries",
+            "who is the president of usa right now",
+            "where do the greasers live in the outsiders",
+            "panda is a national animal of which country",
+            "what is the name of manchester united stadium",
+        ]
+        input_dict = tokenizer(input_strings)
+        self.assertIsNotNone(input_dict)
+
+    @slow
+    def test_pretrained_sequence_nq_tokenizer(self):
+        tokenizer = RagTokenizer.from_pretrained("facebook/rag-sequence-nq")
+        input_strings = [
+            "who got the first nobel prize in physics",
+            "when is the next deadpool movie being released",
+            "which mode is used for short wave broadcast service",
+            "who is the owner of reading football club",
+            "when is the next scandal episode coming out",
+            "when is the last time the philadelphia won the superbowl",
+            "what is the most current adobe flash player version",
+            "how many episodes are there in dragon ball z",
+            "what is the first step in the evolution of the eye",
+            "where is gall bladder situated in human body",
+            "what is the main mineral in lithium batteries",
+            "who is the president of usa right now",
+            "where do the greasers live in the outsiders",
+            "panda is a national animal of which country",
+            "what is the name of manchester united stadium",
+        ]
+        input_dict = tokenizer(input_strings)
+        self.assertIsNotNone(input_dict)

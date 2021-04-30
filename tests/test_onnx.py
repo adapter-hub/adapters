@@ -1,3 +1,17 @@
+# Copyright 2020 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import unittest
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
@@ -10,7 +24,7 @@ from transformers.convert_graph_to_onnx import (
     infer_shapes,
     quantize,
 )
-from transformers.testing_utils import require_tf, require_torch, slow
+from transformers.testing_utils import require_tf, require_tokenizers, require_torch, slow
 
 
 class FuncContiguousArgs:
@@ -24,19 +38,23 @@ class FuncNonContiguousArgs:
 
 
 class OnnxExportTestCase(unittest.TestCase):
-    MODEL_TO_TEST = ["bert-base-cased", "gpt2", "roberta-base"]
+    MODEL_TO_TEST = [
+        # (model_name, model_kwargs)
+        ("bert-base-cased", {}),
+        ("gpt2", {"use_cache": False}),  # We don't support exporting GPT2 past keys anymore
+    ]
 
     @require_tf
     @slow
     def test_export_tensorflow(self):
-        for model in OnnxExportTestCase.MODEL_TO_TEST:
-            self._test_export(model, "tf", 12)
+        for model, model_kwargs in OnnxExportTestCase.MODEL_TO_TEST:
+            self._test_export(model, "tf", 12, **model_kwargs)
 
     @require_torch
     @slow
     def test_export_pytorch(self):
-        for model in OnnxExportTestCase.MODEL_TO_TEST:
-            self._test_export(model, "pt", 12)
+        for model, model_kwargs in OnnxExportTestCase.MODEL_TO_TEST:
+            self._test_export(model, "pt", 12, **model_kwargs)
 
     @require_torch
     @slow
@@ -57,8 +75,8 @@ class OnnxExportTestCase(unittest.TestCase):
     @require_tf
     @slow
     def test_quantize_tf(self):
-        for model in OnnxExportTestCase.MODEL_TO_TEST:
-            path = self._test_export(model, "tf", 12)
+        for model, model_kwargs in OnnxExportTestCase.MODEL_TO_TEST:
+            path = self._test_export(model, "tf", 12, **model_kwargs)
             quantized_path = quantize(Path(path))
 
             # Ensure the actual quantized model is not bigger than the original one
@@ -68,15 +86,15 @@ class OnnxExportTestCase(unittest.TestCase):
     @require_torch
     @slow
     def test_quantize_pytorch(self):
-        for model in OnnxExportTestCase.MODEL_TO_TEST:
-            path = self._test_export(model, "pt", 12)
+        for model, model_kwargs in OnnxExportTestCase.MODEL_TO_TEST:
+            path = self._test_export(model, "pt", 12, **model_kwargs)
             quantized_path = quantize(path)
 
             # Ensure the actual quantized model is not bigger than the original one
             if quantized_path.stat().st_size >= Path(path).stat().st_size:
                 self.fail("Quantized model is bigger than initial ONNX model")
 
-    def _test_export(self, model, framework, opset, tokenizer=None):
+    def _test_export(self, model, framework, opset, tokenizer=None, **model_kwargs):
         try:
             # Compute path
             with TemporaryDirectory() as tempdir:
@@ -87,32 +105,36 @@ class OnnxExportTestCase(unittest.TestCase):
                 path.parent.rmdir()
 
             # Export
-            convert(framework, model, path, opset, tokenizer)
+            convert(framework, model, path, opset, tokenizer, **model_kwargs)
 
             return path
         except Exception as e:
             self.fail(e)
 
     @require_torch
+    @require_tokenizers
+    @slow
     def test_infer_dynamic_axis_pytorch(self):
         """
         Validate the dynamic axis generated for each parameters are correct
         """
         from transformers import BertModel
 
-        model = BertModel(BertConfig.from_pretrained("bert-base-cased"))
-        tokenizer = BertTokenizerFast.from_pretrained("bert-base-cased")
+        model = BertModel(BertConfig.from_pretrained("lysandre/tiny-bert-random"))
+        tokenizer = BertTokenizerFast.from_pretrained("lysandre/tiny-bert-random")
         self._test_infer_dynamic_axis(model, tokenizer, "pt")
 
     @require_tf
+    @require_tokenizers
+    @slow
     def test_infer_dynamic_axis_tf(self):
         """
         Validate the dynamic axis generated for each parameters are correct
         """
         from transformers import TFBertModel
 
-        model = TFBertModel(BertConfig.from_pretrained("bert-base-cased"))
-        tokenizer = BertTokenizerFast.from_pretrained("bert-base-cased")
+        model = TFBertModel(BertConfig.from_pretrained("lysandre/tiny-bert-random"))
+        tokenizer = BertTokenizerFast.from_pretrained("lysandre/tiny-bert-random")
         self._test_infer_dynamic_axis(model, tokenizer, "tf")
 
     def _test_infer_dynamic_axis(self, model, tokenizer, framework):

@@ -16,7 +16,7 @@
 import unittest
 
 from transformers import is_tf_available
-from transformers.testing_utils import require_tf, slow
+from transformers.testing_utils import require_sentencepiece, require_tf, require_tokenizers, slow
 
 from .test_configuration_common import ConfigTester
 from .test_modeling_tf_common import TFModelTesterMixin, ids_tensor
@@ -114,7 +114,6 @@ class TFFlaubertModelTester:
             summary_type=self.summary_type,
             use_proj=self.use_proj,
             bos_token_id=self.bos_token_id,
-            return_dict=True,
         )
 
         return (
@@ -292,6 +291,8 @@ class TFFlaubertModelTest(TFModelTesterMixin, unittest.TestCase):
     all_generative_model_classes = (
         (TFFlaubertWithLMHeadModel,) if is_tf_available() else ()
     )  # TODO (PVP): Check other models whether language generation is also applicable
+    test_head_masking = False
+    test_onnx = False
 
     def setUp(self):
         self.model_tester = TFFlaubertModelTester(self)
@@ -332,6 +333,8 @@ class TFFlaubertModelTest(TFModelTesterMixin, unittest.TestCase):
 
 
 @require_tf
+@require_sentencepiece
+@require_tokenizers
 class TFFlaubertModelIntegrationTest(unittest.TestCase):
     @slow
     def test_output_embeds_base_model(self):

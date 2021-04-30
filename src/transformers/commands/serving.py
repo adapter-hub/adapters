@@ -1,11 +1,23 @@
+# Copyright 2020 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from argparse import ArgumentParser, Namespace
 from typing import Any, List, Optional
 
-from transformers import Pipeline
-from transformers.commands import BaseTransformersCLICommand
-from transformers.pipelines import SUPPORTED_TASKS, pipeline
-
+from ..pipelines import SUPPORTED_TASKS, Pipeline, pipeline
 from ..utils import logging
+from . import BaseTransformersCLICommand
 
 
 try:
@@ -31,7 +43,8 @@ logger = logging.get_logger("transformers-cli/serving")
 def serve_command_factory(args: Namespace):
     """
     Factory function used to instantiate serving server from provided command line arguments.
-    :return: ServeCommand
+
+    Returns: ServeCommand
     """
     nlp = pipeline(
         task=args.task,
@@ -81,8 +94,9 @@ class ServeCommand(BaseTransformersCLICommand):
     def register_subcommand(parser: ArgumentParser):
         """
         Register this command to argparse so it's available for the transformer-cli
-        :param parser: Root parser to register command-specific arguments
-        :return:
+
+        Args:
+            parser: Root parser to register command-specific arguments
         """
         serve_parser = parser.add_parser(
             "serve", help="CLI tool to run inference requests through REST and GraphQL endpoints."
@@ -119,7 +133,7 @@ class ServeCommand(BaseTransformersCLICommand):
                 "Or install FastAPI and unicorn separately."
             )
         else:
-            logger.info("Serving model over {}:{}".format(host, port))
+            logger.info(f"Serving model over {host}:{port}")
             self._app = FastAPI(
                 routes=[
                     APIRoute(
@@ -162,9 +176,9 @@ class ServeCommand(BaseTransformersCLICommand):
 
     def tokenize(self, text_input: str = Body(None, embed=True), return_ids: bool = Body(False, embed=True)):
         """
-        Tokenize the provided input and eventually returns corresponding tokens id:
-        - **text_input**: String to tokenize
-        - **return_ids**: Boolean flags indicating if the tokens have to be converted to their integer mapping.
+        Tokenize the provided input and eventually returns corresponding tokens id: - **text_input**: String to
+        tokenize - **return_ids**: Boolean flags indicating if the tokens have to be converted to their integer
+        mapping.
         """
         try:
             tokens_txt = self._pipeline.tokenizer.tokenize(text_input)
@@ -185,10 +199,9 @@ class ServeCommand(BaseTransformersCLICommand):
         cleanup_tokenization_spaces: bool = Body(True, embed=True),
     ):
         """
-        Detokenize the provided tokens ids to readable text:
-        - **tokens_ids**: List of tokens ids
-        - **skip_special_tokens**: Flag indicating to not try to decode special tokens
-        - **cleanup_tokenization_spaces**: Flag indicating to remove all leading/trailing spaces and intermediate ones.
+        Detokenize the provided tokens ids to readable text: - **tokens_ids**: List of tokens ids -
+        **skip_special_tokens**: Flag indicating to not try to decode special tokens - **cleanup_tokenization_spaces**:
+        Flag indicating to remove all leading/trailing spaces and intermediate ones.
         """
         try:
             decoded_str = self._pipeline.tokenizer.decode(tokens_ids, skip_special_tokens, cleanup_tokenization_spaces)
