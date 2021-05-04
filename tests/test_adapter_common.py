@@ -8,10 +8,15 @@ from transformers import (
     ADAPTER_CONFIG_MAP,
     AutoModel,
     AutoModelWithHeads,
+    BartModel,
+    DistilBertModel,
+    GPT2Model,
     HoulsbyConfig,
     HoulsbyInvConfig,
+    MBartModel,
     PfeifferConfig,
-    PfeifferInvConfig, RobertaModel, DistilBertModel, BartModel, GPT2Model, MBartModel,
+    PfeifferInvConfig,
+    RobertaModel,
 )
 from transformers.testing_utils import require_torch, torch_device
 
