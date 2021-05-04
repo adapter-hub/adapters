@@ -106,7 +106,7 @@ class AdapterModelTestMixin:
     def test_add_adapter_multiple_reduction_factors(self):
         model = AutoModel.from_config(self.config())
         model.eval()
-        reduction_factor = {"2": 8, "4": 32, "default": 16}
+        reduction_factor = {"1": 8, "default": 16}
         for adapter_config in [
             PfeifferConfig(reduction_factor=reduction_factor),
             HoulsbyConfig(reduction_factor=reduction_factor),
@@ -132,14 +132,9 @@ class AdapterModelTestMixin:
                     16,
                 )
                 self.assertEqual(
-                    get_adapter_layer(2).adapter_down[0].in_features
-                    / get_adapter_layer(2).adapter_down[0].out_features,
+                    get_adapter_layer(1).adapter_down[0].in_features
+                    / get_adapter_layer(1).adapter_down[0].out_features,
                     8,
-                )
-                self.assertEqual(
-                    get_adapter_layer(4).adapter_down[0].in_features
-                    / get_adapter_layer(4).adapter_down[0].out_features,
-                    32,
                 )
 
     def test_reduction_factor_no_default(self):
