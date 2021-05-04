@@ -103,6 +103,58 @@ class AdapterModelTestMixin:
                 self.assertEqual(len(adapter_output), len(adapter_output_no_inv))
                 self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
 
+    def test_add_adapter_multiple_reduction_factors(self):
+        model = AutoModel.from_config(self.config())
+        model.eval()
+        reduction_factor = {"2": 8, "4": 32, "default": 16}
+        for adapter_config in [
+            PfeifferConfig(reduction_factor=reduction_factor),
+            HoulsbyConfig(reduction_factor=reduction_factor),
+        ]:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = adapter_config.__class__.__name__
+                model.add_adapter(name, config=adapter_config)
+                model.set_active_adapters([name])
+
+                # adapter is correctly added to config
+                self.assertTrue(name in model.config.adapters)
+                self.assertEqual(adapter_config, model.config.adapters.get(name))
+
+                def get_adapter_layer(idx):
+                    adapter = model.encoder.layer[idx].output.adapters
+                    return (
+                        adapter.PfeifferConfig if isinstance(adapter_config, PfeifferConfig) else adapter.HoulsbyConfig
+                    )
+
+                self.assertEqual(
+                    get_adapter_layer(0).adapter_down[0].in_features
+                    / get_adapter_layer(0).adapter_down[0].out_features,
+                    16,
+                )
+                self.assertEqual(
+                    get_adapter_layer(2).adapter_down[0].in_features
+                    / get_adapter_layer(2).adapter_down[0].out_features,
+                    8,
+                )
+                self.assertEqual(
+                    get_adapter_layer(4).adapter_down[0].in_features
+                    / get_adapter_layer(4).adapter_down[0].out_features,
+                    32,
+                )
+
+    def test_reduction_factor_no_default(self):
+        model = AutoModel.from_config(self.config())
+        model.eval()
+        reduction_factor = {"2": 8, "4": 32}
+        for adapter_config in [
+            PfeifferConfig(reduction_factor=reduction_factor),
+            HoulsbyConfig(reduction_factor=reduction_factor),
+        ]:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = adapter_config.__class__.__name__
+                with self.assertRaises(KeyError):
+                    model.add_adapter(name, config=adapter_config)
+
     def test_load_adapter(self):
         model1, model2 = create_twin_models(AutoModel, self.config)
 

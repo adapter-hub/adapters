@@ -41,12 +41,24 @@ class AdapterLayerBaseMixin(ABC):
 
     def add_adapter(self, adapter_name: str, layer_idx: int):
         self.layer_idx = layer_idx
-
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config.get(self.adapter_config_key, None):
+            reduction_factor = adapter_config["reduction_factor"]
+            if type(reduction_factor) is dict:
+                if str(self.layer_idx) in reduction_factor:
+                    reduction_factor = reduction_factor[str(self.layer_idx)]
+                elif "default" in reduction_factor:
+                    reduction_factor = reduction_factor["default"]
+                else:
+                    raise KeyError(
+                        "The given reduction factors do noot give a default value and do not specify each "
+                        "reduction factor individualy. You need to provide a default value like this: "
+                        '{"1": 16, "default": 16}'
+                    )
+
             adapter = Adapter(
                 input_size=self.config.hidden_size,
-                down_sample=self.config.hidden_size // adapter_config["reduction_factor"],
+                down_sample=self.config.hidden_size // reduction_factor,
                 add_layer_norm_before=adapter_config["ln_before"],
                 add_layer_norm_after=adapter_config["ln_after"],
                 non_linearity=adapter_config["non_linearity"],
