@@ -106,7 +106,7 @@ class AdapterModelTestMixin:
     def test_add_adapter_multiple_reduction_factors(self):
         model = AutoModel.from_config(self.config())
         model.eval()
-        reduction_factor = {"1": 8, "default": 16}
+        reduction_factor = {"1": 1, "default": 2}
         for adapter_config in [
             PfeifferConfig(reduction_factor=reduction_factor),
             HoulsbyConfig(reduction_factor=reduction_factor),
@@ -121,7 +121,16 @@ class AdapterModelTestMixin:
                 self.assertEqual(adapter_config, model.config.adapters.get(name))
 
                 def get_adapter_layer(idx):
-                    adapter = model.encoder.layer[idx].output.adapters
+                    if "roberta" in model.model_name:
+                        adapter = model.encoder.layer[idx].output.adapters
+                    elif "distilbert" in model.model_name:
+                        adapter = model.transformer.layer[idx].output_adapters.adapters
+                    elif "bart" in model.model_name:
+                        adapter = model.encoder.layers[idx].output_adapters.adapters
+                    elif model.model_name == "gpt2":
+                        adapter = model.h[idx].output_adapters.adapters
+                    else:
+                        adapter = model.encoder.layer[idx].output.adapters
                     return (
                         adapter.PfeifferConfig if isinstance(adapter_config, PfeifferConfig) else adapter.HoulsbyConfig
                     )
@@ -129,12 +138,12 @@ class AdapterModelTestMixin:
                 self.assertEqual(
                     get_adapter_layer(0).adapter_down[0].in_features
                     / get_adapter_layer(0).adapter_down[0].out_features,
-                    16,
+                    reduction_factor["default"],
                 )
                 self.assertEqual(
                     get_adapter_layer(1).adapter_down[0].in_features
                     / get_adapter_layer(1).adapter_down[0].out_features,
-                    8,
+                    reduction_factor["1"],
                 )
 
     def test_reduction_factor_no_default(self):
