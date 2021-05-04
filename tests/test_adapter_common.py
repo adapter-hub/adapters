@@ -11,7 +11,7 @@ from transformers import (
     HoulsbyConfig,
     HoulsbyInvConfig,
     PfeifferConfig,
-    PfeifferInvConfig,
+    PfeifferInvConfig, RobertaModel, DistilBertModel, BartModel, GPT2Model, MBartModel,
 )
 from transformers.testing_utils import require_torch, torch_device
 
@@ -121,13 +121,13 @@ class AdapterModelTestMixin:
                 self.assertEqual(adapter_config, model.config.adapters.get(name))
 
                 def get_adapter_layer(idx):
-                    if "roberta" in model.model_name:
+                    if isinstance(model, RobertaModel):
                         adapter = model.encoder.layer[idx].output.adapters
-                    elif "distilbert" in model.model_name:
+                    elif isinstance(model, DistilBertModel):
                         adapter = model.transformer.layer[idx].output_adapters.adapters
-                    elif "bart" in model.model_name:
+                    elif isinstance(model, BartModel) or isinstance(model, MBartModel):
                         adapter = model.encoder.layers[idx].output_adapters.adapters
-                    elif model.model_name == "gpt2":
+                    elif isinstance(model, GPT2Model):
                         adapter = model.h[idx].output_adapters.adapters
                     else:
                         adapter = model.encoder.layer[idx].output.adapters
