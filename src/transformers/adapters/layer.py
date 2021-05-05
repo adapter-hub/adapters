@@ -44,7 +44,7 @@ class AdapterLayerBaseMixin(ABC):
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config.get(self.adapter_config_key, None):
             reduction_factor = adapter_config["reduction_factor"]
-            if type(reduction_factor) is dict:
+            if isinstance(reduction_factor, Mapping):
                 if str(self.layer_idx) in reduction_factor:
                     reduction_factor = reduction_factor[str(self.layer_idx)]
                 elif "default" in reduction_factor:
