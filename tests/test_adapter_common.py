@@ -125,6 +125,7 @@ class AdapterModelTestMixin:
                 self.assertTrue(name in model.config.adapters)
                 self.assertEqual(adapter_config, model.config.adapters.get(name))
 
+# TODO: Add this method to model classes.
                 def get_adapter_layer(idx):
                     if isinstance(model, RobertaModel):
                         adapter = model.encoder.layer[idx].output.adapters
