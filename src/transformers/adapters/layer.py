@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Union
+from typing import List, Mapping, Union
 
 import torch
 from torch import nn
