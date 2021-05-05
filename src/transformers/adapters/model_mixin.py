@@ -317,6 +317,7 @@ class ModelAdaptersMixin(ABC):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
+        source: str = "adapterhub",
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         **kwargs
     ) -> str:
@@ -336,12 +337,19 @@ class ModelAdaptersMixin(ABC):
             model_name (str, optional): The string identifier of the pre-trained model.
             load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
                     saved will be used.
+            source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
+
+                - "adapterhub" (default): search on AdapterHub.
+                - "huggingface": search on HuggingFace model hub.
+                - None: only search on local file system
 
         Returns:
             str: The name with which the adapter was added to the model.
         """
         loader = AdapterLoader(self)
-        load_dir, load_name = loader.load(adapter_name_or_path, config, version, model_name, load_as, **kwargs)
+        load_dir, load_name = loader.load(
+            adapter_name_or_path, config, version, model_name, load_as, source=source, **kwargs
+        )
         # load additional custom weights
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
@@ -515,6 +523,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
+        source: str = "adapterhub",
         with_head: bool = True,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         **kwargs
@@ -529,6 +538,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             version=version,
             model_name=model_name,
             load_as=load_as,
+            source=source,
             custom_weights_loaders=custom_weights_loaders,
             **kwargs,
         )

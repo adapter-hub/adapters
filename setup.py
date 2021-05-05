@@ -96,6 +96,7 @@ _deps = [
     "flake8>=3.8.3",
     "flax>=0.3.2",
     "fugashi>=1.0",
+    "huggingface_hub>=0.0.8",
     "importlib_metadata",
     "ipadic>=1.0.0,<2.0",
     "isort>=5.5.4",
@@ -303,6 +304,7 @@ install_requires = [
     deps["dataclasses"] + ";python_version<'3.7'",  # dataclasses for Python versions that don't have it
     deps["importlib_metadata"] + ";python_version<'3.8'",  # importlib_metadata for Python versions that don't have it
     deps["filelock"],  # filesystem locks, e.g., to prevent parallel downloads
+    deps["huggingface_hub"],  # loading adapters from HF hub
     deps["numpy"],
     deps["packaging"],  # utilities from PyPA to e.g., compare versions
     deps["regex"],  # for OpenAI GPT

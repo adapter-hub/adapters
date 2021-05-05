@@ -2,7 +2,7 @@
 # 1. modify the `_deps` dict in setup.py
 # 2. run `make deps_table_update``
 deps = {
-    "black": "black>=20.8b1",
+    "black": "black==20.8b1",
     "cookiecutter": "cookiecutter==1.7.2",
     "dataclasses": "dataclasses",
     "datasets": "datasets",
@@ -13,6 +13,7 @@ deps = {
     "flake8": "flake8>=3.8.3",
     "flax": "flax>=0.3.2",
     "fugashi": "fugashi>=1.0",
+    "huggingface_hub": "huggingface_hub>=0.0.8",
     "importlib_metadata": "importlib_metadata",
     "ipadic": "ipadic>=1.0.0,<2.0",
     "isort": "isort>=5.5.4",
@@ -44,6 +45,7 @@ deps = {
     "sphinx-copybutton": "sphinx-copybutton",
     "sphinx-markdown-tables": "sphinx-markdown-tables",
     "sphinx-rtd-theme": "sphinx-rtd-theme==0.4.3",
+    "sphinxext-opengraph": "sphinxext-opengraph==0.4.1",
     "sphinx": "sphinx==3.2.1",
     "starlette": "starlette",
     "tensorflow-cpu": "tensorflow-cpu>=2.3",

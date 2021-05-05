@@ -2,7 +2,6 @@ import hashlib
 import json
 import logging
 import os
-import re
 import shutil
 import tarfile
 from collections.abc import Mapping
@@ -16,6 +15,7 @@ from zipfile import ZipFile, is_zipfile
 
 import requests
 from filelock import FileLock
+from huggingface_hub import snapshot_download
 
 from ..file_utils import get_from_cache, is_remote_url, torch_cache_home
 
@@ -29,7 +29,6 @@ HEAD_WEIGHTS_NAME = "pytorch_model_head.bin"
 ADAPTERFUSION_CONFIG_NAME = "adapter_fusion_config.json"
 ADAPTERFUSION_WEIGHTS_NAME = "pytorch_model_adapter_fusion.bin"
 
-ADAPTER_IDENTIFIER_PATTERN = r"[0-9a-zA-Z\-_\/@]{2,}"
 ADAPTER_HUB_URL = "https://raw.githubusercontent.com/Adapter-Hub/Hub/master/dist/v2/"
 ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index/{}.json"
 ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
@@ -357,11 +356,17 @@ def pull_from_hub(
     return download_path
 
 
+def pull_from_hf_model_hub(specifier: str, version: str = None, **kwargs) -> str:
+    download_path = snapshot_download(specifier, revision=version, cache_dir=kwargs.pop("cache_dir", None))
+    return download_path
+
+
 def resolve_adapter_path(
     adapter_name_or_path,
     model_name: str = None,
     adapter_config: Union[dict, str] = None,
     version: str = None,
+    source: str = "adapterhub",
     **kwargs
 ) -> str:
     """
@@ -399,10 +404,11 @@ def resolve_adapter_path(
                     WEIGHTS_NAME, CONFIG_NAME, adapter_name_or_path
                 )
             )
-    # matches possible form of identifier in hub
-    elif re.fullmatch(ADAPTER_IDENTIFIER_PATTERN, adapter_name_or_path):
+    elif source == "adapterhub":
         return pull_from_hub(
             adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
         )
+    elif source == "huggingface":
+        return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
