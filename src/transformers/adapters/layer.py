@@ -51,7 +51,7 @@ class AdapterLayerBaseMixin(ABC):
                     reduction_factor = reduction_factor["default"]
                 else:
                     raise KeyError(
-                        "The given reduction factors do noot give a default value and do not specify each "
+                        "The given reduction factor mapping does not give a default value and does not specify each "
                         "reduction factor individually. You need to provide a default value like this: "
                         '{"1": 16, "default": 16}'
                     )
