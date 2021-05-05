@@ -52,7 +52,7 @@ class AdapterLayerBaseMixin(ABC):
                 else:
                     raise KeyError(
                         "The given reduction factors do noot give a default value and do not specify each "
-                        "reduction factor individualy. You need to provide a default value like this: "
+                        "reduction factor individually. You need to provide a default value like this: "
                         '{"1": 16, "default": 16}'
                     )
 
