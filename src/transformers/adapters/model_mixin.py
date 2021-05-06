@@ -444,6 +444,9 @@ class ModelAdaptersMixin(ABC):
 
         self.config.adapters.is_parallelized = False
 
+    def get_adapter(self, name):
+        raise NotImplemented("This method needs to be implemented for subclasses")
+
 
 @inherit_doc
 class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):

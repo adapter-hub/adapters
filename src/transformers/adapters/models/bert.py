@@ -129,6 +129,14 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
         return reg_loss
 
+    def get_adapter(self, name):
+        return_adapters = []
+        for layer in self.encoder.layer:
+            adapters = layer.output.adapters
+            if hasattr(adapters, name):
+                return_adapters.append(getattr(adapters, name))
+        return return_adapters
+
 
 class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     """

@@ -234,6 +234,13 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
                 outputs.append(tensor)
         return tuple(outputs)
 
+    def get_adapter(self, name):
+        return_adapters = []
+        for layer in self.encoder.layers:
+            adapters = layer.output_adapters.adapters
+            if hasattr(adapters, name):
+                return_adapters.append(getattr(adapters, name))
+        return return_adapters
 
 class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     """

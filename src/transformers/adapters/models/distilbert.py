@@ -111,6 +111,14 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
         return reg_loss
 
+    def get_adapter(self, name):
+        return_adapters = []
+        for layer in self.transformer.layer:
+            adapters = layer.output_adapters.adapters
+            if hasattr(adapters, name):
+                return_adapters.append(getattr(adapters, name))
+        return return_adapters
+
 
 class DistilBertModelHeadsMixin(BertModelHeadsMixin):
     """Adds heads to a DistilBert model."""
