@@ -366,7 +366,7 @@ def resolve_adapter_path(
     model_name: str = None,
     adapter_config: Union[dict, str] = None,
     version: str = None,
-    source: str = "adapterhub",
+    source: str = "ah",
     **kwargs
 ) -> str:
     """
@@ -404,11 +404,11 @@ def resolve_adapter_path(
                     WEIGHTS_NAME, CONFIG_NAME, adapter_name_or_path
                 )
             )
-    elif source == "adapterhub":
+    elif source == "ah":
         return pull_from_hub(
             adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
         )
-    elif source == "huggingface":
+    elif source == "hf":
         return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))

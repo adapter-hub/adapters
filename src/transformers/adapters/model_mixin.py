@@ -317,7 +317,7 @@ class ModelAdaptersMixin(ABC):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
-        source: str = "adapterhub",
+        source: str = "ah",
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         **kwargs
     ) -> str:
@@ -339,8 +339,8 @@ class ModelAdaptersMixin(ABC):
                     saved will be used.
             source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
 
-                - "adapterhub" (default): search on AdapterHub.
-                - "huggingface": search on HuggingFace model hub.
+                - "ah" (default): search on AdapterHub.
+                - "hf": search on HuggingFace model hub.
                 - None: only search on local file system
 
         Returns:
@@ -523,7 +523,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
-        source: str = "adapterhub",
+        source: str = "ah",
         with_head: bool = True,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         **kwargs
