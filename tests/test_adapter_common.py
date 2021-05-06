@@ -8,10 +8,15 @@ from transformers import (
     ADAPTER_CONFIG_MAP,
     AutoModel,
     AutoModelWithHeads,
+    BartModel,
+    DistilBertModel,
+    GPT2Model,
     HoulsbyConfig,
     HoulsbyInvConfig,
+    MBartModel,
     PfeifferConfig,
     PfeifferInvConfig,
+    RobertaModel,
 )
 from transformers.testing_utils import require_torch, torch_device
 
@@ -102,6 +107,63 @@ class AdapterModelTestMixin:
                 adapter_output_no_inv = model(**input_data)
                 self.assertEqual(len(adapter_output), len(adapter_output_no_inv))
                 self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
+
+    def test_add_adapter_multiple_reduction_factors(self):
+        model = AutoModel.from_config(self.config())
+        model.eval()
+        reduction_factor = {"1": 1, "default": 2}
+        for adapter_config in [
+            PfeifferConfig(reduction_factor=reduction_factor),
+            HoulsbyConfig(reduction_factor=reduction_factor),
+        ]:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = adapter_config.__class__.__name__
+                model.add_adapter(name, config=adapter_config)
+                model.set_active_adapters([name])
+
+                # adapter is correctly added to config
+                self.assertTrue(name in model.config.adapters)
+                self.assertEqual(adapter_config, model.config.adapters.get(name))
+
+                # TODO: Add this method to model classes.
+                def get_adapter_layer(idx):
+                    if isinstance(model, RobertaModel):
+                        adapter = model.encoder.layer[idx].output.adapters
+                    elif isinstance(model, DistilBertModel):
+                        adapter = model.transformer.layer[idx].output_adapters.adapters
+                    elif isinstance(model, BartModel) or isinstance(model, MBartModel):
+                        adapter = model.encoder.layers[idx].output_adapters.adapters
+                    elif isinstance(model, GPT2Model):
+                        adapter = model.h[idx].output_adapters.adapters
+                    else:
+                        adapter = model.encoder.layer[idx].output.adapters
+                    return (
+                        adapter.PfeifferConfig if isinstance(adapter_config, PfeifferConfig) else adapter.HoulsbyConfig
+                    )
+
+                self.assertEqual(
+                    get_adapter_layer(0).adapter_down[0].in_features
+                    / get_adapter_layer(0).adapter_down[0].out_features,
+                    reduction_factor["default"],
+                )
+                self.assertEqual(
+                    get_adapter_layer(1).adapter_down[0].in_features
+                    / get_adapter_layer(1).adapter_down[0].out_features,
+                    reduction_factor["1"],
+                )
+
+    def test_reduction_factor_no_default(self):
+        model = AutoModel.from_config(self.config())
+        model.eval()
+        reduction_factor = {"2": 8, "4": 32}
+        for adapter_config in [
+            PfeifferConfig(reduction_factor=reduction_factor),
+            HoulsbyConfig(reduction_factor=reduction_factor),
+        ]:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = adapter_config.__class__.__name__
+                with self.assertRaises(KeyError):
+                    model.add_adapter(name, config=adapter_config)
 
     def test_load_adapter(self):
         model1, model2 = create_twin_models(AutoModel, self.config)

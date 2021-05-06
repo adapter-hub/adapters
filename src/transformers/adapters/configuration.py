@@ -13,7 +13,14 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AdapterConfig(Mapping):
-    """Base class that models the architecture of an adapter."""
+    """
+    Base class that models the architecture of an adapter.
+
+    Args:
+            reduction_factor (:obj:`int` or :obj:`Mapping`): Either an integer specifying the reduction factor for all layers
+                or a mapping specifying the reduction_factor for individual layers. If not all layers are represented in
+                the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
+    """
 
     original_ln_before: bool
     original_ln_after: bool
@@ -24,7 +31,7 @@ class AdapterConfig(Mapping):
     mh_adapter: bool
     output_adapter: bool
     non_linearity: str
-    reduction_factor: int
+    reduction_factor: Union[int, Mapping]
     inv_adapter: Optional[str] = None
     inv_adapter_reduction_factor: Optional[int] = None
     cross_adapter: bool = False
@@ -128,7 +135,7 @@ class PfeifferConfig(AdapterConfig):
     mh_adapter: bool = False
     output_adapter: bool = True
     non_linearity: str = "relu"
-    reduction_factor: int = 16
+    reduction_factor: Union[int, Mapping] = 16
 
 
 @dataclass
@@ -156,7 +163,7 @@ class HoulsbyConfig(AdapterConfig):
     mh_adapter: bool = True
     output_adapter: bool = True
     non_linearity: str = "swish"
-    reduction_factor: int = 16
+    reduction_factor: Union[int, Mapping] = 16
 
 
 @dataclass
