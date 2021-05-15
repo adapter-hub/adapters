@@ -3,7 +3,7 @@ import unittest
 import torch
 
 from transformers import AutoModelWithHeads, BertConfig, BertForSequenceClassification
-from transformers.adapters.composition import Fuse, Parallel, Split, Stack, parse_composition
+from transformers.adapters.composition import Fuse, Parallel, Split, Stack, parse_composition, BatchSplit
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
@@ -92,6 +92,17 @@ class AdapterCompositionTest(unittest.TestCase):
         inputs["input_ids"] = ids_tensor((1, 128), 1000)
         logits = self.model(**inputs).logits
         self.assertEqual(logits.shape, (2, 2))
+
+    def test_batch_split(self):
+        self.model.set_active_adapters(BatchSplit("a", "b", 1))
+
+        self.training_pass()
+
+    def test_nested_batch_split(self):
+        self.model.set_active_adapters(BatchSplit("a", Stack("b", "c"), 1))
+
+        self.training_pass()
+
 
 
 @require_torch

@@ -81,12 +81,20 @@ class Split(AdapterCompositionBlock):
         self.split_index = split_index
 
 
+class BatchSplit(AdapterCompositionBlock):
+    def __init__(self, left: str, right: str, split_index: int):
+        super().__init__(left, right)
+        self.left = left
+        self.right = right
+        self.split_index = split_index
+
 # Mapping each composition block type to the allowed nested types
 ALLOWED_NESTINGS = {
     Stack: [str, Fuse, Split, Parallel],
     Fuse: [str, Stack],
     Split: [str, Split, Stack],
     Parallel: [str, Stack],
+    BatchSplit: [str, Stack, Split, BatchSplit]
 }
 
 # Some composition blocks might not be supported by all models.
