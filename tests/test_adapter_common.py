@@ -149,13 +149,11 @@ class AdapterModelTestMixin:
                 adapter = model.get_adapter(name)
 
                 self.assertEqual(
-                    adapter[0].adapter_down[0].in_features
-                    / adapter[0].adapter_down[0].out_features,
+                    adapter[0].adapter_down[0].in_features / adapter[0].adapter_down[0].out_features,
                     reduction_factor["default"],
                 )
                 self.assertEqual(
-                    adapter[1].adapter_down[0].in_features
-                    / adapter[1].adapter_down[0].out_features,
+                    adapter[1].adapter_down[0].in_features / adapter[1].adapter_down[0].out_features,
                     reduction_factor["1"],
                 )
 

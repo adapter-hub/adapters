@@ -242,6 +242,7 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
                 return_adapters.append(getattr(adapters, name))
         return return_adapters
 
+
 class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     """
     Adds flexible heads to a BART model.

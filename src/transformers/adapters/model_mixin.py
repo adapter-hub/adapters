@@ -446,14 +446,16 @@ class ModelAdaptersMixin(ABC):
 
     @abstractmethod
     def get_adapter(self, name):
-        """ Method for getting adapter modules loaded by the model.
+        """
+            Method for getting adapter modules loaded by the model.
 
         Args:
             name (str): the name of the adapter that should be returned
 
         Returns:
-            list: A list of the adapter modules from the adapter with the given name.
-            The position in the list is the index of the layer, the adapter module is in. """
+            list: A list of the adapter modules from the adapter with the given name. The position in the list is the
+            index of the layer, the adapter module is in.
+            """
         raise NotImplemented("This method needs to be implemented for subclasses")
 
 
