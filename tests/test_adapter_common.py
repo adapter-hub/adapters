@@ -7,6 +7,7 @@ import torch
 from transformers import (
     ADAPTER_CONFIG_MAP,
     AutoModel,
+    AutoModelForSequenceClassification,
     AutoModelWithHeads,
     HoulsbyConfig,
     HoulsbyInvConfig,
@@ -105,7 +106,11 @@ class AdapterModelTestMixin:
 
     def test_get_adapter(self):
         adapter_config = PfeifferConfig()
-        for model in [AutoModel.from_config(self.config()), AutoModelWithHeads.from_config(self.config())]:
+        for model in [
+            AutoModel.from_config(self.config()),
+            AutoModelWithHeads.from_config(self.config()),
+            AutoModelForSequenceClassification.from_config(self.config()),
+        ]:
             model.eval()
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 model.add_adapter("first", config=adapter_config)
