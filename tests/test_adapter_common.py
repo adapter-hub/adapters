@@ -8,15 +8,10 @@ from transformers import (
     ADAPTER_CONFIG_MAP,
     AutoModel,
     AutoModelWithHeads,
-    BartModel,
-    DistilBertModel,
-    GPT2Model,
     HoulsbyConfig,
     HoulsbyInvConfig,
-    MBartModel,
     PfeifferConfig,
     PfeifferInvConfig,
-    RobertaModel,
 )
 from transformers.testing_utils import require_torch, torch_device
 
@@ -109,25 +104,25 @@ class AdapterModelTestMixin:
                 self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
 
     def test_get_adapter(self):
-        model = AutoModel.from_config(self.config())
-        model.eval()
         adapter_config = PfeifferConfig()
-        with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-            model.add_adapter("first", config=adapter_config)
-            model.add_adapter("second", config=adapter_config)
-            model.set_active_adapters(["first"])
+        for model in [AutoModel.from_config(self.config()), AutoModelWithHeads.from_config(self.config())]:
+            model.eval()
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                model.add_adapter("first", config=adapter_config)
+                model.add_adapter("second", config=adapter_config)
+                model.set_active_adapters(["first"])
 
-            # adapter is correctly added to config
-            name = "first"
-            self.assertTrue(name in model.config.adapters)
-            self.assertEqual(adapter_config, model.config.adapters.get(name))
+                # adapter is correctly added to config
+                name = "first"
+                self.assertTrue(name in model.config.adapters)
+                self.assertEqual(adapter_config, model.config.adapters.get(name))
 
-            first_adapter = model.get_adapter("first")
-            second_adapter = model.get_adapter("second")
+                first_adapter = model.get_adapter("first")
+                second_adapter = model.get_adapter("second")
 
-            self.assertNotEqual(len(first_adapter), 0)
-            self.assertEqual(len(first_adapter), len(second_adapter))
-            self.assertNotEqual(first_adapter, second_adapter)
+                self.assertNotEqual(len(first_adapter), 0)
+                self.assertEqual(len(first_adapter), len(second_adapter))
+                self.assertNotEqual(first_adapter, second_adapter)
 
     def test_add_adapter_multiple_reduction_factors(self):
         model = AutoModel.from_config(self.config())

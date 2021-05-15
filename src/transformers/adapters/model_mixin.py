@@ -444,20 +444,6 @@ class ModelAdaptersMixin(ABC):
 
         self.config.adapters.is_parallelized = False
 
-    @abstractmethod
-    def get_adapter(self, name):
-        """
-            Method for getting adapter modules loaded by the model.
-
-        Args:
-            name (str): the name of the adapter that should be returned
-
-        Returns:
-            list: A list of the adapter modules from the adapter with the given name. The position in the list is the
-            index of the layer, the adapter module is in.
-            """
-        raise NotImplemented("This method needs to be implemented for subclasses")
-
 
 @inherit_doc
 class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
@@ -569,3 +555,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def get_labels_dict(self):
         return self.config.id2label
+
+    def get_adapter(self, name):
+        return self.base_model.get_adapter(name)
