@@ -130,11 +130,18 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         return reg_loss
 
     def get_adapter(self, name):
-        return_adapters = []
-        for layer in self.encoder.layer:
-            adapters = layer.output.adapters
-            if hasattr(adapters, name):
-                return_adapters.append(getattr(adapters, name))
+        return_adapters = {}
+        for idx, layer in enumerate(self.encoder.layer):
+            adapters = {
+                "attention": layer.attention.output.adapters,
+                "output": layer.output.adapters,
+            }
+            for key, adapt in adapters.items():
+                if hasattr(adapt, name):
+                    if idx not in return_adapters:
+                        return_adapters[idx] = {}
+                    return_adapters[idx][key] = getattr(adapt, name)
+
         return return_adapters
 
 
