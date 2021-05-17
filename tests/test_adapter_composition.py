@@ -44,6 +44,11 @@ class AdapterCompositionTest(unittest.TestCase):
         loss = self.model(**inputs).loss
         loss.backward()
 
+    def batched_training_pass(self):
+        inputs = {"input_ids": ids_tensor((4, 128), 1000), "labels": torch.ones(4, dtype=torch.long)}
+        loss = self.model(**inputs).loss
+        loss.backward()
+
     def test_simple_split(self):
         # pass over split setup
         self.model.set_active_adapters(Split("a", "b", 64))
@@ -96,12 +101,12 @@ class AdapterCompositionTest(unittest.TestCase):
     def test_batch_split(self):
         self.model.set_active_adapters(BatchSplit("a", "b", 1))
 
-        self.training_pass()
+        self.batched_training_pass()
 
     def test_nested_batch_split(self):
-        self.model.set_active_adapters(BatchSplit("a", Stack("b", "c"), 1))
+        self.model.set_active_adapters(Stack("a", BatchSplit("b", "c", 1)))
 
-        self.training_pass()
+        self.batched_training_pass()
 
 
 

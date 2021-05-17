@@ -96,6 +96,24 @@ model.add_adapter("h")
 model.active_adapters = ac.Split("g", "h", split_index=64)
 ```
 
+## BatchSplit
+The BatchSplit Block is an alternative to split the input between two adapters. It does not split the input sequences but the 
+batch into smaller batches. As a result the input sequences remain untouched. 
+
+In the following example, we split the batch between adapters `i`and `k`.
+For each batch the input sequence 0 and 1 are passed to `i` and the remaining input sequences are passed tp `k`.
+```python
+import transformers.adapters.composition as ac
+
+// ...
+
+model.add_adapter("i")
+model.add_adapter("k")
+
+model.active_adapters = ac.BatchSplit("g", "h", split_index=2)
+
+```
+
 ## `Parallel`
 
 The `Parallel` can be used to enable parallel multi-task inference on different adapters, each with their own prediction head.

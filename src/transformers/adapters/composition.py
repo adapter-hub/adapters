@@ -90,10 +90,10 @@ class BatchSplit(AdapterCompositionBlock):
 
 # Mapping each composition block type to the allowed nested types
 ALLOWED_NESTINGS = {
-    Stack: [str, Fuse, Split, Parallel],
+    Stack: [str, Fuse, Split, Parallel, BatchSplit],
     Fuse: [str, Stack],
-    Split: [str, Split, Stack],
-    Parallel: [str, Stack],
+    Split: [str, Split, Stack, BatchSplit],
+    Parallel: [str, Stack, BatchSplit],
     BatchSplit: [str, Stack, Split, BatchSplit]
 }
 
