@@ -18,8 +18,8 @@ class AdapterConfig(Mapping):
 
     Args:
             reduction_factor (:obj:`int` or :obj:`Mapping`): Either an integer specifying the reduction factor for all layers
-                or a mapping specifying the reduction_factor for individual layers. If not all layers are represented in
-                the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
+                or a mapping specifying the reduction_factor for individual layers. If not all layers are represented
+                in the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
     """
 
     original_ln_before: bool

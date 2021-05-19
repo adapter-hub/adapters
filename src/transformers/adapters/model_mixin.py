@@ -561,3 +561,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def get_labels_dict(self):
         return self.config.id2label
+
+    def get_adapter(self, name):
+        return self.base_model.get_adapter(name)

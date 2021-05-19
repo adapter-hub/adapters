@@ -7,16 +7,12 @@ import torch
 from transformers import (
     ADAPTER_CONFIG_MAP,
     AutoModel,
+    AutoModelForSequenceClassification,
     AutoModelWithHeads,
-    BartModel,
-    DistilBertModel,
-    GPT2Model,
     HoulsbyConfig,
     HoulsbyInvConfig,
-    MBartModel,
     PfeifferConfig,
     PfeifferInvConfig,
-    RobertaModel,
 )
 from transformers.testing_utils import require_torch, torch_device
 
@@ -108,6 +104,31 @@ class AdapterModelTestMixin:
                 self.assertEqual(len(adapter_output), len(adapter_output_no_inv))
                 self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
 
+    def test_get_adapter(self):
+        for adapter_config in [HoulsbyConfig()]:
+            for model in [
+                AutoModel.from_config(self.config()),
+                AutoModelWithHeads.from_config(self.config()),
+                AutoModelForSequenceClassification.from_config(self.config()),
+            ]:
+                model.eval()
+                with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                    model.add_adapter("first", config=adapter_config)
+                    model.add_adapter("second", config=adapter_config)
+                    model.set_active_adapters(["first"])
+
+                    # adapter is correctly added to config
+                    name = "first"
+                    self.assertTrue(name in model.config.adapters)
+                    self.assertEqual(adapter_config, model.config.adapters.get(name))
+
+                    first_adapter = model.get_adapter("first")
+                    second_adapter = model.get_adapter("second")
+
+                    self.assertNotEqual(len(first_adapter), 0)
+                    self.assertEqual(len(first_adapter), len(second_adapter))
+                    self.assertNotEqual(first_adapter, second_adapter)
+
     def test_add_adapter_multiple_reduction_factors(self):
         model = AutoModel.from_config(self.config())
         model.eval()
@@ -125,30 +146,16 @@ class AdapterModelTestMixin:
                 self.assertTrue(name in model.config.adapters)
                 self.assertEqual(adapter_config, model.config.adapters.get(name))
 
-                # TODO: Add this method to model classes.
-                def get_adapter_layer(idx):
-                    if isinstance(model, RobertaModel):
-                        adapter = model.encoder.layer[idx].output.adapters
-                    elif isinstance(model, DistilBertModel):
-                        adapter = model.transformer.layer[idx].output_adapters.adapters
-                    elif isinstance(model, BartModel) or isinstance(model, MBartModel):
-                        adapter = model.encoder.layers[idx].output_adapters.adapters
-                    elif isinstance(model, GPT2Model):
-                        adapter = model.h[idx].output_adapters.adapters
-                    else:
-                        adapter = model.encoder.layer[idx].output.adapters
-                    return (
-                        adapter.PfeifferConfig if isinstance(adapter_config, PfeifferConfig) else adapter.HoulsbyConfig
-                    )
+                adapter = model.get_adapter(name)
 
                 self.assertEqual(
-                    get_adapter_layer(0).adapter_down[0].in_features
-                    / get_adapter_layer(0).adapter_down[0].out_features,
+                    adapter[0]["output"].adapter_down[0].in_features
+                    / adapter[0]["output"].adapter_down[0].out_features,
                     reduction_factor["default"],
                 )
                 self.assertEqual(
-                    get_adapter_layer(1).adapter_down[0].in_features
-                    / get_adapter_layer(1).adapter_down[0].out_features,
+                    adapter[1]["output"].adapter_down[0].in_features
+                    / adapter[1]["output"].adapter_down[0].out_features,
                     reduction_factor["1"],
                 )
 
