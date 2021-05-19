@@ -412,6 +412,7 @@ class AdapterLoader(WeightsLoader):
         # post-loading drop of layers
         if leave_out is not None:
             if config["config"]["leave_out"] is not None:
+                # The conversion to a set and then back to a list removes all duplicates
                 leave_out = list(set(leave_out + config["config"]["leave_out"]))
             config["config"]["leave_out"] = leave_out
 
