@@ -989,6 +989,7 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         encoder_hidden_states  (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
@@ -1050,6 +1051,7 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1145,6 +1147,7 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1168,6 +1171,7 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
         sequence_output = outputs[0]
         prediction_scores = self.lm_head(
@@ -1258,6 +1262,7 @@ class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, RobertaPreTr
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1277,6 +1282,7 @@ class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, RobertaPreTr
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
         sequence_output = outputs[0]
         logits = self.classifier(sequence_output)
@@ -1341,6 +1347,7 @@ class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, RobertaPreTrainedMod
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1371,6 +1378,7 @@ class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, RobertaPreTrainedMod
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
         pooled_output = outputs[1]
 
@@ -1435,6 +1443,7 @@ class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, RobertaPreTrain
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1453,6 +1462,7 @@ class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, RobertaPreTrain
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1545,6 +1555,7 @@ class RobertaForQuestionAnswering(ModelWithHeadsAdaptersMixin, RobertaPreTrained
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):

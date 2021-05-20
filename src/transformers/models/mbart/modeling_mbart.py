@@ -1394,6 +1394,7 @@ class MBartForConditionalGeneration(ModelWithHeadsAdaptersMixin, MBartPreTrained
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1425,6 +1426,7 @@ class MBartForConditionalGeneration(ModelWithHeadsAdaptersMixin, MBartPreTrained
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
         lm_logits = self.model.encoder.invertible_adapters_forward(outputs[0], rev=True)
         lm_logits = self.lm_head(lm_logits) + self.final_logits_bias
@@ -1524,6 +1526,7 @@ class MBartForSequenceClassification(ModelWithHeadsAdaptersMixin, MBartPreTraine
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1553,6 +1556,7 @@ class MBartForSequenceClassification(ModelWithHeadsAdaptersMixin, MBartPreTraine
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
         hidden_states = outputs[0]  # last hidden state
 
@@ -1632,6 +1636,7 @@ class MBartForQuestionAnswering(ModelWithHeadsAdaptersMixin, MBartPreTrainedMode
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1661,6 +1666,7 @@ class MBartForQuestionAnswering(ModelWithHeadsAdaptersMixin, MBartPreTrainedMode
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1776,6 +1782,7 @@ class MBartForCausalLM(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         Args:
@@ -1876,6 +1883,7 @@ class MBartForCausalLM(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         logits = self.lm_head(outputs[0])

@@ -1,6 +1,8 @@
+import inspect
+
 import transformers
 from check_repo import get_models
-from transformers import ModelAdaptersMixin
+from transformers import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 
 
 MODELS_WITH_ADAPTERS = [
@@ -10,6 +12,7 @@ MODELS_WITH_ADAPTERS = [
     "distilbert",
     "bart",
     "mbart",
+    "gpt2",
 ]
 
 IGNORE_NOT_IMPLEMENTING_MIXIN = [
@@ -35,6 +38,13 @@ def check_models_implement_mixin():
                             and model_name not in IGNORE_NOT_IMPLEMENTING_MIXIN
                         ):
                             failures.append(f"{model_name} should implement ModelAdaptersMixin.")
+                        forward_fn_params = inspect.signature(model_class.forward).parameters
+                        # all classes implementing ModelWithHeadsAdaptersMixin should additionally provide adapter_names as parameter
+                        if (
+                            issubclass(model_class, ModelWithHeadsAdaptersMixin)
+                            and "adapter_names" not in forward_fn_params
+                        ):
+                            failures.append(f"{model_name}'s forward() method should provide adapter_names parameter.")
     if len(failures) > 0:
         raise Exception(f"There were {len(failures)} failures:\n" + "\n".join(failures))
 
