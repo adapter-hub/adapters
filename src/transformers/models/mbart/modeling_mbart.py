@@ -817,7 +817,6 @@ class MBartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, MBa
                         hidden_states,
                         attention_mask,
                         (head_mask[idx] if head_mask is not None else None),
-                        **kwargs,
                     )
                 else:
                     layer_outputs = encoder_layer(
@@ -1071,7 +1070,6 @@ class MBartDecoder(BartEncoderDecoderAdaptersMixin, MBartPreTrainedModel):
                     head_mask[idx] if head_mask is not None else None,
                     encoder_head_mask[idx] if encoder_head_mask is not None else None,
                     None,
-                    **kwargs,
                 )
             else:
 

@@ -757,7 +757,6 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
                     head_mask[i],
                     encoder_hidden_states,
                     encoder_attention_mask,
-                    **kwargs,
                 )
             else:
                 outputs = block(

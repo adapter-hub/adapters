@@ -523,7 +523,6 @@ class RobertaEncoder(BertEncoderAdaptersMixin, nn.Module):
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,
-                    **kwargs,
                 )
             else:
                 layer_outputs = layer_module(
