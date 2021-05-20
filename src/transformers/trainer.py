@@ -1261,8 +1261,11 @@ class Trainer:
                     # cache adapter setup for later reset
                     if hasattr(self.model, "active_adapters"):
                         adapter_setup = self.model.active_adapters
+                    else:
+                        adapter_setup = None
                     self.model = model.from_pretrained(self.state.best_model_checkpoint)
-                    self.model.set_active_adapters(adapter_setup)
+                    if adapter_setup is not None:
+                        self.model.set_active_adapters(adapter_setup)
                 else:
                     state_dict = torch.load(os.path.join(self.state.best_model_checkpoint, WEIGHTS_NAME))
                     self.model.load_state_dict(state_dict)
