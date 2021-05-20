@@ -86,13 +86,13 @@ model.add_adapter("name", AdapterType.text_task, config="pfeiffer")
 model.add_adapter("name", config="pfeiffer+inv")
 ```
 
-### Removal of `adapter_names` parameter in model forward()
+### Changes to `adapter_names` parameter in model forward()
 
-_Includes breaking changes ⚠️_
+_Includes breaking changes (only in v2.0.0, see note) ⚠️_
 
-In v1, it was possible to specify the active adapters using the `adapter_names` parameter in each call to the model's `forward()` method.
-With the integration of the new, unified mechanism for specifying adapter setups using composition blocks, this parameter was dropped.
-The active adapters now are exclusively set via `set_active_adapters()` or the `active_adapters` property.
+One possibility to specify the active adapters is to use the `adapter_names` parameter in each call to the model's `forward()` method.
+With the integration of the new, unified mechanism for specifying adapter setups using composition blocks,
+it is now recommended to specify the active adapters via `set_active_adapters()` or the `active_adapters` property.
 For example...
 
 ```python
@@ -104,6 +104,14 @@ model(**input_data, adapter_names="awesome_adapter")
 # NEW (v2)
 model.active_adapters = "awesome_adapter"
 model(**input_data)
+```
+
+```eval_rst
+.. note::
+    Version 2.0.0 temporarily removed the ``adapter_names`` parameter entirely.
+    Due to user feedback regarding limitations of the ``active_adapters`` property in multi-threaded contexts,
+    the ``adapter_names`` parameter was **re-added in v2.0.1**.
+    See `here for more <https://github.com/Adapter-Hub/adapter-transformers/issues/165>`_.
 ```
 
 ## Internal changes
