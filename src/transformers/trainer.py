@@ -253,9 +253,9 @@ class Trainer:
         model_init: Callable[[], PreTrainedModel] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
-        do_save_full_model: bool = True,
-        do_save_adapters: bool = False,
-        do_save_adapter_fusion: bool = False,
+        do_save_full_model: Optional[bool] = None,
+        do_save_adapters: Optional[bool] = None,
+        do_save_adapter_fusion: Optional[bool] = None,
         adapter_names: Optional[List[List[str]]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
     ):
@@ -374,12 +374,27 @@ class Trainer:
         # Create output directory if needed
         if self.is_world_process_zero():
             os.makedirs(self.args.output_dir, exist_ok=True)
-        # adapters used
-        self.do_save_full_model = do_save_full_model
-        self.do_save_adapters = do_save_adapters
-        self.do_save_adapter_fusion = do_save_adapter_fusion
+
         if adapter_names is not None:
             self.model.set_active_adapters(adapter_names)
+        # Set the defaults for loading/ saving model & adapters
+        model_freezed = getattr(self.model.base_model, "model_freezed", False)
+        if model_freezed and self.model.active_adapters:
+            self.do_save_full_model = False
+            self.do_save_adapters = True
+            self.do_save_adapter_fusion = True
+        else:
+            self.do_save_full_model = True
+            self.do_save_adapters = False
+            self.do_save_adapter_fusion = False
+        # override with explicit setting
+        if do_save_full_model is not None:
+            self.do_save_full_model = do_save_full_model
+        if do_save_adapters is not None:
+            self.do_save_adapters = do_save_adapters
+        if do_save_adapter_fusion is not None:
+            self.do_save_adapter_fusion = do_save_adapter_fusion
+
         if not callable(self.data_collator) and callable(getattr(self.data_collator, "collate_batch", None)):
             raise ValueError("The `data_collator` should be a simple callable (function, class with `__call__`).")
 
@@ -1240,7 +1255,11 @@ class Trainer:
                     f"Loading best model from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
                 )
                 if isinstance(model, PreTrainedModel):
+                    # cache adapter setup for later reset
+                    if hasattr(self.model, "active_adapters"):
+                        adapter_setup = self.model.active_adapters
                     self.model = model.from_pretrained(self.state.best_model_checkpoint)
+                    self.model.set_active_adapters(adapter_setup)
                 else:
                     state_dict = torch.load(os.path.join(self.state.best_model_checkpoint, WEIGHTS_NAME))
                     self.model.load_state_dict(state_dict)
@@ -1258,7 +1277,8 @@ class Trainer:
                     f"Loading best adapter fusion(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
                 )
                 # attempt to re-load all adapter fusions from checkpoint
-                for fusion in self.model.config.adapter_fusion_models:
+                fusion_models = getattr(self.model.config, "adapter_fusion_models", [])
+                for fusion in fusion_models:
                     fusion_dir = os.path.join(self.state.best_model_checkpoint, fusion)
                     if os.path.exists(fusion_dir):
                         self.model.load_adapter_fusion(fusion_dir)

@@ -421,6 +421,8 @@ class ModelAdaptersMixin(ABC):
         Args:
             save_directory (str): Path to a directory where the adapters should be saved.
         """
+        if not hasattr(self.config, "adapter_fusion_models"):
+            return
         for name in self.config.adapter_fusion_models:
             adapter_fusion_config = self.config.adapter_fusion
             h = get_adapter_config_hash(adapter_fusion_config)

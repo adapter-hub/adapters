@@ -5,12 +5,15 @@ import torch
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
+    BertConfig,
+    BertForSequenceClassification,
     GlueDataset,
     GlueDataTrainingArguments,
     Trainer,
     TrainingArguments,
 )
 from transformers.adapters.composition import Fuse
+from transformers.testing_utils import slow
 
 
 class TestAdapterTrainer(unittest.TestCase):
@@ -120,6 +123,66 @@ class TestAdapterTrainer(unittest.TestCase):
             self.assertEqual(k1, k2)
             if "adapter" in k1:
                 self.assertTrue(torch.equal(v1, v2), k1)
+
+    def test_auto_set_save_adapters(self):
+        model = BertForSequenceClassification(
+            BertConfig(
+                hidden_size=32,
+                num_hidden_layers=4,
+                num_attention_heads=4,
+                intermediate_size=37,
+            )
+        )
+        model.add_adapter("adapter")
+        model.train_adapter("adapter")
+
+        training_args = TrainingArguments(
+            output_dir="./examples",
+        )
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+        )
+
+        self.assertFalse(trainer.do_save_full_model)
+        self.assertTrue(trainer.do_save_adapters)
+        self.assertTrue(trainer.do_save_adapter_fusion)
+
+    @slow
+    def test_training_load_best_model_at_end_full_model(self):
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+        )
+        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+        eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev")
+
+        model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
+        model.add_adapter("adapter")
+        model.train_adapter("adapter")
+
+        training_args = TrainingArguments(
+            output_dir="./examples",
+            do_train=True,
+            learning_rate=0.001,
+            max_steps=1,
+            save_steps=1,
+            remove_unused_columns=False,
+            load_best_model_at_end=True,
+            evaluation_strategy="epoch",
+            num_train_epochs=2,
+        )
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            do_save_adapters=False,
+            do_save_full_model=True,
+        )
+
+        trainer.train()
+        self.assertIsNotNone(trainer.model.active_adapters)
 
 
 if __name__ == "__main__":
