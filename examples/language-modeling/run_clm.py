@@ -38,11 +38,12 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     HfArgumentParser,
+    MultiLingAdapterArguments,
     Trainer,
     TrainingArguments,
     default_data_collator,
     set_seed,
-    MultiLingAdapterArguments)
+)
 from transformers.adapters.configuration import AdapterConfig
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 from transformers.utils import check_min_version
@@ -178,7 +179,9 @@ def main():
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args, adapter_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, adapter_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
         model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 

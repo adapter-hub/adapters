@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import List, Union
+from typing import List, Mapping, Union
 
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, Fuse, Parallel, Split, Stack, BatchSplit
+from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack
 from .modeling import Adapter, BertFusion
 
 
@@ -41,24 +41,39 @@ class AdapterLayerBaseMixin(ABC):
 
     def add_adapter(self, adapter_name: str, layer_idx: int):
         self.layer_idx = layer_idx
-
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config.get(self.adapter_config_key, None):
+            reduction_factor = adapter_config["reduction_factor"]
+            if isinstance(reduction_factor, Mapping):
+                if str(self.layer_idx) in reduction_factor:
+                    reduction_factor = reduction_factor[str(self.layer_idx)]
+                elif "default" in reduction_factor:
+                    reduction_factor = reduction_factor["default"]
+                else:
+                    raise KeyError(
+                        "The given reduction factor mapping does not give a default value and does not specify each "
+                        "reduction factor individually. You need to provide a default value like this: "
+                        '{"1": 16, "default": 16}'
+                    )
+
             adapter = Adapter(
                 input_size=self.config.hidden_size,
-                down_sample=self.config.hidden_size // adapter_config["reduction_factor"],
+                down_sample=self.config.hidden_size // reduction_factor,
                 add_layer_norm_before=adapter_config["ln_before"],
                 add_layer_norm_after=adapter_config["ln_after"],
                 non_linearity=adapter_config["non_linearity"],
                 residual_before_ln=adapter_config["adapter_residual_before_ln"],
             )
+            adapter.train(self.training)  # make sure training mode is consistent
             self.adapters[adapter_name] = adapter
 
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
         if self.config.adapters.common_config_value(adapter_names, self.adapter_config_key):
-            self.adapter_fusion_layer[",".join(adapter_names)] = BertFusion(self.config)
+            fusion = BertFusion(self.config)
+            fusion.train(self.training)  # make sure training mode is consistent
+            self.adapter_fusion_layer[",".join(adapter_names)] = fusion
 
     def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
         """
@@ -86,10 +101,10 @@ class AdapterLayerBaseMixin(ABC):
                             param.requires_grad = True
 
     def get_adapter_preparams(
-            self,
-            adapter_config,
-            hidden_states,
-            input_tensor,
+        self,
+        adapter_config,
+        hidden_states,
+        input_tensor,
     ):
         """
         Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuratio
@@ -149,9 +164,7 @@ class AdapterLayerBaseMixin(ABC):
                 )
             # Case 4: We have a nested batch split block -> call batchsplit method
             elif isinstance(adapter_stack_layer, BatchSplit):
-                hidden_states = self.adapter_batchsplit(
-                    adapter_stack_layer, hidden_states, input_tensor, lvl=lvl + 1
-                )
+                hidden_states = self.adapter_batchsplit(adapter_stack_layer, hidden_states, input_tensor, lvl=lvl + 1)
             # Case 5: We have a single adapter which is part of this module -> forward pass
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
@@ -222,15 +235,15 @@ class AdapterLayerBaseMixin(ABC):
         # split hidden representations and residuals at split index
         split_hidden_states = [
             hidden_states[:, : adapter_setup.split_index, :],
-            hidden_states[:, adapter_setup.split_index:, :],
+            hidden_states[:, adapter_setup.split_index :, :],
         ]
         split_input_tensor = [
             input_tensor[:, : adapter_setup.split_index, :],
-            input_tensor[:, adapter_setup.split_index:, :],
+            input_tensor[:, adapter_setup.split_index :, :],
         ]
         split_residual = [
             residual[:, : adapter_setup.split_index, :],
-            residual[:, adapter_setup.split_index:, :],
+            residual[:, adapter_setup.split_index :, :],
         ]
 
         for i, adapter_block in enumerate(adapter_setup):
@@ -296,8 +309,8 @@ class AdapterLayerBaseMixin(ABC):
             if isinstance(child, Stack):
                 child_hidden_states, _, _ = self.adapter_stack(
                     child,
-                    hidden_states[i * orig_batch_size: (i + 1) * orig_batch_size],
-                    input_tensor[i * orig_batch_size: (i + 1) * orig_batch_size],
+                    hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    input_tensor[i * orig_batch_size : (i + 1) * orig_batch_size],
                     lvl=lvl + 1,
                 )
                 children_hidden.append(child_hidden_states)
@@ -305,8 +318,8 @@ class AdapterLayerBaseMixin(ABC):
             elif isinstance(child, BatchSplit):
                 child_hidden_states = self.adapter_batchsplit(
                     child,
-                    hidden_states[i * orig_batch_size: (i + 1) * orig_batch_size],
-                    input_tensor[i * orig_batch_size: (i + 1) * orig_batch_size],
+                    hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    input_tensor[i * orig_batch_size : (i + 1) * orig_batch_size],
                     lvl=lvl + 1,
                 )
                 children_hidden.append(child_hidden_states)
@@ -314,8 +327,8 @@ class AdapterLayerBaseMixin(ABC):
             elif child in self.adapters:
                 adapter_layer = self.adapters[child]
                 child_hidden_states, _, _ = adapter_layer(
-                    hidden_states[i * orig_batch_size: (i + 1) * orig_batch_size],
-                    residual_input=residual[i * orig_batch_size: (i + 1) * orig_batch_size],
+                    hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    residual_input=residual[i * orig_batch_size : (i + 1) * orig_batch_size],
                 )
                 children_hidden.append(child_hidden_states)
             # Case 4: nesting other composition blocks is invalid
@@ -327,22 +340,21 @@ class AdapterLayerBaseMixin(ABC):
                 )
             # Case X: No adapter which is part of this module -> ignore
             else:
-                children_hidden.append(hidden_states[i * orig_batch_size: (i + 1) * orig_batch_size])
+                children_hidden.append(hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size])
 
         # concatenate all outputs and return
         hidden_states = torch.cat(children_hidden, 0)
         return hidden_states, input_tensor
 
     def adapter_batchsplit(self, adapter_setup: BatchSplit, hidden_states, input_tensor, lvl=0):
-        split_input_tensor = [input_tensor[:adapter_setup.split_index],
-                              input_tensor[adapter_setup.split_index:]]
-        split_hidden_states = [hidden_states[:adapter_setup.split_index],
-                               hidden_states[adapter_setup.split_index:]]
+        split_input_tensor = [input_tensor[: adapter_setup.split_index], input_tensor[adapter_setup.split_index :]]
+        split_hidden_states = [hidden_states[: adapter_setup.split_index], hidden_states[adapter_setup.split_index :]]
         for i, adapter_block in enumerate(adapter_setup):
             # Case 1: We have a nested stack -> call stack method
             if isinstance(adapter_block, Stack):
-                split_hidden_states[i], _, _ = self.adapter_stack(adapter_block, split_hidden_states[i],
-                                                                  split_input_tensor[i], lvl=lvl + 1)
+                split_hidden_states[i], _, _ = self.adapter_stack(
+                    adapter_block, split_hidden_states[i], split_input_tensor[i], lvl=lvl + 1
+                )
             # Case 2: We have a nested split -> recursively call split
             elif isinstance(adapter_block, Split):
                 split_hidden_states[i] = self.adapter_split(
@@ -350,19 +362,21 @@ class AdapterLayerBaseMixin(ABC):
                 )
             # Case 3: We have a nested batch split block -> call batchsplit method
             elif isinstance(adapter_block, BatchSplit):
-                split_hidden_states[i] = self.adapter_batchsplit(adapter_block, split_hidden_states[i],
-                                                                 split_input_tensor[i], lvl=lvl + 1)
+                split_hidden_states[i] = self.adapter_batchsplit(
+                    adapter_block, split_hidden_states[i], split_input_tensor[i], lvl=lvl + 1
+                )
             # Case 4: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapters:
                 adapter_config = self.config.adapters.get(adapter_block)
-                hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
+                hidden_states, query, residual = self.get_adapter_preparams(
+                    adapter_config, hidden_states, input_tensor
+                )
                 split_residual = [
-                    residual[:adapter_setup.split_index],
-                    residual[adapter_setup.split_index:],
+                    residual[: adapter_setup.split_index],
+                    residual[adapter_setup.split_index :],
                 ]
                 adapter_layer = self.adapters[adapter_block]
-                split_hidden_states[i], _, _ = adapter_layer(split_hidden_states[i],
-                                                             residual_input=split_residual[i])
+                split_hidden_states[i], _, _ = adapter_layer(split_hidden_states[i], residual_input=split_residual[i])
             # Case 5: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
                 raise ValueError(
@@ -381,7 +395,7 @@ class AdapterLayerBaseMixin(ABC):
         """
         adapter_setup = self.config.adapters.active_setup if hasattr(self.config, "adapters") else None
         skip_adapters = adapter_setup is None or (
-                self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
+            self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
         )
         if not skip_adapters and (len(set(self.adapters.keys()) & adapter_setup.flatten()) > 0):
             if isinstance(adapter_setup, Stack):

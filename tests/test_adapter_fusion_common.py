@@ -7,8 +7,6 @@ import torch
 from transformers import ADAPTERFUSION_CONFIG_MAP, AdapterConfig, AutoModel, PfeifferConfig
 from transformers.testing_utils import require_torch
 
-from .test_modeling_common import ids_tensor
-
 
 @require_torch
 class AdapterFusionModelTestMixin:
@@ -33,10 +31,9 @@ class AdapterFusionModelTestMixin:
                 self.assertEqual(asdict(adapter_config), asdict(model.config.adapters.get(name2)))
 
                 model.add_fusion([name1, name2], adater_fusion_config_name)
-                model.eval()
 
                 # check forward pass
-                input_ids = ids_tensor((1, 128), 1000)
+                input_ids = self.get_input_samples((1, 128), config=model.config)
                 input_data = {"input_ids": input_ids}
                 model.set_active_adapters([[name1, name2]])
                 adapter_output = model(**input_data)
@@ -63,6 +60,7 @@ class AdapterFusionModelTestMixin:
     def test_load_adapter_fusion(self):
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
             model1 = AutoModel.from_config(self.config())
+            model1.eval()
 
             with self.subTest(model_class=model1.__class__.__name__):
                 name1 = "name1"
@@ -71,19 +69,18 @@ class AdapterFusionModelTestMixin:
                 model1.add_adapter(name2)
 
                 model2 = copy.deepcopy(model1)
+                model2.eval()
 
                 model1.add_fusion([name1, name2], adater_fusion_config_name)
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_adapter_fusion(temp_dir, ",".join([name1, name2]))
                     model2.load_adapter_fusion(temp_dir)
 
-                model1.eval()
-                model2.eval()
                 # check if adapter was correctly loaded
                 self.assertTrue(model1.config.adapter_fusion_models == model2.config.adapter_fusion_models)
 
                 # check equal output
-                in_data = ids_tensor((1, 128), 1000)
+                in_data = self.get_input_samples((1, 128), config=model1.config)
                 model1.set_active_adapters([[name1, name2]])
                 model2.set_active_adapters([[name1, name2]])
                 output1 = model1(in_data)
@@ -91,7 +88,7 @@ class AdapterFusionModelTestMixin:
                 self.assertEqual(len(output1), len(output2))
                 self.assertTrue(torch.equal(output1[0], output2[0]))
 
-    def test_load_full_model(self):
+    def test_load_full_model_fusion(self):
         model1 = AutoModel.from_config(self.config())
         model1.eval()
 
@@ -105,13 +102,11 @@ class AdapterFusionModelTestMixin:
             model1.save_pretrained(temp_dir)
             model2 = AutoModel.from_pretrained(temp_dir)
 
-        model1.eval()
-        model2.eval()
         # check if AdapterFusion was correctly loaded
         self.assertTrue(model1.config.adapter_fusion_models == model2.config.adapter_fusion_models)
 
         # check equal output
-        in_data = ids_tensor((1, 128), 1000)
+        in_data = self.get_input_samples((1, 128), config=model1.config)
         model1.set_active_adapters([[name1, name2]])
         model2.set_active_adapters([[name1, name2]])
         output1 = model1(in_data)
@@ -119,7 +114,7 @@ class AdapterFusionModelTestMixin:
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
-    def test_model_config_serialization(self):
+    def test_model_config_serialization_fusion(self):
         """PretrainedConfigurations should not raise an Exception when serializing the config dict
 
         See, e.g., PretrainedConfig.to_json_string()

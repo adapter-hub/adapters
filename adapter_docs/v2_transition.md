@@ -8,7 +8,7 @@ Sections with potentially breaking changes are marked with "⚠️".
 
 ### Adapter composition blocks
 
-The new version introduces a radically different way to define adapter setups in a Transformers model,
+The new version introduces a radically different way to define adapter setups in a Transformer model,
 allowing much more advanced and flexible adapter composition possibilities.
 An example setup using this new, modular composition mechanism might look like this:
 
@@ -18,22 +18,22 @@ import transformers.adapters.composition as ac
 model.active_adapters = ac.Stack("a", ac.Split("b", "c", split_index=60))
 ```
 
-As we see, the basic building blocks of this setup are simple objects representing different possibilities to combine single adapters.
-In the example, `Stack` describes stacking layers of adapters on top of each other,
-as used in the _MAD-X_ framework for cross-lingual transfer.
-`Split` describes splitting the input sequences between two adapters at a specified index.
-Thus, in the shown setup, in each adapter layer, the input is first passed through adapter `a` before being split up between adapters `b` and `c` and passed through both adapters in parallel.
+As we can see, the basic building blocks of this setup are simple objects representing different possibilities to combine individual adapters.
+In the above example, `Stack` describes stacking adapters layers on top of each other,
+e.g., as it is used in the _MAD-X_ framework for cross-lingual transfer.
+`Split` results in splitting the input sequences between two adapters at a specified `split_index`.
+In the depicted setup, at every transformer layer the token representations are first passed through adapter `a` before being split at the `split_index` and passed through adapters `b` and `c` respectively.
 
-Besides the two blocks shown, `adapter-transformers` currently also includes a `Fuse` block (for [_AdapterFusion_](https://arxiv.org/pdf/2005.00247.pdf)) and a `Parallel` block (see below).
-All of these blocks derive from `AdapterCompositionBlock`, and they can be combined in flexibly in many ways.
+Besides the two blocks shown, `adapter-transformers` includes a `Fuse` block (for [_AdapterFusion_](https://arxiv.org/pdf/2005.00247.pdf)) and a `Parallel` block (see below).
+All of these blocks are derived from `AdapterCompositionBlock`, and they can be flexibly combined in even very complex scenarios.
 For more information on specifying the active adapters using `active_adapters` and the new composition blocks,
 refer to the [corresponding section in our documentation](adapter_composition.md).
 
 ### New model support: Adapters for BART and GPT-2
 
-The two new model architectures added in v2.0, BART and GPT-2, start the process of integrating adapters into sequence-to-sequence models, with more to come.
+Version 2 adds support for BART and GPT-2, marking a new type of models we support in the framework, namely sequence-to-sequence models (more to come!)
 
-We have [a separate blog post]() presenting our results when training adapters on both models and new adapters in the Hub.
+We have [a separate blog post](https://adapterhub.ml/blog/2021/04/adapters-for-generative-and-seq2seq-models-in-nlp/) that studies the effectiveness of adapters within these two models in greater detail. This blog post also includes a hands-on example where we train GPT-2 to generate poetry.
 
 ### AdapterDrop
 
@@ -47,7 +47,7 @@ We present an example for robust _AdapterDrop_ training [in this Colab notebook]
 
 ### Transformers upgrade
 
-Version 2.0.0 upgrades the underlying HuggingFace Transformers library from v3.5.1 to v4.2.2, bringing many awesome new features created by HuggingFace.
+Version 2.0.0 upgrades the underlying HuggingFace Transformers library from v3.5.1 to v4.5.1, bringing many awesome new features created by HuggingFace.
 
 ## What has changed
 
@@ -57,7 +57,7 @@ _Includes breaking changes ⚠️_
 
 The new version removes the hard distinction between _task_ and _language_ adapters (realized using the `AdapterType` enumeration in v1) everywhere in the library.
 Instead, all adapters use the same set of methods.
-This, of course, leads to some breaking changes.
+This results in some breaking changes.
 For example, you don't have to specify the adapter type anymore when adding a new adapter.
 Instead of...
 ```python
@@ -123,4 +123,5 @@ Additionally, there have been some changes in the saved configuration dictionary
 ### Refactorings in adapter implementations
 
 There have been some refactorings mainly in the adapter mixin implementations.
-Further details can be found [in the guide for adding adapters to a new model](https://github.com/Adapter-Hub/adapter-transformers/blob/master/adding_adapters_to_a_model.md).
+Most importantly, all adapter-related code has been moved to the `transformers.adapters` namespace.
+Further details on the implementation can be found [in the guide for adding adapters to a new model](https://github.com/Adapter-Hub/adapter-transformers/blob/master/adding_adapters_to_a_model.md).

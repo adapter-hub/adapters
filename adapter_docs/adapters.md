@@ -33,8 +33,9 @@ In v1.x, the distinction between task and language adapters was made with the he
 ## Adapter architectures
 
 ```eval_rst
-.. figure:: architecture.png
+.. figure:: img/architecture.png
     :width: 350
+    :align: center
     :alt: Adapter architectures
 
     Visualization of possible adapter configurations with corresponding dictionary keys.

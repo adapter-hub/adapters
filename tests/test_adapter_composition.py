@@ -3,7 +3,7 @@ import unittest
 import torch
 
 from transformers import AutoModelWithHeads, BertConfig, BertForSequenceClassification
-from transformers.adapters.composition import Fuse, Parallel, Split, Stack, parse_composition, BatchSplit
+from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
@@ -109,7 +109,6 @@ class AdapterCompositionTest(unittest.TestCase):
         self.batched_training_pass()
 
 
-
 @require_torch
 class ParallelAdapterInferenceTestMixin:
     def test_parallel_inference_with_heads(self):
@@ -123,7 +122,7 @@ class ParallelAdapterInferenceTestMixin:
 
         inputs = {}
         inputs["attention_mask"] = torch.randint(0, 2, size=(2, 128))
-        inputs["input_ids"] = ids_tensor((2, 128), 1000)
+        inputs["input_ids"] = self.get_input_samples((2, 128), config=model.config)
 
         # for reference, pass through single adapters
         model.active_adapters = "a"
@@ -153,7 +152,7 @@ class ParallelAdapterInferenceTestMixin:
         model.add_classification_head("a", num_labels=2)
 
         inputs = {}
-        inputs["input_ids"] = ids_tensor((2, 128), 1000)
+        inputs["input_ids"] = self.get_input_samples((2, 128), config=model.config)
 
         model.active_adapters = Parallel("a", "b")
         model.active_head = ["a"]

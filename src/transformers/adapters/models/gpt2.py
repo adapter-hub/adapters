@@ -112,11 +112,11 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        self.enable_adapters(adapter_setup, False, True)
+        self.enable_adapters(adapter_setup, unfreeze_adapters, True)
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
@@ -125,6 +125,13 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     ):
         for layer in self.base_model.h:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
+
+    def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
+        if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
+            repeats = [1] * len(attention_mask.shape)
+            repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
+            attention_mask = attention_mask.repeat(*repeats)
+        return attention_mask
 
     def _add_fusion_layer(self, adapter_names):
         for layer in self.base_model.h:
@@ -144,6 +151,21 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
         return reg_loss
+
+    def get_adapter(self, name):
+        return_adapters = {}
+        for idx, layer in enumerate(self.h):
+            adapters = {
+                "attention": layer.attention_adapters.adapters,
+                "output": layer.output_adapters.adapters,
+            }
+            for key, adapt in adapters.items():
+                if hasattr(adapt, name):
+                    if idx not in return_adapters:
+                        return_adapters[idx] = {}
+                    return_adapters[idx][key] = getattr(adapt, name)
+
+        return return_adapters
 
 
 class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):

@@ -4,5 +4,5 @@ Adapter Utilities
 A collection of utility methods mainly related to searching and loading adapter modules from
 Adapter-Hub.
 
-.. automodule:: transformers.adapter_utils
+.. automodule:: transformers.adapters.utils
     :members:

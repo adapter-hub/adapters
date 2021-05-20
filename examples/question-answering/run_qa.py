@@ -29,16 +29,18 @@ from datasets import load_dataset, load_metric
 import transformers
 from trainer_qa import QuestionAnsweringTrainer
 from transformers import (
+    AdapterConfig,
     AutoConfig,
     AutoModelForQuestionAnswering,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
     HfArgumentParser,
+    MultiLingAdapterArguments,
     PreTrainedTokenizerFast,
     TrainingArguments,
     default_data_collator,
-    set_seed, AdapterArguments, AdapterType, AdapterConfig, MultiLingAdapterArguments,
+    set_seed,
 )
 from transformers.adapters.composition import Fuse
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
@@ -204,7 +206,9 @@ def main():
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args, adapter_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, adapter_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
         model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
@@ -309,7 +313,7 @@ def main():
             "requirement"
         )
 
-    #Setup adapters
+    # Setup adapters
     if adapter_args.train_adapter:
         task_name = data_args.dataset_name or "squad"
         # check if adapter already exists otherwise add it
@@ -317,16 +321,12 @@ def main():
             # resolve adapter config
             adapter_config = AdapterConfig.load(
                 adapter_args.adapter_config,
-                non_linearity = adapter_args.adapter_non_linearity,
-                reduction_factor = adapter_args.adapter_reduction_factor
+                non_linearity=adapter_args.adapter_non_linearity,
+                reduction_factor=adapter_args.adapter_reduction_factor,
             )
             # load adapter from hub if specified
             if adapter_args.load_adapter:
-                model.load_adapter(
-                    adapter_args.load_adapter,
-                    config = adapter_config,
-                    load_as = task_name
-                )
+                model.load_adapter(adapter_args.load_adapter, config=adapter_config, load_as=task_name)
             else:
                 model.add_adapter(task_name, config=adapter_config)
         # optionally load  a pretrained language adapter
@@ -334,14 +334,14 @@ def main():
             # resolve language adapter config
             lang_adapter_config = AdapterConfig.load(
                 adapter_args.lang_adapter_config,
-                non_linearity = adapter_args.lang_adapter_non_linearity,
-                reduction_factor = adapter_args.lang_adapter_reduction_factor,
+                non_linearity=adapter_args.lang_adapter_non_linearity,
+                reduction_factor=adapter_args.lang_adapter_reduction_factor,
             )
             # load language adapter from Hub
             lang_adapter_name = model.load_adapter(
                 adapter_args.load_lang_adapter,
-                config = lang_adapter_config,
-                load_as = adapter_args.language,
+                config=lang_adapter_config,
+                load_as=adapter_args.language,
             )
         else:
             lang_adapter_name = None
@@ -604,7 +604,7 @@ def main():
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
         do_save_full_model=not adapter_args.train_adapter,
-        do_save_adapters= adapter_args.train_adapter
+        do_save_adapters=adapter_args.train_adapter,
     )
 
     # Training

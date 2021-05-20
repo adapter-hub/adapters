@@ -135,7 +135,7 @@ class ModelAdaptersMixin(ABC):
         pass
 
     @abstractmethod
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         pass
 
@@ -318,6 +318,7 @@ class ModelAdaptersMixin(ABC):
         model_name: str = None,
         load_as: str = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        leave_out: Optional[List[int]] = None,
         **kwargs
     ) -> str:
         """
@@ -336,12 +337,15 @@ class ModelAdaptersMixin(ABC):
             model_name (str, optional): The string identifier of the pre-trained model.
             load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
                     saved will be used.
+            leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
 
         Returns:
             str: The name with which the adapter was added to the model.
         """
         loader = AdapterLoader(self)
-        load_dir, load_name = loader.load(adapter_name_or_path, config, version, model_name, load_as, **kwargs)
+        load_dir, load_name = loader.load(
+            adapter_name_or_path, config, version, model_name, load_as, leave_out=leave_out, **kwargs
+        )
         # load additional custom weights
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
@@ -470,9 +474,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         """Sets the model into mode for training the given adapters."""
         self.base_model.train_adapter(adapter_setup)
 
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.base_model.train_fusion(adapter_setup)
+        self.base_model.train_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
 
     def _add_adapter(self, adapter_name):
         self.base_model._add_adapter(adapter_name)
@@ -517,6 +521,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         load_as: str = None,
         with_head: bool = True,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        leave_out: Optional[List[int]] = None,
         **kwargs
     ) -> str:
         if with_head:
@@ -530,6 +535,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             model_name=model_name,
             load_as=load_as,
             custom_weights_loaders=custom_weights_loaders,
+            leave_out=leave_out,
             **kwargs,
         )
 
@@ -555,3 +561,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def get_labels_dict(self):
         return self.config.id2label
+
+    def get_adapter(self, name):
+        return self.base_model.get_adapter(name)

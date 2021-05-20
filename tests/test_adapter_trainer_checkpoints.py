@@ -10,11 +10,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-<<<<<<< HEAD
-from transformers.adapter_composition import Fuse
-=======
 from transformers.adapters.composition import Fuse
->>>>>>> v2
 
 
 class TestAdapterTrainer(unittest.TestCase):
@@ -44,18 +40,12 @@ class TestAdapterTrainer(unittest.TestCase):
             model=model,
             args=training_args,
             train_dataset=train_dataset,
-<<<<<<< HEAD
-        )
-
-        trainer.train()
-=======
             do_save_adapters=True,
             do_save_full_model=False,
         )
 
         trainer.train()
         # create second model that should resume the training of the first
->>>>>>> v2
         model_resume = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
         model_resume.add_adapter("adapter")
         model_resume.add_adapter("additional_adapter")
@@ -71,12 +61,8 @@ class TestAdapterTrainer(unittest.TestCase):
 
         for ((k1, v1), (k2, v2)) in zip(trainer.model.state_dict().items(), trainer_resume.model.state_dict().items()):
             self.assertEqual(k1, k2)
-<<<<<<< HEAD
-            self.assertTrue(torch.equal(v1, v2), k1)
-=======
             if "adapter" in k1:
                 self.assertTrue(torch.equal(v1, v2), k1)
->>>>>>> v2
 
     def test_resume_training_with_fusion(self):
         def encode_batch(batch):
@@ -110,12 +96,9 @@ class TestAdapterTrainer(unittest.TestCase):
             model=model,
             args=training_args,
             train_dataset=train_dataset,
-<<<<<<< HEAD
-=======
             do_save_adapters=True,
             do_save_full_model=False,
             do_save_adapter_fusion=True,
->>>>>>> v2
         )
 
         trainer.train()
@@ -135,12 +118,8 @@ class TestAdapterTrainer(unittest.TestCase):
 
         for ((k1, v1), (k2, v2)) in zip(trainer.model.state_dict().items(), trainer_resume.model.state_dict().items()):
             self.assertEqual(k1, k2)
-<<<<<<< HEAD
-            self.assertTrue(torch.equal(v1, v2), k1)
-=======
             if "adapter" in k1:
                 self.assertTrue(torch.equal(v1, v2), k1)
->>>>>>> v2
 
 
 if __name__ == "__main__":

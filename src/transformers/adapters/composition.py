@@ -88,19 +88,20 @@ class BatchSplit(AdapterCompositionBlock):
         self.right = right
         self.split_index = split_index
 
+
 # Mapping each composition block type to the allowed nested types
 ALLOWED_NESTINGS = {
     Stack: [str, Fuse, Split, Parallel, BatchSplit],
     Fuse: [str, Stack],
     Split: [str, Split, Stack, BatchSplit],
     Parallel: [str, Stack, BatchSplit],
-    BatchSplit: [str, Stack, Split, BatchSplit]
+    BatchSplit: [str, Stack, Split, BatchSplit],
 }
 
 # Some composition blocks might not be supported by all models.
 # Add a whitelist of models for those here.
 SUPPORTED_MODELS = {
-    Parallel: ["bert", "roberta", "distilbert"],
+    Parallel: ["bert", "roberta", "distilbert", "bart", "mbart", "gpt2"],
 }
 
 

@@ -558,7 +558,7 @@ def main():
         do_save_full_model=not adapter_args.train_adapter,
         do_save_adapters=adapter_args.train_adapter,
     )
-    if data_args.patience > 0:
+    if data_args.patience and data_args.patience > 0:
         callback = EarlyStoppingCallback(early_stopping_patience=data_args.patience)
         trainer.add_callback(callback)
 

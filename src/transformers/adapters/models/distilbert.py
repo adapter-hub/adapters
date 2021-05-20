@@ -80,12 +80,12 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        self.transformer.enable_adapters(adapter_setup, False, True)
+        self.transformer.enable_adapters(adapter_setup, unfreeze_adapters, True)
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
@@ -110,6 +110,21 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
         return reg_loss
+
+    def get_adapter(self, name):
+        return_adapters = {}
+        for idx, layer in enumerate(self.transformer.layer):
+            adapters = {
+                "attention": layer.attention_adapters.adapters,
+                "output": layer.output_adapters.adapters,
+            }
+            for key, adapt in adapters.items():
+                if hasattr(adapt, name):
+                    if idx not in return_adapters:
+                        return_adapters[idx] = {}
+                    return_adapters[idx][key] = getattr(adapt, name)
+
+        return return_adapters
 
 
 class DistilBertModelHeadsMixin(BertModelHeadsMixin):

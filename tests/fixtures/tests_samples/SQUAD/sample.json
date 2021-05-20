@@ -93,6 +93,15 @@
             }
         },
         {
+            "id": "5ad5316b5b96ef001a10ab76",
+            "question": "What is a manual application of mathematical steps?",
+            "context": "Computational complexity theory is a branch of the theory of computation in theoretical computer science that focuses on classifying computational problems according to their inherent difficulty, and relating those classes to each other. A computational problem is understood to be a task that is in principle amenable to being solved by a computer, which is equivalent to stating that the problem may be solved by mechanical application of mathematical steps, such as an algorithm.",
+            "answers": {
+                "answer_start": [],
+                "text": []
+            }
+        },
+        {
             "id": "56e16839cd28a01900c67887",
             "question": "What measure of a computational problem broadly defines the inherent difficulty of the solution?",
             "context": "A problem is regarded as inherently difficult if its solution requires significant resources, whatever the algorithm used. The theory formalizes this intuition, by introducing mathematical models of computation to study these problems and quantifying the amount of resources needed to solve them, such as time and storage. Other complexity measures are also used, such as the amount of communication (used in communication complexity), the number of gates in a circuit (used in circuit complexity) and the number of processors (used in parallel computing). One of the roles of computational complexity theory is to determine the practical limits on what computers can and cannot do.",
@@ -141,6 +150,24 @@
                     "time and storage",
                     "time and storage"
                 ]
+            }
+        },
+        {
+            "id": "5ad532575b96ef001a10ab7f",
+            "question": "What unit is measured to determine circuit simplicity?",
+            "context": "A problem is regarded as inherently difficult if its solution requires significant resources, whatever the algorithm used. The theory formalizes this intuition, by introducing mathematical models of computation to study these problems and quantifying the amount of resources needed to solve them, such as time and storage. Other complexity measures are also used, such as the amount of communication (used in communication complexity), the number of gates in a circuit (used in circuit complexity) and the number of processors (used in parallel computing). One of the roles of computational complexity theory is to determine the practical limits on what computers can and cannot do.",
+            "answers": {
+                "answer_start": [],
+                "text": []
+            }
+        },
+        {
+            "id": "5ad532575b96ef001a10ab80",
+            "question": "What number is used in perpendicular computing?",
+            "context": "A problem is regarded as inherently difficult if its solution requires significant resources, whatever the algorithm used. The theory formalizes this intuition, by introducing mathematical models of computation to study these problems and quantifying the amount of resources needed to solve them, such as time and storage. Other complexity measures are also used, such as the amount of communication (used in communication complexity), the number of gates in a circuit (used in circuit complexity) and the number of processors (used in parallel computing). One of the roles of computational complexity theory is to determine the practical limits on what computers can and cannot do.",
+            "answers": {
+                "answer_start": [],
+                "text": []
             }
         }
     ]
