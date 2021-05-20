@@ -378,7 +378,10 @@ class Trainer:
         if adapter_names is not None:
             self.model.set_active_adapters(adapter_names)
         # Set the defaults for loading/ saving model & adapters
-        model_freezed = getattr(self.model.base_model, "model_freezed", False)
+        if isinstance(self.model, PreTrainedModel):
+            model_freezed = getattr(self.model.base_model, "model_freezed", False)
+        else:
+            model_freezed = False
         if model_freezed and self.model.active_adapters:
             self.do_save_full_model = False
             self.do_save_adapters = True
