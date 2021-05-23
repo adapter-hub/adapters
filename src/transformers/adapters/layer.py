@@ -348,7 +348,7 @@ class AdapterLayerBaseMixin(ABC):
 
     def adapter_batchsplit(self, adapter_setup: BatchSplit, hidden_states, input_tensor, lvl=0):
         # compute the batch size passed to each adapter
-        block_size = [(int) (hidden_states.shape[0] / len(adapter_setup.children))] * len(adapter_setup.children)
+        block_size = [(int)(hidden_states.shape[0] / len(adapter_setup.children))] * len(adapter_setup.children)
         # if the batch siz can not be equally distributed, increase the batch size passed to the first adapters
         for i, _ in enumerate(block_size):
             if sum(block_size) < hidden_states.shape[0]:
@@ -357,7 +357,7 @@ class AdapterLayerBaseMixin(ABC):
                 break
         children_hidden = []
         for i, adapter_block in enumerate(adapter_setup):
-            batch_idx = range(sum(block_size[:i]), min(hidden_states.shape[0], sum(block_size[:i+1])))
+            batch_idx = range(sum(block_size[:i]), min(hidden_states.shape[0], sum(block_size[: i + 1])))
             # Case 1: We have a nested stack -> call stack method
             if isinstance(adapter_block, Stack):
                 child, _, _ = self.adapter_stack(
