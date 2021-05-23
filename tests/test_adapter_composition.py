@@ -99,12 +99,12 @@ class AdapterCompositionTest(unittest.TestCase):
         self.assertEqual(logits.shape, (2, 2))
 
     def test_batch_split(self):
-        self.model.set_active_adapters(BatchSplit("a", "b", 1))
+        self.model.set_active_adapters(BatchSplit("a", "b", "c"))
 
         self.batched_training_pass()
 
     def test_nested_batch_split(self):
-        self.model.set_active_adapters(Stack("a", BatchSplit("b", "c", 1)))
+        self.model.set_active_adapters(Stack("a", BatchSplit("b", "c")))
 
         self.batched_training_pass()
 

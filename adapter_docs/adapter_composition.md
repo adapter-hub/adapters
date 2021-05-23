@@ -124,11 +124,15 @@ model.active_adapters = ac.Split("g", "h", split_index=64)
 ```
 
 ## BatchSplit
-The BatchSplit Block is an alternative to split the input between two adapters. It does not split the input sequences but the 
+The BatchSplit Block is an alternative to split the input between several adapters. It does not split the input sequences but the 
 batch into smaller batches. As a result the input sequences remain untouched. 
 
-In the following example, we split the batch between adapters `i`and `k`.
-For each batch the input sequence 0 and 1 are passed to `i` and the remaining input sequences are passed tp `k`.
+In the following example, we split the batch between adapters `i`, `k` and `l`.
+For each batch the batch size is divided by three and the first third is passed to `i` the second third of input
+sequences is passed to `k` and the last third is passed to `l`. If the batch size is not a multiple of the number of
+adapters in the BatchSplit block the first adapters get a input sequence more than the last ones e.g. if the composition 
+below is passed input with a batch size of four, the first two sequences are passed to `i`. The adapters `k`and `l`receive 
+one input sequence.
 ```python
 import transformers.adapters.composition as ac
 
@@ -136,8 +140,9 @@ import transformers.adapters.composition as ac
 
 model.add_adapter("i")
 model.add_adapter("k")
+model.add_adapter("l")
 
-model.active_adapters = ac.BatchSplit("g", "h", split_index=2)
+model.active_adapters = ac.BatchSplit("i", "k", "l")
 
 ```
 

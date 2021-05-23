@@ -82,11 +82,8 @@ class Split(AdapterCompositionBlock):
 
 
 class BatchSplit(AdapterCompositionBlock):
-    def __init__(self, left: str, right: str, split_index: int):
-        super().__init__(left, right)
-        self.left = left
-        self.right = right
-        self.split_index = split_index
+    def __init__(self, *split_adapters: List[Union[AdapterCompositionBlock, str]]):
+        super().__init__(*split_adapters)
 
 
 # Mapping each composition block type to the allowed nested types
