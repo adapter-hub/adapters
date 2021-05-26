@@ -4,7 +4,7 @@ from typing import List, Mapping, Union
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, Fuse, Parallel, Split, Stack
+from .composition import AdapterCompositionBlock, Fuse, Parallel, Split, Stack, parse_composition
 from .modeling import Adapter, BertFusion
 
 
@@ -329,11 +329,19 @@ class AdapterLayerBaseMixin(ABC):
         hidden_states = torch.cat(children_hidden, 0)
         return hidden_states, input_tensor
 
-    def adapters_forward(self, hidden_states, input_tensor):
+    def adapters_forward(self, hidden_states, input_tensor, **kwargs):
         """
         Called for each forward pass through adapters.
         """
-        adapter_setup = self.config.adapters.active_setup if hasattr(self.config, "adapters") else None
+        if hasattr(self.config, "adapters"):
+            # First check for given arguments before falling back to defined setup
+            adapter_setup = kwargs.pop("adapter_names", None)
+            if adapter_setup is not None:
+                adapter_setup = parse_composition(adapter_setup)
+            else:
+                adapter_setup = self.config.adapters.active_setup
+        else:
+            adapter_setup = None
         skip_adapters = adapter_setup is None or (
             self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
         )

@@ -172,6 +172,31 @@ class AdapterModelTestMixin:
                 with self.assertRaises(KeyError):
                     model.add_adapter(name, config=adapter_config)
 
+    def test_adapter_forward(self):
+        model = AutoModel.from_config(self.config())
+        model.eval()
+
+        for adapter_config in [PfeifferConfig(), HoulsbyConfig()]:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = adapter_config.__class__.__name__
+                model.add_adapter(name, config=adapter_config)
+
+                input_ids = self.get_input_samples((1, 128), config=model.config)
+                input_data = {"input_ids": input_ids}
+
+                # set via property
+                model.set_active_adapters([name])
+                output_1 = model(**input_data)
+
+                # unset and make sure it's unset
+                model.set_active_adapters(None)
+                self.assertEqual(None, model.active_adapters)
+
+                # check forward pass
+                output_2 = model(**input_data, adapter_names=[name])
+                self.assertEqual(len(output_1), len(output_2))
+                self.assertTrue(torch.equal(output_1[0], output_2[0]))
+
     def test_load_adapter(self):
         model1, model2 = create_twin_models(AutoModel, self.config)
 
