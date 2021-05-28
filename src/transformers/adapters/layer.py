@@ -4,7 +4,7 @@ from typing import List, Mapping, Union
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack
+from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from .modeling import Adapter, BertFusion
 
 
@@ -348,12 +348,18 @@ class AdapterLayerBaseMixin(ABC):
 
     def adapter_batchsplit(self, adapter_setup: BatchSplit, hidden_states, input_tensor, lvl=0):
         if not sum(adapter_setup.batch_sizes) == hidden_states.shape[0]:
-            raise IndexError("The given batch has a size of {} which is not compatibel with batch_sizes {}".format(
-                hidden_states.shape[0], adapter_setup.batch_sizes))
+            raise IndexError(
+                "The given batch has a size of {} which is not compatibel with batch_sizes {}".format(
+                    hidden_states.shape[0], adapter_setup.batch_sizes
+                )
+            )
         children_hidden = []
         for i, adapter_block in enumerate(adapter_setup):
             # compute ids of sequences thet should be passed to the ith adapter
-            batch_idx = range(sum(adapter_setup.batch_sizes[:i]), min(hidden_states.shape[0], sum(adapter_setup.batch_sizes[: i + 1])))
+            batch_idx = range(
+                sum(adapter_setup.batch_sizes[:i]),
+                min(hidden_states.shape[0], sum(adapter_setup.batch_sizes[: i + 1])),
+            )
             # Case 1: We have a nested stack -> call stack method
             if isinstance(adapter_block, Stack):
                 child, _, _ = self.adapter_stack(
@@ -393,11 +399,19 @@ class AdapterLayerBaseMixin(ABC):
         hidden_states = torch.cat(children_hidden, dim=0)
         return hidden_states
 
-    def adapters_forward(self, hidden_states, input_tensor):
+    def adapters_forward(self, hidden_states, input_tensor, **kwargs):
         """
         Called for each forward pass through adapters.
         """
-        adapter_setup = self.config.adapters.active_setup if hasattr(self.config, "adapters") else None
+        if hasattr(self.config, "adapters"):
+            # First check for given arguments before falling back to defined setup
+            adapter_setup = kwargs.pop("adapter_names", None)
+            if adapter_setup is not None:
+                adapter_setup = parse_composition(adapter_setup)
+            else:
+                adapter_setup = self.config.adapters.active_setup
+        else:
+            adapter_setup = None
         skip_adapters = adapter_setup is None or (
             self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
         )

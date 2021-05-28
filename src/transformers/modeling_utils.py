@@ -1753,7 +1753,7 @@ def prune_layer(
 
 
 def apply_chunking_to_forward(
-    forward_fn: Callable[..., torch.Tensor], chunk_size: int, chunk_dim: int, *input_tensors
+    forward_fn: Callable[..., torch.Tensor], chunk_size: int, chunk_dim: int, *input_tensors, **kwargs
 ) -> torch.Tensor:
     """
     This function chunks the :obj:`input_tensors` into smaller input tensor parts of size :obj:`chunk_size` over the
@@ -1795,7 +1795,11 @@ def apply_chunking_to_forward(
     ), "All input tenors have to be of the same shape"
 
     # inspect.signature exist since python 3.5 and is a python method -> no problem with backward compatibility
-    num_args_in_forward_chunk_fn = len(inspect.signature(forward_fn).parameters)
+    forward_fn_params = inspect.signature(forward_fn).parameters
+    num_args_in_forward_chunk_fn = len(forward_fn_params)
+    # subtract one for kwargs
+    if "kwargs" in forward_fn_params:
+        num_args_in_forward_chunk_fn -= 1
     if num_args_in_forward_chunk_fn != len(input_tensors):
         raise ValueError(
             f"forward_chunk_fn expects {num_args_in_forward_chunk_fn} arguments, but only {len(input_tensors)} input "
@@ -1818,4 +1822,4 @@ def apply_chunking_to_forward(
         # concatenate output at same dimension
         return torch.cat(output_chunks, dim=chunk_dim)
 
-    return forward_fn(*input_tensors)
+    return forward_fn(*input_tensors, **kwargs)
