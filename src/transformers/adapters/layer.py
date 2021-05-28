@@ -347,17 +347,13 @@ class AdapterLayerBaseMixin(ABC):
         return hidden_states, input_tensor
 
     def adapter_batchsplit(self, adapter_setup: BatchSplit, hidden_states, input_tensor, lvl=0):
-        # compute the batch size passed to each adapter
-        block_size = [(int)(hidden_states.shape[0] / len(adapter_setup.children))] * len(adapter_setup.children)
-        # if the batch siz can not be equally distributed, increase the batch size passed to the first adapters
-        for i, _ in enumerate(block_size):
-            if sum(block_size) < hidden_states.shape[0]:
-                block_size[i] += 1
-            else:
-                break
+        if not sum(adapter_setup.batch_sizes) == hidden_states.shape[0]:
+            raise IndexError("The given batch has a size of {} which is not compatibel with batch_sizes {}".format(
+                hidden_states.shape[0], adapter_setup.batch_sizes))
         children_hidden = []
         for i, adapter_block in enumerate(adapter_setup):
-            batch_idx = range(sum(block_size[:i]), min(hidden_states.shape[0], sum(block_size[: i + 1])))
+            # compute ids of sequences thet should be passed to the ith adapter
+            batch_idx = range(sum(adapter_setup.batch_sizes[:i]), min(hidden_states.shape[0], sum(adapter_setup.batch_sizes[: i + 1])))
             # Case 1: We have a nested stack -> call stack method
             if isinstance(adapter_block, Stack):
                 child, _, _ = self.adapter_stack(
