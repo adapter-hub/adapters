@@ -3,11 +3,12 @@ import logging
 from abc import ABC, abstractmethod
 from os import mkdir
 from os.path import exists, isdir, isfile, join
-from typing import Callable, Mapping, Tuple
+from typing import Callable, Mapping, Sequence, Tuple
 
 import torch
 
 from .configuration import AdapterConfig, build_full_config
+from .head_utils import STATIC_TO_FLEX_HEAD_MAP, get_head_config_and_rename_list
 from .utils import (
     ADAPTERFUSION_CONFIG_NAME,
     ADAPTERFUSION_WEIGHTS_NAME,
@@ -36,10 +37,12 @@ class WeightsLoaderHelper:
     def state_dict(self, filter_func):
         return {k: v for (k, v) in self.model.state_dict().items() if filter_func(k)}
 
-    def rename_state_dict(self, state_dict, rename_func):
+    def rename_state_dict(self, state_dict, *rename_funcs):
         new_state_dict = {}
         for k, v in state_dict.items():
-            new_k = rename_func(k)
+            new_k = k
+            for rename_func in rename_funcs:
+                new_k = rename_func(new_k)
             new_state_dict[new_k] = v
         return new_state_dict
 
@@ -124,7 +127,10 @@ class WeightsLoaderHelper:
 
         # Rename weights if needed
         if rename_func:
-            state_dict = self.rename_state_dict(state_dict, rename_func)
+            if isinstance(rename_func, Sequence):
+                state_dict = self.rename_state_dict(state_dict, *rename_func)
+            else:
+                state_dict = self.rename_state_dict(state_dict, rename_func)
 
         logger.info("Loading module weights from {}".format(weights_file))
 
@@ -541,9 +547,10 @@ class PredictionHeadLoader(WeightsLoader):
     `model.heads` and a method `add_prediction_head(head_name, config)`.
     """
 
-    def __init__(self, model, error_on_missing=True):
+    def __init__(self, model, error_on_missing=True, convert_to_flex_head=False):
         super().__init__(model, HEAD_WEIGHTS_NAME, HEAD_CONFIG_NAME)
         self.error_on_missing = error_on_missing
+        self.convert_to_flex_head = convert_to_flex_head
 
     def filter_func(self, head_name):
         if head_name:
@@ -551,7 +558,7 @@ class PredictionHeadLoader(WeightsLoader):
         else:
             return lambda x: not x.startswith(self.model.base_model_prefix)
 
-    def rename_func(self, old_name, new_name):
+    def rename_func(self, old_name, new_name, rename_list=None):
         return lambda k: k.replace("heads.{}".format(old_name), "heads.{}".format(new_name))
 
     def save(self, save_directory: str, name: str = None):
@@ -604,7 +611,7 @@ class PredictionHeadLoader(WeightsLoader):
         filter_func = self.filter_func(name)
         self.weights_helper.save_weights(save_directory, filter_func)
 
-    def load(self, save_directory, load_as=None, loading_info=None):
+    def load(self, save_directory, load_as=None, loading_info=None, **kwargs):
         """
         Loads a prediction head module from the given directory.
 
@@ -622,42 +629,74 @@ class PredictionHeadLoader(WeightsLoader):
             else:
                 logger.info("No matching prediction head found in '{}'".format(save_directory))
                 return None, None
+        # label2id map used to override default
+        custom_id2label = kwargs.pop("id2label", None)
+        if custom_id2label:
+            custom_label2id = {label: id_ for id_, label in custom_id2label.items()}
+        else:
+            custom_label2id = None
 
         head_name = None
+        conversion_rename_func = None
 
         # Load head config if available - otherwise just blindly try to load the weights
         if isfile(join(save_directory, HEAD_CONFIG_NAME)):
             config = self.weights_helper.load_weights_config(save_directory)
-            if (not config["config"] is None) and "label2id" in config["config"].keys():
-                config["config"]["label2id"] = {label: id_ for label, id_ in config["config"]["label2id"].items()}
-                config["config"]["id2label"] = {id_: label for label, id_ in config["config"]["label2id"].items()}
             # make sure that the model class of the loaded head matches the current class
-            if self.model.__class__.__name__ != config["model_class"]:
+            if not self.convert_to_flex_head and self.model.__class__.__name__ != config["model_class"]:
+                error_msg = f"Model class '{config['model_class']}' of found prediction head does not match current model class."
                 if self.error_on_missing:
-                    raise ValueError(
-                        f"Model class '{config['model_class']}' of found prediction head does not match current "
-                        f"model class."
+                    raise ValueError(error_msg)
+                else:
+                    logger.warning(error_msg)
+                    return None, None
+
+            # model with flex heads
+            if hasattr(self.model, "heads"):
+                # load head of same model class, no conversion needed
+                if self.model.__class__.__name__ == config["model_class"]:
+                    head_name = load_as or config["name"]
+                    head_config = config["config"]
+                # try to convert a static head to a flex head
+                elif self.convert_to_flex_head and config["model_class"] in STATIC_TO_FLEX_HEAD_MAP:
+                    head_name = kwargs.pop("main_load_name", load_as)
+                    if head_name is None:
+                        raise ValueError(
+                            "Could not identify a name for the prediction head to be loaded. Please specify 'load_as'."
+                        )
+                    head_config, conversion_rename_func = get_head_config_and_rename_list(
+                        config["model_class"], head_name, custom_label2id or config.get("label2id")
                     )
                 else:
-                    logger.debug("No matching prediction head found in '{}'".format(save_directory))
-                    return None, None
-            if hasattr(self.model, "heads"):
-                head_name = load_as or config["name"]
+                    raise ValueError(
+                        f"Cannot automatically convert prediction head of model class {config['model_class']} to flex head."
+                    )
                 if head_name in self.model.heads:
                     logger.warning("Overwriting existing head '{}'".format(head_name))
-                self.model.add_prediction_head_from_config(head_name, config["config"], overwrite_ok=True)
+
+                # make sure the label2id map is correct
+                custom_label2id = custom_label2id or head_config.get("label2id", None)
+                head_config["id2label"] = {int(id_): label for label, id_ in custom_label2id.items()}
+                head_config["label2id"] = {label: int(id_) for label, id_ in custom_label2id.items()}
+
+                self.model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
+            # model with static head
             else:
-                if "label2id" in config.keys():
-                    self.model.config.id2label = {int(id_): label for label, id_ in config["label2id"].items()}
-                    self.model.config.label2id = {label: int(id_) for label, id_ in config["label2id"].items()}
+                if self.convert_to_flex_head:
+                    raise ValueError("Cannot set convert_flex_head on model class with static head.")
+                custom_label2id = custom_label2id or config.get("label2id", None)
+                self.model.config.id2label = {int(id_): label for label, id_ in custom_label2id.items()}
+                self.model.config.label2id = {label: int(id_) for label, id_ in custom_label2id.items()}
+
         # Load head weights
         filter_func = self.filter_func(head_name)
+        rename_funcs = []
         if load_as:
-            rename_func = self.rename_func(config["name"], load_as)
-        else:
-            rename_func = None
+            rename_funcs.append(self.rename_func(config["name"], load_as))
+        if conversion_rename_func:
+            rename_funcs.append(conversion_rename_func)
         self.weights_helper.load_weights(
-            save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
+            save_directory, filter_func, rename_func=rename_funcs, loading_info=loading_info
         )
 
         return save_directory, head_name
