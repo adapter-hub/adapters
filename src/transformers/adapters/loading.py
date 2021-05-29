@@ -676,8 +676,9 @@ class PredictionHeadLoader(WeightsLoader):
 
                 # make sure the label2id map is correct
                 custom_label2id = custom_label2id or head_config.get("label2id", None)
-                head_config["id2label"] = {int(id_): label for label, id_ in custom_label2id.items()}
-                head_config["label2id"] = {label: int(id_) for label, id_ in custom_label2id.items()}
+                if custom_label2id:
+                    head_config["id2label"] = {int(id_): label for label, id_ in custom_label2id.items()}
+                    head_config["label2id"] = {label: int(id_) for label, id_ in custom_label2id.items()}
 
                 self.model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
             # model with static head
@@ -685,8 +686,9 @@ class PredictionHeadLoader(WeightsLoader):
                 if self.convert_to_flex_head:
                     raise ValueError("Cannot set convert_flex_head on model class with static head.")
                 custom_label2id = custom_label2id or config.get("label2id", None)
-                self.model.config.id2label = {int(id_): label for label, id_ in custom_label2id.items()}
-                self.model.config.label2id = {label: int(id_) for label, id_ in custom_label2id.items()}
+                if custom_label2id:
+                    self.model.config.id2label = {int(id_): label for label, id_ in custom_label2id.items()}
+                    self.model.config.label2id = {label: int(id_) for label, id_ in custom_label2id.items()}
 
         # Load head weights
         filter_func = self.filter_func(head_name)

@@ -354,6 +354,7 @@ class ModelAdaptersMixin(ABC):
                     load_as=load_as,
                     loading_info=kwargs.get("loading_info", None),
                     main_load_name=load_name,
+                    id2label=kwargs.get("id2label", None),
                 )
         return load_name
 
@@ -534,10 +535,19 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         with_head: bool = True,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
-        id2label=None,
         **kwargs
     ) -> str:
-        adapter_name = super().load_adapter(
+        if with_head:
+            if custom_weights_loaders is None:
+                custom_weights_loaders = []
+            custom_weights_loaders.append(
+                PredictionHeadLoader(
+                    self,
+                    error_on_missing=False,
+                    convert_to_flex_head=self._convert_to_flex_head,
+                )
+            )
+        return super().load_adapter(
             adapter_name_or_path,
             config=config,
             version=version,
@@ -547,16 +557,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             leave_out=leave_out,
             **kwargs,
         )
-        # Don't add PredictionHeadLoader to custom loaders to pass all args (i.e. id2label)
-        if with_head:
-            self.load_head(
-                adapter_name_or_path,
-                load_as=load_as,
-                id2label=id2label,
-                loading_info=kwargs.get("loading_info", None),
-                main_load_name=adapter_name,
-            )
-        return adapter_name
 
     def save_all_adapters(
         self,
