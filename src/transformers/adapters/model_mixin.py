@@ -25,6 +25,7 @@ class InvertibleAdaptersMixin:
     """Mixin for Transformer models adding invertible adapters."""
 
     def __init__(self, config, *args, **kwargs):
+        # This assumes invertible adapters are never added on decoders.
         self.disable_for_decoder = config.is_decoder
         super().__init__(config, *args, **kwargs)
 
