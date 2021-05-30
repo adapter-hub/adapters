@@ -42,7 +42,7 @@ class InvertibleAdaptersMixin:
             adapter_name (str): The name of the adapter for which to add an invertible adapter module.
         """
         if self.disable_for_decoder:
-            raise ValueError(f"Decoder is not allowed to use invertible adapters")
+            raise ValueError("Decoder is not allowed to use invertible adapters")
 
         if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")

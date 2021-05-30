@@ -25,8 +25,8 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
-from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
-from ...adapters.models.t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelHeadsMixin, T5StackAdaptersMixin
+from ...adapters.model_mixin import InvertibleAdaptersMixin
+from ...adapters.models.t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5StackAdaptersMixin
 from ...file_utils import (
     DUMMY_INPUTS,
     DUMMY_MASK,
