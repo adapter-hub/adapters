@@ -14,7 +14,6 @@
 # limitations under the License.
 """ PyTorch T5 model. """
 
-
 import copy
 import math
 import os
@@ -26,6 +25,14 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
+from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ...adapters.models.t5 import (
+    T5BlockAdaptersMixin,
+    T5StackAdaptersMixin,
+    T5ModelAdaptersMixin,
+    T5ModelHeadsMixin,
+)
+
 from ...file_utils import (
     DUMMY_INPUTS,
     DUMMY_MASK,
@@ -585,9 +592,9 @@ class T5LayerCrossAttention(nn.Module):
         return outputs
 
 
-class T5Block(nn.Module):
+class T5Block(T5BlockAdaptersMixin, nn.Module):
     def __init__(self, config, has_relative_attention_bias=False):
-        super().__init__()
+        super().__init__(config)
         self.is_decoder = config.is_decoder
         self.layer = nn.ModuleList()
         self.layer.append(T5LayerSelfAttention(config, has_relative_attention_bias=has_relative_attention_bias))
@@ -595,6 +602,7 @@ class T5Block(nn.Module):
             self.layer.append(T5LayerCrossAttention(config))
 
         self.layer.append(T5LayerFF(config))
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -779,7 +787,7 @@ class T5PreTrainedModel(PreTrainedModel):
         return shifted_input_ids
 
 
-class T5Stack(T5PreTrainedModel):
+class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
     def __init__(self, config, embed_tokens=None):
         super().__init__(config)
 
@@ -1177,7 +1185,7 @@ num_heads)`.
     "The bare T5 Model transformer outputting raw hidden-states" "without any specific head on top.",
     T5_START_DOCSTRING,
 )
-class T5Model(T5PreTrainedModel):
+class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
     _keys_to_ignore_on_load_missing = [
         r"encoder\.embed_tokens\.weight",
         r"decoder\.embed_tokens\.weight",
@@ -1202,6 +1210,7 @@ class T5Model(T5PreTrainedModel):
         decoder_config.num_layers = config.num_decoder_layers
         self.decoder = T5Stack(decoder_config, self.shared)
 
+        self._init_adapter_modules()
         self.init_weights()
 
         # Model parallel
