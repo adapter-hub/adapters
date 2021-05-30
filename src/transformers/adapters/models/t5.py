@@ -256,6 +256,7 @@ class T5ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
 
 class T5BlockAdaptersMixin:
     """Adds adapters to the T5Block module of T5."""
+
     def __init__(self, config, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.is_decoder = config.is_decoder
@@ -286,11 +287,8 @@ class T5BlockAdaptersMixin:
             self.cross_attention_adapters.add_adapter(adapter_name, layer_idx)
 
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
-        self.attention_adapters.enable_adapters(
-            adapter_names, unfreeze_adapters, unfreeze_attention)
-        self.output_adapters.enable_adapters(
-            adapter_names, unfreeze_adapters, unfreeze_attention)
+        self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+        self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
 
         if self.is_decoder:
-            self.cross_attention_adapters.enable_adapters(
-                adapter_names, unfreeze_adapters, unfreeze_attention)
+            self.cross_attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)

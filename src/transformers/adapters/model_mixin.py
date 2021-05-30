@@ -21,6 +21,7 @@ from .utils import inherit_doc
 
 logger = logging.getLogger(__name__)
 
+
 class InvertibleAdaptersMixin:
     """Mixin for Transformer models adding invertible adapters."""
 
@@ -102,6 +103,7 @@ class EncoderRestrictedInvertibleAdaptersMixin(InvertibleAdaptersMixin):
     For Transformer models that use same class as both an encoder and a decoder,
     restricts adapter methods to only be called and attached to the encoder.
     """
+
     def __init__(self, config, *args, **kwargs):
         self.is_decoder = config.is_decoder
 
