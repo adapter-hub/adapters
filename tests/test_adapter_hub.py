@@ -91,6 +91,23 @@ class AdapterHubTest(unittest.TestCase):
     def _compute_glue_metrics(self, task_name):
         return lambda p: glue_compute_metrics(task_name, np.argmax(p.predictions, axis=1), p.label_ids)
 
+    def test_load_task_adapter_from_hub_with_leave_out(self):
+        model = AutoModel.from_pretrained("bert-base-uncased")
+
+        loading_info = {}
+        adapter_name = model.load_adapter("sts/mrpc@ukp", config="pfeiffer", loading_info=loading_info, leave_out=[11])
+
+        self.assertEqual(0, len(loading_info["missing_keys"]))
+        # self.assertEqual(0, len(loading_info["unexpected_keys"]))
+        self.assertIn(adapter_name, model.config.adapters.adapters)
+
+        # check if leave out was applied to config
+        self.assertEqual([11], model.config.adapters.get(adapter_name).leave_out)
+
+        # layer 11 should be removed while others should still exist
+        self.assertIn(adapter_name, model.base_model.encoder.layer[10].output.adapters)
+        self.assertNotIn(adapter_name, model.base_model.encoder.layer[11].output.adapters)
+
     def test_load_lang_adapter_from_hub(self):
         for config in ["pfeiffer+inv", "houlsby+inv"]:
             with self.subTest(config=config):

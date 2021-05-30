@@ -7,6 +7,7 @@ import torch
 from transformers import (
     ADAPTER_CONFIG_MAP,
     AutoModel,
+    AutoModelForSequenceClassification,
     AutoModelWithHeads,
     HoulsbyConfig,
     HoulsbyInvConfig,
@@ -102,6 +103,99 @@ class AdapterModelTestMixin:
                 adapter_output_no_inv = model(**input_data)
                 self.assertEqual(len(adapter_output), len(adapter_output_no_inv))
                 self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
+
+    def test_get_adapter(self):
+        for adapter_config in [HoulsbyConfig()]:
+            for model in [
+                AutoModel.from_config(self.config()),
+                AutoModelWithHeads.from_config(self.config()),
+                AutoModelForSequenceClassification.from_config(self.config()),
+            ]:
+                model.eval()
+                with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                    model.add_adapter("first", config=adapter_config)
+                    model.add_adapter("second", config=adapter_config)
+                    model.set_active_adapters(["first"])
+
+                    # adapter is correctly added to config
+                    name = "first"
+                    self.assertTrue(name in model.config.adapters)
+                    self.assertEqual(adapter_config, model.config.adapters.get(name))
+
+                    first_adapter = model.get_adapter("first")
+                    second_adapter = model.get_adapter("second")
+
+                    self.assertNotEqual(len(first_adapter), 0)
+                    self.assertEqual(len(first_adapter), len(second_adapter))
+                    self.assertNotEqual(first_adapter, second_adapter)
+
+    def test_add_adapter_multiple_reduction_factors(self):
+        model = AutoModel.from_config(self.config())
+        model.eval()
+        reduction_factor = {"1": 1, "default": 2}
+        for adapter_config in [
+            PfeifferConfig(reduction_factor=reduction_factor),
+            HoulsbyConfig(reduction_factor=reduction_factor),
+        ]:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = adapter_config.__class__.__name__
+                model.add_adapter(name, config=adapter_config)
+                model.set_active_adapters([name])
+
+                # adapter is correctly added to config
+                self.assertTrue(name in model.config.adapters)
+                self.assertEqual(adapter_config, model.config.adapters.get(name))
+
+                adapter = model.get_adapter(name)
+
+                self.assertEqual(
+                    adapter[0]["output"].adapter_down[0].in_features
+                    / adapter[0]["output"].adapter_down[0].out_features,
+                    reduction_factor["default"],
+                )
+                self.assertEqual(
+                    adapter[1]["output"].adapter_down[0].in_features
+                    / adapter[1]["output"].adapter_down[0].out_features,
+                    reduction_factor["1"],
+                )
+
+    def test_reduction_factor_no_default(self):
+        model = AutoModel.from_config(self.config())
+        model.eval()
+        reduction_factor = {"2": 8, "4": 32}
+        for adapter_config in [
+            PfeifferConfig(reduction_factor=reduction_factor),
+            HoulsbyConfig(reduction_factor=reduction_factor),
+        ]:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = adapter_config.__class__.__name__
+                with self.assertRaises(KeyError):
+                    model.add_adapter(name, config=adapter_config)
+
+    def test_adapter_forward(self):
+        model = AutoModel.from_config(self.config())
+        model.eval()
+
+        for adapter_config in [PfeifferConfig(), HoulsbyConfig()]:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = adapter_config.__class__.__name__
+                model.add_adapter(name, config=adapter_config)
+
+                input_ids = self.get_input_samples((1, 128), config=model.config)
+                input_data = {"input_ids": input_ids}
+
+                # set via property
+                model.set_active_adapters([name])
+                output_1 = model(**input_data)
+
+                # unset and make sure it's unset
+                model.set_active_adapters(None)
+                self.assertEqual(None, model.active_adapters)
+
+                # check forward pass
+                output_2 = model(**input_data, adapter_names=[name])
+                self.assertEqual(len(output_1), len(output_2))
+                self.assertTrue(torch.equal(output_1[0], output_2[0]))
 
     def test_load_adapter(self):
         model1, model2 = create_twin_models(AutoModel, self.config)
