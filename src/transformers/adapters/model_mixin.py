@@ -27,7 +27,10 @@ class InvertibleAdaptersMixin:
 
     def __init__(self, config, *args, **kwargs):
         # This assumes invertible adapters are never added on decoders.
-        self.disable_for_decoder = config.is_decoder
+        self.disable_for_decoder = False
+        if config.is_decoder and not config.is_encoder_decoder:
+            self.disable_for_decoder = True 
+
         super().__init__(config, *args, **kwargs)
 
         if not self.disable_for_decoder:
