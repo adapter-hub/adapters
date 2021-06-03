@@ -62,7 +62,15 @@ if is_tf_available():
     ]
 
 if is_flax_available():
-    _import_structure["modeling_flax_roberta"] = ["FlaxRobertaModel"]
+    _import_structure["modeling_flax_roberta"] = [
+        "FlaxRobertaForMaskedLM",
+        "FlaxRobertaForMultipleChoice",
+        "FlaxRobertaForQuestionAnswering",
+        "FlaxRobertaForSequenceClassification",
+        "FlaxRobertaForTokenClassification",
+        "FlaxRobertaModel",
+        "FlaxRobertaPreTrainedModel",
+    ]
 
 
 if TYPE_CHECKING:
@@ -99,7 +107,15 @@ if TYPE_CHECKING:
         )
 
     if is_flax_available():
-        from .modeling_flax_roberta import FlaxRobertaModel
+        from .modeling_tf_roberta import (
+            FlaxRobertaForMaskedLM,
+            FlaxRobertaForMultipleChoice,
+            FlaxRobertaForQuestionAnswering,
+            FlaxRobertaForSequenceClassification,
+            FlaxRobertaForTokenClassification,
+            FlaxRobertaModel,
+            FlaxRobertaPreTrainedModel,
+        )
 
 else:
     import importlib

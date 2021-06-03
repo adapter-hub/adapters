@@ -19,7 +19,7 @@ To create the package for pypi.
 
 1. Run `make pre-release` (or `make pre-patch` for a patch release) then run `make fix-copies` to fix the index of the
    documentation.
-   
+
 2. Run Tests for Amazon Sagemaker. The documentation is located in `./tests/sagemaker/README.md`, otherwise @philschmid.
 
 3. Unpin specific versions from setup.py that use a git install.
@@ -85,30 +85,35 @@ if stale_egg_info.exists():
 # 1. all dependencies should be listed here with their version requirements if any
 # 2. once modified, run: `make deps_table_update` to update src/transformers/dependency_versions_table.py
 _deps = [
-    "black==20.8b1",
+    "Pillow",
+    "black==21.4b0",
     "cookiecutter==1.7.2",
     "dataclasses",
     "datasets",
+    "deepspeed>=0.3.16",
     "docutils==0.16.0",
+    "fairscale>0.3",
     "faiss-cpu",
     "fastapi",
     "filelock",
     "flake8>=3.8.3",
     "flax>=0.3.2",
     "fugashi>=1.0",
+    "huggingface-hub==0.0.8",
     "importlib_metadata",
     "ipadic>=1.0.0,<2.0",
     "isort>=5.5.4",
     "jax>=0.2.8",
     "jaxlib>=0.1.59",
+    "jieba",
     "keras2onnx",
+    "nltk",
     "numpy>=1.17",
     "onnxconverter-common",
     "onnxruntime-tools>=1.4.2",
     "onnxruntime>=1.4.0",
     "packaging",
     "parameterized",
-    "Pillow",
     "protobuf",
     "psutil",
     "pydantic",
@@ -120,15 +125,18 @@ _deps = [
     "recommonmark",
     "regex!=2019.12.17",
     "requests",
+    "rouge-score",
+    "sacrebleu>=1.4.12",
     "sacremoses",
+    "sagemaker>=2.31.0",
     "scikit-learn",
     "sentencepiece==0.1.91",
     "soundfile",
     "sphinx-copybutton",
     "sphinx-markdown-tables",
     "sphinx-rtd-theme==0.4.3",  # sphinx-rtd-theme==0.5.0 introduced big changes in the style.
-    "sphinxext-opengraph==0.4.1",
     "sphinx==3.2.1",
+    "sphinxext-opengraph==0.4.1",
     "starlette",
     "tensorflow-cpu>=2.3",
     "tensorflow>=2.3",
@@ -140,7 +148,6 @@ _deps = [
     "unidic>=1.0.2",
     "unidic_lite>=1.0.7",
     "uvicorn",
-    "sagemaker>=2.31.0",
 ]
 
 
@@ -231,6 +238,8 @@ extras["onnx"] = deps_list("onnxconverter-common", "keras2onnx") + extras["onnxr
 extras["modelcreation"] = deps_list("cookiecutter")
 
 extras["sagemaker"] = deps_list("sagemaker")
+extras["deepspeed"] = deps_list("deepspeed")
+extras["fairscale"] = deps_list("fairscale")
 
 extras["serving"] = deps_list("pydantic", "uvicorn", "fastapi", "starlette")
 extras["speech"] = deps_list("soundfile", "torchaudio")
@@ -239,28 +248,12 @@ extras["vision"] = deps_list("Pillow")
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = (
     deps_list(
-        "pytest",
-        "pytest-xdist",
-        "timeout-decorator",
-        "parameterized",
-        "psutil",
-        "datasets",
-        "pytest-subtests",
-        "pytest-sugar",
-        "black",
+        "pytest", "pytest-xdist", "timeout-decorator", "parameterized", "psutil", "datasets", "pytest-sugar", "black", "sacrebleu", "rouge-score", "nltk"
     )
     + extras["retrieval"]
     + extras["modelcreation"]
 )
-extras["docs"] = deps_list(
-    "docutils",
-    "recommonmark",
-    "sphinx",
-    "sphinx-markdown-tables",
-    "sphinx-rtd-theme",
-    "sphinx-copybutton",
-    "sphinxext-opengraph",
-)
+
 extras["quality"] = deps_list("black", "isort", "flake8")
 
 extras["all"] = (
@@ -273,18 +266,31 @@ extras["all"] = (
     + extras["vision"]
 )
 
+extras["docs_specific"] = deps_list(
+    "docutils",
+    "recommonmark",
+    "sphinx",
+    "sphinx-markdown-tables",
+    "sphinx-rtd-theme",
+    "sphinx-copybutton",
+    "sphinxext-opengraph",
+)
+# "docs" needs "all" to resolve all the references
+extras["docs"] = extras["all"] + extras["docs_specific"]
+
 extras["dev"] = (
     extras["all"]
     + extras["testing"]
     + extras["quality"]
     + extras["ja"]
-    + extras["docs"]
+    + extras["docs_specific"]
     + extras["sklearn"]
     + extras["modelcreation"]
 )
 
 extras["torchhub"] = deps_list(
     "filelock",
+    "huggingface-hub",
     "importlib_metadata",
     "numpy",
     "packaging",
@@ -303,6 +309,7 @@ install_requires = [
     deps["dataclasses"] + ";python_version<'3.7'",  # dataclasses for Python versions that don't have it
     deps["importlib_metadata"] + ";python_version<'3.8'",  # importlib_metadata for Python versions that don't have it
     deps["filelock"],  # filesystem locks, e.g., to prevent parallel downloads
+    deps["huggingface-hub"],
     deps["numpy"],
     deps["packaging"],  # utilities from PyPA to e.g., compare versions
     deps["regex"],  # for OpenAI GPT
