@@ -179,7 +179,6 @@ if is_sagemaker_mp_enabled():
 if is_training_run_on_sagemaker():
     logging.add_handler(StreamHandler(sys.stdout))
 
-
 if TYPE_CHECKING:
     import optuna
 
@@ -1066,10 +1065,8 @@ class Trainer:
             resume_from_checkpoint = get_last_checkpoint(args.output_dir)
             if resume_from_checkpoint is None:
                 raise ValueError(f"No valid checkpoint found in output directory ({args.output_dir})")
-        adapter_reloaded = False
         if resume_from_checkpoint is not None:
             if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
-
                 logger.info(f"Loading model from {resume_from_checkpoint}).")
 
             if os.path.isfile(os.path.join(resume_from_checkpoint, CONFIG_NAME)):
@@ -1086,31 +1083,41 @@ class Trainer:
                 # will be resumed in deepspeed_init
                 pass
             else:
-                if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
-                    # We load the model state dict on the CPU to avoid an OOM error.
-                    state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME), map_location="cpu")
-                    # If the model is on the GPU, it still works!
-                    load_result = self.model.load_state_dict(state_dict, strict=False)
-                    if len(load_result.missing_keys) != 0:
-                        if load_result.missing_keys == self.model._keys_to_ignore_on_save:
-                            self.model.tie_weights()
-                        else:
-                            logger.warn(
-                                f"There were missing keys in the checkpoint model loaded: {load_result.missing_keys}."
-                            )
-                    if len(load_result.unexpected_keys) != 0:
-                        logger.warn(
-                            f"There were unexpected keys in the checkpoint model loaded: {load_result.unexpected_keys}."
-                        )
-                if os.path.isdir(resume_from_checkpoint):
-                    for file_name in os.listdir(resume_from_checkpoint):
-                        if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
-                            if "," in file_name:
-                                self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
-                                adapter_reloaded = True
+                if self.do_save_full_model:
+                    if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
+                        # We load the model state dict on the CPU to avoid an OOM error.
+                        state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME), map_location="cpu")
+                        # If the model is on the GPU, it still works!
+                        load_result = self.model.load_state_dict(state_dict, strict=False)
+                        if len(load_result.missing_keys) != 0:
+                            if load_result.missing_keys == self.model._keys_to_ignore_on_save:
+                                self.model.tie_weights()
                             else:
-                                self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
-                                adapter_reloaded = True
+                                logger.warn(
+                                    f"There were missing keys in the checkpoint model loaded: {load_result.missing_keys}."
+                                )
+                        if len(load_result.unexpected_keys) != 0:
+                            logger.warn(
+                                f"There were unexpected keys in the checkpoint model loaded: {load_result.unexpected_keys}."
+                            )
+                    else:
+                        raise Exception("Can't find a valid checkpoint at {}".format(resume_from_checkpoint))
+                if self.do_save_adapters:
+                    adapter_loaded = False
+                    if os.path.isdir(resume_from_checkpoint):
+                        for file_name in os.listdir(resume_from_checkpoint):
+                            if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
+                                if "," in file_name:
+                                    self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
+                                    adapter_loaded = True
+                                else:
+                                    self.model.load_adapter(
+                                        os.path.join(os.path.join(resume_from_checkpoint, file_name))
+                                    )
+                                    adapter_loaded = True
+
+                    if not adapter_loaded:
+                        raise Exception("Can't find a valid checkpoint at {}".format(resume_from_checkpoint))
 
         # If model was re-initialized, put it on the right device and update self.model_wrapped
         if model_reloaded:
@@ -2172,7 +2179,6 @@ class Trainer:
 
         # if eval is called w/o train init deepspeed here
         if self.args.deepspeed and not self.deepspeed:
-
             # XXX: eval doesn't have `resume_from_checkpoint` arg but we should be able to do eval
             # from the checkpoint eventually
             deepspeed_engine, _, _ = deepspeed_init(self, num_training_steps=0, resume_from_checkpoint=None)
@@ -2607,7 +2613,6 @@ class Trainer:
 
         # if eval is called w/o train init deepspeed here
         if self.args.deepspeed and not self.deepspeed:
-
             # XXX: eval doesn't have `resume_from_checkpoint` arg but we should be able to do eval
             # from the checkpoint eventually
             deepspeed_engine, _, _ = deepspeed_init(self, num_training_steps=0, resume_from_checkpoint=None)
