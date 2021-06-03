@@ -24,6 +24,7 @@ import unittest
 from importlib import import_module
 from typing import List, Tuple
 
+from huggingface_hub import HfApi
 from requests.exceptions import HTTPError
 from transformers import is_tf_available
 from transformers.models.auto import get_values

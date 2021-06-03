@@ -25,6 +25,7 @@ from pathlib import Path
 
 import numpy as np
 
+from huggingface_hub import HfApi
 from requests.exceptions import HTTPError
 from transformers import AutoTokenizer, IntervalStrategy, PretrainedConfig, TrainingArguments, is_torch_available
 from transformers.file_utils import WEIGHTS_NAME

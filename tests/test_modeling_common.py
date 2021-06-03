@@ -23,6 +23,7 @@ import unittest
 import warnings
 from typing import List, Tuple
 
+from huggingface_hub import HfApi
 from requests.exceptions import HTTPError
 from transformers import is_torch_available, logging
 from transformers.file_utils import WEIGHTS_NAME

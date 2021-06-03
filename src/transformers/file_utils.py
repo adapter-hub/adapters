@@ -48,6 +48,7 @@ from tqdm.auto import tqdm
 
 import requests
 from filelock import FileLock
+from huggingface_hub import HfApi, HfFolder, Repository
 from transformers.utils.versions import importlib_metadata
 
 from . import __version__

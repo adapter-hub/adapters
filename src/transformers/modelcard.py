@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import requests
+from huggingface_hub import HfApi
 
 from . import __version__
 from .file_utils import (

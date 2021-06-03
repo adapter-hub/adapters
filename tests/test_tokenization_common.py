@@ -25,6 +25,7 @@ from collections import OrderedDict
 from itertools import takewhile
 from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
+from huggingface_hub import HfApi
 from requests.exceptions import HTTPError
 from transformers import (
     BertTokenizer,

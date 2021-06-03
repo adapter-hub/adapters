@@ -1066,7 +1066,6 @@ class Trainer:
             resume_from_checkpoint = get_last_checkpoint(args.output_dir)
             if resume_from_checkpoint is None:
                 raise ValueError(f"No valid checkpoint found in output directory ({args.output_dir})")
-        adapter_reloaded = False
         if resume_from_checkpoint is not None:
             if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
 
@@ -1107,10 +1106,8 @@ class Trainer:
                         if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
                             if "," in file_name:
                                 self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
-                                adapter_reloaded = True
                             else:
                                 self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
-                                adapter_reloaded = True
 
         # If model was re-initialized, put it on the right device and update self.model_wrapped
         if model_reloaded:
