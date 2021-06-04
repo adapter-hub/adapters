@@ -1102,8 +1102,8 @@ class Trainer:
                             )
                     else:
                         raise Exception("Can't find a valid checkpoint at {}".format(resume_from_checkpoint))
-                adapter_loaded = False
                 if self.do_save_adapters:
+                    adapter_loaded = False
                     if os.path.isdir(resume_from_checkpoint):
                         for file_name in os.listdir(resume_from_checkpoint):
                             if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):

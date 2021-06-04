@@ -57,6 +57,8 @@ class TestAdapterTrainer(unittest.TestCase):
             model=model_resume,
             args=TrainingArguments(do_train=True, max_steps=1, output_dir="./examples"),
             train_dataset=train_dataset,
+            do_save_adapters=True,
+            do_save_full_model=False,
         )
         trainer_resume.train(resume_from_checkpoint=True)
 
@@ -114,6 +116,8 @@ class TestAdapterTrainer(unittest.TestCase):
             model=model_resume,
             args=TrainingArguments(do_train=True, max_steps=1, output_dir="./examples"),
             train_dataset=train_dataset,
+            do_save_full_model=False,
+            do_save_adapters=True,
         )
         trainer_resume.train(resume_from_checkpoint=True)
 
