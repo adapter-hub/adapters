@@ -1,4 +1,8 @@
+import logging
 import re
+
+
+logger = logging.getLogger(__name__)
 
 
 STATIC_TO_FLEX_HEAD_MAP = {
@@ -197,7 +201,10 @@ def _regex_list_rename_func(k, rename_list):
 
 def get_head_config_and_rename_list(model_class_name, head_name, label2id):
     if not label2id:
-        raise ValueError("Config must provide a valid map of labels in label2id.")
+        logger.warning(
+            "No valid map of labels in label2id. Falling back to default (num_labels=2). This may cause errors during loading!"
+        )
+        label2id = {"LABEL_" + str(i): i for i in range(2)}
     data = STATIC_TO_FLEX_HEAD_MAP[model_class_name]
     # config
     config = data["config"]

@@ -319,6 +319,7 @@ class ModelAdaptersMixin(ABC):
         load_as: str = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
+        id2label=None,
         **kwargs
     ) -> str:
         """
@@ -354,7 +355,7 @@ class ModelAdaptersMixin(ABC):
                     load_as=load_as,
                     loading_info=kwargs.get("loading_info", None),
                     main_load_name=load_name,
-                    id2label=kwargs.get("id2label", None),
+                    id2label=id2label,
                 )
         return load_name
 
@@ -535,6 +536,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         with_head: bool = True,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
+        id2label=None,
         **kwargs
     ) -> str:
         if with_head:
@@ -547,6 +549,10 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                     convert_to_flex_head=self._convert_to_flex_head,
                 )
             )
+        # Support passing a num_labels for compatibility reasons. Convert to label map here.
+        num_labels = kwargs.pop("num_labels", None)
+        if num_labels is not None:
+            id2label = {i: "LABEL_" + str(i) for i in range(num_labels)}
         return super().load_adapter(
             adapter_name_or_path,
             config=config,
@@ -555,6 +561,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             load_as=load_as,
             custom_weights_loaders=custom_weights_loaders,
             leave_out=leave_out,
+            id2label=id2label,
             **kwargs,
         )
 
