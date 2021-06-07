@@ -167,6 +167,7 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         overwrite_ok=False,
         multilabel=False,
         id2label=None,
+        use_pooler=False,
     ):
         """
         Adds a sequence classification head on top of the model.
@@ -181,13 +182,22 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         """
 
         if multilabel:
-            head = MultiLabelClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
+            head = MultiLabelClassificationHead(
+                self, head_name, num_labels, layers, activation_function, id2label, use_pooler
+            )
         else:
-            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
+            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label, use_pooler)
         self.add_prediction_head(head, overwrite_ok)
 
     def add_multiple_choice_head(
-        self, head_name, num_choices=2, layers=2, activation_function="tanh", overwrite_ok=False, id2label=None
+        self,
+        head_name,
+        num_choices=2,
+        layers=2,
+        activation_function="tanh",
+        overwrite_ok=False,
+        id2label=None,
+        use_pooler=False,
     ):
         """
         Adds a multiple choice head on top of the model.
@@ -199,7 +209,7 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
             activation_function (str, optional): Activation function. Defaults to 'tanh'.
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
         """
-        head = MultipleChoiceHead(self, head_name, num_choices, layers, activation_function, id2label)
+        head = MultipleChoiceHead(self, head_name, num_choices, layers, activation_function, id2label, use_pooler)
         self.add_prediction_head(head, overwrite_ok)
 
     def add_tagging_head(
