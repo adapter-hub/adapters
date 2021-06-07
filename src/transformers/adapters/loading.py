@@ -558,7 +558,7 @@ class PredictionHeadLoader(WeightsLoader):
         else:
             return lambda x: not x.startswith(self.model.base_model_prefix)
 
-    def rename_func(self, old_name, new_name, rename_list=None):
+    def rename_func(self, old_name, new_name):
         return lambda k: k.replace("heads.{}".format(old_name), "heads.{}".format(new_name))
 
     def save(self, save_directory: str, name: str = None):
