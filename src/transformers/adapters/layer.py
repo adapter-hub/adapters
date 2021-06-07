@@ -395,8 +395,8 @@ class AdapterLayerBaseMixin(ABC):
                     )
                 )
             # Case X: No adapter which is part of this module -> ignore
-else:
-    children_hidden.append(hidden_states[batch_idx])
+            else:
+                children_hidden.append(hidden_states[batch_idx])
 
         hidden_states = torch.cat(children_hidden, dim=0)
         return hidden_states
