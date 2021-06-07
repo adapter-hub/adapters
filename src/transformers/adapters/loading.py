@@ -368,6 +368,7 @@ class AdapterLoader(WeightsLoader):
         model_name=None,
         load_as=None,
         loading_info=None,
+        leave_out=None,
         **kwargs
     ):
         """
@@ -408,6 +409,12 @@ class AdapterLoader(WeightsLoader):
             )
         elif "type" in config:
             self.adapter_type = config["type"]
+        # post-loading drop of layers
+        if leave_out is not None:
+            if config["config"]["leave_out"] is not None:
+                # The conversion to a set and then back to a list removes all duplicates
+                leave_out = list(set(leave_out + config["config"]["leave_out"]))
+            config["config"]["leave_out"] = leave_out
 
         adapter_name = load_as or config["name"]
         # If the adapter is not part of the model, add it

@@ -354,10 +354,10 @@ class BertSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self._init_adapter_modules()
 
-    def forward(self, hidden_states, input_tensor):
+    def forward(self, hidden_states, input_tensor, **kwargs):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapters_forward(hidden_states, input_tensor)
+        hidden_states = self.adapters_forward(hidden_states, input_tensor, **kwargs)
         return hidden_states
 
 
@@ -395,6 +395,7 @@ class BertAttention(nn.Module):
         encoder_attention_mask=None,
         past_key_value=None,
         output_attentions=False,
+        **kwargs
     ):
         self_outputs = self.self(
             hidden_states,
@@ -405,7 +406,7 @@ class BertAttention(nn.Module):
             past_key_value,
             output_attentions,
         )
-        attention_output = self.output(self_outputs[0], hidden_states)
+        attention_output = self.output(self_outputs[0], hidden_states, **kwargs)
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
         return outputs
 
@@ -435,10 +436,10 @@ class BertOutput(BertOutputAdaptersMixin, nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self._init_adapter_modules()
 
-    def forward(self, hidden_states, input_tensor):
+    def forward(self, hidden_states, input_tensor, **kwargs):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapters_forward(hidden_states, input_tensor)
+        hidden_states = self.adapters_forward(hidden_states, input_tensor, **kwargs)
         return hidden_states
 
 
@@ -465,6 +466,7 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
         encoder_attention_mask=None,
         past_key_value=None,
         output_attentions=False,
+        **kwargs
     ):
         # decoder uni-directional self-attention cached key/values tuple is at positions 1,2
         self_attn_past_key_value = past_key_value[:2] if past_key_value is not None else None
@@ -474,6 +476,7 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
             head_mask,
             output_attentions=output_attentions,
             past_key_value=self_attn_past_key_value,
+            **kwargs,
         )
         attention_output = self_attention_outputs[0]
 
@@ -509,7 +512,7 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
             present_key_value = present_key_value + cross_attn_present_key_value
 
         layer_output = apply_chunking_to_forward(
-            self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output
+            self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output, **kwargs
         )
         outputs = (layer_output,) + outputs
 
@@ -519,9 +522,9 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
 
         return outputs
 
-    def feed_forward_chunk(self, attention_output):
+    def feed_forward_chunk(self, attention_output, **kwargs):
         intermediate_output = self.intermediate(attention_output)
-        layer_output = self.output(intermediate_output, attention_output)
+        layer_output = self.output(intermediate_output, attention_output, **kwargs)
         return layer_output
 
 
@@ -543,6 +546,7 @@ class BertEncoder(BertEncoderAdaptersMixin, nn.Module):
         output_attentions=False,
         output_hidden_states=False,
         return_dict=True,
+        **kwargs
     ):
         all_hidden_states = () if output_hidden_states else None
         all_self_attentions = () if output_attentions else None
@@ -588,6 +592,7 @@ class BertEncoder(BertEncoderAdaptersMixin, nn.Module):
                     encoder_attention_mask,
                     past_key_value,
                     output_attentions,
+                    **kwargs,
                 )
 
             hidden_states = layer_outputs[0]
@@ -907,6 +912,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        **kwargs
     ):
         r"""
         encoder_hidden_states  (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
@@ -1003,6 +1009,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            **kwargs,
         )
         sequence_output = encoder_outputs[0]
         pooled_output = self.pooler(sequence_output) if self.pooler is not None else None
@@ -1045,8 +1052,9 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         inputs_embeds=None,
         output_attentions=None,
         output_hidden_states=None,
-        head=None,
         return_dict=None,
+        adapter_names=None,
+        head=None,
         **kwargs
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
@@ -1071,6 +1079,7 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
         # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
         if not return_dict:
@@ -1125,6 +1134,7 @@ class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape ``(batch_size, sequence_length)``, `optional`):
@@ -1168,6 +1178,7 @@ class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output, pooled_output = outputs[:2]
@@ -1240,6 +1251,7 @@ class BertLMHeadModel(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         encoder_hidden_states  (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
@@ -1300,6 +1312,7 @@ class BertLMHeadModel(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1395,6 +1408,7 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1417,6 +1431,7 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1483,6 +1498,7 @@ class BertForNextSentencePrediction(ModelWithHeadsAdaptersMixin, BertPreTrainedM
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
         **kwargs
     ):
         r"""
@@ -1531,6 +1547,7 @@ class BertForNextSentencePrediction(ModelWithHeadsAdaptersMixin, BertPreTrainedM
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         pooled_output = outputs[1]
@@ -1591,6 +1608,7 @@ class BertForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedM
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1610,6 +1628,7 @@ class BertForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedM
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         pooled_output = outputs[1]
@@ -1675,6 +1694,7 @@ class BertForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1705,6 +1725,7 @@ class BertForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         pooled_output = outputs[1]
@@ -1770,6 +1791,7 @@ class BertForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedMode
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1788,6 +1810,7 @@ class BertForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedMode
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1861,6 +1884,7 @@ class BertForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedModel)
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1884,6 +1908,7 @@ class BertForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedModel)
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]

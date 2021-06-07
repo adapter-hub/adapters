@@ -319,6 +319,7 @@ class ModelAdaptersMixin(ABC):
         load_as: str = None,
         source: str = "ah",
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        leave_out: Optional[List[int]] = None,
         **kwargs
     ) -> str:
         """
@@ -342,13 +343,14 @@ class ModelAdaptersMixin(ABC):
                 - "ah" (default): search on AdapterHub.
                 - "hf": search on HuggingFace model hub.
                 - None: only search on local file system
+            leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
 
         Returns:
             str: The name with which the adapter was added to the model.
         """
         loader = AdapterLoader(self)
         load_dir, load_name = loader.load(
-            adapter_name_or_path, config, version, model_name, load_as, source=source, **kwargs
+            adapter_name_or_path, config, version, model_name, load_as, source=source, leave_out=leave_out, **kwargs
         )
         # load additional custom weights
         if custom_weights_loaders:
@@ -425,6 +427,8 @@ class ModelAdaptersMixin(ABC):
         Args:
             save_directory (str): Path to a directory where the adapters should be saved.
         """
+        if not hasattr(self.config, "adapter_fusion_models"):
+            return
         for name in self.config.adapter_fusion_models:
             adapter_fusion_config = self.config.adapter_fusion
             h = get_adapter_config_hash(adapter_fusion_config)
@@ -526,6 +530,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         source: str = "ah",
         with_head: bool = True,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        leave_out: Optional[List[int]] = None,
         **kwargs
     ) -> str:
         if with_head:
@@ -540,6 +545,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             load_as=load_as,
             source=source,
             custom_weights_loaders=custom_weights_loaders,
+            leave_out=leave_out,
             **kwargs,
         )
 
@@ -565,3 +571,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def get_labels_dict(self):
         return self.config.id2label
+
+    def get_adapter(self, name):
+        return self.base_model.get_adapter(name)

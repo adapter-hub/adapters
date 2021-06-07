@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import List, Union
+from typing import List, Mapping, Union
 
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, Fuse, Parallel, Split, Stack
+from .composition import AdapterCompositionBlock, Fuse, Parallel, Split, Stack, parse_composition
 from .modeling import Adapter, BertFusion
 
 
@@ -41,12 +41,24 @@ class AdapterLayerBaseMixin(ABC):
 
     def add_adapter(self, adapter_name: str, layer_idx: int):
         self.layer_idx = layer_idx
-
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config.get(self.adapter_config_key, None):
+            reduction_factor = adapter_config["reduction_factor"]
+            if isinstance(reduction_factor, Mapping):
+                if str(self.layer_idx) in reduction_factor:
+                    reduction_factor = reduction_factor[str(self.layer_idx)]
+                elif "default" in reduction_factor:
+                    reduction_factor = reduction_factor["default"]
+                else:
+                    raise KeyError(
+                        "The given reduction factor mapping does not give a default value and does not specify each "
+                        "reduction factor individually. You need to provide a default value like this: "
+                        '{"1": 16, "default": 16}'
+                    )
+
             adapter = Adapter(
                 input_size=self.config.hidden_size,
-                down_sample=self.config.hidden_size // adapter_config["reduction_factor"],
+                down_sample=self.config.hidden_size // reduction_factor,
                 add_layer_norm_before=adapter_config["ln_before"],
                 add_layer_norm_after=adapter_config["ln_after"],
                 non_linearity=adapter_config["non_linearity"],
@@ -317,11 +329,19 @@ class AdapterLayerBaseMixin(ABC):
         hidden_states = torch.cat(children_hidden, 0)
         return hidden_states, input_tensor
 
-    def adapters_forward(self, hidden_states, input_tensor):
+    def adapters_forward(self, hidden_states, input_tensor, **kwargs):
         """
         Called for each forward pass through adapters.
         """
-        adapter_setup = self.config.adapters.active_setup if hasattr(self.config, "adapters") else None
+        if hasattr(self.config, "adapters"):
+            # First check for given arguments before falling back to defined setup
+            adapter_setup = kwargs.pop("adapter_names", None)
+            if adapter_setup is not None:
+                adapter_setup = parse_composition(adapter_setup)
+            else:
+                adapter_setup = self.config.adapters.active_setup
+        else:
+            adapter_setup = None
         skip_adapters = adapter_setup is None or (
             self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
         )

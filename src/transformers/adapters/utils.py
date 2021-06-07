@@ -227,7 +227,7 @@ def _dict_extract(d, primary_key, secondary_key=None):
             else:
                 for k, v in v.items():
                     yield v
-        else:
+        elif secondary_key is None:
             for k, v in v.items():
                 if k == primary_key:
                     yield v

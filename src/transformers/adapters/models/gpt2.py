@@ -152,6 +152,21 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
         return reg_loss
 
+    def get_adapter(self, name):
+        return_adapters = {}
+        for idx, layer in enumerate(self.h):
+            adapters = {
+                "attention": layer.attention_adapters.adapters,
+                "output": layer.output_adapters.adapters,
+            }
+            for key, adapt in adapters.items():
+                if hasattr(adapt, name):
+                    if idx not in return_adapters:
+                        return_adapters[idx] = {}
+                    return_adapters[idx][key] = getattr(adapt, name)
+
+        return return_adapters
+
 
 class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     """Adds flexible heads to a GPT-2 model."""
