@@ -74,7 +74,7 @@ class ClassificationHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
             "use_pooler": use_pooler,
             "bias": bias,
         }
@@ -143,7 +143,7 @@ class MultiLabelClassificationHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
             "use_pooler": use_pooler,
             "bias": bias,
         }
@@ -208,7 +208,7 @@ class MultipleChoiceHead(PredictionHead):
             "num_choices": num_choices,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
             "use_pooler": use_pooler,
         }
         self.build(model)
@@ -257,7 +257,7 @@ class TaggingHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
         }
         self.build(model)
 
@@ -309,7 +309,7 @@ class QuestionAnsweringHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
         }
         self.build(model)
 
@@ -397,9 +397,9 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         head_type = config.pop("head_type")
         # handle cases when id2label, label2id or both are available
         id2label = config.pop("id2label", None)
-        if not id2label:
+        if id2label is None:
             label2id = config.pop("label2id", None)
-            if label2id:
+            if label2id is not None:
                 id2label = {id_: label for label, id_ in label2id.items()}
         else:
             # don't pass label2id to head_class

@@ -604,6 +604,10 @@ class PredictionHeadLoader(WeightsLoader):
             model_class=self.model.__class__.__name__,
             save_id2label=True,
         )
+        # Add number of labels to config if present
+        if head_config is None and hasattr(self.model.config, "num_labels"):
+            config_dict["num_labels"] = self.model.config.num_labels
+
         self.weights_helper.save_weights_config(save_directory, config_dict)
 
         # Save head weights
@@ -665,7 +669,10 @@ class PredictionHeadLoader(WeightsLoader):
                             "Could not identify a name for the prediction head to be loaded. Please specify 'load_as'."
                         )
                     head_config, conversion_rename_func = get_head_config_and_rename_list(
-                        config["model_class"], head_name, custom_label2id or config.get("label2id")
+                        config["model_class"],
+                        head_name,
+                        custom_label2id or config.get("label2id"),
+                        num_labels=config.get("num_labels"),
                     )
                 else:
                     raise ValueError(

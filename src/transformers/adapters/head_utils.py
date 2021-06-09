@@ -199,19 +199,21 @@ def _regex_list_rename_func(k, rename_list):
     return k
 
 
-def get_head_config_and_rename_list(model_class_name, head_name, label2id):
-    if not label2id:
+def get_head_config_and_rename_list(model_class_name, head_name, label2id, num_labels=None):
+    if label2id is None:
         logger.warning(
             "No valid map of labels in label2id. Falling back to default (num_labels=2). This may cause errors during loading!"
         )
         label2id = {"LABEL_" + str(i): i for i in range(2)}
+    # num_labels is optional (e.g. for regression, when no map given)
+    num_labels = num_labels or len(label2id)
     data = STATIC_TO_FLEX_HEAD_MAP[model_class_name]
     # config
     config = data["config"]
     if config["head_type"] == "multiple_choice":
-        config["num_choices"] = len(label2id)
+        config["num_choices"] = num_labels
     else:
-        config["num_labels"] = len(label2id)
+        config["num_labels"] = num_labels
     config["label2id"] = label2id
     # rename
     rename_list = []
