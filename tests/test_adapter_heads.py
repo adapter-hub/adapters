@@ -2,7 +2,7 @@ import tempfile
 
 import torch
 
-from transformers import MODEL_WITH_HEADS_MAPPING, AutoModelWithHeads
+from transformers import MODEL_WITH_HEADS_MAPPING, AutoModelForSequenceClassification, AutoModelWithHeads
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_adapter_common import create_twin_models
@@ -145,3 +145,31 @@ class PredictionHeadModelTestMixin:
             model = AutoModelWithHeads.from_pretrained(temp_dir)
         self.assertIn("dummy", model.heads)
         self.assertDictEqual(true_config, model.get_prediction_heads_config())
+
+    def test_reload_static_to_flex_head(self):
+        static_head_model = AutoModelForSequenceClassification.from_config(self.config())
+        flex_head_model = AutoModelWithHeads.from_pretrained(
+            None, config=self.config(), state_dict=static_head_model.state_dict()
+        )
+        static_head_model.eval()
+        flex_head_model.eval()
+
+        static_head_model.add_adapter("test")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            static_head_model.save_adapter(temp_dir, "test")
+
+            loading_info = {}
+            flex_head_model.load_adapter(temp_dir, loading_info=loading_info)
+        self.assertEqual(0, len(loading_info["missing_keys"]))
+        self.assertEqual(0, len(loading_info["unexpected_keys"]))
+
+        # adapter and head were loaded
+        self.assertIn("test", flex_head_model.config.adapters)
+        self.assertIn("test", flex_head_model.heads)
+
+        # check equal output
+        in_data = self.get_input_samples((1, 128), config=flex_head_model.config)
+        output1 = static_head_model(in_data, adapter_names=["test"])
+        output2 = flex_head_model(in_data, adapter_names=["test"])
+        self.assertTrue(torch.all(torch.isclose(output1.logits, output2.logits)))

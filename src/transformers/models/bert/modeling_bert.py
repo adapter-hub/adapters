@@ -1086,10 +1086,16 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
             head_inputs = (outputs[0],) + outputs[2:]
         else:
             head_inputs = outputs
+        pooled_output = outputs[1]
 
         if head or self.active_head:
             head_outputs = self.forward_head(
-                head_inputs, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
+                head_inputs,
+                head_name=head,
+                attention_mask=attention_mask,
+                return_dict=return_dict,
+                pooled_output=pooled_output,
+                **kwargs,
             )
             return head_outputs
         else:
