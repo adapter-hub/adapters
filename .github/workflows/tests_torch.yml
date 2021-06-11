@@ -10,7 +10,7 @@ on:
       - 'tests/**'
       - 'utils/**'
   pull_request:
-    branches: [ 'master', 'v2' ]
+    branches: [ 'master', 'develop' ]
     paths:
       - 'src/**'
       - 'examples/**'
