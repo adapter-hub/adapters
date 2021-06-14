@@ -440,13 +440,14 @@ class ModelAdaptersMixin(ABC):
             param.requires_grad = not freeze
         self.model_freezed = freeze
 
-    def pre_transformer_forward(self):
+    def pre_transformer_forward(self, **kwargs):
         """
         This method should be called by every adapter-implementing model at the very beginning of the forward() method.
         """
         # some warnings if we don't use available adapters
-        if not self.active_adapters and self.has_adapters():
-            logger.warning("There are adapters available but none are passed to model.forward")
+        active_adapters = self.active_adapters or kwargs.get("adapter_names", None)
+        if not active_adapters and self.has_adapters():
+            logger.warning("There are adapters available but none are activated for the forward pass.")
 
         self.config.adapters.is_parallelized = False
 
