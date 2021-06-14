@@ -23,14 +23,14 @@ from typing import Any, Dict, Tuple, Union
 
 from . import __version__
 from .adapters.utils import DataclassJSONEncoder
-from .file_utils import CONFIG_NAME, cached_path, hf_bucket_url, is_offline_mode, is_remote_url
+from .file_utils import CONFIG_NAME, PushToHubMixin, cached_path, hf_bucket_url, is_offline_mode, is_remote_url
 from .utils import logging
 
 
 logger = logging.get_logger(__name__)
 
 
-class PretrainedConfig(object):
+class PretrainedConfig(PushToHubMixin):
     r"""
     Base class for all configuration classes. Handles a few parameters common to all models' configurations as well as
     methods for loading/downloading/saving configurations.
@@ -164,6 +164,14 @@ class PretrainedConfig(object):
           typically for a classification task.
         - **task_specific_params** (:obj:`Dict[str, Any]`, `optional`) -- Additional keyword arguments to store for the
           current task.
+        - **problem_type** (:obj:`str`, `optional`) -- Problem type for :obj:`XxxForSequenceClassification` models. Can
+          be one of (:obj:`"regression"`, :obj:`"single_label_classification"`, :obj:`"multi_label_classification"`).
+          Please note that this parameter is only available in the following models: `AlbertForSequenceClassification`,
+          `BertForSequenceClassification`, `BigBirdForSequenceClassification`, `ConvBertForSequenceClassification`,
+          `DistilBertForSequenceClassification`, `ElectraForSequenceClassification`, `FunnelForSequenceClassification`,
+          `LongformerForSequenceClassification`, `MobileBertForSequenceClassification`,
+          `ReformerForSequenceClassification`, `RobertaForSequenceClassification`,
+          `SqueezeBertForSequenceClassification`, `XLMForSequenceClassification` and `XLNetForSequenceClassification`.
 
     Parameters linked to the tokenizer
 
@@ -261,9 +269,18 @@ class PretrainedConfig(object):
         # task specific arguments
         self.task_specific_params = kwargs.pop("task_specific_params", None)
 
+        # regression / multi-label classification
+        self.problem_type = kwargs.pop("problem_type", None)
+        allowed_problem_types = ("regression", "single_label_classification", "multi_label_classification")
+        if self.problem_type is not None and self.problem_type not in allowed_problem_types:
+            raise ValueError(
+                f"The config parameter `problem_type` wasnot understood: received {self.problem_type}"
+                "but only 'regression', 'single_label_classification' and 'multi_label_classification' are valid."
+            )
+
         # TPU arguments
         if kwargs.pop("xla_device", None) is not None:
-            logger.warn(
+            logger.warning(
                 "The `xla_device` argument has been deprecated in v4.4.0 of Transformers. It is ignored and you can "
                 "safely remove it from your `config.json` file."
             )
@@ -272,7 +289,7 @@ class PretrainedConfig(object):
         self._name_or_path = str(kwargs.pop("name_or_path", ""))
 
         # Drop the transformers version info
-        kwargs.pop("transformers_version", None)
+        self.transformers_version = kwargs.pop("transformers_version", None)
 
         # Additional attributes without default values
         for key, value in kwargs.items():
@@ -311,7 +328,7 @@ class PretrainedConfig(object):
             self.id2label = {i: f"LABEL_{i}" for i in range(num_labels)}
             self.label2id = dict(zip(self.id2label.values(), self.id2label.keys()))
 
-    def save_pretrained(self, save_directory: Union[str, os.PathLike]):
+    def save_pretrained(self, save_directory: Union[str, os.PathLike], push_to_hub: bool = False, **kwargs):
         """
         Save a configuration object to the directory ``save_directory``, so that it can be re-loaded using the
         :func:`~transformers.PretrainedConfig.from_pretrained` class method.
@@ -319,6 +336,11 @@ class PretrainedConfig(object):
         Args:
             save_directory (:obj:`str` or :obj:`os.PathLike`):
                 Directory where the configuration JSON file will be saved (will be created if it does not exist).
+            push_to_hub (:obj:`bool`, `optional`, defaults to :obj:`False`):
+                Whether or not to push your model to the Hugging Face model hub after saving it.
+            kwargs:
+                Additional key word arguments passed along to the
+                :meth:`~transformers.file_utils.PushToHubMixin.push_to_hub` method.
         """
         if os.path.isfile(save_directory):
             raise AssertionError(f"Provided path ({save_directory}) should be a directory, not a file")
@@ -328,6 +350,10 @@ class PretrainedConfig(object):
 
         self.to_json_file(output_config_file, use_diff=True)
         logger.info(f"Configuration saved in {output_config_file}")
+
+        if push_to_hub:
+            url = self._push_to_hub(save_files=[output_config_file], **kwargs)
+            logger.info(f"Configuration pushed to the hub in this commit: {url}")
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs) -> "PretrainedConfig":

@@ -274,7 +274,7 @@ def main():
             )
             label_to_id = {i: label_name_to_id[label_list[i]] for i in range(num_labels)}
         else:
-            logger.warn(
+            logger.warning(
                 "Your model seems to have been trained with labels, but they don't match the dataset: ",
                 f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset labels: {list(sorted(label_list))}."
                 "\nIgnoring the model labels as a result.",
@@ -367,6 +367,8 @@ def main():
     # Get the metric function
     if args.task_name is not None:
         metric = load_metric("glue", args.task_name)
+    else:
+        metric = load_metric("accuracy")
 
     # Train!
     total_batch_size = args.per_device_train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
@@ -402,7 +404,7 @@ def main():
         model.eval()
         for step, batch in enumerate(eval_dataloader):
             outputs = model(**batch)
-            predictions = outputs.logits.argmax(dim=-1)
+            predictions = outputs.logits.argmax(dim=-1) if not is_regression else outputs.logits.squeeze()
             metric.add_batch(
                 predictions=accelerator.gather(predictions),
                 references=accelerator.gather(batch["labels"]),

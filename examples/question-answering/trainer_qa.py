@@ -16,12 +16,9 @@
 A subclass of `Trainer` specific to Question-Answering tasks
 """
 
-from transformers import Trainer, is_datasets_available, is_torch_tpu_available
+from transformers import Trainer, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput
 
-
-if is_datasets_available():
-    import datasets
 
 if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
@@ -42,8 +39,9 @@ class QuestionAnsweringTrainer(Trainer):
         # Temporarily disable metric computation, we will do it in the loop here.
         compute_metrics = self.compute_metrics
         self.compute_metrics = None
+        eval_loop = self.prediction_loop if self.args.use_legacy_prediction_loop else self.evaluation_loop
         try:
-            output = self.prediction_loop(
+            output = eval_loop(
                 eval_dataloader,
                 description="Evaluation",
                 # No point gathering the predictions if there are no metrics, otherwise we defer to
@@ -53,10 +51,6 @@ class QuestionAnsweringTrainer(Trainer):
             )
         finally:
             self.compute_metrics = compute_metrics
-
-        # We might have removed columns from the dataset so we put them back.
-        if isinstance(eval_dataset, datasets.Dataset):
-            eval_dataset.set_format(type=eval_dataset.format["type"], columns=list(eval_dataset.features.keys()))
 
         if self.post_process_function is not None and self.compute_metrics is not None:
             eval_preds = self.post_process_function(eval_examples, eval_dataset, output.predictions)
@@ -73,16 +67,17 @@ class QuestionAnsweringTrainer(Trainer):
         self.control = self.callback_handler.on_evaluate(self.args, self.state, self.control, metrics)
         return metrics
 
-    def predict(self, test_dataset, test_examples, ignore_keys=None):
-        test_dataloader = self.get_test_dataloader(test_dataset)
+    def predict(self, predict_dataset, predict_examples, ignore_keys=None):
+        predict_dataloader = self.get_test_dataloader(predict_dataset)
 
         # Temporarily disable metric computation, we will do it in the loop here.
         compute_metrics = self.compute_metrics
         self.compute_metrics = None
+        eval_loop = self.prediction_loop if self.args.use_legacy_prediction_loop else self.evaluation_loop
         try:
-            output = self.prediction_loop(
-                test_dataloader,
-                description="Evaluation",
+            output = eval_loop(
+                predict_dataloader,
+                description="Prediction",
                 # No point gathering the predictions if there are no metrics, otherwise we defer to
                 # self.args.prediction_loss_only
                 prediction_loss_only=True if compute_metrics is None else None,
@@ -94,11 +89,7 @@ class QuestionAnsweringTrainer(Trainer):
         if self.post_process_function is None or self.compute_metrics is None:
             return output
 
-        # We might have removed columns from the dataset so we put them back.
-        if isinstance(test_dataset, datasets.Dataset):
-            test_dataset.set_format(type=test_dataset.format["type"], columns=list(test_dataset.features.keys()))
+        predictions = self.post_process_function(predict_examples, predict_dataset, output.predictions, "predict")
+        metrics = self.compute_metrics(predictions)
 
-        eval_preds = self.post_process_function(test_examples, test_dataset, output.predictions, "test")
-        metrics = self.compute_metrics(eval_preds)
-
-        return PredictionOutput(predictions=eval_preds.predictions, label_ids=eval_preds.label_ids, metrics=metrics)
+        return PredictionOutput(predictions=predictions.predictions, label_ids=predictions.label_ids, metrics=metrics)
