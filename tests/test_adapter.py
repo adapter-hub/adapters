@@ -1,6 +1,6 @@
 import unittest
 
-from transformers import BartConfig, BertConfig, DistilBertConfig, GPT2Config, MBartConfig, RobertaConfig
+from transformers import BartConfig, BertConfig, DistilBertConfig, GPT2Config, MBartConfig, RobertaConfig, T5Config
 from transformers.testing_utils import require_torch
 
 from .test_adapter_common import AdapterModelTestMixin
@@ -135,3 +135,22 @@ class GPT2AdapterTest(
         pad_token_id=50256,
     )
     tokenizer_name = "gpt2"
+
+
+@require_torch
+class T5AdapterTest(
+    AdapterModelTestMixin,
+    AdapterFusionModelTestMixin,
+    PredictionHeadModelTestMixin,
+    AdapterTrainingTestMixin,
+    ParallelAdapterInferenceTestMixin,
+    unittest.TestCase,
+):
+    config_class = GPT2Config
+    config = make_config(
+        T5Config,
+        d_model=37,
+        n_laye=4,
+        n_head=4,
+    )
+    tokenizer_name = "t5-base"
