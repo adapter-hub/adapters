@@ -3,7 +3,7 @@ import unittest
 import torch
 
 from transformers import AutoModelWithHeads, BertConfig, BertForSequenceClassification
-from transformers.adapters.composition import Fuse, Parallel, Split, Stack, parse_composition
+from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
@@ -41,6 +41,11 @@ class AdapterCompositionTest(unittest.TestCase):
         inputs = {}
         inputs["input_ids"] = ids_tensor((1, 128), 1000)
         inputs["labels"] = torch.ones(1, dtype=torch.long)
+        loss = self.model(**inputs).loss
+        loss.backward()
+
+    def batched_training_pass(self):
+        inputs = {"input_ids": ids_tensor((4, 128), 1000), "labels": torch.ones(4, dtype=torch.long)}
         loss = self.model(**inputs).loss
         loss.backward()
 
@@ -92,6 +97,23 @@ class AdapterCompositionTest(unittest.TestCase):
         inputs["input_ids"] = ids_tensor((1, 128), 1000)
         logits = self.model(**inputs).logits
         self.assertEqual(logits.shape, (2, 2))
+
+    def test_batch_split(self):
+        self.model.set_active_adapters(BatchSplit("a", "b", "c", batch_sizes=[1, 1, 2]))
+        self.batched_training_pass()
+
+    def test_batch_split_int(self):
+        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=2))
+        self.batched_training_pass()
+
+    def test_nested_batch_split(self):
+        self.model.set_active_adapters(Stack("a", BatchSplit("b", "c", batch_sizes=[2, 2])))
+        self.batched_training_pass()
+
+    def test_batch_split_invalid(self):
+        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[3, 4]))
+        with self.assertRaises(IndexError):
+            self.batched_training_pass()
 
 
 @require_torch
