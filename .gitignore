@@ -162,6 +162,7 @@ tags
 
 # scripts
 *.ps1
+/x
 
 # .lock
 *.lock
