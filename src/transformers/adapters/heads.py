@@ -15,7 +15,7 @@ from ..modeling_outputs import (
     SequenceClassifierOutput,
     TokenClassifierOutput,
 )
-from .composition import AdapterCompositionBlock, Parallel, Stack
+from .composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack
 from .model_mixin import ModelWithHeadsAdaptersMixin
 from .modeling import Activation_Function_Class
 
@@ -422,7 +422,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             return self._active_heads
 
     @active_head.setter
-    def active_head(self, head_name_or_list: Union[str, List[str]]):
+    def active_head(self, head_name_or_list: Union[str, List[str], AdapterCompositionBlock]):
         if isinstance(head_name_or_list, str):
             if head_name_or_list and head_name_or_list not in self.heads:
                 raise ValueError(f"Model does not contain a head with name '{head_name_or_list}'.")
@@ -505,32 +505,48 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             return all_outputs
         used_heads = [head_name] if head_name else self._active_heads
 
+        def _get_head_input(outputs, cls_out, batch):
+            # TODO-AH check possible edge cases here
+            if isinstance(outputs, ModelOutput):
+                inputs = {}
+                for key, base_output in outputs.items():
+                    inputs[key] = base_output[batch]
+                inputs = outputs.__class__(**inputs)
+            else:
+                inputs = tuple()
+                for base_output in outputs:
+                    inputs = inputs + (base_output[batch],)
+            if cls_out is not None:
+                cls_input = cls_out[batch]
+            else:
+                cls_input = None
+            return inputs, cls_input
         for head in used_heads:
             if head not in self.heads:
                 raise ValueError("Unknown head_name '{}'".format(head))
-
-        if self.has_parallel_adapters:
-            if len(used_heads) != self.config.adapters.active_setup.parallel_channels:
+        if isinstance(self.active_head, BatchSplit):
+            if sum(self.active_head.batch_sizes) != all_outputs[0].size()[0]:
+                raise ValueError(
+                    "The specified batch sizes {} do not match the actual batch size {}".format(
+                        self.active_head.batch_sizes, all_outputs[0].size()[0]
+                    )
+                )
+            head_outputs = []
+            for i, head in enumerate(self.active_head):
+                head_module = self.heads[head]
+                batch_idx = range(sum(self.active_head.batch_sizes[:i]), sum(self.active_head.batch_sizes[: i + 1]))
+                head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
+                head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
+                head_outputs.append(head_output)
+        if self.has_parallel_adapters or isinstance(self.active_head, Parallel):
+            if len(self.active_head) != self.config.adapters.active_setup.parallel_channels:
                 raise ValueError("The number of parallel adapters and the number of active heads must match.")
             orig_batch_size = all_outputs[0].shape[0] // self.config.adapters.active_setup.parallel_channels
             head_outputs = []
-            for i, head in enumerate(used_heads):
+            for i, head in enumerate(self.active_head):
                 head_module = self.heads[head]
-                # TODO-AH check possible edge cases here
-                if isinstance(all_outputs, ModelOutput):
-                    # rebuild the model output object from the split output
-                    head_inputs = {}
-                    for key, base_output in all_outputs.items():
-                        head_inputs[key] = base_output[i * orig_batch_size : (i + 1) * orig_batch_size]
-                    head_inputs = all_outputs.__class__(**head_inputs)
-                else:
-                    head_inputs = tuple()
-                    for base_output in all_outputs:
-                        head_inputs = head_inputs + (base_output[i * orig_batch_size : (i + 1) * orig_batch_size],)
-                if cls_output is not None:
-                    head_cls_input = cls_output[i * orig_batch_size : (i + 1) * orig_batch_size]
-                else:
-                    head_cls_input = None
+                batch_idx = range(i * orig_batch_size,  (i + 1) * orig_batch_size)
+                head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
             return head_outputs
@@ -543,6 +559,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         else:
             head_module = self.heads[used_heads[0]]
             return head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
+
+
 
     def get_labels_dict(self, head_name=None):
         """
