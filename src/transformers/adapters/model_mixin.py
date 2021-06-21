@@ -1,4 +1,5 @@
 import logging
+import warnings
 from abc import ABC, abstractmethod
 from os.path import join
 from typing import List, Mapping, Optional, Union
@@ -224,6 +225,13 @@ class ModelAdaptersMixin(ABC):
         self.base_model._add_adapter(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
+        warnings.warn(
+            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
+            FutureWarning,
+        )
+        self.add_adapter_fusion(adapter_names, adapter_fusion_config, override_kwargs)
+
+    def add_adapter_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
         """
         Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 

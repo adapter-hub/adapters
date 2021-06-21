@@ -30,7 +30,7 @@ class AdapterFusionModelTestMixin:
                 self.assertEqual(asdict(adapter_config), asdict(model.config.adapters.get(name1)))
                 self.assertEqual(asdict(adapter_config), asdict(model.config.adapters.get(name2)))
 
-                model.add_fusion([name1, name2], adater_fusion_config_name)
+                model.add_adapter_fusion([name1, name2], adater_fusion_config_name)
 
                 # check forward pass
                 input_ids = self.get_input_samples((1, 128), config=model.config)
@@ -52,10 +52,10 @@ class AdapterFusionModelTestMixin:
         model.add_adapter("c", config="houlsby")
 
         # correct fusion
-        model.add_fusion(["a", "b"])
+        model.add_adapter_fusion(["a", "b"])
         self.assertIn("a,b", model.config.adapter_fusion_models)
         # failing fusion
-        self.assertRaises(ValueError, lambda: model.add_fusion(["a", "c"]))
+        self.assertRaises(ValueError, lambda: model.add_adapter_fusion(["a", "c"]))
 
     def test_load_adapter_fusion(self):
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
@@ -71,7 +71,7 @@ class AdapterFusionModelTestMixin:
                 model2 = copy.deepcopy(model1)
                 model2.eval()
 
-                model1.add_fusion([name1, name2], adater_fusion_config_name)
+                model1.add_adapter_fusion([name1, name2], adater_fusion_config_name)
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_adapter_fusion(temp_dir, ",".join([name1, name2]))
                     model2.load_adapter_fusion(temp_dir)
@@ -96,7 +96,7 @@ class AdapterFusionModelTestMixin:
         name2 = "name2"
         model1.add_adapter(name1)
         model1.add_adapter(name2)
-        model1.add_fusion([name1, name2])
+        model1.add_adapter_fusion([name1, name2])
         # save & reload model
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_pretrained(temp_dir)
@@ -123,6 +123,6 @@ class AdapterFusionModelTestMixin:
             model = AutoModel.from_config(self.config())
             model.add_adapter("test1")
             model.add_adapter("test2")
-            model.add_fusion(["test1", "test2"], adapter_fusion_config=v)
+            model.add_adapter_fusion(["test1", "test2"], adapter_fusion_config=v)
             # should not raise an exception
             model.config.to_json_string()
