@@ -14,15 +14,15 @@ Now we go through the integration of adapters into an existing model architectur
 
 ## Implementation
 
-❓ Each model architecture with adapter support has a main `adapter_<model_type>.py` module (e.g. `adapter_distilbert.py` for `modeling_distilbert.py`) that provides the required adapter mixins for each modeling component (e.g. there is a `DistilBertTransfomerBlockAdaptersMixin` for the `TransformerBlock` of DistilBERT etc.).
+❓ Each model architecture with adapter support has a main `<model_type>.py` module in `src/transformers/adapters/models` (e.g. `src/transformers/adapters/models/distilbert.py` for `modeling_distilbert.py`) that provides the required adapter mixins for each modeling component (e.g. there is a `DistilBertTransfomerBlockAdaptersMixin` for the `TransformerBlock` of DistilBERT etc.).
 This is the central module to implement.
 
 **📝 Steps**
 
-- Add a new `adapter_<model_type>.py` module for your architecture (or reuse an existing if possible).
+- Add a new `<model_type>.py` module for your architecture in `src/transformers/adapters/models` (or reuse an existing if possible).
     - There usually should be one mixin that derives from `AdapterLayerBaseMixin` or has it as a child module.
     - The mixin for the whole base model class (e.g. `BertModel`) should derive from `ModelAdaptersMixin` and (if possible) `InvertibleAdaptersMixin`. Make sure to implement the abstract methods these mixins might define.
-    - Have a look at existing examples, e.g. `adapter_distilbert.py`, `adapter_bert.py`.
+    - Have a look at existing examples, e.g. `distilbert.py`, `bert.py`.
 - Implement the mixins on the modeling classes (`modeling_<model_type>.py`).
     - Make sure the calls to `adapters_forward()` are added in the right places.
     - The base model class (e.g. `BertModel`) should implement the mixin derived from `ModelAdaptersMixin` you created previously.
@@ -36,9 +36,15 @@ These classes allow flexible adding of and switching between multiple prediction
 **📝 Steps**
 
 - In `modeling_<model_type>.py`, add a new `<model_type>ModelWithHeads` class.
-    - This class should implement a mixin (in `adapter_<model_type>.py`) which derives from `ModelWithFlexibleHeadsAdaptersMixin`
+    - This class should implement a mixin (in `src/transformers/adapters/models/<model_type>.py`) which derives from `ModelWithFlexibleHeadsAdaptersMixin`
     - In the mixin, add methods for those prediction heads that make sense for the new model architecture.
 - Add `<model_type>ModelWithHeads` to the `MODEL_WITH_HEADS_MAPPING` mapping in `modeling_auto.py` and to `__init__.py`.
+
+### Additional (optional) implementation steps
+
+- Dynamic adapter activation via `adapter_names` argument (cf. [PR#176](https://github.com/Adapter-Hub/adapter-transformers/pull/176)).
+- Parallel adapter inference via `Parallel` composition block (cf. [documentation](https://docs.adapterhub.ml/adapter_composition.html#parallel), [PR#150](https://github.com/Adapter-Hub/adapter-transformers/pull/150)).
+- Provide mappings for an architecture's existing (static) prediction heads into `adapter-transformers` flex heads (cf. [implementation](https://github.com/Adapter-Hub/adapter-transformers/blob/master/src/transformers/adapters/head_utils.py#L8)).
 
 ## Testing
 
@@ -57,7 +63,8 @@ These classes allow flexible adding of and switching between multiple prediction
 
 **📝 Steps**
 
-- Add `adapter_docs/classes/models/<model_type>.rst` (oriented at the doc file in the HF docs, make sure to include `<model_type>ModelWithHeads` and the HF notice, then show the file in the index).
+- Add `adapter_docs/classes/models/<model_type>.rst` (oriented at the doc file in the HF docs, make sure to include `<model_type>ModelWithHeads` and the HF notice). 
+Finally, list the file in `index.rst`.
 
 ## Training Example Adapters
 
