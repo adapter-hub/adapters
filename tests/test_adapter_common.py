@@ -72,6 +72,23 @@ class AdapterModelTestMixin:
                 self.assertEqual(len(adapter_output), len(base_output))
                 self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
 
+    def test_delete_adapter(self):
+        model = AutoModel.from_config(self.config())
+        model.eval()
+
+        name = "test_adapter"
+        model.add_adapter(name, config="houlsby")
+        model.set_active_adapters([name])
+
+        # adapter is correctly added to config
+        self.assertTrue(name in model.config.adapters)
+        self.assertGreater(len(model.get_adapter(name)), 0)
+
+        # remove the adapter again
+        model.delete_adapter(name)
+        self.assertFalse(name in model.config.adapters)
+        self.assertEqual(len(model.get_adapter(name)), 0)
+
     def test_add_adapter_with_invertible(self):
         model = AutoModel.from_config(self.config())
         model.eval()

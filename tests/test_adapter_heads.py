@@ -91,6 +91,21 @@ class PredictionHeadModelTestMixin:
         label_dict["end_positions"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
         self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128), label_dict=label_dict)
 
+    def test_delete_head(self):
+        model = AutoModelWithHeads.from_config(self.config())
+        model.eval()
+
+        name = "test_head"
+        model.add_classification_head(name)
+        self.assertTrue(name in model.heads)
+        self.assertTrue(name in model.config.prediction_heads)
+        self.assertEqual(name, model.active_head)
+
+        model.delete_head(name)
+        self.assertFalse(name in model.heads)
+        self.assertFalse(name in model.config.prediction_heads)
+        self.assertNotEqual(name, model.active_head)
+
     def test_adapter_with_head(self):
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
 

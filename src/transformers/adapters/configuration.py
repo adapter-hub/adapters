@@ -2,7 +2,7 @@ import copy
 import logging
 from collections.abc import Collection, Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass, replace
-from typing import List, Optional, Sequence, Union
+from typing import List, Optional, Union
 
 from .composition import AdapterCompositionBlock
 from .utils import get_adapter_config_hash, resolve_adapter_config
@@ -195,7 +195,7 @@ class ModelAdaptersConfig(Collection):
         adapters_list = dict(
             map(lambda t: (t[0], t[1][1] or t[1][0] if isinstance(t[1], tuple) else t[1]), adapters_list.items())
         )
-        self.adapters: Sequence[str] = adapters_list
+        self.adapters: Mapping[str] = adapters_list
         self.config_map = kwargs.pop("config_map", {})
         # TODO-V2 Save this with config?
         self.active_setup: Optional[AdapterCompositionBlock] = None

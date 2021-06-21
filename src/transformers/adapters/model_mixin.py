@@ -58,6 +58,10 @@ class InvertibleAdaptersMixin:
             self.invertible_adapters[adapter_name] = inv_adap
             self.invertible_adapters[adapter_name].apply(Adapter.init_bert_weights)
 
+    def delete_invertible_adapter(self, adapter_name: str):
+        if adapter_name in self.invertible_adapters:
+            del self.invertible_adapters[adapter_name]
+
     def get_invertible_adapter(self):
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
         if self.config.adapters.active_setup is not None and len(self.config.adapters.active_setup) > 0:
@@ -259,6 +263,42 @@ class ModelAdaptersMixin(ABC):
         if adapter_fusion_name not in self.config.adapter_fusion_models:
             self.config.adapter_fusion_models.append(adapter_fusion_name)
             self.base_model._add_fusion_layer(adapter_names)
+
+    def delete_adapter(self, adapter_name: str):
+        """
+        Deletes the adapter with the specified name from the model.
+
+        Args:
+            adapter_name (str): The name of the adapter.
+        """
+        if adapter_name not in self.config.adapters:
+            logger.info("No adapter '%s' found for deletion. Skipping.", adapter_name)
+            return
+        del self.config.adapters.adapters[adapter_name]
+        self.base_model._delete_adapter(adapter_name)
+
+    def delete_adapter_fusion(self, adapter_names: Union[Fuse, list]):
+        """
+        Deletes the AdapterFusion layer of the specified adapters.
+
+        Args:
+            adapter_names (Union[Fuse, list]): List of adapters for which to delete the AdapterFusion layer.
+        """
+        if isinstance(adapter_names, Fuse):
+            adapter_fusion_name = ",".join(adapter_names.children)
+        elif isinstance(adapter_names, list):
+            adapter_fusion_name = ",".join(adapter_names)
+        else:
+            adapter_fusion_name = adapter_names
+
+        if (
+            not hasattr(self.config, "adapter_fusion_models")
+            or adapter_fusion_name not in self.config.adapter_fusion_models
+        ):
+            logger.info("No AdapterFusion '%s' found for deletion. Skipping.", adapter_fusion_name)
+            return
+        self.config.adapter_fusion_models.remove(adapter_fusion_name)
+        self.base_model._delete_fusion_layer(adapter_fusion_name)
 
     def save_adapter(
         self,
