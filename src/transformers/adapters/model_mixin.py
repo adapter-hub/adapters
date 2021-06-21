@@ -210,7 +210,7 @@ class ModelAdaptersMixin(ABC):
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
 
-    def add_adapter(self, adapter_name: str, config=None):
+    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False):
         """
         Adds a new adapter module of the specified type to the model.
 
@@ -221,9 +221,13 @@ class ModelAdaptersMixin(ABC):
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
+            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
         """
         if isinstance(config, dict):
             config = AdapterConfig.from_dict(config)  # ensure config is ok and up-to-date
+        # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
+        if overwrite_ok and adapter_name in self.config.adapters:
+            self.delete_adapter(adapter_name)
         self.config.adapters.add(adapter_name, config=config)
         self.base_model._add_adapter(adapter_name)
 
@@ -517,7 +521,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         super().__init__(config, *args, **kwargs)
         self._convert_to_flex_head = False
 
-    def add_adapter(self, adapter_name: str, config=None):
+    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False):
         """
         Adds a new adapter module of the specified type to the model.
 
@@ -528,8 +532,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
+            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
         """
-        self.base_model.add_adapter(adapter_name, config)
+        self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok)
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
