@@ -5,7 +5,7 @@ import os
 import shutil
 import tarfile
 from collections.abc import Mapping
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from enum import Enum
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
@@ -15,7 +15,7 @@ from zipfile import ZipFile, is_zipfile
 
 import requests
 from filelock import FileLock
-from huggingface_hub import snapshot_download
+from huggingface_hub import HfApi, snapshot_download
 
 from .. import __version__
 from ..file_utils import get_from_cache, is_remote_url, torch_cache_home
@@ -33,6 +33,8 @@ ADAPTERFUSION_WEIGHTS_NAME = "pytorch_model_adapter_fusion.bin"
 ADAPTER_HUB_URL = "https://raw.githubusercontent.com/Adapter-Hub/Hub/master/dist/v2/"
 ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index/{}.json"
 ADAPTER_HUB_CONFIG_FILE = ADAPTER_HUB_URL + "architectures.json"
+ADAPTER_HUB_ALL_FILE = ADAPTER_HUB_URL + "all.json"
+ADAPTER_HUB_ADAPTER_ENTRY_JSON = ADAPTER_HUB_URL + "adapters/{}/{}.json"
 
 # the download cache
 ADAPTER_CACHE = join(torch_cache_home, "adapters")
@@ -53,6 +55,22 @@ class AdapterType(str, Enum):
 
     def __repr__(self):
         return self.value
+
+
+@dataclass
+class AdapterInfo:
+    """
+    Holds information about an adapter publicly available on AdapterHub or huggingface.co
+    """
+
+    source: str
+    adapter_id: str
+    model_name: Optional[str] = None
+    task: Optional[str] = None
+    subtask: Optional[str] = None
+    username: Optional[str] = None
+    adapter_config: Optional[dict] = None
+    sha1_checksum: Optional[str] = None
 
 
 class DataclassJSONEncoder(json.JSONEncoder):
@@ -419,3 +437,41 @@ def resolve_adapter_path(
         return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
+
+
+def list_available_adapters(source: str = None):
+    """
+    Get a list of all publicly available adapters on AdapterHub.ml or on huggingface.co.
+
+    Args:
+        source (str, optional): Identifier of the source(s) from where to get adapters. Can be either:
+
+            - "ah": search on AdapterHub.ml.
+            - "hf": search on HuggingFace model hub (huggingface.co).
+            - None (default): search on all sources
+    """
+    adapters = []
+    if source == "ah" or source is None:
+        try:
+            all_ah_adapters_file = download_cached(ADAPTER_HUB_ALL_FILE)
+        except requests.exceptions.HTTPError:
+            raise EnvironmentError(
+                "Unable to load list of adapters from AdapterHub.ml. The service might be temporarily unavailable."
+            )
+        with open(all_ah_adapters_file, "r") as f:
+            all_ah_adapters_data = json.load(f)
+        adapters += [AdapterInfo(**info) for info in all_ah_adapters_data]
+    if source == "hf" or source is None:
+        all_hf_adapters_data = HfApi().list_models(filter="adapter-transformers", full=True)
+        for model_info in all_hf_adapters_data:
+            adapter_info = AdapterInfo(
+                source="hf",
+                adapter_id=model_info.modelId,
+                # TODO add model_name to adapters from HF hub
+                # model_name=,
+                username=model_info.modelId.split("/")[0],
+                sha1_checksum=model_info.sha,
+            )
+            adapters.append(adapter_info)
+
+    return adapters
