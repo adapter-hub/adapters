@@ -446,7 +446,7 @@ def resolve_adapter_path(
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
 
 
-def list_available_adapters(source: str = None) -> List[AdapterInfo]:
+def list_available_adapters(source: str = None, model_name: str = None) -> List[AdapterInfo]:
     """
     Get a list of all publicly available adapters on AdapterHub.ml or on huggingface.co.
 
@@ -481,4 +481,6 @@ def list_available_adapters(source: str = None) -> List[AdapterInfo]:
             )
             adapters.append(adapter_info)
 
+    if model_name is not None:
+        adapters = [adapter for adapter in adapters if adapter.model_name == model_name]
     return adapters
