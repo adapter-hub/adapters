@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shutil
 import tarfile
 from collections.abc import Mapping
@@ -9,7 +10,7 @@ from dataclasses import asdict, dataclass, is_dataclass
 from enum import Enum
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 
@@ -258,6 +259,12 @@ def find_in_index(
     strict: bool = False,
     index_file: str = None,
 ) -> Optional[str]:
+    identifier = identifier.strip()
+    # identifiers of form "@<org>/<file>" are unique and can be retrieved directly
+    match = re.match(r"@(\S+)\/(\S+)", identifier)
+    if match:
+        return ADAPTER_HUB_ADAPTER_ENTRY_JSON.format(match.group(1), match.group(2))
+
     if not index_file:
         index_file = download_cached(ADAPTER_HUB_INDEX_FILE.format(model_name))
     if not index_file:
@@ -439,7 +446,7 @@ def resolve_adapter_path(
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
 
 
-def list_available_adapters(source: str = None):
+def list_available_adapters(source: str = None) -> List[AdapterInfo]:
     """
     Get a list of all publicly available adapters on AdapterHub.ml or on huggingface.co.
 
