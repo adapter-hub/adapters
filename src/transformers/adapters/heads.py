@@ -33,19 +33,20 @@ class PredictionHead(nn.Sequential):
     def build(self, model):
         model_config = model.config
         pred_head = []
+        bias = self.config.get("bias", True)
         for l in range(self.config["layers"]):
             pred_head.append(nn.Dropout(model_config.hidden_dropout_prob))
             if l < self.config["layers"] - 1:
-                pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
+                pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size, bias=bias))
                 if self.config["activation_function"]:
                     pred_head.append(Activation_Function_Class(self.config["activation_function"]))
             else:
                 if "num_labels" in self.config:
-                    pred_head.append(nn.Linear(model_config.hidden_size, self.config["num_labels"]))
+                    pred_head.append(nn.Linear(model_config.hidden_size, self.config["num_labels"], bias=bias))
                 elif "num_choices" in self.config:  # used for multiple_choice head
-                    pred_head.append(nn.Linear(model_config.hidden_size, 1))
+                    pred_head.append(nn.Linear(model_config.hidden_size, 1, bias=bias))
                 else:
-                    pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
+                    pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size, bias=bias))
                     if self.config["activation_function"]:
                         pred_head.append(Activation_Function_Class(self.config["activation_function"]))
         for i, module in enumerate(pred_head):
@@ -64,6 +65,8 @@ class ClassificationHead(PredictionHead):
         layers=2,
         activation_function="tanh",
         id2label=None,
+        use_pooler=False,
+        bias=True,
     ):
         super().__init__(head_name)
         self.config = {
@@ -71,12 +74,18 @@ class ClassificationHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
+            "use_pooler": use_pooler,
+            "bias": bias,
         }
         self.build(model)
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
-        cls_output = cls_output if cls_output is not None else outputs[0][:, 0]
+        if cls_output is None:
+            if self.config["use_pooler"]:
+                cls_output = kwargs.pop("pooled_output")
+            else:
+                cls_output = outputs[0][:, 0]
         logits = super().forward(cls_output)
         loss = None
         labels = kwargs.pop("labels", None)
@@ -125,6 +134,8 @@ class MultiLabelClassificationHead(PredictionHead):
         layers=2,
         activation_function="tanh",
         id2label=None,
+        use_pooler=False,
+        bias=True,
     ):
         super().__init__(head_name)
         self.config = {
@@ -132,12 +143,18 @@ class MultiLabelClassificationHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
+            "use_pooler": use_pooler,
+            "bias": bias,
         }
         self.build(model)
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
-        cls_output = cls_output if cls_output is not None else outputs[0][:, 0]
+        if cls_output is None:
+            if self.config["use_pooler"]:
+                cls_output = kwargs.pop("pooled_output")
+            else:
+                cls_output = outputs[0][:, 0]
         logits = super().forward(cls_output)
         loss = None
         labels = kwargs.pop("labels", None)
@@ -183,6 +200,7 @@ class MultipleChoiceHead(PredictionHead):
         layers=2,
         activation_function="tanh",
         id2label=None,
+        use_pooler=False,
     ):
         super().__init__(head_name)
         self.config = {
@@ -190,12 +208,17 @@ class MultipleChoiceHead(PredictionHead):
             "num_choices": num_choices,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
+            "use_pooler": use_pooler,
         }
         self.build(model)
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=None, **kwargs):
-        cls_output = cls_output if cls_output is not None else outputs[0][:, 0]
+        if cls_output is None:
+            if self.config["use_pooler"]:
+                cls_output = kwargs.pop("pooled_output")
+            else:
+                cls_output = outputs[0][:, 0]
         logits = super().forward(cls_output)
         logits = logits.view(-1, self.config["num_choices"])
         loss = None
@@ -234,7 +257,7 @@ class TaggingHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
         }
         self.build(model)
 
@@ -286,7 +309,7 @@ class QuestionAnsweringHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
         }
         self.build(model)
 
@@ -356,6 +379,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._convert_to_flex_head = True
         if not hasattr(self.config, "custom_heads"):
             self.config.custom_heads = {}
         self._active_heads = []
@@ -373,9 +397,9 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         head_type = config.pop("head_type")
         # handle cases when id2label, label2id or both are available
         id2label = config.pop("id2label", None)
-        if not id2label:
+        if id2label is None:
             label2id = config.pop("label2id", None)
-            if label2id:
+            if label2id is not None:
                 id2label = {id_: label for label, id_ in label2id.items()}
         else:
             # don't pass label2id to head_class
