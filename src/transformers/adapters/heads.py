@@ -458,6 +458,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 self.active_head = final_block
             elif isinstance(final_block, Parallel):
                 self.active_head = [a if isinstance(a, str) else a.last for a in final_block.children]
+            elif isinstance(final_block, BatchSplit):
+                self.active_head = final_block
             else:
                 logger.info("Could not identify '{}' as a valid prediction head.".format(final_block))
 
@@ -510,7 +512,10 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if isinstance(outputs, ModelOutput):
                 inputs = {}
                 for key, base_output in outputs.items():
-                    inputs[key] = base_output[batch]
+                    if isinstance(base_output, tuple):
+                        inputs[key] = base_output[batch_idx[0]: batch_idx[-1]]
+                    else:
+                        inputs[key] = base_output[batch]
                 inputs = outputs.__class__(**inputs)
             else:
                 inputs = tuple()
@@ -536,9 +541,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 head_module = self.heads[head]
                 batch_idx = range(sum(self.active_head.batch_sizes[:i]), sum(self.active_head.batch_sizes[: i + 1]))
                 head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
+                # head_attention = attention_mask[batch_idx] if attention_mask is not None else None
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
-        if self.has_parallel_adapters or isinstance(self.active_head, Parallel):
+            return head_outputs
+        elif self.has_parallel_adapters or isinstance(self.active_head, Parallel):
             if len(self.active_head) != self.config.adapters.active_setup.parallel_channels:
                 raise ValueError("The number of parallel adapters and the number of active heads must match.")
             orig_batch_size = all_outputs[0].shape[0] // self.config.adapters.active_setup.parallel_channels
@@ -559,8 +566,6 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         else:
             head_module = self.heads[used_heads[0]]
             return head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
-
-
 
     def get_labels_dict(self, head_name=None):
         """

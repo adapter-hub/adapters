@@ -382,7 +382,7 @@ class AdapterLayerBaseMixin(ABC):
             elif adapter_block in self.adapters:
                 adapter_config = self.config.adapters.get(adapter_block)
                 hidden_states, query, residual = self.get_adapter_preparams(
-                    adapter_config, hidden_states, input_tensor
+                   adapter_config, hidden_states, input_tensor
                 )
                 adapter_layer = self.adapters[adapter_block]
                 child, _, _ = adapter_layer(hidden_states[batch_idx], residual_input=residual[batch_idx])
@@ -398,7 +398,7 @@ class AdapterLayerBaseMixin(ABC):
             else:
                 children_hidden.append(hidden_states[batch_idx])
 
-        hidden_states = torch.cat(children_hidden, dim=0)
+        hidden_states = torch.cat(children_hidden, 0)
         return hidden_states
 
     def adapters_forward(self, hidden_states, input_tensor, **kwargs):

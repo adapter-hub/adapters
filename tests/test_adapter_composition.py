@@ -115,6 +115,19 @@ class AdapterCompositionTest(unittest.TestCase):
         with self.assertRaises(IndexError):
             self.batched_training_pass()
 
+    def test_batch_split_same_as_passes(self):
+        self.model.set_active_adapters("a")
+        input_ids = ids_tensor((2, 128), 1000)
+        output_a = self.model(input_ids[:1])
+
+        #self.model.set_active_adapters("b")
+        #output_b = self.model(input_ids[1:])
+
+        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
+        output = self.model(input_ids)
+
+        self.assertTrue(torch.allclose(output_a[0], output[0][0]))
+        #self.assertTrue(torch.allclose(output_b[0], output[0][1]))
 
 @require_torch
 class ParallelAdapterInferenceTestMixin:
@@ -169,3 +182,28 @@ class ParallelAdapterInferenceTestMixin:
         model.active_head = "a"
         with self.assertRaises(ValueError):
             model(**inputs)
+
+    def test_batch_split_with_heads(self):
+        model = AutoModelWithHeads.from_config(self.config())
+        model.add_adapter("a")
+        model.add_adapter("b")
+        model.add_classification_head("a", num_labels=2)
+        model.add_classification_head("b", num_labels=3)
+        model.eval()
+
+        inputs = self.get_input_samples((2, 128), config=model.config)
+
+        # for reference, pass through single adapters
+        model.active_adapters = "a"
+        model.active_head = "a"
+        outputs_a = model(inputs[:1])
+        model.active_adapters = "b"
+        model.active_head = "b"
+        outputs_b = model(inputs[1:])
+
+        model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
+        output = model(inputs)
+
+        self.assertEqual(2, len(output))
+        self.assertTrue(torch.allclose(output[0]["logits"], outputs_a["logits"]))
+        self.assertTrue(torch.allclose(output[1]["logits"], outputs_b["logits"]))
