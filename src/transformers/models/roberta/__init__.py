@@ -46,6 +46,7 @@ if is_torch_available():
         "RobertaForTokenClassification",
         "RobertaModel",
         "RobertaModelWithHeads",
+        "RobertaPreTrainedModel",
     ]
 
 if is_tf_available():
@@ -91,6 +92,7 @@ if TYPE_CHECKING:
             RobertaForTokenClassification,
             RobertaModel,
             RobertaModelWithHeads,
+            RobertaPreTrainedModel,
         )
 
     if is_tf_available():
