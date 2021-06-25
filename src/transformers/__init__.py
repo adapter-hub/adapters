@@ -23,7 +23,7 @@
 # in the namespace without actually importing anything (and especially none of the backends).
 
 __version__ = "2.1.0a0"
-__hf_version__ = "4.8.0"
+__hf_version__ = "4.8.1"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
 # default Python logging output behavior when present.
