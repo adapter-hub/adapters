@@ -92,7 +92,7 @@ class AdapterTrainingTestMixin:
         # setup fusion
         adapter_setup = Fuse("a", "b", "c")
         model.add_adapter_fusion(adapter_setup)
-        model.train_fusion(adapter_setup)
+        model.train_adapter_fusion(adapter_setup)
         model.set_active_adapters(adapter_setup)
         self.assertEqual(adapter_setup, model.active_adapters)
 

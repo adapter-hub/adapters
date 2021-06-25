@@ -112,7 +112,7 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
+    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
