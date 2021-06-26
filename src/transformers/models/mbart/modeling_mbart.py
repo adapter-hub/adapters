@@ -1182,7 +1182,7 @@ class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        self.pre_transformer_forward()
+        self.pre_transformer_forward(**kwargs)
 
         # different to other models, MBart automatically creates decoder_input_ids from
         # input_ids if no decoder_input_ids are provided
@@ -1726,7 +1726,7 @@ class MBartDecoderWrapper(BartModelAdaptersMixin, MBartPreTrainedModel):
         self._init_adapter_modules()
 
     def forward(self, *args, **kwargs):
-        self.pre_transformer_forward()
+        self.pre_transformer_forward(**kwargs)
 
         return self.decoder(*args, **kwargs)
 
