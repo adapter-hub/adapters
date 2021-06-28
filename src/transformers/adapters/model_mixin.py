@@ -14,6 +14,7 @@ from .configuration import (
     ModelAdaptersConfig,
     get_adapter_config_hash,
 )
+from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .utils import inherit_doc
@@ -101,7 +102,7 @@ class ModelConfigAdaptersMixin(ABC):
             self.adapters = ModelAdaptersConfig()
 
 
-class ModelAdaptersMixin(ABC):
+class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
     def __init__(self, config, *args, **kwargs):
