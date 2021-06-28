@@ -56,7 +56,7 @@ model.active_adapters = adapter_name
 
 
 class PushAdapterToHubMixin:
-    """Mixin providing support for uploading adapters to HuggingFace's model hub."""
+    """Mixin providing support for uploading adapters to HuggingFace's Model Hub."""
 
     def _save_adapter_card(
         self,
@@ -107,7 +107,7 @@ class PushAdapterToHubMixin:
             citation=kwargs.pop("citation", DEFAULT_TEXT),
         )
 
-        logger.info("Saving adapter card for adapter \"%s\" to %s.", adapter_name, save_directory)
+        logger.info('Saving adapter card for adapter "%s" to %s.', adapter_name, save_directory)
         with open(os.path.join(save_directory, "README.md"), "w") as f:
             f.write(adapter_card.strip())
 
@@ -124,7 +124,7 @@ class PushAdapterToHubMixin:
         use_auth_token: Union[bool, str] = True,
         overwrite_adapter_card: bool = False,
     ):
-        """Upload an adapter to HuggingFace's model hub.
+        """Upload an adapter to HuggingFace's Model Hub.
 
         Args:
             repo_name (str): The name of the repository on the model hub to upload to.
@@ -132,7 +132,7 @@ class PushAdapterToHubMixin:
             organization (str, optional): Organization in which to push the adapter
                 (you must be a member of this organization). Defaults to None.
             adapterhub_tag (str, optional): Tag of the format `<task>/<subtask>` for categorization on https://adapterhub.ml/explore/.
-                See https://docs.adapterhub.ml/contributing.html#tasks-and-subtasks for more.
+                See https://docs.adapterhub.ml/contributing.html#add-a-new-task-or-subtask for more.
                 If not specified, `datasets_tag` must be given in case a new adapter card is generated. Defaults to None.
             datasets_tag (str, optional): Dataset identifier from https://huggingface.co/datasets.
                 If not specified, `adapterhub_tag` must be given in case a new adapter card is generated. Defaults to None.
@@ -179,11 +179,12 @@ class PushAdapterToHubMixin:
                 datasets_tag=datasets_tag,
             )
         # Commit and push
-        logger.info(f"Pushing adapter \"{adapter_name}\" to model hub at {repo_url}...")
+        logger.info('Pushing adapter "%s" to model hub at %s ...', adapter_name, repo_url)
         url = self._push_to_hub(repo, commit_message=commit_message)
 
         # Clean up if temp dir was used
         if use_local_path is None:
+
             def on_rm_error(func, path, exc_info):
                 # path contains the path of the file that couldn't be removed
                 # let's just assume that it's read-only and unlink it.
@@ -192,6 +193,7 @@ class PushAdapterToHubMixin:
                     os.unlink(path)
                 except Exception:
                     pass
+
             shutil.rmtree(repo_path, onerror=on_rm_error)
 
         return url

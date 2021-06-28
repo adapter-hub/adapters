@@ -1,4 +1,9 @@
-# Contributing to Adapter Hub
+# Contributing to AdapterHub
+
+```eval_rst
+.. note::
+    This document describes how to contribute adapters via the AdapterHub `Hub repository <https://github.com/adapter-hub/hub>`_. See `Integration with HuggingFace's Model Hub <huggingface_hub.html>`_ for uploading adapters via the HuggingFace Model Hub.
+```
 
 You can easily add your own pre-trained adapter modules or architectures to Adapter Hub via our [Hub GitHub repo](https://github.com/adapter-hub/hub). Please make sure to follow the steps below corresponding to the type of contribution you would like to make.
 
@@ -9,16 +14,15 @@ Before making any kind of contribution to _Adapter-Hub_, you will first need to 
 1. Fork [the Hub repository](https://github.com/adapter-hub/hub) by clicking the 'Fork' button on the repository's page. This creates a clone of the repository under your GitHub user.
 
 2. Clone your fork to your local file system:
-```bash
-git clone git@github.com:<YOUR_GITHUB_USER>/Hub.git
-cd Hub
-```
+    ```bash
+    git clone git@github.com:<YOUR_GITHUB_USER>/Hub.git
+    cd Hub
+    ```
 
 3. Set up the Python environment. This includes the `adapter-hub-cli` which helps in preparing your adapters for the Hub.
-
-```bash
-pip install -U ./scripts/.
-```
+    ```bash
+    pip install -U ./scripts/.
+    ```
 
 As you're fully set up now, you can proceed on the specific steps if your contribution:
 

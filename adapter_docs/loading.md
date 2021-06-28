@@ -20,7 +20,14 @@ In the minimal case, that's everything we need to specify to load a pre-trained 
 To examine what's happening underneath in a bit more detail, let's first write out the full method call with all relevant arguments explicitly stated:
 
 ```python
-model.load_adapter('sst-2', config='pfeiffer', model_name='bert-base-uncased', version=1, load_as='sst')
+model.load_adapter(
+    'sst-2',
+    config='pfeiffer',
+    model_name='bert-base-uncased',
+    version=1,
+    load_as='sst',
+    source='ah'
+)
 ```
 
 We will go through the different arguments and their meaning one by one:
@@ -39,6 +46,9 @@ If possible, the library will infer the name of the pre-trained model automatica
 
 - By default, the `load_adapter()` method will add the loaded adapter using the identifier string given as the first argument.
 To load the adapter using a custom name, we can use the `load_as` parameter.
+
+- Finally the `source` parameter provides the possibility to load adapters from alternative adapter repositories.
+Besides the default value `ah`, referring to AdapterHub, it's also possible to pass `hf` to [load adapters from HuggingFace's Model Hub](huggingface_hub.md).
 
 ## How adapter resolving works
 
