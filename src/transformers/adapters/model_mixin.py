@@ -5,7 +5,7 @@ from typing import List, Mapping, Optional, Union
 
 from torch import nn
 
-from .composition import AdapterCompositionBlock, Fuse, parse_composition
+from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import (
     ADAPTERFUSION_CONFIG_MAP,
     DEFAULT_ADAPTERFUSION_CONFIG,
@@ -280,6 +280,9 @@ class ModelAdaptersMixin(ABC):
             return
         del self.config.adapters.adapters[adapter_name]
         self.base_model._delete_adapter(adapter_name)
+        # Reset active adapters if this was the only active adapter
+        if self.active_adapters == Stack(adapter_name):
+            self.active_adapters = None
 
     def delete_adapter_fusion(self, adapter_names: Union[Fuse, list]):
         """
