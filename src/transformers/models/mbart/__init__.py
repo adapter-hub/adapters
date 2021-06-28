@@ -51,7 +51,11 @@ if is_torch_available():
     ]
 
 if is_tf_available():
-    _import_structure["modeling_tf_mbart"] = ["TFMBartForConditionalGeneration", "TFMBartModel"]
+    _import_structure["modeling_tf_mbart"] = [
+        "TFMBartForConditionalGeneration",
+        "TFMBartModel",
+        "TFMBartPreTrainedModel",
+    ]
 
 
 if TYPE_CHECKING:
@@ -78,7 +82,7 @@ if TYPE_CHECKING:
         )
 
     if is_tf_available():
-        from .modeling_tf_mbart import TFMBartForConditionalGeneration, TFMBartModel
+        from .modeling_tf_mbart import TFMBartForConditionalGeneration, TFMBartModel, TFMBartPreTrainedModel
 
 else:
     import importlib

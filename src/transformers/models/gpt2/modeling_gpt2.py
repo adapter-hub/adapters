@@ -20,8 +20,8 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import torch
-import torch.nn as nn
 import torch.utils.checkpoint
+from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
@@ -573,6 +573,8 @@ DEPARALLELIZE_DOCSTRING = r"""
     GPT2_START_DOCSTRING,
 )
 class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["attn.masked_bias"]
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -1026,6 +1028,8 @@ input sequence).
     GPT2_START_DOCSTRING,
 )
 class GPT2DoubleHeadsModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
+    _keys_to_ignore_on_load_missing = [r"attn.masked_bias", r"attn.bias", r"lm_head.weight"]
+
     def __init__(self, config):
         super().__init__(config)
         config.num_labels = 1
