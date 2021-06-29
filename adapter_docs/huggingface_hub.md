@@ -18,7 +18,7 @@ model = AutoModelWithHeads.from_pretrained("roberta-base")
 adapter_name = model.load_adapter("AdapterHub/roberta-base-pf-sick", source="hf")
 model.active_adapters = adapter_name
 ```
-Note that `source=hf` is the only change from loading an adapter from AdapterHub.
+Note that `source="hf"` is the only change from loading an adapter from AdapterHub.
 
 ## Uploading to the Hub
 

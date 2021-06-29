@@ -118,7 +118,7 @@ class PushAdapterToHubMixin:
         organization: Optional[str] = None,
         adapterhub_tag: Optional[str] = None,
         datasets_tag: Optional[str] = None,
-        use_local_path: Optional[str] = None,
+        local_path: Optional[str] = None,
         commit_message: Optional[str] = None,
         private: Optional[bool] = None,
         use_auth_token: Union[bool, str] = True,
@@ -136,7 +136,7 @@ class PushAdapterToHubMixin:
                 If not specified, `datasets_tag` must be given in case a new adapter card is generated. Defaults to None.
             datasets_tag (str, optional): Dataset identifier from https://huggingface.co/datasets.
                 If not specified, `adapterhub_tag` must be given in case a new adapter card is generated. Defaults to None.
-            use_local_path (str, optional): Local path used as clone directory of the adapter repository.
+            local_path (str, optional): Local path used as clone directory of the adapter repository.
                 If not specified, will create a temporary directory. Defaults to None.
             commit_message (:obj:`str`, `optional`):
                 Message to commit while pushing. Will default to :obj:`"add config"`, :obj:`"add tokenizer"` or
@@ -155,8 +155,8 @@ class PushAdapterToHubMixin:
         repo_url = self._get_repo_url_from_name(
             repo_name, organization=organization, private=private, use_auth_token=use_auth_token
         )
-        if use_local_path is not None:
-            repo_path = use_local_path
+        if local_path is not None:
+            repo_path = local_path
         else:
             repo_path = tempfile.mkdtemp()
         # Create repo or get retrieve an existing repo
@@ -183,7 +183,7 @@ class PushAdapterToHubMixin:
         url = self._push_to_hub(repo, commit_message=commit_message)
 
         # Clean up if temp dir was used
-        if use_local_path is None:
+        if local_path is None:
 
             def on_rm_error(func, path, exc_info):
                 # path contains the path of the file that couldn't be removed
