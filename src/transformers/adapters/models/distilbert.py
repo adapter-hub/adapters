@@ -53,6 +53,14 @@ class DistilBertTransfomerBlockAdaptersMixin:
         self.attention_adapters.add_adapter(adapter_name, layer_idx)
         self.output_adapters.add_adapter(adapter_name, layer_idx)
 
+    def delete_adapter(self, adapter_name):
+        self.attention_adapters.delete_adapter(adapter_name)
+        self.output_adapters.delete_adapter(adapter_name)
+
+    def delete_fusion_layer(self, adapter_names):
+        self.attention_adapters.delete_fusion_layer(adapter_names)
+        self.output_adapters.delete_fusion_layer(adapter_names)
+
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
@@ -95,6 +103,13 @@ class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
     def _add_fusion_layer(self, adapter_names):
         self.transformer.add_fusion_layer(adapter_names)
+
+    def _delete_adapter(self, adapter_name: str):
+        self.transformer.delete_adapter(adapter_name)
+        self.delete_invertible_adapter(adapter_name)
+
+    def _delete_fusion_layer(self, adapter_names):
+        self.transformer.delete_fusion_layer(adapter_names)
 
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0

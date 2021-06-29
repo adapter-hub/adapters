@@ -55,6 +55,12 @@ model.save_head("/path/to/dir", "mrpc")
 model.load_head("/path/to/dir")
 ```
 
+Lastly, it's also possible to delete an added head again:
+
+```python
+model.delete_head("mrpc")
+```
+
 ## HuggingFace heads
 
 The `transformers` library provides strongly typed model classes with heads for various different tasks (e.g. `RobertaForSequenceClassification`, `AutoModelForMultipleChoice` ...).
