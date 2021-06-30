@@ -115,19 +115,21 @@ class AdapterCompositionTest(unittest.TestCase):
         with self.assertRaises(IndexError):
             self.batched_training_pass()
 
-    def test_batch_split_same_as_passes(self):
+    def test_batch_split_equivalent(self):
         self.model.set_active_adapters("a")
+        self.model.eval()
         input_ids = ids_tensor((2, 128), 1000)
         output_a = self.model(input_ids[:1])
 
-        #self.model.set_active_adapters("b")
-        #output_b = self.model(input_ids[1:])
+        self.model.set_active_adapters("b")
+        output_b = self.model(input_ids[1:2])
 
         self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
         output = self.model(input_ids)
 
-        self.assertTrue(torch.allclose(output_a[0], output[0][0]))
-        #self.assertTrue(torch.allclose(output_b[0], output[0][1]))
+        self.assertTrue(torch.allclose(output_a[0], output[0][0], atol=1e-6))
+        self.assertTrue(torch.allclose(output_b[0], output[0][1], atol=1e-6))
+
 
 @require_torch
 class ParallelAdapterInferenceTestMixin:

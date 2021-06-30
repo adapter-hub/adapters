@@ -3,8 +3,8 @@ import tempfile
 import torch
 
 from transformers import MODEL_WITH_HEADS_MAPPING, AutoModelForSequenceClassification, AutoModelWithHeads
-from transformers.testing_utils import require_torch, torch_device
 from transformers.adapters.composition import BatchSplit
+from transformers.testing_utils import require_torch, torch_device
 
 from .test_adapter_common import create_twin_models
 

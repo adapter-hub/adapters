@@ -537,7 +537,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 inputs = {}
                 for key, base_output in outputs.items():
                     if isinstance(base_output, tuple):
-                        inputs[key] = base_output[batch_idx[0]: batch_idx[-1]]
+                        inputs[key] = base_output[batch_idx[0] : batch_idx[-1]]
                     else:
                         inputs[key] = base_output[batch]
                 inputs = outputs.__class__(**inputs)
@@ -550,6 +550,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             else:
                 cls_input = None
             return inputs, cls_input
+
         for head in used_heads:
             if head not in self.heads:
                 raise ValueError("Unknown head_name '{}'".format(head))
@@ -576,7 +577,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             head_outputs = []
             for i, head in enumerate(self.active_head):
                 head_module = self.heads[head]
-                batch_idx = range(i * orig_batch_size,  (i + 1) * orig_batch_size)
+                batch_idx = range(i * orig_batch_size, (i + 1) * orig_batch_size)
                 head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
