@@ -1,4 +1,5 @@
 import logging
+import warnings
 from abc import ABC, abstractmethod
 from os.path import join
 from typing import List, Mapping, Optional, Union
@@ -138,8 +139,16 @@ class ModelAdaptersMixin(ABC):
         """Sets the model into mode for training the given adapters."""
         pass
 
-    @abstractmethod
     def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
+        warnings.warn(
+            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
+            FutureWarning,
+        )
+        self.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
+
+    @abstractmethod
+    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         pass
 
@@ -232,6 +241,13 @@ class ModelAdaptersMixin(ABC):
         self.base_model._add_adapter(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
+        warnings.warn(
+            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
+            FutureWarning,
+        )
+        self.add_adapter_fusion(adapter_names, adapter_fusion_config, override_kwargs)
+
+    def add_adapter_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
         """
         Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 
@@ -543,9 +559,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         """Sets the model into mode for training the given adapters."""
         self.base_model.train_adapter(adapter_setup)
 
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
+    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.base_model.train_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
+        self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
 
     def _add_adapter(self, adapter_name):
         self.base_model._add_adapter(adapter_name)
