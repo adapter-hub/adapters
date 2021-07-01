@@ -349,7 +349,7 @@ class AdapterLayerBaseMixin(ABC):
     def adapter_batchsplit(self, adapter_setup: BatchSplit, hidden_states, input_tensor, lvl=0):
         if not sum(adapter_setup.batch_sizes) == hidden_states.shape[0]:
             raise IndexError(
-                "The given batch has a size of {} which is not compatibel with batch_sizes {}".format(
+                "The given batch has a size of {} which is not compatible with batch_sizes {}".format(
                     hidden_states.shape[0], adapter_setup.batch_sizes
                 )
             )
