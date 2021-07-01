@@ -68,7 +68,7 @@ class AdapterFusionModelTestMixin:
         self.assertTrue(name1 in model.config.adapters)
         self.assertTrue(name2 in model.config.adapters)
 
-        model.add_fusion([name1, name2])
+        model.add_adapter_fusion([name1, name2])
         self.assertTrue(",".join([name1, name2]) in model.config.adapter_fusion_models)
 
         model.delete_adapter_fusion([name1, name2])
