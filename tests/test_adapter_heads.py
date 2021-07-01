@@ -156,6 +156,8 @@ class PredictionHeadModelTestMixin:
 
         out = model(in_data)
         self.assertEqual(2, len(out))
+        self.assertEqual((1, 2), out[0][0].shape)
+        self.assertEqual((2, 2), out[1][0].shape)
 
     def test_reload_static_to_flex_head(self):
         static_head_model = AutoModelForSequenceClassification.from_config(self.config())
