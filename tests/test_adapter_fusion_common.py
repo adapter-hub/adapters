@@ -57,6 +57,23 @@ class AdapterFusionModelTestMixin:
         # failing fusion
         self.assertRaises(ValueError, lambda: model.add_adapter_fusion(["a", "c"]))
 
+    def test_delete_adapter_fusion(self):
+        model = AutoModel.from_config(self.config())
+        model.eval()
+
+        name1 = "test_adapter_1"
+        name2 = "test_adapter_2"
+        model.add_adapter(name1, config="houlsby")
+        model.add_adapter(name2, config="houlsby")
+        self.assertTrue(name1 in model.config.adapters)
+        self.assertTrue(name2 in model.config.adapters)
+
+        model.add_fusion([name1, name2])
+        self.assertTrue(",".join([name1, name2]) in model.config.adapter_fusion_models)
+
+        model.delete_adapter_fusion([name1, name2])
+        self.assertFalse(",".join([name1, name2]) in model.config.adapter_fusion_models)
+
     def test_load_adapter_fusion(self):
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
             model1 = AutoModel.from_config(self.config())

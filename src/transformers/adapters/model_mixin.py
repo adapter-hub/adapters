@@ -6,7 +6,7 @@ from typing import List, Mapping, Optional, Union
 
 from torch import nn
 
-from .composition import AdapterCompositionBlock, Fuse, parse_composition
+from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import (
     ADAPTERFUSION_CONFIG_MAP,
     DEFAULT_ADAPTERFUSION_CONFIG,
@@ -58,6 +58,10 @@ class InvertibleAdaptersMixin:
                 raise ValueError(f"Invalid invertible adapter type '{adapter_config['inv_adapter']}'.")
             self.invertible_adapters[adapter_name] = inv_adap
             self.invertible_adapters[adapter_name].apply(Adapter.init_bert_weights)
+
+    def delete_invertible_adapter(self, adapter_name: str):
+        if adapter_name in self.invertible_adapters:
+            del self.invertible_adapters[adapter_name]
 
     def get_invertible_adapter(self):
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
@@ -215,7 +219,7 @@ class ModelAdaptersMixin(ABC):
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
 
-    def add_adapter(self, adapter_name: str, config=None):
+    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False):
         """
         Adds a new adapter module of the specified type to the model.
 
@@ -226,9 +230,13 @@ class ModelAdaptersMixin(ABC):
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
+            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
         """
         if isinstance(config, dict):
             config = AdapterConfig.from_dict(config)  # ensure config is ok and up-to-date
+        # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
+        if overwrite_ok and adapter_name in self.config.adapters:
+            self.delete_adapter(adapter_name)
         self.config.adapters.add(adapter_name, config=config)
         self.base_model._add_adapter(adapter_name)
 
@@ -275,6 +283,45 @@ class ModelAdaptersMixin(ABC):
         if adapter_fusion_name not in self.config.adapter_fusion_models:
             self.config.adapter_fusion_models.append(adapter_fusion_name)
             self.base_model._add_fusion_layer(adapter_names)
+
+    def delete_adapter(self, adapter_name: str):
+        """
+        Deletes the adapter with the specified name from the model.
+
+        Args:
+            adapter_name (str): The name of the adapter.
+        """
+        if adapter_name not in self.config.adapters:
+            logger.info("No adapter '%s' found for deletion. Skipping.", adapter_name)
+            return
+        del self.config.adapters.adapters[adapter_name]
+        self.base_model._delete_adapter(adapter_name)
+        # Reset active adapters if this was the only active adapter
+        if self.active_adapters == Stack(adapter_name):
+            self.active_adapters = None
+
+    def delete_adapter_fusion(self, adapter_names: Union[Fuse, list]):
+        """
+        Deletes the AdapterFusion layer of the specified adapters.
+
+        Args:
+            adapter_names (Union[Fuse, list]): List of adapters for which to delete the AdapterFusion layer.
+        """
+        if isinstance(adapter_names, Fuse):
+            adapter_fusion_name = ",".join(adapter_names.children)
+        elif isinstance(adapter_names, list):
+            adapter_fusion_name = ",".join(adapter_names)
+        else:
+            adapter_fusion_name = adapter_names
+
+        if (
+            not hasattr(self.config, "adapter_fusion_models")
+            or adapter_fusion_name not in self.config.adapter_fusion_models
+        ):
+            logger.info("No AdapterFusion '%s' found for deletion. Skipping.", adapter_fusion_name)
+            return
+        self.config.adapter_fusion_models.remove(adapter_fusion_name)
+        self.base_model._delete_fusion_layer(adapter_fusion_name)
 
     def save_adapter(
         self,
@@ -493,7 +540,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         super().__init__(config, *args, **kwargs)
         self._convert_to_flex_head = False
 
-    def add_adapter(self, adapter_name: str, config=None):
+    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False):
         """
         Adds a new adapter module of the specified type to the model.
 
@@ -504,8 +551,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
+            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
         """
-        self.base_model.add_adapter(adapter_name, config)
+        self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok)
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""

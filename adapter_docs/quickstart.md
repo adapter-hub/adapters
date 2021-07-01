@@ -3,8 +3,8 @@
 ## Introduction
 
 Currently, *adapter-transformers* adds adapter components to the PyTorch implementations of all transformer models listed in the *Supported Models* section.
-For working with adapters, a couple of methods for creation (e.g. `add_adapter()`), loading (e.g. `load_adapter()`) and
-storing (e.g. `save_adapter()`) are added to the model classes. In the following, we will briefly go through some examples.
+For working with adapters, a couple of methods for creation (`add_adapter()`), loading (`load_adapter()`), 
+storing (`save_adapter()`) and deletion (`delete_adapter()`) are added to the model classes. In the following, we will briefly go through some examples.
 
 ```eval_rst
 .. note::
@@ -79,6 +79,15 @@ model.load_adapter('./path/to/adapter/directory/')
 ```
 
 Similar to how the weights of the full model are saved, the `save_adapter()` will create a file for saving the adapter weights and a file for saving the adapter configuration in the specified directory.
+
+Finally, if we have finished working with adapters, we can restore the base Transformer in its original form by deactivating and deleting the adapter:
+
+```python
+# deactivate all adapters
+model.set_active_adapters(None)
+# delete the added adapter
+model.delete_adapter('sst-2')
+```
 
 ## Quick Tour: Adapter training
 
