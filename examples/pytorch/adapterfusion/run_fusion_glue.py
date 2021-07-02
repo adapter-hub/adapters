@@ -186,8 +186,8 @@ def main():
     ]
 
     # Add a fusion layer and tell the model to train fusion
-    model.add_fusion(adapter_setup[0], "dynamic")
-    model.train_fusion(adapter_setup)
+    model.add_adapter_fusion(adapter_setup[0], "dynamic")
+    model.train_adapter_fusion(adapter_setup)
 
     # ~~~~~ Rest is again same as in standard training setup ~~~~~
 

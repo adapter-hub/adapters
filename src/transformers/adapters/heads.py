@@ -529,6 +529,21 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 f"Model already contains a head with name '{head.name}'. Use overwrite_ok=True to force overwrite."
             )
 
+    def delete_head(self, head_name: str):
+        """
+        Deletes the prediction head with the specified name from the model.
+
+        Args:
+            head_name (str): The name of the prediction to delete.
+        """
+        if head_name not in self.config.prediction_heads:
+            logger.info("No prediction head '%s' found for deletion. Skipping.", head_name)
+            return
+        del self.config.prediction_heads[head_name]
+        del self.heads[head_name]
+        if self.active_head == head_name:
+            self.active_head = None
+
     def forward_head(
         self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
     ):

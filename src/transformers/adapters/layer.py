@@ -67,6 +67,10 @@ class AdapterLayerBaseMixin(ABC):
             adapter.train(self.training)  # make sure training mode is consistent
             self.adapters[adapter_name] = adapter
 
+    def delete_adapter(self, adapter_name: str):
+        if adapter_name in self.adapters:
+            del self.adapters[adapter_name]
+
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
@@ -74,6 +78,11 @@ class AdapterLayerBaseMixin(ABC):
             fusion = BertFusion(self.config)
             fusion.train(self.training)  # make sure training mode is consistent
             self.adapter_fusion_layer[",".join(adapter_names)] = fusion
+
+    def delete_fusion_layer(self, adapter_names: Union[List, str]):
+        adapter_names = adapter_names if isinstance(adapter_names, str) else ",".join(adapter_names)
+        if adapter_names in self.adapter_fusion_layer:
+            del self.adapter_fusion_layer[adapter_names]
 
     def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
         """

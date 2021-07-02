@@ -70,7 +70,7 @@ For backwards compatibility, you can still do this, although it is recommended t
 The `Fuse` block can be used to activate a fusion layer of adapters.
 _AdapterFusion_ is a non-destructive way to combine the knowledge of multiple pre-trained adapters on a new downstream task, proposed by [Pfeiffer et al., 2021](https://arxiv.org/pdf/2005.00247.pdf).
 In the following example, we activate the adapters `d`, `e` and `f` as well as the fusion layer that combines the outputs of all three.
-The fusion layer is added beforehand using `model.add_fusion()` where we specify the names of the adapters which should be fused.
+The fusion layer is added beforehand using `model.add_adapter_fusion()` where we specify the names of the adapters which should be fused.
 
 ```python
 import transformers.adapters.composition as ac
@@ -80,7 +80,7 @@ import transformers.adapters.composition as ac
 model.add_adapter("d")
 model.add_adapter("e")
 model.add_adapter("f")
-model.add_fusion(["d", "e", "f"])
+model.add_adapter_fusion(["d", "e", "f"])
 
 model.active_adapters = ac.Fuse("d", "e", "f")
 ```
@@ -88,7 +88,7 @@ model.active_adapters = ac.Fuse("d", "e", "f")
 ```eval_rst
 .. important::
     Fusing adapters with the ``Fuse`` block only works successfully if an adapter fusion layer combining all of the adapters listed in the ``Fuse`` has been added to the model.
-    This can be done either using ``add_fusion()`` or ``load_adapter_fusion()``.
+    This can be done either using ``add_adapter_fusion()`` or ``load_adapter_fusion()``.
 ```
 
 To learn how training an _AdapterFusion_ layer works, check out [this Colab notebook](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/master/notebooks/03_Adapter_Fusion.ipynb) from the `adapter-transformers` repo.

@@ -46,6 +46,14 @@ class BertLayerAdaptersMixin:
         self.attention.output.add_adapter(adapter_name, layer_idx)
         self.output.add_adapter(adapter_name, layer_idx)
 
+    def delete_adapter(self, adapter_name):
+        self.attention.output.delete_adapter(adapter_name)
+        self.output.delete_adapter(adapter_name)
+
+    def delete_fusion_layer(self, adapter_names):
+        self.attention.output.delete_fusion_layer(adapter_names)
+        self.output.delete_fusion_layer(adapter_names)
+
     def enable_adapters(
         self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
     ):
@@ -66,6 +74,14 @@ class BertEncoderAdaptersMixin:
         for i, layer in enumerate(self.layer):
             if i not in leave_out:
                 layer.add_adapter(adapter_name, i)
+
+    def delete_adapter(self, adapter_name: str):
+        for layer in self.layer:
+            layer.delete_adapter(adapter_name)
+
+    def delete_fusion_layer(self, adapter_names):
+        for layer in self.layer:
+            layer.delete_fusion_layer(adapter_names)
 
     def enable_adapters(
         self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
@@ -97,7 +113,7 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
+    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         self.train()
         self.freeze_model(True)
@@ -113,6 +129,13 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
     def _add_fusion_layer(self, adapter_names):
         self.encoder.add_fusion_layer(adapter_names)
+
+    def _delete_adapter(self, adapter_name: str):
+        self.encoder.delete_adapter(adapter_name)
+        self.delete_invertible_adapter(adapter_name)
+
+    def _delete_fusion_layer(self, adapter_names):
+        self.encoder.delete_fusion_layer(adapter_names)
 
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0

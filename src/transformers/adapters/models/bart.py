@@ -91,6 +91,14 @@ class BartEncoderLayerAdaptersMixin:
         self.attention_adapters.add_adapter(adapter_name, layer_idx)
         self.output_adapters.add_adapter(adapter_name, layer_idx)
 
+    def delete_adapter(self, adapter_name):
+        self.attention_adapters.delete_adapter(adapter_name)
+        self.output_adapters.delete_adapter(adapter_name)
+
+    def delete_fusion_layer(self, adapter_names):
+        self.attention_adapters.delete_fusion_layer(adapter_names)
+        self.output_adapters.delete_fusion_layer(adapter_names)
+
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
@@ -112,6 +120,14 @@ class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
         super().add_adapter(adapter_name, layer_idx)
         self.cross_attention_adapters.add_adapter(adapter_name, layer_idx)
 
+    def delete_adapter(self, adapter_name):
+        super().delete_adapter(adapter_name)
+        self.cross_attention_adapters.delete_adapter(adapter_name)
+
+    def delete_fusion_layer(self, adapter_names):
+        super().delete_fusion_layer(adapter_names)
+        self.cross_attention_adapters.delete_fusion_layer(adapter_names)
+
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         super().enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.cross_attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
@@ -130,6 +146,14 @@ class BartEncoderDecoderAdaptersMixin:
         for i, layer in enumerate(self.layers, start=layer_idx_offset):
             if i not in leave_out:
                 layer.add_adapter(adapter_name, i)
+
+    def delete_adapter(self, adapter_name: str):
+        for layer in self.layers:
+            layer.delete_adapter(adapter_name)
+
+    def delete_fusion_layer(self, adapter_names):
+        for layer in self.layers:
+            layer.delete_fusion_layer(adapter_names)
 
     def enable_adapters(
         self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
@@ -172,7 +196,7 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
 
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
+    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         self.train()
         self.freeze_model(True)
@@ -196,6 +220,17 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
         if hasattr(self, "encoder"):
             self.encoder.add_fusion_layer(adapter_names)
         self.decoder.add_fusion_layer(adapter_names)
+
+    def _delete_adapter(self, adapter_name: str):
+        if hasattr(self, "encoder"):
+            self.encoder.delete_adapter(adapter_name)
+            self.encoder.delete_invertible_adapter(adapter_name)
+        self.decoder.delete_adapter(adapter_name)
+
+    def _delete_fusion_layer(self, adapter_names):
+        if hasattr(self, "encoder"):
+            self.encoder.delete_fusion_layer(adapter_names)
+        self.decoder.delete_fusion_layer(adapter_names)
 
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0

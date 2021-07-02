@@ -62,7 +62,7 @@ class AdapterCompositionTest(unittest.TestCase):
         self.training_pass()
 
     def test_stacked_fusion(self):
-        self.model.add_fusion(Fuse("b", "d"))
+        self.model.add_adapter_fusion(Fuse("b", "d"))
 
         # fuse two stacks
         self.model.set_active_adapters(Fuse(Stack("a", "b"), Stack("c", "d")))
@@ -70,7 +70,7 @@ class AdapterCompositionTest(unittest.TestCase):
         self.training_pass()
 
     def test_mixed_stack(self):
-        self.model.add_fusion(Fuse("a", "b"))
+        self.model.add_adapter_fusion(Fuse("a", "b"))
 
         self.model.set_active_adapters(Stack("a", Split("c", "d", split_index=64), Fuse("a", "b")))
 

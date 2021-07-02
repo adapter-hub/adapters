@@ -79,7 +79,7 @@ class TestAdapterTrainer(unittest.TestCase):
         model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
         model.add_adapter("adapter")
         model.add_adapter("additional_adapter")
-        model.add_fusion(Fuse("adapter", "additional_adapter"))
+        model.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
         model.set_active_adapters(Fuse("adapter", "additional_adapter"))
 
         training_args = TrainingArguments(
@@ -104,7 +104,7 @@ class TestAdapterTrainer(unittest.TestCase):
         model_resume = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
         model_resume.add_adapter("adapter")
         model_resume.add_adapter("additional_adapter")
-        model_resume.add_fusion(Fuse("adapter", "additional_adapter"))
+        model_resume.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
         model_resume.set_active_adapters(Fuse("adapter", "additional_adapter"))
         trainer_resume = Trainer(
             model=model_resume,

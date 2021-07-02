@@ -17,6 +17,7 @@ import os
 import warnings
 from dataclasses import asdict, dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .debug_utils import DebugOption
@@ -48,6 +49,8 @@ if is_sagemaker_mp_enabled():
 
 
 logger = logging.get_logger(__name__)
+log_levels = logging.get_log_levels_dict().copy()
+trainer_log_levels = dict(**log_levels, passive=-1)
 
 
 def default_logdir() -> str:
@@ -144,9 +147,18 @@ class TrainingArguments:
         warmup_steps (:obj:`int`, `optional`, defaults to 0):
             Number of steps used for a linear warmup from 0 to :obj:`learning_rate`. Overrides any effect of
             :obj:`warmup_ratio`.
+        log_level (:obj:`str`, `optional`, defaults to ``passive``):
+            Logger log level to use on the main process. Possible choices are the log levels as strings: 'debug',
+            'info', 'warning', 'error' and 'critical', plus a 'passive' level which doesn't set anything and lets the
+            application set the level.
+        log_level_replica (:obj:`str`, `optional`, defaults to ``passive``):
+            Logger log level to use on replicas. Same choices as ``log_level``"
+        log_on_each_node (:obj:`bool`, `optional`, defaults to :obj:`True`):
+            In multinode distributed training, whether to log using :obj:`log_level` once per node, or only on the main
+            node.
         logging_dir (:obj:`str`, `optional`):
             `TensorBoard <https://www.tensorflow.org/tensorboard>`__ log directory. Will default to
-            `runs/**CURRENT_DATETIME_HOSTNAME**`.
+            `output_dir/runs/**CURRENT_DATETIME_HOSTNAME**`.
         logging_strategy (:obj:`str` or :class:`~transformers.trainer_utils.IntervalStrategy`, `optional`, defaults to :obj:`"steps"`):
             The logging strategy to adopt during training. Possible values are:
 
@@ -202,7 +214,7 @@ class TrainingArguments:
             Number of subprocesses to use for data loading (PyTorch only). 0 means that the data will be loaded in the
             main process.
         past_index (:obj:`int`, `optional`, defaults to -1):
-            Some models like :doc:`TransformerXL <../model_doc/transformerxl>` or :doc`XLNet <../model_doc/xlnet>` can
+            Some models like :doc:`TransformerXL <../model_doc/transformerxl>` or :doc:`XLNet <../model_doc/xlnet>` can
             make use of the past hidden states for their predictions. If this argument is set to a positive int, the
             ``Trainer`` will use the corresponding output (usually index 2) as the past state and feed it to the model
             at the next training step under the keyword argument ``mems``.
@@ -303,18 +315,26 @@ class TrainingArguments:
             otherwise.
         dataloader_pin_memory (:obj:`bool`, `optional`, defaults to :obj:`True`):
             Whether you want to pin memory in data loaders or not. Will default to :obj:`True`.
-        skip_memory_metrics (:obj:`bool`, `optional`, defaults to :obj:`False`):
-            Whether to skip adding of memory profiler reports to metrics. Defaults to :obj:`False`.
+        skip_memory_metrics (:obj:`bool`, `optional`, defaults to :obj:`True`):
+            Whether to skip adding of memory profiler reports to metrics. This is skipped by default because it slows
+            down the training and evaluation speed.
         push_to_hub (:obj:`bool`, `optional`, defaults to :obj:`False`):
-            Whether or not to upload the trained model to the hub after training. This argument is not directly used by
-            :class:`~transformers.Trainer`, it's intended to be used by your training/evaluation scripts instead. See
-            the `example scripts <https://github.com/huggingface/transformers/tree/master/examples>`__ for more
-            details.
+            Whether or not to upload the trained model to the hub after training. If this is activated, and
+            :obj:`output_dir` exists, it needs to be a local clone of the repository to which the
+            :class:`~transformers.Trainer` will be pushed.
         resume_from_checkpoint (:obj:`str`, `optional`):
             The path to a folder with a valid checkpoint for your model. This argument is not directly used by
             :class:`~transformers.Trainer`, it's intended to be used by your training/evaluation scripts instead. See
             the `example scripts <https://github.com/huggingface/transformers/tree/master/examples>`__ for more
             details.
+        push_to_hub_model_id (:obj:`str`, `optional`):
+            The name of the repository to which push the :class:`~transformers.Trainer` when :obj:`push_to_hub=True`.
+            Will default to the name of :obj:`output_dir`.
+        push_to_hub_organization (:obj:`str`, `optional`):
+            The name of the organization in with to which push the :class:`~transformers.Trainer`.
+        push_to_hub_token (:obj:`str`, `optional`):
+            The token to use to push the model to the Hub. Will default to the token in the cache folder obtained with
+            :obj:`huggingface-cli login`.
     """
 
     output_dir: str = field(
@@ -394,7 +414,27 @@ class TrainingArguments:
     )
     warmup_steps: int = field(default=0, metadata={"help": "Linear warmup over warmup_steps."})
 
-    logging_dir: Optional[str] = field(default_factory=default_logdir, metadata={"help": "Tensorboard log dir."})
+    log_level: Optional[str] = field(
+        default="passive",
+        metadata={
+            "help": "Logger log level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical', plus a 'passive' level which doesn't set anything and lets the application set the level. Defaults to 'passive'.",
+            "choices": trainer_log_levels.keys(),
+        },
+    )
+    log_level_replica: Optional[str] = field(
+        default="passive",
+        metadata={
+            "help": "Logger log level to use on replica nodes. Same choices and defaults as ``log_level``",
+            "choices": trainer_log_levels.keys(),
+        },
+    )
+    log_on_each_node: bool = field(
+        default=True,
+        metadata={
+            "help": "When doing a multinode distributed training, whether to log once per node or just once on the main node."
+        },
+    )
+    logging_dir: Optional[str] = field(default=None, metadata={"help": "Tensorboard log dir."})
     logging_strategy: IntervalStrategy = field(
         default="steps",
         metadata={"help": "The logging strategy to use."},
@@ -546,7 +586,7 @@ class TrainingArguments:
         default=True, metadata={"help": "Whether or not to pin memory for DataLoader."}
     )
     skip_memory_metrics: bool = field(
-        default=False, metadata={"help": "Whether or not to skip adding of memory profiler reports to metrics."}
+        default=True, metadata={"help": "Whether or not to skip adding of memory profiler reports to metrics."}
     )
     use_legacy_prediction_loop: bool = field(
         default=False, metadata={"help": "Whether or not to use the legacy prediction_loop in the Trainer."}
@@ -558,6 +598,13 @@ class TrainingArguments:
         default=None,
         metadata={"help": "The path to a folder with a valid checkpoint for your model."},
     )
+    push_to_hub_model_id: str = field(
+        default=None, metadata={"help": "The name of the repository to which push the `Trainer`."}
+    )
+    push_to_hub_organization: str = field(
+        default=None, metadata={"help": "The name of the organization in with to which push the `Trainer`."}
+    )
+    push_to_hub_token: str = field(default=None, metadata={"help": "The token to use to push to the Model Hub."})
     _n_gpu: int = field(init=False, repr=False, default=-1)
     mp_parameters: str = field(
         default="",
@@ -571,11 +618,17 @@ class TrainingArguments:
         if env_local_rank != -1 and env_local_rank != self.local_rank:
             self.local_rank = env_local_rank
 
+        # convert to int
+        self.log_level = trainer_log_levels[self.log_level]
+        self.log_level_replica = trainer_log_levels[self.log_level_replica]
+
         # expand paths, if not os.makedirs("~/bar") will make directory
         # in the current directory instead of the actual home
         #  see https://github.com/huggingface/transformers/issues/10628
         if self.output_dir is not None:
             self.output_dir = os.path.expanduser(self.output_dir)
+        if self.logging_dir is None and self.output_dir is not None:
+            self.logging_dir = os.path.join(self.output_dir, default_logdir())
         if self.logging_dir is not None:
             self.logging_dir = os.path.expanduser(self.logging_dir)
 
@@ -662,19 +715,28 @@ class TrainingArguments:
         if self.deepspeed:
             # - must be run very last in arg parsing, since it will use a lot of these settings.
             # - must be run before the model is created.
-            from transformers.integrations import DeepSpeedConfigHF
+            from transformers.deepspeed import HfTrainerDeepSpeedConfig
 
-            # will be used later by the Trainer (leave self.deepspeed unmodified in case a user relies on it not to be modified)
-            self.deepspeed_config_hf = DeepSpeedConfigHF(self)
+            # will be used later by the Trainer
+            # note: leave self.deepspeed unmodified in case a user relies on it not to be modified)
+            self.hf_deepspeed_config = HfTrainerDeepSpeedConfig(self.deepspeed)
+            self.hf_deepspeed_config.trainer_config_process(self)
 
-    def __repr__(self):
-        # We override the default repr to remove deprecated arguments from the repr. This method should be removed once
-        # those deprecated arguments are removed form TrainingArguments. (TODO: v5)
+        if self.push_to_hub_model_id is None:
+            self.push_to_hub_model_id = Path(self.output_dir).name
+
+    def __str__(self):
         self_as_dict = asdict(self)
+
+        # Remove deprecated arguments. That code should be removed once
+        # those deprecated arguments are removed from TrainingArguments. (TODO: v5)
         del self_as_dict["per_gpu_train_batch_size"]
         del self_as_dict["per_gpu_eval_batch_size"]
-        attrs_as_str = [f"{k}={v}" for k, v in self_as_dict.items()]
-        return f"{self.__class__.__name__}({', '.join(attrs_as_str)})"
+
+        attrs_as_str = [f"{k}={v},\n" for k, v in sorted(self_as_dict.items())]
+        return f"{self.__class__.__name__}(\n{''.join(attrs_as_str)})"
+
+    __repr__ = __str__
 
     @property
     def train_batch_size(self) -> int:
@@ -728,7 +790,7 @@ class TrainingArguments:
             # deepspeed  ./program.py
             # rather than:
             # python -m torch.distributed.launch --nproc_per_node=2 ./program.py
-            from .integrations import is_deepspeed_available
+            from .deepspeed import is_deepspeed_available
 
             if not is_deepspeed_available():
                 raise ImportError("--deepspeed requires deepspeed: `pip install deepspeed`.")
@@ -833,7 +895,7 @@ class TrainingArguments:
     @torch_required
     def process_index(self):
         """
-        The number of processes used in parallel.
+        The index of the current process used.
         """
         if is_torch_tpu_available():
             return xm.get_ordinal()
@@ -844,6 +906,53 @@ class TrainingArguments:
         elif self.local_rank != -1:
             return torch.distributed.get_rank()
         return 0
+
+    @property
+    @torch_required
+    def local_process_index(self):
+        """
+        The index of the local process used.
+        """
+        if is_torch_tpu_available():
+            return xm.get_local_ordinal()
+        elif is_sagemaker_mp_enabled():
+            return smp.local_rank()
+        elif is_sagemaker_dp_enabled():
+            return sm_dist.get_rank()
+        elif self.local_rank != -1:
+            return self.local_rank
+        return 0
+
+    @property
+    def should_log(self):
+        """
+        Whether or not the current process should produce log.
+        """
+        if self.log_on_each_node:
+            return self.local_process_index == 0
+        else:
+            if is_sagemaker_mp_enabled():
+                return smp.rank() == 0
+            else:
+                return self.process_index == 0
+
+    def get_process_log_level(self):
+        """
+        Returns the log level to be used depending on whether this process is the main process of node 0, main process
+        of node non-0, or a non-main process.
+
+        For the main process the log level defaults to ``logging.INFO`` unless overridden by ``log_level`` argument.
+
+        For the replica processes the log level defaults to ``logging.WARNING`` unless overridden by
+        ``log_level_replica`` argument.
+
+        The choice between the main and replica process settings is made according to the return value of
+        ``should_log``.
+        """
+
+        log_level_main_node = logging.INFO if self.log_level == -1 else self.log_level
+        log_level_replica_node = logging.WARNING if self.log_level_replica == -1 else self.log_level_replica
+        return log_level_main_node if self.should_log else log_level_replica_node
 
     @property
     def place_model_on_device(self):
