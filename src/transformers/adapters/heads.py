@@ -483,8 +483,10 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             elif isinstance(final_block, Parallel):
                 self.active_head = [a if isinstance(a, str) else a.last for a in final_block.children]
             elif isinstance(final_block, BatchSplit):
-                blocks = [block.last() if isinstance(block, AdapterCompositionBlock) else block for block in final_block]
-                head_setup = BatchSplit( *blocks, batch_sizes=final_block.batch_sizes)
+                blocks = [
+                    block.last() if isinstance(block, AdapterCompositionBlock) else block for block in final_block
+                ]
+                head_setup = BatchSplit(*blocks, batch_sizes=final_block.batch_sizes)
                 if all(head in self.heads for head in head_setup):
                     self.active_head = head_setup
                 else:
@@ -541,7 +543,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if isinstance(outputs, ModelOutput):
                 inputs = {}
                 for key, base_output in outputs.items():
-                    inputs[key] = base_output[batch[0]: batch[-1]+1]
+                    inputs[key] = base_output[batch[0] : batch[-1] + 1]
                 inputs = outputs.__class__(**inputs)
             else:
                 inputs = tuple()
