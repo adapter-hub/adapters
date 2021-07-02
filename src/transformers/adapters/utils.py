@@ -61,7 +61,13 @@ class AdapterType(str, Enum):
 @dataclass
 class AdapterInfo:
     """
-    Holds information about an adapter publicly available on AdapterHub or huggingface.co
+    Holds information about an adapter publicly available on AdapterHub or huggingface.co.
+    Returned by :func:`list_adapters()`.
+
+    Args:
+        source (str): The source repository of this adapter. Can be either "ah" (AdapterHub) or "hf" (huggingface.co).
+        adapter_id (str): The unique identifier of this adapter.
+        model_name (str, optional): The identifier of the model this adapter was trained for.
     """
 
     source: str
@@ -446,9 +452,9 @@ def resolve_adapter_path(
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
 
 
-def list_available_adapters(source: str = None, model_name: str = None) -> List[AdapterInfo]:
+def list_adapters(source: str = None, model_name: str = None) -> List[AdapterInfo]:
     """
-    Get a list of all publicly available adapters on AdapterHub.ml or on huggingface.co.
+    Retrieves a list of all publicly available adapters on AdapterHub.ml or on huggingface.co.
 
     Args:
         source (str, optional): Identifier of the source(s) from where to get adapters. Can be either:
@@ -456,6 +462,8 @@ def list_available_adapters(source: str = None, model_name: str = None) -> List[
             - "ah": search on AdapterHub.ml.
             - "hf": search on HuggingFace model hub (huggingface.co).
             - None (default): search on all sources
+
+        model_name (str, optional): If specified, only returns adapters trained for the model with this identifier.
     """
     adapters = []
     if source == "ah" or source is None:
@@ -469,13 +477,12 @@ def list_available_adapters(source: str = None, model_name: str = None) -> List[
             all_ah_adapters_data = json.load(f)
         adapters += [AdapterInfo(**info) for info in all_ah_adapters_data]
     if source == "hf" or source is None:
-        all_hf_adapters_data = HfApi().list_models(filter="adapter-transformers", full=True)
+        all_hf_adapters_data = HfApi().list_models(filter="adapter-transformers", full=True, fetch_config=True)
         for model_info in all_hf_adapters_data:
             adapter_info = AdapterInfo(
                 source="hf",
                 adapter_id=model_info.modelId,
-                # TODO add model_name to adapters from HF hub
-                # model_name=,
+                model_name=model_info.config.get("adapter_transformers", {}).get("model_name") if model_info.config else None,
                 username=model_info.modelId.split("/")[0],
                 sha1_checksum=model_info.sha,
             )
