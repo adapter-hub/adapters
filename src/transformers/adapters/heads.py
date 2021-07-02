@@ -483,7 +483,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             elif isinstance(final_block, Parallel):
                 self.active_head = [a if isinstance(a, str) else a.last for a in final_block.children]
             elif isinstance(final_block, BatchSplit):
-                self.active_head = final_block
+                blocks = [block.last() if isinstance(block, AdapterCompositionBlock) else block for block in final_block]
+                head_setup = BatchSplit( *blocks, batch_sizes=final_block.batch_sizes)
+                if all(head in self.heads for head in head_setup):
+                    self.active_head = head_setup
+                else:
+                    raise ValueError("Missing head for the given BatchSplit setup expected heads {}".format(blocks))
             else:
                 logger.info("Could not identify '{}' as a valid prediction head.".format(final_block))
 
@@ -536,10 +541,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if isinstance(outputs, ModelOutput):
                 inputs = {}
                 for key, base_output in outputs.items():
-                    if isinstance(base_output, tuple):
-                        inputs[key] = base_output[batch_idx[0] : batch_idx[-1]]
-                    else:
-                        inputs[key] = base_output[batch]
+                    inputs[key] = base_output[batch[0]: batch[-1]+1]
                 inputs = outputs.__class__(**inputs)
             else:
                 inputs = tuple()
