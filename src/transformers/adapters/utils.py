@@ -61,8 +61,8 @@ class AdapterType(str, Enum):
 @dataclass
 class AdapterInfo:
     """
-    Holds information about an adapter publicly available on AdapterHub or huggingface.co.
-    Returned by :func:`list_adapters()`.
+    Holds information about an adapter publicly available on AdapterHub or huggingface.co. Returned by
+    :func:`list_adapters()`.
 
     Args:
         source (str): The source repository of this adapter. Can be either "ah" (AdapterHub) or "hf" (huggingface.co).
@@ -482,7 +482,9 @@ def list_adapters(source: str = None, model_name: str = None) -> List[AdapterInf
             adapter_info = AdapterInfo(
                 source="hf",
                 adapter_id=model_info.modelId,
-                model_name=model_info.config.get("adapter_transformers", {}).get("model_name") if model_info.config else None,
+                model_name=model_info.config.get("adapter_transformers", {}).get("model_name")
+                if model_info.config
+                else None,
                 username=model_info.modelId.split("/")[0],
                 sha1_checksum=model_info.sha,
             )
