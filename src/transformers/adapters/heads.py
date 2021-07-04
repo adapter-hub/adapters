@@ -490,7 +490,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 if all(head in self.heads for head in head_setup):
                     self.active_head = head_setup
                 else:
-                    raise ValueError("Missing head for the given BatchSplit setup expected heads {}".format(blocks))
+                    raise ValueError("Missing at least one head for the given BatchSplit setup. Expected heads: {}".format(blocks))
             else:
                 logger.info("Could not identify '{}' as a valid prediction head.".format(final_block))
 
