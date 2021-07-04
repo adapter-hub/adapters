@@ -483,6 +483,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             elif isinstance(final_block, Parallel):
                 self.active_head = [a if isinstance(a, str) else a.last for a in final_block.children]
             elif isinstance(final_block, BatchSplit):
+                # Convert BatchSplit of adapters to a BatchSplit of heads.
                 blocks = [
                     block.last if isinstance(block, AdapterCompositionBlock) else block for block in final_block
                 ]
