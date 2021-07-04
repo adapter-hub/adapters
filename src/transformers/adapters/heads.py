@@ -484,7 +484,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 self.active_head = [a if isinstance(a, str) else a.last for a in final_block.children]
             elif isinstance(final_block, BatchSplit):
                 blocks = [
-                    block.last() if isinstance(block, AdapterCompositionBlock) else block for block in final_block
+                    block.last if isinstance(block, AdapterCompositionBlock) else block for block in final_block
                 ]
                 head_setup = BatchSplit(*blocks, batch_sizes=final_block.batch_sizes)
                 if all(head in self.heads for head in head_setup):
