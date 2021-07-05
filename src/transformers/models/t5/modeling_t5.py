@@ -28,11 +28,11 @@ from ...activations import ACT2FN
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAndNoBaseAdaptersMixin
 from ...adapters.models.t5 import (
     T5BlockAdaptersMixin,
-    T5ModelAdaptersMixin,
-    T5StackAdaptersMixin,
     T5CrossAttentionLayerAdaptersMixin,
     T5FFLayerAdaptersMixin,
+    T5ModelAdaptersMixin,
     T5SelfAttentionLayerAdaptersMixin,
+    T5StackAdaptersMixin,
 )
 from ...file_utils import (
     DUMMY_INPUTS,
