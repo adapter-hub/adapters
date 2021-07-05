@@ -630,7 +630,6 @@ class ModelWithHeadsAdaptersMixin(ModelWithHeadsAndNoBaseAdaptersMixin):
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
         """
-        print(f"In add adapter of model with heads adapters")
         self.base_model.add_adapter(adapter_name, config)
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
