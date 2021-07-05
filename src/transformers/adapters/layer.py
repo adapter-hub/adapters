@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import List, Mapping, Union
 
@@ -6,6 +7,9 @@ from torch import nn
 
 from .composition import AdapterCompositionBlock, Fuse, Parallel, Split, Stack, parse_composition
 from .modeling import Adapter, BertFusion
+
+
+logger = logging.getLogger(__name__)
 
 
 class AdapterLayerBaseMixin(ABC):
@@ -72,12 +76,17 @@ class AdapterLayerBaseMixin(ABC):
             del self.adapters[adapter_name]
 
     def add_fusion_layer(self, adapter_names: Union[List, str]):
-        """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
-        if self.config.adapters.common_config_value(adapter_names, self.adapter_config_key):
+        if not self.config.adapters.common_config_value(adapter_names, self.adapter_config_key):
+            return
+        if any([adapter_name in self.adapters for adapter_name in adapter_names]):
             fusion = BertFusion(self.config)
             fusion.train(self.training)  # make sure training mode is consistent
             self.adapter_fusion_layer[",".join(adapter_names)] = fusion
+        else:
+            logger.warning(
+                f"Skipping creation of AdapterFusion in one '{self.adapter_config_key}' layer as none of the fused adapters were found."
+            )
 
     def delete_fusion_layer(self, adapter_names: Union[List, str]):
         adapter_names = adapter_names if isinstance(adapter_names, str) else ",".join(adapter_names)
