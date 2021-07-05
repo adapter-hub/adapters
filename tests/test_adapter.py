@@ -1,6 +1,6 @@
 import unittest
 
-from transformers import BartConfig, BertConfig, DistilBertConfig, GPT2Config, MBartConfig, RobertaConfig
+from transformers import BartConfig, BertConfig, DistilBertConfig, GPT2Config, MBartConfig, RobertaConfig, T5Config
 from transformers.testing_utils import require_torch
 
 from .test_adapter_common import AdapterModelTestMixin
@@ -93,6 +93,29 @@ class BartAdapterTest(
         decoder_ffn_dim=4,
     )
     tokenizer_name = "facebook/bart-base"
+
+
+@require_torch
+class T5AdapterTest(
+    AdapterModelTestMixin,
+    AdapterFusionModelTestMixin,
+    PredictionHeadModelTestMixin,
+    AdapterTrainingTestMixin,
+    ParallelAdapterInferenceTestMixin,
+    unittest.TestCase,
+):
+    config_class = T5Config
+    config = make_config(
+        T5Config,
+        d_model=16,
+        encoder_layers=2,
+        decoder_layers=2,
+        encoder_attention_heads=4,
+        decoder_attention_heads=4,
+        encoder_ffn_dim=4,
+        decoder_ffn_dim=4,
+    )
+    tokenizer_name = "t5-base"
 
 
 @require_torch
