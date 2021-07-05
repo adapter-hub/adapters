@@ -27,8 +27,12 @@ from torch.nn import CrossEntropyLoss
 from ...activations import ACT2FN
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAndNoBaseAdaptersMixin
 from ...adapters.models.t5 import (
-    T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5StackAdaptersMixin,
-    T5CrossAttentionLayerAdaptersMixin, T5FFLayerAdaptersMixin, T5SelfAttentionLayerAdaptersMixin
+    T5BlockAdaptersMixin,
+    T5ModelAdaptersMixin,
+    T5StackAdaptersMixin,
+    T5CrossAttentionLayerAdaptersMixin,
+    T5FFLayerAdaptersMixin,
+    T5SelfAttentionLayerAdaptersMixin,
 )
 from ...file_utils import (
     DUMMY_INPUTS,
@@ -304,7 +308,7 @@ class T5LayerFF(T5FFLayerAdaptersMixin, nn.Module):
         forwarded_states = self.DenseReluDense(forwarded_states)
 
         hidden_states = self.adapters_forward(hidden_states, self.dropout(forwarded_states))
-        #hidden_states = hidden_states + self.dropout(forwarded_states)
+        # hidden_states = hidden_states + self.dropout(forwarded_states)
         return hidden_states
 
 
@@ -647,7 +651,7 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
         )
         hidden_states, present_key_value_state = self_attention_outputs[:2]
         attention_outputs = self_attention_outputs[2:]  # Keep self-attention outputs and relative position weights
-        #hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
+        # hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
 
         # clamp inf values to enable fp16 training
         if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
@@ -675,7 +679,7 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
                 output_attentions=output_attentions,
             )
             hidden_states = cross_attention_outputs[0]
-            #hidden_states = self.cross_attention_adapters.adapters_forward(hidden_states, residuals)
+            # hidden_states = self.cross_attention_adapters.adapters_forward(hidden_states, residuals)
 
             # clamp inf values to enable fp16 training
             if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
@@ -691,7 +695,7 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
 
         # Apply Feed Forward layer
         hidden_states = self.layer[-1](hidden_states)
-        #hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
+        # hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
 
         # clamp inf values to enable fp16 training
         if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
@@ -1204,7 +1208,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [
         r"decoder\.block\.0\.layer\.1\.EncDecAttention\.relative_attention_bias\.weight",
         r"*self_attn_layer_norm*",
-        r"*encoder_attn_layer_norm*"
+        r"*encoder_attn_layer_norm*",
     ]
 
     def __init__(self, config: T5Config):
@@ -1394,7 +1398,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAndNoBaseAdaptersMixin, T5ModelAd
     _keys_to_ignore_on_load_unexpected = [
         r"decoder\.block\.0\.layer\.1\.EncDecAttention\.relative_attention_bias\.weight",
         r"*self_attn_layer_norm*",
-        r"*encoder_attn_layer_norm*"
+        r"*encoder_attn_layer_norm*",
     ]
 
     def __init__(self, config):
@@ -1522,7 +1526,6 @@ class T5ForConditionalGeneration(ModelWithHeadsAndNoBaseAdaptersMixin, T5ModelAd
                 warnings.warn(__HEAD_MASK_WARNING_MSG, FutureWarning)
                 decoder_head_mask = head_mask
 
-
         # Encode if needed (training, first prediction pass)
         if encoder_outputs is None:
             # Convert encoder inputs in embeddings if needed
@@ -1608,7 +1611,6 @@ class T5ForConditionalGeneration(ModelWithHeadsAndNoBaseAdaptersMixin, T5ModelAd
             loss_fct = CrossEntropyLoss(ignore_index=-100)
             loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
             # TODO(thom): Add z_loss https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L666
-
 
         if not return_dict:
             output = (lm_logits,) + decoder_outputs[1:] + encoder_outputs

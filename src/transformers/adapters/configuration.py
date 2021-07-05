@@ -138,6 +138,7 @@ class PfeifferConfig(AdapterConfig):
     non_linearity: str = "relu"
     reduction_factor: Union[int, Mapping] = 16
 
+
 @dataclass
 class PfeifferInvConfig(PfeifferConfig):
     """
