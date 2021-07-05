@@ -14,6 +14,7 @@
 # limitations under the License.
 """ T5 model configuration """
 
+from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
@@ -29,7 +30,7 @@ T5_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class T5Config(PretrainedConfig):
+class T5Config(ModelConfigAdaptersMixin, PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a :class:`~transformers.T5Model` or a
     :class:`~transformers.TFT5Model`. It is used to instantiate a T5 model according to the specified arguments,

@@ -251,6 +251,7 @@ class ModelAdaptersMixin(ABC):
                         f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
                     )
 
+        print(f"Setting active adapters {adapter_setup}")
         self.config.adapters.active_setup = adapter_setup
         self.config.adapters.skip_layers = skip_layers
 
@@ -286,9 +287,12 @@ class ModelAdaptersMixin(ABC):
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
         """
+        print(f"In add_adapter of base ModelAdaptersMixIn with adapter name {adapter_name}")
         if isinstance(config, dict):
             config = AdapterConfig.from_dict(config)  # ensure config is ok and up-to-date
         self.config.adapters.add(adapter_name, config=config)
+        print(f"after adding adapter, config is {self.config.adapters.adapters}")
+
         self.base_model._add_adapter(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
@@ -504,7 +508,8 @@ class ModelAdaptersMixin(ABC):
     def freeze_model(self, freeze=True):
         """Freezes all weights of the model."""
         # first freeze/ unfreeze all model weights
-        for param in self.base_model.parameters():
+        for name, param in self.base_model.named_parameters():
+            print(f"Freezing {name}.")
             param.requires_grad = not freeze
         self.model_freezed = freeze
 
@@ -520,39 +525,10 @@ class ModelAdaptersMixin(ABC):
 
 
 @inherit_doc
-class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
-    """Mixin adding support for loading/ saving adapters to transformer models with head(s)."""
-
+class ModelWithHeadsAndNoBaseAdaptersMixin(ModelAdaptersMixin):
+    """ Mixin adding support for loading/ saving adapters to transformer models with head(s)."""
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
-
-    def add_adapter(self, adapter_name: str, config=None):
-        """
-        Adds a new adapter module of the specified type to the model.
-
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            config (str or dict, optional): The adapter configuration, can be either:
-
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
-        """
-        self.base_model.add_adapter(adapter_name, config)
-
-    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
-        """Sets the model into mode for training the given adapters."""
-        self.base_model.train_adapter(adapter_setup)
-
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.base_model.train_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
-
-    def _add_adapter(self, adapter_name):
-        self.base_model._add_adapter(adapter_name)
-
-    def _add_fusion_layer(self, adapter_names):
-        self.base_model._add_fusion_layer(adapter_names)
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)
@@ -631,6 +607,43 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def get_labels_dict(self):
         return self.config.id2label
+
+
+@inherit_doc
+class ModelWithHeadsAdaptersMixin(ModelWithHeadsAndNoBaseAdaptersMixin):
+    """Mixin adding support for loading/ saving adapters to transformer models with head(s)."""
+
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(config, *args, **kwargs)
+
+    def add_adapter(self, adapter_name: str, config=None):
+        """
+        Adds a new adapter module of the specified type to the model.
+
+        Args:
+            adapter_name (str): The name of the adapter module to be added.
+            config (str or dict, optional): The adapter configuration, can be either:
+
+                - the string identifier of a pre-defined configuration dictionary
+                - a configuration dictionary specifying the full config
+                - if not given, the default configuration for this adapter type will be used
+        """
+        print(f"In add adapter of model with heads adapters")
+        self.base_model.add_adapter(adapter_name, config)
+
+    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+        """Sets the model into mode for training the given adapters."""
+        self.base_model.train_adapter(adapter_setup)
+
+    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
+        self.base_model.train_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
+
+    def _add_adapter(self, adapter_name):
+        self.base_model._add_adapter(adapter_name)
+
+    def _add_fusion_layer(self, adapter_names):
+        self.base_model._add_fusion_layer(adapter_names)
 
     def get_adapter(self, name):
         return self.base_model.get_adapter(name)

@@ -13,102 +13,110 @@ from ..heads import (
 from ..layer import AdapterLayerBaseMixin
 from ..model_mixin import ModelAdaptersMixin
 
-
-class T5SelfAttentionAdaptersModule(AdapterLayerBaseMixin, nn.Module):
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
+class T5SelfAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
     @property
     def adapter_config_key(self):
         return "mh_adapter"
 
-    @property
-    def layer_norm(self):
-        return self.parent.self_attn_layer_norm
 
-
-class T5CrossAttentionAdaptersModule(AdapterLayerBaseMixin, nn.Module):
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
+class T5CrossAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
     @property
     def adapter_config_key(self):
         return "cross_adapter"
 
-    @property
-    def layer_norm(self):
-        return self.parent.encoder_attn_layer_norm
 
-
-class T5OutputAdaptersModule(AdapterLayerBaseMixin, nn.Module):
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
+class T5FFLayerAdaptersMixin(AdapterLayerBaseMixin):
     @property
     def adapter_config_key(self):
         return "output_adapter"
 
-    @property
-    def layer_norm(self):
-        return self.parent.final_layer_norm
 
+class T5BlockAdaptersMixin:
+    """Adds adapters to the T5Block module of T5."""
 
-class T5StackAdaptersMixin:
-    """Adds adapters to the T5Stack  module of T5."""
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.is_decoder = config.is_decoder
+        self.config = config
 
+    def add_fusion_layer(self, adapter_names):
+        for layer in self.layer:
+            layer.add_fusion_layer(adapter_names)
+
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        for layer in self.layer:
+            layer.add_adapter(adapter_name, layer_idx)
+            layer.add_adapter(adapter_name, layer_idx)
+
+    def enable_adapters(
+        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+    ):
+        for layer in self.layer:
+            layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
+            layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
+
+    '''
     def _init_adapter_modules(self):
         self.attention_adapters = T5SelfAttentionAdaptersModule(self)
         self.output_adapters = T5OutputAdaptersModule(self)
         self.attention_adapters._init_adapter_modules()
         self.output_adapters._init_adapter_modules()
 
+        if self.is_decoder:
+            self.cross_attention_adapters = T5CrossAttentionAdaptersModule(self)
+            self.cross_attention_adapters._init_adapter_modules()
+
     def add_fusion_layer(self, adapter_names):
         self.attention_adapters.add_fusion_layer(adapter_names)
         self.output_adapters.add_fusion_layer(adapter_names)
+
+        if self.is_decoder:
+            self.cross_attention_adapters.add_fusion_layer(adapter_names)
 
     def add_adapter(self, adapter_name: str, layer_idx: int):
         self.attention_adapters.add_adapter(adapter_name, layer_idx)
         self.output_adapters.add_adapter(adapter_name, layer_idx)
 
+        if self.is_decoder:
+            self.cross_attention_adapters.add_adapter(adapter_name, layer_idx)
+
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
 
+        if self.is_decoder:
+            self.cross_attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+'''
 
-class T5EncoderDecoderAdaptersMixin:
-    """Adds adapters to the T5Encoder or T5Decoder module."""
+class T5StackAdaptersMixin:
+  """Adds adapters to the T5Stack module of T5."""
 
-    def add_fusion_layer(self, adapter_names):
-        for layer in self.layers:
-            layer.add_fusion_layer(adapter_names)
+  def point_adapter_configs(self, parent_config):
+      self.config = parent_config
 
-    def add_adapter(self, adapter_name: str, layer_idx_offset: int = 0):
-        adapter_config = self.config.adapters.get(adapter_name)
-        leave_out = adapter_config.get("leave_out", [])
-        for i, layer in enumerate(self.layers, start=layer_idx_offset):
-            if i not in leave_out:
-                layer.add_adapter(adapter_name, i)
+  def add_fusion_layer(self, adapter_names):
+      for block in self.block:
+          block.add_fusion_layer(adapter_names)
 
-    def enable_adapters(
-        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+  def add_adapter(self, adapter_name: str, layer_idx_offset: int = 0):
+      adapter_config = self.config.adapters.get(adapter_name)
+      leave_out = adapter_config.get("leave_out", [])
+      for i, block in enumerate(self.block, start=layer_idx_offset):
+          if i not in leave_out:
+              block.add_adapter(adapter_name, i)
+
+  def enable_adapters(
+          self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
     ):
-        for layer in self.layers:
-            layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
+    for block in self.block:
+        print("Enabling adapter now in block")
+        block.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
-    def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
-        if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
-            repeats = [1] * len(attention_mask.shape)
-            repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
-            attention_mask = attention_mask.repeat(*repeats)
+  def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
+    if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
+        repeats = [1] * len(attention_mask.shape)
+        repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
+        attention_mask = attention_mask.repeat(*repeats)
         return attention_mask
 
 
@@ -153,8 +161,9 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
     def _add_adapter(self, adapter_name):
         if hasattr(self, "encoder"):
             self.encoder.add_adapter(adapter_name)
+
             # make sure the layers in encoder & decoder are numbered from 0 to len(encoder+decoder)
-            self.decoder.add_adapter(adapter_name, layer_idx_offset=len(self.encoder.layers))
+            self.decoder.add_adapter(adapter_name, layer_idx_offset=len(self.encoder.block))
             self.encoder.add_invertible_adapter(adapter_name)
         else:
             self.decoder.add_adapter(adapter_name)
@@ -169,7 +178,7 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
         target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
         # encoder
         if hasattr(self, "encoder"):
-            for _, v in self.encoder.layers._modules.items():
+            for _, v in self.encoder.block._modules.items():
                 for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
                     if hasattr(layer_fusion, "value"):
                         reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
@@ -178,7 +187,7 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
                     if hasattr(layer_fusion, "value"):
                         reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
         # decoder
-        for _, v in self.decoder.layers._modules.items():
+        for _, v in self.decoder.block._modules.items():
             for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
                 if hasattr(layer_fusion, "value"):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
@@ -200,95 +209,3 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
             else:
                 outputs.append(tensor)
         return tuple(outputs)
-
-
-class T5ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
-    """
-    Adds flexible heads to a T5 model.
-    """
-
-    head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "question_answering": QuestionAnsweringHead,
-    }
-
-    def add_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        overwrite_ok=False,
-        multilabel=False,
-        id2label=None,
-    ):
-        """
-        Adds a sequence classification head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            num_labels (int, optional): Number of classification labels. Defaults to 2.
-            layers (int, optional): Number of layers. Defaults to 2.
-            activation_function (str, optional): Activation function. Defaults to 'tanh'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
-        """
-
-        if multilabel:
-            head = MultiLabelClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
-        else:
-            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
-        self.add_prediction_head(head, overwrite_ok)
-
-    def add_qa_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=1,
-        activation_function="tanh",
-        overwrite_ok=False,
-        id2label=None,
-    ):
-        head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
-        self.add_prediction_head(head, overwrite_ok)
-
-
-class T5BlockAdaptersMixin:
-    """Adds adapters to the T5Block module of T5."""
-
-    def __init__(self, config, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.is_decoder = config.is_decoder
-        self.config = config
-
-    def _init_adapter_modules(self):
-        self.attention_adapters = T5SelfAttentionAdaptersModule(self)
-        self.output_adapters = T5OutputAdaptersModule(self)
-        self.attention_adapters._init_adapter_modules()
-        self.output_adapters._init_adapter_modules()
-
-        if self.is_decoder:
-            self.cross_attention_adapters = T5CrossAttentionAdaptersModule(self)
-            self.cross_attention_adapters._init_adapter_modules()
-
-    def add_fusion_layer(self, adapter_names):
-        self.attention_adapters.add_fusion_layer(adapter_names)
-        self.output_adapters.add_fusion_layer(adapter_names)
-
-        if self.is_decoder:
-            self.cross_attention_adapters.add_fusion_layer(adapter_names)
-
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        self.attention_adapters.add_adapter(adapter_name, layer_idx)
-        self.output_adapters.add_adapter(adapter_name, layer_idx)
-
-        if self.is_decoder:
-            self.cross_attention_adapters.add_adapter(adapter_name, layer_idx)
-
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
-        self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-        self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-
-        if self.is_decoder:
-            self.cross_attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
