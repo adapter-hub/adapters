@@ -96,6 +96,29 @@ class BartAdapterTest(
 
 
 @require_torch
+class T5AdapterTest(
+    AdapterModelTestMixin,
+    AdapterFusionModelTestMixin,
+    PredictionHeadModelTestMixin,
+    AdapterTrainingTestMixin,
+    ParallelAdapterInferenceTestMixin,
+    unittest.TestCase,
+):
+    config_class = T5Config
+    config = make_config(
+        T5Config,
+        d_model=16,
+        encoder_layers=2,
+        decoder_layers=2,
+        encoder_attention_heads=4,
+        decoder_attention_heads=4,
+        encoder_ffn_dim=4,
+        decoder_ffn_dim=4,
+    )
+    tokenizer_name = "t5-base"
+
+
+@require_torch
 class MBartAdapterTest(
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
