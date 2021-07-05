@@ -485,13 +485,15 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             elif isinstance(final_block, BatchSplit):
                 # Convert BatchSplit of adapters to a BatchSplit of heads.
                 blocks = [
-                    block.last if isinstance(block, AdapterCompositionBlock) else block for block in final_block
+                    block.last() if isinstance(block, AdapterCompositionBlock) else block for block in final_block
                 ]
                 head_setup = BatchSplit(*blocks, batch_sizes=final_block.batch_sizes)
                 if all(head in self.heads for head in head_setup):
                     self.active_head = head_setup
                 else:
-                    raise ValueError("Missing at least one head for the given BatchSplit setup. Expected heads: {}".format(blocks))
+                    raise ValueError(
+                        "Missing at least one head for the given BatchSplit setup. Expected heads: {}".format(blocks)
+                    )
             else:
                 logger.info("Could not identify '{}' as a valid prediction head.".format(final_block))
 
