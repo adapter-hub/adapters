@@ -13,6 +13,7 @@ from ..heads import (
 from ..layer import AdapterLayerBaseMixin
 from ..model_mixin import ModelAdaptersMixin
 
+
 class T5SelfAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
     @property
     def adapter_config_key(self):
@@ -55,7 +56,7 @@ class T5BlockAdaptersMixin:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
-    '''
+    """
     def _init_adapter_modules(self):
         self.attention_adapters = T5SelfAttentionAdaptersModule(self)
         self.output_adapters = T5OutputAdaptersModule(self)
@@ -86,38 +87,39 @@ class T5BlockAdaptersMixin:
 
         if self.is_decoder:
             self.cross_attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-'''
+"""
+
 
 class T5StackAdaptersMixin:
-  """Adds adapters to the T5Stack module of T5."""
+    """Adds adapters to the T5Stack module of T5."""
 
-  def point_adapter_configs(self, parent_config):
-      self.config = parent_config
+    def point_adapter_configs(self, parent_config):
+        self.config = parent_config
 
-  def add_fusion_layer(self, adapter_names):
-      for block in self.block:
-          block.add_fusion_layer(adapter_names)
+    def add_fusion_layer(self, adapter_names):
+        for block in self.block:
+            block.add_fusion_layer(adapter_names)
 
-  def add_adapter(self, adapter_name: str, layer_idx_offset: int = 0):
-      adapter_config = self.config.adapters.get(adapter_name)
-      leave_out = adapter_config.get("leave_out", [])
-      for i, block in enumerate(self.block, start=layer_idx_offset):
-          if i not in leave_out:
-              block.add_adapter(adapter_name, i)
+    def add_adapter(self, adapter_name: str, layer_idx_offset: int = 0):
+        adapter_config = self.config.adapters.get(adapter_name)
+        leave_out = adapter_config.get("leave_out", [])
+        for i, block in enumerate(self.block, start=layer_idx_offset):
+            if i not in leave_out:
+                block.add_adapter(adapter_name, i)
 
-  def enable_adapters(
-          self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+    def enable_adapters(
+        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
     ):
-    for block in self.block:
-        print("Enabling adapter now in block")
-        block.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
+        for block in self.block:
+            print("Enabling adapter now in block")
+            block.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
-  def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
-    if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
-        repeats = [1] * len(attention_mask.shape)
-        repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
-        attention_mask = attention_mask.repeat(*repeats)
-        return attention_mask
+    def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
+        if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
+            repeats = [1] * len(attention_mask.shape)
+            repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
+            attention_mask = attention_mask.repeat(*repeats)
+            return attention_mask
 
 
 class T5ModelAdaptersMixin(ModelAdaptersMixin):
