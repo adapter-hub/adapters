@@ -251,7 +251,6 @@ class ModelAdaptersMixin(ABC):
                         f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
                     )
 
-        print(f"Setting active adapters {adapter_setup}")
         self.config.adapters.active_setup = adapter_setup
         self.config.adapters.skip_layers = skip_layers
 
@@ -287,11 +286,9 @@ class ModelAdaptersMixin(ABC):
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
         """
-        print(f"In add_adapter of base ModelAdaptersMixIn with adapter name {adapter_name}")
         if isinstance(config, dict):
             config = AdapterConfig.from_dict(config)  # ensure config is ok and up-to-date
         self.config.adapters.add(adapter_name, config=config)
-        print(f"after adding adapter, config is {self.config.adapters.adapters}")
 
         self.base_model._add_adapter(adapter_name)
 
@@ -509,7 +506,6 @@ class ModelAdaptersMixin(ABC):
         """Freezes all weights of the model."""
         # first freeze/ unfreeze all model weights
         for name, param in self.base_model.named_parameters():
-            print(f"Freezing {name}.")
             param.requires_grad = not freeze
         self.model_freezed = freeze
 

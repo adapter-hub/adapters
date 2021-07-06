@@ -40,10 +40,8 @@ class AdapterLayerBaseMixin(ABC):
         self.adapter_fusion_layer = nn.ModuleDict(dict())
 
     def add_adapter(self, adapter_name: str, layer_idx: int):
-        print(f"In the basest adapter layer for {adapter_name} as layer id {layer_idx}")
         self.layer_idx = layer_idx
         adapter_config = self.config.adapters.get(adapter_name)
-        print(f"in this level adapter config is {adapter_config}")
         if adapter_config and adapter_config.get(self.adapter_config_key, None):
             reduction_factor = adapter_config["reduction_factor"]
             if isinstance(reduction_factor, Mapping):
@@ -86,12 +84,9 @@ class AdapterLayerBaseMixin(ABC):
             unfreeze_adapters: whether the adapters themselves should be unfreezed
             unfreeze_fusion: whether the adapter attention layer for the given adapters should be unfreezed
         """
-        print(f"Enablding adapters for {adapter_setup}")
         if unfreeze_adapters:
             for adapter_name in adapter_setup.flatten():
-                print(f"starting Unfreezing for {adapter_name}")
                 if adapter_name in self.adapters:
-                    print(f"Now unfreezing for {adapter_name}")
                     for param in self.adapters[adapter_name].parameters():
                         param.requires_grad = True
         if unfreeze_fusion:
