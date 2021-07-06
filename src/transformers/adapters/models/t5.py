@@ -52,13 +52,11 @@ class T5BlockAdaptersMixin:
     def add_adapter(self, adapter_name: str, layer_idx: int):
         for layer in self.layer:
             layer.add_adapter(adapter_name, layer_idx)
-            layer.add_adapter(adapter_name, layer_idx)
 
     def enable_adapters(
         self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
     ):
         for layer in self.layer:
-            layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
 
