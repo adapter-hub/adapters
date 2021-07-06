@@ -40,6 +40,7 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
 
    loading
    contributing
+   huggingface_hub
 
 .. toctree::
    :maxdepth: 2
