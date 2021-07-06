@@ -133,7 +133,7 @@ class PfeifferConfig(AdapterConfig):
     ln_before: bool = False
     ln_after: bool = False
     cross_adapter: bool = True
-    mh_adapter: bool = True
+    mh_adapter: bool = False
     output_adapter: bool = True
     non_linearity: str = "relu"
     reduction_factor: Union[int, Mapping] = 16
