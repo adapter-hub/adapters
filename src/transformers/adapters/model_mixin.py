@@ -104,7 +104,7 @@ class InvertibleAdaptersMixin:
 class EncoderRestrictedInvertibleAdaptersMixin(InvertibleAdaptersMixin):
     """
     For Transformer models that use same class as both an encoder and a decoder,
-    restricts adapter methods to only be called and attached to the encoder.
+    restricts invertible adapter methods to only be called and attached to the encoder.
     """
 
     def __init__(self, config, *args, **kwargs):
@@ -289,7 +289,6 @@ class ModelAdaptersMixin(ABC):
         if isinstance(config, dict):
             config = AdapterConfig.from_dict(config)  # ensure config is ok and up-to-date
         self.config.adapters.add(adapter_name, config=config)
-
         self.base_model._add_adapter(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
@@ -505,7 +504,7 @@ class ModelAdaptersMixin(ABC):
     def freeze_model(self, freeze=True):
         """Freezes all weights of the model."""
         # first freeze/ unfreeze all model weights
-        for name, param in self.base_model.named_parameters():
+        for param in self.base_model.named_parameters():
             param.requires_grad = not freeze
         self.model_freezed = freeze
 
@@ -523,7 +522,7 @@ class ModelAdaptersMixin(ABC):
 
 @inherit_doc
 class ModelWithHeadsAndNoBaseAdaptersMixin(ModelAdaptersMixin):
-    """ Mixin adding support for loading/ saving adapters to transformer models with head(s)."""
+    """Mixin adding support for loading/ saving adapters to transformer models with head(s), and no base model."""
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
@@ -609,7 +608,7 @@ class ModelWithHeadsAndNoBaseAdaptersMixin(ModelAdaptersMixin):
 
 @inherit_doc
 class ModelWithHeadsAdaptersMixin(ModelWithHeadsAndNoBaseAdaptersMixin):
-    """Mixin adding support for loading/ saving adapters to transformer models with head(s)."""
+    """Mixin adding support for loading/ saving adapters to transformer models with head(s) and a base model."""
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)

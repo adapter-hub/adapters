@@ -800,16 +800,11 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
         super().__init__(config)
 
         self.embed_tokens = embed_tokens
-
-        # We preserve these variables from the config here, since the config will be
-        # reset to refer to the T5Model containing class.
         self.is_decoder = config.is_decoder
         self.use_cache = config.use_cache
-        self.is_encoder_decoder = False
-        self.num_layers = config.num_layers
 
         self.block = nn.ModuleList(
-            [T5Block(config, has_relative_attention_bias=bool(i == 0)) for i in range(self.num_layers)]
+            [T5Block(config, has_relative_attention_bias=bool(i == 0)) for i in range(self.config.num_layers)]
         )
         self.final_layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
@@ -877,7 +872,7 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
         if self.model_parallel:
             torch.cuda.set_device(self.first_device)
             self.embed_tokens = self.embed_tokens.to(self.first_device)
-        use_cache = use_cache if use_cache is not None else self.use_cache
+        use_cache = use_cache if use_cache is not None else self.config.use_cache
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -932,8 +927,8 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
             encoder_extended_attention_mask = None
 
         # Prepare head mask if needed
-        head_mask = self.get_head_mask(head_mask, self.num_layers)
-        encoder_head_mask = self.get_head_mask(encoder_head_mask, self.num_layers)
+        head_mask = self.get_head_mask(head_mask, self.config.num_layers)
+        encoder_head_mask = self.get_head_mask(encoder_head_mask, self.config.num_layers)
         present_key_value_states = () if use_cache else None
         all_hidden_states = () if output_hidden_states else None
         all_attentions = () if output_attentions else None
@@ -1208,8 +1203,6 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
     ]
     _keys_to_ignore_on_load_unexpected = [
         r"decoder\.block\.0\.layer\.1\.EncDecAttention\.relative_attention_bias\.weight",
-        r"*self_attn_layer_norm*",
-        r"*encoder_attn_layer_norm*",
     ]
 
     def __init__(self, config: T5Config):
@@ -1322,7 +1315,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
 
         # FutureWarning: head_mask was separated into two input args - head_mask, decoder_head_mask
         if head_mask is not None and decoder_head_mask is None:
-            if self.num_layers == self.config.num_decoder_layers:
+            if self.config.num_layers == self.config.num_decoder_layers:
                 warnings.warn(__HEAD_MASK_WARNING_MSG, FutureWarning)
                 decoder_head_mask = head_mask
 
@@ -1398,8 +1391,6 @@ class T5ForConditionalGeneration(ModelWithHeadsAndNoBaseAdaptersMixin, T5ModelAd
     ]
     _keys_to_ignore_on_load_unexpected = [
         r"decoder\.block\.0\.layer\.1\.EncDecAttention\.relative_attention_bias\.weight",
-        r"*self_attn_layer_norm*",
-        r"*encoder_attn_layer_norm*",
     ]
 
     def __init__(self, config):
@@ -1523,7 +1514,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAndNoBaseAdaptersMixin, T5ModelAd
 
         # FutureWarning: head_mask was separated into two input args - head_mask, decoder_head_mask
         if head_mask is not None and decoder_head_mask is None:
-            if self.num_layers == self.config.num_decoder_layers:
+            if self.config.num_layers == self.config.num_decoder_layers:
                 warnings.warn(__HEAD_MASK_WARNING_MSG, FutureWarning)
                 decoder_head_mask = head_mask
 

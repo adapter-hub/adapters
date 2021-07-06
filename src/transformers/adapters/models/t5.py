@@ -83,7 +83,6 @@ class T5StackAdaptersMixin:
         self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
     ):
         for block in self.block:
-            print("Enabling adapter now in block")
             block.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
     def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
