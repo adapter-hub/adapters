@@ -77,6 +77,8 @@ class AdapterLayerBaseMixin(ABC):
 
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
+        # This checks that the config keys for this layer are equal for all fused adapters, i.e. whether all adapters add a block to this layer.
+        # E.g., we cannot fuse "houlsby" and "pfeiffer" adapters, in which case an exception is raised.
         if not self.config.adapters.common_config_value(adapter_names, self.adapter_config_key):
             return
         if any([adapter_name in self.adapters for adapter_name in adapter_names]):
@@ -84,6 +86,7 @@ class AdapterLayerBaseMixin(ABC):
             fusion.train(self.training)  # make sure training mode is consistent
             self.adapter_fusion_layer[",".join(adapter_names)] = fusion
         else:
+            # If none of the fused adapters was found, we probably dropped all of them via "leave_out".
             logger.warning(
                 f"Skipping creation of AdapterFusion in one '{self.adapter_config_key}' layer as none of the fused adapters were found."
             )
