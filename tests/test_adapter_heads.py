@@ -3,6 +3,7 @@ import tempfile
 import torch
 
 from transformers import MODEL_WITH_HEADS_MAPPING, AutoModelForSequenceClassification, AutoModelWithHeads
+from transformers.adapters.composition import BatchSplit, Stack
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_adapter_common import create_twin_models
@@ -160,6 +161,33 @@ class PredictionHeadModelTestMixin:
             model = AutoModelWithHeads.from_pretrained(temp_dir)
         self.assertIn("dummy", model.heads)
         self.assertDictEqual(true_config, model.get_prediction_heads_config())
+
+    def test_batch_split_head(self):
+        model = AutoModelWithHeads.from_config(self.config())
+        model.add_classification_head("a")
+        model.add_classification_head("b")
+        model.active_head = BatchSplit("a", "b", batch_sizes=[1, 2])
+        in_data = self.get_input_samples((3, 128), config=model.config)
+
+        out = model(in_data)
+        self.assertEqual(2, len(out))
+        self.assertEqual((1, 2), out[0][0].shape)
+        self.assertEqual((2, 2), out[1][0].shape)
+
+    def test_batch_split_adapter_head(self):
+        model = AutoModelWithHeads.from_config(self.config())
+        model.add_classification_head("a")
+        model.add_classification_head("b")
+        model.add_adapter("a")
+        model.add_adapter("b")
+        model.add_adapter("c")
+        model.set_active_adapters(BatchSplit(Stack("c", "a"), "b", batch_sizes=[2, 1]))
+
+        in_data = self.get_input_samples((3, 128), config=model.config)
+        out = model(in_data)
+
+        self.assertEqual(2, len(out))
+        self.assertTrue(isinstance(model.active_head, BatchSplit))
 
     def test_reload_static_to_flex_head(self):
         static_head_model = AutoModelForSequenceClassification.from_config(self.config())

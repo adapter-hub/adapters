@@ -4,7 +4,7 @@ from typing import List, Mapping, Union
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, Fuse, Parallel, Split, Stack, parse_composition
+from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from .modeling import Adapter, BertFusion
 
 
@@ -171,7 +171,10 @@ class AdapterLayerBaseMixin(ABC):
                 hidden_states, input_tensor = self.adapter_parallel(
                     adapter_stack_layer, hidden_states, input_tensor, lvl=lvl + 1
                 )
-            # Case 4: We have a single adapter which is part of this module -> forward pass
+            # Case 4: We have a nested batch split block -> call batchsplit method
+            elif isinstance(adapter_stack_layer, BatchSplit):
+                hidden_states = self.adapter_batchsplit(adapter_stack_layer, hidden_states, input_tensor, lvl=lvl + 1)
+            # Case 5: We have a single adapter which is part of this module -> forward pass
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
                 adapter_config = self.config.adapters.get(adapter_stack_layer)
@@ -263,11 +266,16 @@ class AdapterLayerBaseMixin(ABC):
                 split_hidden_states[i] = self.adapter_split(
                     adapter_block, split_hidden_states[i], split_input_tensor[i], lvl=lvl + 1
                 )
-            # Case 3: We have a single adapter which is part of this module -> forward pass
+            # Case 3: We have a nested batch split -> call batch split method
+            elif isinstance(adapter_block, BatchSplit):
+                split_hidden_states[i] = self.adapter_batchsplit(
+                    adapter_block, split_hidden_states[i], split_input_tensor[i], lvl=lvl + 1
+                )
+            # Case 4: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapters:
                 adapter_layer = self.adapters[adapter_block]
                 split_hidden_states[i], _, _ = adapter_layer(split_hidden_states[i], residual_input=split_residual[i])
-            # Case 4: nesting other composition blocks is invalid
+            # Case 5: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
                 raise ValueError(
                     "Invalid adapter setup. Cannot nest {} in {}".format(
@@ -315,7 +323,16 @@ class AdapterLayerBaseMixin(ABC):
                     lvl=lvl + 1,
                 )
                 children_hidden.append(child_hidden_states)
-            # Case 2: We have a single adapter which is part of this module -> forward pass
+            # Case 2. We have a nested batchsplit block -> call batchsplit method
+            elif isinstance(child, BatchSplit):
+                child_hidden_states = self.adapter_batchsplit(
+                    child,
+                    hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    input_tensor[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    lvl=lvl + 1,
+                )
+                children_hidden.append(child_hidden_states)
+            # Case 3: We have a single adapter which is part of this module -> forward pass
             elif child in self.adapters:
                 adapter_layer = self.adapters[child]
                 child_hidden_states, _, _ = adapter_layer(
@@ -323,7 +340,7 @@ class AdapterLayerBaseMixin(ABC):
                     residual_input=residual[i * orig_batch_size : (i + 1) * orig_batch_size],
                 )
                 children_hidden.append(child_hidden_states)
-            # Case 3: nesting other composition blocks is invalid
+            # Case 4: nesting other composition blocks is invalid
             elif isinstance(child, AdapterCompositionBlock):
                 raise ValueError(
                     "Invalid adapter setup. Cannot nest {} in {}".format(
@@ -337,6 +354,72 @@ class AdapterLayerBaseMixin(ABC):
         # concatenate all outputs and return
         hidden_states = torch.cat(children_hidden, 0)
         return hidden_states, input_tensor
+
+    def adapter_batchsplit(self, adapter_setup: BatchSplit, hidden_states, input_tensor, lvl=0):
+        if not sum(adapter_setup.batch_sizes) == hidden_states.shape[0]:
+            raise IndexError(
+                "The given batch has a size of {} which is not compatible with batch_sizes {}".format(
+                    hidden_states.shape[0], adapter_setup.batch_sizes
+                )
+            )
+
+        adapter_config = self.config.adapters.get(adapter_setup.first())
+        hidden_states, _, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
+        children_hidden = []
+        for i, adapter_block in enumerate(adapter_setup):
+            # compute ids of sequences thet should be passed to the ith adapter
+            batch_idx = (
+                sum(adapter_setup.batch_sizes[:i]),
+                sum(adapter_setup.batch_sizes[: i + 1]),
+            )
+            # Case 1: We have a nested stack -> call stack method
+            if isinstance(adapter_block, Stack):
+                child, _, _ = self.adapter_stack(
+                    adapter_block,
+                    hidden_states[batch_idx[0] : batch_idx[1]],
+                    input_tensor[batch_idx[0] : batch_idx[1]],
+                    lvl=lvl + 1,
+                )
+                children_hidden.append(child)
+            # Case 2: We have a nested split -> recursively call split
+            elif isinstance(adapter_block, Split):
+                child = self.adapter_split(
+                    adapter_block,
+                    hidden_states[batch_idx[0] : batch_idx[1]],
+                    input_tensor[batch_idx[0] : batch_idx[1]],
+                    lvl=lvl + 1,
+                )
+                children_hidden.append(child)
+            # Case 3: We have a nested batch split block -> call batchsplit method
+            elif isinstance(adapter_block, BatchSplit):
+                child = self.adapter_batchsplit(
+                    adapter_block,
+                    hidden_states[batch_idx[0] : batch_idx[1]],
+                    input_tensor[batch_idx[0] : batch_idx[1]],
+                    lvl=lvl + 1,
+                )
+                children_hidden.append(child)
+            # Case 4: We have a single adapter which is part of this module -> forward pass
+            elif adapter_block in self.adapters:
+
+                adapter_layer = self.adapters[adapter_block]
+                child, _, _ = adapter_layer(
+                    hidden_states[batch_idx[0] : batch_idx[1]], residual_input=residual[batch_idx[0] : batch_idx[1]]
+                )
+                children_hidden.append(child)
+            # Case 5: nesting other composition blocks is invalid
+            elif isinstance(adapter_block, AdapterCompositionBlock):
+                raise ValueError(
+                    "Invalid adapter setup. Cannot nest {} in {}".format(
+                        adapter_block.__class__.__name__, adapter_setup.__class__.__name__
+                    )
+                )
+            # Case X: No adapter which is part of this module -> ignore
+            else:
+                children_hidden.append(hidden_states[batch_idx])
+
+        hidden_states = torch.cat(children_hidden, 0)
+        return hidden_states
 
     def adapters_forward(self, hidden_states, input_tensor, **kwargs):
         """
@@ -365,6 +448,8 @@ class AdapterLayerBaseMixin(ABC):
                 # notice that we are overriding input tensor here to keep the same dim as hidden_states for the residual
                 # in case we were blowing up the batch for parallel processing of multiple adapters for the same input
                 hidden_states, input_tensor = self.adapter_parallel(adapter_setup, hidden_states, input_tensor)
+            elif isinstance(adapter_setup, BatchSplit):
+                hidden_states = self.adapter_batchsplit(adapter_setup, hidden_states, input_tensor)
             else:
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
 

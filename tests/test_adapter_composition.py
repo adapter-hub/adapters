@@ -3,7 +3,7 @@ import unittest
 import torch
 
 from transformers import AutoModelWithHeads, BertConfig, BertForSequenceClassification
-from transformers.adapters.composition import Fuse, Parallel, Split, Stack, parse_composition
+from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
@@ -41,6 +41,11 @@ class AdapterCompositionTest(unittest.TestCase):
         inputs = {}
         inputs["input_ids"] = ids_tensor((1, 128), 1000)
         inputs["labels"] = torch.ones(1, dtype=torch.long)
+        loss = self.model(**inputs).loss
+        loss.backward()
+
+    def batched_training_pass(self):
+        inputs = {"input_ids": ids_tensor((4, 128), 1000), "labels": torch.ones(4, dtype=torch.long)}
         loss = self.model(**inputs).loss
         loss.backward()
 
@@ -92,6 +97,38 @@ class AdapterCompositionTest(unittest.TestCase):
         inputs["input_ids"] = ids_tensor((1, 128), 1000)
         logits = self.model(**inputs).logits
         self.assertEqual(logits.shape, (2, 2))
+
+    def test_batch_split(self):
+        self.model.set_active_adapters(BatchSplit("a", "b", "c", batch_sizes=[1, 1, 2]))
+        self.batched_training_pass()
+
+    def test_batch_split_int(self):
+        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=2))
+        self.batched_training_pass()
+
+    def test_nested_batch_split(self):
+        self.model.set_active_adapters(Stack("a", BatchSplit("b", "c", batch_sizes=[2, 2])))
+        self.batched_training_pass()
+
+    def test_batch_split_invalid(self):
+        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[3, 4]))
+        with self.assertRaises(IndexError):
+            self.batched_training_pass()
+
+    def test_batch_split_equivalent(self):
+        self.model.set_active_adapters("a")
+        self.model.eval()
+        input_ids = ids_tensor((2, 128), 1000)
+        output_a = self.model(input_ids[:1])
+
+        self.model.set_active_adapters("b")
+        output_b = self.model(input_ids[1:2])
+
+        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
+        output = self.model(input_ids)
+
+        self.assertTrue(torch.allclose(output_a[0], output[0][0], atol=1e-6))
+        self.assertTrue(torch.allclose(output_b[0], output[0][1], atol=1e-6))
 
 
 @require_torch
@@ -147,3 +184,28 @@ class ParallelAdapterInferenceTestMixin:
         model.active_head = "a"
         with self.assertRaises(ValueError):
             model(**inputs)
+
+    def test_batch_split_with_heads(self):
+        model = AutoModelWithHeads.from_config(self.config())
+        model.add_adapter("a")
+        model.add_adapter("b")
+        model.add_classification_head("a", num_labels=2)
+        model.add_classification_head("b", num_labels=3)
+        model.eval()
+
+        inputs = self.get_input_samples((2, 128), config=model.config)
+
+        # for reference, pass through single adapters
+        model.active_adapters = "a"
+        model.active_head = "a"
+        outputs_a = model(inputs[:1])
+        model.active_adapters = "b"
+        model.active_head = "b"
+        outputs_b = model(inputs[1:])
+
+        model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
+        output = model(inputs)
+
+        self.assertEqual(2, len(output))
+        self.assertTrue(torch.allclose(output[0]["logits"], outputs_a["logits"]))
+        self.assertTrue(torch.allclose(output[1]["logits"], outputs_b["logits"]))
