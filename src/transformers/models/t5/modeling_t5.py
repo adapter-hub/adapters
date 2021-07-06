@@ -290,6 +290,7 @@ class T5DenseGatedGeluDense(nn.Module):
 class T5LayerFF(T5FFLayerAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         if config.feed_forward_proj == "relu":
             self.DenseReluDense = T5DenseReluDense(config)
         elif config.feed_forward_proj == "gated-gelu":
@@ -308,7 +309,6 @@ class T5LayerFF(T5FFLayerAdaptersMixin, nn.Module):
         forwarded_states = self.DenseReluDense(forwarded_states)
 
         hidden_states = self.adapters_forward(hidden_states, self.dropout(forwarded_states))
-        # hidden_states = hidden_states + self.dropout(forwarded_states)
         return hidden_states
 
 
@@ -531,9 +531,11 @@ class T5Attention(nn.Module):
 class T5LayerSelfAttention(T5SelfAttentionLayerAdaptersMixin, nn.Module):
     def __init__(self, config, has_relative_attention_bias=False):
         super().__init__()
+        self.config = config
         self.SelfAttention = T5Attention(config, has_relative_attention_bias=has_relative_attention_bias)
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -555,7 +557,7 @@ class T5LayerSelfAttention(T5SelfAttentionLayerAdaptersMixin, nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions,
         )
-        hidden_states = hidden_states + self.dropout(attention_output[0])
+        hidden_states = self.adapters_forward(hidden_states, self.dropout(attention_output[0]))
         outputs = (hidden_states,) + attention_output[1:]  # add attentions if we output them
         return outputs
 
@@ -563,9 +565,11 @@ class T5LayerSelfAttention(T5SelfAttentionLayerAdaptersMixin, nn.Module):
 class T5LayerCrossAttention(T5CrossAttentionLayerAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.EncDecAttention = T5Attention(config, has_relative_attention_bias=False)
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -591,7 +595,7 @@ class T5LayerCrossAttention(T5CrossAttentionLayerAdaptersMixin, nn.Module):
             query_length=query_length,
             output_attentions=output_attentions,
         )
-        layer_output = hidden_states + self.dropout(attention_output[0])
+        layer_output = self.adapters_forward(hidden_states, self.dropout(attention_output[0]))
         outputs = (layer_output,) + attention_output[1:]  # add attentions if we output them
         return outputs
 
@@ -651,7 +655,6 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
         )
         hidden_states, present_key_value_state = self_attention_outputs[:2]
         attention_outputs = self_attention_outputs[2:]  # Keep self-attention outputs and relative position weights
-        # hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
 
         # clamp inf values to enable fp16 training
         if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
@@ -679,7 +682,6 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
                 output_attentions=output_attentions,
             )
             hidden_states = cross_attention_outputs[0]
-            # hidden_states = self.cross_attention_adapters.adapters_forward(hidden_states, residuals)
 
             # clamp inf values to enable fp16 training
             if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
@@ -695,7 +697,6 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
 
         # Apply Feed Forward layer
         hidden_states = self.layer[-1](hidden_states)
-        # hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
 
         # clamp inf values to enable fp16 training
         if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
@@ -1604,6 +1605,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAndNoBaseAdaptersMixin, T5ModelAd
             sequence_output = sequence_output * (self.model_dim ** -0.5)
 
         projected_output = self.encoder.invertible_adapters_forward(sequence_output, rev=True)
+
         lm_logits = self.lm_head(projected_output)
 
         loss = None

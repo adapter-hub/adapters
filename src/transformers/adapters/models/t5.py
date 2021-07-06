@@ -1,15 +1,8 @@
 from typing import Union
 
 import torch
-from torch import nn
 
 from ..composition import AdapterCompositionBlock, parse_composition
-from ..heads import (
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    QuestionAnsweringHead,
-)
 from ..layer import AdapterLayerBaseMixin
 from ..model_mixin import ModelAdaptersMixin
 
@@ -19,17 +12,29 @@ class T5SelfAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
     def adapter_config_key(self):
         return "mh_adapter"
 
+    @property
+    def allow_adapter_layer_norm(self):
+        return False
+
 
 class T5CrossAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
     @property
     def adapter_config_key(self):
         return "cross_adapter"
 
+    @property
+    def allow_adapter_layer_norm(self):
+        return False
+
 
 class T5FFLayerAdaptersMixin(AdapterLayerBaseMixin):
     @property
     def adapter_config_key(self):
         return "output_adapter"
+
+    @property
+    def allow_adapter_layer_norm(self):
+        return False
 
 
 class T5BlockAdaptersMixin:
@@ -55,39 +60,6 @@ class T5BlockAdaptersMixin:
         for layer in self.layer:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
-
-    """
-    def _init_adapter_modules(self):
-        self.attention_adapters = T5SelfAttentionAdaptersModule(self)
-        self.output_adapters = T5OutputAdaptersModule(self)
-        self.attention_adapters._init_adapter_modules()
-        self.output_adapters._init_adapter_modules()
-
-        if self.is_decoder:
-            self.cross_attention_adapters = T5CrossAttentionAdaptersModule(self)
-            self.cross_attention_adapters._init_adapter_modules()
-
-    def add_fusion_layer(self, adapter_names):
-        self.attention_adapters.add_fusion_layer(adapter_names)
-        self.output_adapters.add_fusion_layer(adapter_names)
-
-        if self.is_decoder:
-            self.cross_attention_adapters.add_fusion_layer(adapter_names)
-
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        self.attention_adapters.add_adapter(adapter_name, layer_idx)
-        self.output_adapters.add_adapter(adapter_name, layer_idx)
-
-        if self.is_decoder:
-            self.cross_attention_adapters.add_adapter(adapter_name, layer_idx)
-
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
-        self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-        self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-
-        if self.is_decoder:
-            self.cross_attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-"""
 
 
 class T5StackAdaptersMixin:
