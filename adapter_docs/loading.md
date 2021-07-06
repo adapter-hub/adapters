@@ -1,6 +1,26 @@
 # Loading Pre-Trained Adapters
 
-## Using adapters from Adapter-Hub
+## Finding pre-trained adapters
+
+**[AdapterHub.ml](https://adapterhub.ml/explore)** provides a central collection of all pre-trained adapters uploaded via [our Hub repository](https://github.com/adapter-hub/hub) or HuggingFace's [Model Hub](https://huggingface.co/models).
+You can easily find pre-trained adapters for your task of interest along with all relevant information and code snippets to get started (also see below).
+
+Alternatively, [`list_adapters()`](classes/adapter_utils.html#transformers.adapters.utils.list_adapters) provides a programmatical way of accessing all available pre-trained adapters.
+E.g., we can use it to retrieve information for all adapters trained for a specific model:
+
+```python
+from transformers import list_adapters
+
+# source can be "ah" (AdapterHub), "hf" (huggingface.co) or None (for both, default)
+adapter_infos = list_adapters(source="ah", model_name="bert-base-uncased")
+
+for adapter_info in adapter_infos:
+    print("Id:", adapter_info.adapter_id)
+    print("Model name:", adapter_info.model_name)
+    print("Uploaded by:", adapter_info.username)
+```
+
+## Using pre-trained adapters in your code
 
 Suppose we have loaded a pre-trained transformer model from HuggingFace, e.g. BERT:
 
@@ -10,13 +30,32 @@ from transformers import BertModel
 model = BertModel.from_pretrained('bert-base-uncased')
 ```
 
-We can now easily load a pre-trained adapter module from Adapter Hub by its identifier:
+We can now easily load a pre-trained adapter module from Adapter Hub by its identifier using the [`load_adapter()`](classes/model_mixins.html#transformers.ModelWithHeadsAdaptersMixin.load_adapter) method:
 
 ```python
-model.load_adapter('sst-2')
+adapter_name = model.load_adapter('sst-2')
 ```
 
 In the minimal case, that's everything we need to specify to load a pre-trained task adapter for sentiment analysis, trained on the `sst-2` dataset using BERT base and a suitable adapter configuration.
+The name of the adapter is returned by [`load_adapter()`](classes/model_mixins.html#transformers.ModelWithHeadsAdaptersMixin.load_adapter), so we can [activate it](adapter_composition.md) in the next step:
+```python
+model.set_active_adapters(adapter_name)
+```
+
+As the second example, let's have a look at how to load an adapter based on the [`AdapterInfo`](classes/adapter_utils.html#transformers.adapters.utils.AdapterInfo) returned by the [`list_adapters()`](classes/adapter_utils.html#transformers.adapters.utils.list_adapters) method from [above](#finding-pre-trained-adapters):
+```python
+from transformers import AutoModelWithHeads, list_available_adapters
+
+adapter_infos = list_available_adapters(source="ah")
+# Take the first adapter info as an example
+adapter_info = adapter_infos[0]
+
+model = AutoModelWithHeads.from_pretrained(adapter_info.model_name)
+model.load_adapter(adapter_info.adapter_id, source=adapter_info.source)
+```
+
+### Advanced usage of `load_adapter()`
+
 To examine what's happening underneath in a bit more detail, let's first write out the full method call with all relevant arguments explicitly stated:
 
 ```python
@@ -72,4 +111,11 @@ An example of a full identifier following this format might look like `qa/squad1
     In many cases, you don't have to give the full string identifier with all three components to successfully load an adapter from the Hub. You can drop the `<username>` you don't care about the uploader of the adapter.  Also, if the resulting identifier is still unique, you can drop the ``<task>`` or the ``<subtask>``. So, ``qa/squad1.1``, ``squad1.1`` or ``squad1.1@example-org`` all may be valid identifiers.
 ```
 
-For more background information on the identifier string format and the Hub index structure, you can also refer to the [specification document](https://github.com/adapter-hub/hub/blob/master/spec.md#) on GitHub.
+An alternative adapter identifier format is given by:
+
+```
+@<username>/<filename>
+```
+
+where `<filename>` refers to the name of a adapter file in the [Hub repo](https://github.com/adapter-hub/hub).
+In contrast to the previous three-component identifier, this identifier is guaranteed to be unique.
