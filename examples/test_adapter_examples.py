@@ -120,7 +120,7 @@ class AdapterExamplesTests(TestCasePlus):
             --warmup_steps=2
             --do_train
             --do_eval
-            --learning_rate=2e-4
+            --learning_rate=2e-3
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
             --train_adapter
@@ -131,8 +131,8 @@ class AdapterExamplesTests(TestCasePlus):
         with patch.object(sys, "argv", testargs):
             run_qa.main()
             result = get_results(tmp_dir)
-            self.assertGreaterEqual(result["f1"], 30)
-            self.assertGreaterEqual(result["exact"], 30)
+            self.assertGreaterEqual(result["eval_f1"], 30)
+            self.assertGreaterEqual(result["eval_exact"], 30)
 
     def test_run_swag_adapter(self):
         stream_handler = logging.StreamHandler(sys.stdout)

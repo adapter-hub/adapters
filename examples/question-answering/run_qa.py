@@ -42,7 +42,7 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
-from transformers.adapters.composition import Fuse
+from transformers.adapters.composition import Stack
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
@@ -352,7 +352,7 @@ def main():
         model.train_adapter(task_name)
         # Set the adapters to be used in every forward pass
         if lang_adapter_name:
-            model.set_active_adapters(Fuse(lang_adapter_name, task_name))
+            model.set_active_adapters(Stack(lang_adapter_name, task_name))
         else:
             model.set_active_adapters(task_name)
     else:
