@@ -1,4 +1,5 @@
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -477,7 +478,14 @@ def list_adapters(source: str = None, model_name: str = None) -> List[AdapterInf
             all_ah_adapters_data = json.load(f)
         adapters += [AdapterInfo(**info) for info in all_ah_adapters_data]
     if source == "hf" or source is None:
-        all_hf_adapters_data = HfApi().list_models(filter="adapter-transformers", full=True, fetch_config=True)
+        if "fetch_config" in inspect.signature(HfApi.list_models).parameters:
+            kwargs = {"full": True, "fetch_config": True}
+        else:
+            logger.warning(
+                "Using old version of huggingface-hub package for fetching. Please upgrade to latest version for accurate results."
+            )
+            kwargs = {"full": True}
+        all_hf_adapters_data = HfApi().list_models(filter="adapter-transformers", **kwargs)
         for model_info in all_hf_adapters_data:
             adapter_info = AdapterInfo(
                 source="hf",
