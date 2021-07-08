@@ -123,9 +123,9 @@ model.add_adapter("h")
 model.active_adapters = ac.Split("g", "h", split_index=64)
 ```
 
-## BatchSplit
-The BatchSplit Block is an alternative to split the input between several adapters. It does not split the input sequences but the 
-batch into smaller batches. As a result the input sequences remain untouched. 
+## `BatchSplit`
+The `BatchSplit` lock is an alternative to split the input between several adapters. It does not split the input sequences but the 
+batch into smaller batches. As a result, the input sequences remain untouched. 
 
 In the following example, we split the batch between adapters `i`, `k` and `l`. The `batch_sizes`parameter specifies 
 the batch size for each of the adapters. The adapter `i` gets two sequences, `k`gets 1 sequence and `l` gets two sequences.
@@ -155,7 +155,7 @@ model.active_adapters = ac.BatchSplit("i", "k", "l", batch_sizes=[2, 1, 2])
     Parallel adapter inference as implemented by the 'Parallel' block. The input is replicated at the first layer with parallel adapters.
 ```
 
-The `Parallel` can be used to enable parallel multi-task inference on different adapters, each with their own prediction head.
+The `Parallel` block can be used to enable parallel multi-task inference on different adapters, each with their own prediction head.
 Parallel adapter inference was first used in _AdapterDrop: On the Efficiency of Adapters in Transformers_ [(Rücklé et al., 2020)](https://arxiv.org/pdf/2010.11918.pdf).
 
 In the following example, we load two adapters for semantic textual similarity (sts) from the Hub, one trained on the STS benchmark, the other trained on the MRPC dataset.
