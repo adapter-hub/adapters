@@ -19,10 +19,9 @@ import os
 from typing import Tuple
 
 import torch
-import torch.nn.functional as F
 import torch.utils.checkpoint
 from torch import nn
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
 from ...file_utils import add_code_sample_docstrings, add_start_docstrings, add_start_docstrings_to_model_forward
@@ -31,6 +30,7 @@ from ...modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     CausalLMOutputWithCrossAttentions,
     CausalLMOutputWithPast,
+    SequenceClassifierOutputWithPast,
 )
 from ...modeling_utils import PreTrainedModel
 from ...utils import logging
@@ -112,6 +112,10 @@ def load_tf_weights_in_gpt_neo(model, config, gpt_neo_checkpoint_path):
         if name[-1] == "w" and name[-2] in ["out_proj", "k_proj", "q_proj", "v_proj", "c_proj", "c_fc"]:
             array = array.transpose()
 
+        if name == ["wte"]:
+            # if vocab is padded, then trim off the padding embeddings
+            array = array[: config.vocab_size]
+
         try:
             assert (
                 pointer.shape == array.shape
@@ -151,8 +155,8 @@ class GPTNeoAttentionMixin:
     def _look_back(tensor, block_length, window_size, pad_value=0, is_key_value=True):
         """
         Used to implement attention between consecutive blocks. This method assumes that dim 1 of :obj:`tensor`
-        represents the :obj:`seq_length` dimention. It splits :obj:`seq_length` dimention into :obj:`num_blocks` and
-        :obj:`window_size` + :obj:`block_length`. It pads the :obj:`seq_length` dimention if necessary.
+        represents the :obj:`seq_length` dimension. It splits :obj:`seq_length` dimension into :obj:`num_blocks` and
+        :obj:`window_size` + :obj:`block_length`. It pads the :obj:`seq_length` dimension if necessary.
 
         Example::
 
@@ -181,12 +185,63 @@ class GPTNeoAttentionMixin:
         else:
             raise ValueError(f"Input tensor rank should be one of [2, 3], but is: {len(tensor.shape)}")
 
-        padded_tensor = F.pad(tensor, padding_side, value=pad_value)
+        padded_tensor = nn.functional.pad(tensor, padding_side, value=pad_value)
         padded_tensor = padded_tensor.unfold(dimension=1, size=window_size + block_length, step=block_length)
 
         if is_key_value:
             padded_tensor = padded_tensor.transpose(-2, -1)
         return padded_tensor
+
+    @staticmethod
+    def _split_seq_length_dim_to(tensors, dim_factor_1, dim_factor_2):
+        """
+        Splits sequence length dim of tensors into `dim_factor_1` and `dim_factor_2` dims
+        """
+        batch_size = tensors.shape[0]
+        split_dim_shape = (batch_size, dim_factor_1, dim_factor_2)
+
+        if len(tensors.shape) == 3:
+            return torch.reshape(tensors, split_dim_shape + (-1,))
+        elif len(tensors.shape) == 2:
+            return torch.reshape(tensors, split_dim_shape)
+        else:
+            raise ValueError(f"Input vector rank should be one of [2, 3], but is: {len(tensors.shape)}")
+
+    @staticmethod
+    def create_local_attention_mask(batch_size, seq_length, window_size, device, attention_mask=None):
+        block_length, num_blocks = GPTNeoAttentionMixin._get_block_length_and_num_blocks(seq_length, window_size)
+        indices = torch.arange(seq_length, dtype=torch.long, device=device).repeat(batch_size, 1)
+
+        query_indices = GPTNeoAttentionMixin._split_seq_length_dim_to(indices, num_blocks, block_length)
+        key_indices = GPTNeoAttentionMixin._look_back(indices, block_length, window_size, is_key_value=False)
+
+        # create mask tensor such that each block contains a causal_mask for that block
+        causal_mask = torch.ge(query_indices.unsqueeze(-1), key_indices.unsqueeze(-2))
+
+        if attention_mask is None:
+            attention_mask = torch.ones(batch_size, seq_length, dtype=torch.long, device=device)
+
+        # A block can also be padded because of the _look_back operation
+        # look back into the attention_block such that it will also get padded the same way
+        # and have 0s in the padded position
+        attention_mask = GPTNeoAttentionMixin._look_back(attention_mask, block_length, window_size, is_key_value=False)
+        attention_mask = attention_mask.unsqueeze(-2)  # Add an extra dimension to account for hidden_dim
+
+        # Multiply the causal_mask with attention_mask so the padded positions (by _look_back operation)
+        # will contain 0s.
+        # This also makes sure that other positions ignored by the attention_mask will also be ignored
+        # in the causal_mask.
+        causal_mask = causal_mask * attention_mask
+
+        # In GPT Neo's local attention each window can attend to at most window_size tokens
+        # rest of the tokens should be ignored.
+        relative_position = key_indices.unsqueeze(-2) - query_indices.unsqueeze(-1)
+        visible = torch.gt(relative_position, -window_size)
+
+        causal_mask = causal_mask * visible
+        causal_mask = causal_mask.unsqueeze(-3).bool()  # Add an extra dimension to account for num_heads
+
+        return causal_mask
 
     def _split_heads(self, tensor, num_heads, attn_head_size):
         """
@@ -213,20 +268,6 @@ class GPTNeoAttentionMixin:
             raise ValueError(f"Input tensor rank should be one of [4, 5], but is: {len(tensor.shape)}")
         new_shape = tensor.size()[:-2] + (num_heads * attn_head_size,)
         return tensor.view(new_shape)
-
-    def _split_seq_length_dim_to(self, tensors, dim_factor_1, dim_factor_2, hidden_size):
-        """
-        Splits sequence length dim of tensors into `dim_factor_1` and `dim_factor_2` dims
-        """
-        batch_size = tensors.shape[0]
-        split_dim_shape = (batch_size, dim_factor_1, dim_factor_2)
-
-        if len(tensors.shape) == 3:
-            return torch.reshape(tensors, split_dim_shape + (hidden_size,))
-        elif len(tensors.shape) == 2:
-            return torch.reshape(tensors, split_dim_shape)
-        else:
-            raise ValueError(f"Input vector rank should be one of [2, 3], but is: {len(tensors.shape)}")
 
     def _attn(self, query, key, value, causal_mask, masked_bias, attn_dropout, attention_mask=None, head_mask=None):
         # Keep the attention weights computation in fp32 to avoid overflow issues
@@ -285,8 +326,8 @@ class GPTNeoSelfAttention(nn.Module, GPTNeoAttentionMixin):
     def forward(
         self,
         hidden_states,
-        layer_past=None,
         attention_mask=None,
+        layer_past=None,
         head_mask=None,
         use_cache=False,
         output_attentions=False,
@@ -353,45 +394,11 @@ class GPTNeoLocalSelfAttention(nn.Module, GPTNeoAttentionMixin):
 
         self.window_size = config.window_size
 
-    def _create_attention_mask(self, batch_size, seq_length, num_blocks, block_length, device, attention_mask=None):
-        indices = torch.arange(seq_length, dtype=torch.long, device=device).repeat(batch_size, 1)
-
-        query_indices = self._split_seq_length_dim_to(indices, num_blocks, block_length, self.embed_dim)
-        key_indices = self._look_back(indices, block_length, self.window_size, is_key_value=False)
-
-        # create mask tensor such that each block contains a causal_mask for that block
-        causal_mask = torch.ge(query_indices.unsqueeze(-1), key_indices.unsqueeze(-2))
-
-        if attention_mask is None:
-            attention_mask = torch.ones(batch_size, seq_length, dtype=torch.long, device=device)
-
-        # A block can also be padded becuase of the _look_back operation
-        # look back into the attention_block such that it will also get padded the same way
-        # and have 0s in the padded position
-        attention_mask = self._look_back(attention_mask, block_length, self.window_size, is_key_value=False)
-        attention_mask = attention_mask.unsqueeze(-2)  # Add an extra dimention to account for hidden_dim
-
-        # Multiply the causal_mask with attention_mask so the padded positions (by _look_back operation)
-        # will contain 0s.
-        # This also makes sure that other positions ignored by the attention_mask will also be ignored
-        # in the causal_mask.
-        causal_mask = causal_mask * attention_mask
-
-        # In GPT Neo's local attention each window can attend to at most window_size tokens
-        # rest of the tokens should be ignored.
-        relative_position = key_indices.unsqueeze(-2) - query_indices.unsqueeze(-1)
-        visible = torch.gt(relative_position, -self.window_size)
-
-        causal_mask = causal_mask * visible
-        causal_mask = causal_mask.unsqueeze(-3).bool()  # Add an extra dimention to account for num_heads
-
-        return causal_mask
-
     def forward(
         self,
         hidden_states,
+        attention_mask,
         layer_past=None,
-        attention_mask=None,
         head_mask=None,
         use_cache=False,
         output_attentions=False,
@@ -417,9 +424,9 @@ class GPTNeoLocalSelfAttention(nn.Module, GPTNeoAttentionMixin):
         # create buckets
         if layer_past is not None:
             # we just need 1 block with block_length 1 when caching is enabled
-            query = self._split_seq_length_dim_to(query, 1, 1, self.embed_dim)
+            query = self._split_seq_length_dim_to(query, 1, 1)
         else:
-            query = self._split_seq_length_dim_to(query, num_blocks, block_length, self.embed_dim)
+            query = self._split_seq_length_dim_to(query, num_blocks, block_length)
 
         key = self._look_back(key, block_length, self.window_size)
         value = self._look_back(value, block_length, self.window_size)
@@ -433,18 +440,16 @@ class GPTNeoLocalSelfAttention(nn.Module, GPTNeoAttentionMixin):
         key = self._split_heads(key, self.num_heads, self.head_dim)
         value = self._split_heads(value, self.num_heads, self.head_dim)
 
-        mask = self._create_attention_mask(
-            batch_size, full_seq_length, num_blocks, block_length, hidden_states.device, attention_mask
-        )
         if layer_past is not None:
-            mask = mask[:, -1:, :, -1:, :]  # only take the mask for the last block
+            # only take the mask for the last block
+            attention_mask = attention_mask[:, -1:, :, -1:, :]
 
         # attn
         attn_output, attn_weights = self._attn(
             query,
             key,
             value,
-            causal_mask=mask,
+            causal_mask=attention_mask,
             masked_bias=self.masked_bias,
             attn_dropout=self.attn_dropout,
             head_mask=head_mask,
@@ -491,8 +496,8 @@ class GPTNeoAttention(nn.Module):
     ):
         outputs = self.attention(
             hidden_states,
-            layer_past=layer_past,
             attention_mask=attention_mask,
+            layer_past=layer_past,
             head_mask=head_mask,
             use_cache=use_cache,
             output_attentions=output_attentions,
@@ -751,6 +756,8 @@ class GPTNeoModel(GPTNeoPreTrainedModel):
         else:
             raise ValueError("You have to specify either input_ids or inputs_embeds")
 
+        device = input_ids.device if input_ids is not None else inputs_embeds.device
+
         if token_type_ids is not None:
             token_type_ids = token_type_ids.view(-1, input_shape[-1])
         if position_ids is not None:
@@ -761,8 +768,9 @@ class GPTNeoModel(GPTNeoPreTrainedModel):
             past_key_values = tuple([None] * len(self.h))
         else:
             past_length = past_key_values[0][0].size(-2)
+
+        device = input_ids.device if input_ids is not None else inputs_embeds.device
         if position_ids is None:
-            device = input_ids.device if input_ids is not None else inputs_embeds.device
             position_ids = torch.arange(past_length, input_shape[-1] + past_length, dtype=torch.long, device=device)
             position_ids = position_ids.unsqueeze(0).view(-1, input_shape[-1])
 
@@ -787,10 +795,17 @@ class GPTNeoModel(GPTNeoPreTrainedModel):
         else:
             global_attention_mask = None
 
+        # Local causal attention mask
+        batch_size, seq_length = input_shape
+        full_seq_length = seq_length + past_length
+        local_attention_mask = GPTNeoAttentionMixin.create_local_attention_mask(
+            batch_size, full_seq_length, self.config.window_size, device, attention_mask
+        )
+
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head
-        # attention_probs has shape bsz x num_headss x N x N
-        # head_mask has shape n_layer x batch x num_headss x N x N
+        # attention_probs has shape bsz x num_heads x N x N
+        # head_mask has shape n_layer x batch x num_heads x N x N
         head_mask = self.get_head_mask(head_mask, self.config.num_layers)
 
         if inputs_embeds is None:
@@ -811,7 +826,7 @@ class GPTNeoModel(GPTNeoPreTrainedModel):
         all_hidden_states = () if output_hidden_states else None
         for i, (block, layer_past) in enumerate(zip(self.h, past_key_values)):
             attn_type = self.config.attention_layers[i]
-            attn_mask = global_attention_mask if attn_type == "global" else attention_mask
+            attn_mask = global_attention_mask if attn_type == "global" else local_attention_mask
 
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
@@ -819,7 +834,7 @@ class GPTNeoModel(GPTNeoPreTrainedModel):
             if getattr(self.config, "gradient_checkpointing", False) and self.training:
 
                 if use_cache:
-                    logger.warn(
+                    logger.warning(
                         "`use_cache=True` is incompatible with `config.gradient_checkpointing=True`. Setting "
                         "`use_cache=False`..."
                     )
@@ -1011,4 +1026,121 @@ class GPTNeoForCausalLM(GPTNeoPreTrainedModel):
         return tuple(
             tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past)
             for layer_past in past
+        )
+
+
+@add_start_docstrings(
+    """
+    The GPTNeo Model transformer with a sequence classification head on top (linear layer).
+
+    :class:`~transformers.GPTNeoForSequenceClassification` uses the last token in order to do the classification, as
+    other causal models (e.g. GPT-1) do.
+
+    Since it does classification on the last token, it requires to know the position of the last token. If a
+    :obj:`pad_token_id` is defined in the configuration, it finds the last token that is not a padding token in each
+    row. If no :obj:`pad_token_id` is defined, it simply takes the last value in each row of the batch. Since it cannot
+    guess the padding tokens when :obj:`inputs_embeds` are passed instead of :obj:`input_ids`, it does the same (take
+    the last value in each row of the batch).
+    """,
+    GPT_NEO_START_DOCSTRING,
+)
+class GPTNeoForSequenceClassification(GPTNeoPreTrainedModel):
+    _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head\.weight"]
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.num_labels = config.num_labels
+        self.transformer = GPTNeoModel(config)
+        self.score = nn.Linear(config.hidden_size, self.num_labels, bias=False)
+
+        self.init_weights()
+
+    @add_start_docstrings_to_model_forward(GPT_NEO_INPUTS_DOCSTRING)
+    @add_code_sample_docstrings(
+        tokenizer_class=_TOKENIZER_FOR_DOC,
+        checkpoint=_CHECKPOINT_FOR_DOC,
+        output_type=SequenceClassifierOutputWithPast,
+        config_class=_CONFIG_FOR_DOC,
+    )
+    def forward(
+        self,
+        input_ids=None,
+        past_key_values=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        r"""
+        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
+            Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
+            config.num_labels - 1]`. If :obj:`config.num_labels == 1` a regression loss is computed (Mean-Square loss),
+            If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        transformer_outputs = self.transformer(
+            input_ids,
+            past_key_values=past_key_values,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        hidden_states = transformer_outputs[0]
+        logits = self.score(hidden_states)
+
+        if input_ids is not None:
+            batch_size, sequence_length = input_ids.shape[:2]
+        else:
+            batch_size, sequence_length = inputs_embeds.shape[:2]
+
+        assert (
+            self.config.pad_token_id is not None or batch_size == 1
+        ), "Cannot handle batch sizes > 1 if no padding token is defined."
+        if self.config.pad_token_id is None:
+            sequence_lengths = -1
+        else:
+            if input_ids is not None:
+                sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
+            else:
+                sequence_lengths = -1
+                logger.warning(
+                    f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
+                    f"unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                )
+
+        pooled_logits = logits[range(batch_size), sequence_lengths]
+
+        loss = None
+        if labels is not None:
+            if self.num_labels == 1:
+                #  We are doing regression
+                loss_fct = MSELoss()
+                loss = loss_fct(pooled_logits.view(-1), labels.to(self.dtype).view(-1))
+            else:
+                loss_fct = CrossEntropyLoss()
+                loss = loss_fct(pooled_logits.view(-1, self.num_labels), labels.view(-1))
+
+        if not return_dict:
+            output = (pooled_logits,) + transformer_outputs[1:]
+            return ((loss,) + output) if loss is not None else output
+
+        return SequenceClassifierOutputWithPast(
+            loss=loss,
+            logits=pooled_logits,
+            past_key_values=transformer_outputs.past_key_values,
+            hidden_states=transformer_outputs.hidden_states,
+            attentions=transformer_outputs.attentions,
         )

@@ -33,3 +33,9 @@ ModelWithFlexibleHeadsAdaptersMixin
 
 .. autoclass:: transformers.ModelWithFlexibleHeadsAdaptersMixin
     :members:
+
+PushAdapterToHubMixin
+----------------------
+
+.. autoclass:: transformers.adapters.hub_mixin.PushAdapterToHubMixin
+    :members:

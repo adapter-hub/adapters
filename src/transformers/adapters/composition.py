@@ -81,12 +81,19 @@ class Split(AdapterCompositionBlock):
         self.split_index = split_index
 
 
+class BatchSplit(AdapterCompositionBlock):
+    def __init__(self, *split_adapters: List[Union[AdapterCompositionBlock, str]], batch_sizes: Union[List[int], int]):
+        super().__init__(*split_adapters)
+        self.batch_sizes = batch_sizes if isinstance(batch_sizes, list) else [batch_sizes] * len(split_adapters)
+
+
 # Mapping each composition block type to the allowed nested types
 ALLOWED_NESTINGS = {
-    Stack: [str, Fuse, Split, Parallel],
+    Stack: [str, Fuse, Split, Parallel, BatchSplit],
     Fuse: [str, Stack],
-    Split: [str, Split, Stack],
-    Parallel: [str, Stack],
+    Split: [str, Split, Stack, BatchSplit],
+    Parallel: [str, Stack, BatchSplit],
+    BatchSplit: [str, Stack, Split, BatchSplit],
 }
 
 # Some composition blocks might not be supported by all models.

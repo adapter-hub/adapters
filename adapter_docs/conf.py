@@ -15,6 +15,7 @@
 # sys.path.insert(0, os.path.abspath('.'))
 from recommonmark.transform import AutoStructify
 
+
 # -- Project information -----------------------------------------------------
 
 project = 'adapter-transformers'
@@ -30,7 +31,8 @@ author = 'Adapter-Hub Team'
 extensions = [
     'recommonmark',
     'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'sphinx_copybutton',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
