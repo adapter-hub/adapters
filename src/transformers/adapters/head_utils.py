@@ -1,3 +1,4 @@
+import copy
 import logging
 import re
 
@@ -208,8 +209,8 @@ def get_head_config_and_rename_list(model_class_name, head_name, label2id, num_l
     # num_labels is optional (e.g. for regression, when no map given)
     num_labels = num_labels or len(label2id)
     data = STATIC_TO_FLEX_HEAD_MAP[model_class_name]
-    # config
-    config = data["config"]
+    # copy config to keep original mapping untouched
+    config = copy.deepcopy(data["config"])
     if config["head_type"] == "multiple_choice":
         config["num_choices"] = num_labels
     else:

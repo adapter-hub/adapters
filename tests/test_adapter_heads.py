@@ -204,6 +204,9 @@ class PredictionHeadModelTestMixin:
 
             loading_info = {}
             flex_head_model.load_adapter(temp_dir, loading_info=loading_info)
+
+            # Load the adapter a second time to make sure our conversion script doesn't break anything
+            flex_head_model.load_adapter(temp_dir, loading_info=loading_info)
         self.assertEqual(0, len(loading_info["missing_keys"]))
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
