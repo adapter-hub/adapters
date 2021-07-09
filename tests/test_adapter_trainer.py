@@ -57,6 +57,8 @@ class TestAdapterTrainer(unittest.TestCase):
             model=model_resume,
             args=TrainingArguments(do_train=True, max_steps=1, output_dir="./examples"),
             train_dataset=train_dataset,
+            do_save_adapters=True,
+            do_save_full_model=False,
         )
         trainer_resume.train(resume_from_checkpoint=True)
 
@@ -68,12 +70,6 @@ class TestAdapterTrainer(unittest.TestCase):
                 self.assertTrue(torch.equal(v1, v2), k1)
 
     def test_resume_training_with_fusion(self):
-        def encode_batch(batch):
-            """Encodes a batch of input data using the model tokenizer."""
-            return tokenizer(
-                batch["sentence1"], batch["sentence2"], max_length=80, truncation=True, padding="max_length"
-            )
-
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         data_args = GlueDataTrainingArguments(
             task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
@@ -83,7 +79,7 @@ class TestAdapterTrainer(unittest.TestCase):
         model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
         model.add_adapter("adapter")
         model.add_adapter("additional_adapter")
-        model.add_fusion(Fuse("adapter", "additional_adapter"))
+        model.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
         model.set_active_adapters(Fuse("adapter", "additional_adapter"))
 
         training_args = TrainingArguments(
@@ -108,12 +104,14 @@ class TestAdapterTrainer(unittest.TestCase):
         model_resume = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
         model_resume.add_adapter("adapter")
         model_resume.add_adapter("additional_adapter")
-        model_resume.add_fusion(Fuse("adapter", "additional_adapter"))
+        model_resume.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
         model_resume.set_active_adapters(Fuse("adapter", "additional_adapter"))
         trainer_resume = Trainer(
             model=model_resume,
             args=TrainingArguments(do_train=True, max_steps=1, output_dir="./examples"),
             train_dataset=train_dataset,
+            do_save_full_model=False,
+            do_save_adapters=True,
         )
         trainer_resume.train(resume_from_checkpoint=True)
 

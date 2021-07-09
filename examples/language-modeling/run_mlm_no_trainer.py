@@ -48,9 +48,11 @@ from transformers import (
     get_scheduler,
     set_seed,
 )
+from transformers.utils.versions import require_version
 
 
 logger = logging.getLogger(__name__)
+require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/language-modeling/requirements.txt")
 MODEL_CONFIG_CLASSES = list(MODEL_MAPPING.keys())
 MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
@@ -308,14 +310,14 @@ def main():
     if args.max_seq_length is None:
         max_seq_length = tokenizer.model_max_length
         if max_seq_length > 1024:
-            logger.warn(
+            logger.warning(
                 f"The tokenizer picked seems to have a very large `model_max_length` ({tokenizer.model_max_length}). "
                 "Picking 1024 instead. You can change that default value by passing --max_seq_length xxx."
             )
             max_seq_length = 1024
     else:
         if args.max_seq_length > tokenizer.model_max_length:
-            logger.warn(
+            logger.warning(
                 f"The max_seq_length passed ({args.max_seq_length}) is larger than the maximum length for the"
                 f"model ({tokenizer.model_max_length}). Using max_seq_length={tokenizer.model_max_length}."
             )
@@ -327,9 +329,11 @@ def main():
 
         def tokenize_function(examples):
             # Remove empty lines
-            examples["text"] = [line for line in examples["text"] if len(line) > 0 and not line.isspace()]
+            examples[text_column_name] = [
+                line for line in examples[text_column_name] if len(line) > 0 and not line.isspace()
+            ]
             return tokenizer(
-                examples["text"],
+                examples[text_column_name],
                 padding=padding,
                 truncation=True,
                 max_length=max_seq_length,
@@ -344,6 +348,7 @@ def main():
             num_proc=args.preprocessing_num_workers,
             remove_columns=[text_column_name],
             load_from_cache_file=not args.overwrite_cache,
+            desc="Running tokenizer on dataset line_by_line",
         )
     else:
         # Otherwise, we tokenize every text, then concatenate them together before splitting them in smaller parts.
@@ -358,6 +363,7 @@ def main():
             num_proc=args.preprocessing_num_workers,
             remove_columns=column_names,
             load_from_cache_file=not args.overwrite_cache,
+            desc="Running tokenizer on every text in dataset",
         )
 
         # Main data processing function that will concatenate all texts from our dataset and generate chunks of
@@ -388,6 +394,7 @@ def main():
             batched=True,
             num_proc=args.preprocessing_num_workers,
             load_from_cache_file=not args.overwrite_cache,
+            desc=f"Grouping texts in chunks of {max_seq_length}",
         )
 
     train_dataset = tokenized_datasets["train"]
@@ -486,7 +493,10 @@ def main():
 
         losses = torch.cat(losses)
         losses = losses[: len(eval_dataset)]
-        perplexity = math.exp(torch.mean(losses))
+        try:
+            perplexity = math.exp(torch.mean(losses))
+        except OverflowError:
+            perplexity = float("inf")
 
         logger.info(f"epoch {epoch}: perplexity: {perplexity}")
 

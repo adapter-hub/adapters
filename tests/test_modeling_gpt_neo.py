@@ -34,9 +34,10 @@ if is_torch_available():
         GPT2Tokenizer,
         GPTNeoConfig,
         GPTNeoForCausalLM,
+        GPTNeoForSequenceClassification,
         GPTNeoModel,
     )
-    from transformers.models.gpt_neo.modeling_gpt_neo import GPTNeoAttentionMixin, GPTNeoLocalSelfAttention
+    from transformers.models.gpt_neo.modeling_gpt_neo import GPTNeoAttentionMixin
 
 
 class GPTNeoModelTester:
@@ -238,6 +239,16 @@ class GPTNeoModelTester:
         self.parent.assertEqual(result.loss.shape, ())
         self.parent.assertEqual(result.logits.shape, (self.batch_size, self.seq_length, self.vocab_size))
 
+    def create_and_check_gpt_neo_for_sequence_classification(
+        self, config, input_ids, input_mask, head_mask, token_type_ids, mc_token_ids, sequence_labels, *args
+    ):
+        config.num_labels = self.num_labels
+        model = GPTNeoForSequenceClassification(config)
+        model.to(torch_device)
+        model.eval()
+        result = model(input_ids, attention_mask=input_mask, token_type_ids=token_type_ids, labels=sequence_labels)
+        self.parent.assertEqual(result.logits.shape, (self.batch_size, self.num_labels))
+
     def create_and_check_forward_and_backwards(self, config, input_ids, input_mask, head_mask, token_type_ids, *args):
         model = GPTNeoForCausalLM(config)
         model.to(torch_device)
@@ -274,8 +285,11 @@ class GPTNeoModelTester:
 @require_torch
 class GPTNeoModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
 
-    all_model_classes = (GPTNeoModel, GPTNeoForCausalLM) if is_torch_available() else ()
+    all_model_classes = (
+        (GPTNeoModel, GPTNeoForCausalLM, GPTNeoForSequenceClassification) if is_torch_available() else ()
+    )
     all_generative_model_classes = (GPTNeoForCausalLM,) if is_torch_available() else ()
+    fx_ready_model_classes = all_model_classes
     test_missing_keys = False
     test_pruning = False
     test_model_parallel = False
@@ -303,6 +317,10 @@ class GPTNeoModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase
     def test_gpt_neo_lm_head_model(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_lm_head_model(*config_and_inputs)
+
+    def test_gpt_neo_sequence_classification_model(self):
+        config_and_inputs = self.model_tester.prepare_config_and_inputs()
+        self.model_tester.create_and_check_gpt_neo_for_sequence_classification(*config_and_inputs)
 
     def test_gpt_neo_gradient_checkpointing(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs(gradient_checkpointing=True)
@@ -497,12 +515,14 @@ class GPTNeoLocalAttentionTest(unittest.TestCase):
 
     def test_create_attention_mask(self):
         config = GPTNeoConfig.from_pretrained("valhalla/gpt-neo-random-tiny")
-        layer = GPTNeoLocalSelfAttention(config)
         window_size = config.window_size
         batch_size, seq_length = 8, 1
         block_length, num_blocks = GPTNeoAttentionMixin._get_block_length_and_num_blocks(seq_length, window_size)
 
-        causal_mask = layer._create_attention_mask(batch_size, seq_length, num_blocks, block_length, torch_device)
+        # causal_mask = layer._create_attention_mask(batch_size, seq_length, num_blocks, block_length, torch_device)
+        causal_mask = GPTNeoAttentionMixin.create_local_attention_mask(
+            batch_size, seq_length, config.window_size, torch_device
+        )
         # check shapes
         expected_shape = [batch_size, num_blocks, 1, block_length, window_size + block_length]
         self.assertListEqual(list(causal_mask.shape), expected_shape)
@@ -516,8 +536,11 @@ class GPTNeoLocalAttentionTest(unittest.TestCase):
         attention_mask = torch.ones(batch_size, seq_length, dtype=torch.long, device=torch_device)
         attention_mask[:, -3:] = 0  # don't attend last 3 tokens
 
-        causal_mask = layer._create_attention_mask(
-            batch_size, seq_length, num_blocks, block_length, torch_device, attention_mask
+        # causal_mask = layer._create_attention_mask(
+        # batch_size, seq_length, num_blocks, block_length, torch_device, attention_mask
+        # )
+        causal_mask = GPTNeoAttentionMixin.create_local_attention_mask(
+            batch_size, seq_length, config.window_size, torch_device, attention_mask
         )
         # last 3 tokens will be in the last block and shoul have 0s in causal_mask
         self.assertTrue(torch.all(causal_mask[:, -1, :, :, -3:] == 0))
@@ -539,8 +562,11 @@ class GPTNeoLocalAttentionTest(unittest.TestCase):
         mask_tokens = 3
         attention_mask = torch.ones(batch_size, seq_length, device=torch_device, dtype=torch.long)
         attention_mask[:, -mask_tokens:] = 0  # dont atten last mask_tokens
+        local_causal_mask = GPTNeoAttentionMixin.create_local_attention_mask(
+            batch_size, seq_length, model.config.window_size, torch_device, attention_mask
+        )
 
-        _, attn_probs = layer(hidden_states, attention_mask=attention_mask, output_attentions=True)
+        _, attn_probs = layer(hidden_states, attention_mask=local_causal_mask, output_attentions=True)
 
         # the last 3 tokens will be in the last block, and should have 0 attn_probs
         self.assertTrue(torch.all(attn_probs[:, -1, :, -mask_tokens:, -mask_tokens:] == 0))

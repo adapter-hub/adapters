@@ -13,6 +13,7 @@ from .test_adapter_training import AdapterTrainingTestMixin
 def make_config(config_class, **kwargs):
     return staticmethod(lambda: config_class(**kwargs))
 
+
 @require_torch
 class BertAdapterTest(
     AdapterModelTestMixin,

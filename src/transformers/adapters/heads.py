@@ -15,7 +15,7 @@ from ..modeling_outputs import (
     SequenceClassifierOutput,
     TokenClassifierOutput,
 )
-from .composition import AdapterCompositionBlock, Parallel, Stack
+from .composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack
 from .model_mixin import ModelWithHeadsAdaptersMixin
 from .modeling import Activation_Function_Class
 
@@ -33,19 +33,20 @@ class PredictionHead(nn.Sequential):
     def build(self, model):
         model_config = model.config
         pred_head = []
+        bias = self.config.get("bias", True)
         for l in range(self.config["layers"]):
             pred_head.append(nn.Dropout(model_config.hidden_dropout_prob))
             if l < self.config["layers"] - 1:
-                pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
+                pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size, bias=bias))
                 if self.config["activation_function"]:
                     pred_head.append(Activation_Function_Class(self.config["activation_function"]))
             else:
                 if "num_labels" in self.config:
-                    pred_head.append(nn.Linear(model_config.hidden_size, self.config["num_labels"]))
+                    pred_head.append(nn.Linear(model_config.hidden_size, self.config["num_labels"], bias=bias))
                 elif "num_choices" in self.config:  # used for multiple_choice head
-                    pred_head.append(nn.Linear(model_config.hidden_size, 1))
+                    pred_head.append(nn.Linear(model_config.hidden_size, 1, bias=bias))
                 else:
-                    pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
+                    pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size, bias=bias))
                     if self.config["activation_function"]:
                         pred_head.append(Activation_Function_Class(self.config["activation_function"]))
         for i, module in enumerate(pred_head):
@@ -64,6 +65,8 @@ class ClassificationHead(PredictionHead):
         layers=2,
         activation_function="tanh",
         id2label=None,
+        use_pooler=False,
+        bias=True,
     ):
         super().__init__(head_name)
         self.config = {
@@ -71,12 +74,18 @@ class ClassificationHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
+            "use_pooler": use_pooler,
+            "bias": bias,
         }
         self.build(model)
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
-        cls_output = cls_output if cls_output is not None else outputs[0][:, 0]
+        if cls_output is None:
+            if self.config["use_pooler"]:
+                cls_output = kwargs.pop("pooled_output")
+            else:
+                cls_output = outputs[0][:, 0]
         logits = super().forward(cls_output)
         loss = None
         labels = kwargs.pop("labels", None)
@@ -125,6 +134,8 @@ class MultiLabelClassificationHead(PredictionHead):
         layers=2,
         activation_function="tanh",
         id2label=None,
+        use_pooler=False,
+        bias=True,
     ):
         super().__init__(head_name)
         self.config = {
@@ -132,12 +143,18 @@ class MultiLabelClassificationHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
+            "use_pooler": use_pooler,
+            "bias": bias,
         }
         self.build(model)
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
-        cls_output = cls_output if cls_output is not None else outputs[0][:, 0]
+        if cls_output is None:
+            if self.config["use_pooler"]:
+                cls_output = kwargs.pop("pooled_output")
+            else:
+                cls_output = outputs[0][:, 0]
         logits = super().forward(cls_output)
         loss = None
         labels = kwargs.pop("labels", None)
@@ -183,6 +200,7 @@ class MultipleChoiceHead(PredictionHead):
         layers=2,
         activation_function="tanh",
         id2label=None,
+        use_pooler=False,
     ):
         super().__init__(head_name)
         self.config = {
@@ -190,12 +208,17 @@ class MultipleChoiceHead(PredictionHead):
             "num_choices": num_choices,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
+            "use_pooler": use_pooler,
         }
         self.build(model)
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=None, **kwargs):
-        cls_output = cls_output if cls_output is not None else outputs[0][:, 0]
+        if cls_output is None:
+            if self.config["use_pooler"]:
+                cls_output = kwargs.pop("pooled_output")
+            else:
+                cls_output = outputs[0][:, 0]
         logits = super().forward(cls_output)
         logits = logits.view(-1, self.config["num_choices"])
         loss = None
@@ -234,7 +257,7 @@ class TaggingHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
         }
         self.build(model)
 
@@ -286,7 +309,7 @@ class QuestionAnsweringHead(PredictionHead):
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
-            "label2id": {label: id_ for id_, label in id2label.items()} if id2label else None,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
         }
         self.build(model)
 
@@ -356,6 +379,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._convert_to_flex_head = True
         if not hasattr(self.config, "custom_heads"):
             self.config.custom_heads = {}
         self._active_heads = []
@@ -373,9 +397,9 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         head_type = config.pop("head_type")
         # handle cases when id2label, label2id or both are available
         id2label = config.pop("id2label", None)
-        if not id2label:
+        if id2label is None:
             label2id = config.pop("label2id", None)
-            if label2id:
+            if label2id is not None:
                 id2label = {id_: label for label, id_ in label2id.items()}
         else:
             # don't pass label2id to head_class
@@ -422,7 +446,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             return self._active_heads
 
     @active_head.setter
-    def active_head(self, head_name_or_list: Union[str, List[str]]):
+    def active_head(self, head_name_or_list: Union[str, List[str], AdapterCompositionBlock]):
         if isinstance(head_name_or_list, str):
             if head_name_or_list and head_name_or_list not in self.heads:
                 raise ValueError(f"Model does not contain a head with name '{head_name_or_list}'.")
@@ -457,7 +481,19 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if isinstance(final_block, str) and final_block in self.heads:
                 self.active_head = final_block
             elif isinstance(final_block, Parallel):
-                self.active_head = [a if isinstance(a, str) else a.last for a in final_block.children]
+                self.active_head = [a if isinstance(a, str) else a.last() for a in final_block.children]
+            elif isinstance(final_block, BatchSplit):
+                # Convert BatchSplit of adapters to a BatchSplit of heads.
+                blocks = [
+                    block.last() if isinstance(block, AdapterCompositionBlock) else block for block in final_block
+                ]
+                head_setup = BatchSplit(*blocks, batch_sizes=final_block.batch_sizes)
+                if all(head in self.heads for head in head_setup):
+                    self.active_head = head_setup
+                else:
+                    raise ValueError(
+                        "Missing at least one head for the given BatchSplit setup. Expected heads: {}".format(blocks)
+                    )
             else:
                 logger.info("Could not identify '{}' as a valid prediction head.".format(final_block))
 
@@ -496,6 +532,21 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 f"Model already contains a head with name '{head.name}'. Use overwrite_ok=True to force overwrite."
             )
 
+    def delete_head(self, head_name: str):
+        """
+        Deletes the prediction head with the specified name from the model.
+
+        Args:
+            head_name (str): The name of the prediction to delete.
+        """
+        if head_name not in self.config.prediction_heads:
+            logger.info("No prediction head '%s' found for deletion. Skipping.", head_name)
+            return
+        del self.config.prediction_heads[head_name]
+        del self.heads[head_name]
+        if self.active_head == head_name:
+            self.active_head = None
+
     def forward_head(
         self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
     ):
@@ -505,32 +556,51 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             return all_outputs
         used_heads = [head_name] if head_name else self._active_heads
 
+        def _get_head_input(outputs, cls_out, batch):
+            # TODO-AH check possible edge cases here
+            if isinstance(outputs, ModelOutput):
+                inputs = {}
+                for key, base_output in outputs.items():
+                    inputs[key] = base_output[batch[0] : batch[-1] + 1]
+                inputs = outputs.__class__(**inputs)
+            else:
+                inputs = tuple()
+                for base_output in outputs:
+                    inputs = inputs + (base_output[batch],)
+            if cls_out is not None:
+                cls_input = cls_out[batch]
+            else:
+                cls_input = None
+            return inputs, cls_input
+
         for head in used_heads:
             if head not in self.heads:
                 raise ValueError("Unknown head_name '{}'".format(head))
-
-        if self.has_parallel_adapters:
-            if len(used_heads) != self.config.adapters.active_setup.parallel_channels:
+        if isinstance(self.active_head, BatchSplit):
+            if sum(self.active_head.batch_sizes) != all_outputs[0].size()[0]:
+                raise ValueError(
+                    "The specified batch sizes {} do not match the actual batch size {}".format(
+                        self.active_head.batch_sizes, all_outputs[0].size()[0]
+                    )
+                )
+            head_outputs = []
+            for i, head in enumerate(self.active_head):
+                head_module = self.heads[head]
+                batch_idx = range(sum(self.active_head.batch_sizes[:i]), sum(self.active_head.batch_sizes[: i + 1]))
+                head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
+                # head_attention = attention_mask[batch_idx] if attention_mask is not None else None
+                head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
+                head_outputs.append(head_output)
+            return head_outputs
+        elif self.has_parallel_adapters or isinstance(self.active_head, Parallel):
+            if len(self.active_head) != self.config.adapters.active_setup.parallel_channels:
                 raise ValueError("The number of parallel adapters and the number of active heads must match.")
             orig_batch_size = all_outputs[0].shape[0] // self.config.adapters.active_setup.parallel_channels
             head_outputs = []
-            for i, head in enumerate(used_heads):
+            for i, head in enumerate(self.active_head):
                 head_module = self.heads[head]
-                # TODO-AH check possible edge cases here
-                if isinstance(all_outputs, ModelOutput):
-                    # rebuild the model output object from the split output
-                    head_inputs = {}
-                    for key, base_output in all_outputs.items():
-                        head_inputs[key] = base_output[i * orig_batch_size : (i + 1) * orig_batch_size]
-                    head_inputs = all_outputs.__class__(**head_inputs)
-                else:
-                    head_inputs = tuple()
-                    for base_output in all_outputs:
-                        head_inputs = head_inputs + (base_output[i * orig_batch_size : (i + 1) * orig_batch_size],)
-                if cls_output is not None:
-                    head_cls_input = cls_output[i * orig_batch_size : (i + 1) * orig_batch_size]
-                else:
-                    head_cls_input = None
+                batch_idx = range(i * orig_batch_size, (i + 1) * orig_batch_size)
+                head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
             return head_outputs

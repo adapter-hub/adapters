@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Fine-tuning the library models for causal language modeling (BERT, ALBERT, RoBERTa...)
+Fine-tuning the library models for causal language modeling (GPT, GPT-2, CTRL, ...)
 on a text file or a dataset without using HuggingFace Trainer.
 
 Here is the full list of checkpoints on the hub that can be fine-tuned by this script:
@@ -48,9 +48,13 @@ from transformers import (
     get_scheduler,
     set_seed,
 )
+from transformers.utils.versions import require_version
 
 
 logger = logging.getLogger(__name__)
+
+require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/language-modeling/requirements.txt")
+
 MODEL_CONFIG_CLASSES = list(MODEL_MAPPING.keys())
 MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
@@ -300,19 +304,20 @@ def main():
         num_proc=args.preprocessing_num_workers,
         remove_columns=column_names,
         load_from_cache_file=not args.overwrite_cache,
+        desc="Running tokenizer on dataset",
     )
 
     if args.block_size is None:
         block_size = tokenizer.model_max_length
         if block_size > 1024:
-            logger.warn(
+            logger.warning(
                 f"The tokenizer picked seems to have a very large `model_max_length` ({tokenizer.model_max_length}). "
                 "Picking 1024 instead. You can change that default value by passing --block_size xxx."
             )
         block_size = 1024
     else:
         if args.block_size > tokenizer.model_max_length:
-            logger.warn(
+            logger.warning(
                 f"The block_size passed ({args.block_size}) is larger than the maximum length for the model"
                 f"({tokenizer.model_max_length}). Using block_size={tokenizer.model_max_length}."
             )
@@ -346,6 +351,7 @@ def main():
         batched=True,
         num_proc=args.preprocessing_num_workers,
         load_from_cache_file=not args.overwrite_cache,
+        desc=f"Grouping texts in chunks of {block_size}",
     )
 
     train_dataset = lm_datasets["train"]
@@ -442,7 +448,10 @@ def main():
 
         losses = torch.cat(losses)
         losses = losses[: len(eval_dataset)]
-        perplexity = math.exp(torch.mean(losses))
+        try:
+            perplexity = math.exp(torch.mean(losses))
+        except OverflowError:
+            perplexity = float("inf")
 
         logger.info(f"epoch {epoch}: perplexity: {perplexity}")
 
