@@ -26,7 +26,7 @@ class BartSelfAttentionAdaptersModule(AdapterLayerBaseMixin, nn.Module):
         return "mh_adapter"
 
     @property
-    def layer_norm(self):
+    def transformer_layer_norm(self):
         # MBart has layer norms before each component
         if self.config.model_type == "mbart":
             return None
@@ -46,7 +46,7 @@ class BartCrossAttentionAdaptersModule(AdapterLayerBaseMixin, nn.Module):
         return "cross_adapter"
 
     @property
-    def layer_norm(self):
+    def transformer_layer_norm(self):
         # MBart has layer norms before each component
         if self.config.model_type == "mbart":
             return None
@@ -66,7 +66,7 @@ class BartOutputAdaptersModule(AdapterLayerBaseMixin, nn.Module):
         return "output_adapter"
 
     @property
-    def layer_norm(self):
+    def transformer_layer_norm(self):
         # MBart has layer norms before each component
         if self.config.model_type == "mbart":
             return None

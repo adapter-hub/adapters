@@ -16,7 +16,7 @@ class AdapterLayerBaseMixin(ABC):
 
     # override this property if layer norm has a different name
     @property
-    def layer_norm(self):
+    def transformer_layer_norm(self):
         return self.LayerNorm
 
     @property
@@ -135,8 +135,8 @@ class AdapterLayerBaseMixin(ABC):
             query = hidden_states
 
         if adapter_config["original_ln_before"]:
-            if self.layer_norm:
-                hidden_states = self.layer_norm(hidden_states + input_tensor)
+            if self.transformer_layer_norm:
+                hidden_states = self.transformer_layer_norm(hidden_states + input_tensor)
             else:
                 hidden_states = hidden_states + input_tensor
 
@@ -455,13 +455,13 @@ class AdapterLayerBaseMixin(ABC):
 
             last_config = self.config.adapters.get(adapter_setup.last())
             if last_config["original_ln_after"]:
-                if self.layer_norm:
-                    hidden_states = self.layer_norm(hidden_states + input_tensor)
+                if self.transformer_layer_norm:
+                    hidden_states = self.transformer_layer_norm(hidden_states + input_tensor)
                 else:
                     hidden_states = hidden_states + input_tensor
 
-        elif self.layer_norm:
-            hidden_states = self.layer_norm(hidden_states + input_tensor)
+        elif self.transformer_layer_norm:
+            hidden_states = self.transformer_layer_norm(hidden_states + input_tensor)
         else:
             hidden_states = hidden_states + input_tensor
 
