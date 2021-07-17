@@ -4,18 +4,19 @@ import sys
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
-from modeling_biaffine import BertForBiaffineParsing
+from datasets import load_dataset
+
+import transformers.adapters.composition as AC
+from preprocessing import preprocess_dataset
 from transformers import (
-    AdapterArguments,
     AdapterConfig,
-    AdapterType,
     AutoConfig,
+    AutoModelWithHeads,
     AutoTokenizer,
     HfArgumentParser,
+    MultiLingAdapterArguments,
     set_seed,
-    setup_task_adapter_training,
 )
-from ud_dataset import Split, UDDataset
 from utils_udp import UD_HEAD_LABELS, DependencyParsingTrainer, UDTrainingArguments
 
 
@@ -63,7 +64,7 @@ class DataTrainingArguments:
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
 
-    data_dir: str = field(metadata={"help": "Path to train, dev, and test data files."})
+    task_name: str = field(metadata={"help": "The identifier of the Universal Dependencies dataset to train on."})
     max_seq_length: int = field(
         default=128,
         metadata={
@@ -80,7 +81,7 @@ def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, UDTrainingArguments, AdapterArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, UDTrainingArguments, MultiLingAdapterArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -147,15 +148,18 @@ def main():
         else None,
     )
 
-    model = BertForBiaffineParsing.from_pretrained(
+    # The task name (with prefix)
+    task_name = "ud_" + data_args.task_name
+    language = adapter_args.language
+
+    model = AutoModelWithHeads.from_pretrained(
         model_args.model_name_or_path, config=config, cache_dir=model_args.cache_dir,
     )
-
-    # Setup adapters
-    task_name = "udp"
-    language = adapter_args.language
-    if model_args.replace_embeddings:
-        model.resize_token_embeddings(len(tokenizer))
+    model.add_dependency_parsing_head(
+        task_name,
+        num_labels=num_labels,
+        id2label=label_map,
+    )
 
     if model_args.leave_out_twelvth:
         logger.info("Leaving out 12")
@@ -163,60 +167,73 @@ def main():
     else:
         leave_out = []
 
-    setup_task_adapter_training(
-        model, task_name, adapter_args, leave_out=leave_out, with_embeddings=model_args.replace_embeddings
-    )
-    if model_args.leave_out_twelvth:
-        if language in model.base_model.encoder.layer._modules["11"].output.layer_text_lang_adapters:
-            del model.base_model.encoder.layer._modules["11"].output.layer_text_lang_adapters[language]
-            logger.info("Deleted language adapter " + language + " in layer 12")
-        if language in model.base_model.encoder.layer._modules["11"].attention.output.attention_text_lang_adapters:
-            del model.base_model.encoder.layer._modules["11"].attention.output.attention_text_lang_adapters[language]
-            logger.info("Deleted language adapter " + language + " in layer 12")
-
+    # Setup adapters
     if adapter_args.train_adapter:
-        if language:
-            adapter_names = [[language], [task_name]]
+        # check if adapter already exists, otherwise add it
+        if task_name not in model.config.adapters:
+            # resolve the adapter config
+            adapter_config = AdapterConfig.load(
+                adapter_args.adapter_config,
+                non_linearity=adapter_args.adapter_non_linearity,
+                reduction_factor=adapter_args.adapter_reduction_factor,
+                leave_out=leave_out,
+            )
+            # load a pre-trained from Hub if specified
+            if adapter_args.load_adapter:
+                model.load_adapter(
+                    adapter_args.load_adapter,
+                    config=adapter_config,
+                    load_as=task_name,
+                    leave_out=leave_out,
+                )
+            # otherwise, add a fresh adapter
+            else:
+                model.add_adapter(task_name, config=adapter_config)
+        # optionally load a pre-trained language adapter
+        if adapter_args.load_lang_adapter:
+            # resolve the language adapter config
+            lang_adapter_config = AdapterConfig.load(
+                adapter_args.lang_adapter_config,
+                non_linearity=adapter_args.lang_adapter_non_linearity,
+                reduction_factor=adapter_args.lang_adapter_reduction_factor,
+                leave_out=leave_out,
+            )
+            # load the language adapter from Hub
+            lang_adapter_name = model.load_adapter(
+                adapter_args.load_lang_adapter,
+                config=lang_adapter_config,
+                load_as=adapter_args.language,
+                leave_out=leave_out,
+            )
         else:
-            adapter_names = [[task_name]]
+            lang_adapter_name = None
+        # Freeze all model weights except of those of this adapter
+        model.train_adapter([task_name])
+        # Set the adapters to be used in every forward pass
+        if lang_adapter_name:
+            model.set_active_adapters(AC.Stack(lang_adapter_name, task_name))
+        else:
+            model.set_active_adapters(task_name)
     else:
-        adapter_names = None
+        if adapter_args.load_adapter or adapter_args.load_lang_adapter:
+            raise ValueError(
+                "Adapters can only be loaded in adapters training mode."
+                "Use --train_adapter to enable adapter training"
+            )
 
-    train_dataset = (
-        UDDataset(
-            data_dir=data_args.data_dir,
-            tokenizer=tokenizer,
-            labels=labels,
-            max_seq_length=data_args.max_seq_length,
-            overwrite_cache=data_args.overwrite_cache,
-            mode=Split.train,
-        )
-        if training_args.do_train
-        else None
-    )
-
-    eval_dataset = (
-        UDDataset(
-            data_dir=data_args.data_dir,
-            tokenizer=tokenizer,
-            labels=labels,
-            max_seq_length=data_args.max_seq_length,
-            overwrite_cache=data_args.overwrite_cache,
-            mode=Split.dev,
-        )
-        if training_args.do_eval
-        else None
-    )
+    # Load and preprocess dataset
+    dataset = load_dataset("universal_dependencies", data_args.task_name)
+    dataset = preprocess_dataset(dataset, tokenizer, labels, data_args, pad_token_id=-1)
 
     # Initialize our Trainer
+    training_args.remove_unused_columns = False
     trainer = DependencyParsingTrainer(
         model=model,
         args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
+        train_dataset=dataset["train"],
+        eval_dataset=dataset["validation"],
         do_save_full_model=not adapter_args.train_adapter,
         do_save_adapters=adapter_args.train_adapter,
-        adapter_names=adapter_names,
     )
 
     # Training
@@ -227,7 +244,7 @@ def main():
         trainer.save_model()
         # For convenience, we also re-save the tokenizer to the same directory,
         # so that you can share your model easily on huggingface.co/models =)
-        if trainer.is_world_master():
+        if trainer.is_world_process_zero():
             tokenizer.save_pretrained(training_args.output_dir)
 
     # Evaluation
@@ -238,7 +255,7 @@ def main():
         result = trainer.evaluate()
 
         output_eval_file = os.path.join(training_args.output_dir, "eval_results.txt")
-        if trainer.is_world_master():
+        if trainer.is_world_process_zero():
             with open(output_eval_file, "w") as writer:
                 logger.info("***** Eval results *****")
                 for key, value in result.items():
@@ -249,15 +266,6 @@ def main():
 
     # Predict
     if training_args.do_predict:
-        test_dataset = UDDataset(
-            data_dir=data_args.data_dir,
-            tokenizer=tokenizer,
-            labels=labels,
-            max_seq_length=data_args.max_seq_length,
-            overwrite_cache=data_args.overwrite_cache,
-            mode=Split.test,
-        )
-
         logging.info("*** Test ***")
 
         if training_args.store_best_model:
@@ -272,9 +280,9 @@ def main():
                         os.path.join(training_args.output_dir, "best_model", language)
                         if training_args.do_train
                         else adapter_args.load_lang_adapter,
-                        AdapterType.text_lang,
                         config=lang_adapter_config,
                         load_as=language,
+                        leave_out=leave_out,
                     )
                 task_adapter_config = AdapterConfig.load(
                     config="pfeiffer", non_linearity="gelu", reduction_factor=16, leave_out=leave_out
@@ -282,40 +290,28 @@ def main():
                 model.load_adapter(
                     os.path.join(training_args.output_dir, "best_model", task_name)
                     if training_args.do_train
-                    else adapter_args.load_task_adapter,
-                    AdapterType.text_task,
+                    else adapter_args.load_adapter,
                     config=task_adapter_config,
                     load_as=task_name,
+                    leave_out=leave_out,
                 )
-                if model_args.leave_out_twelvth:
-                    if language in model.base_model.encoder.layer._modules["11"].output.layer_text_lang_adapters:
-                        del model.base_model.encoder.layer._modules["11"].output.layer_text_lang_adapters[language]
-                        logger.info("Deleted language adapter " + language + " in layer 12")
-                    if (
-                        language
-                        in model.base_model.encoder.layer._modules["11"].attention.output.attention_text_lang_adapters
-                    ):
-                        del model.base_model.encoder.layer._modules[
-                            "11"
-                        ].attention.output.attention_text_lang_adapters[language]
-                        logger.info("Deleted language adapter " + language + " in layer 12")
-
                 if language:
-                    adapter_names = [[language], [task_name]]
+                    model.set_active_adapters(AC.Stack(lang_adapter_name, task_name))
                 else:
-                    adapter_names = [[task_name]]
+                    model.set_active_adapters(task_name)
+                model.to(training_args.device)
             else:
-                trainer.model = BertForBiaffineParsing.from_pretrained(
+                trainer.model = AutoModelWithHeads.from_pretrained(
                     os.path.join(training_args.output_dir, "best_model"),
                     from_tf=bool(".ckpt" in model_args.model_name_or_path),
                     config=config,
                     cache_dir=model_args.cache_dir,
                 ).to(training_args.device)
 
-        predictions, _, metrics = trainer.predict(test_dataset)
+        predictions, _, metrics = trainer.predict(dataset["test"])
 
         output_test_results_file = os.path.join(training_args.output_dir, "test_results.txt")
-        if trainer.is_world_master():
+        if trainer.is_world_process_zero():
             with open(output_test_results_file, "w") as writer:
                 for key, value in metrics.items():
                     logger.info("  %s = %s", key, value)

@@ -1,24 +1,31 @@
+import collections
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Dataset
-from torch.utils.tensorboard import SummaryWriter
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
-from transformers import DataCollator, EvalPrediction, PreTrainedModel, Trainer, TrainingArguments
+from transformers import (
+    DataCollator,
+    EvalPrediction,
+    PreTrainedModel,
+    PreTrainedTokenizerBase,
+    Trainer,
+    TrainerCallback,
+    TrainingArguments,
+    is_torch_tpu_available,
+)
 from transformers.trainer_utils import PredictionOutput
-from transformers.training_args import is_tpu_available
 
 
-if is_tpu_available():
+if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
     import torch_xla.debug.metrics as met
-    import torch_xla.distributed.parallel_loader as pl
 
 logger = logging.getLogger(__name__)
 
@@ -163,23 +170,23 @@ class ParsingMetric(Metric):
 
 
 class DependencyParsingTrainer(Trainer):
-    args: UDTrainingArguments
-
     def __init__(
         self,
-        model: PreTrainedModel,
-        args: UDTrainingArguments,
+        model: Union[PreTrainedModel, torch.nn.Module] = None,
+        args: UDTrainingArguments = None,
         data_collator: Optional[DataCollator] = None,
         train_dataset: Optional[Dataset] = None,
         eval_dataset: Optional[Dataset] = None,
+        tokenizer: Optional["PreTrainedTokenizerBase"] = None,
+        model_init: Callable[[], PreTrainedModel] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
-        prediction_loss_only=False,
+        callbacks: Optional[List[TrainerCallback]] = None,
         do_save_full_model: bool = True,
         do_save_adapters: bool = False,
         do_save_adapter_fusion: bool = False,
         adapter_names: Optional[List[List[str]]] = None,
-        tb_writer: Optional["SummaryWriter"] = None,
-        optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = None,
+        optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
+        **kwargs,
     ):
         super().__init__(
             model,
@@ -187,16 +194,17 @@ class DependencyParsingTrainer(Trainer):
             data_collator,
             train_dataset,
             eval_dataset,
+            tokenizer,
+            model_init,
             compute_metrics,
-            prediction_loss_only,
+            callbacks,
             do_save_full_model,
             do_save_adapters,
             do_save_adapter_fusion,
             adapter_names,
-            tb_writer,
             optimizers,
+            **kwargs,
         )
-        # for finding the best model.
         # assumes higher is better
         self.best_score = 0.0
         # torch.autograd.set_detect_anomaly(True)
@@ -225,13 +233,56 @@ class DependencyParsingTrainer(Trainer):
         if self.args.store_best_model:
             self.store_best_model(output)
 
-        self._log(output.metrics)
+        self.log(output.metrics)
 
         if self.args.tpu_metrics_debug:
             # tpu-comment: Logging debug metrics for PyTorch/XLA (compile, execute times, ops, etc.)
             xm.master_print(met.metrics_report())
 
         return output.metrics
+
+    def predict(
+        self, test_dataset: Dataset
+    ) -> PredictionOutput:
+        """
+        Run prediction and returns predictions and potential metrics.
+
+        Depending on the dataset and your use case, your test dataset may contain labels. In that case, this method
+        will also return metrics, like in :obj:`evaluate()`.
+
+        Args:
+            test_dataset (:obj:`Dataset`):
+                Dataset to run the predictions on. If it is an :obj:`datasets.Dataset`, columns not accepted by the
+                ``model.forward()`` method are automatically removed. Has to implement the method :obj:`__len__`
+            ignore_keys (:obj:`Lst[str]`, `optional`):
+                A list of keys in the output of your model (if it is a dictionary) that should be ignored when
+                gathering predictions.
+            metric_key_prefix (:obj:`str`, `optional`, defaults to :obj:`"test"`):
+                An optional prefix to be used as the metrics key prefix. For example the metrics "bleu" will be named
+                "test_bleu" if the prefix is "test" (default)
+
+        .. note::
+
+            If your predictions or labels have different sequence length (for instance because you're doing dynamic
+            padding in a token classification task) the predictions will be padded (on the right) to allow for
+            concatenation into one array. The padding index is -100.
+
+        Returns: `NamedTuple` A namedtuple with the following keys:
+
+            - predictions (:obj:`np.ndarray`): The predictions on :obj:`test_dataset`.
+            - label_ids (:obj:`np.ndarray`, `optional`): The labels (if the dataset contained some).
+            - metrics (:obj:`Dict[str, float]`, `optional`): The potential dictionary of metrics (if the dataset
+              contained labels).
+        """
+        test_dataloader = self.get_test_dataloader(test_dataset)
+
+        output = self._prediction_loop(
+            test_dataloader, description="Prediction"
+        )
+
+        self.log(output.metrics)
+
+        return PredictionOutput(predictions=output.predictions, label_ids=output.label_ids, metrics=output.metrics)
 
     def store_best_model(self, output):
 
@@ -253,12 +304,15 @@ class DependencyParsingTrainer(Trainer):
         self, dataloader: DataLoader, description: str, prediction_loss_only: Optional[bool] = None
     ) -> PredictionOutput:
         """
-                Prediction/evaluation loop, shared by `evaluate()` and `predict()`.
+        Prediction/evaluation loop, shared by :obj:`Trainer.evaluate()` and :obj:`Trainer.predict()`.
+        Works both with or without labels.
+        """
 
-                Works both with or without labels.
-                """
-
-        prediction_loss_only = prediction_loss_only if prediction_loss_only is not None else self.prediction_loss_only
+        if not isinstance(dataloader.dataset, collections.abc.Sized):
+            raise ValueError("dataset must implement __len__")
+        prediction_loss_only = (
+            prediction_loss_only if prediction_loss_only is not None else self.args.prediction_loss_only
+        )
 
         model = self.model
         # multi-gpu eval
@@ -279,16 +333,13 @@ class DependencyParsingTrainer(Trainer):
 
         metric = ParsingMetric()
 
-        if is_tpu_available():
-            dataloader = pl.ParallelLoader(dataloader, [self.args.device]).per_device_loader(self.args.device)
-
         for inputs in tqdm(dataloader, desc=description):
 
             for k, v in inputs.items():
                 inputs[k] = v.to(self.args.device)
 
             with torch.no_grad():
-                step_eval_loss, rel_preds, arc_preds = model(**inputs, adapter_names=self.adapter_names)
+                step_eval_loss, rel_preds, arc_preds = model(**inputs)
 
                 eval_losses += [step_eval_loss.mean().item()]
 
