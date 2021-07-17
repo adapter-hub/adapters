@@ -5,8 +5,8 @@ import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from ..file_utils import ModelOutput
-from ..modeling_outputs import (
+from ...file_utils import ModelOutput
+from ...modeling_outputs import (
     MultipleChoiceModelOutput,
     QuestionAnsweringModelOutput,
     Seq2SeqModelOutput,
@@ -15,9 +15,9 @@ from ..modeling_outputs import (
     SequenceClassifierOutput,
     TokenClassifierOutput,
 )
-from .composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack
-from .model_mixin import ModelWithHeadsAdaptersMixin
-from .modeling import Activation_Function_Class
+from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack
+from ..model_mixin import ModelWithHeadsAdaptersMixin
+from ..modeling import Activation_Function_Class
 
 
 logger = logging.getLogger(__name__)

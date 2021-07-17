@@ -5,6 +5,7 @@ import torch
 
 from ..composition import AdapterCompositionBlock, parse_composition
 from ..heads import (
+    BiaffineParsingHead,
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
     MultiLabelClassificationHead,
@@ -179,6 +180,7 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         "tagging": TaggingHead,
         "multiple_choice": MultipleChoiceHead,
         "question_answering": QuestionAnsweringHead,
+        "dependency_parsing": BiaffineParsingHead,
     }
 
     def add_classification_head(
@@ -255,4 +257,8 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
+        self.add_prediction_head(head, overwrite_ok)
+
+    def add_dependency_parsing_head(self, head_name, num_labels=2, overwrite_ok=False, id2label=None):
+        head = BiaffineParsingHead(self, head_name, num_labels, id2label)
         self.add_prediction_head(head, overwrite_ok)
