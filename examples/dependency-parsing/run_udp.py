@@ -1,3 +1,8 @@
+"""
+Code taken and modified from: https://github.com/Adapter-Hub/hgiyt.
+Credits: "How Good is Your Tokenizer? On the Monolingual Performance of Multilingual Language Models" (Rust et al., 2021)
+https://arxiv.org/abs/2012.15613
+"""
 import logging
 import os
 import sys
@@ -33,16 +38,19 @@ class ModelArguments:
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
     config_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"},
+        default=None,
+        metadata={"help": "Pretrained config name or path if not the same as model_name"},
     )
     tokenizer_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"},
+        default=None,
+        metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"},
     )
     use_fast: bool = field(default=False, metadata={"help": "Set this flag to use fast tokenization."})
     # If you want to tweak more attributes on your tokenizer, you should do it in a distinct script,
     # or just modify its tokenizer_config.json.
     cache_dir: Optional[str] = field(
-        default=None, metadata={"help": "Where do you want to store the pretrained models downloaded from s3"},
+        default=None,
+        metadata={"help": "Where do you want to store the pretrained models downloaded from s3"},
     )
     replace_embeddings: bool = field(default=False, metadata={"help": "Whether or not to replace embeddings."})
     leave_out_twelvth: bool = field(
@@ -73,7 +81,8 @@ class DataTrainingArguments:
         },
     )
     overwrite_cache: bool = field(
-        default=False, metadata={"help": "Overwrite the cached training and evaluation sets."},
+        default=False,
+        metadata={"help": "Overwrite the cached training and evaluation sets."},
     )
 
 
@@ -89,7 +98,12 @@ def main():
             json_file=os.path.abspath(sys.argv[1])
         )
     else:
-        (model_args, data_args, training_args, adapter_args,) = parser.parse_args_into_dataclasses()
+        (
+            model_args,
+            data_args,
+            training_args,
+            adapter_args,
+        ) = parser.parse_args_into_dataclasses()
 
     if (
         os.path.exists(training_args.output_dir)
@@ -153,7 +167,9 @@ def main():
     language = adapter_args.language
 
     model = AutoModelWithHeads.from_pretrained(
-        model_args.model_name_or_path, config=config, cache_dir=model_args.cache_dir,
+        model_args.model_name_or_path,
+        config=config,
+        cache_dir=model_args.cache_dir,
     )
     model.add_dependency_parsing_head(
         task_name,
