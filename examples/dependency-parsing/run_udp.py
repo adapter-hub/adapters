@@ -157,6 +157,7 @@ def main():
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast,
         do_lower_case=model_args.do_lower_case,
+        add_prefix_space=True,  # Used e.g. for RoBERTa
         mecab_kwargs={"mecab_option": f"-r {model_args.mecab_dir} -d {model_args.mecab_dic_dir}"}
         if model_args.is_japanese
         else None,
