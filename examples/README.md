@@ -44,6 +44,7 @@ Currently, scripts for these tasks support adapters:
 | [**`text-generation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/text-generation) | Text generation, e.g. using GPT-2
 | [**`token-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/token-classification) | NER, e.g. on CoNLL2003
 | [**`translation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/seq2seq) | Machine translation, e.g. on WMT tasks
+| [**`dependency-parsing`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/dependency-parsing) | Dependency parsing on Universal Dependencies
 
 All scripts listed above which can be used for training provide a new `--train_adapter` option that switches between full fine-tuning and adapter training.
 Loading pre-trained adapters can be done via `--load_adapter`.

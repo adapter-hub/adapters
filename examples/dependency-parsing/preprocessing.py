@@ -39,7 +39,7 @@ def preprocess_dataset(
                 continue
 
             encoding = tokenizer(
-                words,
+                tokens_merged,
                 add_special_tokens=True,
                 padding="max_length",
                 truncation=True,

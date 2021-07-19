@@ -1,13 +1,23 @@
 """
-Code taken and modified from: https://github.com/Adapter-Hub/hgiyt.
-Credits: "How Good is Your Tokenizer? On the Monolingual Performance of Multilingual Language Models" (Rust et al., 2021)
-https://arxiv.org/abs/2012.15613
+Code taken and modified from: https://github.com/Adapter-Hub/hgiyt. Credits: "How Good is Your Tokenizer? On the
+Monolingual Performance of Multilingual Language Models" (Rust et al., 2021) https://arxiv.org/abs/2012.15613
 """
+from typing import Optional, Tuple
+
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
 
+from ...file_utils import ModelOutput
 from .base import PredictionHead
+
+
+class DependencyParsingOutput(ModelOutput):
+    loss: Optional[torch.FloatTensor] = None
+    rel_preds: torch.FloatTensor = None
+    arc_preds: torch.FloatTensor = None
+    hidden_states: Optional[Tuple[torch.FloatTensor]] = None
+    attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 
 # Credit:
@@ -48,9 +58,8 @@ class Biaffine(nn.Module):
 
 class BiaffineParsingHead(PredictionHead):
     """
-    Credit: G. Glavaš & I. Vulić
-    Based on paper "Is Supervised Syntactic Parsing Beneficial for Language Understanding? An Empirical Investigation"
-    (https://arxiv.org/pdf/2008.06788.pdf)
+    Credit: G. Glavaš & I. Vulić Based on paper "Is Supervised Syntactic Parsing Beneficial for Language Understanding?
+    An Empirical Investigation" (https://arxiv.org/pdf/2008.06788.pdf)
     """
 
     def __init__(self, model, head_name, num_labels=2, id2label=None):
@@ -76,7 +85,15 @@ class BiaffineParsingHead(PredictionHead):
         self.train(model.training)  # make sure training mode is consistent
 
     def forward(
-        self, outputs, cls_output=None, attention_mask=None, return_dict=False, word_starts=None, labels_arcs=None, labels_rels=None, **kwargs
+        self,
+        outputs,
+        cls_output=None,
+        attention_mask=None,
+        return_dict=False,
+        word_starts=None,
+        labels_arcs=None,
+        labels_rels=None,
+        **kwargs
     ):
         outs = self.dropout(outputs[0])
         word_outputs_deps = self._merge_subword_tokens(outs, word_starts)
@@ -88,20 +105,27 @@ class BiaffineParsingHead(PredictionHead):
 
         arc_preds = self.biaffine_arcs(word_outputs_deps, word_outputs_heads)
         arc_preds = arc_preds.squeeze()
-        outputs = (arc_preds,)
+        if len(arc_preds.shape) == 2:
+            arc_preds = arc_preds.unsqueeze(0)
 
         rel_preds = self.biaffine_rels(word_outputs_deps, word_outputs_heads)
         rel_preds = rel_preds.permute(0, 2, 3, 1)
-        outputs = (rel_preds,) + outputs
 
         loss = self._get_loss(arc_preds, rel_preds, labels_arcs, labels_rels, self.loss_fn)
 
-        # TODO-AH return_dict
-        outputs = (loss,) + outputs
-
-        if len(arc_preds.shape) == 2:
-            return loss, rel_preds, arc_preds.unsqueeze(0)
-        return outputs
+        if return_dict:
+            return DependencyParsingOutput(
+                loss=loss,
+                rel_preds=rel_preds,
+                arc_preds=arc_preds,
+                hidden_states=outputs.hidden_states,
+                attentions=outputs.attentions,
+            )
+        else:
+            outputs = (rel_preds, arc_preds)
+            if loss is not None:
+                outputs = (loss,) + outputs
+            return outputs
 
     def _merge_subword_tokens(self, subword_outputs, word_starts):
         instances = []
@@ -139,6 +163,8 @@ class BiaffineParsingHead(PredictionHead):
         return w_tens
 
     def _get_loss(self, arc_preds, rel_preds, labels_arc, labels_rel, loss_fn):
+        if labels_arc is None or labels_rel is None:
+            return None
         if len(arc_preds.shape) == 2:
             arc_preds = arc_preds.unsqueeze(0)
 

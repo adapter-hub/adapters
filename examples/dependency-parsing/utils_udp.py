@@ -1,3 +1,8 @@
+"""
+Code taken and modified from: https://github.com/Adapter-Hub/hgiyt.
+Credits: "How Good is Your Tokenizer? On the Monolingual Performance of Multilingual Language Models" (Rust et al., 2021)
+https://arxiv.org/abs/2012.15613
+"""
 import collections
 import logging
 import os
@@ -210,7 +215,9 @@ class DependencyParsingTrainer(Trainer):
         # torch.autograd.set_detect_anomaly(True)
 
     def evaluate(
-        self, eval_dataset: Optional[Dataset] = None, prediction_loss_only: Optional[bool] = None,
+        self,
+        eval_dataset: Optional[Dataset] = None,
+        prediction_loss_only: Optional[bool] = None,
     ) -> Dict[str, float]:
         """
         Run evaluation and return metrics.
@@ -241,9 +248,7 @@ class DependencyParsingTrainer(Trainer):
 
         return output.metrics
 
-    def predict(
-        self, test_dataset: Dataset
-    ) -> PredictionOutput:
+    def predict(self, test_dataset: Dataset) -> PredictionOutput:
         """
         Run prediction and returns predictions and potential metrics.
 
@@ -276,9 +281,7 @@ class DependencyParsingTrainer(Trainer):
         """
         test_dataloader = self.get_test_dataloader(test_dataset)
 
-        output = self._prediction_loop(
-            test_dataloader, description="Prediction"
-        )
+        output = self._prediction_loop(test_dataloader, description="Prediction")
 
         self.log(output.metrics)
 
@@ -339,7 +342,7 @@ class DependencyParsingTrainer(Trainer):
                 inputs[k] = v.to(self.args.device)
 
             with torch.no_grad():
-                step_eval_loss, rel_preds, arc_preds = model(**inputs)
+                step_eval_loss, rel_preds, arc_preds = model(**inputs, return_dict=False)
 
                 eval_losses += [step_eval_loss.mean().item()]
 
