@@ -1,3 +1,8 @@
+"""
+Code taken and modified from: https://github.com/Adapter-Hub/hgiyt.
+Credits: "How Good is Your Tokenizer? On the Monolingual Performance of Multilingual Language Models" (Rust et al., 2021)
+https://arxiv.org/abs/2012.15613
+"""
 from collections import defaultdict
 from typing import List
 
@@ -39,7 +44,7 @@ def preprocess_dataset(
                 continue
 
             encoding = tokenizer(
-                tokens_merged,
+                words,
                 add_special_tokens=True,
                 padding="max_length",
                 truncation=True,
