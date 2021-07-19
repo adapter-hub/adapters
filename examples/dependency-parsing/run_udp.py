@@ -11,7 +11,7 @@ from typing import Dict, Optional
 
 from datasets import load_dataset
 
-import transformers.adapters.composition as AC
+import transformers.adapters.composition as ac
 from preprocessing import preprocess_dataset
 from transformers import (
     AdapterConfig,
@@ -228,7 +228,7 @@ def main():
         model.train_adapter([task_name])
         # Set the adapters to be used in every forward pass
         if lang_adapter_name:
-            model.set_active_adapters(AC.Stack(lang_adapter_name, task_name))
+            model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
         else:
             model.set_active_adapters(task_name)
     else:
@@ -243,6 +243,7 @@ def main():
     dataset = preprocess_dataset(dataset, tokenizer, labels, data_args, pad_token_id=-1)
 
     # Initialize our Trainer
+    # HACK: Set this attribute to False to prevent label columns from being deleted
     training_args.remove_unused_columns = False
     trainer = DependencyParsingTrainer(
         model=model,
@@ -313,7 +314,7 @@ def main():
                     leave_out=leave_out,
                 )
                 if language:
-                    model.set_active_adapters(AC.Stack(lang_adapter_name, task_name))
+                    model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
                 else:
                     model.set_active_adapters(task_name)
                 model.to(training_args.device)
