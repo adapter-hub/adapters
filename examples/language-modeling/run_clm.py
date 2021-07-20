@@ -31,6 +31,7 @@ from typing import Optional
 from datasets import load_dataset
 
 import transformers
+import transformers.adapters.composition as ac
 from transformers import (
     CONFIG_MAPPING,
     MODEL_FOR_CAUSAL_LM_MAPPING,
@@ -377,9 +378,9 @@ def main():
         model.train_adapter([task_name])
         # Set the adapters to be used in every forward pass
         if lang_adapter_name:
-            model.set_active_adapters([lang_adapter_name, task_name])
+            model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
         else:
-            model.set_active_adapters([task_name])
+            model.set_active_adapters(task_name)
     else:
         if adapter_args.load_adapter or adapter_args.load_lang_adapter:
             raise ValueError(
