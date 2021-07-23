@@ -96,6 +96,40 @@ class PredictionHeadModelTestMixin:
             model1, model2, "dummy", output_shape=(1, self.seq_length), label_dict=label_dict
         )
 
+    def test_causal_or_seq2seq_lm_head(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_causal_lm_head"):
+            if hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_seq2seq_lm_head"):
+                seq2seq_head = True
+            else:
+                self.skipTest("No causal or seq2seq language model head")
+        else:
+            seq2seq_head = False
+
+        model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
+
+        if seq2seq_head:
+            model1.add_seq2seq_lm_head("dummy")
+        else:
+            model1.add_causal_lm_head("dummy")
+        label_dict = {}
+        label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
+        self.run_prediction_head_test(
+            model1, model2, "dummy", output_shape=(1, self.seq_length, model1.config.vocab_size), label_dict=label_dict
+        )
+
+    def test_masked_lm_head(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_masked_lm_head"):
+            self.skipTest("No causal or seq2seq language model head")
+
+        model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
+
+        model1.add_masked_lm_head("dummy")
+        label_dict = {}
+        label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
+        self.run_prediction_head_test(
+            model1, model2, "dummy", output_shape=(1, self.seq_length, model1.config.vocab_size), label_dict=label_dict
+        )
+
     def test_dependency_parsing_head(self):
         if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_dependency_parsing_head"):
             self.skipTest("No dependency parsing head")

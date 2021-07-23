@@ -1,6 +1,7 @@
 import torch.nn as nn
 
 from ...modeling_outputs import CausalLMOutput, MaskedLMOutput, Seq2SeqLMOutput
+from ..modeling import Activation_Function_Class
 from .base import PredictionHead
 
 
@@ -9,19 +10,49 @@ class CausalLMHead(PredictionHead):
         self,
         model,
         head_name,
+        vocab_size=None,
+        layers=1,
+        activation_function=None,
+        layer_norm=False,
+        bias=False,
         shift_labels=True,
     ):
-        super().__init__(head_name)
+        super(CausalLMHead, self).__init__(head_name)
         self.config = {
             "head_type": "causal_lm",
-            "num_labels": model.config.vocab_size,
-            "layers": 1,
-            "activation_function": None,
-            "dropout_prob": 0,
-            "bias": False,
+            "vocab_size": vocab_size or model.config.vocab_size,
+            "layers": layers,
+            "activation_function": activation_function,
+            "layer_norm": layer_norm,
+            "bias": bias,
             "shift_labels": shift_labels,
+            "label2id": None,
         }
         self.build(model)
+
+    def build(self, model):
+        model_config = model.config
+        # Additional FC layers
+        pred_head = []
+        with_layer_norm = self.config.get("layer_norm", False)
+        for l_id in range(self.config["layers"] - 1):
+            pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
+            if self.config["activation_function"]:
+                pred_head.append(Activation_Function_Class(self.config["activation_function"]))
+            if with_layer_norm:
+                eps = getattr(model_config, "layer_norm_eps", 1e-12)
+                pred_head.append(nn.LayerNorm(model_config.hidden_size, eps=eps))
+        for i, module in enumerate(pred_head):
+            self.add_module(str(i), module)
+
+        # Final embedding layer
+        self.add_module(
+            str(len(pred_head)),
+            nn.Linear(model_config.hidden_size, self.config["vocab_size"], bias=self.config["bias"]),
+        )
+
+        self.apply(model._init_weights)
+        self.train(model.training)  # make sure training mode is consistent
 
     def get_output_embeddings(self):
         # The last child is our embedding layer
@@ -52,7 +83,7 @@ class CausalLMHead(PredictionHead):
                 labels = labels[..., 1:].contiguous()
             else:
                 logits_for_loss = lm_logits
-            loss = loss_fct(logits_for_loss.view(-1, self.config["num_labels"]), labels.view(-1))
+            loss = loss_fct(logits_for_loss.view(-1, self.config["vocab_size"]), labels.view(-1))
 
         if return_dict:
             return self._create_model_output(loss, lm_logits, outputs)
@@ -68,21 +99,28 @@ class Seq2SeqLMHead(CausalLMHead):
         self,
         model,
         head_name,
+        vocab_size=None,
+        layers=1,
+        activation_function=None,
+        layer_norm=False,
+        bias=False,
+        shift_labels=False,
     ):
-        super().__init__(head_name)
+        super(CausalLMHead, self).__init__(head_name)
         self.config = {
             "head_type": "seq2seq_lm",
-            "num_labels": model.config.vocab_size,
-            "layers": 1,
-            "activation_function": None,
-            "dropout_prob": 0,
-            "bias": False,
-            "shift_labels": False,
+            "vocab_size": vocab_size or model.config.vocab_size,
+            "layers": layers,
+            "activation_function": activation_function,
+            "layer_norm": layer_norm,
+            "bias": bias,
+            "shift_labels": shift_labels,
+            "label2id": None,
         }
         self.build(model)
 
     @staticmethod
-    def _create_model_output(self, loss, logits, base_outputs):
+    def _create_model_output(loss, logits, base_outputs):
         return Seq2SeqLMOutput(
             loss=loss,
             logits=logits,
@@ -101,47 +139,31 @@ class BertStyleMaskedLMHead(CausalLMHead):
         self,
         model,
         head_name,
+        vocab_size=None,
+        layers=2,
         activation_function="gelu",
+        layer_norm=True,
+        bias=True,
+        shift_labels=False,
     ):
-        super().__init__(head_name)
+        super(CausalLMHead, self).__init__(head_name)
         self.config = {
             "head_type": "masked_lm",
-            "num_labels": model.config.vocab_size,
-            "layers": 2,
+            "vocab_size": vocab_size or model.config.vocab_size,
+            "layers": layers,
             "activation_function": activation_function,
-            "dropout_prob": 0,
-            "layer_norm": True,
-            "bias": False,
-            "shift_labels": False,
+            "layer_norm": layer_norm,
+            "bias": bias,
+            "shift_labels": shift_labels,
+            "label2id": None,
         }
         self.build(model)
 
     @staticmethod
-    def _create_model_output(self, loss, logits, base_outputs):
+    def _create_model_output(loss, logits, base_outputs):
         return MaskedLMOutput(
             loss=loss,
             logits=logits,
             hidden_states=base_outputs.hidden_states,
             attentions=base_outputs.attentions,
         )
-
-
-class BertStyleCausalLMHead(CausalLMHead):
-    def __init__(
-        self,
-        model,
-        head_name,
-        activation_function="gelu",
-    ):
-        super().__init__(head_name)
-        self.config = {
-            "head_type": "causal_lm",
-            "num_labels": model.config.vocab_size,
-            "layers": 2,
-            "activation_function": activation_function,
-            "dropout_prob": 0,
-            "layer_norm": True,
-            "bias": False,
-            "shift_labels": True,
-        }
-        self.build(model)

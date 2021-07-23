@@ -34,7 +34,6 @@ class PredictionHead(nn.Sequential):
         model_config = model.config
         pred_head = []
         dropout_prob = self.config.get("dropout_prob", model_config.hidden_dropout_prob)
-        with_layer_norm = self.config.get("layer_norm", False)
         bias = self.config.get("bias", True)
         for l_id in range(self.config["layers"]):
             if dropout_prob > 0:
@@ -43,8 +42,6 @@ class PredictionHead(nn.Sequential):
                 pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
                 if self.config["activation_function"]:
                     pred_head.append(Activation_Function_Class(self.config["activation_function"]))
-                if with_layer_norm:
-                    pred_head.append(nn.LayerNorm(model_config.hidden_size, eps=model_config.layer_norm_eps))
             else:
                 if "num_labels" in self.config:
                     pred_head.append(nn.Linear(model_config.hidden_size, self.config["num_labels"], bias=bias))
@@ -465,9 +462,13 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         else:
             # don't pass label2id to head_class
             config.pop("label2id", None)
+        # re-add id2label map to config
+        if id2label is not None:
+            config["id2label"] = id2label
+
         if head_type in self.head_types:
             head_class = self.head_types[head_type]
-            head = head_class(self, head_name, id2label=id2label, **config)
+            head = head_class(self, head_name, **config)
             self.add_prediction_head(head, overwrite_ok=overwrite_ok)
         elif head_type in self.config.custom_heads:
             # we have to re-add the head type for custom heads
@@ -692,7 +693,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             head_name = self.active_head
         if head_name is None:
             raise ValueError("No head name given and no active head in the model")
-        if "label2id" in self.heads[head_name].config.keys():
+        if "label2id" in self.heads[head_name].config.keys() and self.heads[head_name].config["label2id"] is not None:
             return {id_: label for label, id_ in self.heads[head_name].config["label2id"].items()}
         else:
             return None
