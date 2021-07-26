@@ -1355,6 +1355,12 @@ class GPT2ForSequenceClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedM
     """
 The GPT2 Model that allows the loading of different heads dor different tasks. This enables a flexible use of the
 models and adpters.
+
+Since this class does classification on the last token, it requires to know the position of the last token. If a
+:obj:`pad_token_id` is defined in the configuration, it finds the last token that is not a padding token in each
+row. If no :obj:`pad_token_id` is defined, it simply takes the last value in each row of the batch. Since it cannot
+guess the padding tokens when :obj:`inputs_embeds` are passed instead of :obj:`input_ids`, it does the same (take
+the last value in each row of the batch).
 """,
     GPT2_START_DOCSTRING,
 )
@@ -1403,10 +1409,8 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
 
         batch_size = outputs[0].shape[0]
 
-        assert (
-            self.config.pad_token_id is not None or batch_size == 1
-        ), "Cannot handle batch sizes > 1 if no padding token is defined."
         if self.config.pad_token_id is None:
+            # TODO-AH: this may result in unexpected behavior for classification. Find a better way to do this?
             sequence_lengths = -1
         else:
             if input_ids is not None:
