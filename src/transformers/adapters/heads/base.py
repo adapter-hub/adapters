@@ -401,17 +401,17 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     # The following methods are required for handling LM heads
 
     def get_output_embeddings(self):
-        all_output_embeddings = {}
-
-        for head_name, head in self.heads.items():
-            output_embeddings = head.get_output_embeddings()
-            if output_embeddings is not None:
-                all_output_embeddings[head_name] = output_embeddings
-
-        return all_output_embeddings
+        # Only gets the output embeddings for the currently active head
+        if self.active_head in self.heads:
+            head = self.heads[self.active_head]
+            return head.get_output_embeddings()
+        else:
+            return None
 
     def set_output_embeddings(self, new_embeddings):
-        for head_name, head in self.heads.items():
+        # Only sets the output embeddings for the currently active head
+        if self.active_head in self.heads:
+            head = self.heads[self.active_head]
             if head.get_output_embeddings() is not None:
                 head.set_output_embeddings(new_embeddings)
 
