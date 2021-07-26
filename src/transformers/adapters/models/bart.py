@@ -184,6 +184,7 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
             self.invertible_adapters = self.encoder.invertible_adapters
             self.add_invertible_adapter = self.encoder.add_invertible_adapter
             self.get_invertible_adapter = self.encoder.get_invertible_adapter
+            self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""

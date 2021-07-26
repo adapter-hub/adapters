@@ -637,6 +637,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 cls_input = None
             return inputs, cls_input
 
+        # Pass invertible adapter if we have one
+        inv_adapter = self.base_model.get_invertible_adapter()
+        if inv_adapter:
+            kwargs["invertible_adapter"] = inv_adapter
+
         for head in used_heads:
             if head not in self.heads:
                 raise ValueError("Unknown head_name '{}'".format(head))

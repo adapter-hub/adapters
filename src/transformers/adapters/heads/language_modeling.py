@@ -72,7 +72,18 @@ class CausalLMHead(PredictionHead):
         )
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
-        lm_logits = super().forward(outputs[0])
+        # First, pass through all layers except the last embedding layer
+        seq_outputs = outputs[0]
+        for i in range(len(self) - 1):
+            seq_outputs = self[i](seq_outputs)
+
+        # Now, pass through an invertible adapter if available
+        inv_adapter = kwargs.pop("invertible_adapter", None)
+        if inv_adapter is not None:
+            seq_outputs = inv_adapter(seq_outputs, rev=True)
+
+        # Finally, pass through the last embedding layer
+        lm_logits = self[len(self) - 1](seq_outputs)
 
         loss = None
         labels = kwargs.pop("labels", None)

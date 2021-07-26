@@ -278,3 +278,38 @@ class PredictionHeadModelTestMixin:
         output1 = static_head_model(in_data, adapter_names=["test"])
         output2 = flex_head_model(in_data, adapter_names=["test"])
         self.assertTrue(torch.all(torch.isclose(output1.logits, output2.logits)))
+
+    def test_invertible_adapter_with_head(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_masked_lm_head"):
+            if hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_causal_lm_head"):
+                causal_lm_head = True
+            else:
+                self.skipTest("No masked or causel language model head")
+        else:
+            causal_lm_head = False
+
+        model = AutoModelWithHeads.from_config(self.config())
+        model.add_adapter("test", config="pfeiffer+inv")
+        if causal_lm_head:
+            model.add_causal_lm_head("test")
+        else:
+            model.add_masked_lm_head("test")
+        model.set_active_adapters("test")
+
+        # Set a hook before the invertible adapter to make sure it's actually called twice:
+        # Once after the embedding layer and once in the prediction head.
+        calls = 0
+
+        def forward_pre_hook(module, input):
+            nonlocal calls
+            calls += 1
+
+        inv_adapter = model.base_model.get_invertible_adapter()
+        self.assertIsNotNone(inv_adapter)
+        inv_adapter.register_forward_pre_hook(forward_pre_hook)
+
+        in_data = self.get_input_samples((self.batch_size, self.seq_length), config=model.config)
+        out = model(in_data)
+
+        self.assertEqual((self.batch_size, self.seq_length, model.config.vocab_size), out[0].shape)
+        self.assertEqual(2, calls)
