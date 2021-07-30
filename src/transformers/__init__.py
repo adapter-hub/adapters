@@ -22,8 +22,8 @@
 # to defer the actual importing for when the objects are requested. This way `import transformers` provides the names
 # in the namespace without actually importing anything (and especially none of the backends).
 
-__version__ = "2.1.1"
-__hf_version__ = "4.8.2"
+__adapters_version__ = "2.1.1"
+__version__ = "4.8.2"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
 # default Python logging output behavior when present.
@@ -3135,10 +3135,10 @@ else:
 
         def __getattr__(self, name: str):
             # Special handling for the version, which is a constant from this module and not imported in a submodule.
-            if name == "__version__":
+            if name == "__adapters_version__":
+                return __adapters_version__
+            elif name == "__version__":
                 return __version__
-            elif name == "__hf_version__":
-                return __hf_version__
             return super().__getattr__(name)
 
     sys.modules[__name__] = _LazyModule(__name__, _import_structure)
