@@ -375,6 +375,7 @@ class AdapterLoader(WeightsLoader):
         load_as=None,
         loading_info=None,
         leave_out=None,
+        set_active=False,
         **kwargs
     ):
         """
@@ -425,7 +426,7 @@ class AdapterLoader(WeightsLoader):
         adapter_name = load_as or config["name"]
         # If the adapter is not part of the model, add it
         if adapter_name not in self.model.config.adapters.adapters:
-            self.model.add_adapter(adapter_name, config=config["config"])
+            self.model.add_adapter(adapter_name, config=config["config"], set_active=set_active)
         else:
             logger.warning("Overwriting existing adapter '{}'.".format(adapter_name))
 
@@ -498,7 +499,7 @@ class AdapterFusionLoader(WeightsLoader):
         filter_func = self.filter_func(name)
         self.weights_helper.save_weights(save_directory, filter_func)
 
-    def load(self, save_directory, load_as=None, loading_info=None):
+    def load(self, save_directory, load_as=None, loading_info=None, **kwargs):
         """
         Loads a AdapterFusion module from the given directory.
 
@@ -524,7 +525,7 @@ class AdapterFusionLoader(WeightsLoader):
         adapter_fusion_name = load_as or config["name"]
         if adapter_fusion_name in self.model.config.adapter_fusion_models:
             logger.warning("Overwriting existing adapter fusion module '{}'".format(adapter_fusion_name))
-        self.model.add_adapter_fusion(adapter_fusion_name, config["config"])
+        self.model.add_adapter_fusion(adapter_fusion_name, config["config"], set_active=kwargs.pop("set_active", True))
 
         # Load AdapterFusion weights
         filter_func = self.filter_func(adapter_fusion_name)
@@ -687,7 +688,9 @@ class PredictionHeadLoader(WeightsLoader):
                     head_config["id2label"] = {int(id_): label for label, id_ in custom_label2id.items()}
                     head_config["label2id"] = {label: int(id_) for label, id_ in custom_label2id.items()}
 
-                self.model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
+                self.model.add_prediction_head_from_config(
+                    head_name, head_config, overwrite_ok=True, set_active=kwargs.pop("set_active", True)
+                )
             # model with static head
             else:
                 if self.convert_to_flex_head:

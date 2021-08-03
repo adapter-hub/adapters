@@ -220,7 +220,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         else:
             raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
 
-    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False):
+    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False, set_active: bool = False):
         """
         Adds a new adapter module of the specified type to the model.
 
@@ -232,6 +232,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
             overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
+            set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
         """
         if isinstance(config, dict):
             config = AdapterConfig.from_dict(config)  # ensure config is ok and up-to-date
@@ -240,6 +241,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             self.delete_adapter(adapter_name)
         self.config.adapters.add(adapter_name, config=config)
         self.base_model._add_adapter(adapter_name)
+        if set_active:
+            self.set_active_adapters(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
         warnings.warn(
@@ -248,7 +251,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         )
         self.add_adapter_fusion(adapter_names, adapter_fusion_config, override_kwargs)
 
-    def add_adapter_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
+    def add_adapter_fusion(
+        self,
+        adapter_names: Union[Fuse, list],
+        adapter_fusion_config=None,
+        override_kwargs=None,
+        set_active: bool = False,
+    ):
         """
         Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 
@@ -260,6 +269,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
             override_kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
+            set_active (bool, optional): Activate the added AdapterFusion. By default (False), the AdapterFusion is added but not activated.
         """
         # TODO-V2 Allow nested items or directly pass Fuse block?
         if isinstance(adapter_names, Fuse):
@@ -284,6 +294,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if adapter_fusion_name not in self.config.adapter_fusion_models:
             self.config.adapter_fusion_models.append(adapter_fusion_name)
             self.base_model._add_fusion_layer(adapter_names)
+        if set_active:
+            if not isinstance(adapter_names, list):
+                adapter_names = adapter_names.split(",")
+            self.set_active_adapters(Fuse(*adapter_names))
 
     def delete_adapter(self, adapter_name: str):
         """
@@ -385,6 +399,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
         id2label=None,
+        set_active: bool = False,
         **kwargs
     ) -> str:
         """
@@ -409,13 +424,22 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - "hf": search on HuggingFace model hub.
                 - None: only search on local file system
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
+            set_active (bool, optional): Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not activated.
 
         Returns:
             str: The name with which the adapter was added to the model.
         """
         loader = AdapterLoader(self)
         load_dir, load_name = loader.load(
-            adapter_name_or_path, config, version, model_name, load_as, source=source, leave_out=leave_out, **kwargs
+            adapter_name_or_path,
+            config,
+            version,
+            model_name,
+            load_as,
+            source=source,
+            leave_out=leave_out,
+            set_active=set_active,
+            **kwargs,
         )
         # load additional custom weights
         if custom_weights_loaders:
@@ -426,6 +450,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     loading_info=kwargs.get("loading_info", None),
                     main_load_name=load_name,
                     id2label=id2label,
+                    set_active=set_active,
                 )
         return load_name
 
@@ -434,6 +459,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         adapter_fusion_name_or_path: str,
         load_as: str = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        set_active: bool = False,
         **kwargs
     ) -> str:
         """
@@ -451,13 +477,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             model_name (str, optional): The string identifier of the pre-trained model.
             load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
                     saved will be used.
+            set_active (bool, optional): Activate the loaded AdapterFusion. By default (False), the AdapterFusion is loaded but not activated.
 
         Returns:
             str: The name with which the adapter was added to the model.
         """
 
         loader = AdapterFusionLoader(self)
-        load_dir, load_name = loader.load(adapter_fusion_name_or_path, load_as)
+        load_dir, load_name = loader.load(adapter_fusion_name_or_path, load_as, set_active=set_active)
         # load additional custom weights
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
@@ -466,6 +493,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     load_as=load_as,
                     loading_info=kwargs.get("loading_info", None),
                     main_load_name=load_name,
+                    set_active=set_active,
                 )
         return load_name
 
@@ -542,7 +570,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         super().__init__(config, *args, **kwargs)
         self._convert_to_flex_head = False
 
-    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False):
+    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False, set_active: bool = False):
         """
         Adds a new adapter module of the specified type to the model.
 
@@ -554,8 +582,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
             overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
+            set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
         """
-        self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok)
+        self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
@@ -610,6 +639,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
         id2label=None,
+        set_active: bool = False,
         **kwargs
     ) -> str:
         if with_head:
@@ -636,6 +666,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             custom_weights_loaders=custom_weights_loaders,
             leave_out=leave_out,
             id2label=id2label,
+            set_active=set_active,
             **kwargs,
         )
 
