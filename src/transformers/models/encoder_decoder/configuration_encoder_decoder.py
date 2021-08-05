@@ -87,6 +87,9 @@ class EncoderDecoderConfig(PretrainedConfig):
         self.decoder = AutoConfig.for_model(decoder_model_type, **decoder_config)
         self.is_encoder_decoder = True
 
+        # make sure adapter config is shared
+        self.decoder.adapters = self.encoder.adapters
+
     @classmethod
     def from_encoder_decoder_configs(
         cls, encoder_config: PretrainedConfig, decoder_config: PretrainedConfig, **kwargs
@@ -116,3 +119,7 @@ class EncoderDecoderConfig(PretrainedConfig):
         output["decoder"] = self.decoder.to_dict()
         output["model_type"] = self.__class__.model_type
         return output
+
+    @property
+    def adapters(self):
+        return self.encoder.adapters

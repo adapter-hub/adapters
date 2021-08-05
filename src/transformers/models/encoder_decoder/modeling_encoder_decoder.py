@@ -17,6 +17,7 @@
 
 from typing import Optional
 
+from ...adapters.models.encoder_decoder import EncoderDecoderModelAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward, replace_return_docstrings
 from ...modeling_outputs import Seq2SeqLMOutput
@@ -137,7 +138,7 @@ ENCODER_DECODER_INPUTS_DOCSTRING = r"""
 
 
 @add_start_docstrings(ENCODER_DECODER_START_DOCSTRING)
-class EncoderDecoderModel(PreTrainedModel):
+class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
     r"""
     :class:`~transformers.EncoderDecoder` is a generic model class that will be instantiated as a transformer
     architecture with one of the base model classes of the library as encoder and another one as decoder when created
@@ -189,10 +190,14 @@ class EncoderDecoderModel(PreTrainedModel):
         # so that the updates to the config will be synced
         self.encoder.config = self.config.encoder
         self.decoder.config = self.config.decoder
+        # make sure adapter config is shared
+        self.decoder.config.adapters = self.encoder.config.adapters
 
         assert (
             self.encoder.get_output_embeddings() is None
         ), "The encoder {} should not have a LM Head. Please use a model without LM Head"
+
+        self._init_adapter_modules()
 
         # tie encoder, decoder weights if config set accordingly
         self.tie_weights()
@@ -384,6 +389,7 @@ class EncoderDecoderModel(PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
         **kwargs,
     ):
         r"""
@@ -421,6 +427,8 @@ class EncoderDecoderModel(PreTrainedModel):
             argument[len("decoder_") :]: value for argument, value in kwargs.items() if argument.startswith("decoder_")
         }
 
+        self.pre_transformer_forward(adapter_names=adapter_names, **kwargs)
+
         if encoder_outputs is None:
             encoder_outputs = self.encoder(
                 input_ids=input_ids,
@@ -429,6 +437,7 @@ class EncoderDecoderModel(PreTrainedModel):
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
+                adapter_names=adapter_names,
                 **kwargs_encoder,
             )
 
@@ -447,6 +456,7 @@ class EncoderDecoderModel(PreTrainedModel):
             use_cache=use_cache,
             past_key_values=past_key_values,
             return_dict=return_dict,
+            adapter_names=adapter_names,
             **kwargs_decoder,
         )
 
