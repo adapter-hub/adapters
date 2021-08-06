@@ -2,19 +2,12 @@ import logging
 import warnings
 from abc import ABC, abstractmethod
 from os.path import join
-from typing import List, Mapping, Optional, Union
+from typing import List, Optional, Union
 
 from torch import nn
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import (
-    ADAPTERFUSION_CONFIG_MAP,
-    DEFAULT_ADAPTERFUSION_CONFIG,
-    AdapterConfig,
-    AdapterFusionConfig,
-    ModelAdaptersConfig,
-    get_adapter_config_hash,
-)
+from .configuration import AdapterConfig, AdapterFusionConfig, ModelAdaptersConfig, get_adapter_config_hash
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
@@ -105,6 +98,11 @@ class ModelConfigAdaptersMixin(ABC):
             self.adapters = ModelAdaptersConfig(**adapter_config_dict)
         else:
             self.adapters = ModelAdaptersConfig()
+        # Convert AdapterFusions from old format for backwards compatibility
+        fusion_models = kwargs.pop("adapter_fusion_models", [])
+        fusion_config = kwargs.pop("adapter_fusion", None)
+        for fusion_adapter_names in fusion_models:
+            self.adapters.add_fusion(fusion_adapter_names, config=fusion_config)
 
 
 class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
@@ -129,9 +127,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         for adapter_name in self.config.adapters:
             self._add_adapter(adapter_name)
         # Initialize fusion from config
-        if hasattr(self.config, "adapter_fusion_models"):
-            for fusion_adapter_names in self.config.adapter_fusion_models:
-                self._add_fusion_layer(fusion_adapter_names)
+        for fusion_name in self.config.adapters.fusions:
+            self._add_fusion_layer(fusion_name)
 
     # These methods have to be implemented by every deriving class:
 
@@ -200,26 +197,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.config.adapters.active_setup = adapter_setup
         self.config.adapters.skip_layers = skip_layers
 
-    def set_adapter_fusion_config(self, adapter_fusion_config, override_kwargs=None):
-        """
-        Sets the adapter fusion configuration.
-
-        Args:
-            adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
-
-                - a string identifying a pre-defined adapter fusion configuration
-                - a dictionary representing the adapter fusion configuration
-                - the path to a file containing the adapter fusion configuration
-        """
-        if override_kwargs is None:
-            override_kwargs = {}
-        if isinstance(adapter_fusion_config, str) and adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP:
-            self.config.adapter_fusion = AdapterFusionConfig.load(adapter_fusion_config, **override_kwargs)
-        elif isinstance(adapter_fusion_config, Mapping):
-            self.config.adapter_fusion = adapter_fusion_config
-        else:
-            raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
-
     def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False):
         """
         Adds a new adapter module of the specified type to the model.
@@ -246,9 +223,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
             FutureWarning,
         )
-        self.add_adapter_fusion(adapter_names, adapter_fusion_config, override_kwargs)
+        adapter_fusion_config = AdapterFusionConfig.from_dict(adapter_fusion_config).replace(**override_kwargs)
+        self.add_adapter_fusion(adapter_names, adapter_fusion_config)
 
-    def add_adapter_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
+    def add_adapter_fusion(self, adapter_names: Union[Fuse, list], config=None, overwrite_ok: bool = False):
         """
         Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 
@@ -264,26 +242,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # TODO-V2 Allow nested items or directly pass Fuse block?
         if isinstance(adapter_names, Fuse):
             adapter_names = adapter_names.children
-        if not hasattr(self.config, "adapter_fusion"):
-            if override_kwargs is None:
-                override_kwargs = {}
-            if adapter_fusion_config is not None:
-                self.set_adapter_fusion_config(adapter_fusion_config, **override_kwargs)
-            else:
-                self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
-        elif hasattr(self.config, "adapter_fusion") and adapter_fusion_config is not None:
-            # This behavior may be a bit unintuitive as the given argument is ignored, but we can't throw an error because of the loader.
-            logger.warning("An AdapterFusion config has already been set and will NOT be overwritten")
-
-        if not hasattr(self.config, "adapter_fusion_models"):
-            self.config.adapter_fusion_models = []
-        if isinstance(adapter_names, list):
-            adapter_fusion_name = ",".join(adapter_names)
-        else:
-            adapter_fusion_name = adapter_names
-        if adapter_fusion_name not in self.config.adapter_fusion_models:
-            self.config.adapter_fusion_models.append(adapter_fusion_name)
-            self.base_model._add_fusion_layer(adapter_names)
+        if isinstance(config, dict):
+            config = AdapterFusionConfig.from_dict(config)  # ensure config is ok and up-to-date
+        # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
+        if overwrite_ok and self.config.adapters.get_fusion(adapter_names) is not None:
+            self.delete_adapter_fusion(adapter_names)
+        self.config.adapters.add_fusion(adapter_names, config=config)
+        self.base_model._add_fusion_layer(adapter_names)
 
     def delete_adapter(self, adapter_name: str):
         """
@@ -315,14 +280,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         else:
             adapter_fusion_name = adapter_names
 
-        if (
-            not hasattr(self.config, "adapter_fusion_models")
-            or adapter_fusion_name not in self.config.adapter_fusion_models
-        ):
+        if adapter_fusion_name not in self.config.adapters.fusions:
             logger.info("No AdapterFusion '%s' found for deletion. Skipping.", adapter_fusion_name)
             return
-        self.config.adapter_fusion_models.remove(adapter_fusion_name)
+        del self.config.adapters.fusions[adapter_fusion_name]
         self.base_model._delete_fusion_layer(adapter_fusion_name)
+        # Reset active adapters if this was the active setup
+        if self.active_adapters == adapter_names:
+            self.active_adapters = None
 
     def save_adapter(
         self,
@@ -353,6 +318,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self,
         save_directory: str,
         adapter_names: list,
+        meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """
@@ -368,7 +334,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
 
         loader = AdapterFusionLoader(self)
-        loader.save(save_directory, adapter_names)
+        loader.save(save_directory, adapter_names, meta_dict)
         # save additional custom weights
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
@@ -503,17 +469,17 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             save_directory (str): Path to a directory where the adapters should be saved.
         """
-        if not hasattr(self.config, "adapter_fusion_models"):
-            return
-        for name in self.config.adapter_fusion_models:
-            adapter_fusion_config = self.config.adapter_fusion
+        for name in self.config.adapters.fusions:
+            adapter_fusion_config = self.config.adapters.get_fusions(name)
             h = get_adapter_config_hash(adapter_fusion_config)
             save_path = join(save_directory, name)
             if meta_dict:
                 meta_dict.update({"config_id": h})
             else:
                 meta_dict = {"config_id": h}
-            self.save_adapter_fusion(save_path, name, custom_weights_loaders=custom_weights_loaders)
+            self.save_adapter_fusion(
+                save_path, name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders
+            )
 
     def freeze_model(self, freeze=True):
         """Freezes all weights of the model."""

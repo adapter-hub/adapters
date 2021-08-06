@@ -460,7 +460,7 @@ class AdapterFusionLoader(WeightsLoader):
             "adapter_fusion_layer.{}".format(old_name), "adapter_fusion_layer.{}".format(new_name)
         )
 
-    def save(self, save_directory: str, name: str):
+    def save(self, save_directory: str, name: str, meta_dict=None):
         """
         Saves a AdapterFusion module into the given directory.
 
@@ -469,20 +469,19 @@ class AdapterFusionLoader(WeightsLoader):
             name (str, optional): The AdapterFusion name.
         """
 
-        if hasattr(self.model.config, "adapter_fusion_models"):
-            if name not in self.model.config.adapter_fusion_models:
-                if self.error_on_missing:
-                    raise ValueError(f"Unknown AdapterFusion '{name}'.")
-                else:
-                    logger.debug(f"No AdapterFusion with name '{name}' available.")
-                    return
+        if name not in self.model.config.adapters.fusions:
+            if self.error_on_missing:
+                raise ValueError(f"Unknown AdapterFusion '{name}'.")
+            else:
+                logger.debug(f"No AdapterFusion with name '{name}' available.")
+                return
 
         if not exists(save_directory):
             mkdir(save_directory)
         else:
             assert isdir(save_directory), "Saving path should be a directory where the head can be saved."
 
-        adapter_fusion_config = self.model.config.adapter_fusion
+        adapter_fusion_config = self.model.config.adapters.get_fusion(name)
 
         # Save the adapter fusion configuration
         config_dict = build_full_config(
@@ -492,7 +491,7 @@ class AdapterFusionLoader(WeightsLoader):
             model_name=self.model.model_name,
             model_class=self.model.__class__.__name__,
         )
-        self.weights_helper.save_weights_config(save_directory, config_dict)
+        self.weights_helper.save_weights_config(save_directory, config_dict, meta_dict=meta_dict)
 
         # Save head weights
         filter_func = self.filter_func(name)
@@ -518,11 +517,9 @@ class AdapterFusionLoader(WeightsLoader):
                 return None, None
 
         config = self.weights_helper.load_weights_config(save_directory)
-        if not hasattr(self.model.config, "adapter_fusion_models"):
-            self.model.config.adapter_fusion_models = []
 
         adapter_fusion_name = load_as or config["name"]
-        if adapter_fusion_name in self.model.config.adapter_fusion_models:
+        if adapter_fusion_name in self.model.config.adapters.fusions:
             logger.warning("Overwriting existing adapter fusion module '{}'".format(adapter_fusion_name))
         self.model.add_adapter_fusion(adapter_fusion_name, config["config"])
 
