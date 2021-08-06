@@ -470,7 +470,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             save_directory (str): Path to a directory where the adapters should be saved.
         """
         for name in self.config.adapters.fusions:
-            adapter_fusion_config = self.config.adapters.get_fusions(name)
+            adapter_fusion_config = self.config.adapters.get_fusion(name)
             h = get_adapter_config_hash(adapter_fusion_config)
             save_path = join(save_directory, name)
             if meta_dict:
