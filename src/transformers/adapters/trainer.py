@@ -5,29 +5,17 @@ import torch
 from torch import nn
 from torch.utils.data.dataset import Dataset
 
-from transformers import Trainer, PreTrainedModel
+from transformers import PreTrainedModel, Trainer
+
 from ..configuration_utils import PretrainedConfig
 from ..data.data_collator import DataCollator
-from ..file_utils import (
-    CONFIG_NAME,
-    WEIGHTS_NAME,
-    is_sagemaker_mp_enabled,
-)
+from ..file_utils import CONFIG_NAME, WEIGHTS_NAME, is_sagemaker_mp_enabled
 from ..modeling_utils import PreTrainedModel
 from ..optimization import Adafactor, AdamW
 from ..tokenization_utils_base import PreTrainedTokenizerBase
-from ..trainer_callback import (
-    TrainerCallback,
-    TrainerControl,
-    TrainerState,
-)
-from ..trainer_pt_utils import (
-    get_parameter_names,
-)
-from ..trainer_utils import (
-    EvalPrediction,
-    ShardedDDPOption,
-)
+from ..trainer_callback import TrainerCallback, TrainerControl, TrainerState
+from ..trainer_pt_utils import get_parameter_names
+from ..trainer_utils import EvalPrediction, ShardedDDPOption
 from ..training_args import TrainingArguments
 
 
@@ -36,24 +24,35 @@ from ..training_args import TrainingArguments
 
 class AdapterTrainer(Trainer):
     def __init__(
-            self,
-            model: Union[PreTrainedModel, nn.Module] = None,
-            args: TrainingArguments = None,
-            data_collator: Optional[DataCollator] = None,
-            train_dataset: Optional[Dataset] = None,
-            eval_dataset: Optional[Dataset] = None,
-            tokenizer: Optional[PreTrainedTokenizerBase] = None,
-            model_init: Callable[[], PreTrainedModel] = None,
-            compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
-            callbacks: Optional[List[TrainerCallback]] = None,
-            do_save_full_model: Optional[bool] = None,
-            do_save_adapters: Optional[bool] = None,
-            do_save_adapter_fusion: Optional[bool] = None,
-            adapter_names: Optional[List[List[str]]] = None,
-            optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
+        self,
+        model: Union[PreTrainedModel, nn.Module] = None,
+        args: TrainingArguments = None,
+        data_collator: Optional[DataCollator] = None,
+        train_dataset: Optional[Dataset] = None,
+        eval_dataset: Optional[Dataset] = None,
+        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        model_init: Callable[[], PreTrainedModel] = None,
+        compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
+        callbacks: Optional[List[TrainerCallback]] = None,
+        do_save_full_model: Optional[bool] = None,
+        do_save_adapters: Optional[bool] = None,
+        do_save_adapter_fusion: Optional[bool] = None,
+        adapter_names: Optional[List[List[str]]] = None,
+        optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
     ):
         # TODO allow additional callbacks
-        super().__init__(model, args, data_collator, train_dataset, eval_dataset, tokenizer=tokenizer, model_init=model_init, compute_metrics=compute_metrics, callbacks=[AdapterTrainerCallback(self)], optimizers=optimizers)
+        super().__init__(
+            model,
+            args,
+            data_collator,
+            train_dataset,
+            eval_dataset,
+            tokenizer=tokenizer,
+            model_init=model_init,
+            compute_metrics=compute_metrics,
+            callbacks=[AdapterTrainerCallback(self)],
+            optimizers=optimizers,
+        )
 
         if adapter_names is not None:
             self.model.set_active_adapters(adapter_names)
@@ -140,9 +139,7 @@ class AdapterTrainerCallback(TrainerCallback):
         model = kwargs.pop("model")
         if args.load_best_model_at_end and state.best_model_checkpoint is not None:
             if self.trainer.do_save_full_model:
-                logger.info(
-                    f"Loading best model from {state.best_model_checkpoint} (score: {state.best_metric})."
-                )
+                logger.info(f"Loading best model from {state.best_model_checkpoint} (score: {state.best_metric}).")
 
                 best_model_path = os.path.join(state.best_model_checkpoint, WEIGHTS_NAME)
                 if os.path.exists(best_model_path):
@@ -156,7 +153,7 @@ class AdapterTrainerCallback(TrainerCallback):
                         "on multiple nodes, you should activate `--save_on_each_node`."
                     )
             if self.trainer.do_save_adapters:
-                #ToDo enable logger
+                # ToDo enable logger
                 # logger.info(
                 #     f"Loading best adapter(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
                 # )
@@ -179,10 +176,7 @@ class AdapterTrainerCallback(TrainerCallback):
     def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         # apply adapter fusion weight regularization on the value matrix
         model = kwargs.pop("model")
-        if (
-                hasattr(model.config, "adapter_fusion")
-                and model.config.adapter_fusion["regularization"]
-        ):
+        if hasattr(model.config, "adapter_fusion") and model.config.adapter_fusion["regularization"]:
             fusion_reg_loss = model.base_model.get_fusion_regularization_loss()
             fusion_reg_loss.backward()
 

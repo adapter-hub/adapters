@@ -2,18 +2,17 @@ import unittest
 
 import torch
 
-from transformers import (
+from transformers import (  # Trainer,
     AutoModelForSequenceClassification,
     AutoTokenizer,
     BertConfig,
     BertForSequenceClassification,
     GlueDataset,
     GlueDataTrainingArguments,
-    #Trainer,
     TrainingArguments,
 )
-from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.adapters.composition import Fuse
+from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.testing_utils import slow
 
 

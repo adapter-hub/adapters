@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 
-from transformers import (  # get_adapter_config_hash,
+from transformers import (  # get_adapter_config_hash,; Trainer,
     ADAPTER_CONFIG_MAP,
     AdapterConfig,
     AutoModel,
@@ -12,11 +12,11 @@ from transformers import (  # get_adapter_config_hash,
     BertModelWithHeads,
     GlueDataset,
     GlueDataTrainingArguments,
-    Trainer,
     TrainingArguments,
     get_adapter_config_hash,
     glue_compute_metrics,
 )
+from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.adapters.utils import find_in_index
 from transformers.testing_utils import require_torch
 
