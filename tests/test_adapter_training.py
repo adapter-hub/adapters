@@ -8,9 +8,10 @@ from transformers import (
     AutoTokenizer,
     GlueDataset,
     GlueDataTrainingArguments,
-    Trainer,
+    #Trainer,
     TrainingArguments,
 )
+from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.adapters.composition import Fuse
 from transformers.testing_utils import require_torch
 
@@ -20,7 +21,7 @@ def filter_parameters(model, filter_string):
 
 
 @require_torch
-class AdapterTrainingTestMixin:
+class AdapterTrainingT1estMixin:
     def test_train_single_adapter(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:

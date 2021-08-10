@@ -177,6 +177,7 @@ if is_sagemaker_mp_enabled():
 if is_training_run_on_sagemaker():
     logging.add_handler(StreamHandler(sys.stdout))
 
+
 if TYPE_CHECKING:
     import optuna
 
@@ -271,10 +272,6 @@ class Trainer:
         model_init: Callable[[], PreTrainedModel] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
-        do_save_full_model: Optional[bool] = None,
-        do_save_adapters: Optional[bool] = None,
-        do_save_adapter_fusion: Optional[bool] = None,
-        adapter_names: Optional[List[List[str]]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
     ):
         if args is None:
@@ -398,29 +395,6 @@ class Trainer:
             self.init_git_repo()
         if self.args.should_save:
             os.makedirs(self.args.output_dir, exist_ok=True)
-
-        if adapter_names is not None:
-            self.model.set_active_adapters(adapter_names)
-        # Set the defaults for loading/ saving model & adapters
-        if isinstance(self.model, PreTrainedModel):
-            model_freezed = getattr(self.model.base_model, "model_freezed", False)
-        else:
-            model_freezed = False
-        if model_freezed and self.model.active_adapters:
-            self.do_save_full_model = False
-            self.do_save_adapters = True
-            self.do_save_adapter_fusion = True
-        else:
-            self.do_save_full_model = True
-            self.do_save_adapters = False
-            self.do_save_adapter_fusion = False
-        # override with explicit setting
-        if do_save_full_model is not None:
-            self.do_save_full_model = do_save_full_model
-        if do_save_adapters is not None:
-            self.do_save_adapters = do_save_adapters
-        if do_save_adapter_fusion is not None:
-            self.do_save_adapter_fusion = do_save_adapter_fusion
 
         if not callable(self.data_collator) and callable(getattr(self.data_collator, "collate_batch", None)):
             raise ValueError("The `data_collator` should be a simple callable (function, class with `__call__`).")
@@ -806,9 +780,6 @@ class Trainer:
         if self.optimizer is None:
             decay_parameters = get_parameter_names(self.model, [nn.LayerNorm])
             decay_parameters = [name for name in decay_parameters if "bias" not in name]
-            if hasattr(self.model, "config") and hasattr(self.model.config, "adapter_fusion_models"):
-                no_decay = [f"adapter_fusion_layer.{n}.value" for n in self.model.config.adapter_fusion_models]
-                decay_parameters = [name for name in decay_parameters if name not in no_decay]
             optimizer_grouped_parameters = [
                 {
                     "params": [p for n, p in self.model.named_parameters() if n in decay_parameters],
@@ -1076,10 +1047,10 @@ class Trainer:
                 raise ValueError(f"No valid checkpoint found in output directory ({args.output_dir})")
 
         if resume_from_checkpoint is not None:
-            if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
-                logger.info(f"Loading model from {resume_from_checkpoint}).")
-            elif self.do_save_full_model:
+            if not os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
                 raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
+
+            logger.info(f"Loading model from {resume_from_checkpoint}).")
 
             if os.path.isfile(os.path.join(resume_from_checkpoint, CONFIG_NAME)):
                 config = PretrainedConfig.from_json_file(os.path.join(resume_from_checkpoint, CONFIG_NAME))
@@ -1095,27 +1066,10 @@ class Trainer:
                 # will be resumed in deepspeed_init
                 pass
             else:
-                if self.do_save_full_model:
-                    # We load the model state dict on the CPU to avoid an OOM error.
-                    state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME), map_location="cpu")
-                    # If the model is on the GPU, it still works!
-                    self._load_state_dict_in_model(state_dict)
-                if self.do_save_adapters:
-                    adapter_loaded = False
-                    if os.path.isdir(resume_from_checkpoint):
-                        for file_name in os.listdir(resume_from_checkpoint):
-                            if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
-                                if "," in file_name:
-                                    self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
-                                    adapter_loaded = True
-                                else:
-                                    self.model.load_adapter(
-                                        os.path.join(os.path.join(resume_from_checkpoint, file_name))
-                                    )
-                                    adapter_loaded = True
-
-                    if not adapter_loaded:
-                        raise Exception("Can't find a valid checkpoint at {}".format(resume_from_checkpoint))
+                # We load the model state dict on the CPU to avoid an OOM error.
+                state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME), map_location="cpu")
+                # If the model is on the GPU, it still works!
+                self._load_state_dict_in_model(state_dict)
 
         # If model was re-initialized, put it on the right device and update self.model_wrapped
         if model_reloaded:
@@ -1324,14 +1278,6 @@ class Trainer:
                     steps_in_epoch <= args.gradient_accumulation_steps
                     and (step + 1) == steps_in_epoch
                 ):
-                    # apply adapter fusion weight regularization on the value matrix
-                    if (
-                        hasattr(self.model.config, "adapter_fusion")
-                        and self.model.config.adapter_fusion["regularization"]
-                    ):
-                        fusion_reg_loss = self.model.base_model.get_fusion_regularization_loss()
-                        fusion_reg_loss.backward()
-
                     # Gradient clipping
                     if args.max_grad_norm is not None and args.max_grad_norm > 0 and not self.deepspeed:
                         # deepspeed does its own clipping
@@ -1408,43 +1354,21 @@ class Trainer:
             elif args.local_rank != -1:
                 dist.barrier()
 
-            if self.do_save_full_model:
-                logger.info(
-                    f"Loading best model from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
-                )
+            logger.info(
+                f"Loading best model from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+            )
 
-                best_model_path = os.path.join(self.state.best_model_checkpoint, WEIGHTS_NAME)
-                if os.path.exists(best_model_path):
-                    # We load the model state dict on the CPU to avoid an OOM error.
-                    state_dict = torch.load(best_model_path, map_location="cpu")
-                    # If the model is on the GPU, it still works!
-                    self._load_state_dict_in_model(state_dict)
-                else:
-                    logger.warn(
-                        f"Could not locate the best model at {best_model_path}, if you are running a distributed training "
-                        "on multiple nodes, you should activate `--save_on_each_node`."
-                    )
-            if self.do_save_adapters:
-                logger.info(
-                    f"Loading best adapter(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+            best_model_path = os.path.join(self.state.best_model_checkpoint, WEIGHTS_NAME)
+            if os.path.exists(best_model_path):
+                # We load the model state dict on the CPU to avoid an OOM error.
+                state_dict = torch.load(best_model_path, map_location="cpu")
+                # If the model is on the GPU, it still works!
+                self._load_state_dict_in_model(state_dict)
+            else:
+                logger.warn(
+                    f"Could not locate the best model at {best_model_path}, if you are running a distributed training "
+                    "on multiple nodes, you should activate `--save_on_each_node`."
                 )
-                # attempt to re-load all adapters from checkpoint
-                for adapter in self.model.config.adapters.adapters:
-                    adapter_dir = os.path.join(self.state.best_model_checkpoint, adapter)
-                    if os.path.exists(adapter_dir):
-                        self.model.load_adapter(adapter_dir)
-            if self.do_save_adapter_fusion:
-                logger.info(
-                    f"Loading best adapter fusion(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
-                )
-                # attempt to re-load all adapter fusions from checkpoint
-                fusion_models = getattr(self.model.config, "adapter_fusion_models", [])
-                for fusion in fusion_models:
-                    fusion_dir = os.path.join(self.state.best_model_checkpoint, fusion)
-                    if os.path.exists(fusion_dir):
-                        self.model.load_adapter_fusion(fusion_dir)
-            if self.place_model_on_device:
-                self.model = self.model.to(self.args.device)
 
             if self.deepspeed:
                 self.deepspeed.load_checkpoint(
@@ -1973,12 +1897,7 @@ class Trainer:
                 state_dict = self.model.state_dict()
                 xm.save(state_dict, os.path.join(output_dir, WEIGHTS_NAME))
         else:
-            if self.do_save_adapters:
-                self.model.save_all_adapters(output_dir)
-            if self.do_save_adapter_fusion:
-                self.model.save_all_adapter_fusions(output_dir)
-            if self.do_save_full_model:
-                self.model.save_pretrained(output_dir, save_config=self.args.should_save, save_function=xm.save)
+            self.model.save_pretrained(output_dir, save_config=self.args.should_save, save_function=xm.save)
         if self.tokenizer is not None and self.args.should_save:
             self.tokenizer.save_pretrained(output_dir)
 
@@ -2000,12 +1919,7 @@ class Trainer:
                     state_dict = self.model.state_dict()
                 torch.save(state_dict, os.path.join(output_dir, WEIGHTS_NAME))
         else:
-            if self.do_save_adapters:
-                self.model.save_all_adapters(output_dir)
-            if self.do_save_adapter_fusion:
-                self.model.save_all_adapter_fusions(output_dir)
-            if self.do_save_full_model:
-                self.model.save_pretrained(output_dir, state_dict=state_dict)
+            self.model.save_pretrained(output_dir, state_dict=state_dict)
         if self.tokenizer is not None:
             self.tokenizer.save_pretrained(output_dir)
 
@@ -2215,6 +2129,7 @@ class Trainer:
 
         # if eval is called w/o train init deepspeed here
         if self.args.deepspeed and not self.deepspeed:
+
             # XXX: eval doesn't have `resume_from_checkpoint` arg but we should be able to do eval
             # from the checkpoint eventually
             deepspeed_engine, _, _ = deepspeed_init(self, num_training_steps=0, resume_from_checkpoint=None)
@@ -2624,6 +2539,7 @@ class Trainer:
 
         # if eval is called w/o train init deepspeed here
         if self.args.deepspeed and not self.deepspeed:
+
             # XXX: eval doesn't have `resume_from_checkpoint` arg but we should be able to do eval
             # from the checkpoint eventually
             deepspeed_engine, _, _ = deepspeed_init(self, num_training_steps=0, resume_from_checkpoint=None)

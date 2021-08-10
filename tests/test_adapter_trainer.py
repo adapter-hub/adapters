@@ -9,9 +9,10 @@ from transformers import (
     BertForSequenceClassification,
     GlueDataset,
     GlueDataTrainingArguments,
-    Trainer,
+    #Trainer,
     TrainingArguments,
 )
+from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.adapters.composition import Fuse
 from transformers.testing_utils import slow
 
