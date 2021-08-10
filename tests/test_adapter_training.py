@@ -21,7 +21,7 @@ def filter_parameters(model, filter_string):
 
 
 @require_torch
-class AdapterTrainingT1estMixin:
+class AdapterTrainingTestMixin:
     def test_train_single_adapter(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
