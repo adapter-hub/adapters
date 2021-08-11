@@ -16,13 +16,13 @@
 
 from packaging import version
 
-from .. import __hf_version__
+from .. import __version__
 
 
 def check_min_version(min_version):
-    if version.parse(__hf_version__) < version.parse(min_version):
+    if version.parse(__version__) < version.parse(min_version):
         error_message = (
             f"This example requires a minimum underlying HuggingFace Transformers version of {min_version},"
         )
-        error_message += f" but the version found is {__hf_version__}.\n"
+        error_message += f" but the version found is {__version__}.\n"
         raise ImportError(error_message)

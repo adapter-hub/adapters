@@ -1,5 +1,11 @@
 # Integration with HuggingFace's Model Hub
 
+```eval_rst
+.. figure:: img/hfhub.svg
+    :align: center
+    :alt: HuggingFace Hub logo.
+```
+
 Starting with v2.1 of `adapter-transformers`, you can download adapters from and upload them to [HuggingFace's Model Hub](https://huggingface.co/models).
 This document describes how to interact with the Model Hub when working with adapters.
 

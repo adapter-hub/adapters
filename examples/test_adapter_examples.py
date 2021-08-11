@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import torch
 
-from examples.test_examples import get_results
+from test_examples import get_results
 from transformers.testing_utils import TestCasePlus, get_gpu_count, require_torch_non_multi_gpu, slow, torch_device
 
 
@@ -57,7 +57,7 @@ class AdapterExamplesTests(TestCasePlus):
             --do_eval
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
-            --learning_rate=1e-4
+            --learning_rate=5e-4
             --max_steps=10
             --warmup_steps=2
             --seed=42

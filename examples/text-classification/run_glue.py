@@ -27,6 +27,7 @@ import numpy as np
 from datasets import load_dataset, load_metric
 
 import transformers
+import transformers.adapters.composition as ac
 from transformers import (
     AdapterConfig,
     AutoConfig,
@@ -378,7 +379,7 @@ def main():
         model.train_adapter([task_name])
         # Set the adapters to be used in every forward pass
         if lang_adapter_name:
-            model.set_active_adapters([lang_adapter_name, task_name])
+            model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
         else:
             model.set_active_adapters([task_name])
     else:
