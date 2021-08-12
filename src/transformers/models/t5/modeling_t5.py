@@ -812,7 +812,7 @@ class T5PreTrainedModel(PreTrainedModel):
 
 class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
     def __init__(self, config, embed_tokens=None):
-        super().__init__(config)
+        super().__init__(config, disable_invertible_adapters=config.is_decoder)
 
         self.embed_tokens = embed_tokens
         self.is_decoder = config.is_decoder

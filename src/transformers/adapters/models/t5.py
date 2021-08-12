@@ -4,7 +4,7 @@ import torch
 
 from ..composition import AdapterCompositionBlock, parse_composition
 from ..layer import AdapterLayerBaseMixin
-from ..model_mixin import ModelAdaptersMixin
+from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
 class T5SelfAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
@@ -14,7 +14,7 @@ class T5SelfAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
 
     @property
     def transformer_layer_norm(self):
-        # T5  has layer norms before each component
+        # T5  has layer norms after each component
         return None
 
 
@@ -25,7 +25,7 @@ class T5CrossAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
 
     @property
     def transformer_layer_norm(self):
-        # T5  has layer norms before each component
+        # T5  has layer norms after each component
         return None
 
 
@@ -36,7 +36,7 @@ class T5FFLayerAdaptersMixin(AdapterLayerBaseMixin):
 
     @property
     def transformer_layer_norm(self):
-        # T5  has layer norms before each component
+        # T5  has layer norms after each component
         return None
 
 
@@ -45,7 +45,7 @@ class T5BlockAdaptersMixin:
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.is_decoder = config.is_decoder
+
         self.config = config
 
     def add_fusion_layer(self, adapter_names):
