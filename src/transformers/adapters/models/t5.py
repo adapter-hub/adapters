@@ -13,8 +13,9 @@ class T5SelfAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
         return "mh_adapter"
 
     @property
-    def allow_adapter_layer_norm(self):
-        return False
+    def transformer_layer_norm(self):
+        # T5  has layer norms before each component
+        return None
 
 
 class T5CrossAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
@@ -23,8 +24,9 @@ class T5CrossAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
         return "cross_adapter"
 
     @property
-    def allow_adapter_layer_norm(self):
-        return False
+    def transformer_layer_norm(self):
+        # T5  has layer norms before each component
+        return None
 
 
 class T5FFLayerAdaptersMixin(AdapterLayerBaseMixin):
@@ -33,8 +35,9 @@ class T5FFLayerAdaptersMixin(AdapterLayerBaseMixin):
         return "output_adapter"
 
     @property
-    def allow_adapter_layer_norm(self):
-        return False
+    def transformer_layer_norm(self):
+        # T5  has layer norms before each component
+        return None
 
 
 class T5BlockAdaptersMixin:
