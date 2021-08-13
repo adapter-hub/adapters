@@ -193,7 +193,6 @@ def main():
                 adapter_args.adapter_config,
                 non_linearity=adapter_args.adapter_non_linearity,
                 reduction_factor=adapter_args.adapter_reduction_factor,
-                leave_out=leave_out,
             )
             # load a pre-trained from Hub if specified
             if adapter_args.load_adapter:
@@ -213,7 +212,6 @@ def main():
                 adapter_args.lang_adapter_config,
                 non_linearity=adapter_args.lang_adapter_non_linearity,
                 reduction_factor=adapter_args.lang_adapter_reduction_factor,
-                leave_out=leave_out,
             )
             # load the language adapter from Hub
             lang_adapter_name = model.load_adapter(
@@ -292,7 +290,7 @@ def main():
             if adapter_args.train_adapter:
                 if language:
                     lang_adapter_config = AdapterConfig.load(
-                        config="pfeiffer", non_linearity="gelu", reduction_factor=2, leave_out=leave_out
+                        config="pfeiffer", non_linearity="gelu", reduction_factor=2
                     )
                     model.load_adapter(
                         os.path.join(training_args.output_dir, "best_model", language)
@@ -303,7 +301,7 @@ def main():
                         leave_out=leave_out,
                     )
                 task_adapter_config = AdapterConfig.load(
-                    config="pfeiffer", non_linearity="gelu", reduction_factor=16, leave_out=leave_out
+                    config="pfeiffer", non_linearity="gelu", reduction_factor=16
                 )
                 model.load_adapter(
                     os.path.join(training_args.output_dir, "best_model", task_name)
