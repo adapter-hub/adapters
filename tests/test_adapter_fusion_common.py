@@ -89,17 +89,18 @@ class AdapterFusionModelTestMixin:
                 model2.eval()
 
                 model1.add_adapter_fusion([name1, name2], adater_fusion_config_name)
+                model1.set_active_adapters([[name1, name2]])
+
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_adapter_fusion(temp_dir, ",".join([name1, name2]))
-                    model2.load_adapter_fusion(temp_dir)
+                    # also tests that set_active works
+                    model2.load_adapter_fusion(temp_dir, set_active=True)
 
                 # check if adapter was correctly loaded
                 self.assertEqual(model1.config.adapters.fusions.keys(), model2.config.adapters.fusions.keys())
 
                 # check equal output
                 in_data = self.get_input_samples((1, 128), config=model1.config)
-                model1.set_active_adapters([[name1, name2]])
-                model2.set_active_adapters([[name1, name2]])
                 output1 = model1(in_data)
                 output2 = model2(in_data)
                 self.assertEqual(len(output1), len(output2))
