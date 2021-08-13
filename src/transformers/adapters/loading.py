@@ -522,7 +522,9 @@ class AdapterFusionLoader(WeightsLoader):
         adapter_fusion_name = load_as or config["name"]
         if adapter_fusion_name in self.model.config.adapters.fusions:
             logger.warning("Overwriting existing adapter fusion module '{}'".format(adapter_fusion_name))
-        self.model.add_adapter_fusion(adapter_fusion_name, config["config"], overwrite_ok=True, set_active=kwargs.pop("set_active", True))
+        self.model.add_adapter_fusion(
+            adapter_fusion_name, config["config"], overwrite_ok=True, set_active=kwargs.pop("set_active", True)
+        )
 
         # Load AdapterFusion weights
         filter_func = self.filter_func(adapter_fusion_name)
