@@ -28,10 +28,7 @@ class InvertibleAdaptersMixin:
     """Mixin for Transformer models adding invertible adapters."""
 
     def __init__(self, config, *args, **kwargs):
-        # This assumes invertible adapters are never added on decoders.
         self.disable_invertible_adapters = kwargs.get("disable_invertible_adapters", False)
-
-
         super().__init__(config, *args, **kwargs)
 
         if not self.disable_invertible_adapters:
@@ -208,7 +205,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         Sets the adapter modules to be used by default in every forward pass. If no adapter with the given name is
         found, no module of the respective type will be activated.
-
         Args:
             adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
@@ -229,7 +225,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         Args:
             adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
-
                 - a string identifying a pre-defined adapter fusion configuration
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
