@@ -223,8 +223,8 @@ class AdapterModelTestMixin:
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
 
-            model2.load_adapter(temp_dir)
-            model2.set_active_adapters([name])
+            # also tests that set_active works
+            model2.load_adapter(temp_dir, set_active=True)
 
         # check if adapter was correctly loaded
         self.assertTrue(name in model2.config.adapters)

@@ -2,19 +2,12 @@ import logging
 import warnings
 from abc import ABC, abstractmethod
 from os.path import join
-from typing import List, Mapping, Optional, Union
+from typing import List, Optional, Union
 
 from torch import nn
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import (
-    ADAPTERFUSION_CONFIG_MAP,
-    DEFAULT_ADAPTERFUSION_CONFIG,
-    AdapterConfig,
-    AdapterFusionConfig,
-    ModelAdaptersConfig,
-    get_adapter_config_hash,
-)
+from .configuration import AdapterConfig, AdapterFusionConfig, ModelAdaptersConfig, get_adapter_config_hash
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
@@ -125,6 +118,11 @@ class ModelConfigAdaptersMixin(ABC):
             self.adapters = ModelAdaptersConfig(**adapter_config_dict)
         else:
             self.adapters = ModelAdaptersConfig()
+        # Convert AdapterFusions from old format for backwards compatibility
+        fusion_models = kwargs.pop("adapter_fusion_models", [])
+        fusion_config = kwargs.pop("adapter_fusion", None)
+        for fusion_adapter_names in fusion_models:
+            self.adapters.add_fusion(fusion_adapter_names, config=fusion_config)
 
 
 class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
@@ -149,9 +147,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         for adapter_name in self.config.adapters:
             self._add_adapter(adapter_name)
         # Initialize fusion from config
-        if hasattr(self.config, "adapter_fusion_models"):
-            for fusion_adapter_names in self.config.adapter_fusion_models:
-                self._add_fusion_layer(fusion_adapter_names)
+        for fusion_name in self.config.adapters.fusions:
+            self._add_fusion_layer(fusion_name)
 
     # These methods have to be implemented by every deriving class:
 
@@ -220,27 +217,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.config.adapters.active_setup = adapter_setup
         self.config.adapters.skip_layers = skip_layers
 
-    def set_adapter_fusion_config(self, adapter_fusion_config, override_kwargs=None):
-        """
-        Sets the adapter fusion configuration.
-
-        Args:
-            adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
-
-                - a string identifying a pre-defined adapter fusion configuration
-                - a dictionary representing the adapter fusion configuration
-                - the path to a file containing the adapter fusion configuration
-        """
-        if override_kwargs is None:
-            override_kwargs = {}
-        if isinstance(adapter_fusion_config, str) and adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP:
-            self.config.adapter_fusion = AdapterFusionConfig.load(adapter_fusion_config, **override_kwargs)
-        elif isinstance(adapter_fusion_config, Mapping):
-            self.config.adapter_fusion = adapter_fusion_config
-        else:
-            raise ValueError("Invalid adapter type {}".format(adapter_fusion_config))
-
-    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False):
+    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False, set_active: bool = False):
         """
         Adds a new adapter module of the specified type to the model.
         Args:
@@ -251,6 +228,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
             overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
+            set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
         """
         if isinstance(config, dict):
             config = AdapterConfig.from_dict(config)  # ensure config is ok and up-to-date
@@ -259,15 +237,24 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             self.delete_adapter(adapter_name)
         self.config.adapters.add(adapter_name, config=config)
         self.base_model._add_adapter(adapter_name)
+        if set_active:
+            self.set_active_adapters(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
         warnings.warn(
             "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
             FutureWarning,
         )
-        self.add_adapter_fusion(adapter_names, adapter_fusion_config, override_kwargs)
+        adapter_fusion_config = AdapterFusionConfig.from_dict(adapter_fusion_config).replace(**override_kwargs)
+        self.add_adapter_fusion(adapter_names, adapter_fusion_config)
 
-    def add_adapter_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
+    def add_adapter_fusion(
+        self,
+        adapter_names: Union[Fuse, list],
+        config=None,
+        overwrite_ok: bool = False,
+        set_active: bool = False,
+    ):
         """
         Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
         Args:
@@ -278,30 +265,22 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
             override_kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
+            set_active (bool, optional): Activate the added AdapterFusion. By default (False), the AdapterFusion is added but not activated.
         """
         # TODO-V2 Allow nested items or directly pass Fuse block?
         if isinstance(adapter_names, Fuse):
             adapter_names = adapter_names.children
-        if not hasattr(self.config, "adapter_fusion"):
-            if override_kwargs is None:
-                override_kwargs = {}
-            if adapter_fusion_config is not None:
-                self.set_adapter_fusion_config(adapter_fusion_config, **override_kwargs)
-            else:
-                self.set_adapter_fusion_config(DEFAULT_ADAPTERFUSION_CONFIG)
-        elif hasattr(self.config, "adapter_fusion") and adapter_fusion_config is not None:
-            # This behavior may be a bit unintuitive as the given argument is ignored, but we can't throw an error because of the loader.
-            logger.warning("An AdapterFusion config has already been set and will NOT be overwritten")
-
-        if not hasattr(self.config, "adapter_fusion_models"):
-            self.config.adapter_fusion_models = []
-        if isinstance(adapter_names, list):
-            adapter_fusion_name = ",".join(adapter_names)
-        else:
-            adapter_fusion_name = adapter_names
-        if adapter_fusion_name not in self.config.adapter_fusion_models:
-            self.config.adapter_fusion_models.append(adapter_fusion_name)
-            self.base_model._add_fusion_layer(adapter_names)
+        if isinstance(config, dict):
+            config = AdapterFusionConfig.from_dict(config)  # ensure config is ok and up-to-date
+        # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
+        if overwrite_ok and self.config.adapters.get_fusion(adapter_names) is not None:
+            self.delete_adapter_fusion(adapter_names)
+        self.config.adapters.add_fusion(adapter_names, config=config)
+        self.base_model._add_fusion_layer(adapter_names)
+        if set_active:
+            if not isinstance(adapter_names, list):
+                adapter_names = adapter_names.split(",")
+            self.set_active_adapters(Fuse(*adapter_names))
 
     def delete_adapter(self, adapter_name: str):
         """
@@ -333,14 +312,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         else:
             adapter_fusion_name = adapter_names
 
-        if (
-            not hasattr(self.config, "adapter_fusion_models")
-            or adapter_fusion_name not in self.config.adapter_fusion_models
-        ):
+        if adapter_fusion_name not in self.config.adapters.fusions:
             logger.info("No AdapterFusion '%s' found for deletion. Skipping.", adapter_fusion_name)
             return
-        self.config.adapter_fusion_models.remove(adapter_fusion_name)
+        del self.config.adapters.fusions[adapter_fusion_name]
         self.base_model._delete_fusion_layer(adapter_fusion_name)
+        # Reset active adapters if this was the active setup
+        if self.active_adapters == adapter_names:
+            self.active_adapters = None
 
     def save_adapter(
         self,
@@ -371,6 +350,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self,
         save_directory: str,
         adapter_names: list,
+        meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """
@@ -386,7 +366,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
 
         loader = AdapterFusionLoader(self)
-        loader.save(save_directory, adapter_names)
+        loader.save(save_directory, adapter_names, meta_dict)
         # save additional custom weights
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
@@ -403,6 +383,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
         id2label=None,
+        set_active: bool = False,
         **kwargs
     ) -> str:
         """
@@ -427,13 +408,22 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - "hf": search on HuggingFace model hub.
                 - None: only search on local file system
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
+            set_active (bool, optional): Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not activated.
 
         Returns:
             str: The name with which the adapter was added to the model.
         """
         loader = AdapterLoader(self)
         load_dir, load_name = loader.load(
-            adapter_name_or_path, config, version, model_name, load_as, source=source, leave_out=leave_out, **kwargs
+            adapter_name_or_path,
+            config,
+            version,
+            model_name,
+            load_as,
+            source=source,
+            leave_out=leave_out,
+            set_active=set_active,
+            **kwargs,
         )
         # load additional custom weights
         if custom_weights_loaders:
@@ -444,6 +434,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     loading_info=kwargs.get("loading_info", None),
                     main_load_name=load_name,
                     id2label=id2label,
+                    set_active=set_active,
                 )
         return load_name
 
@@ -452,6 +443,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         adapter_fusion_name_or_path: str,
         load_as: str = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        set_active: bool = False,
         **kwargs
     ) -> str:
         """
@@ -469,13 +461,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             model_name (str, optional): The string identifier of the pre-trained model.
             load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
                     saved will be used.
+            set_active (bool, optional): Activate the loaded AdapterFusion. By default (False), the AdapterFusion is loaded but not activated.
 
         Returns:
             str: The name with which the adapter was added to the model.
         """
 
         loader = AdapterFusionLoader(self)
-        load_dir, load_name = loader.load(adapter_fusion_name_or_path, load_as)
+        load_dir, load_name = loader.load(adapter_fusion_name_or_path, load_as, set_active=set_active)
         # load additional custom weights
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
@@ -484,6 +477,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     load_as=load_as,
                     loading_info=kwargs.get("loading_info", None),
                     main_load_name=load_name,
+                    set_active=set_active,
                 )
         return load_name
 
@@ -521,17 +515,17 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             save_directory (str): Path to a directory where the adapters should be saved.
         """
-        if not hasattr(self.config, "adapter_fusion_models"):
-            return
-        for name in self.config.adapter_fusion_models:
-            adapter_fusion_config = self.config.adapter_fusion
+        for name in self.config.adapters.fusions:
+            adapter_fusion_config = self.config.adapters.get_fusion(name)
             h = get_adapter_config_hash(adapter_fusion_config)
             save_path = join(save_directory, name)
             if meta_dict:
                 meta_dict.update({"config_id": h})
             else:
                 meta_dict = {"config_id": h}
-            self.save_adapter_fusion(save_path, name, custom_weights_loaders=custom_weights_loaders)
+            self.save_adapter_fusion(
+                save_path, name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders
+            )
 
     def freeze_model(self, freeze=True):
         """Freezes all weights of the model."""
@@ -559,6 +553,170 @@ class ModelWithHeadsAndNoBaseAdaptersMixin(ModelAdaptersMixin):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self._convert_to_flex_head = False
+
+
+    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False, set_active: bool = False):
+        """
+        Adds a new adapter module of the specified type to the model.
+
+        Args:
+            adapter_name (str): The name of the adapter module to be added.
+            config (str or dict, optional): The adapter configuration, can be either:
+
+                - the string identifier of a pre-defined configuration dictionary
+                - a configuration dictionary specifying the full config
+                - if not given, the default configuration for this adapter type will be used
+            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
+            set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
+        """
+        self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
+
+    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+        """Sets the model into mode for training the given adapters."""
+        self.base_model.train_adapter(adapter_setup)
+
+    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
+        self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
+
+    def _add_adapter(self, adapter_name):
+        self.base_model._add_adapter(adapter_name)
+
+    def _add_fusion_layer(self, adapter_names):
+        self.base_model._add_fusion_layer(adapter_names)
+
+>>>>>>> master
+    def save_head(self, save_directory: str, head_name: str = None):
+        loader = PredictionHeadLoader(self)
+        loader.save(save_directory, name=head_name)
+
+    def load_head(self, save_directory, load_as=None, id2label=None, **kwargs):
+        loader = PredictionHeadLoader(self, convert_to_flex_head=self._convert_to_flex_head)
+        return loader.load(save_directory, load_as=load_as, id2label=id2label, **kwargs)
+
+    def save_adapter(
+        self,
+        save_directory: str,
+        adapter_name: str,
+        with_head: bool = True,
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+    ):
+        if with_head:
+            if custom_weights_loaders is None:
+                custom_weights_loaders = []
+            custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
+        super().save_adapter(
+            save_directory,
+            adapter_name,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
+        )
+
+    def load_adapter(
+        self,
+        adapter_name_or_path: str,
+        config: Union[dict, str] = None,
+        version: str = None,
+        model_name: str = None,
+        load_as: str = None,
+        source: str = "ah",
+        with_head: bool = True,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        leave_out: Optional[List[int]] = None,
+        id2label=None,
+        set_active: bool = False,
+        **kwargs
+    ) -> str:
+        if with_head:
+            if custom_weights_loaders is None:
+                custom_weights_loaders = []
+            custom_weights_loaders.append(
+                PredictionHeadLoader(
+                    self,
+                    error_on_missing=False,
+                    convert_to_flex_head=self._convert_to_flex_head,
+                )
+            )
+        # Support passing a num_labels for compatibility reasons. Convert to label map here.
+        num_labels = kwargs.pop("num_labels", None)
+        if num_labels is not None:
+            id2label = {i: "LABEL_" + str(i) for i in range(num_labels)}
+        return super().load_adapter(
+            adapter_name_or_path,
+            config=config,
+            version=version,
+            model_name=model_name,
+            load_as=load_as,
+            source=source,
+            custom_weights_loaders=custom_weights_loaders,
+            leave_out=leave_out,
+            id2label=id2label,
+            set_active=set_active,
+            **kwargs,
+        )
+
+    def save_all_adapters(
+        self,
+        save_directory: str,
+        with_head: bool = True,
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+    ):
+        if with_head:
+            if custom_weights_loaders is None:
+                custom_weights_loaders = []
+            custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
+        super().save_all_adapters(
+            save_directory,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
+        )
+
+    def get_labels(self):
+        return list(self.config.id2label.values())
+
+    def get_labels_dict(self):
+        return self.config.id2label
+
+
+@inherit_doc
+class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
+    """Mixin adding support for loading/ saving adapters to transformer models with head(s)."""
+
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(config, *args, **kwargs)
+        self._convert_to_flex_head = False
+
+    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False, set_active: bool = False):
+        """
+        Adds a new adapter module of the specified type to the model.
+
+        Args:
+            adapter_name (str): The name of the adapter module to be added.
+            config (str or dict, optional): The adapter configuration, can be either:
+
+                - the string identifier of a pre-defined configuration dictionary
+                - a configuration dictionary specifying the full config
+                - if not given, the default configuration for this adapter type will be used
+            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
+            set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
+        """
+        self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
+
+    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+        """Sets the model into mode for training the given adapters."""
+        self.base_model.train_adapter(adapter_setup)
+
+    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
+        self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
+
+    def _add_adapter(self, adapter_name):
+        self.base_model._add_adapter(adapter_name)
+
+    def _add_fusion_layer(self, adapter_names):
+        self.base_model._add_fusion_layer(adapter_names)
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)
@@ -599,6 +757,7 @@ class ModelWithHeadsAndNoBaseAdaptersMixin(ModelAdaptersMixin):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
         id2label=None,
+        set_active: bool = False,
         **kwargs
     ) -> str:
         if with_head:
@@ -625,6 +784,7 @@ class ModelWithHeadsAndNoBaseAdaptersMixin(ModelAdaptersMixin):
             custom_weights_loaders=custom_weights_loaders,
             leave_out=leave_out,
             id2label=id2label,
+            set_active=set_active,
             **kwargs,
         )
 
@@ -650,45 +810,6 @@ class ModelWithHeadsAndNoBaseAdaptersMixin(ModelAdaptersMixin):
 
     def get_labels_dict(self):
         return self.config.id2label
-
-
-@inherit_doc
-class ModelWithHeadsAdaptersMixin(ModelWithHeadsAndNoBaseAdaptersMixin):
-    """Mixin adding support for loading/ saving adapters to transformer models with head(s) and a base model."""
-
-    def __init__(self, config, *args, **kwargs):
-        super().__init__(config, *args, **kwargs)
-
-    def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False):
-        """
-        Adds a new adapter module of the specified type to the model.
-        Args:
-            adapter_name (str): The name of the adapter module to be added.
-            config (str or dict, optional): The adapter configuration, can be either:
-                - the string identifier of a pre-defined configuration dictionary
-                - a configuration dictionary specifying the full config
-                - if not given, the default configuration for this adapter type will be used
-            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
-        """
-        self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok)
-
-    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
-        """Sets the model into mode for training the given adapters."""
-        self.base_model.train_adapter(adapter_setup)
-
-    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
-
-    def _add_adapter(self, adapter_name):
-        self.base_model._add_adapter(adapter_name)
-
-    def _add_fusion_layer(self, adapter_names):
-        self.base_model._add_fusion_layer(adapter_names)
-
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.base_model.train_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
 
     def get_adapter(self, name):
         return self.base_model.get_adapter(name)
