@@ -205,6 +205,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         Sets the adapter modules to be used by default in every forward pass. If no adapter with the given name is
         found, no module of the respective type will be activated.
+
         Args:
             adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
@@ -225,6 +226,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         Args:
             adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
+
                 - a string identifying a pre-defined adapter fusion configuration
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
@@ -242,6 +244,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         Adds a new adapter module of the specified type to the model.
         Args:
+
             adapter_name (str): The name of the adapter module to be added.
             config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
                 - the string identifier of a pre-defined configuration dictionary
@@ -270,6 +273,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             adapter_names: a list of adapter names which should be fused
             adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
+
                 - a string identifying a pre-defined adapter fusion configuration
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
@@ -302,6 +306,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def delete_adapter(self, adapter_name: str):
         """
         Deletes the adapter with the specified name from the model.
+
         Args:
             adapter_name (str): The name of the adapter.
         """
@@ -317,6 +322,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def delete_adapter_fusion(self, adapter_names: Union[Fuse, list]):
         """
         Deletes the AdapterFusion layer of the specified adapters.
+
         Args:
             adapter_names (Union[Fuse, list]): List of adapters for which to delete the AdapterFusion layer.
         """
@@ -401,8 +407,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     ) -> str:
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.
+
         Args:
             adapter_name_or_path (str): can be either:
+
                 - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
                 - a path to a directory containing adapter weights saved using `model.saved_adapter()`
                 - a URL pointing to a zip folder containing a saved adapter module
@@ -414,10 +422,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
                     saved will be used.
             source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
+
                 - "ah" (default): search on AdapterHub.
                 - "hf": search on HuggingFace model hub.
                 - None: only search on local file system
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
+
         Returns:
             str: The name with which the adapter was added to the model.
         """
