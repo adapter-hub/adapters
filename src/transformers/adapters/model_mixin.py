@@ -568,21 +568,37 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
             set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
         """
-        self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
+        if self.base_model is self:
+            super().add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
+        else:
+            self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
-        self.base_model.train_adapter(adapter_setup)
+
+        if self.base_model is self:
+            super().train_adapter(adapter_setup)
+        else:
+            self.base_model.train_adapter(adapter_setup)
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
+        if self.base_model is self:
+            super().train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
+        else:
+            self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
 
     def _add_adapter(self, adapter_name):
-        self.base_model._add_adapter(adapter_name)
+        if self.base_model is self:
+            super()._add_adapter(adapter_name)
+        else:
+            self.base_model._add_adapter(adapter_name)
 
     def _add_fusion_layer(self, adapter_names):
-        self.base_model._add_fusion_layer(adapter_names)
+        if self.base_model is self:
+            super()._add_fusion_layer(adapter_names)
+        else:
+            self.base_model._add_fusion_layer(adapter_names)
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)
@@ -678,4 +694,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         return self.config.id2label
 
     def get_adapter(self, name):
-        return self.base_model.get_adapter(name)
+        if self.base_model is self:
+            return super().get_adapter(name)
+        else:
+            return self.base_model.get_adapter(name)

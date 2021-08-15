@@ -4,7 +4,7 @@ import torch
 
 from ..composition import AdapterCompositionBlock, parse_composition
 from ..layer import AdapterLayerBaseMixin
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..model_mixin import ModelAdaptersMixin
 
 
 class T5SelfAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):

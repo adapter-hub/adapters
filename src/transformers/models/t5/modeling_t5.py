@@ -25,7 +25,7 @@ from torch.nn import CrossEntropyLoss
 from torch.utils.checkpoint import checkpoint
 
 from ...activations import ACT2FN
-from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAndNoBaseAdaptersMixin
+from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...adapters.models.t5 import (
     T5BlockAdaptersMixin,
     T5CrossAttentionLayerAdaptersMixin,
@@ -1442,7 +1442,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
 
 
 @add_start_docstrings("""T5 Model with a `language modeling` head on top. """, T5_START_DOCSTRING)
-class T5ForConditionalGeneration(ModelWithHeadsAndNoBaseAdaptersMixin, T5ModelAdaptersMixin, T5PreTrainedModel):
+class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin, T5PreTrainedModel):
     _keys_to_ignore_on_load_missing = [
         r"encoder\.embed_tokens\.weight",
         r"decoder\.embed_tokens\.weight",
