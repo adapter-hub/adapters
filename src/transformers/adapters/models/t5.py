@@ -45,7 +45,6 @@ class T5BlockAdaptersMixin:
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.config = config
 
     def add_fusion_layer(self, adapter_names):
