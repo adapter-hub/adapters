@@ -29,13 +29,12 @@ class InvertibleAdaptersMixin:
 
     def __init__(self, config, *args, **kwargs):
         # This assumes invertible adapters are never added on decoders.
-        self.disable_for_decoder = False
-        if config.is_decoder and not config.is_encoder_decoder:
-            self.disable_for_decoder = True
+        self.disable_invertible_adapters = kwargs.get("disable_invertible_adapters", False)
+
 
         super().__init__(config, *args, **kwargs)
 
-        if not self.disable_for_decoder:
+        if not self.disable_invertible_adapters:
             self.invertible_adapters = nn.ModuleDict(dict())
 
     def add_invertible_adapter(self, adapter_name: str):
@@ -46,11 +45,12 @@ class InvertibleAdaptersMixin:
         Args:
             adapter_name (str): The name of the adapter for which to add an invertible adapter module.
         """
-        if self.disable_for_decoder:
-            raise ValueError("Decoder is not allowed to use invertible adapters")
+        if self.disable_invertible_adapters:
+            raise ValueError("Invertible adapters were disabled on init!")
 
         if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
+
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config["inv_adapter"]:
             if adapter_config["inv_adapter"] == "nice":
@@ -71,12 +71,15 @@ class InvertibleAdaptersMixin:
             self.invertible_adapters[adapter_name].apply(Adapter.init_bert_weights)
 
     def delete_invertible_adapter(self, adapter_name: str):
+        if self.disable_invertible_adapters:
+            raise ValueError("Invertible adapters were disabled on init!")
+
         if adapter_name in self.invertible_adapters:
             del self.invertible_adapters[adapter_name]
 
     def get_invertible_adapter(self):
-        if self.disable_for_decoder:
-            return None
+        if self.disable_invertible_adapters:
+            raise ValueError("Invertible adapters were disabled on init!")
 
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
         if self.config.adapters.active_setup is not None and len(self.config.adapters.active_setup) > 0:
@@ -86,16 +89,17 @@ class InvertibleAdaptersMixin:
         return None
 
     def enable_invertible_adapters(self, adapter_names):
-        if self.disable_for_decoder:
-            return None
+        if self.disable_invertible_adapters:
+            raise ValueError("Invertible adapters were disabled on init!")
 
         for adapter_name in adapter_names:
             if adapter_name in self.invertible_adapters:
                 for param in self.invertible_adapters[adapter_name].parameters():
                     param.requires_grad = True
+        return None
 
     def invertible_adapters_forward(self, hidden_states, rev=False):
-        if self.disable_for_decoder:
+        if self.disable_invertible_adapters:
             return hidden_states
 
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
@@ -105,55 +109,6 @@ class InvertibleAdaptersMixin:
                 hidden_states = self.invertible_adapters[first_adapter](hidden_states, rev=rev)
 
         return hidden_states
-
-
-class EncoderRestrictedInvertibleAdaptersMixin(InvertibleAdaptersMixin):
-    """
-    For Transformer models that use same class as both an encoder and a decoder,
-    restricts invertible adapter methods to only be called and attached to the encoder.
-    """
-
-    def __init__(self, config, *args, **kwargs):
-        self.is_decoder = config.is_decoder
-
-        if self.is_decoder:
-            super().__init__(config, *args, **kwargs)
-            pass
-        else:
-            super().__init__(config, *args, **kwargs)
-
-    def add_invertible_adapter(self, adapter_name: str):
-        """
-        Adds an invertible adapter module for the adapter with the given name, iff this class is an encoder.
-        If the given adapter does not specify an invertible adapter config, this method does nothing.
-
-        Args:
-            adapter_name (str): The name of the adapter for which to add an invertible adapter module.
-        """
-        if self.is_decoder:
-            pass
-        else:
-            super().add_invertible_adapter(adapter_name)
-
-    def get_invertible_adapter(self):
-        # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if self.is_decoder:
-            return None
-        else:
-            return super().get_invertible_adapter()
-
-    def enable_invertible_adapters(self, adapter_names):
-        if self.is_decoder:
-            pass
-        else:
-            super().enable_invertible_adapters(adapter_names)
-
-    def invertible_adapters_forward(self, hidden_states, rev=False):
-        # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if self.is_decoder:
-            return hidden_states
-        else:
-            return super().invertible_adapters_forward(hidden_states, rev)
 
 
 class ModelConfigAdaptersMixin(ABC):
