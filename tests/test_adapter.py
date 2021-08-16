@@ -269,22 +269,24 @@ class GPT2ClassConversionTest(
 class EncoderDecoderAdapterTestBase(AdapterTestBase):
     model_class = EncoderDecoderModel
     config_class = EncoderDecoderConfig
-    config = staticmethod(lambda: EncoderDecoderConfig.from_encoder_decoder_configs(
-        BertConfig(
-            hidden_size=32,
-            num_hidden_layers=4,
-            num_attention_heads=4,
-            intermediate_size=37,
-        ),
-        BertConfig(
-            hidden_size=32,
-            num_hidden_layers=4,
-            num_attention_heads=4,
-            intermediate_size=37,
-            is_decoder=True,
-            add_cross_attention=True,
-        ),
-    ))
+    config = staticmethod(
+        lambda: EncoderDecoderConfig.from_encoder_decoder_configs(
+            BertConfig(
+                hidden_size=32,
+                num_hidden_layers=4,
+                num_attention_heads=4,
+                intermediate_size=37,
+            ),
+            BertConfig(
+                hidden_size=32,
+                num_hidden_layers=4,
+                num_attention_heads=4,
+                intermediate_size=37,
+                is_decoder=True,
+                add_cross_attention=True,
+            ),
+        )
+    )
     tokenizer_name = "bert-base-uncased"
 
 

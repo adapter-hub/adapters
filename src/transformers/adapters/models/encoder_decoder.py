@@ -30,6 +30,7 @@ class EncoderDecoderModelAdaptersMixin(ModelAdaptersMixin):
                 return self.encoder.base_model.invertible_adapters_forward(hidden_states, rev=True)
             else:
                 return hidden_states
+
         self.decoder.base_model.invertible_adapters_forward = decoder_invertible_adapters_forward
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
