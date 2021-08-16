@@ -5,6 +5,16 @@ The scripts were upgraded to `adapter-transformers` v2.x and modified to use [fl
 
 The used biaffine dependency parsing prediction head is described in ["Is Supervised Syntactic Parsing Beneficial for Language Understanding Tasks? An Empirical Investigation" (Glavaš & Vulić, 2021)](https://arxiv.org/pdf/2008.06788.pdf).
 
+A new prediction head can be added to BERT-based models via the `add_dependency_parsing_head()` methods, e.g.:
+```python
+model = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+model.add_dependency_parsing_head(
+    "dependency_parsing",
+    num_labels=num_labels,
+    id2label=label_map,
+)
+```
+
 ## Training on Universal Dependencies
 
 Script: [`run_udp.py`](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/dependency-parsing/run_udp.py).
