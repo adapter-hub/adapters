@@ -451,7 +451,13 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     # Methods for managing prediction heads
 
-    def add_prediction_head_from_config(self, head_name, config, overwrite_ok=False):
+    def add_prediction_head_from_config(
+        self,
+        head_name: str,
+        config: dict,
+        overwrite_ok: bool = False,
+        set_active: bool = True,
+    ):
         head_type = config.pop("head_type")
         # handle cases when id2label, label2id or both are available
         id2label = config.pop("id2label", None)
@@ -469,7 +475,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         if head_type in self.head_types:
             head_class = self.head_types[head_type]
             head = head_class(self, head_name, **config)
-            self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+            self.add_prediction_head(head, overwrite_ok=overwrite_ok, set_active=set_active)
         elif head_type in self.config.custom_heads:
             # we have to re-add the head type for custom heads
             config["head_type"] = head_type
@@ -559,10 +565,10 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             else:
                 logger.info("Could not identify '{}' as a valid prediction head.".format(final_block))
 
-    def add_custom_head(self, head_name, config, overwrite_ok=False):
+    def add_custom_head(self, head_name, config, overwrite_ok=False, set_active=True):
         if config["head_type"] in self.config.custom_heads:
             head = self.config.custom_heads[config["head_type"]](head_name, config, self)
-            self.add_prediction_head(head, overwrite_ok)
+            self.add_prediction_head(head, overwrite_ok, set_active=set_active)
         else:
             raise AttributeError(
                 "The given head as a head_type that is not registered as a custom head yet."
@@ -573,6 +579,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         self,
         head: PredictionHead,
         overwrite_ok: bool = False,
+        set_active: bool = True,
     ):
         if head.name not in self.heads or overwrite_ok:
             self.heads[head.name] = head
@@ -590,7 +597,9 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             self.tie_weights()
 
             logger.info(f"Adding head '{head.name}' with config {head.config}.")
-            self.active_head = head.name
+            if set_active:
+                self.active_head = head.name
+
         else:
             raise ValueError(
                 f"Model already contains a head with name '{head.name}'. Use overwrite_ok=True to force overwrite."

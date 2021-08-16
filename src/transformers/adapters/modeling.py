@@ -3,6 +3,8 @@ import math
 import torch
 from torch import nn
 
+from .configuration import AdapterFusionConfig
+
 
 class Activation_Function_Class(nn.Module):
     """
@@ -148,42 +150,40 @@ class BertFusion(nn.Module):
     Implementation of an AdapterFusion block.
     """
 
-    def __init__(self, config):
+    def __init__(
+        self,
+        config: AdapterFusionConfig,
+        dense_size,
+        attention_probs_dropout_prob,
+    ):
         super(BertFusion, self).__init__()
         # if config.hidden_size % config.num_attention_heads != 0:
         #     raise ValueError(
         #         "The hidden size (%d) is not a multiple of the number of attention "
         #         "heads (%d)" % (config.hidden_size, config.num_attention_heads))
         self.config = config
-        self.output_attentions = config.output_attentions
 
-        self.dense_size = int(config.hidden_size)
-        self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
+        self.dense_size = dense_size
+        self.dropout = nn.Dropout(attention_probs_dropout_prob)
 
-        if (
-            not self.config.adapter_fusion["query"]
-            and not self.config.adapter_fusion["key"]
-            and not self.config.adapter_fusion["value"]
-        ):
+        if not self.config["query"] and not self.config["key"] and not self.config["value"]:
             self.dense = nn.Linear(self.dense_size, 1)
 
-        if self.config.adapter_fusion["query"]:
-            self.query = nn.Linear(int(config.hidden_size), self.dense_size)
+        if self.config["query"]:
+            self.query = nn.Linear(self.dense_size, self.dense_size)
             self.query.apply(Adapter.init_bert_weights)
 
-        if self.config.adapter_fusion["key"]:
+        if self.config["key"]:
             self.key = nn.Linear(self.dense_size, self.dense_size)
             self.key.apply(Adapter.init_bert_weights)
 
-        if self.config.adapter_fusion["value"]:
-            self.value = nn.Linear(int(config.hidden_size), int(config.hidden_size), bias=False)
+        if self.config["value"]:
+            self.value = nn.Linear(self.dense_size, self.dense_size, bias=False)
             self.value.apply(Adapter.init_bert_weights)
-            if self.config.adapter_fusion["value_initialized"]:
-                self.value.weight.data = (
-                    torch.zeros(int(config.hidden_size), int(config.hidden_size)) + 0.000001
-                ).fill_diagonal_(1.0)
+            if self.config["value_initialized"]:
+                self.value.weight.data = (torch.zeros(self.dense_size, self.dense_size) + 0.000001).fill_diagonal_(1.0)
 
-        if self.config.adapter_fusion["temperature"]:
+        if self.config["temperature"]:
             self.T = 50.0
         else:
             self.T = 1.0
@@ -191,20 +191,20 @@ class BertFusion(nn.Module):
 
     def forward(self, query, key, value, residual):
 
-        if self.config.adapter_fusion["residual_before"]:
+        if self.config["residual_before"]:
             value += residual[:, :, None, :].repeat(1, 1, value.size(2), 1)
 
-        if self.config.adapter_fusion["query"]:
+        if self.config["query"]:
             query_layer = self.query(query)
         else:
             query_layer = query
 
-        if self.config.adapter_fusion["key"]:
+        if self.config["key"]:
             key_layer = self.key(key)
         else:
             key_layer = key
 
-        if self.config.adapter_fusion["value"] and self.config.adapter_fusion["value_before_softmax"]:
+        if self.config["value"] and self.config["value_before_softmax"]:
             # key/value have dims => batch, toks, number-of-adapters, feats
             value_layer = self.value(value)
         else:
@@ -224,13 +224,13 @@ class BertFusion(nn.Module):
 
         context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value_layer), dim=2)
 
-        if self.config.adapter_fusion["value"] and not self.config.adapter_fusion["value_before_softmax"]:
+        if self.config["value"] and not self.config["value_before_softmax"]:
             # key/value have dims => batch, toks, number-of-adapters, feats
             context_layer = self.value(context_layer)
         else:
             context_layer = context_layer
 
-        if not self.config.adapter_fusion["residual_before"]:
+        if not self.config["residual_before"]:
             context_layer += residual
 
         return context_layer

@@ -195,8 +195,12 @@ class ModelAdaptersConfig(Collection):
         adapters_list = dict(
             map(lambda t: (t[0], t[1][1] or t[1][0] if isinstance(t[1], tuple) else t[1]), adapters_list.items())
         )
-        self.adapters: Mapping[str] = adapters_list
+        self.adapters: Mapping[str, str] = adapters_list
         self.config_map = kwargs.pop("config_map", {})
+
+        self.fusions: Mapping[str, str] = kwargs.pop("fusions", {})
+        self.fusion_config_map = kwargs.pop("fusion_config_map", {})
+
         # TODO-V2 Save this with config?
         self.active_setup: Optional[AdapterCompositionBlock] = None
         self.skip_layers = None
@@ -212,7 +216,7 @@ class ModelAdaptersConfig(Collection):
     def __len__(self):
         return len(self.adapters)
 
-    def get(self, adapter_name: str):
+    def get(self, adapter_name: str) -> Optional[dict]:
         """
         Gets the config dictionary for a given adapter.
 
@@ -248,7 +252,7 @@ class ModelAdaptersConfig(Collection):
             config = DEFAULT_ADAPTER_CONFIG
         if isinstance(config, str):
             if config not in ADAPTER_CONFIG_MAP and config not in self.config_map:
-                raise ValueError(f"Invalid adapter config identifier '{config}''")
+                raise ValueError(f"Invalid adapter config identifier '{config}'.")
             config_name = config
         # if it's a dict, compute it's hash and add a new entry to the config map
         elif isinstance(config, Mapping):
@@ -258,6 +262,55 @@ class ModelAdaptersConfig(Collection):
             raise ValueError("Invalid adapter config: {}".format(config))
         self.adapters[adapter_name] = config_name
         logger.info(f"Adding adapter '{adapter_name}'.")
+
+    def get_fusion(self, fusion_name: Union[str, List[str]]) -> Optional[dict]:
+        """
+        Gets the config dictionary for a given AdapterFusion.
+
+        Args:
+            fusion_name (Union[str, List[str]]): The name of the AdapterFusion or the adapters to fuse.
+
+        Returns:
+            Optional[dict]: The AdapterFusion configuration.
+        """
+        if isinstance(fusion_name, list):
+            fusion_name = ",".join(fusion_name)
+        if fusion_name in self.fusions:
+            config_name = self.fusions[fusion_name]
+            if config_name in self.fusion_config_map:
+                config = self.fusion_config_map.get(config_name, None)
+            else:
+                config = ADAPTERFUSION_CONFIG_MAP.get(config_name, None)
+        else:
+            config = None
+        return config
+
+    def add_fusion(self, fusion_name: Union[str, List[str]], config: Optional[Union[str, dict]] = None):
+        """
+        Adds a new AdapterFusion.
+
+        Args:
+            fusion_name (Union[str, List[str]]): The name of the AdapterFusion or the adapters to fuse.
+            config (Optional[Union[str, dict]], optional): AdapterFusion config. Defaults to None.
+        """
+        if isinstance(fusion_name, list):
+            fusion_name = ",".join(fusion_name)
+        if fusion_name in self.fusions:
+            raise ValueError(f"An AdapterFusion with the name '{fusion_name}' has already been added.")
+        if config is None:
+            config = DEFAULT_ADAPTERFUSION_CONFIG
+        if isinstance(config, str):
+            if config not in ADAPTERFUSION_CONFIG_MAP and config not in self.fusion_config_map:
+                raise ValueError(f"Invalid AdapterFusion config identifier '{config}'.")
+            config_name = config
+        # if it's a dict, compute it's hash and add a new entry to the config map
+        elif isinstance(config, Mapping):
+            config_name = get_adapter_config_hash(config)
+            self.fusion_config_map[config_name] = config
+        else:
+            raise ValueError("Invalid AdapterFusion config: {}".format(config))
+        self.fusions[fusion_name] = config_name
+        logger.info(f"Adding AdapterFusion '{fusion_name}'.")
 
     def common_config_value(self, adapter_names: list, attribute: str):
         """
@@ -285,6 +338,8 @@ class ModelAdaptersConfig(Collection):
         output_dict = {}
         output_dict["adapters"] = copy.deepcopy(self.adapters)
         output_dict["config_map"] = copy.deepcopy(self.config_map)
+        output_dict["fusions"] = copy.deepcopy(self.fusions)
+        output_dict["fusion_config_map"] = copy.deepcopy(self.fusion_config_map)
         return output_dict
 
 
