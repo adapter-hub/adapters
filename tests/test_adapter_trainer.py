@@ -131,8 +131,10 @@ class TestAdapterTrainer(unittest.TestCase):
                 intermediate_size=37,
             )
         )
-        model.add_adapter("adapter")
-        model.train_adapter("adapter")
+        model.add_adapter("adapter1")
+        model.add_adapter("adapter2")
+        model.add_adapter_fusion(Fuse("adapter1", "adapter2"))
+        model.train_adapter_fusion(Fuse("adapter1", "adapter2"))
 
         training_args = TrainingArguments(
             output_dir="./examples",

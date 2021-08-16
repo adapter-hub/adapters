@@ -12,7 +12,7 @@ We will take a look at our own new **model classes with flexible heads** (e.g. `
 ```eval_rst
 .. important::
     Although the two prediction head implementations serve the same use case, their weights are *not* directly compatible, i.e. you cannot load a head created with ``AutoModelWithHeds`` into a model of type ``AutoModelForSequenceClassification``.
-    There is however an `automatic conversion to model classes with flexivle heads <#automatic-conversion>`_.
+    There is however an `automatic conversion to model classes with flexible heads <#automatic-conversion>`_.
 ```
 
 ## Models with flexible heads
