@@ -5,6 +5,7 @@ import torch
 
 from transformers import (
     ADAPTER_CONFIG_MAP,
+    MODEL_WITH_HEADS_MAPPING,
     AutoModelWithHeads,
     HoulsbyConfig,
     HoulsbyInvConfig,
@@ -248,6 +249,9 @@ class AdapterModelTestMixin:
             model.config.to_json_string()
 
     def test_loading_adapter_weights_with_prefix(self):
+        if self.config_class not in MODEL_WITH_HEADS_MAPPING:
+            self.skipTest("Does not support flex heads.")
+
         model_base, model_with_head_base = create_twin_models(self.model_class, self.config)
 
         model_with_head = AutoModelWithHeads.from_config(model_with_head_base.config)
@@ -272,6 +276,9 @@ class AdapterModelTestMixin:
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_loading_adapter_weights_without_prefix(self):
+        if self.config_class not in MODEL_WITH_HEADS_MAPPING:
+            self.skipTest("Does not support flex heads.")
+
         model_base, model_with_head_base = create_twin_models(self.model_class, self.config)
 
         model_with_head = AutoModelWithHeads.from_config(model_with_head_base.config)

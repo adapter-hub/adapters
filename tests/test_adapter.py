@@ -5,6 +5,7 @@ import torch
 
 from transformers import (
     AutoModel,
+    AutoModelForSeq2SeqLM,
     BartConfig,
     BertConfig,
     DistilBertConfig,
@@ -294,4 +295,26 @@ class EncoderDecoderAdapterTest(
     EncoderDecoderAdapterTestBase,
     unittest.TestCase,
 ):
-    pass
+    def test_invertible_adapter_with_head(self):
+        """This test class is copied and adapted from the identically-named test in test_adapter_heads.py."""
+        model = AutoModelForSeq2SeqLM.from_config(self.config())
+        model.add_adapter("test", config="pfeiffer+inv")
+        model.set_active_adapters("test")
+
+        # Set a hook before the invertible adapter to make sure it's actually called twice:
+        # Once after the embedding layer and once in the prediction head.
+        calls = 0
+
+        def forward_pre_hook(module, input):
+            nonlocal calls
+            calls += 1
+
+        inv_adapter = model.base_model.get_invertible_adapter()
+        self.assertIsNotNone(inv_adapter)
+        inv_adapter.register_forward_pre_hook(forward_pre_hook)
+
+        in_data = self.get_input_samples((1, 128), config=model.config)
+        out = model(**in_data)
+
+        self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
+        self.assertEqual(2, calls)

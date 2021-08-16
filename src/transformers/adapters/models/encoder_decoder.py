@@ -1,14 +1,36 @@
 from typing import Union
 
 from ..composition import AdapterCompositionBlock
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..model_mixin import ModelAdaptersMixin
 
 
-class EncoderDecoderModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
+class EncoderDecoderModelAdaptersMixin(ModelAdaptersMixin):
     """Adds adapters to the EncoderDecoderModel class."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def _init_adapter_modules(self):
+        super()._init_adapter_modules()
+        # Relay all invertible adapter calls to encoder
+        self.invertible_adapters = self.encoder.base_model.invertible_adapters
+        self.add_invertible_adapter = self.encoder.base_model.add_invertible_adapter
+        self.get_invertible_adapter = self.encoder.base_model.get_invertible_adapter
+        self.invertible_adapters_forward = self.encoder.base_model.invertible_adapters_forward
+        # Decoder should use invertible adapters of encoder
+        self.decoder.base_model.invertible_adapters = self.encoder.base_model.invertible_adapters
+        self.decoder.base_model.add_invertible_adapter = lambda *args: None
+        self.decoder.base_model.get_invertible_adapter = self.encoder.base_model.get_invertible_adapter
+
+        # Patched invertible adapters forward for decoder:
+        # In the decoder, only the reverse pass in the LM head should be active.
+        # Decoder inputs should not be forwarded through the invertible adapter again in its embeddings module.
+        def decoder_invertible_adapters_forward(hidden_states, rev=False):
+            if rev:
+                return self.encoder.base_model.invertible_adapters_forward(hidden_states, rev=True)
+            else:
+                return hidden_states
+        self.decoder.base_model.invertible_adapters_forward = decoder_invertible_adapters_forward
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
