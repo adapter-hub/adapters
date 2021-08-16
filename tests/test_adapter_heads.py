@@ -242,5 +242,5 @@ class PredictionHeadModelTestMixin:
         # check equal output
         in_data = self.get_input_samples((1, 128), config=flex_head_model.config)
         output1 = static_head_model(in_data, adapter_names=["test"])
-        output2 = flex_head_model(in_data, adapter_names=["test"])
+        output2 = flex_head_model(in_data, adapter_names=["test"], head="test")
         self.assertTrue(torch.all(torch.isclose(output1.logits, output2.logits)))

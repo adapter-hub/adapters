@@ -19,7 +19,7 @@ import requests
 from filelock import FileLock
 from huggingface_hub import HfApi, snapshot_download
 
-from .. import __version__
+from .. import __adapters_version__
 from ..file_utils import get_from_cache, is_remote_url, torch_cache_home
 
 
@@ -395,7 +395,7 @@ def pull_from_hf_model_hub(specifier: str, version: str = None, **kwargs) -> str
         revision=version,
         cache_dir=kwargs.pop("cache_dir", None),
         library_name="adapter-transformers",
-        library_version=__version__,
+        library_version=__adapters_version__,
     )
     return download_path
 

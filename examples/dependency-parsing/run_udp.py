@@ -300,9 +300,7 @@ def main():
                         load_as=language,
                         leave_out=leave_out,
                     )
-                task_adapter_config = AdapterConfig.load(
-                    config="pfeiffer", non_linearity="gelu", reduction_factor=16
-                )
+                task_adapter_config = AdapterConfig.load(config="pfeiffer", non_linearity="gelu", reduction_factor=16)
                 model.load_adapter(
                     os.path.join(training_args.output_dir, "best_model", task_name)
                     if training_args.do_train
