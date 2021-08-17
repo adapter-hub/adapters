@@ -501,3 +501,43 @@ def list_adapters(source: str = None, model_name: str = None) -> List[AdapterInf
     if model_name is not None:
         adapters = [adapter for adapter in adapters if adapter.model_name == model_name]
     return adapters
+
+
+def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInfo]:
+    """
+    Retrieves information about a specific adapter.
+
+    Args:
+        adapter_id (str): The identifier of the adapter to retrieve.
+        source (str, optional): Identifier of the source(s) from where to get adapters. Can be either:
+
+            - "ah": search on AdapterHub.ml.
+            - "hf": search on HuggingFace model hub (huggingface.co).
+
+    Returns:
+        AdapterInfo: The adapter information or None if the adapter was not found.
+    """
+    if source == "ah":
+        if adapter_id.startswith("@"):
+            adapter_id = adapter_id[1:]
+        try:
+            data = http_get_json(f"/adapters/{adapter_id}.json")
+            return AdapterInfo(**data["info"])
+        except EnvironmentError:
+            return None
+    elif source == "hf":
+        try:
+            model_info = HfApi().model_info(adapter_id)
+            return AdapterInfo(
+                source="hf",
+                adapter_id=model_info.modelId,
+                model_name=model_info.config.get("adapter_transformers", {}).get("model_name")
+                if model_info.config
+                else None,
+                username=model_info.modelId.split("/")[0],
+                sha1_checksum=model_info.sha,
+            )
+        except requests.exceptions.HTTPError:
+            return None
+    else:
+        raise ValueError("Please specify either 'ah' or 'hf' as source.")

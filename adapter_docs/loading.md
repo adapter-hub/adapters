@@ -20,6 +20,16 @@ for adapter_info in adapter_infos:
     print("Uploaded by:", adapter_info.username)
 ```
 
+In case the adapter ID is known, information for a single adapter can also be retrieved via [`get_adapter_info()`](classes/adapter_utils.html#transformers.adapters.utils.get_adapter_info):
+
+```python
+adapter_info = get_adapter_info("@ukp/bert-base-uncased_sentiment_sst-2_pfeiffer", source="ah")
+
+print("Id:", adapter_info.adapter_id)
+print("Model name:", adapter_info.model_name)
+print("Uploaded by:", adapter_info.username)
+```
+
 ## Using pre-trained adapters in your code
 
 Suppose we have loaded a pre-trained transformer model from HuggingFace, e.g. BERT:
