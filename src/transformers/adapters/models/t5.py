@@ -182,3 +182,19 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
             else:
                 outputs.append(tensor)
         return tuple(outputs)
+
+    def get_adapter(self, name):
+        return_adapters = {}
+        for idx, block in enumerate(self.encoder.block):
+            # In each block of T5Stack that is an encoder, the first layer is T5LayerSelfAttention, the second is T5LayerFF
+            adapters = {
+                "attention": block.layer[0].adapters,
+                "output": block.layer[1].adapters,
+            }
+            for key, adapt in adapters.items():
+                if hasattr(adapt, name):
+                    if idx not in return_adapters:
+                        return_adapters[idx] = {}
+                    return_adapters[idx][key] = getattr(adapt, name)
+
+        return return_adapters
