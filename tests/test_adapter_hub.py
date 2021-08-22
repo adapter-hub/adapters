@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 
-from transformers import (  # get_adapter_config_hash,; Trainer,
+from transformers import (  # get_adapter_config_hash,
     ADAPTER_CONFIG_MAP,
     AdapterConfig,
     AutoModel,

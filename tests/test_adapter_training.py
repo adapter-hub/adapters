@@ -2,7 +2,7 @@ import copy
 
 import torch
 
-from transformers import (  # Trainer,
+from transformers import (
     AutoModelForSequenceClassification,
     AutoModelWithHeads,
     AutoTokenizer,
