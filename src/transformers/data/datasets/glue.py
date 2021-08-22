@@ -118,14 +118,12 @@ class GlueDataset(Dataset):
         # Make sure only the first process in distributed training processes the dataset,
         # and the others will use the cache.
         lock_path = cached_features_file + ".lock"
-        #with FileLock(lock_path):
+        # with FileLock(lock_path):
 
         if os.path.exists(cached_features_file) and not args.overwrite_cache:
             start = time.time()
             self.features = torch.load(cached_features_file)
-            logger.info(
-                f"Loading features from cached file {cached_features_file} [took %.3f s]", time.time() - start
-            )
+            logger.info(f"Loading features from cached file {cached_features_file} [took %.3f s]", time.time() - start)
         else:
             logger.info(f"Creating features from dataset file at {args.data_dir}")
 
@@ -147,9 +145,7 @@ class GlueDataset(Dataset):
             start = time.time()
             torch.save(self.features, cached_features_file)
             # ^ This seems to take a lot of time so I want to investigate why and how we can improve.
-            logger.info(
-                f"Saving features into cached file {cached_features_file} [took {time.time() - start:.3f} s]"
-            )
+            logger.info(f"Saving features into cached file {cached_features_file} [took {time.time() - start:.3f} s]")
 
     def __len__(self):
         return len(self.features)

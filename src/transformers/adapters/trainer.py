@@ -6,7 +6,7 @@ from torch import nn
 from torch.cuda.amp import autocast
 from torch.utils.data.dataset import Dataset
 
-from transformers import PreTrainedModel, Trainer, __version__, Seq2SeqTrainer
+from transformers import PreTrainedModel, Seq2SeqTrainer, Trainer, __version__
 from transformers.deepspeed import is_deepspeed_zero3_enabled
 from transformers.dependency_versions_check import dep_version_check
 from transformers.integrations import is_fairscale_available
@@ -22,6 +22,7 @@ from ..trainer_pt_utils import get_parameter_names
 from ..trainer_utils import EvalPrediction, PredictionOutput, ShardedDDPOption
 from ..training_args import TrainingArguments
 
+
 if is_fairscale_available():
     dep_version_check("fairscale")
     from fairscale.optim import OSS
@@ -32,21 +33,21 @@ if is_sagemaker_mp_enabled():
 
 class AdapterTrainer(Trainer):
     def __init__(
-            self,
-            model: Union[PreTrainedModel, nn.Module] = None,
-            args: TrainingArguments = None,
-            data_collator: Optional[DataCollator] = None,
-            train_dataset: Optional[Dataset] = None,
-            eval_dataset: Optional[Dataset] = None,
-            tokenizer: Optional[PreTrainedTokenizerBase] = None,
-            model_init: Callable[[], PreTrainedModel] = None,
-            compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
-            callbacks: Optional[List[TrainerCallback]] = None,
-            do_save_full_model: Optional[bool] = None,
-            do_save_adapters: Optional[bool] = None,
-            do_save_adapter_fusion: Optional[bool] = None,
-            adapter_names: Optional[List[List[str]]] = None,
-            optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
+        self,
+        model: Union[PreTrainedModel, nn.Module] = None,
+        args: TrainingArguments = None,
+        data_collator: Optional[DataCollator] = None,
+        train_dataset: Optional[Dataset] = None,
+        eval_dataset: Optional[Dataset] = None,
+        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        model_init: Callable[[], PreTrainedModel] = None,
+        compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
+        callbacks: Optional[List[TrainerCallback]] = None,
+        do_save_full_model: Optional[bool] = None,
+        do_save_adapters: Optional[bool] = None,
+        do_save_adapter_fusion: Optional[bool] = None,
+        adapter_names: Optional[List[List[str]]] = None,
+        optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
     ):
         super().__init__(
             model,
@@ -210,7 +211,9 @@ class AdapterTrainerCallback(TrainerCallback):
             else:
                 if self.do_save_full_model:
                     # We load the model state dict on the CPU to avoid an OOM error.
-                    state_dict = torch.load(os.path.join(args.resume_from_checkpoint, WEIGHTS_NAME), map_location="cpu")
+                    state_dict = torch.load(
+                        os.path.join(args.resume_from_checkpoint, WEIGHTS_NAME), map_location="cpu"
+                    )
                     # If the model is on the GPU, it still works!
                     self._load_state_dict_in_model(state_dict)
                 if self.do_save_adapters:
