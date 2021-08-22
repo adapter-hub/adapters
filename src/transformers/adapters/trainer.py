@@ -1,13 +1,11 @@
 import os
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch import nn
-from torch.cuda.amp import autocast
 from torch.utils.data.dataset import Dataset
 
 from transformers import PreTrainedModel, Seq2SeqTrainer, Trainer, __version__
-from transformers.deepspeed import is_deepspeed_zero3_enabled
 from transformers.dependency_versions_check import dep_version_check
 from transformers.integrations import is_fairscale_available
 
@@ -19,7 +17,7 @@ from ..optimization import Adafactor, AdamW
 from ..tokenization_utils_base import PreTrainedTokenizerBase
 from ..trainer_callback import TrainerCallback, TrainerControl, TrainerState
 from ..trainer_pt_utils import get_parameter_names
-from ..trainer_utils import EvalPrediction, PredictionOutput, ShardedDDPOption
+from ..trainer_utils import EvalPrediction, ShardedDDPOption
 from ..training_args import TrainingArguments
 
 
@@ -108,7 +106,6 @@ class AdapterTrainer(Trainer):
                     "weight_decay": 0.0,
                 },
             ]
-            optimizer_cls = Adafactor if self.args.adafactor else AdamW
             if self.args.adafactor:
                 optimizer_cls = Adafactor
                 optimizer_kwargs = {"scale_parameter": False, "relative_step": False}
