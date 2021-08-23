@@ -88,7 +88,8 @@ class EncoderDecoderConfig(PretrainedConfig):
         self.is_encoder_decoder = True
 
         # make sure adapter config is shared
-        self.decoder.adapters = self.encoder.adapters
+        if hasattr(self.encoder, "adapters"):
+            self.decoder.adapters = self.encoder.adapters
 
     @classmethod
     def from_encoder_decoder_configs(
@@ -122,4 +123,4 @@ class EncoderDecoderConfig(PretrainedConfig):
 
     @property
     def adapters(self):
-        return self.encoder.adapters
+        return getattr(self.encoder, "adapters", None)

@@ -136,7 +136,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # Thus, we check the adapters config here to make sure everything is correct.
         if not hasattr(config, "adapters"):
             config.adapters = ModelAdaptersConfig()
-        elif not isinstance(config.adapters, ModelAdaptersConfig):
+        elif config.adapters is not None and not isinstance(config.adapters, ModelAdaptersConfig):
             config.adapters = ModelAdaptersConfig(**config.adapters)
 
     def _init_adapter_modules(self):
