@@ -191,7 +191,8 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
         self.encoder.config = self.config.encoder
         self.decoder.config = self.config.decoder
         # make sure adapter config is shared
-        self.decoder.config.adapters = self.encoder.config.adapters
+        if hasattr(self.encoder.config, "adapters"):
+            self.decoder.config.adapters = self.encoder.config.adapters
 
         assert (
             self.encoder.get_output_embeddings() is None
@@ -427,9 +428,12 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
             argument[len("decoder_") :]: value for argument, value in kwargs.items() if argument.startswith("decoder_")
         }
 
-        self.pre_transformer_forward(adapter_names=adapter_names, **kwargs)
+        if self.config.adapters:
+            self.pre_transformer_forward(adapter_names=adapter_names, **kwargs)
 
         if encoder_outputs is None:
+            if adapter_names is not None:
+                kwargs_encoder["adapter_names"] = adapter_names
             encoder_outputs = self.encoder(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
@@ -437,13 +441,14 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
-                adapter_names=adapter_names,
                 **kwargs_encoder,
             )
 
         encoder_hidden_states = encoder_outputs[0]
 
         # Decode
+        if adapter_names is not None:
+            kwargs_decoder["adapter_names"] = adapter_names
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
             attention_mask=decoder_attention_mask,
@@ -456,7 +461,6 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
             use_cache=use_cache,
             past_key_values=past_key_values,
             return_dict=return_dict,
-            adapter_names=adapter_names,
             **kwargs_decoder,
         )
 

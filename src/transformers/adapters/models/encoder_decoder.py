@@ -11,6 +11,9 @@ class EncoderDecoderModelAdaptersMixin(ModelAdaptersMixin):
         super().__init__(*args, **kwargs)
 
     def _init_adapter_modules(self):
+        if self.config.adapters is None:
+            return
+
         super()._init_adapter_modules()
         # Relay all invertible adapter calls to encoder
         self.invertible_adapters = self.encoder.base_model.invertible_adapters
