@@ -33,6 +33,8 @@ class Activation_Function_Class(nn.Module):
                 return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
 
             self.f = gelu_new
+        elif hidden_act.lower() == "gelu_orig":
+            self.f = nn.functional.gelu
         elif hidden_act.lower() == "leakyrelu":
             self.f = nn.functional.leaky_relu
 

@@ -5,8 +5,8 @@ import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from ..file_utils import ModelOutput
-from ..modeling_outputs import (
+from ...file_utils import ModelOutput
+from ...modeling_outputs import (
     MultipleChoiceModelOutput,
     QuestionAnsweringModelOutput,
     Seq2SeqModelOutput,
@@ -15,9 +15,9 @@ from ..modeling_outputs import (
     SequenceClassifierOutput,
     TokenClassifierOutput,
 )
-from .composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack
-from .model_mixin import ModelWithHeadsAdaptersMixin
-from .modeling import Activation_Function_Class
+from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack
+from ..model_mixin import ModelWithHeadsAdaptersMixin
+from ..modeling import Activation_Function_Class
 
 
 logger = logging.getLogger(__name__)
@@ -33,11 +33,13 @@ class PredictionHead(nn.Sequential):
     def build(self, model):
         model_config = model.config
         pred_head = []
+        dropout_prob = self.config.get("dropout_prob", model_config.hidden_dropout_prob)
         bias = self.config.get("bias", True)
-        for l in range(self.config["layers"]):
-            pred_head.append(nn.Dropout(model_config.hidden_dropout_prob))
-            if l < self.config["layers"] - 1:
-                pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size, bias=bias))
+        for l_id in range(self.config["layers"]):
+            if dropout_prob > 0:
+                pred_head.append(nn.Dropout(dropout_prob))
+            if l_id < self.config["layers"] - 1:
+                pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
                 if self.config["activation_function"]:
                     pred_head.append(Activation_Function_Class(self.config["activation_function"]))
             else:
@@ -54,6 +56,9 @@ class PredictionHead(nn.Sequential):
 
         self.apply(model._init_weights)
         self.train(model.training)  # make sure training mode is consistent
+
+    def get_output_embeddings(self):
+        return None  # override for heads with output embeddings
 
 
 class ClassificationHead(PredictionHead):
@@ -393,6 +398,59 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         for head_name, config in self.config.prediction_heads.items():
             self.add_prediction_head_from_config(head_name, config)
 
+    # The following methods are required for handling LM heads
+
+    def get_output_embeddings(self):
+        # Only gets the output embeddings for the currently active head
+        if self.active_head in self.heads:
+            head = self.heads[self.active_head]
+            return head.get_output_embeddings()
+        else:
+            return None
+
+    def set_output_embeddings(self, new_embeddings):
+        # Only sets the output embeddings for the currently active head
+        if self.active_head in self.heads:
+            head = self.heads[self.active_head]
+            if head.get_output_embeddings() is not None:
+                head.set_output_embeddings(new_embeddings)
+
+    def tie_weights(self):
+        """
+        Tie the weights between the input embeddings and the output embeddings.
+
+        If the :obj:`torchscript` flag is set in the configuration, can't handle parameter sharing so we are cloning
+        the weights instead.
+        """
+        for head_name, head in self.heads.items():
+            output_embeddings = head.get_output_embeddings()
+            if output_embeddings is not None and self.config.tie_word_embeddings:
+                self._tie_or_clone_weights(output_embeddings, self.get_input_embeddings())
+
+        if self.config.is_encoder_decoder and self.config.tie_encoder_decoder:
+            if hasattr(self, self.base_model_prefix):
+                self = getattr(self, self.base_model_prefix)
+            self._tie_encoder_decoder_weights(self.encoder, self.decoder, self.base_model_prefix)
+
+        return self.get_input_embeddings()
+
+    def _resize_token_embeddings(self, new_num_tokens):
+        old_embeddings = self.get_input_embeddings()
+        new_embeddings = self._get_resized_embeddings(old_embeddings, new_num_tokens)
+        self.set_input_embeddings(new_embeddings)
+
+        # if word embeddings are not tied, make sure that lm head is resized as well
+        if not self.config.tie_word_embeddings:
+            for head in self.heads.values():
+                old_lm_head = self.get_output_embeddings()
+                if old_lm_head is not None:
+                    new_lm_head = self._get_resized_lm_head(old_lm_head, new_num_tokens)
+                    self.set_output_embeddings(new_lm_head)
+
+        return self.get_input_embeddings()
+
+    # Methods for managing prediction heads
+
     def add_prediction_head_from_config(
         self,
         head_name: str,
@@ -410,9 +468,13 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         else:
             # don't pass label2id to head_class
             config.pop("label2id", None)
+        # re-add id2label map to config
+        if id2label is not None:
+            config["id2label"] = id2label
+
         if head_type in self.head_types:
             head_class = self.head_types[head_type]
-            head = head_class(self, head_name, id2label=id2label, **config)
+            head = head_class(self, head_name, **config)
             self.add_prediction_head(head, overwrite_ok=overwrite_ok, set_active=set_active)
         elif head_type in self.config.custom_heads:
             # we have to re-add the head type for custom heads
@@ -459,7 +521,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             self._active_heads = [head_name_or_list] if head_name_or_list else None
             # If we set a single head, also switch the label mapping. For multiple head, that doesn't make sense?
             if head_name_or_list:
-                self.config.label2id = self.heads[head_name_or_list].config["label2id"]
+                self.config.label2id = self.heads[head_name_or_list].config.get("label2id", None)
                 self.config.id2label = self.get_labels_dict(head_name_or_list)
         else:
             self._active_heads = head_name_or_list
@@ -519,17 +581,20 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         overwrite_ok: bool = False,
         set_active: bool = True,
     ):
-
         if head.name not in self.heads or overwrite_ok:
             self.heads[head.name] = head
             # add reference to model config to save all head configs too
             self.config.prediction_heads[head.name] = head.config
 
-            if "label2id" not in head.config.keys() or head.config["label2id"] is None:
+            # Set a default label2id map if not given
+            if "label2id" in head.config.keys() and head.config["label2id"] is None:
                 if "num_labels" in head.config.keys():
                     head.config["label2id"] = {"LABEL_" + str(num): num for num in range(head.config["num_labels"])}
                 if "num_choices" in head.config.keys():
                     head.config["label2id"] = {"LABEL_" + str(num): num for num in range(head.config["num_choices"])}
+
+            # In case the added head has tied weights, tie them here.
+            self.tie_weights()
 
             logger.info(f"Adding head '{head.name}' with config {head.config}.")
             if set_active:
@@ -580,6 +645,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             else:
                 cls_input = None
             return inputs, cls_input
+
+        # Pass invertible adapter if we have one
+        inv_adapter = self.base_model.get_invertible_adapter()
+        if inv_adapter:
+            kwargs["invertible_adapter"] = inv_adapter
 
         for head in used_heads:
             if head not in self.heads:
@@ -637,7 +707,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             head_name = self.active_head
         if head_name is None:
             raise ValueError("No head name given and no active head in the model")
-        if "label2id" in self.heads[head_name].config.keys():
+        if "label2id" in self.heads[head_name].config.keys() and self.heads[head_name].config["label2id"] is not None:
             return {id_: label for label, id_ in self.heads[head_name].config["label2id"].items()}
         else:
             return None

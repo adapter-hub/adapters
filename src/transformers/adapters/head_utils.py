@@ -6,6 +6,8 @@ import re
 logger = logging.getLogger(__name__)
 
 
+# The "layers" attributes in the configs below map from static head module names to flex head module names.
+# In this context, "None" refers to a flex-head layer without weights (e.g. dropout, acts).
 STATIC_TO_FLEX_HEAD_MAP = {
     # BERT
     "BertForSequenceClassification": {
@@ -15,7 +17,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "activation_function": None,
             "use_pooler": True,
         },
-        "layers": ["classifier"],
+        "layers": [None, "classifier"],
     },
     "BertForMultipleChoice": {
         "config": {
@@ -24,7 +26,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "activation_function": None,
             "use_pooler": True,
         },
-        "layers": ["classifier"],
+        "layers": [None, "classifier"],
     },
     "BertForTokenClassification": {
         "config": {
@@ -32,7 +34,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": ["classifier"],
+        "layers": [None, "classifier"],
     },
     "BertForQuestionAnswering": {
         "config": {
@@ -40,7 +42,37 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": ["qa_outputs"],
+        "layers": [None, "qa_outputs"],
+    },
+    "BertForMaskedLM": {
+        "config": {
+            "head_type": "masked_lm",
+            "layers": 2,
+            "activation_function": "gelu_orig",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": [
+            "cls.predictions.transform.dense",
+            None,
+            "cls.predictions.transform.LayerNorm",
+            "cls.predictions.decoder",
+        ],
+    },
+    "BertLMHeadModel": {
+        "config": {
+            "head_type": "causal_lm",
+            "layers": 2,
+            "activation_function": "gelu_orig",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": [
+            "cls.predictions.transform.dense",
+            None,
+            "cls.predictions.transform.LayerNorm",
+            "cls.predictions.decoder",
+        ],
     },
     # RoBERTa
     "RobertaForSequenceClassification": {
@@ -50,7 +82,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "activation_function": "tanh",
             "use_pooler": False,
         },
-        "layers": ["classifier.dense", "classifier.out_proj"],
+        "layers": [None, "classifier.dense", None, None, "classifier.out_proj"],
     },
     "RobertaForMultipleChoice": {
         "config": {
@@ -59,7 +91,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "activation_function": None,
             "use_pooler": True,
         },
-        "layers": ["classifier"],
+        "layers": [None, "classifier"],
     },
     "RobertaForTokenClassification": {
         "config": {
@@ -67,7 +99,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": ["classifier"],
+        "layers": [None, "classifier"],
     },
     "RobertaForQuestionAnswering": {
         "config": {
@@ -75,7 +107,27 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": ["qa_outputs"],
+        "layers": [None, "qa_outputs"],
+    },
+    "RobertaForMaskedLM": {
+        "config": {
+            "head_type": "masked_lm",
+            "layers": 2,
+            "activation_function": "gelu_orig",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": ["lm_head.dense", None, "lm_head.layer_norm", "lm_head.decoder"],
+    },
+    "RobertaForCausalLM": {
+        "config": {
+            "head_type": "causal_lm",
+            "layers": 2,
+            "activation_function": "gelu_orig",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": ["lm_head.dense", None, "lm_head.layer_norm", "lm_head.decoder"],
     },
     # XLM-RoBERTa
     "XLMRobertaForSequenceClassification": {
@@ -85,7 +137,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "activation_function": "tanh",
             "use_pooler": False,
         },
-        "layers": ["classifier.dense", "classifier.out_proj"],
+        "layers": [None, "classifier.dense", None, None, "classifier.out_proj"],
     },
     "XLMRobertaForMultipleChoice": {
         "config": {
@@ -94,7 +146,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "activation_function": None,
             "use_pooler": True,
         },
-        "layers": ["classifier"],
+        "layers": [None, "classifier"],
     },
     "XLMRobertaForTokenClassification": {
         "config": {
@@ -102,7 +154,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": ["classifier"],
+        "layers": [None, "classifier"],
     },
     "XLMRobertaForQuestionAnswering": {
         "config": {
@@ -110,7 +162,27 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": ["qa_outputs"],
+        "layers": [None, "qa_outputs"],
+    },
+    "XLMRobertaForMaskedLM": {
+        "config": {
+            "head_type": "masked_lm",
+            "layers": 2,
+            "activation_function": "gelu_orig",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": ["lm_head.dense", "lm_head.layer_norm", "lm_head.decoder"],
+    },
+    "XLMRobertaForCausalLM": {
+        "config": {
+            "head_type": "causal_lm",
+            "layers": 2,
+            "activation_function": "gelu_orig",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": ["lm_head.dense", None, "lm_head.layer_norm", "lm_head.decoder"],
     },
     # BART
     "BartForSequenceClassification": {
@@ -119,7 +191,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 2,
             "activation_function": "tanh",
         },
-        "layers": ["classification_head.dense", "classification_head.out_proj"],
+        "layers": [None, "classification_head.dense", None, None, "classification_head.out_proj"],
     },
     "BartForQuestionAnswering": {
         "config": {
@@ -127,7 +199,13 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": ["qa_outputs"],
+        "layers": [None, "qa_outputs"],
+    },
+    "BartForConditionalGeneration": {
+        "config": {
+            "head_type": "seq2seq_lm",
+        },
+        "layers": ["lm_head"],
     },
     # MBART
     "MBartForSequenceClassification": {
@@ -136,7 +214,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 2,
             "activation_function": "tanh",
         },
-        "layers": ["classification_head.dense", "classification_head.out_proj"],
+        "layers": [None, "classification_head.dense", None, None, "classification_head.out_proj"],
     },
     "MBartForQuestionAnswering": {
         "config": {
@@ -144,7 +222,13 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": ["qa_outputs"],
+        "layers": [None, "qa_outputs"],
+    },
+    "MBartForConditionalGeneration": {
+        "config": {
+            "head_type": "seq2seq_lm",
+        },
+        "layers": ["lm_head"],
     },
     # DistilBERT
     "DistilBertForSequenceClassification": {
@@ -153,7 +237,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 2,
             "activation_function": "relu",
         },
-        "layers": ["pre_classifier", "classifier"],
+        "layers": [None, "pre_classifier", None, None, "classifier"],
     },
     "DistilBertForMultipleChoice": {
         "config": {
@@ -161,7 +245,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 2,
             "activation_function": "relu",
         },
-        "layers": ["pre_classifier", "classifier"],
+        "layers": [None, "pre_classifier", None, None, "classifier"],
     },
     "DistilBertForTokenClassification": {
         "config": {
@@ -169,7 +253,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": ["classifier"],
+        "layers": [None, "classifier"],
     },
     "DistilBertForQuestionAnswering": {
         "config": {
@@ -177,7 +261,17 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": ["qa_outputs"],
+        "layers": [None, "qa_outputs"],
+    },
+    "DistilBertForMaskedLM": {
+        "config": {
+            "head_type": "masked_lm",
+            "layers": 2,
+            "activation_function": "gelu_orig",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": ["vocab_transform", None, "vocab_layer_norm", "vocab_projector"],
     },
     # GPT-2
     "GPT2ForSequenceClassification": {
@@ -187,7 +281,13 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "activation_function": None,
             "bias": False,
         },
-        "layers": ["score"],
+        "layers": [None, "score"],
+    },
+    "GPT2LMHeadModel": {
+        "config": {
+            "head_type": "causal_lm",
+        },
+        "layers": ["lm_head"],
     },
 }
 
@@ -213,16 +313,18 @@ def get_head_config_and_rename_list(model_class_name, head_name, label2id, num_l
     config = copy.deepcopy(data["config"])
     if config["head_type"] == "multiple_choice":
         config["num_choices"] = num_labels
-    else:
+        config["label2id"] = label2id
+    elif config["head_type"] not in ["causal_lm", "masked_lm", "seq2seq_lm"]:
         config["num_labels"] = num_labels
-    config["label2id"] = label2id
+        config["label2id"] = label2id
     # rename
     rename_list = []
     i = 0
     for name in data["layers"]:
-        escaped_name = re.escape(name)
-        rename_list.append((rf"{escaped_name}\.(\S+)", f"heads.{head_name}.{i+1}.{{0}}"))
-        i += 3 if config["activation_function"] else 2  # there's always a dropout layer in between
+        if name is not None:
+            escaped_name = re.escape(name)
+            rename_list.append((rf"{escaped_name}\.(\S+)", f"heads.{head_name}.{i}.{{0}}"))
+        i += 1
     rename_func = lambda k, rename_list=rename_list: _regex_list_rename_func(k, rename_list)
 
     return config, rename_func
