@@ -69,6 +69,10 @@ class AdapterInfo:
         source (str): The source repository of this adapter. Can be either "ah" (AdapterHub) or "hf" (huggingface.co).
         adapter_id (str): The unique identifier of this adapter.
         model_name (str, optional): The identifier of the model this adapter was trained for.
+        task (str, optional): The task this adapter was trained for.
+        subtask (str, optional): The subtask or dataset this adapter was trained on.
+        username (str, optional): The username of author(s) of this adapter.
+        adapter_config (dict, optional): The configuration dictionary of this adapter.
     """
 
     source: str

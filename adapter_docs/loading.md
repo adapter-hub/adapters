@@ -6,6 +6,7 @@
 You can easily find pre-trained adapters for your task of interest along with all relevant information and code snippets to get started (also see below).
 
 Alternatively, [`list_adapters()`](classes/adapter_utils.html#transformers.adapters.utils.list_adapters) provides a programmatical way of accessing all available pre-trained adapters.
+This will return an [`AdapterInfo`](classes/adapter_utils.html#transformers.adapters.utils.AdapterInfo) object for each retrieved adapter.
 E.g., we can use it to retrieve information for all adapters trained for a specific model:
 
 ```python
