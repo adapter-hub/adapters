@@ -14,7 +14,7 @@ from transformers import (
     GPT2Config,
     MBartConfig,
     RobertaConfig,
-    T5Config
+    T5Config,
 )
 from transformers.testing_utils import require_torch, torch_device
 
