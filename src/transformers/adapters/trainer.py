@@ -12,7 +12,6 @@ from transformers.integrations import is_fairscale_available
 from ..configuration_utils import PretrainedConfig
 from ..data.data_collator import DataCollator
 from ..file_utils import CONFIG_NAME, WEIGHTS_NAME, is_sagemaker_mp_enabled, logger
-from ..modeling_utils import PreTrainedModel
 from ..optimization import Adafactor, AdamW
 from ..tokenization_utils_base import PreTrainedTokenizerBase
 from ..trainer_callback import TrainerCallback, TrainerControl, TrainerState
