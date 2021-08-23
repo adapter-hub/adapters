@@ -548,7 +548,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
 @inherit_doc
 class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
-    """Mixin adding support for loading/ saving adapters to transformer models with head(s)."""
+    """
+    Mixin adding support for loading/ saving adapters to transformer models with head(s).
+    """
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
@@ -567,6 +569,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 - if not given, the default configuration for this adapter type will be used
             overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
             set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
+
+        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
         """
         if self.base_model is self:
             super().add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
@@ -574,27 +578,38 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
-        """Sets the model into mode for training the given adapters."""
-
+        """
+        Sets the model into mode for training the given adapters.
+        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        """
         if self.base_model is self:
             super().train_adapter(adapter_setup)
         else:
             self.base_model.train_adapter(adapter_setup)
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
+        """
+        Sets the model into mode for training of adapter fusion determined by a list of adapter names.
+        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        """
         if self.base_model is self:
             super().train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
         else:
             self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
 
     def _add_adapter(self, adapter_name):
+        """
+        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        """
         if self.base_model is self:
             super()._add_adapter(adapter_name)
         else:
             self.base_model._add_adapter(adapter_name)
 
     def _add_fusion_layer(self, adapter_names):
+        """
+        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        """
         if self.base_model is self:
             super()._add_fusion_layer(adapter_names)
         else:
@@ -694,6 +709,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         return self.config.id2label
 
     def get_adapter(self, name):
+        """
+        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        """
         if self.base_model is self:
             return super().get_adapter(name)
         else:

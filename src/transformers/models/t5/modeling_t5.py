@@ -1441,7 +1441,10 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
         )
 
 
-@add_start_docstrings("""T5 Model with a `language modeling` head on top. """, T5_START_DOCSTRING)
+@add_start_docstrings(
+    """T5 Model with a `language modeling` head on top. The exact order of inheritance here is necessary, as T5ModelAdaptersMixin replaces methods in ModelWithHeadsAdaptersMixin that would result in infinite recursion otherwise. """,
+    T5_START_DOCSTRING,
+)
 class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin, T5PreTrainedModel):
     _keys_to_ignore_on_load_missing = [
         r"encoder\.embed_tokens\.weight",
