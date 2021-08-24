@@ -6,6 +6,7 @@
 You can easily find pre-trained adapters for your task of interest along with all relevant information and code snippets to get started (also see below).
 
 Alternatively, [`list_adapters()`](classes/adapter_utils.html#transformers.adapters.utils.list_adapters) provides a programmatical way of accessing all available pre-trained adapters.
+This will return an [`AdapterInfo`](classes/adapter_utils.html#transformers.adapters.utils.AdapterInfo) object for each retrieved adapter.
 E.g., we can use it to retrieve information for all adapters trained for a specific model:
 
 ```python
@@ -18,6 +19,16 @@ for adapter_info in adapter_infos:
     print("Id:", adapter_info.adapter_id)
     print("Model name:", adapter_info.model_name)
     print("Uploaded by:", adapter_info.username)
+```
+
+In case the adapter ID is known, information for a single adapter can also be retrieved via [`get_adapter_info()`](classes/adapter_utils.html#transformers.adapters.utils.get_adapter_info):
+
+```python
+adapter_info = get_adapter_info("@ukp/bert-base-uncased_sentiment_sst-2_pfeiffer", source="ah")
+
+print("Id:", adapter_info.adapter_id)
+print("Model name:", adapter_info.model_name)
+print("Uploaded by:", adapter_info.username)
 ```
 
 ## Using pre-trained adapters in your code

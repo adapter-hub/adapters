@@ -29,6 +29,7 @@ import torch
 from datasets import load_dataset
 
 import transformers
+import transformers.adapters.composition as ac
 from transformers import (
     AdapterConfig,
     AutoConfig,
@@ -41,7 +42,6 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
-from transformers.adapters.composition import Fuse
 from transformers.file_utils import PaddingStrategy
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_utils import get_last_checkpoint
@@ -343,7 +343,7 @@ def main():
         model.train_adapter(task_name)
         # Set the adapters to be used in every forward pass
         if lang_adapter_name:
-            model.set_active_adapters(Fuse(lang_adapter_name, task_name))
+            model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
         else:
             model.set_active_adapters(task_name)
     else:

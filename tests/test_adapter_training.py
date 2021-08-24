@@ -108,6 +108,18 @@ class AdapterTrainingTestMixin:
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
+        # Since our config has a value matrix, make sure it is regularized.
+        # We do this by patching the fusion regularization function.
+        regularization_called = False
+        orig_fusion_regularization_loss = model.base_model.get_fusion_regularization_loss
+
+        def patched_fusion_reg_loss():
+            nonlocal regularization_called
+            regularization_called = True
+            return orig_fusion_regularization_loss()
+
+        model.base_model.get_fusion_regularization_loss = patched_fusion_reg_loss
+
         # setup dataset
         data_args = GlueDataTrainingArguments(
             task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
@@ -130,3 +142,5 @@ class AdapterTrainingTestMixin:
                 self.assertFalse(torch.equal(v1, v2), k1)
             else:
                 self.assertTrue(torch.equal(v1, v2), k1)
+
+        self.assertTrue(regularization_called)

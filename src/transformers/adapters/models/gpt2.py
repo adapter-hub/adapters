@@ -24,7 +24,7 @@ class GPT2AttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):
         self.config = parent.config
 
     @property
-    def layer_norm(self):
+    def transformer_layer_norm(self):
         return None
 
 
@@ -38,7 +38,7 @@ class GPT2OutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
         self.config = parent.config
 
     @property
-    def layer_norm(self):
+    def transformer_layer_norm(self):
         return None
 
 

@@ -100,7 +100,7 @@ _deps = [
     "flake8>=3.8.3",
     "flax>=0.3.4",
     "fugashi>=1.0",
-    "huggingface-hub>=0.0.13",
+    "huggingface-hub>=0.0.14",
     "importlib_metadata",
     "ipadic>=1.0.0,<2.0",
     "isort>=5.5.4",
@@ -131,7 +131,7 @@ _deps = [
     "regex!=2019.12.17",
     "requests",
     "rouge-score",
-    "sacrebleu>=1.4.12",
+    "sacrebleu>=1.4.12,<2.0.0",
     "sacremoses",
     "sagemaker>=2.31.0",
     "scikit-learn",
@@ -337,7 +337,7 @@ install_requires = [
 
 setup(
     name="adapter-transformers",
-    version="2.1.0a0",
+    version="2.1.2",
     author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, Hannah Sterz, based on work by Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Sam Shleifer, Patrick von Platen, Sylvain Gugger, Suraj Patil, Stas Bekman, Google AI Language Team Authors, Open AI team Authors, Facebook AI Authors, Carnegie Mellon University Authors",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A friendly fork of Huggingface's Transformers, adding Adapters to PyTorch language models",

@@ -16,7 +16,7 @@ class AdapterLayerBaseMixin(ABC):
 
     # override this property if layer norm has a different name
     @property
-    def layer_norm(self):
+    def transformer_layer_norm(self):
         return self.LayerNorm
 
     @property
@@ -75,7 +75,12 @@ class AdapterLayerBaseMixin(ABC):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
         if self.config.adapters.common_config_value(adapter_names, self.adapter_config_key):
-            fusion = BertFusion(self.config)
+            fusion_config = self.config.adapters.get_fusion(adapter_names)
+            fusion = BertFusion(
+                fusion_config,
+                self.config.hidden_size,
+                self.config.attention_probs_dropout_prob,
+            )
             fusion.train(self.training)  # make sure training mode is consistent
             self.adapter_fusion_layer[",".join(adapter_names)] = fusion
 
@@ -114,6 +119,7 @@ class AdapterLayerBaseMixin(ABC):
         adapter_config,
         hidden_states,
         input_tensor,
+        fusion_config=None,
     ):
         """
         Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuratio
@@ -131,19 +137,19 @@ class AdapterLayerBaseMixin(ABC):
         if adapter_config["residual_before_ln"]:
             residual = hidden_states
 
-        if hasattr(self.config, "adapter_fusion") and self.config.adapter_fusion["query_before_ln"]:
+        if fusion_config is not None and fusion_config["query_before_ln"]:
             query = hidden_states
 
         if adapter_config["original_ln_before"]:
-            if self.layer_norm:
-                hidden_states = self.layer_norm(hidden_states + input_tensor)
+            if self.transformer_layer_norm:
+                hidden_states = self.transformer_layer_norm(hidden_states + input_tensor)
             else:
                 hidden_states = hidden_states + input_tensor
 
         if not adapter_config["residual_before_ln"]:
             residual = hidden_states
 
-        if hasattr(self.config, "adapter_fusion") and not self.config.adapter_fusion["query_before_ln"]:
+        if fusion_config is not None and not fusion_config["query_before_ln"]:
             query = hidden_states
 
         return hidden_states, query, residual
@@ -196,7 +202,10 @@ class AdapterLayerBaseMixin(ABC):
         """
         # config of _last_ fused adapter is significant
         adapter_config = self.config.adapters.get(adapter_setup.last())
-        hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
+        fusion_config = self.config.adapters.get_fusion(adapter_setup.name)
+        hidden_states, query, residual = self.get_adapter_preparams(
+            adapter_config, hidden_states, input_tensor, fusion_config=fusion_config
+        )
 
         up_list = []
 
@@ -239,7 +248,7 @@ class AdapterLayerBaseMixin(ABC):
         """
         # config of _first_ of splitted adapters is significant
         adapter_config = self.config.adapters.get(adapter_setup.first())
-        hidden_states, query, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
+        hidden_states, _, residual = self.get_adapter_preparams(adapter_config, hidden_states, input_tensor)
 
         # split hidden representations and residuals at split index
         split_hidden_states = [
@@ -455,13 +464,13 @@ class AdapterLayerBaseMixin(ABC):
 
             last_config = self.config.adapters.get(adapter_setup.last())
             if last_config["original_ln_after"]:
-                if self.layer_norm:
-                    hidden_states = self.layer_norm(hidden_states + input_tensor)
+                if self.transformer_layer_norm:
+                    hidden_states = self.transformer_layer_norm(hidden_states + input_tensor)
                 else:
                     hidden_states = hidden_states + input_tensor
 
-        elif self.layer_norm:
-            hidden_states = self.layer_norm(hidden_states + input_tensor)
+        elif self.transformer_layer_norm:
+            hidden_states = self.transformer_layer_norm(hidden_states + input_tensor)
         else:
             hidden_states = hidden_states + input_tensor
 

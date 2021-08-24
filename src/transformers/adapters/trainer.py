@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -6,6 +7,7 @@ from torch import nn
 from torch.utils.data.dataset import Dataset
 
 from transformers import PreTrainedModel, Seq2SeqTrainer, Trainer, __version__
+from transformers.adapters.composition import AdapterCompositionBlock, Fuse
 from transformers.dependency_versions_check import dep_version_check
 from transformers.integrations import is_fairscale_available
 
@@ -67,10 +69,18 @@ class AdapterTrainer(Trainer):
         else:
             model_freezed = False
         if model_freezed and self.model.active_adapters:
+            # Check if training AdapterFusion
+            self.train_adapter_fusion = (
+                isinstance(self.model.active_adapters, Fuse)
+                or isinstance(self.model.active_adapters, AdapterCompositionBlock)
+                and any([isinstance(child, Fuse) for child in self.model.active_adapters.children])
+            )
+            # Configure model saving
             self.do_save_full_model = False
             self.do_save_adapters = True
-            self.do_save_adapter_fusion = True
+            self.do_save_adapter_fusion = self.train_adapter_fusion
         else:
+            self.train_adapter_fusion = False
             self.do_save_full_model = True
             self.do_save_adapters = False
             self.do_save_adapter_fusion = False
@@ -92,9 +102,9 @@ class AdapterTrainer(Trainer):
         if self.optimizer is None:
             decay_parameters = get_parameter_names(self.model, [nn.LayerNorm])
             decay_parameters = [name for name in decay_parameters if "bias" not in name]
-            if hasattr(self.model, "config") and hasattr(self.model.config, "adapter_fusion_models"):
-                no_decay = [f"adapter_fusion_layer.{n}.value" for n in self.model.config.adapter_fusion_models]
-                decay_parameters = [name for name in decay_parameters if name not in no_decay]
+            if hasattr(self.model, "config") and hasattr(self.model.config, "adapters"):
+                match_str = r"adapter_fusion_layer\..*\.value"
+                decay_parameters = [name for name in decay_parameters if not re.match(match_str, name)]
             optimizer_grouped_parameters = [
                 {
                     "params": [p for n, p in self.model.named_parameters() if n in decay_parameters],
@@ -157,7 +167,6 @@ class AdapterTrainerCallback(TrainerCallback):
                         "on multiple nodes, you should activate `--save_on_each_node`."
                     )
             if self.trainer.do_save_adapters:
-                # ToDo enable logger
                 logger.info(
                     f"Loading best adapter(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
                 )
@@ -180,7 +189,7 @@ class AdapterTrainerCallback(TrainerCallback):
     def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         # apply adapter fusion weight regularization on the value matrix
         model = kwargs.pop("model")
-        if hasattr(model.config, "adapter_fusion") and model.config.adapter_fusion["regularization"]:
+        if self.trainer.train_adapter_fusion:
             fusion_reg_loss = model.base_model.get_fusion_regularization_loss()
             fusion_reg_loss.backward()
 

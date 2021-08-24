@@ -664,7 +664,7 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         return_dict=None,
         **kwargs
     ):
-        self.pre_transformer_forward()
+        self.pre_transformer_forward(**kwargs)
 
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (

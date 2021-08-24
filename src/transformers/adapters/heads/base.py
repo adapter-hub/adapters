@@ -5,8 +5,8 @@ import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from ..file_utils import ModelOutput
-from ..modeling_outputs import (
+from ...file_utils import ModelOutput
+from ...modeling_outputs import (
     MultipleChoiceModelOutput,
     QuestionAnsweringModelOutput,
     Seq2SeqModelOutput,
@@ -15,9 +15,9 @@ from ..modeling_outputs import (
     SequenceClassifierOutput,
     TokenClassifierOutput,
 )
-from .composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack
-from .model_mixin import ModelWithHeadsAdaptersMixin
-from .modeling import Activation_Function_Class
+from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack
+from ..model_mixin import ModelWithHeadsAdaptersMixin
+from ..modeling import Activation_Function_Class
 
 
 logger = logging.getLogger(__name__)
@@ -393,7 +393,13 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         for head_name, config in self.config.prediction_heads.items():
             self.add_prediction_head_from_config(head_name, config)
 
-    def add_prediction_head_from_config(self, head_name, config, overwrite_ok=False):
+    def add_prediction_head_from_config(
+        self,
+        head_name: str,
+        config: dict,
+        overwrite_ok: bool = False,
+        set_active: bool = True,
+    ):
         head_type = config.pop("head_type")
         # handle cases when id2label, label2id or both are available
         id2label = config.pop("id2label", None)
@@ -407,7 +413,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         if head_type in self.head_types:
             head_class = self.head_types[head_type]
             head = head_class(self, head_name, id2label=id2label, **config)
-            self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+            self.add_prediction_head(head, overwrite_ok=overwrite_ok, set_active=set_active)
         elif head_type in self.config.custom_heads:
             # we have to re-add the head type for custom heads
             config["head_type"] = head_type
@@ -497,10 +503,10 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             else:
                 logger.info("Could not identify '{}' as a valid prediction head.".format(final_block))
 
-    def add_custom_head(self, head_name, config, overwrite_ok=False):
+    def add_custom_head(self, head_name, config, overwrite_ok=False, set_active=True):
         if config["head_type"] in self.config.custom_heads:
             head = self.config.custom_heads[config["head_type"]](head_name, config, self)
-            self.add_prediction_head(head, overwrite_ok)
+            self.add_prediction_head(head, overwrite_ok, set_active=set_active)
         else:
             raise AttributeError(
                 "The given head as a head_type that is not registered as a custom head yet."
@@ -511,6 +517,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         self,
         head: PredictionHead,
         overwrite_ok: bool = False,
+        set_active: bool = True,
     ):
 
         if head.name not in self.heads or overwrite_ok:
@@ -525,7 +532,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                     head.config["label2id"] = {"LABEL_" + str(num): num for num in range(head.config["num_choices"])}
 
             logger.info(f"Adding head '{head.name}' with config {head.config}.")
-            self.active_head = head.name
+            if set_active:
+                self.active_head = head.name
 
         else:
             raise ValueError(

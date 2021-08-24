@@ -115,7 +115,9 @@ class AdapterHubTest(unittest.TestCase):
                 config = AdapterConfig.load(config, non_linearity="gelu", reduction_factor=2)
 
                 loading_info = {}
-                adapter_name = model.load_adapter("fi/wiki@ukp", config=config, loading_info=loading_info)
+                adapter_name = model.load_adapter(
+                    "fi/wiki@ukp", config=config, set_active=True, loading_info=loading_info
+                )
 
                 self.assertEqual(0, len(loading_info["missing_keys"]))
                 self.assertEqual(0, len(loading_info["unexpected_keys"]))
@@ -139,7 +141,9 @@ class AdapterHubTest(unittest.TestCase):
         model = BertModelWithHeads.from_pretrained("bert-base-uncased")
 
         loading_info = {}
-        adapter_name = model.load_adapter("qa/squad1@ukp", config="houlsby", version="1", loading_info=loading_info)
+        adapter_name = model.load_adapter(
+            "qa/squad1@ukp", config="houlsby", version="1", set_active=True, loading_info=loading_info
+        )
 
         self.assertEqual(0, len(loading_info["missing_keys"]))
         self.assertEqual(0, len(loading_info["unexpected_keys"]))

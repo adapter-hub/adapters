@@ -10,35 +10,29 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TEXT = "<!-- Add some description here -->"
 ADAPTER_CARD_TEMPLATE = """
----
-tags:
-{tags}
----
+--- tags: {tags} ---
 
 # Adapter `{adapter_repo_name}` for {model_name}
 
-An [adapter](https://adapterhub.ml) for the {model_name} model that was trained on the {dataset_name} dataset{head_info}.
+An [adapter](https://adapterhub.ml) for the {model_name} model that was trained on the {dataset_name}
+dataset{head_info}.
 
-This adapter was created for usage with the **[adapter-transformers](https://github.com/Adapter-Hub/adapter-transformers)** library.
+This adapter was created for usage with the
+**[adapter-transformers](https://github.com/Adapter-Hub/adapter-transformers)** library.
 
 ## Usage
 
 First, install `adapter-transformers`:
 
-```
-pip install -U adapter-transformers
-```
-_Note: adapter-transformers is a fork of transformers that acts as a drop-in replacement with adapter support. [More](https://docs.adapterhub.ml/installation.html)_
+``` pip install -U adapter-transformers ``` _Note: adapter-transformers is a fork of transformers that acts as a
+drop-in replacement with adapter support. [More](https://docs.adapterhub.ml/installation.html)_
 
 Now, the adapter can be loaded and activated like this:
 
-```python
-from transformers import AutoModelWithHeads
+```python from transformers import AutoModelWithHeads
 
-model = AutoModelWithHeads.from_pretrained("{model_name}")
-adapter_name = model.load_adapter("{adapter_repo_name}")
-model.active_adapters = adapter_name
-```
+model = AutoModelWithHeads.from_pretrained("{model_name}") adapter_name = model.load_adapter("{adapter_repo_name}")
+model.active_adapters = adapter_name ```
 
 ## Architecture & Training
 
@@ -124,7 +118,8 @@ class PushAdapterToHubMixin:
         use_auth_token: Union[bool, str] = True,
         overwrite_adapter_card: bool = False,
     ):
-        """Upload an adapter to HuggingFace's Model Hub.
+        """
+        Upload an adapter to HuggingFace's Model Hub.
 
         Args:
             repo_name (str): The name of the repository on the model hub to upload to.
@@ -132,10 +127,11 @@ class PushAdapterToHubMixin:
             organization (str, optional): Organization in which to push the adapter
                 (you must be a member of this organization). Defaults to None.
             adapterhub_tag (str, optional): Tag of the format `<task>/<subtask>` for categorization on https://adapterhub.ml/explore/.
-                See https://docs.adapterhub.ml/contributing.html#add-a-new-task-or-subtask for more.
-                If not specified, `datasets_tag` must be given in case a new adapter card is generated. Defaults to None.
+                See https://docs.adapterhub.ml/contributing.html#add-a-new-task-or-subtask for more. If not specified,
+                `datasets_tag` must be given in case a new adapter card is generated. Defaults to None.
             datasets_tag (str, optional): Dataset identifier from https://huggingface.co/datasets.
-                If not specified, `adapterhub_tag` must be given in case a new adapter card is generated. Defaults to None.
+                If not specified, `adapterhub_tag` must be given in case a new adapter card is generated. Defaults to
+                None.
             local_path (str, optional): Local path used as clone directory of the adapter repository.
                 If not specified, will create a temporary directory. Defaults to None.
             commit_message (:obj:`str`, `optional`):
@@ -145,7 +141,8 @@ class PushAdapterToHubMixin:
                 Whether or not the repository created should be private (requires a paying subscription).
             use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
                 The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
-                generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`). Defaults to True.
+                generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`). Defaults to
+                True.
             overwrite_adapter_card (bool, optional): Overwrite an existing adapter card with a newly generated one.
                 If set to `False`, will only generate an adapter card, if none exists. Defaults to False.
 

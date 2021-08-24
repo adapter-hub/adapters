@@ -18,7 +18,7 @@ class DistilBertSelfAttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Modu
         self.config = parent.config
 
     @property
-    def layer_norm(self):
+    def transformer_layer_norm(self):
         return self.parent.sa_layer_norm
 
 
@@ -32,7 +32,7 @@ class DistilBertOutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
         self.config = parent.config
 
     @property
-    def layer_norm(self):
+    def transformer_layer_norm(self):
         return self.parent.output_layer_norm
 
 

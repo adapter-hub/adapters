@@ -47,7 +47,7 @@ class PredictionHeadModelTestMixin:
 
     def test_classification_head(self):
         if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
-            return
+            self.skipTest("No classification head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
 
@@ -58,7 +58,7 @@ class PredictionHeadModelTestMixin:
 
     def test_multiple_choice_head(self):
         if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_multiple_choice_head"):
-            return
+            self.skipTest("No multiple choice head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
 
@@ -71,18 +71,20 @@ class PredictionHeadModelTestMixin:
 
     def test_tagging_head(self):
         if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_tagging_head"):
-            return
+            self.skipTest("No tagging head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
 
         model1.add_tagging_head("dummy")
         label_dict = {}
         label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
-        self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128, 2), label_dict=label_dict)
+        self.run_prediction_head_test(
+            model1, model2, "dummy", output_shape=(1, self.seq_length, 2), label_dict=label_dict
+        )
 
     def test_qa_head(self):
         if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_qa_head"):
-            return
+            self.skipTest("No QA head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
 
@@ -90,7 +92,30 @@ class PredictionHeadModelTestMixin:
         label_dict = {}
         label_dict["start_positions"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
         label_dict["end_positions"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
-        self.run_prediction_head_test(model1, model2, "dummy", output_shape=(1, 128), label_dict=label_dict)
+        self.run_prediction_head_test(
+            model1, model2, "dummy", output_shape=(1, self.seq_length), label_dict=label_dict
+        )
+
+    def test_dependency_parsing_head(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_dependency_parsing_head"):
+            self.skipTest("No dependency parsing head")
+
+        model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
+
+        model1.add_dependency_parsing_head("dummy")
+        label_dict = {}
+        label_dict["labels_arcs"] = torch.zeros(
+            (self.batch_size, self.seq_length), dtype=torch.long, device=torch_device
+        )
+        label_dict["labels_rels"] = torch.zeros(
+            (self.batch_size, self.seq_length), dtype=torch.long, device=torch_device
+        )
+        label_dict["word_starts"] = torch.zeros(
+            (self.batch_size, self.seq_length), dtype=torch.long, device=torch_device
+        )
+        self.run_prediction_head_test(
+            model1, model2, "dummy", output_shape=(1, self.seq_length, self.seq_length + 1, 2), label_dict=label_dict
+        )
 
     def test_delete_head(self):
         model = AutoModelWithHeads.from_config(self.config())
@@ -204,6 +229,9 @@ class PredictionHeadModelTestMixin:
 
             loading_info = {}
             flex_head_model.load_adapter(temp_dir, loading_info=loading_info)
+
+            # Load the adapter a second time to make sure our conversion script doesn't break anything
+            flex_head_model.load_adapter(temp_dir, loading_info=loading_info)
         self.assertEqual(0, len(loading_info["missing_keys"]))
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
@@ -214,5 +242,5 @@ class PredictionHeadModelTestMixin:
         # check equal output
         in_data = self.get_input_samples((1, 128), config=flex_head_model.config)
         output1 = static_head_model(in_data, adapter_names=["test"])
-        output2 = flex_head_model(in_data, adapter_names=["test"])
+        output2 = flex_head_model(in_data, adapter_names=["test"], head="test")
         self.assertTrue(torch.all(torch.isclose(output1.logits, output2.logits)))
