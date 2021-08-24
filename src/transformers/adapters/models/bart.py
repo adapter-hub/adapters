@@ -9,6 +9,7 @@ from ..heads import (
     ModelWithFlexibleHeadsAdaptersMixin,
     MultiLabelClassificationHead,
     QuestionAnsweringHead,
+    Seq2SeqLMHead,
 )
 from ..layer import AdapterLayerBaseMixin
 from ..model_mixin import ModelAdaptersMixin
@@ -183,6 +184,7 @@ class BartModelAdaptersMixin(ModelAdaptersMixin):
             self.invertible_adapters = self.encoder.invertible_adapters
             self.add_invertible_adapter = self.encoder.add_invertible_adapter
             self.get_invertible_adapter = self.encoder.get_invertible_adapter
+            self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
@@ -294,6 +296,7 @@ class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         "classification": ClassificationHead,
         "multilabel_classification": MultiLabelClassificationHead,
         "question_answering": QuestionAnsweringHead,
+        "seq2seq_lm": Seq2SeqLMHead,
     }
 
     def add_classification_head(
@@ -335,3 +338,18 @@ class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     ):
         head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
         self.add_prediction_head(head, overwrite_ok)
+
+    def add_seq2seq_lm_head(
+        self,
+        head_name,
+        overwrite_ok=False,
+    ):
+        """
+        Adds a sequence-to-sequence language modeling head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        head = Seq2SeqLMHead(self, head_name)
+        self.add_prediction_head(head, overwrite_ok=overwrite_ok)

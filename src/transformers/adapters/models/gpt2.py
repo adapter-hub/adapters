@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from ..composition import AdapterCompositionBlock, parse_composition
-from ..heads import ClassificationHead, MultiLabelClassificationHead
+from ..heads import CausalLMHead, ClassificationHead, MultiLabelClassificationHead
 from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 from .bert import (
     BertEncoderAdaptersMixin,
@@ -176,6 +176,7 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     head_types = {
         "classification": ClassificationHead,
         "multilabel_classification": MultiLabelClassificationHead,
+        "causal_lm": CausalLMHead,
     }
 
     def add_classification_head(
@@ -205,3 +206,14 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         else:
             head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
         self.add_prediction_head(head, overwrite_ok)
+
+    def add_causal_lm_head(self, head_name, overwrite_ok=False):
+        """
+        Adds a causal language modeling head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        head = CausalLMHead(self, head_name)
+        self.add_prediction_head(head, overwrite_ok=overwrite_ok)

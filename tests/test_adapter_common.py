@@ -1,5 +1,4 @@
 import copy
-import random
 import tempfile
 
 import torch
@@ -14,7 +13,7 @@ from transformers import (
     PfeifferConfig,
     PfeifferInvConfig,
 )
-from transformers.testing_utils import require_torch, torch_device
+from transformers.testing_utils import require_torch
 
 
 def create_twin_models(model_class, config_creator=None):
@@ -33,22 +32,6 @@ def create_twin_models(model_class, config_creator=None):
 
 @require_torch
 class AdapterModelTestMixin:
-    def get_input_samples(self, shape, vocab_size=5000, config=None):
-        total_dims = 1
-        for dim in shape:
-            total_dims *= dim
-
-        values = []
-        for _ in range(total_dims):
-            values.append(random.randint(0, vocab_size - 1))
-        input_ids = torch.tensor(data=values, dtype=torch.long, device=torch_device).view(shape).contiguous()
-        # this is needed e.g. for BART
-        if config and config.eos_token_id is not None:
-            input_ids[input_ids == config.eos_token_id] = random.randint(0, config.eos_token_id - 1)
-            input_ids[:, -1] = config.eos_token_id
-
-        return input_ids
-
     def test_add_adapter(self):
         model = AutoModel.from_config(self.config())
         model.eval()
