@@ -207,7 +207,7 @@ class ParallelAdapterInferenceTestMixin:
         outputs_b = model(inputs[1:])
 
         model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
-        output = model(inputs)
+        output = model(inputs).head_outputs
 
         self.assertEqual(2, len(output))
         self.assertTrue(torch.allclose(output[0]["logits"], outputs_a["logits"]))
@@ -230,96 +230,3 @@ def create_twin_adapters(model, name):
     model.load_state_dict(state_dict)
 
     return adapter1, adapter2
-
-class ParallelTrainingMixin:
-    def test_parallel_training(self):
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        model = AutoModelWithHeads.from_config(self.config())
-
-        model.add_adapter("mrpc1")
-        model.add_adapter("mrpc2")
-        model.add_classification_head("mrpc1", num_labels=2)
-        model.add_classification_head("mrpc2", num_labels=3)
-        model.active_adapters = Parallel("mrpc1", "mrpc2")
-        model.train_adapter(Parallel("mrpc1", "mrpc2"))
-
-        # all weights of the adapter should be activated
-        for k, v in filter_parameters(model, "adapters.mrpc1.").items():
-            self.assertTrue(v.requires_grad, k)
-        # all weights of the adapter not used for training should be freezed
-        for k, v in filter_parameters(model, "adapters.mrpc2.").items():
-            self.assertTrue(v.requires_grad, k)
-        # weights of the model should be freezed (check on some examples)
-        for k, v in filter_parameters(model, "encoder.layer.0.attention").items():
-            self.assertFalse(v.requires_grad, k)
-
-        state_dict_pre = copy.deepcopy(model.state_dict())
-
-        # setup dataset
-        data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
-        )
-        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
-        training_args = TrainingArguments(
-            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
-        )
-
-        # evaluate
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-        )
-        trainer.train()
-
-        for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
-            if "mrpc" in k1:
-                self.assertFalse(torch.equal(v1, v2))
-            else:
-                self.assertTrue(torch.equal(v1, v2))
-
-    def test_parallel_training_equivalent_to_single_adapters(self):
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        model = AutoModelWithHeads.from_config(self.config())
-
-        a1, a2 = create_twin_adapters(model, "a")
-        b1, b2 = create_twin_adapters(model, "b")
-
-        # setup dataset
-        data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
-        )
-        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
-        training_args = TrainingArguments(
-            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
-        )
-
-        for adapter in [a1, b1]:
-            model.active_head = adapter
-            model.train_adapter(adapter)
-
-            trainer = Trainer(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-            )
-            trainer.train()
-
-        model.set_active_adapters(Parallel(a2, b2))
-        model.train_adapter((Parallel(a2, b2)))
-
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-        )
-        trainer.train()
-
-        state_dict = model.state_dict()
-        for k, v in state_dict.items():
-            if a1 in k:
-                self.assertTrue(torch.equal(v, state_dict[k.replace(a1, a2)]))
-            if b1 in k:
-                self.assertTrue(torch.equal(v, state_dict[k.replace(b1, b2)]))
-
-
