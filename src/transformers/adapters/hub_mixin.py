@@ -17,7 +17,7 @@ tags:
 
 # Adapter `{adapter_repo_name}` for {model_name}
 
-An [adapter](https://adapterhub.ml) for the {model_name} model that was trained on the {dataset_name} dataset{head_info}.
+An [adapter](https://adapterhub.ml) for the `{model_name}` model that was trained on the {dataset_name} dataset{head_info}.
 
 This adapter was created for usage with the **[adapter-transformers](https://github.com/Adapter-Hub/adapter-transformers)** library.
 
@@ -36,8 +36,7 @@ Now, the adapter can be loaded and activated like this:
 from transformers import AutoModelWithHeads
 
 model = AutoModelWithHeads.from_pretrained("{model_name}")
-adapter_name = model.load_adapter("{adapter_repo_name}")
-model.active_adapters = adapter_name
+adapter_name = model.load_adapter("{adapter_repo_name}", source="hf", set_active=True)
 ```
 
 ## Architecture & Training
@@ -66,6 +65,9 @@ class PushAdapterToHubMixin:
         adapterhub_tag: Optional[str] = None,
         datasets_tag: Optional[str] = None,
         tags: Optional[List[str]] = None,
+        language: Optional[str] = None,
+        license: Optional[str] = None,
+        metrics: Optional[List[str]] = None,
         **kwargs
     ):
         all_tags = {"adapter-transformers"}
@@ -89,10 +91,17 @@ class PushAdapterToHubMixin:
         if datasets:
             tag_string += "\ndatasets:\n"
             tag_string += "\n".join([f"- {tag}" for tag in datasets])
+        if language:
+            tag_string += f"\nlanguage:\n- {language}"
+        if license:
+            tag_string += f"\nlicense: \"{license}\""
+        if metrics:
+            tag_string += "\nmetrics:\n"
+            tag_string += "\n".join([f"- {metric}" for metric in metrics])
 
         if hasattr(self, "heads") and adapter_name in self.heads:
-            head_config = self.heads[adapter_name].config
-            head_info = f" and includes a prediction head for {head_config['head_type']}"
+            head_type = " ".join(self.heads[adapter_name].config['head_type'].split("_"))
+            head_info = f" and includes a prediction head for {head_type}"
         else:
             head_info = ""
 
@@ -123,6 +132,7 @@ class PushAdapterToHubMixin:
         private: Optional[bool] = None,
         use_auth_token: Union[bool, str] = True,
         overwrite_adapter_card: bool = False,
+        adapter_card_kwargs: Optional[dict] = None,
     ):
         """Upload an adapter to HuggingFace's Model Hub.
 
@@ -171,12 +181,14 @@ class PushAdapterToHubMixin:
         self.save_adapter(repo_path, adapter_name)
         if overwrite_adapter_card or not os.path.exists(os.path.join(repo_path, "README.md")):
             full_repo_name = "/".join(repo_url.split("/")[-2:])
+            adapter_card_kwargs = adapter_card_kwargs or {}
             self._save_adapter_card(
                 repo_path,
                 adapter_name,
                 full_repo_name,
                 adapterhub_tag=adapterhub_tag,
                 datasets_tag=datasets_tag,
+                **adapter_card_kwargs,
             )
         # Commit and push
         logger.info('Pushing adapter "%s" to model hub at %s ...', adapter_name, repo_url)
