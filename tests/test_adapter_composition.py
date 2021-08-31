@@ -2,13 +2,10 @@ import unittest
 
 import torch
 
-from transformers import (
-    AutoModelWithHeads,
-    BertConfig,
-    BertForSequenceClassification,
-)
+from transformers import AutoModelWithHeads, BertConfig, BertForSequenceClassification
 from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from transformers.testing_utils import require_torch, torch_device
+
 from .test_modeling_common import ids_tensor
 
 
