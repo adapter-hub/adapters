@@ -1,22 +1,14 @@
-import copy
 import unittest
 
 import torch
 
-from tests.test_adapter_training import filter_parameters
 from transformers import (
     AutoModelWithHeads,
-    AutoTokenizer,
     BertConfig,
     BertForSequenceClassification,
-    GlueDataset,
-    GlueDataTrainingArguments,
-    Trainer,
-    TrainingArguments,
 )
 from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from transformers.testing_utils import require_torch, torch_device
-
 from .test_modeling_common import ids_tensor
 
 
