@@ -11,7 +11,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from transformers.adapters.composition import Fuse, Parallel, BatchSplit
+from transformers.adapters.composition import BatchSplit, Fuse, Parallel
 from transformers.testing_utils import require_torch
 
 
@@ -28,7 +28,12 @@ class AdapterTrainingTestMixin:
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
         training_args = TrainingArguments(
-            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True, per_device_train_batch_size=8,
+            output_dir="./examples",
+            do_train=True,
+            learning_rate=0.1,
+            max_steps=7,
+            no_cuda=True,
+            per_device_train_batch_size=8,
         )
 
         # evaluate
@@ -199,4 +204,3 @@ class AdapterTrainingTestMixin:
                 self.assertFalse(torch.equal(v1, v2))
             else:
                 self.assertTrue(torch.equal(v1, v2))
-

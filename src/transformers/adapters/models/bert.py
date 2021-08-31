@@ -264,9 +264,10 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         self.add_prediction_head(head, overwrite_ok)
 
     def add_dependency_parsing_head(self, head_name, num_labels=2, overwrite_ok=False, id2label=None):
-        """Adds a biaffine dependency parsing head on top of the model.
-        The parsing head uses the architecture described in "Is Supervised Syntactic Parsing Beneficial for Language Understanding?
-        An Empirical Investigation" (Glavaš & Vulić, 2021) (https://arxiv.org/pdf/2008.06788.pdf).
+        """
+        Adds a biaffine dependency parsing head on top of the model. The parsing head uses the architecture described
+        in "Is Supervised Syntactic Parsing Beneficial for Language Understanding? An Empirical Investigation" (Glavaš
+        & Vulić, 2021) (https://arxiv.org/pdf/2008.06788.pdf).
 
         Args:
             head_name (str): The name of the head.
@@ -278,7 +279,8 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         self.add_prediction_head(head, overwrite_ok)
 
     def add_masked_lm_head(self, head_name, activation_function="gelu", overwrite_ok=False):
-        """Adds a masked language modeling head on top of the model.
+        """
+        Adds a masked language modeling head on top of the model.
 
         Args:
             head_name (str): The name of the head.
@@ -289,7 +291,8 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
 
     def add_causal_lm_head(self, head_name, activation_function="gelu", overwrite_ok=False):
-        """Adds a causal language modeling head on top of the model.
+        """
+        Adds a causal language modeling head on top of the model.
 
         Args:
             head_name (str): The name of the head.

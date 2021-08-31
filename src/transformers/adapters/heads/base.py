@@ -678,8 +678,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 # head_attention = attention_mask[batch_idx] if attention_mask is not None else None
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
-            combined_loss = torch.sum(torch.stack([out["loss"] for out in head_outputs])) if all(
-                "loss" in out and out["loss"] is not None for out in head_outputs) else None
+            combined_loss = (
+                torch.sum(torch.stack([out["loss"] for out in head_outputs]))
+                if all("loss" in out and out["loss"] is not None for out in head_outputs)
+                else None
+            )
             return MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
         elif self.has_parallel_adapters or isinstance(self.active_head, Parallel):
             if len(self.active_head) != self.config.adapters.active_setup.parallel_channels:
@@ -692,7 +695,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
-            combined_loss = torch.sum(torch.stack([out["loss"] for out in head_outputs])) if all("loss" in out and out["loss"] is not None for out in head_outputs) else None
+            combined_loss = (
+                torch.sum(torch.stack([out["loss"] for out in head_outputs]))
+                if all("loss" in out and out["loss"] is not None for out in head_outputs)
+                else None
+            )
             return MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
         elif len(used_heads) > 1:
             head_outputs = []
