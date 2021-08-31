@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import List, Optional, Union
 
 import torch
@@ -21,6 +22,12 @@ from ..modeling import Activation_Function_Class
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MultiHeadOutput(ModelOutput):
+    head_outputs: List[ModelOutput] = None
+    loss: Optional[torch.FloatTensor] = None
 
 
 # Let this class inherit from nn.Sequential to provide iterable access as before
@@ -681,7 +688,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
-            return head_outputs
+            combined_loss = torch.sum(torch.stack([out["loss"] for out in head_outputs])) if all("loss" in out and out["loss"] is not None for out in head_outputs) else None
+            return MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
         elif len(used_heads) > 1:
             head_outputs = []
             for head in used_heads:
