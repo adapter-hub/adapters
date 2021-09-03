@@ -344,7 +344,11 @@ class ModelAdaptersConfig(Collection):
 
 
 def build_full_config(adapter_config, model_config, save_id2label=False, **kwargs):
-    config_dict = {"model_type": model_config.model_type, "hidden_size": model_config.hidden_size}
+    config_dict = {
+        "model_type": model_config.model_type,
+        # some models such as encoder-decoder don't have a model-wide hidden size
+        "hidden_size": getattr(model_config, "hidden_size", None),
+    }
     config_dict.update(kwargs)
     if not hasattr(model_config, "prediction_heads") and save_id2label:
         config_dict["label2id"] = model_config.label2id

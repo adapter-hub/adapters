@@ -14,6 +14,7 @@ TESTED_MODULES = [
     "test_modeling_mbart",
     "test_modeling_roberta",
     "test_modeling_xlm_roberta",
+    "test_modeling_encoder_decoder",
     "test_trainer",
 ]
 
