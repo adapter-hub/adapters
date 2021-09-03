@@ -371,6 +371,11 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
 
         # instantiate config with corresponding kwargs
         config = EncoderDecoderConfig.from_encoder_decoder_configs(encoder.config, decoder.config, **kwargs)
+        # HACK: make sure adapter configs are referring to the same objects
+        if hasattr(config.encoder, "adapters"):
+            encoder.config.adapters = config.encoder.adapters
+        if hasattr(config.decoder, "adapters"):
+            decoder.config.adapters = config.decoder.adapters
         return cls(encoder=encoder, decoder=decoder, config=config)
 
     @add_start_docstrings_to_model_forward(ENCODER_DECODER_INPUTS_DOCSTRING)
