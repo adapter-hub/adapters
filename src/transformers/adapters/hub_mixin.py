@@ -1,3 +1,4 @@
+# docstyle-ignore-file
 import logging
 import os
 import shutil
@@ -94,13 +95,13 @@ class PushAdapterToHubMixin:
         if language:
             tag_string += f"\nlanguage:\n- {language}"
         if license:
-            tag_string += f"\nlicense: \"{license}\""
+            tag_string += f'\nlicense: "{license}"'
         if metrics:
             tag_string += "\nmetrics:\n"
             tag_string += "\n".join([f"- {metric}" for metric in metrics])
 
         if hasattr(self, "heads") and adapter_name in self.heads:
-            head_type = " ".join(self.heads[adapter_name].config['head_type'].split("_"))
+            head_type = " ".join(self.heads[adapter_name].config["head_type"].split("_"))
             head_info = f" and includes a prediction head for {head_type}"
         else:
             head_info = ""
