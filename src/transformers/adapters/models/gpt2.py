@@ -50,6 +50,7 @@ class GPT2DecoderBlockAdaptersMixin(BertEncoderAdaptersMixin):
         self.output_adapters = GPT2OutputAdaptersModule(self)
         self.attention_adapters._init_adapter_modules()
         self.output_adapters._init_adapter_modules()
+        self.register_forward_pre_hook(self._adapter_block_pre_hook)
 
     def add_fusion_layer(self, adapter_names):
         self.attention_adapters.add_fusion_layer(adapter_names)
@@ -70,6 +71,13 @@ class GPT2DecoderBlockAdaptersMixin(BertEncoderAdaptersMixin):
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+
+    # Makes sure the "parent" reference always points to the correct module.
+    # This is especially relevant when using torch data parallelism.
+    @staticmethod
+    def _adapter_block_pre_hook(module, input_tensors):
+        object.__setattr__(module.attention_adapters, "parent", module)
+        object.__setattr__(module.output_adapters, "parent", module)
 
 
 class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
