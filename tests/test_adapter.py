@@ -15,7 +15,7 @@ from transformers import (
     MBartConfig,
     RobertaConfig,
     T5Config,
-    T5ForConditonalGeneration,
+    T5ForConditionalGeneration,
 )
 from transformers.testing_utils import require_torch, torch_device
 
@@ -60,7 +60,7 @@ class AdapterTestBase:
             in_data["decoder_input_ids"] = input_ids.clone()
         return in_data
 
-
+'''
 class BertAdapterTestBase(AdapterTestBase):
     config_class = BertConfig
     config = make_config(
@@ -71,6 +71,7 @@ class BertAdapterTestBase(AdapterTestBase):
         intermediate_size=37,
     )
     tokenizer_name = "bert-base-uncased"
+
 
 
 @require_torch
@@ -322,7 +323,7 @@ class EncoderDecoderAdapterTest(
 
         self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
-
+'''
 
 @require_torch
 class T5AdapterTest(
@@ -330,7 +331,7 @@ class T5AdapterTest(
     AdapterTestBase,
     unittest.TestCase,
 ):
-    model_class = T5ForConditonalGeneration
+    model_class = T5ForConditionalGeneration
     config_class = T5Config
     config = make_config(
         T5Config,

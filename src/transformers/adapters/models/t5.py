@@ -61,6 +61,14 @@ class T5BlockAdaptersMixin:
         for layer in self.layer:
             layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
 
+    def delete_adapter(self, adapter_name):
+        for layer in self.layer:
+            layer.delete_adapter(adapter_name)
+
+    def delete_fusion_layer(self, adapter_names):
+        for layer in self.layer:
+            layer.delete_fusion_layer(adapter_names)
+
 
 class T5StackAdaptersMixin:
     """Adds adapters to the T5Stack module of T5."""
@@ -78,6 +86,14 @@ class T5StackAdaptersMixin:
         for i, block in enumerate(self.block, start=layer_idx_offset):
             if i not in leave_out:
                 block.add_adapter(adapter_name, i)
+
+    def delete_adapter(self, adapter_name: str):
+        for layer in self.block:
+            layer.delete_adapter(adapter_name)
+
+    def delete_fusion_layer(self, adapter_names):
+        for layer in self.block:
+            layer.delete_fusion_layer(adapter_names)
 
     def enable_adapters(
         self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
@@ -134,7 +150,6 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
     def _add_adapter(self, adapter_name):
         if hasattr(self, "encoder"):
             self.encoder.add_adapter(adapter_name)
-
             # make sure the layers in encoder & decoder are numbered from 0 to len(encoder+decoder)
             self.decoder.add_adapter(adapter_name, layer_idx_offset=len(self.encoder.block))
             self.encoder.add_invertible_adapter(adapter_name)
@@ -145,6 +160,17 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
         if hasattr(self, "encoder"):
             self.encoder.add_fusion_layer(adapter_names)
         self.decoder.add_fusion_layer(adapter_names)
+
+    def _delete_adapter(self, adapter_name: str):
+        if hasattr(self, "encoder"):
+            self.encoder.delete_adapter(adapter_name)
+            self.encoder.delete_invertible_adapter(adapter_name)
+        self.decoder.delete_adapter(adapter_name)
+
+    def _delete_fusion_layer(self, adapter_names):
+        if hasattr(self, "encoder"):
+            self.encoder.delete_fusion_layer(adapter_names)
+        self.decoder.delete_fusion_layer(adapter_names)
 
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0
