@@ -61,7 +61,6 @@ class AdapterTestBase:
         return in_data
 
 
-'''
 class BertAdapterTestBase(AdapterTestBase):
     config_class = BertConfig
     config = make_config(
@@ -324,7 +323,6 @@ class EncoderDecoderAdapterTest(
 
         self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
-'''
 
 
 @require_torch
