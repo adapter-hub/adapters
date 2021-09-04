@@ -73,7 +73,6 @@ class BertAdapterTestBase(AdapterTestBase):
     tokenizer_name = "bert-base-uncased"
 
 
-
 @require_torch
 class BertAdapterTest(
     AdapterModelTestMixin,
