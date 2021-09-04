@@ -60,6 +60,7 @@ class AdapterTestBase:
             in_data["decoder_input_ids"] = input_ids.clone()
         return in_data
 
+
 '''
 class BertAdapterTestBase(AdapterTestBase):
     config_class = BertConfig
@@ -324,6 +325,7 @@ class EncoderDecoderAdapterTest(
         self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
 '''
+
 
 @require_torch
 class T5AdapterTest(

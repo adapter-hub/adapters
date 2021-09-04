@@ -14,6 +14,7 @@ from transformers import (
 )
 from transformers.testing_utils import require_torch
 
+
 def create_twin_models(model_class, config_creator=None):
     if config_creator and model_class.__name__.startswith("Auto"):
         model_config = config_creator()
