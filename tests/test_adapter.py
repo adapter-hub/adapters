@@ -15,7 +15,7 @@ from transformers import (
     MBartConfig,
     RobertaConfig,
     T5Config,
-    T5ForConditonalGeneration
+    T5ForConditonalGeneration,
 )
 from transformers.testing_utils import require_torch, torch_device
 
