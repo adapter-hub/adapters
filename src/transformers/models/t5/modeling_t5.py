@@ -660,7 +660,7 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
             past_key_value=self_attn_past_key_value,
             use_cache=use_cache,
             output_attentions=output_attentions,
-            **kwargs
+            **kwargs,
         )
         hidden_states, present_key_value_state = self_attention_outputs[:2]
         attention_outputs = self_attention_outputs[2:]  # Keep self-attention outputs and relative position weights
@@ -689,7 +689,7 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
                 query_length=query_length,
                 use_cache=use_cache,
                 output_attentions=output_attentions,
-                **kwargs
+                **kwargs,
             )
             hidden_states = cross_attention_outputs[0]
 
@@ -1029,7 +1029,7 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
                     past_key_value=past_key_value,
                     use_cache=use_cache,
                     output_attentions=output_attentions,
-                    **kwargs
+                    **kwargs,
                 )
 
             # layer_outputs is a tuple with:
@@ -1395,7 +1395,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
-                **kwargs
+                **kwargs,
             )
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
@@ -1432,7 +1432,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            **kwargs
+            **kwargs,
         )
 
         if not return_dict:
@@ -1655,7 +1655,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            **kwargs
+            **kwargs,
         )
 
         sequence_output = decoder_outputs[0]

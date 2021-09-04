@@ -44,7 +44,6 @@ class AdapterModelTestMixin:
                 model.add_adapter(name, config=adapter_config)
                 model.set_active_adapters([name])
 
-                print(f"Name is {name} and adapters are {model.config.adapters}")
                 # adapter is correctly added to config
                 self.assertTrue(name in model.config.adapters)
                 self.assertEqual(adapter_config, model.config.adapters.get(name))
@@ -54,9 +53,7 @@ class AdapterModelTestMixin:
                 adapter_output = model(**input_data)
                 model.set_active_adapters(None)
                 base_output = model(**input_data)
-                print(f"Adapter and base outputs are of length {len(adapter_output)} and {len(base_output)} respectively")
                 self.assertEqual(len(adapter_output), len(base_output))
-                print(f"The two outputs are respectively {adapter_output[0]} and {base_output[0]}")
                 self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
 
     def test_delete_adapter(self):
