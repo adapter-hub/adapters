@@ -305,11 +305,10 @@ class T5LayerFF(T5FFLayerAdaptersMixin, nn.Module):
         self.dropout = nn.Dropout(config.dropout_rate)
         self._init_adapter_modules()
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, **kwargs):
         forwarded_states = self.layer_norm(hidden_states)
         forwarded_states = self.DenseReluDense(forwarded_states)
-
-        hidden_states = self.adapters_forward(hidden_states, self.dropout(forwarded_states))
+        hidden_states = self.adapters_forward(hidden_states, self.dropout(forwarded_states), **kwargs)
         return hidden_states
 
 
@@ -552,6 +551,7 @@ class T5LayerSelfAttention(T5SelfAttentionLayerAdaptersMixin, nn.Module):
         past_key_value=None,
         use_cache=False,
         output_attentions=False,
+        **kwargs,
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
         attention_output = self.SelfAttention(
@@ -563,7 +563,7 @@ class T5LayerSelfAttention(T5SelfAttentionLayerAdaptersMixin, nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions,
         )
-        hidden_states = self.adapters_forward(hidden_states, self.dropout(attention_output[0]))
+        hidden_states = self.adapters_forward(hidden_states, self.dropout(attention_output[0]), **kwargs)
         outputs = (hidden_states,) + attention_output[1:]  # add attentions if we output them
         return outputs
 
@@ -588,6 +588,7 @@ class T5LayerCrossAttention(T5CrossAttentionLayerAdaptersMixin, nn.Module):
         use_cache=False,
         query_length=None,
         output_attentions=False,
+        **kwargs
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
         attention_output = self.EncDecAttention(
@@ -601,7 +602,7 @@ class T5LayerCrossAttention(T5CrossAttentionLayerAdaptersMixin, nn.Module):
             query_length=query_length,
             output_attentions=output_attentions,
         )
-        layer_output = self.adapters_forward(hidden_states, self.dropout(attention_output[0]))
+        layer_output = self.adapters_forward(hidden_states, self.dropout(attention_output[0]), **kwargs)
         outputs = (layer_output,) + attention_output[1:]  # add attentions if we output them
         return outputs
 
@@ -632,6 +633,7 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
         use_cache=False,
         output_attentions=False,
         return_dict=True,
+        **kwargs
     ):
 
         if past_key_value is not None:
@@ -658,6 +660,7 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
             past_key_value=self_attn_past_key_value,
             use_cache=use_cache,
             output_attentions=output_attentions,
+            **kwargs
         )
         hidden_states, present_key_value_state = self_attention_outputs[:2]
         attention_outputs = self_attention_outputs[2:]  # Keep self-attention outputs and relative position weights
@@ -686,6 +689,7 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
                 query_length=query_length,
                 use_cache=use_cache,
                 output_attentions=output_attentions,
+                **kwargs
             )
             hidden_states = cross_attention_outputs[0]
 
@@ -702,7 +706,7 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
             attention_outputs = attention_outputs + cross_attention_outputs[2:]
 
         # Apply Feed Forward layer
-        hidden_states = self.layer[-1](hidden_states)
+        hidden_states = self.layer[-1](hidden_states, **kwargs)
 
         # clamp inf values to enable fp16 training
         if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
@@ -882,6 +886,7 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        **kwargs,
     ):
         # Model parallel
         if self.model_parallel:
@@ -995,7 +1000,7 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
-                        return tuple(module(*inputs, use_cache, output_attentions))
+                        return tuple(module(*inputs, use_cache, output_attentions, **kwargs))
 
                     return custom_forward
 
@@ -1024,6 +1029,7 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
                     past_key_value=past_key_value,
                     use_cache=use_cache,
                     output_attentions=output_attentions,
+                    **kwargs
                 )
 
             # layer_outputs is a tuple with:
@@ -1351,6 +1357,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        **kwargs,
     ):
         r"""
         Returns:
@@ -1388,6 +1395,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
+                **kwargs
             )
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
@@ -1424,6 +1432,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            **kwargs
         )
 
         if not return_dict:
@@ -1547,7 +1556,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
+        **kwargs,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1594,6 +1603,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
+                **kwargs,
             )
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
@@ -1645,6 +1655,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            **kwargs
         )
 
         sequence_output = decoder_outputs[0]
