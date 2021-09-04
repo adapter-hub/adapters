@@ -15,6 +15,7 @@ from transformers import (
     MBartConfig,
     RobertaConfig,
     T5Config,
+    T5ForConditonalGeneration
 )
 from transformers.testing_utils import require_torch, torch_device
 
@@ -326,8 +327,10 @@ class EncoderDecoderAdapterTest(
 @require_torch
 class T5AdapterTest(
     AdapterModelTestMixin,
+    AdapterTestBase,
     unittest.TestCase,
 ):
+    model_class = T5ForConditonalGeneration
     config_class = T5Config
     config = make_config(
         T5Config,
