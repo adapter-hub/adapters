@@ -1,7 +1,5 @@
 import copy
-
 import torch
-
 from transformers import (
     AutoModelForSequenceClassification,
     AutoModelWithHeads,
@@ -142,5 +140,4 @@ class AdapterTrainingTestMixin:
                 self.assertFalse(torch.equal(v1, v2), k1)
             else:
                 self.assertTrue(torch.equal(v1, v2), k1)
-
         self.assertTrue(regularization_called)

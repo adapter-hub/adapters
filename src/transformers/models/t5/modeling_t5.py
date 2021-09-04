@@ -1475,6 +1475,8 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
         self.decoder = T5Stack(decoder_config, self.shared)
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
+
+        self._init_adapter_modules()
         self.init_weights()
 
         # Model parallel
