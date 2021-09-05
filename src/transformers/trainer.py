@@ -1047,29 +1047,7 @@ class Trainer:
                 raise ValueError(f"No valid checkpoint found in output directory ({args.output_dir})")
 
         if resume_from_checkpoint is not None:
-            if not os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
-                raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
-
-            logger.info(f"Loading model from {resume_from_checkpoint}).")
-
-            if os.path.isfile(os.path.join(resume_from_checkpoint, CONFIG_NAME)):
-                config = PretrainedConfig.from_json_file(os.path.join(resume_from_checkpoint, CONFIG_NAME))
-                checkpoint_version = config.transformers_version
-                if checkpoint_version is not None and checkpoint_version != __version__:
-                    logger.warn(
-                        f"You are resuming training from a checkpoint trained with {checkpoint_version} of "
-                        f"Transformers but your current version is {__version__}. This is not recommended and could "
-                        "yield to errors or unwanted behaviors."
-                    )
-
-            if args.deepspeed:
-                # will be resumed in deepspeed_init
-                pass
-            else:
-                # We load the model state dict on the CPU to avoid an OOM error.
-                state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME), map_location="cpu")
-                # If the model is on the GPU, it still works!
-                self._load_state_dict_in_model(state_dict)
+            self._load(resume_from_checkpoint)
 
         # If model was re-initialized, put it on the right device and update self.model_wrapped
         if model_reloaded:
@@ -1900,6 +1878,32 @@ class Trainer:
             self.model.save_pretrained(output_dir, save_config=self.args.should_save, save_function=xm.save)
         if self.tokenizer is not None and self.args.should_save:
             self.tokenizer.save_pretrained(output_dir)
+
+    def _load(self, resume_from_checkpoint):
+        args = self.args
+        if not os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
+            raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
+
+        logger.info(f"Loading model from {resume_from_checkpoint}).")
+
+        if os.path.isfile(os.path.join(resume_from_checkpoint, CONFIG_NAME)):
+            config = PretrainedConfig.from_json_file(os.path.join(resume_from_checkpoint, CONFIG_NAME))
+            checkpoint_version = config.transformers_version
+            if checkpoint_version is not None and checkpoint_version != __version__:
+                logger.warn(
+                    f"You are resuming training from a checkpoint trained with {checkpoint_version} of "
+                    f"Transformers but your current version is {__version__}. This is not recommended and could "
+                    "yield to errors or unwanted behaviors."
+                )
+
+        if args.deepspeed:
+            # will be resumed in deepspeed_init
+            pass
+        else:
+            # We load the model state dict on the CPU to avoid an OOM error.
+            state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME), map_location="cpu")
+            # If the model is on the GPU, it still works!
+            self._load_state_dict_in_model(state_dict)
 
     def _save(self, output_dir: Optional[str] = None, state_dict=None):
         # If we are executing this function, we are the process zero, so we don't check for that.

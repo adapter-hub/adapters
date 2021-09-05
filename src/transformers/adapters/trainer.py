@@ -171,6 +171,49 @@ class AdapterTrainer(Trainer):
         # Good practice: save your training arguments together with the trained model
         torch.save(self.args, os.path.join(output_dir, "training_args.bin"))
 
+    def _load(self, resume_from_checkpoint):
+        args = self.args
+        if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
+            logger.info(f"Loading model from {resume_from_checkpoint}).")
+        elif self.do_save_full_model:
+            raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
+
+        if os.path.isfile(os.path.join(resume_from_checkpoint, CONFIG_NAME)):
+            config = PretrainedConfig.from_json_file(os.path.join(resume_from_checkpoint, CONFIG_NAME))
+            checkpoint_version = config.transformers_version
+            if checkpoint_version is not None and checkpoint_version != __version__:
+                logger.warn(
+                    f"You are resuming training from a checkpoint trained with {checkpoint_version} of "
+                    f"Transformers but your current version is {__version__}. This is not recommended and could "
+                    "yield to errors or unwanted behaviors."
+                )
+
+        if args.deepspeed:
+            # will be resumed in deepspeed_init
+            pass
+        else:
+            if self.do_save_full_model:
+                # We load the model state dict on the CPU to avoid an OOM error.
+                state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME), map_location="cpu")
+                # If the model is on the GPU, it still works!
+                self._load_state_dict_in_model(state_dict)
+            if self.do_save_adapters:
+                adapter_loaded = False
+                if os.path.isdir(resume_from_checkpoint):
+                    for file_name in os.listdir(resume_from_checkpoint):
+                        if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
+                            if "," in file_name:
+                                self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
+                                adapter_loaded = True
+                            else:
+                                self.model.load_adapter(
+                                    os.path.join(os.path.join(resume_from_checkpoint, file_name))
+                                )
+                                adapter_loaded = True
+
+                if not adapter_loaded:
+                    raise Exception("Can't find a valid checkpoint at {}".format(resume_from_checkpoint))
+
 
 class AdapterTrainerCallback(TrainerCallback):
     def __init__(self, trainer):
