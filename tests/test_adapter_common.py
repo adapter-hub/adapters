@@ -5,8 +5,7 @@ import torch
 
 from transformers import (
     ADAPTER_CONFIG_MAP,
-    AutoModel,
-    AutoModelForSequenceClassification,
+    MODEL_WITH_HEADS_MAPPING,
     AutoModelWithHeads,
     HoulsbyConfig,
     HoulsbyInvConfig,
@@ -17,9 +16,12 @@ from transformers.testing_utils import require_torch
 
 
 def create_twin_models(model_class, config_creator=None):
-    if config_creator:
+    if config_creator and model_class.__name__.startswith("Auto"):
         model_config = config_creator()
         model1 = model_class.from_config(model_config)
+    elif config_creator:
+        model_config = config_creator()
+        model1 = model_class(model_config)
     else:
         model_config = model_class.config_class()
         model1 = model_class(model_config)
@@ -33,7 +35,7 @@ def create_twin_models(model_class, config_creator=None):
 @require_torch
 class AdapterModelTestMixin:
     def test_add_adapter(self):
-        model = AutoModel.from_config(self.config())
+        model = self.get_model()
         model.eval()
 
         for adapter_config in [PfeifferConfig(), HoulsbyConfig()]:
@@ -47,8 +49,7 @@ class AdapterModelTestMixin:
                 self.assertEqual(adapter_config, model.config.adapters.get(name))
 
                 # check forward pass
-                input_ids = self.get_input_samples((1, 128), config=model.config)
-                input_data = {"input_ids": input_ids}
+                input_data = self.get_input_samples((1, 128), config=model.config)
                 adapter_output = model(**input_data)
                 model.set_active_adapters(None)
                 base_output = model(**input_data)
@@ -56,7 +57,7 @@ class AdapterModelTestMixin:
                 self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
 
     def test_delete_adapter(self):
-        model = AutoModel.from_config(self.config())
+        model = self.get_model()
         model.eval()
 
         name = "test_adapter"
@@ -73,7 +74,7 @@ class AdapterModelTestMixin:
         self.assertEqual(len(model.get_adapter(name)), 0)
 
     def test_add_adapter_with_invertible(self):
-        model = AutoModel.from_config(self.config())
+        model = self.get_model()
         model.eval()
 
         for adapter_config in [PfeifferInvConfig(), HoulsbyInvConfig()]:
@@ -95,8 +96,7 @@ class AdapterModelTestMixin:
                     self.assertTrue(param.requires_grad)
 
                 # check forward pass
-                input_ids = self.get_input_samples((1, 128), config=model.config)
-                input_data = {"input_ids": input_ids}
+                input_data = self.get_input_samples((1, 128), config=model.config)
                 adapter_output = model(**input_data)
                 # make sure the output is different without invertible adapter
                 del model.invertible_adapters[name]
@@ -105,32 +105,28 @@ class AdapterModelTestMixin:
                 self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
 
     def test_get_adapter(self):
-        for adapter_config in [HoulsbyConfig()]:
-            for model in [
-                AutoModel.from_config(self.config()),
-                AutoModelWithHeads.from_config(self.config()),
-                AutoModelForSequenceClassification.from_config(self.config()),
-            ]:
-                model.eval()
-                with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-                    model.add_adapter("first", config=adapter_config)
-                    model.add_adapter("second", config=adapter_config)
-                    model.set_active_adapters(["first"])
+        model = self.get_model()
+        model.eval()
 
-                    # adapter is correctly added to config
-                    name = "first"
-                    self.assertTrue(name in model.config.adapters)
-                    self.assertEqual(adapter_config, model.config.adapters.get(name))
+        adapter_config = HoulsbyConfig()
+        model.add_adapter("first", config=adapter_config)
+        model.add_adapter("second", config=adapter_config)
+        model.set_active_adapters(["first"])
 
-                    first_adapter = model.get_adapter("first")
-                    second_adapter = model.get_adapter("second")
+        # adapter is correctly added to config
+        name = "first"
+        self.assertTrue(name in model.config.adapters)
+        self.assertEqual(adapter_config, model.config.adapters.get(name))
 
-                    self.assertNotEqual(len(first_adapter), 0)
-                    self.assertEqual(len(first_adapter), len(second_adapter))
-                    self.assertNotEqual(first_adapter, second_adapter)
+        first_adapter = model.get_adapter("first")
+        second_adapter = model.get_adapter("second")
+
+        self.assertNotEqual(len(first_adapter), 0)
+        self.assertEqual(len(first_adapter), len(second_adapter))
+        self.assertNotEqual(first_adapter, second_adapter)
 
     def test_add_adapter_multiple_reduction_factors(self):
-        model = AutoModel.from_config(self.config())
+        model = self.get_model()
         model.eval()
         reduction_factor = {"1": 1, "default": 2}
         for adapter_config in [
@@ -160,7 +156,7 @@ class AdapterModelTestMixin:
                 )
 
     def test_reduction_factor_no_default(self):
-        model = AutoModel.from_config(self.config())
+        model = self.get_model()
         model.eval()
         reduction_factor = {"2": 8, "4": 32}
         for adapter_config in [
@@ -173,7 +169,7 @@ class AdapterModelTestMixin:
                     model.add_adapter(name, config=adapter_config)
 
     def test_adapter_forward(self):
-        model = AutoModel.from_config(self.config())
+        model = self.get_model()
         model.eval()
 
         for adapter_config in [PfeifferConfig(), HoulsbyConfig()]:
@@ -181,8 +177,7 @@ class AdapterModelTestMixin:
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
 
-                input_ids = self.get_input_samples((1, 128), config=model.config)
-                input_data = {"input_ids": input_ids}
+                input_data = self.get_input_samples((1, 128), config=model.config)
 
                 # set via property
                 model.set_active_adapters([name])
@@ -198,7 +193,7 @@ class AdapterModelTestMixin:
                 self.assertTrue(torch.equal(output_1[0], output_2[0]))
 
     def test_load_adapter(self):
-        model1, model2 = create_twin_models(AutoModel, self.config)
+        model1, model2 = create_twin_models(self.model_class, self.config)
 
         name = "dummy"
         model1.add_adapter(name)
@@ -213,14 +208,14 @@ class AdapterModelTestMixin:
         self.assertTrue(name in model2.config.adapters)
 
         # check equal output
-        input_ids = self.get_input_samples((1, 128), config=model1.config)
-        output1 = model1(input_ids)
-        output2 = model2(input_ids)
+        input_data = self.get_input_samples((1, 128), config=model1.config)
+        output1 = model1(**input_data)
+        output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_load_full_model(self):
-        model1 = AutoModel.from_config(self.config())
+        model1 = self.get_model()
         model1.eval()
 
         name = "dummy"
@@ -229,16 +224,16 @@ class AdapterModelTestMixin:
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_pretrained(temp_dir)
 
-            model2 = AutoModel.from_pretrained(temp_dir)
+            model2 = self.model_class.from_pretrained(temp_dir)
             model2.set_active_adapters([name])
 
         # check if adapter was correctly loaded
         self.assertTrue(name in model2.config.adapters)
 
         # check equal output
-        input_ids = self.get_input_samples((1, 128), config=model1.config)
-        output1 = model1(input_ids)
-        output2 = model2(input_ids)
+        input_data = self.get_input_samples((1, 128), config=model1.config)
+        output1 = model1(**input_data)
+        output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
@@ -248,13 +243,16 @@ class AdapterModelTestMixin:
         See, e.g., PretrainedConfig.to_json_string()
         """
         for k, v in ADAPTER_CONFIG_MAP.items():
-            model = AutoModel.from_config(self.config())
+            model = self.get_model()
             model.add_adapter("test", config=v)
             # should not raise an exception
             model.config.to_json_string()
 
     def test_loading_adapter_weights_with_prefix(self):
-        model_base, model_with_head_base = create_twin_models(AutoModel, self.config)
+        if self.config_class not in MODEL_WITH_HEADS_MAPPING:
+            self.skipTest("Does not support flex heads.")
+
+        model_base, model_with_head_base = create_twin_models(self.model_class, self.config)
 
         model_with_head = AutoModelWithHeads.from_config(model_with_head_base.config)
         setattr(model_with_head, model_with_head.base_model_prefix, model_with_head_base)
@@ -271,14 +269,17 @@ class AdapterModelTestMixin:
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
         # check equal output
-        input_ids = self.get_input_samples((1, 128), config=model_with_head.config)
-        output1 = model_with_head(input_ids)
-        output2 = model_base(input_ids)
+        input_data = self.get_input_samples((1, 128), config=model_with_head.config)
+        output1 = model_with_head(**input_data)
+        output2 = model_base(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_loading_adapter_weights_without_prefix(self):
-        model_base, model_with_head_base = create_twin_models(AutoModel, self.config)
+        if self.config_class not in MODEL_WITH_HEADS_MAPPING:
+            self.skipTest("Does not support flex heads.")
+
+        model_base, model_with_head_base = create_twin_models(self.model_class, self.config)
 
         model_with_head = AutoModelWithHeads.from_config(model_with_head_base.config)
         setattr(model_with_head, model_with_head.base_model_prefix, model_with_head_base)
@@ -295,8 +296,8 @@ class AdapterModelTestMixin:
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
         # check equal output
-        input_ids = self.get_input_samples((1, 128), config=model_with_head.config)
-        output1 = model_with_head(input_ids)
-        output2 = model_base(input_ids)
+        input_data = self.get_input_samples((1, 128), config=model_with_head.config)
+        output1 = model_with_head(**input_data)
+        output2 = model_base(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))

@@ -60,7 +60,7 @@ class ModelClassConversionTestMixin:
 
         # check equal output
         input_shape = input_shape or (self.batch_size, self.seq_length)
-        in_data = {"input_ids": self.get_input_samples(input_shape, config=flex_model.config)}
+        in_data = self.get_input_samples(input_shape, config=flex_model.config)
         if label_dict:
             for k, v in label_dict.items():
                 in_data[k] = v

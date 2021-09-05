@@ -142,9 +142,8 @@ class ParallelAdapterInferenceTestMixin:
         model.add_classification_head("b", num_labels=3)
         model.eval()
 
-        inputs = {}
+        inputs = self.get_input_samples((2, 128), config=model.config)
         inputs["attention_mask"] = torch.randint(0, 2, size=(2, 128))
-        inputs["input_ids"] = self.get_input_samples((2, 128), config=model.config)
 
         # for reference, pass through single adapters
         model.active_adapters = "a"
@@ -173,8 +172,7 @@ class ParallelAdapterInferenceTestMixin:
         model.add_adapter("b")
         model.add_classification_head("a", num_labels=2)
 
-        inputs = {}
-        inputs["input_ids"] = self.get_input_samples((2, 128), config=model.config)
+        inputs = self.get_input_samples((2, 128), config=model.config)
 
         model.active_adapters = Parallel("a", "b")
         model.active_head = ["a"]
@@ -193,7 +191,7 @@ class ParallelAdapterInferenceTestMixin:
         model.add_classification_head("b", num_labels=3)
         model.eval()
 
-        inputs = self.get_input_samples((2, 128), config=model.config)
+        inputs = self.get_input_samples((2, 128), config=model.config)["input_ids"]
 
         # for reference, pass through single adapters
         model.active_adapters = "a"

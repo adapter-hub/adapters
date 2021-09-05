@@ -4,7 +4,7 @@ from dataclasses import asdict
 
 import torch
 
-from transformers import ADAPTERFUSION_CONFIG_MAP, AdapterConfig, AutoModel, PfeifferConfig
+from transformers import ADAPTERFUSION_CONFIG_MAP, AdapterConfig, PfeifferConfig
 from transformers.testing_utils import require_torch
 
 
@@ -15,7 +15,7 @@ class AdapterFusionModelTestMixin:
         adapter_config = AdapterConfig.load(config_name)
 
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
-            model = AutoModel.from_config(self.config())
+            model = self.get_model()
             model.eval()
 
             with self.subTest(model_class=model.__class__.__name__, config=config_name):
@@ -33,8 +33,7 @@ class AdapterFusionModelTestMixin:
                 model.add_adapter_fusion([name1, name2], adater_fusion_config_name)
 
                 # check forward pass
-                input_ids = self.get_input_samples((1, 128), config=model.config)
-                input_data = {"input_ids": input_ids}
+                input_data = self.get_input_samples((1, 128), config=model.config)
                 model.set_active_adapters([[name1, name2]])
                 adapter_output = model(**input_data)
                 model.set_active_adapters(None)
@@ -43,7 +42,7 @@ class AdapterFusionModelTestMixin:
                 self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
 
     def test_add_adapter_fusion_different_config(self):
-        model = AutoModel.from_config(self.config())
+        model = self.get_model()
         model.eval()
 
         # fusion between a and b should be possible whereas fusion between a and c should fail
@@ -58,7 +57,7 @@ class AdapterFusionModelTestMixin:
         self.assertRaises(ValueError, lambda: model.add_adapter_fusion(["a", "c"]))
 
     def test_delete_adapter_fusion(self):
-        model = AutoModel.from_config(self.config())
+        model = self.get_model()
         model.eval()
 
         name1 = "test_adapter_1"
@@ -76,7 +75,7 @@ class AdapterFusionModelTestMixin:
 
     def test_load_adapter_fusion(self):
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
-            model1 = AutoModel.from_config(self.config())
+            model1 = self.get_model()
             model1.eval()
 
             with self.subTest(model_class=model1.__class__.__name__):
@@ -101,13 +100,13 @@ class AdapterFusionModelTestMixin:
 
                 # check equal output
                 in_data = self.get_input_samples((1, 128), config=model1.config)
-                output1 = model1(in_data)
-                output2 = model2(in_data)
+                output1 = model1(**in_data)
+                output2 = model2(**in_data)
                 self.assertEqual(len(output1), len(output2))
                 self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_load_full_model_fusion(self):
-        model1 = AutoModel.from_config(self.config())
+        model1 = self.get_model()
         model1.eval()
 
         name1 = "name1"
@@ -118,17 +117,17 @@ class AdapterFusionModelTestMixin:
         # save & reload model
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_pretrained(temp_dir)
-            model2 = AutoModel.from_pretrained(temp_dir)
+            model2 = self.model_class.from_pretrained(temp_dir)
 
         # check if AdapterFusion was correctly loaded
         self.assertTrue(model1.config.adapters.fusions == model2.config.adapters.fusions)
 
         # check equal output
-        in_data = self.get_input_samples((1, 128), config=model1.config)
+        input_data = self.get_input_samples((1, 128), config=model1.config)
         model1.set_active_adapters([[name1, name2]])
         model2.set_active_adapters([[name1, name2]])
-        output1 = model1(in_data)
-        output2 = model2(in_data)
+        output1 = model1(**input_data)
+        output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
@@ -138,7 +137,7 @@ class AdapterFusionModelTestMixin:
         See, e.g., PretrainedConfig.to_json_string()
         """
         for k, v in ADAPTERFUSION_CONFIG_MAP.items():
-            model = AutoModel.from_config(self.config())
+            model = self.get_model()
             model.add_adapter("test1")
             model.add_adapter("test2")
             model.add_adapter_fusion(["test1", "test2"], config=v)
