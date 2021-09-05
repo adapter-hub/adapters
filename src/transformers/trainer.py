@@ -177,7 +177,6 @@ if is_sagemaker_mp_enabled():
 if is_training_run_on_sagemaker():
     logging.add_handler(StreamHandler(sys.stdout))
 
-
 if TYPE_CHECKING:
     import optuna
 
@@ -2133,7 +2132,6 @@ class Trainer:
 
         # if eval is called w/o train init deepspeed here
         if self.args.deepspeed and not self.deepspeed:
-
             # XXX: eval doesn't have `resume_from_checkpoint` arg but we should be able to do eval
             # from the checkpoint eventually
             deepspeed_engine, _, _ = deepspeed_init(self, num_training_steps=0, resume_from_checkpoint=None)
@@ -2543,7 +2541,6 @@ class Trainer:
 
         # if eval is called w/o train init deepspeed here
         if self.args.deepspeed and not self.deepspeed:
-
             # XXX: eval doesn't have `resume_from_checkpoint` arg but we should be able to do eval
             # from the checkpoint eventually
             deepspeed_engine, _, _ = deepspeed_init(self, num_training_steps=0, resume_from_checkpoint=None)

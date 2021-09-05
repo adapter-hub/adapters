@@ -1,10 +1,7 @@
 import os
-import random
 import re
-import warnings
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import torch
 from torch import nn
 from torch.utils.data.dataset import Dataset
@@ -206,9 +203,7 @@ class AdapterTrainer(Trainer):
                                 self.model.load_adapter_fusion(os.path.join(resume_from_checkpoint, file_name))
                                 adapter_loaded = True
                             else:
-                                self.model.load_adapter(
-                                    os.path.join(os.path.join(resume_from_checkpoint, file_name))
-                                )
+                                self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
                                 adapter_loaded = True
 
                 if not adapter_loaded:
