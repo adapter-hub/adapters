@@ -157,6 +157,7 @@ class ParallelAdapterInferenceTestMixin:
         # active_adapters should set parallel heads too
         self.assertEqual(model.active_head, ["a", "b"])
         outputs = model(**inputs)
+
         self.assertEqual(len(outputs), 2)
         self.assertEqual(outputs[0][0].shape, (2, 2))
         self.assertEqual(outputs[1][0].shape, (2, 3))
