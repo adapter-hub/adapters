@@ -1,7 +1,10 @@
 import os
+import random
 import re
+import warnings
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import torch
 from torch import nn
 from torch.utils.data.dataset import Dataset
@@ -10,6 +13,7 @@ from transformers import PreTrainedModel, Seq2SeqTrainer, Trainer, __version__
 from transformers.adapters.composition import AdapterCompositionBlock, Fuse
 from transformers.dependency_versions_check import dep_version_check
 from transformers.integrations import is_fairscale_available
+from transformers.modeling_utils import unwrap_model
 
 from ..configuration_utils import PretrainedConfig
 from ..data.data_collator import DataCollator
@@ -137,17 +141,41 @@ class AdapterTrainer(Trainer):
         if is_sagemaker_mp_enabled():
             self.optimizer = smp.DistributedOptimizer(self.optimizer)
 
+    def _save(self, output_dir: Optional[str] = None, state_dict=None):
+        # If we are executing this function, we are the process zero, so we don't check for that.
+        output_dir = output_dir if output_dir is not None else self.args.output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        logger.info(f"Saving model checkpoint to {output_dir}")
+        # Save a trained model and configuration using `save_pretrained()`.
+        # They can then be reloaded using `from_pretrained()`
+        if not isinstance(self.model, PreTrainedModel):
+            if isinstance(unwrap_model(self.model), PreTrainedModel):
+                if state_dict is None:
+                    state_dict = self.model.state_dict()
+                unwrap_model(self.model).save_pretrained(output_dir, state_dict=state_dict)
+            else:
+                logger.info("Trainer.model is not a `PreTrainedModel`, only saving its state dict.")
+                if state_dict is None:
+                    state_dict = self.model.state_dict()
+                torch.save(state_dict, os.path.join(output_dir, WEIGHTS_NAME))
+        else:
+            if self.do_save_adapters:
+                self.model.save_all_adapters(output_dir)
+            if self.do_save_adapter_fusion:
+                self.model.save_all_adapter_fusions(output_dir)
+            if self.do_save_full_model:
+                self.model.save_pretrained(output_dir, state_dict=state_dict)
+        if self.tokenizer is not None:
+            self.tokenizer.save_pretrained(output_dir)
+
+        # Good practice: save your training arguments together with the trained model
+        torch.save(self.args, os.path.join(output_dir, "training_args.bin"))
+
 
 class AdapterTrainerCallback(TrainerCallback):
     def __init__(self, trainer):
         super().__init__()
         self.trainer = trainer
-
-    def on_save(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
-        if self.trainer.do_save_adapters:
-            self.trainer.model.save_all_adapters(args.output_dir)
-        if self.trainer.do_save_adapter_fusion:
-            self.trainer.model.save_all_adapter_fusions(args.output_dir)
 
     def on_train_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         model = kwargs.pop("model")
