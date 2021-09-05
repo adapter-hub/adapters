@@ -157,7 +157,6 @@ class ParallelAdapterInferenceTestMixin:
         # active_adapters should set parallel heads too
         self.assertEqual(model.active_head, ["a", "b"])
         outputs = model(**inputs)
-        outputs = outputs.head_outputs
         self.assertEqual(len(outputs), 2)
         self.assertEqual(outputs[0][0].shape, (2, 2))
         self.assertEqual(outputs[1][0].shape, (2, 3))
@@ -202,7 +201,7 @@ class ParallelAdapterInferenceTestMixin:
         outputs_b = model(inputs[1:])
 
         model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
-        output = model(inputs).head_outputs
+        output = model(inputs)
 
         self.assertEqual(2, len(output))
         self.assertTrue(torch.allclose(output[0]["logits"], outputs_a["logits"]))
