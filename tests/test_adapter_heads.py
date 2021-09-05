@@ -229,7 +229,6 @@ class PredictionHeadModelTestMixin:
         in_data = self.get_input_samples((3, 128), config=model.config)
 
         out = model(in_data)
-        out = out.head_outputs
 
         self.assertEqual(2, len(out))
         self.assertEqual((1, 2), out[0][0].shape)
@@ -246,8 +245,6 @@ class PredictionHeadModelTestMixin:
 
         in_data = self.get_input_samples((3, 128), config=model.config)
         out = model(in_data)
-
-        out = out.head_outputs
 
         self.assertEqual(2, len(out))
         self.assertTrue(isinstance(model.active_head, BatchSplit))

@@ -209,21 +209,3 @@ class ParallelAdapterInferenceTestMixin:
         self.assertEqual(2, len(output))
         self.assertTrue(torch.allclose(output[0]["logits"], outputs_a["logits"]))
         self.assertTrue(torch.allclose(output[1]["logits"], outputs_b["logits"]))
-
-
-def create_twin_adapters(model, name):
-    # create adapter
-    adapter1, adapter2 = name + "_1", name + "_2"
-    model.add_adapter(adapter1)
-    model.add_classification_head(adapter1)
-    # create a twin initialized with the same random weights
-    model.add_adapter(adapter2)
-    model.add_classification_head(adapter2)
-
-    state_dict = model.state_dict()
-    for k, v in state_dict.items():
-        if adapter1 in k:
-            state_dict[k.replace(adapter1, adapter2)] = v
-    model.load_state_dict(state_dict)
-
-    return adapter1, adapter2

@@ -29,6 +29,15 @@ class MultiHeadOutput(ModelOutput):
     head_outputs: List[ModelOutput] = None
     loss: Optional[torch.FloatTensor] = None
 
+    def __getitem__(self, k):
+        if isinstance(k, int):
+            return self.head_outputs[k]
+        else:
+            return super().__getitem__(k)
+
+    def __len__(self):
+        return len(self.head_outputs)
+
 
 # Let this class inherit from nn.Sequential to provide iterable access as before
 class PredictionHead(nn.Sequential):

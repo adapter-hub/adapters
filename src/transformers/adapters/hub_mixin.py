@@ -10,29 +10,35 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TEXT = "<!-- Add some description here -->"
 ADAPTER_CARD_TEMPLATE = """
---- tags: {tags} ---
+---
+tags:
+{tags}
+---
 
 # Adapter `{adapter_repo_name}` for {model_name}
 
-An [adapter](https://adapterhub.ml) for the {model_name} model that was trained on the {dataset_name}
-dataset{head_info}.
+An [adapter](https://adapterhub.ml) for the {model_name} model that was trained on the {dataset_name} dataset{head_info}.
 
-This adapter was created for usage with the
-**[adapter-transformers](https://github.com/Adapter-Hub/adapter-transformers)** library.
+This adapter was created for usage with the **[adapter-transformers](https://github.com/Adapter-Hub/adapter-transformers)** library.
 
 ## Usage
 
 First, install `adapter-transformers`:
 
-``` pip install -U adapter-transformers ``` _Note: adapter-transformers is a fork of transformers that acts as a
-drop-in replacement with adapter support. [More](https://docs.adapterhub.ml/installation.html)_
+```
+pip install -U adapter-transformers
+```
+_Note: adapter-transformers is a fork of transformers that acts as a drop-in replacement with adapter support. [More](https://docs.adapterhub.ml/installation.html)_
 
 Now, the adapter can be loaded and activated like this:
 
-```python from transformers import AutoModelWithHeads
+```python
+from transformers import AutoModelWithHeads
 
-model = AutoModelWithHeads.from_pretrained("{model_name}") adapter_name = model.load_adapter("{adapter_repo_name}")
-model.active_adapters = adapter_name ```
+model = AutoModelWithHeads.from_pretrained("{model_name}")
+adapter_name = model.load_adapter("{adapter_repo_name}")
+model.active_adapters = adapter_name
+```
 
 ## Architecture & Training
 
