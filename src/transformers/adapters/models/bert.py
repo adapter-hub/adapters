@@ -5,7 +5,9 @@ import torch
 
 from ..composition import AdapterCompositionBlock, parse_composition
 from ..heads import (
+    BertStyleMaskedLMHead,
     BiaffineParsingHead,
+    CausalLMHead,
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
     MultiLabelClassificationHead,
@@ -181,6 +183,8 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         "multiple_choice": MultipleChoiceHead,
         "question_answering": QuestionAnsweringHead,
         "dependency_parsing": BiaffineParsingHead,
+        "masked_lm": BertStyleMaskedLMHead,
+        "causal_lm": CausalLMHead,
     }
 
     def add_classification_head(
@@ -273,3 +277,27 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         """
         head = BiaffineParsingHead(self, head_name, num_labels, id2label)
         self.add_prediction_head(head, overwrite_ok)
+
+    def add_masked_lm_head(self, head_name, activation_function="gelu", overwrite_ok=False):
+        """Adds a masked language modeling head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            activation_function (str, optional): Activation function. Defaults to 'gelu'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        head = BertStyleMaskedLMHead(self, head_name, activation_function=activation_function)
+        self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+    def add_causal_lm_head(self, head_name, activation_function="gelu", overwrite_ok=False):
+        """Adds a causal language modeling head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            activation_function (str, optional): Activation function. Defaults to 'gelu'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        head = CausalLMHead(
+            self, head_name, layers=2, activation_function=activation_function, layer_norm=True, bias=True
+        )
+        self.add_prediction_head(head, overwrite_ok=overwrite_ok)

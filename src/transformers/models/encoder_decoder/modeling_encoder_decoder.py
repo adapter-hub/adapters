@@ -17,6 +17,7 @@
 
 from typing import Optional
 
+from ...adapters.models.encoder_decoder import EncoderDecoderModelAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward, replace_return_docstrings
 from ...modeling_outputs import Seq2SeqLMOutput
@@ -137,7 +138,7 @@ ENCODER_DECODER_INPUTS_DOCSTRING = r"""
 
 
 @add_start_docstrings(ENCODER_DECODER_START_DOCSTRING)
-class EncoderDecoderModel(PreTrainedModel):
+class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
     r"""
     :class:`~transformers.EncoderDecoder` is a generic model class that will be instantiated as a transformer
     architecture with one of the base model classes of the library as encoder and another one as decoder when created
@@ -189,10 +190,15 @@ class EncoderDecoderModel(PreTrainedModel):
         # so that the updates to the config will be synced
         self.encoder.config = self.config.encoder
         self.decoder.config = self.config.decoder
+        # make sure adapter config is shared
+        if hasattr(self.encoder.config, "adapters"):
+            self.decoder.config.adapters = self.encoder.config.adapters
 
         assert (
             self.encoder.get_output_embeddings() is None
         ), "The encoder {} should not have a LM Head. Please use a model without LM Head"
+
+        self._init_adapter_modules()
 
         # tie encoder, decoder weights if config set accordingly
         self.tie_weights()
@@ -365,6 +371,11 @@ class EncoderDecoderModel(PreTrainedModel):
 
         # instantiate config with corresponding kwargs
         config = EncoderDecoderConfig.from_encoder_decoder_configs(encoder.config, decoder.config, **kwargs)
+        # HACK: make sure adapter configs are referring to the same objects
+        if hasattr(config.encoder, "adapters"):
+            encoder.config.adapters = config.encoder.adapters
+        if hasattr(config.decoder, "adapters"):
+            decoder.config.adapters = config.decoder.adapters
         return cls(encoder=encoder, decoder=decoder, config=config)
 
     @add_start_docstrings_to_model_forward(ENCODER_DECODER_INPUTS_DOCSTRING)
@@ -384,6 +395,7 @@ class EncoderDecoderModel(PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
         **kwargs,
     ):
         r"""
@@ -421,7 +433,12 @@ class EncoderDecoderModel(PreTrainedModel):
             argument[len("decoder_") :]: value for argument, value in kwargs.items() if argument.startswith("decoder_")
         }
 
+        if self.config.adapters:
+            self.pre_transformer_forward(adapter_names=adapter_names, **kwargs)
+
         if encoder_outputs is None:
+            if adapter_names is not None:
+                kwargs_encoder["adapter_names"] = adapter_names
             encoder_outputs = self.encoder(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
@@ -435,6 +452,8 @@ class EncoderDecoderModel(PreTrainedModel):
         encoder_hidden_states = encoder_outputs[0]
 
         # Decode
+        if adapter_names is not None:
+            kwargs_decoder["adapter_names"] = adapter_names
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
             attention_mask=decoder_attention_mask,
