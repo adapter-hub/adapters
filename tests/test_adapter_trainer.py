@@ -194,6 +194,8 @@ class TestAdapterTrainer(unittest.TestCase):
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
         model = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+
+        model.add_classification_head("adapter", num_labels=3)
         model.add_classification_head("dummy", num_labels=2)
 
         # add the adapters to be fused
@@ -228,6 +230,8 @@ class TestAdapterTrainer(unittest.TestCase):
             trainer.train()
             # create second model that should resume the training of the first
             model_resume = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+
+            model_resume.add_classification_head("adapter", num_labels=3)
             model_resume.add_classification_head("dummy", num_labels=2)
             model_resume.add_adapter("adapter")
             model_resume.add_adapter("additional_adapter")
@@ -254,6 +258,9 @@ class TestAdapterTrainer(unittest.TestCase):
                 self.assertEqual(k1, k2)
                 if "adapter" in k1 or "dummy" in k1:
                     self.assertTrue(torch.equal(v1, v2), k1)
+
+    def test_XY(self):
+        pass
 
 
 if __name__ == "__main__":
