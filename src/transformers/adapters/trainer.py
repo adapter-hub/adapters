@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.utils.data.dataset import Dataset
 
-from transformers import PreTrainedModel, Seq2SeqTrainer, Trainer, __version__, ModelWithHeadsAdaptersMixin
+from transformers import PreTrainedModel, Seq2SeqTrainer, Trainer, __version__
 from transformers.adapters.composition import AdapterCompositionBlock, Fuse
 from transformers.dependency_versions_check import dep_version_check
 from transformers.integrations import is_fairscale_available
@@ -22,6 +22,7 @@ from ..trainer_pt_utils import get_parameter_names
 from ..trainer_utils import EvalPrediction, ShardedDDPOption
 from ..training_args import TrainingArguments
 
+
 if is_fairscale_available():
     dep_version_check("fairscale")
     from fairscale.optim import OSS
@@ -32,21 +33,21 @@ if is_sagemaker_mp_enabled():
 
 class AdapterTrainer(Trainer):
     def __init__(
-            self,
-            model: Union[PreTrainedModel, nn.Module] = None,
-            args: TrainingArguments = None,
-            data_collator: Optional[DataCollator] = None,
-            train_dataset: Optional[Dataset] = None,
-            eval_dataset: Optional[Dataset] = None,
-            tokenizer: Optional[PreTrainedTokenizerBase] = None,
-            model_init: Callable[[], PreTrainedModel] = None,
-            compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
-            callbacks: Optional[List[TrainerCallback]] = None,
-            do_save_full_model: Optional[bool] = None,
-            do_save_adapters: Optional[bool] = None,
-            do_save_adapter_fusion: Optional[bool] = None,
-            adapter_names: Optional[List[List[str]]] = None,
-            optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
+        self,
+        model: Union[PreTrainedModel, nn.Module] = None,
+        args: TrainingArguments = None,
+        data_collator: Optional[DataCollator] = None,
+        train_dataset: Optional[Dataset] = None,
+        eval_dataset: Optional[Dataset] = None,
+        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        model_init: Callable[[], PreTrainedModel] = None,
+        compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
+        callbacks: Optional[List[TrainerCallback]] = None,
+        do_save_full_model: Optional[bool] = None,
+        do_save_adapters: Optional[bool] = None,
+        do_save_adapter_fusion: Optional[bool] = None,
+        adapter_names: Optional[List[List[str]]] = None,
+        optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
     ):
         super().__init__(
             model,
@@ -74,9 +75,9 @@ class AdapterTrainer(Trainer):
         if model_freezed and self.model.active_adapters:
             # Check if training AdapterFusion
             self.train_adapter_fusion = (
-                    isinstance(self.model.active_adapters, Fuse)
-                    or isinstance(self.model.active_adapters, AdapterCompositionBlock)
-                    and any([isinstance(child, Fuse) for child in self.model.active_adapters.children])
+                isinstance(self.model.active_adapters, Fuse)
+                or isinstance(self.model.active_adapters, AdapterCompositionBlock)
+                and any([isinstance(child, Fuse) for child in self.model.active_adapters.children])
             )
             # Configure model saving
             self.do_save_full_model = False
@@ -214,7 +215,8 @@ class AdapterTrainer(Trainer):
         for file_name in os.listdir(resume_from_checkpoint):
             if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
                 if "," not in file_name and "adapter_config.json" in os.listdir(
-                        os.path.join(resume_from_checkpoint, file_name)):
+                    os.path.join(resume_from_checkpoint, file_name)
+                ):
                     self.model.load_adapter(os.path.join(os.path.join(resume_from_checkpoint, file_name)))
                     adapter_loaded = True
         return adapter_loaded
@@ -229,7 +231,8 @@ class AdapterTrainer(Trainer):
         for file_name in os.listdir(resume_from_checkpoint):
             if os.path.isdir(os.path.join(resume_from_checkpoint, file_name)):
                 if "," not in file_name and "head_config.json" in os.listdir(
-                        os.path.join(resume_from_checkpoint, file_name)):
+                    os.path.join(resume_from_checkpoint, file_name)
+                ):
                     self.model.load_head(os.path.join(resume_from_checkpoint, file_name))
 
 
