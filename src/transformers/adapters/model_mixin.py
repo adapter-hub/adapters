@@ -653,6 +653,11 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             custom_weights_loaders=custom_weights_loaders,
         )
 
+    def save_all_heads(self, save_directory):
+        for head_name in self.heads:
+            save_path = join(save_directory, head_name)
+            self.save_head(save_path, head_name)
+
     def get_labels(self):
         return list(self.config.id2label.values())
 

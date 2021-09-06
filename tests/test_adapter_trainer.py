@@ -1,4 +1,5 @@
 import unittest
+from tempfile import TemporaryDirectory
 
 import torch
 
@@ -10,7 +11,7 @@ from transformers import (
     GlueDataset,
     GlueDataTrainingArguments,
     TrainingArguments,
-)
+    AutoModelWithHeads)
 from transformers.adapters.composition import Fuse
 from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.testing_utils import slow
@@ -148,7 +149,7 @@ class TestAdapterTrainer(unittest.TestCase):
         self.assertTrue(trainer.do_save_adapters)
         self.assertTrue(trainer.do_save_adapter_fusion)
 
-    @slow
+    # @slow
     def test_training_load_best_model_at_end_full_model(self):
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         data_args = GlueDataTrainingArguments(
@@ -183,6 +184,75 @@ class TestAdapterTrainer(unittest.TestCase):
 
         trainer.train()
         self.assertIsNotNone(trainer.model.active_adapters)
+
+    def test_reloading_prediction_head(self):
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+        )
+        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+
+        model = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+        model.add_classification_head("dummy", num_labels=2)
+
+        # add the adapters to be fused
+        model.add_adapter("adapter")
+        model.add_adapter("additional_adapter")
+
+        # setup fusion
+        adapter_setup = Fuse("adapter", "additional_adapter")
+        model.add_adapter_fusion(adapter_setup)
+        model.train_adapter_fusion(adapter_setup)
+        model.set_active_adapters(adapter_setup)
+        self.assertEqual(adapter_setup, model.active_adapters)
+        self.assertEqual("dummy", model.active_head)
+        with TemporaryDirectory() as tempdir:
+            training_args = TrainingArguments(
+                output_dir=tempdir,
+                do_train=True,
+                learning_rate=0.1,
+                logging_steps=1,
+                max_steps=1,
+                save_steps=1,
+                remove_unused_columns=False,
+            )
+            trainer = Trainer(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                do_save_adapters=True,
+                do_save_full_model=False,
+            )
+
+            trainer.train()
+            # create second model that should resume the training of the first
+            model_resume = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+            model_resume.add_classification_head("dummy", num_labels=2)
+            model_resume.add_adapter("adapter")
+            model_resume.add_adapter("additional_adapter")
+            # setup fusion
+            adapter_setup = Fuse("adapter", "additional_adapter")
+            model_resume.add_adapter_fusion(adapter_setup)
+            model_resume.train_adapter_fusion(adapter_setup)
+            model_resume.set_active_adapters(adapter_setup)
+            trainer_resume = Trainer(
+                model=model_resume,
+                args=TrainingArguments(do_train=True, max_steps=1, output_dir=tempdir),
+                train_dataset=train_dataset,
+                do_save_adapters=True,
+                do_save_full_model=False,
+            )
+            trainer_resume.train(resume_from_checkpoint=True)
+
+            self.assertEqual("dummy", model.active_head)
+            self.assertEqual(model.config.adapters.adapters, model_resume.config.adapters.adapters)
+
+            for ((k1, v1), (k2, v2)) in zip(trainer.model.state_dict().items(), trainer_resume.model.state_dict().items()):
+                self.assertEqual(k1, k2)
+                if "adapter" in k1 or "dummy" in k1:
+                    self.assertTrue(torch.equal(v1, v2), k1)
+
+
 
 
 if __name__ == "__main__":

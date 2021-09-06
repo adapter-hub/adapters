@@ -118,38 +118,38 @@ class GlueDataset(Dataset):
         # Make sure only the first process in distributed training processes the dataset,
         # and the others will use the cache.
         lock_path = cached_features_file + ".lock"
-        with FileLock(lock_path):
+        # with FileLock(lock_path):
 
-            if os.path.exists(cached_features_file) and not args.overwrite_cache:
-                start = time.time()
-                self.features = torch.load(cached_features_file)
-                logger.info(
-                    f"Loading features from cached file {cached_features_file} [took %.3f s]", time.time() - start
-                )
+        if os.path.exists(cached_features_file) and not args.overwrite_cache:
+            start = time.time()
+            self.features = torch.load(cached_features_file)
+            logger.info(
+                f"Loading features from cached file {cached_features_file} [took %.3f s]", time.time() - start
+            )
+        else:
+            logger.info(f"Creating features from dataset file at {args.data_dir}")
+
+            if mode == Split.dev:
+                examples = self.processor.get_dev_examples(args.data_dir)
+            elif mode == Split.test:
+                examples = self.processor.get_test_examples(args.data_dir)
             else:
-                logger.info(f"Creating features from dataset file at {args.data_dir}")
-
-                if mode == Split.dev:
-                    examples = self.processor.get_dev_examples(args.data_dir)
-                elif mode == Split.test:
-                    examples = self.processor.get_test_examples(args.data_dir)
-                else:
-                    examples = self.processor.get_train_examples(args.data_dir)
-                if limit_length is not None:
-                    examples = examples[:limit_length]
-                self.features = glue_convert_examples_to_features(
-                    examples,
-                    tokenizer,
-                    max_length=args.max_seq_length,
-                    label_list=label_list,
-                    output_mode=self.output_mode,
-                )
-                start = time.time()
-                torch.save(self.features, cached_features_file)
-                # ^ This seems to take a lot of time so I want to investigate why and how we can improve.
-                logger.info(
-                    f"Saving features into cached file {cached_features_file} [took {time.time() - start:.3f} s]"
-                )
+                examples = self.processor.get_train_examples(args.data_dir)
+            if limit_length is not None:
+                examples = examples[:limit_length]
+            self.features = glue_convert_examples_to_features(
+                examples,
+                tokenizer,
+                max_length=args.max_seq_length,
+                label_list=label_list,
+                output_mode=self.output_mode,
+            )
+            start = time.time()
+            torch.save(self.features, cached_features_file)
+            # ^ This seems to take a lot of time so I want to investigate why and how we can improve.
+            logger.info(
+                f"Saving features into cached file {cached_features_file} [took {time.time() - start:.3f} s]"
+            )
 
     def __len__(self):
         return len(self.features)
