@@ -327,6 +327,7 @@ class EncoderDecoderAdapterTest(
 @require_torch
 class T5AdapterTest(
     AdapterModelTestMixin,
+    AdapterFusionModelTestMixin,
     AdapterTestBase,
     unittest.TestCase,
 ):
