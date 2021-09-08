@@ -60,6 +60,8 @@ class T5Config(ModelConfigAdaptersMixin, PretrainedConfig):
             Number of attention heads for each attention layer in the Transformer encoder.
         relative_attention_num_buckets (:obj:`int`, `optional`, defaults to 32):
             The number of buckets to use for each attention layer.
+        attention_probs_dropout_prob (:obj:`float`, `optional`, defaults to 0.1):
+            The dropout ratio for the attention probabilities.
         dropout_rate (:obj:`float`, `optional`, defaults to 0.1):
             The ratio for all dropout layers.
         layer_norm_eps (:obj:`float`, `optional`, defaults to 1e-6):
@@ -97,6 +99,7 @@ class T5Config(ModelConfigAdaptersMixin, PretrainedConfig):
         pad_token_id=0,
         eos_token_id=1,
         gradient_checkpointing=False,
+        attention_probs_dropout_prob=0.1,
         **kwargs
     ):
         super().__init__(
@@ -121,6 +124,7 @@ class T5Config(ModelConfigAdaptersMixin, PretrainedConfig):
         self.feed_forward_proj = feed_forward_proj
         self.use_cache = use_cache
         self.gradient_checkpointing = gradient_checkpointing
+        self.attention_probs_dropout_prob = attention_probs_dropout_prob
 
     @property
     def hidden_size(self):
