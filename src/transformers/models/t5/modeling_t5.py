@@ -823,7 +823,7 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
         self.use_cache = config.use_cache
 
         self.block = nn.ModuleList(
-            [T5Block(config, has_relative_attention_bias=bool(i == 0)) for i in range(self.config.num_layers)]
+            [T5Block(config, has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers)]
         )
         self.final_layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
