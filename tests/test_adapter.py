@@ -60,7 +60,7 @@ class AdapterTestBase:
             in_data["decoder_input_ids"] = input_ids.clone()
         return in_data
 
-
+'''
 class BertAdapterTestBase(AdapterTestBase):
     config_class = BertConfig
     config = make_config(
@@ -323,7 +323,7 @@ class EncoderDecoderAdapterTest(
         self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
 
-
+'''
 @require_torch
 class T5AdapterTest(
     AdapterModelTestMixin,
@@ -342,5 +342,6 @@ class T5AdapterTest(
         decoder_attention_heads=4,
         encoder_ffn_dim=4,
         decoder_ffn_dim=4,
+        attention_probs_dropout_prob=0.1
     )
     tokenizer_name = "t5-base"
