@@ -12,8 +12,8 @@ from transformers import (
     BertForSequenceClassification,
     GlueDataset,
     GlueDataTrainingArguments,
-    TrainingArguments,
     Trainer,
+    TrainingArguments,
 )
 from transformers.adapters.composition import Fuse, Stack
 from transformers.adapters.trainer import AdapterTrainer
@@ -203,10 +203,7 @@ class TestAdapterTrainer(unittest.TestCase):
             num_train_epochs=2,
         )
         trainer = AdapterTrainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset
+            model=model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset
         )
         with self.assertLogs(logger) as cm:
             trainer.train()

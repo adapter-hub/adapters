@@ -80,7 +80,9 @@ class AdapterTrainer(Trainer):
                 and any([isinstance(child, Fuse) for child in self.model.active_adapters.children])
             )
         else:
-            raise ValueError("Expected a freezed model with adapters to train. If you want tu fully finetune the model use the Trainer class")
+            raise ValueError(
+                "Expected a freezed model with adapters to train. If you want tu fully finetune the model use the Trainer class"
+            )
 
     def create_optimizer(self):
         """
@@ -220,9 +222,7 @@ class AdapterTrainerCallback(TrainerCallback):
         model = kwargs.pop("model")
         if args.load_best_model_at_end and state.best_model_checkpoint is not None:
 
-            logger.info(
-                f"Loading best adapter(s) from {state.best_model_checkpoint} (score: {state.best_metric})."
-            )
+            logger.info(f"Loading best adapter(s) from {state.best_model_checkpoint} (score: {state.best_metric}).")
             # attempt to re-load all adapters from checkpoint
             for adapter in model.config.adapters.adapters:
                 adapter_dir = os.path.join(state.best_model_checkpoint, adapter)
