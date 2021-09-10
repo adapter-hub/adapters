@@ -79,22 +79,8 @@ class AdapterTrainer(Trainer):
                 or isinstance(self.model.active_adapters, AdapterCompositionBlock)
                 and any([isinstance(child, Fuse) for child in self.model.active_adapters.children])
             )
-            # Configure model saving
-            self.do_save_full_model = False
-            self.do_save_adapters = True
-            self.do_save_adapter_fusion = self.train_adapter_fusion
         else:
-            self.train_adapter_fusion = False
-            self.do_save_full_model = True
-            self.do_save_adapters = False
-            self.do_save_adapter_fusion = False
-        # override with explicit setting
-        if do_save_full_model is not None:
-            self.do_save_full_model = do_save_full_model
-        if do_save_adapters is not None:
-            self.do_save_adapters = do_save_adapters
-        if do_save_adapter_fusion is not None:
-            self.do_save_adapter_fusion = do_save_adapter_fusion
+            raise ValueError("Expected a freezed model with adapters to train. If you want tu fully finetune the model use the Trainer class")
 
     def create_optimizer(self):
         """
@@ -159,12 +145,9 @@ class AdapterTrainer(Trainer):
                     state_dict = self.model.state_dict()
                 torch.save(state_dict, os.path.join(output_dir, WEIGHTS_NAME))
         else:
-            if self.do_save_adapters:
-                self.model.save_all_adapters(output_dir)
-            if self.do_save_adapter_fusion:
+            self.model.save_all_adapters(output_dir)
+            if self.train_adapter_fusion:
                 self.model.save_all_adapter_fusions(output_dir)
-            if self.do_save_full_model:
-                self.model.save_pretrained(output_dir, state_dict=state_dict)
             if hasattr(self.model, "heads"):
                 self.model.save_all_heads(output_dir)
         if self.tokenizer is not None:
@@ -177,8 +160,6 @@ class AdapterTrainer(Trainer):
         args = self.args
         if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
             logger.info(f"Loading model from {resume_from_checkpoint}).")
-        elif self.do_save_full_model:
-            raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
 
         if os.path.isfile(os.path.join(resume_from_checkpoint, CONFIG_NAME)):
             config = PretrainedConfig.from_json_file(os.path.join(resume_from_checkpoint, CONFIG_NAME))
@@ -194,21 +175,15 @@ class AdapterTrainer(Trainer):
             # will be resumed in deepspeed_init
             pass
         else:
-            if self.do_save_full_model:
-                # We load the model state dict on the CPU to avoid an OOM error.
-                state_dict = torch.load(os.path.join(resume_from_checkpoint, WEIGHTS_NAME), map_location="cpu")
-                # If the model is on the GPU, it still works!
-                self._load_state_dict_in_model(state_dict)
-            if self.do_save_adapters:
-                if os.path.isdir(resume_from_checkpoint):
-                    adapter_loaded = self._load_adapters(resume_from_checkpoint)
-                    self._load_adapter_fusions(resume_from_checkpoint)
-                    # Save all heads for a model with heads
-                    if hasattr(self.model, "heads"):
-                        self._load_heads(resume_from_checkpoint)
+            if os.path.isdir(resume_from_checkpoint):
+                adapter_loaded = self._load_adapters(resume_from_checkpoint)
+                self._load_adapter_fusions(resume_from_checkpoint)
+                # Save all heads for a model with heads
+                if hasattr(self.model, "heads"):
+                    self._load_heads(resume_from_checkpoint)
 
-                if not adapter_loaded:
-                    raise Exception("Can't find a valid checkpoint at {}".format(resume_from_checkpoint))
+            if not adapter_loaded:
+                raise Exception("Can't find a valid checkpoint at {}".format(resume_from_checkpoint))
 
     def _load_adapters(self, resume_from_checkpoint):
         adapter_loaded = False
@@ -244,30 +219,16 @@ class AdapterTrainerCallback(TrainerCallback):
     def on_train_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         model = kwargs.pop("model")
         if args.load_best_model_at_end and state.best_model_checkpoint is not None:
-            if self.trainer.do_save_full_model:
-                logger.info(f"Loading best model from {state.best_model_checkpoint} (score: {state.best_metric}).")
 
-                best_model_path = os.path.join(state.best_model_checkpoint, WEIGHTS_NAME)
-                if os.path.exists(best_model_path):
-                    # We load the model state dict on the CPU to avoid an OOM error.
-                    state_dict = torch.load(best_model_path, map_location="cpu")
-                    # If the model is on the GPU, it still works!
-                    self.trainer._load_state_dict_in_model(state_dict)
-                else:
-                    logger.warn(
-                        f"Could not locate the best model at {best_model_path}, if you are running a distributed training "
-                        "on multiple nodes, you should activate `--save_on_each_node`."
-                    )
-            if self.trainer.do_save_adapters:
-                logger.info(
-                    f"Loading best adapter(s) from {state.best_model_checkpoint} (score: {state.best_metric})."
-                )
-                # attempt to re-load all adapters from checkpoint
-                for adapter in model.config.adapters.adapters:
-                    adapter_dir = os.path.join(state.best_model_checkpoint, adapter)
-                    if os.path.exists(adapter_dir):
-                        model.load_adapter(adapter_dir)
-            if self.trainer.do_save_adapter_fusion:
+            logger.info(
+                f"Loading best adapter(s) from {state.best_model_checkpoint} (score: {state.best_metric})."
+            )
+            # attempt to re-load all adapters from checkpoint
+            for adapter in model.config.adapters.adapters:
+                adapter_dir = os.path.join(state.best_model_checkpoint, adapter)
+                if os.path.exists(adapter_dir):
+                    model.load_adapter(adapter_dir)
+            if self.trainer.train_adapter_fusion:
                 logger.info(
                     f"Loading best adapter fusion(s) from {state.best_model_checkpoint} (score: {state.best_metric})."
                 )

@@ -13,9 +13,10 @@ from transformers import (
     GlueDataset,
     GlueDataTrainingArguments,
     TrainingArguments,
+    Trainer,
 )
 from transformers.adapters.composition import Fuse, Stack
-from transformers.adapters.trainer import AdapterTrainer as Trainer
+from transformers.adapters.trainer import AdapterTrainer
 from transformers.file_utils import logger
 from transformers.testing_utils import slow
 
@@ -33,6 +34,7 @@ class TestAdapterTrainer(unittest.TestCase):
         model.add_adapter("adapter")
         model.add_adapter("additional_adapter")
         model.set_active_adapters("adapter")
+        model.train_adapter("adapter")
 
         training_args = TrainingArguments(
             output_dir="./examples",
@@ -43,12 +45,10 @@ class TestAdapterTrainer(unittest.TestCase):
             save_steps=1,
             remove_unused_columns=False,
         )
-        trainer = Trainer(
+        trainer = AdapterTrainer(
             model=model,
             args=training_args,
             train_dataset=train_dataset,
-            do_save_adapters=True,
-            do_save_full_model=False,
         )
 
         trainer.train()
@@ -57,12 +57,11 @@ class TestAdapterTrainer(unittest.TestCase):
         model_resume.add_adapter("adapter")
         model_resume.add_adapter("additional_adapter")
         model_resume.set_active_adapters("adapter")
-        trainer_resume = Trainer(
+        model_resume.train_adapter("adapter")
+        trainer_resume = AdapterTrainer(
             model=model_resume,
             args=TrainingArguments(do_train=True, max_steps=1, output_dir="./examples"),
             train_dataset=train_dataset,
-            do_save_adapters=True,
-            do_save_full_model=False,
         )
         trainer_resume.train(resume_from_checkpoint=True)
 
@@ -85,6 +84,7 @@ class TestAdapterTrainer(unittest.TestCase):
         model.add_adapter("additional_adapter")
         model.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
         model.set_active_adapters(Fuse("adapter", "additional_adapter"))
+        model.train_adapter(Fuse("adapter", "additional_adapter"))
 
         training_args = TrainingArguments(
             output_dir="./examples",
@@ -95,13 +95,10 @@ class TestAdapterTrainer(unittest.TestCase):
             save_steps=1,
             remove_unused_columns=False,
         )
-        trainer = Trainer(
+        trainer = AdapterTrainer(
             model=model,
             args=training_args,
             train_dataset=train_dataset,
-            do_save_adapters=True,
-            do_save_full_model=False,
-            do_save_adapter_fusion=True,
         )
 
         trainer.train()
@@ -110,12 +107,10 @@ class TestAdapterTrainer(unittest.TestCase):
         model_resume.add_adapter("additional_adapter")
         model_resume.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
         model_resume.set_active_adapters(Fuse("adapter", "additional_adapter"))
-        trainer_resume = Trainer(
+        trainer_resume = AdapterTrainer(
             model=model_resume,
             args=TrainingArguments(do_train=True, max_steps=1, output_dir="./examples"),
             train_dataset=train_dataset,
-            do_save_full_model=False,
-            do_save_adapters=True,
         )
         trainer_resume.train(resume_from_checkpoint=True)
 
@@ -143,14 +138,10 @@ class TestAdapterTrainer(unittest.TestCase):
         training_args = TrainingArguments(
             output_dir="./examples",
         )
-        trainer = Trainer(
+        trainer = AdapterTrainer(
             model=model,
             args=training_args,
         )
-
-        self.assertFalse(trainer.do_save_full_model)
-        self.assertTrue(trainer.do_save_adapters)
-        self.assertTrue(trainer.do_save_adapter_fusion)
 
     @slow
     def test_training_load_best_model_at_end_full_model(self):
@@ -181,8 +172,6 @@ class TestAdapterTrainer(unittest.TestCase):
             args=training_args,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            do_save_adapters=False,
-            do_save_full_model=True,
         )
 
         trainer.train()
@@ -211,7 +200,7 @@ class TestAdapterTrainer(unittest.TestCase):
             evaluation_strategy="epoch",
             num_train_epochs=2,
         )
-        trainer = Trainer(
+        trainer = AdapterTrainer(
             model=model,
             args=training_args,
             train_dataset=train_dataset,
@@ -255,12 +244,10 @@ class TestAdapterTrainer(unittest.TestCase):
                 save_steps=1,
                 remove_unused_columns=False,
             )
-            trainer = Trainer(
+            trainer = AdapterTrainer(
                 model=model,
                 args=training_args,
                 train_dataset=train_dataset,
-                do_save_adapters=True,
-                do_save_full_model=False,
             )
 
             trainer.train()
@@ -276,12 +263,10 @@ class TestAdapterTrainer(unittest.TestCase):
             model_resume.add_adapter_fusion(adapter_setup)
             model_resume.train_adapter_fusion(adapter_setup)
             model_resume.set_active_adapters(adapter_setup)
-            trainer_resume = Trainer(
+            trainer_resume = AdapterTrainer(
                 model=model_resume,
                 args=TrainingArguments(do_train=True, max_steps=1, output_dir=tempdir),
                 train_dataset=train_dataset,
-                do_save_adapters=True,
-                do_save_full_model=False,
             )
             trainer_resume.train(resume_from_checkpoint=True)
 
@@ -323,19 +308,13 @@ class TestAdapterTrainer(unittest.TestCase):
                 save_steps=1,
                 remove_unused_columns=False,
             )
-            trainer = Trainer(
+            trainer = AdapterTrainer(
                 model=model,
                 args=training_args,
                 train_dataset=train_dataset,
-                do_save_adapters=True,
-                do_save_full_model=False,
             )
 
             trainer.train()
-
-            self.assertFalse(trainer.do_save_full_model)
-            self.assertTrue(trainer.do_save_adapters)
-            self.assertFalse(trainer.do_save_adapter_fusion)
 
             # Check that adapters are actually saved but the full model is not
             files_dir_checkpoint = [file_or_dir for file_or_dir in os.listdir(os.path.join(tempdir, "checkpoint-1"))]
