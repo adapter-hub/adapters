@@ -1,9 +1,14 @@
+import copy
 import unittest
 
 import torch
+import random
 
-from transformers import AutoModelWithHeads, BertConfig, BertForSequenceClassification
+from tests.test_adapter_training import filter_parameters
+from transformers import AutoModelWithHeads, BertConfig, BertForSequenceClassification, AutoTokenizer, \
+    GlueDataTrainingArguments, GlueDataset, TrainingArguments, Trainer
 from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
+from transformers.adapters.heads import MultiHeadOutput
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
@@ -207,3 +212,157 @@ class ParallelAdapterInferenceTestMixin:
         self.assertEqual(2, len(output))
         self.assertTrue(torch.allclose(output[0]["logits"], outputs_a["logits"]))
         self.assertTrue(torch.allclose(output[1]["logits"], outputs_b["logits"]))
+
+
+def create_twin_adapters(model, name):
+    # create adapter
+    adapter1, adapter2 = name + "_1", name + "_2"
+    model.add_adapter(adapter1)
+    model.add_classification_head(adapter1)
+    # create a twin initialized with the same random weights
+    model.add_adapter(adapter2)
+    model.add_classification_head(adapter2)
+
+    state_dict = model.state_dict()
+    for k, v in state_dict.items():
+        if adapter1 in k:
+            state_dict[k.replace(adapter1, adapter2)] = v
+    model.load_state_dict(state_dict)
+
+    return adapter1, adapter2
+
+class ParallelTrainingMixin:
+
+    def train_model(self, model, dataset):
+        # trains model in eval mode for 2 epochs
+        random.seed(42)
+        torch.manual_seed(42)
+        optimizer = torch.optim.AdamW(model.parameters())
+        for epoch in range(1):
+            for data_input in dataset:
+                optimizer.zero_grad()
+                output = model(**data_input)
+                loss = output["loss"]
+                loss.backward()
+                optimizer.step()
+        return model
+
+    def test_parallel_training(self):
+        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+        model = AutoModelWithHeads.from_config(self.config())
+
+        model.add_adapter("mrpc1")
+        model.add_adapter("mrpc2")
+        model.add_classification_head("mrpc1", num_labels=2)
+        model.add_classification_head("mrpc2", num_labels=3)
+        model.eval()
+        model.active_adapters = Parallel("mrpc1", "mrpc2")
+        model.train_adapter(Parallel("mrpc1", "mrpc2"))
+
+        # all weights of the adapter should be activated
+        for k, v in filter_parameters(model, "adapters.mrpc1.").items():
+            self.assertTrue(v.requires_grad, k)
+        # all weights of the adapter not used for training should be freezed
+        for k, v in filter_parameters(model, "adapters.mrpc2.").items():
+            self.assertTrue(v.requires_grad, k)
+        # weights of the model should be freezed (check on some examples)
+        for k, v in filter_parameters(model, "encoder.layer.0.attention").items():
+            self.assertFalse(v.requires_grad, k)
+
+        state_dict_pre = copy.deepcopy(model.state_dict())
+
+        # setup dataset
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+        )
+        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+        training_args = TrainingArguments(
+            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
+        )
+
+        # evaluate
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+        )
+        trainer.train()
+
+        for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
+            if "mrpc" in k1:
+                self.assertFalse(torch.equal(v1, v2))
+            else:
+                self.assertTrue(torch.equal(v1, v2))
+
+    def test_parallel_training_equivalent_to_single_adapters(self):
+        model = AutoModelWithHeads.from_config(self.config())
+        model.eval()
+
+        a1, a2 = create_twin_adapters(model, "a")
+        b1, b2 = create_twin_adapters(model, "b")
+
+        dataset = []
+        for i in range(1):
+            input_data = self.get_input_samples((3, 128), config=model.config)
+            input_data["labels"] = torch.randint(0, 2, (3, 1))
+            dataset.append(input_data)
+
+        for adapter in [a1, b1]:
+            model.active_head = adapter
+            model.set_active_adapters(adapter)
+            model.train_adapter(adapter)
+            model.eval()
+
+            model = self.train_model(model, dataset)
+
+        model.set_active_adapters(Parallel(a2, b2))
+        model.train_adapter((Parallel(a2, b2)))
+        model.eval()
+
+        model = self.train_model(model, dataset)
+
+        state_dict = model.state_dict()
+        for k, v in state_dict.items():
+            if a1 in k:
+                self.assertTrue(torch.allclose(v, state_dict[k.replace(a1, a2)]))
+            if b1 in k:
+                self.assertTrue(torch.allclose(v, state_dict[k.replace(b1, b2)]))
+
+    def test_parallel_training_single_forward_pass(self):
+        model = AutoModelWithHeads.from_config(self.config())
+        model.eval()
+
+        a1, a2 = create_twin_adapters(model, "a")
+        b1, b2 = create_twin_adapters(model, "b")
+
+        state_dict = model.state_dict()
+        for k, v in state_dict.items():
+            if a1 in k:
+                self.assertTrue(torch.equal(v, state_dict[k.replace(a1, a2)]))
+            if b1 in k:
+                self.assertTrue(torch.equal(v, state_dict[k.replace(b1, b2)]))
+
+        input_data = self.get_input_samples((3, 128), config=model.config)
+        input_data["labels"] = torch.randint(0, 2, (3, 1))
+
+        outputs = []
+        for adapter in [a1, b1]:
+            model.active_head = adapter
+            model.set_active_adapters(adapter)
+            model.train_adapter(adapter)
+            model.eval()
+            outputs.append(model(**input_data))
+
+        model.set_active_adapters(Parallel(a2, b2))
+        model.train_adapter((Parallel(a2, b2)))
+        model.eval()
+
+        parallel_outputs = model(**input_data)
+
+        for out1, out2 in zip(outputs, parallel_outputs.head_outputs):
+            self.assertTrue(torch.equal(out1["loss"], out2["loss"]))
+            self.assertTrue(torch.allclose(out1["logits"], out2["logits"]))
+
+
+
+

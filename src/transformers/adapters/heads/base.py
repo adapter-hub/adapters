@@ -35,6 +35,9 @@ class MultiHeadOutput(ModelOutput):
         else:
             return super().__getitem__(k)
 
+    def __iter__(self):
+        return iter(self.head_outputs)
+
     def __len__(self):
         return len(self.head_outputs)
 
@@ -688,7 +691,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
             combined_loss = (
-                torch.sum(torch.stack([out["loss"] for out in head_outputs]))
+                sum([out["loss"] for out in head_outputs])
                 if all("loss" in out and out["loss"] is not None for out in head_outputs)
                 else None
             )
