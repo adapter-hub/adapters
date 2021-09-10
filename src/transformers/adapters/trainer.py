@@ -260,7 +260,7 @@ class AdapterTrainerCallback(TrainerCallback):
                     )
             if self.trainer.do_save_adapters:
                 logger.info(
-                    f"Loading best adapter(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+                    f"Loading best adapter(s) from {state.best_model_checkpoint} (score: {state.best_metric})."
                 )
                 # attempt to re-load all adapters from checkpoint
                 for adapter in model.config.adapters.adapters:
@@ -269,12 +269,12 @@ class AdapterTrainerCallback(TrainerCallback):
                         model.load_adapter(adapter_dir)
             if self.trainer.do_save_adapter_fusion:
                 logger.info(
-                    f"Loading best adapter fusion(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+                    f"Loading best adapter fusion(s) from {state.best_model_checkpoint} (score: {state.best_metric})."
                 )
                 # attempt to re-load all adapter fusions from checkpoint
                 fusion_models = getattr(self.model.config, "adapter_fusion_models", [])
                 for fusion in fusion_models:
-                    fusion_dir = os.path.join(self.state.best_model_checkpoint, fusion)
+                    fusion_dir = os.path.join(state.best_model_checkpoint, fusion)
                     if os.path.exists(fusion_dir):
                         self.model.load_adapter_fusion(fusion_dir)
 

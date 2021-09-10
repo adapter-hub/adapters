@@ -16,6 +16,7 @@ from transformers import (
 )
 from transformers.adapters.composition import Fuse, Stack
 from transformers.adapters.trainer import AdapterTrainer as Trainer
+from transformers.file_utils import logger
 from transformers.testing_utils import slow
 
 
@@ -186,6 +187,40 @@ class TestAdapterTrainer(unittest.TestCase):
 
         trainer.train()
         self.assertIsNotNone(trainer.model.active_adapters)
+
+    def test_training_load_best_model_at_end_adapter(self):
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+        )
+        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+        eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev")
+
+        model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
+        model.add_adapter("adapter")
+        model.train_adapter("adapter")
+
+        training_args = TrainingArguments(
+            output_dir="./examples",
+            do_train=True,
+            learning_rate=0.001,
+            max_steps=1,
+            save_steps=1,
+            remove_unused_columns=False,
+            load_best_model_at_end=True,
+            evaluation_strategy="epoch",
+            num_train_epochs=2,
+        )
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset
+        )
+        with self.assertLogs(logger) as cm:
+            trainer.train()
+            self.assertTrue(any("Loading best adapter(s) from" in line for line in cm.output))
+        self.assertEqual(Stack("adapter"), trainer.model.active_adapters)
 
     def test_reloading_prediction_head(self):
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
