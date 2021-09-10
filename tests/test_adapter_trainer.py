@@ -84,7 +84,7 @@ class TestAdapterTrainer(unittest.TestCase):
         model.add_adapter("additional_adapter")
         model.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
         model.set_active_adapters(Fuse("adapter", "additional_adapter"))
-        model.train_adapter(Fuse("adapter", "additional_adapter"))
+        model.train_fusion(Fuse("adapter", "additional_adapter"))
 
         training_args = TrainingArguments(
             output_dir="./examples",
@@ -107,6 +107,7 @@ class TestAdapterTrainer(unittest.TestCase):
         model_resume.add_adapter("additional_adapter")
         model_resume.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
         model_resume.set_active_adapters(Fuse("adapter", "additional_adapter"))
+        model_resume.train_fusion(Fuse("adapter", "additional_adapter"))
         trainer_resume = AdapterTrainer(
             model=model_resume,
             args=TrainingArguments(do_train=True, max_steps=1, output_dir="./examples"),
@@ -142,6 +143,7 @@ class TestAdapterTrainer(unittest.TestCase):
             model=model,
             args=training_args,
         )
+        self.assertTrue(trainer.train_adapter_fusion)
 
     @slow
     def test_training_load_best_model_at_end_full_model(self):
