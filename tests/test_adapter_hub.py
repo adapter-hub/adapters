@@ -58,6 +58,7 @@ class AdapterHubTest(unittest.TestCase):
                 adapter_name = model.load_adapter(
                     "sts/mrpc@ukp", config=config, version="1", loading_info=loading_info
                 )
+                model.train_adapter(adapter_name)
 
                 self.assertEqual(0, len(loading_info["missing_keys"]))
                 self.assertEqual(0, len(loading_info["unexpected_keys"]))
