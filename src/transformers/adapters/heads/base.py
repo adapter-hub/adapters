@@ -30,12 +30,23 @@ class MultiHeadOutput(ModelOutput):
     loss: Optional[torch.FloatTensor] = None
 
     def __getitem__(self, k):
+        # with number indices the head output at that position is accessed
+        # e.g output[1] is equivalent to output.head_outputs[1]
         if isinstance(k, int):
             return self.head_outputs[k]
+        # with strings the attribute in the underlying dict can be adressed
+        # e.g output["loss"] is equivalent to output.loss
         else:
             return super().__getitem__(k)
 
+    def __setitem__(self, k, v):
+        if isinstance(k, int):
+            self.head_outputs[k] = v
+        else:
+            return super().__setitem__(k, v)
+
     def __iter__(self):
+        # iterates over the head outputs
         return iter(self.head_outputs)
 
     def __len__(self):

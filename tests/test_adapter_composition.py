@@ -1,14 +1,21 @@
 import copy
+import random
 import unittest
 
 import torch
-import random
 
 from tests.test_adapter_training import filter_parameters
-from transformers import AutoModelWithHeads, BertConfig, BertForSequenceClassification, AutoTokenizer, \
-    GlueDataTrainingArguments, GlueDataset, TrainingArguments, Trainer
+from transformers import (
+    AutoModelWithHeads,
+    AutoTokenizer,
+    BertConfig,
+    BertForSequenceClassification,
+    GlueDataset,
+    GlueDataTrainingArguments,
+    Trainer,
+    TrainingArguments,
+)
 from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
-from transformers.adapters.heads import MultiHeadOutput
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
@@ -231,14 +238,15 @@ def create_twin_adapters(model, name):
 
     return adapter1, adapter2
 
-class ParallelTrainingMixin:
 
+class ParallelTrainingMixin:
     def train_model(self, model, dataset):
         # trains model in eval mode for 2 epochs
         random.seed(42)
         torch.manual_seed(42)
-        optimizer = torch.optim.AdamW(model.parameters())
-        for epoch in range(1):
+        # Depending on the used optimizer the adapters are not exactly the same
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        for epoch in range(2):
             for data_input in dataset:
                 optimizer.zero_grad()
                 output = model(**data_input)
@@ -302,7 +310,7 @@ class ParallelTrainingMixin:
         b1, b2 = create_twin_adapters(model, "b")
 
         dataset = []
-        for i in range(1):
+        for i in range(3):
             input_data = self.get_input_samples((3, 128), config=model.config)
             input_data["labels"] = torch.randint(0, 2, (3, 1))
             dataset.append(input_data)
@@ -362,7 +370,3 @@ class ParallelTrainingMixin:
         for out1, out2 in zip(outputs, parallel_outputs.head_outputs):
             self.assertTrue(torch.equal(out1["loss"], out2["loss"]))
             self.assertTrue(torch.allclose(out1["logits"], out2["logits"]))
-
-
-
-
