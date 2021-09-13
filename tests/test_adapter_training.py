@@ -11,7 +11,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from transformers.adapters.composition import BatchSplit, Fuse, Parallel
+from transformers.adapters.composition import BatchSplit, Fuse
 from transformers.testing_utils import require_torch
 
 
