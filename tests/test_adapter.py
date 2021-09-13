@@ -145,6 +145,7 @@ class DistilBertAdapterTest(
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
     DistilBertAdapterTestBase,
     unittest.TestCase,
 ):
@@ -182,6 +183,7 @@ class BartAdapterTest(
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
     BartAdapterTestBase,
     unittest.TestCase,
 ):
@@ -252,6 +254,7 @@ class GPT2AdapterTest(
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
     GPT2AdapterTestBase,
     unittest.TestCase,
 ):

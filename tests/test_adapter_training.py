@@ -138,39 +138,6 @@ class AdapterTrainingTestMixin:
 
         self.assertTrue(regularization_called)
 
-    def test_parallel_training(self):
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelWithHeads.from_config(self.config())
-
-        model.add_adapter("mrpc1")
-        model.add_adapter("mrpc2")
-        model.add_classification_head("mrpc1")
-        model.add_classification_head("mrpc2")
-        model.active_adapters = Parallel("mrpc1", "mrpc2")
-        model.train_adapter(Parallel("mrpc1", "mrpc2"))
-
-        # all weights of the adapter should be activated
-        for k, v in filter_parameters(model, "adapters.mrpc1.").items():
-            self.assertTrue(v.requires_grad, k)
-        # all weights of the adapter not used for training should be freezed
-        for k, v in filter_parameters(model, "adapters.mrpc2.").items():
-            self.assertTrue(v.requires_grad, k)
-        # weights of the model should be freezed (check on some examples)
-        for k, v in filter_parameters(model, "encoder.layer.0.attention").items():
-            self.assertFalse(v.requires_grad, k)
-
-        state_dict_pre = copy.deepcopy(model.state_dict())
-
-        self.trainings_run(model, tokenizer)
-
-        for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
-            if "mrpc" in k1:
-                self.assertFalse(torch.equal(v1, v2))
-            else:
-                self.assertTrue(torch.equal(v1, v2))
-
     def test_batch_split_training(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
