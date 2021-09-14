@@ -44,11 +44,12 @@ from transformers import (
     MBartTokenizer,
     MBartTokenizerFast,
     MultiLingAdapterArguments,
+    Seq2SeqAdapterTrainer,
     Seq2SeqTrainingArguments,
     default_data_collator,
     set_seed,
 )
-from transformers.adapters.trainer import AdapterSeq2SeqTrainer as Seq2SeqTrainer
+from transformers.adapters.trainer import Seq2SeqAdapterTrainer as Seq2SeqTrainer
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
@@ -581,7 +582,8 @@ def main():
         training_args.load_best_model_at_end = True
 
     # Initialize our Trainer
-    trainer = Seq2SeqTrainer(
+    trainer_class = Seq2SeqAdapterTrainer if +adapter_args.train_adapter else Seq2SeqTrainer
+    trainer = trainer_class(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
@@ -589,8 +591,6 @@ def main():
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics if training_args.predict_with_generate else None,
-        do_save_full_model=not adapter_args.train_adapter,
-        do_save_adapters=adapter_args.train_adapter,
     )
     if data_args.patience and data_args.patience > 0:
         callback = EarlyStoppingCallback(early_stopping_patience=data_args.patience)

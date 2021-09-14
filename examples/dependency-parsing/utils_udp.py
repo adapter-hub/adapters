@@ -16,6 +16,7 @@ from torch.utils.data.dataset import Dataset
 from tqdm import tqdm
 
 from transformers import (
+    AdapterTrainer,
     DataCollator,
     EvalPrediction,
     PreTrainedModel,
@@ -186,10 +187,6 @@ class DependencyParsingTrainer(Trainer):
         model_init: Callable[[], PreTrainedModel] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
-        do_save_full_model: bool = True,
-        do_save_adapters: bool = False,
-        do_save_adapter_fusion: bool = False,
-        adapter_names: Optional[List[List[str]]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
         **kwargs,
     ):
@@ -203,10 +200,6 @@ class DependencyParsingTrainer(Trainer):
             model_init,
             compute_metrics,
             callbacks,
-            do_save_full_model,
-            do_save_adapters,
-            do_save_adapter_fusion,
-            adapter_names,
             optimizers,
             **kwargs,
         )
@@ -362,3 +355,7 @@ class DependencyParsingTrainer(Trainer):
 
         # Add predictions_rels to output, even though we are only interested in the metrics
         return PredictionOutput(predictions=predictions_rels, label_ids=None, metrics=results)
+
+
+class DependencyParsingAdapterTrainer(AdapterTrainer, DependencyParsingTrainer):
+    pass

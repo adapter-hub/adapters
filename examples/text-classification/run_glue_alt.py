@@ -33,6 +33,7 @@ import transformers
 import transformers.adapters.composition as ac
 from transformers import (
     AdapterConfig,
+    AdapterTrainer,
     AutoConfig,
     AutoModelWithHeads,
     AutoTokenizer,
@@ -402,7 +403,8 @@ def main():
             return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
 
     # Initialize our Trainer
-    trainer = Trainer(
+    trainer_class = AdapterTrainer if adapter_args.train_adapter else Trainer
+    trainer = trainer_class(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
@@ -411,8 +413,6 @@ def main():
         tokenizer=tokenizer,
         # Data collator will default to DataCollatorWithPadding, so we change it if we already did the padding.
         data_collator=default_data_collator if data_args.pad_to_max_length else None,
-        do_save_full_model=not adapter_args.train_adapter,
-        do_save_adapters=adapter_args.train_adapter,
     )
 
     # Training

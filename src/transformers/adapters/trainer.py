@@ -43,9 +43,6 @@ class AdapterTrainer(Trainer):
         model_init: Callable[[], PreTrainedModel] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
-        do_save_full_model: Optional[bool] = None,
-        do_save_adapters: Optional[bool] = None,
-        do_save_adapter_fusion: Optional[bool] = None,
         adapter_names: Optional[List[List[str]]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
     ):
@@ -63,7 +60,7 @@ class AdapterTrainer(Trainer):
         )
 
         # Setting this to True can lead to unexpected behaviour with adapters
-        self.args.remove_unused_columns = False
+        # self.args.remove_unused_columns = False
 
         if adapter_names is not None:
             self.model.set_active_adapters(adapter_names)
@@ -247,5 +244,5 @@ class AdapterTrainerCallback(TrainerCallback):
             fusion_reg_loss.backward()
 
 
-class AdapterSeq2SeqTrainer(AdapterTrainer, Seq2SeqTrainer):
+class Seq2SeqAdapterTrainer(AdapterTrainer, Seq2SeqTrainer):
     pass

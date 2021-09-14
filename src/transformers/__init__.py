@@ -1188,6 +1188,10 @@ if is_torch_available():
         "ModelConfigAdaptersMixin",
         "ModelWithHeadsAdaptersMixin",
     ]
+    _import_structure["adapters.trainer"] = [
+        "AdapterTrainer",
+        "Seq2SeqAdapterTrainer",
+    ]
     _import_structure["adapters.training"] = [
         "AdapterArguments",
         "MultiLingAdapterArguments",
@@ -2688,6 +2692,7 @@ if TYPE_CHECKING:
             ModelConfigAdaptersMixin,
             ModelWithHeadsAdaptersMixin,
         )
+        from .adapters.trainer import AdapterTrainer, Seq2SeqAdapterTrainer
         from .adapters.training import AdapterArguments, MultiLingAdapterArguments
         from .adapters.utils import (
             ADAPTER_CACHE,

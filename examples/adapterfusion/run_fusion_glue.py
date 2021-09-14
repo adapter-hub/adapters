@@ -28,6 +28,7 @@ import numpy as np
 
 from transformers import (
     AdapterArguments,
+    AdapterTrainer,
     AutoConfig,
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -37,7 +38,6 @@ from transformers import (
 from transformers import GlueDataTrainingArguments as DataTrainingArguments
 from transformers import (
     HfArgumentParser,
-    Trainer,
     TrainingArguments,
     glue_compute_metrics,
     glue_output_modes,
@@ -203,15 +203,12 @@ def main():
             preds = np.squeeze(p.predictions)
         return glue_compute_metrics(data_args.task_name, preds, p.label_ids)
 
-    # Initialize our Trainer
-    trainer = Trainer(
+    trainer = AdapterTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
-        do_save_full_model=False,
-        do_save_adapter_fusion=True,
     )
 
     # Training
