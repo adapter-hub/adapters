@@ -7,6 +7,7 @@ from torch import nn
 from torch.utils.data.dataset import Dataset
 
 from transformers import PreTrainedModel, Seq2SeqTrainer, Trainer, __version__
+from transformers.adapters.composition import AdapterCompositionBlock, Fuse
 from transformers.dependency_versions_check import dep_version_check
 from transformers.integrations import is_fairscale_available
 from transformers.modeling_utils import unwrap_model
@@ -75,9 +76,10 @@ class AdapterTrainer(Trainer):
                 or isinstance(self.model.active_adapters, AdapterCompositionBlock)
                 and any([isinstance(child, Fuse) for child in self.model.active_adapters.children])
             )
-        else:
+        if model.active_adapters is None:
             raise ValueError(
-                "Expected a freezed model with adapters to train. If you want tu fully finetune the model use the Trainer class"
+                "Expected a model with an active adapter setup. "
+                "If you want tu fully finetune the model use the Trainer class"
             )
 
     def create_optimizer(self):
@@ -213,6 +215,12 @@ class AdapterTrainerCallback(TrainerCallback):
     def __init__(self, trainer):
         super().__init__()
         self.trainer = trainer
+
+    def on_train_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        model = kwargs.pop("model")
+        model_freezed = getattr(model.base_model, "model_freezed", False)
+        if not model_freezed:
+            raise ValueError("The model is not freezed. For training adapters please call the train_adapters() method")
 
     def on_train_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         model = kwargs.pop("model")

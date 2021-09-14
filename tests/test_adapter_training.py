@@ -10,9 +10,8 @@ from transformers import (
     GlueDataTrainingArguments,
     TrainingArguments,
 )
-from transformers.adapters.composition import Fuse
-from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.adapters.composition import BatchSplit, Fuse
+from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.testing_utils import require_torch
 
 
