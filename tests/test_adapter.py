@@ -18,7 +18,7 @@ from transformers import (
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_adapter_common import AdapterModelTestMixin
-from .test_adapter_composition import ParallelAdapterInferenceTestMixin
+from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
@@ -78,6 +78,7 @@ class BertAdapterTest(
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
     BertAdapterTestBase,
     unittest.TestCase,
 ):
@@ -144,6 +145,7 @@ class DistilBertAdapterTest(
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
     DistilBertAdapterTestBase,
     unittest.TestCase,
 ):
@@ -181,6 +183,7 @@ class BartAdapterTest(
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
     BartAdapterTestBase,
     unittest.TestCase,
 ):
@@ -251,6 +254,7 @@ class GPT2AdapterTest(
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
     GPT2AdapterTestBase,
     unittest.TestCase,
 ):

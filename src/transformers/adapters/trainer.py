@@ -7,7 +7,6 @@ from torch import nn
 from torch.utils.data.dataset import Dataset
 
 from transformers import PreTrainedModel, Seq2SeqTrainer, Trainer, __version__
-from transformers.adapters.composition import AdapterCompositionBlock, Fuse
 from transformers.dependency_versions_check import dep_version_check
 from transformers.integrations import is_fairscale_available
 from transformers.modeling_utils import unwrap_model
