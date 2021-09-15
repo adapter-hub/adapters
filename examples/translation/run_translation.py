@@ -45,11 +45,11 @@ from transformers import (
     MBartTokenizerFast,
     MultiLingAdapterArguments,
     Seq2SeqAdapterTrainer,
+    Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
     default_data_collator,
     set_seed,
 )
-from transformers.adapters.trainer import Seq2SeqAdapterTrainer as Seq2SeqTrainer
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
