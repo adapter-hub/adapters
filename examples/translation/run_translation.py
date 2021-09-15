@@ -582,7 +582,7 @@ def main():
         training_args.load_best_model_at_end = True
 
     # Initialize our Trainer
-    trainer_class = Seq2SeqAdapterTrainer if +adapter_args.train_adapter else Seq2SeqTrainer
+    trainer_class = Seq2SeqAdapterTrainer if adapter_args.train_adapter else Seq2SeqTrainer
     trainer = trainer_class(
         model=model,
         args=training_args,
