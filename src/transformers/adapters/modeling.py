@@ -82,6 +82,10 @@ class Adapter(nn.Module):
         if down_sample is None:
             self.down_sample = self.input_size // 2
 
+        # ensure that the down sample size is at least 1
+        if self.down_sample < 1:
+            self.down_sample = 1
+
         # Linear down projection of the input
         seq_list.append(nn.Linear(self.input_size, self.down_sample))
 
