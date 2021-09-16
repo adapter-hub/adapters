@@ -22,7 +22,7 @@ from transformers import (
     MultiLingAdapterArguments,
     set_seed,
 )
-from utils_udp import UD_HEAD_LABELS, DependencyParsingTrainer, UDTrainingArguments
+from utils_udp import UD_HEAD_LABELS, DependencyParsingAdapterTrainer, DependencyParsingTrainer, UDTrainingArguments
 
 
 logger = logging.getLogger(__name__)
@@ -245,13 +245,12 @@ def main():
     # Initialize our Trainer
     # HACK: Set this attribute to False to prevent label columns from being deleted
     training_args.remove_unused_columns = False
-    trainer = DependencyParsingTrainer(
+    trainer_class = DependencyParsingAdapterTrainer if adapter_args.train_adapter else DependencyParsingTrainer
+    trainer = trainer_class(
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
-        do_save_full_model=not adapter_args.train_adapter,
-        do_save_adapters=adapter_args.train_adapter,
     )
 
     # Training

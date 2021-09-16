@@ -35,6 +35,7 @@ import transformers.adapters.composition as ac
 from transformers import (
     CONFIG_MAPPING,
     MODEL_FOR_CAUSAL_LM_MAPPING,
+    AdapterTrainer,
     AutoConfig,
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -480,7 +481,8 @@ def main():
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
 
     # Initialize our Trainer
-    trainer = Trainer(
+    trainer_class = AdapterTrainer if adapter_args.train_adapter else Trainer
+    trainer = trainer_class(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
@@ -488,8 +490,6 @@ def main():
         tokenizer=tokenizer,
         # Data collator will default to DataCollatorWithPadding, so we change it.
         data_collator=default_data_collator,
-        do_save_full_model=not adapter_args.train_adapter,
-        do_save_adapters=adapter_args.train_adapter,
     )
 
     # Training

@@ -27,7 +27,7 @@ from typing import Optional
 from datasets import load_dataset, load_metric
 
 import transformers
-from trainer_qa import QuestionAnsweringTrainer
+from trainer_qa import QuestionAnsweringAdapterTrainer, QuestionAnsweringTrainer
 from transformers import (
     AdapterConfig,
     AutoConfig,
@@ -599,7 +599,8 @@ def main():
         return metric.compute(predictions=p.predictions, references=p.label_ids)
 
     # Initialize our Trainer
-    trainer = QuestionAnsweringTrainer(
+    trainer_class = QuestionAnsweringAdapterTrainer if adapter_args.train_adapter else QuestionAnsweringTrainer
+    trainer = trainer_class(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
@@ -609,8 +610,6 @@ def main():
         data_collator=data_collator,
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
-        do_save_full_model=not adapter_args.train_adapter,
-        do_save_adapters=adapter_args.train_adapter,
     )
 
     # Training

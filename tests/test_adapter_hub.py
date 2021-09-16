@@ -12,11 +12,11 @@ from transformers import (  # get_adapter_config_hash,
     BertModelWithHeads,
     GlueDataset,
     GlueDataTrainingArguments,
-    Trainer,
     TrainingArguments,
     get_adapter_config_hash,
     glue_compute_metrics,
 )
+from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.adapters.utils import find_in_index
 from transformers.testing_utils import require_torch
 
@@ -58,6 +58,7 @@ class AdapterHubTest(unittest.TestCase):
                 adapter_name = model.load_adapter(
                     "sts/mrpc@ukp", config=config, version="1", loading_info=loading_info
                 )
+                model.train_adapter(adapter_name)
 
                 self.assertEqual(0, len(loading_info["missing_keys"]))
                 self.assertEqual(0, len(loading_info["unexpected_keys"]))

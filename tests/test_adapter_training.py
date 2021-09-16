@@ -8,10 +8,10 @@ from transformers import (
     AutoTokenizer,
     GlueDataset,
     GlueDataTrainingArguments,
-    Trainer,
     TrainingArguments,
 )
 from transformers.adapters.composition import BatchSplit, Fuse
+from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.testing_utils import require_torch
 
 
