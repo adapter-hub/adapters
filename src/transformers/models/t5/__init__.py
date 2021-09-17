@@ -45,6 +45,7 @@ if is_torch_available():
         "T5ForConditionalGeneration",
         "T5Model",
         "T5PreTrainedModel",
+        "T5ModelWithHeads",
         "load_tf_weights_in_t5",
     ]
 
@@ -80,6 +81,7 @@ if TYPE_CHECKING:
             T5EncoderModel,
             T5ForConditionalGeneration,
             T5Model,
+            T5ModelWithHeads,
             T5PreTrainedModel,
             load_tf_weights_in_t5,
         )

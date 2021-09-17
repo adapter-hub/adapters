@@ -30,7 +30,15 @@ from .test_modeling_common import ModelTesterMixin, ids_tensor
 if is_torch_available():
     import torch
 
-    from transformers import ByT5Tokenizer, T5Config, T5EncoderModel, T5ForConditionalGeneration, T5Model, T5Tokenizer
+    from transformers import (
+        ByT5Tokenizer,
+        T5Config,
+        T5EncoderModel,
+        T5ForConditionalGeneration,
+        T5Model,
+        T5ModelWithHeads,
+        T5Tokenizer,
+    )
     from transformers.models.t5.modeling_t5 import T5_PRETRAINED_MODEL_ARCHIVE_LIST
 
 
@@ -486,7 +494,7 @@ class T5ModelTester:
 @require_torch
 class T5ModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
 
-    all_model_classes = (T5Model, T5ForConditionalGeneration) if is_torch_available() else ()
+    all_model_classes = (T5Model, T5ForConditionalGeneration, T5ModelWithHeads) if is_torch_available() else ()
     all_generative_model_classes = (T5ForConditionalGeneration,) if is_torch_available() else ()
     fx_ready_model_classes = all_model_classes
     all_parallelizable_model_classes = (T5Model, T5ForConditionalGeneration) if is_torch_available() else ()
