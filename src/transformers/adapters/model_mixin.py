@@ -239,6 +239,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     ):
         """
         Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
+
         Args:
             adapter_names: a list of adapter names which should be fused
             adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
@@ -562,8 +563,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """
-        Sets the model into mode for training the given adapters.
-        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        Sets the model into mode for training the given adapters. If self.base_model is self, must inherit from a class
+        that implements this method, to preclude infinite recursion
         """
         if self.base_model is self:
             super().train_adapter(adapter_setup)
@@ -572,8 +573,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """
-        Sets the model into mode for training of adapter fusion determined by a list of adapter names.
-        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        Sets the model into mode for training of adapter fusion determined by a list of adapter names. If
+        self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
         """
         if self.base_model is self:
             super().train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
@@ -582,7 +583,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def _add_adapter(self, adapter_name):
         """
-        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite
+        recursion
         """
         if self.base_model is self:
             super()._add_adapter(adapter_name)
@@ -591,7 +593,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def _add_fusion_layer(self, adapter_names):
         """
-        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite
+        recursion
         """
         if self.base_model is self:
             super()._add_fusion_layer(adapter_names)
@@ -693,7 +696,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
 
     def get_adapter(self, name):
         """
-        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite
+        recursion
         """
         if self.base_model is self:
             return super().get_adapter(name)

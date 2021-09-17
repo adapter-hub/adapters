@@ -44,8 +44,8 @@ if is_torch_available():
         "T5EncoderModel",
         "T5ForConditionalGeneration",
         "T5Model",
-        "T5PreTrainedModel",
         "T5ModelWithHeads",
+        "T5PreTrainedModel",
         "load_tf_weights_in_t5",
     ]
 
