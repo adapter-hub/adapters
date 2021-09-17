@@ -265,7 +265,7 @@ from ..squeezebert.modeling_squeezebert import (
     SqueezeBertForTokenClassification,
     SqueezeBertModel,
 )
-from ..t5.modeling_t5 import T5ForConditionalGeneration, T5Model
+from ..t5.modeling_t5 import T5ForConditionalGeneration, T5Model, T5ModelWithHeads
 from ..tapas.modeling_tapas import (
     TapasForMaskedLM,
     TapasForQuestionAnswering,
@@ -446,6 +446,7 @@ MODEL_WITH_HEADS_MAPPING = OrderedDict(
         (BartConfig, BartModelWithHeads),
         (MBartConfig, MBartModelWithHeads),
         (GPT2Config, GPT2ModelWithHeads),
+        (T5Config, T5ModelWithHeads),
     ]
 )
 

@@ -137,3 +137,7 @@ class T5Config(ModelConfigAdaptersMixin, PretrainedConfig):
     @property
     def num_hidden_layers(self):
         return self.num_layers
+
+    @property
+    def hidden_dropout_prob(self):
+        return self.dropout_rate

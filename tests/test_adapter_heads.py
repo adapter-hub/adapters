@@ -15,6 +15,15 @@ class PredictionHeadModelTestMixin:
     batch_size = 1
     seq_length = 128
 
+    def add_head(self, model, name, **kwargs):
+        if "classification" in model.head_types:
+            model.add_classification_head(name, **kwargs)
+            out_dim = kwargs.pop("num_labels", 2)
+        elif "seq2seq_lm" in model.head_types:
+            model.add_seq2seq_lm_head(name)
+            out_dim = self.seq_length, model.config.vocab_size
+        return out_dim
+
     def run_prediction_head_test(
         self, model, compare_model, head_name, input_shape=None, output_shape=(1, 2), label_dict=None
     ):
@@ -38,12 +47,15 @@ class PredictionHeadModelTestMixin:
             for k, v in label_dict.items():
                 in_data[k] = v
         output1 = model(**in_data)
-        self.assertEqual(output_shape, tuple(output1[1].size()))
+        # For the Seq2SeqLMOutput logits are at index 0
+        # ToDo figure out why
+        idx = "logits" if hasattr(output1, "logits") else 1
+        self.assertEqual(output_shape, tuple(output1[idx].size()))
         # check equal output
         compare_model.active_head = head_name
         output2 = compare_model(**in_data)
         self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.equal(output1[1], output2[1]))
+        self.assertTrue(torch.equal(output1[idx], output2[idx]))
 
     def test_classification_head(self):
         if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
@@ -156,7 +168,7 @@ class PredictionHeadModelTestMixin:
         model.eval()
 
         name = "test_head"
-        model.add_classification_head(name)
+        self.add_head(model, name)
         self.assertTrue(name in model.heads)
         self.assertTrue(name in model.config.prediction_heads)
         self.assertEqual(name, model.active_head)
@@ -167,6 +179,8 @@ class PredictionHeadModelTestMixin:
         self.assertNotEqual(name, model.active_head)
 
     def test_adapter_with_head(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+            self.skipTest("No classification head available")
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
 
         name = "dummy"
@@ -187,6 +201,8 @@ class PredictionHeadModelTestMixin:
         self.assertEqual(3, output1[0].size()[1])
 
     def test_adapter_with_head_load_as(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+            self.skipTest("No classification head available")
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
 
         name = "dummy"
@@ -222,6 +238,8 @@ class PredictionHeadModelTestMixin:
         self.assertDictEqual(true_config, model.get_prediction_heads_config())
 
     def test_batch_split_head(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+            self.skipTest("No classification head available")
         model = AutoModelWithHeads.from_config(self.config())
         model.add_classification_head("a")
         model.add_classification_head("b")
@@ -235,8 +253,8 @@ class PredictionHeadModelTestMixin:
 
     def test_batch_split_adapter_head(self):
         model = AutoModelWithHeads.from_config(self.config())
-        model.add_classification_head("a")
-        model.add_classification_head("b")
+        self.add_head(model, "a")
+        self.add_head(model, "b")
         model.add_adapter("a")
         model.add_adapter("b")
         model.add_adapter("c")
@@ -249,6 +267,8 @@ class PredictionHeadModelTestMixin:
         self.assertTrue(isinstance(model.active_head, BatchSplit))
 
     def test_reload_static_to_flex_head(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+            self.skipTest("No classification head available")
         static_head_model = AutoModelForSequenceClassification.from_config(self.config())
         flex_head_model = AutoModelWithHeads.from_pretrained(
             None, config=self.config(), state_dict=static_head_model.state_dict()
@@ -280,20 +300,25 @@ class PredictionHeadModelTestMixin:
         self.assertTrue(torch.all(torch.isclose(output1.logits, output2.logits)))
 
     def test_invertible_adapter_with_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_masked_lm_head"):
-            if hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_causal_lm_head"):
-                causal_lm_head = True
-            else:
-                self.skipTest("No masked or causel language model head")
+        if hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_masked_lm_head"):
+            lm_head = "masked_lm"
+        elif hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_causal_lm_head"):
+            lm_head = "casual_lm"
+        elif hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_seq2seq_lm_head"):
+            lm_head = "seq2seq_lm"
         else:
-            causal_lm_head = False
+            self.skipTest("No masked or causel language model head")
 
         model = AutoModelWithHeads.from_config(self.config())
         model.add_adapter("test", config="pfeiffer+inv")
-        if causal_lm_head:
+        if lm_head == "casual_lm":
             model.add_causal_lm_head("test")
-        else:
+        elif lm_head == "masked_lm":
             model.add_masked_lm_head("test")
+        elif lm_head == "seq2seq_lm":
+            model.add_seq2seq_lm_head("test")
+        else:
+            raise RuntimeError("{} is not a valid lm head".format(lm_head))
         model.set_active_adapters("test")
 
         # Set a hook before the invertible adapter to make sure it's actually called twice:

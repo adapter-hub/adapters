@@ -25,12 +25,13 @@ from torch.nn import CrossEntropyLoss
 from torch.utils.checkpoint import checkpoint
 
 from ...activations import ACT2FN
-from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.t5 import (
     T5BlockAdaptersMixin,
     T5CrossAttentionLayerAdaptersMixin,
     T5FFLayerAdaptersMixin,
     T5ModelAdaptersMixin,
+    T5ModelHeadsMixin,
     T5SelfAttentionLayerAdaptersMixin,
     T5StackAdaptersMixin,
 )
@@ -814,9 +815,9 @@ class T5PreTrainedModel(PreTrainedModel):
         return shifted_input_ids
 
 
-class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
+class T5Stack(T5StackAdaptersMixin, T5PreTrainedModel):
     def __init__(self, config, embed_tokens=None):
-        super().__init__(config, disable_invertible_adapters=config.is_decoder)
+        super().__init__(config)
 
         self.embed_tokens = embed_tokens
         self.is_decoder = config.is_decoder
@@ -1451,7 +1452,10 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
 
 
 @add_start_docstrings(
-    """T5 Model with a `language modeling` head on top. The exact order of inheritance here is necessary, as T5ModelAdaptersMixin replaces methods in ModelWithHeadsAdaptersMixin that would result in infinite recursion otherwise. """,
+    """
+T5 Model with a `language modeling` head on top. The exact order of inheritance here is necessary, as
+T5ModelAdaptersMixin replaces methods in ModelWithHeadsAdaptersMixin that would result in infinite recursion otherwise.
+""",
     T5_START_DOCSTRING,
 )
 class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin, T5PreTrainedModel):
@@ -1673,6 +1677,8 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
 
         projected_output = self.encoder.invertible_adapters_forward(sequence_output, rev=True)
 
+        self.invertible_adapters_forward(projected_output, rev=True)
+
         lm_logits = self.lm_head(projected_output)
 
         loss = None
@@ -1757,7 +1763,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
     "The bare T5 Model transformer outputting encoder's raw hidden-states" "without any specific head on top.",
     T5_START_DOCSTRING,
 )
-class T5EncoderModel(T5PreTrainedModel):
+class T5EncoderModel(T5ModelAdaptersMixin, T5PreTrainedModel):
     authorized_missing_keys = [
         r"encoder\.embed_tokens\.weight",
     ]
@@ -1850,3 +1856,78 @@ class T5EncoderModel(T5PreTrainedModel):
             return_dict=return_dict,
         )
         return encoder_outputs
+
+
+class T5ModelWithHeads(T5ModelHeadsMixin, T5PreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.transformer = T5Model(config)
+
+        self._init_head_modules()
+        self._init_adapter_modules()
+        self.init_weights()
+
+        # Model parallel
+        self.model_parallel = False
+        self.device_map = None
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        encoder_outputs=None,
+        past_key_values=None,
+        inputs_embeds=None,
+        decoder_inputs_embeds=None,
+        labels=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        adapter_names=None,
+        head=None,
+        **kwargs
+    ):
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        if labels is not None and decoder_input_ids is None and decoder_inputs_embeds is None:
+            # get decoder inputs from shifting lm labels to the right
+            decoder_input_ids = self._shift_right(labels)
+
+        model_output = self.transformer(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            decoder_attention_mask=decoder_attention_mask,
+            head_mask=head_mask,
+            decoder_head_mask=decoder_head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            encoder_outputs=encoder_outputs,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            decoder_inputs_embeds=decoder_inputs_embeds,
+            labels=labels,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            adapter_names=adapter_names,
+        )
+
+        # ToDo add tie embeddings
+
+        if head or self.active_head:
+            head_outputs = self.forward_head(
+                model_output,
+                head_name=head,
+                return_dict=return_dict,
+                **kwargs,
+            )
+            return head_outputs
+        else:
+            return model_output

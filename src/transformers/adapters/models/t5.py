@@ -3,8 +3,10 @@ from typing import Union
 import torch
 
 from ..composition import AdapterCompositionBlock, parse_composition
+from ..heads import Seq2SeqLMHead
 from ..layer import AdapterLayerBaseMixin
-from ..model_mixin import ModelAdaptersMixin
+from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from .bert import ModelWithFlexibleHeadsAdaptersMixin
 
 
 class T5SelfAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
@@ -109,7 +111,7 @@ class T5StackAdaptersMixin:
             return attention_mask
 
 
-class T5ModelAdaptersMixin(ModelAdaptersMixin):
+class T5ModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     """Adds adapters to the T5Model class."""
 
     def __init__(self, *args, **kwargs):
@@ -117,12 +119,20 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
 
     def _init_adapter_modules(self):
         super()._init_adapter_modules()
-        if hasattr(self, "encoder"):
-            # In T5, the invertible adapters are implemented by the encoder module.
-            # Therefore, relay mixin calls to the encoder here.
-            self.invertible_adapters = self.encoder.invertible_adapters
-            self.add_invertible_adapter = self.encoder.add_invertible_adapter
-            self.get_invertible_adapter = self.encoder.get_invertible_adapter
+        self.encoder.invertible_adapters_forward = self.invertible_adapters_forward
+
+    #     if hasattr(self, "encoder"):
+    #         # In T5, the invertible adapters are implemented by the encoder module.
+    #         # Therefore, relay mixin calls to the encoder here.
+    #         self.invertible_adapters = self.encoder.invertible_adapters
+    #         self.add_invertible_adapter = self.encoder.add_invertible_adapter
+    #         self.get_invertible_adapter = self.encoder.get_invertible_adapter
+    #     self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
+    #     # Decoder should use invertible adapters of
+    # if hasattr(self, "decoder"):
+    #     self.decoder.invertible_adapters = self.encoder.invertible_adapters
+    #     self.decoder.add_invertible_adapter = lambda *args: None
+    #     self.decoder.get_invertible_adapter = self.encoder.get_invertible_adapter
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
@@ -152,9 +162,9 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
             self.encoder.add_adapter(adapter_name)
             # make sure the layers in encoder & decoder are numbered from 0 to len(encoder+decoder)
             self.decoder.add_adapter(adapter_name, layer_idx_offset=len(self.encoder.block))
-            self.encoder.add_invertible_adapter(adapter_name)
         else:
             self.decoder.add_adapter(adapter_name)
+        self.add_invertible_adapter(adapter_name)
 
     def _add_fusion_layer(self, adapter_names):
         if hasattr(self, "encoder"):
@@ -164,7 +174,7 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
     def _delete_adapter(self, adapter_name: str):
         if hasattr(self, "encoder"):
             self.encoder.delete_adapter(adapter_name)
-            self.encoder.delete_invertible_adapter(adapter_name)
+            self.delete_invertible_adapter(adapter_name)
         self.decoder.delete_adapter(adapter_name)
 
     def _delete_fusion_layer(self, adapter_names):
@@ -224,3 +234,22 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
                     return_adapters[idx][key] = getattr(adapt, name)
 
         return return_adapters
+
+
+class T5ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
+    """Adds flexible heads to a GPT-2 model."""
+
+    head_types = {
+        "seq2seq_lm": Seq2SeqLMHead,
+    }
+
+    def add_seq2seq_lm_head(self, head_name, overwrite_ok=False):
+        """
+        Adds a causal language modeling head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        head = Seq2SeqLMHead(self, head_name)
+        self.add_prediction_head(head, overwrite_ok=overwrite_ok)

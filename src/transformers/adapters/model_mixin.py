@@ -20,12 +20,9 @@ logger = logging.getLogger(__name__)
 class InvertibleAdaptersMixin:
     """Mixin for Transformer models adding invertible adapters."""
 
-    def __init__(self, config, *args, **kwargs):
-        self.disable_invertible_adapters = kwargs.get("disable_invertible_adapters", False)
-        super().__init__(config, *args, **kwargs)
-
-        if not self.disable_invertible_adapters:
-            self.invertible_adapters = nn.ModuleDict(dict())
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.invertible_adapters = nn.ModuleDict(dict())
 
     def add_invertible_adapter(self, adapter_name: str):
         """
@@ -35,12 +32,8 @@ class InvertibleAdaptersMixin:
         Args:
             adapter_name (str): The name of the adapter for which to add an invertible adapter module.
         """
-        if self.disable_invertible_adapters:
-            raise ValueError("Invertible adapters were disabled on init!")
-
         if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
-
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config["inv_adapter"]:
             if adapter_config["inv_adapter"] == "nice":
@@ -61,16 +54,10 @@ class InvertibleAdaptersMixin:
             self.invertible_adapters[adapter_name].apply(Adapter.init_bert_weights)
 
     def delete_invertible_adapter(self, adapter_name: str):
-        if self.disable_invertible_adapters:
-            raise ValueError("Invertible adapters were disabled on init!")
-
         if adapter_name in self.invertible_adapters:
             del self.invertible_adapters[adapter_name]
 
     def get_invertible_adapter(self):
-        if self.disable_invertible_adapters:
-            raise ValueError("Invertible adapters were disabled on init!")
-
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
         if self.config.adapters.active_setup is not None and len(self.config.adapters.active_setup) > 0:
             first_adapter = self.config.adapters.active_setup.first()
@@ -79,19 +66,12 @@ class InvertibleAdaptersMixin:
         return None
 
     def enable_invertible_adapters(self, adapter_names):
-        if self.disable_invertible_adapters:
-            raise ValueError("Invertible adapters were disabled on init!")
-
         for adapter_name in adapter_names:
             if adapter_name in self.invertible_adapters:
                 for param in self.invertible_adapters[adapter_name].parameters():
                     param.requires_grad = True
-        return None
 
     def invertible_adapters_forward(self, hidden_states, rev=False):
-        if self.disable_invertible_adapters:
-            return hidden_states
-
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
         if self.config.adapters.active_setup is not None and len(self.config.adapters.active_setup) > 0:
             first_adapter = self.config.adapters.active_setup.first()
@@ -220,10 +200,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False, set_active: bool = False):
         """
         Adds a new adapter module of the specified type to the model.
+
         Args:
 
             adapter_name (str): The name of the adapter module to be added.
             config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
+
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
@@ -570,7 +552,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
             set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
 
-        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion
+        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite
+        recursion
         """
         if self.base_model is self:
             super().add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
