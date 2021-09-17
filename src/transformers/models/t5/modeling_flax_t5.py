@@ -47,15 +47,16 @@ _CONFIG_FOR_DOC = "T5Config"
 _TOKENIZER_FOR_DOC = "T5Tokenizer"
 
 
-def shift_tokens_right(input_ids: jnp.ndarray, pad_token_id: int, decoder_start_token_id: int) -> jnp.ndarray:
+# Copied from transformers.models.bart.modeling_flax_bart.shift_tokens_right
+def shift_tokens_right(input_ids: np.array, pad_token_id: int, decoder_start_token_id: int) -> np.ndarray:
     """
     Shift input ids one token to the right.
     """
-    shifted_input_ids = jnp.roll(input_ids, 1, axis=-1)
-    shifted_input_ids = jax.ops.index_update(shifted_input_ids, (..., 0), decoder_start_token_id)
-    # replace possible -100 values in labels by `pad_token_id`
-    shifted_input_ids = jnp.where(shifted_input_ids == -100, pad_token_id, shifted_input_ids)
+    shifted_input_ids = np.zeros_like(input_ids)
+    shifted_input_ids[:, 1:] = input_ids[:, :-1]
+    shifted_input_ids[:, 0] = decoder_start_token_id
 
+    shifted_input_ids = np.where(shifted_input_ids == -100, pad_token_id, shifted_input_ids)
     return shifted_input_ids
 
 
@@ -185,31 +186,32 @@ class FlaxT5Attention(nn.Module):
         self.dropout = self.config.dropout_rate
         self.inner_dim = self.n_heads * self.key_value_proj_dim
 
-        inner_dim_init_std = self.config.initializer_factor * (self.inner_dim ** -0.5)
-        d_model_init_std = self.config.initializer_factor * (self.inner_dim ** -0.5)
+        q_init_std = self.config.initializer_factor * ((self.inner_dim * self.key_value_proj_dim) ** -0.5)
+        kv_init_std = self.config.initializer_factor * (self.inner_dim ** -0.5)
+        o_init_std = self.config.initializer_factor * (self.inner_dim ** -0.5)
 
         self.q = nn.Dense(
             self.inner_dim,
             use_bias=False,
-            kernel_init=jax.nn.initializers.normal(d_model_init_std, self.dtype),
+            kernel_init=jax.nn.initializers.normal(q_init_std, self.dtype),
             dtype=self.dtype,
         )
         self.k = nn.Dense(
             self.inner_dim,
             use_bias=False,
-            kernel_init=jax.nn.initializers.normal(d_model_init_std, self.dtype),
+            kernel_init=jax.nn.initializers.normal(kv_init_std, self.dtype),
             dtype=self.dtype,
         )
         self.v = nn.Dense(
             self.inner_dim,
             use_bias=False,
-            kernel_init=jax.nn.initializers.normal(d_model_init_std, self.dtype),
+            kernel_init=jax.nn.initializers.normal(kv_init_std, self.dtype),
             dtype=self.dtype,
         )
         self.o = nn.Dense(
             self.d_model,
             use_bias=False,
-            kernel_init=jax.nn.initializers.normal(inner_dim_init_std, self.dtype),
+            kernel_init=jax.nn.initializers.normal(o_init_std, self.dtype),
             dtype=self.dtype,
         )
 
@@ -217,7 +219,7 @@ class FlaxT5Attention(nn.Module):
             self.relative_attention_bias = nn.Embed(
                 self.relative_attention_num_buckets,
                 self.n_heads,
-                embedding_init=jax.nn.initializers.normal(d_model_init_std, self.dtype),
+                embedding_init=jax.nn.initializers.normal(kv_init_std, self.dtype),
                 dtype=self.dtype,
             )
 

@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import json
+import math
 import os
 import warnings
 from dataclasses import asdict, dataclass, field
@@ -176,7 +178,6 @@ class TrainingArguments:
                 * :obj:`"no"`: No save is done during training.
                 * :obj:`"epoch"`: Save is done at the end of each epoch.
                 * :obj:`"steps"`: Save is done every :obj:`save_steps`.
-
         save_steps (:obj:`int`, `optional`, defaults to 500):
             Number of updates steps before two checkpoint saves if :obj:`save_strategy="steps"`.
         save_total_limit (:obj:`int`, `optional`):
@@ -246,8 +247,9 @@ class TrainingArguments:
 
             .. note::
 
-                When set to :obj:`True`, the parameters :obj:`save_strategy` and :obj:`save_steps` will be ignored and
-                the model will be saved after each evaluation.
+                When set to :obj:`True`, the parameters :obj:`save_strategy` needs to be the same as
+                :obj:`eval_strategy`, and in the case it is "steps", :obj:`save_steps` must be a round multiple of
+                :obj:`eval_steps`.
         metric_for_best_model (:obj:`str`, `optional`):
             Use in conjunction with :obj:`load_best_model_at_end` to specify the metric to use to compare two different
             models. Must be the name of a metric returned by the evaluation with or without the prefix :obj:`"eval_"`.
@@ -662,8 +664,33 @@ class TrainingArguments:
         self.lr_scheduler_type = SchedulerType(self.lr_scheduler_type)
         if self.do_eval is False and self.evaluation_strategy != IntervalStrategy.NO:
             self.do_eval = True
-        if self.eval_steps is None:
-            self.eval_steps = self.logging_steps
+
+        # eval_steps has to be defined and non-zero, fallbacks to logging_steps if the latter is non-zero
+        if self.evaluation_strategy == IntervalStrategy.STEPS and (self.eval_steps is None or self.eval_steps == 0):
+            if self.logging_steps > 0:
+                logger.info(f"using `logging_steps` to initialize `eval_steps` to {self.logging_steps}")
+                self.eval_steps = self.logging_steps
+            else:
+                raise ValueError(
+                    f"evaluation strategy {self.evaluation_strategy} requires either non-zero --eval_steps or --logging_steps"
+                )
+
+        # logging_steps must be non-zero for logging_strategy that is other than 'no'
+        if self.logging_strategy == IntervalStrategy.STEPS and self.logging_steps == 0:
+            raise ValueError(f"logging strategy {self.logging_strategy} requires non-zero --logging_steps")
+
+        # Sanity checks for load_best_model_at_end: we require save and eval strategies to be compatible.
+        if self.load_best_model_at_end:
+            if self.evaluation_strategy != self.save_strategy:
+                raise ValueError(
+                    "--load_best_model_at_end requires the save and eval strategy to match, but found\n- Evaluation "
+                    f"strategy: {self.evaluation_strategy}\n- Save strategy: {self.save_strategy}"
+                )
+            if self.evaluation_strategy == IntervalStrategy.STEPS and self.save_steps % self.eval_steps != 0:
+                raise ValueError(
+                    "--load_best_model_at_end requires the saving steps to be a round multiple of the evaluation "
+                    f"steps, but found {self.save_steps}, which is not a round multiple of {self.eval_steps}."
+                )
 
         if self.load_best_model_at_end and self.metric_for_best_model is None:
             self.metric_for_best_model = "loss"
@@ -798,10 +825,7 @@ class TrainingArguments:
             device = torch.device("cuda", self.local_rank)
             self._n_gpu = 1
         elif self.deepspeed:
-            # deepspeed performs its own DDP internally, and requires the program to be started with:
-            # deepspeed  ./program.py
-            # rather than:
-            # python -m torch.distributed.launch --nproc_per_node=2 ./program.py
+            # deepspeed inits torch.distributed internally
             from .deepspeed import is_deepspeed_available
 
             if not is_deepspeed_available():
@@ -992,6 +1016,68 @@ class TrainingArguments:
         Whether or not to use no_sync for the gradients when doing gradient accumulation.
         """
         return not (self.deepspeed or is_sagemaker_dp_enabled() or is_sagemaker_mp_enabled())
+
+    @contextlib.contextmanager
+    def main_process_first(self, local=True, desc="work"):
+        """
+            A context manager for torch distributed environment where on needs to do something on the main process,
+            while blocking replicas, and when it's finished releasing the replicas.
+
+            One such use is for ``datasets``'s ``map`` feature which to be efficient should be run once on the main
+            process, which upon completion saves a cached version of results and which then automatically gets loaded
+            by the replicas.
+
+        Args:
+            local (:obj:`bool`, `optional`, defaults to :obj:`True`):
+                if :obj:`True` first means process of rank 0 of each node if :obj:`False` first means process of rank 0
+                of node rank 0 In multi-node environment with a shared filesystem you most likely will want to use
+                ``local=False`` so that only the main process of the first node will do the processing. If however, the
+                filesystem is not shared, then the main process of each node will need to do the processing, which is
+                the default behavior.
+            desc (:obj:`str`, `optional`, defaults to ``"work"``):
+                a work description to be used in debug logs
+
+        """
+        if is_torch_available() and self.world_size > 1:
+            if local:
+                is_main_process = self.local_process_index == 0
+                main_process_desc = "main local process"
+            else:
+                is_main_process = self.process_index == 0
+                main_process_desc = "main process"
+
+            try:
+                if not is_main_process:
+                    # tell all replicas to wait
+                    logger.debug(f"{self.process_index}: waiting for the {main_process_desc} to perform {desc}")
+                    if is_torch_tpu_available():
+                        xm.rendezvous(desc)
+                    elif is_sagemaker_dp_enabled():
+                        sm_dist.Barrier()
+                    else:
+                        torch.distributed.barrier()
+                yield
+            finally:
+                if is_main_process:
+                    # the wait is over
+                    logger.debug(f"{self.process_index}: {main_process_desc} completed {desc}, releasing all replicas")
+                    if is_torch_tpu_available():
+                        xm.rendezvous(desc)
+                    elif is_sagemaker_dp_enabled():
+                        sm_dist.Barrier()
+                    else:
+                        torch.distributed.barrier()
+        else:
+            yield
+
+    def get_warmup_steps(self, num_training_steps: int):
+        """
+        Get number of steps used for a linear warmup.
+        """
+        warmup_steps = (
+            self.warmup_steps if self.warmup_steps > 0 else math.ceil(num_training_steps * self.warmup_ratio)
+        )
+        return warmup_steps
 
     def to_dict(self):
         """

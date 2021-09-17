@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ MBART model configuration """
+from collections import OrderedDict
+from typing import Mapping
+
+from transformers.onnx import OnnxConfigWithPast
 
 from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
@@ -180,3 +184,32 @@ class MBartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
     @property
     def attention_probs_dropout_prob(self):
         return self.attention_dropout
+
+
+class MBartOnnxConfig(OnnxConfigWithPast):
+    @property
+    def inputs(self) -> Mapping[str, Mapping[int, str]]:
+        return OrderedDict(
+            [
+                ("input_ids", {0: "batch", 1: "sequence"}),
+                ("attention_mask", {0: "batch", 1: "sequence"}),
+            ]
+        )
+
+    @property
+    def outputs(self) -> Mapping[str, Mapping[int, str]]:
+        if self.use_past:
+            return OrderedDict(
+                [
+                    ("last_hidden_state", {0: "batch", 1: "sequence"}),
+                    ("past_keys", {0: "batch", 2: "sequence"}),
+                    ("encoder_last_hidden_state", {0: "batch", 1: "sequence"}),
+                ]
+            )
+        else:
+            return OrderedDict(
+                [
+                    ("last_hidden_state", {0: "batch", 1: "sequence"}),
+                    ("encoder_last_hidden_state", {0: "batch", 1: "sequence"}),
+                ]
+            )
