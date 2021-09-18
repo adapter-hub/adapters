@@ -345,5 +345,6 @@ class T5AdapterTest(
         decoder_attention_heads=4,
         encoder_ffn_dim=4,
         decoder_ffn_dim=4,
+        tie_word_embeddings=False,
     )
     tokenizer_name = "t5-base"

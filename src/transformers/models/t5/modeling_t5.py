@@ -1918,8 +1918,13 @@ class T5ModelWithHeads(T5ModelHeadsMixin, T5PreTrainedModel):
             return_dict=return_dict,
             adapter_names=adapter_names,
         )
+        sequence_output = model_output[0]
+        # ToDo move head to device for parallel forward pass
 
-        # ToDo add tie embeddings
+        if self.config.tie_word_embeddings:
+            # Rescale output before projecting on vocab
+            # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/transformer.py#L586
+            model_output["last_hidden_state"] = sequence_output * (self.config.d_model ** -0.5)
 
         if head or self.active_head:
             head_outputs = self.forward_head(
