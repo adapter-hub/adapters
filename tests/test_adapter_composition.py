@@ -265,9 +265,9 @@ class ParallelTrainingMixin:
         model.add_adapter("mrpc2")
         model.add_classification_head("mrpc1", num_labels=2)
         model.add_classification_head("mrpc2", num_labels=3)
-        model.eval()
         model.active_adapters = Parallel("mrpc1", "mrpc2")
         model.train_adapter(Parallel("mrpc1", "mrpc2"))
+        # model.eval()
 
         # all weights of the adapter should be activated
         for k, v in filter_parameters(model, "adapters.mrpc1.").items():
@@ -287,7 +287,7 @@ class ParallelTrainingMixin:
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
         training_args = TrainingArguments(
-            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
+            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=10, no_cuda=True
         )
 
         # evaluate
@@ -300,7 +300,7 @@ class ParallelTrainingMixin:
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if "mrpc" in k1:
-                self.assertFalse(torch.equal(v1, v2))
+                self.assertFalse(torch.equal(v1, v2), k1)
             else:
                 self.assertTrue(torch.equal(v1, v2))
 

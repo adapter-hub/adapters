@@ -121,19 +121,6 @@ class T5ModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         super()._init_adapter_modules()
         self.encoder.invertible_adapters_forward = self.invertible_adapters_forward
 
-    #     if hasattr(self, "encoder"):
-    #         # In T5, the invertible adapters are implemented by the encoder module.
-    #         # Therefore, relay mixin calls to the encoder here.
-    #         self.invertible_adapters = self.encoder.invertible_adapters
-    #         self.add_invertible_adapter = self.encoder.add_invertible_adapter
-    #         self.get_invertible_adapter = self.encoder.get_invertible_adapter
-    #     self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
-    #     # Decoder should use invertible adapters of
-    # if hasattr(self, "decoder"):
-    #     self.decoder.invertible_adapters = self.encoder.invertible_adapters
-    #     self.decoder.add_invertible_adapter = lambda *args: None
-    #     self.decoder.get_invertible_adapter = self.encoder.get_invertible_adapter
-
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
         self.train()
