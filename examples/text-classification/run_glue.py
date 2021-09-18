@@ -30,6 +30,7 @@ import transformers
 import transformers.adapters.composition as ac
 from transformers import (
     AdapterConfig,
+    AdapterTrainer,
     AutoConfig,
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -515,7 +516,8 @@ def main():
         data_collator = None
 
     # Initialize our Trainer
-    trainer = Trainer(
+    trainer_class = AdapterTrainer if adapter_args.train_adapter else Trainer
+    trainer = trainer_class(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
@@ -523,8 +525,6 @@ def main():
         compute_metrics=compute_metrics,
         tokenizer=tokenizer,
         data_collator=data_collator,
-        do_save_full_model=not adapter_args.train_adapter,
-        do_save_adapters=adapter_args.train_adapter,
     )
 
     # Training

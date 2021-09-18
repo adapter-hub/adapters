@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import List, Optional, Union
 
 import torch
@@ -21,6 +22,35 @@ from ..modeling import Activation_Function_Class
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MultiHeadOutput(ModelOutput):
+    head_outputs: List[ModelOutput] = None
+    loss: Optional[torch.FloatTensor] = None
+
+    def __getitem__(self, k):
+        # with number indices the head output at that position is accessed
+        # e.g output[1] is equivalent to output.head_outputs[1]
+        if isinstance(k, int):
+            return self.head_outputs[k]
+        # with strings the attribute in the underlying dict can be adressed
+        # e.g output["loss"] is equivalent to output.loss
+        else:
+            return super().__getitem__(k)
+
+    def __setitem__(self, k, v):
+        if isinstance(k, int):
+            self.head_outputs[k] = v
+        else:
+            return super().__setitem__(k, v)
+
+    def __iter__(self):
+        # iterates over the head outputs
+        return iter(self.head_outputs)
+
+    def __len__(self):
+        return len(self.head_outputs)
 
 
 # Let this class inherit from nn.Sequential to provide iterable access as before
@@ -662,14 +692,21 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                     )
                 )
             head_outputs = []
+            labels = kwargs.pop("labels", None)
             for i, head in enumerate(self.active_head):
                 head_module = self.heads[head]
                 batch_idx = range(sum(self.active_head.batch_sizes[:i]), sum(self.active_head.batch_sizes[: i + 1]))
+                kwargs["labels"] = labels[batch_idx] if labels is not None else None
                 head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
                 # head_attention = attention_mask[batch_idx] if attention_mask is not None else None
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
-            return head_outputs
+            combined_loss = (
+                sum([out["loss"] for out in head_outputs])
+                if all("loss" in out and out["loss"] is not None for out in head_outputs)
+                else None
+            )
+            return MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
         elif self.has_parallel_adapters or isinstance(self.active_head, Parallel):
             if len(self.active_head) != self.config.adapters.active_setup.parallel_channels:
                 raise ValueError("The number of parallel adapters and the number of active heads must match.")
@@ -681,7 +718,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
                 head_outputs.append(head_output)
-            return head_outputs
+            combined_loss = (
+                torch.sum(torch.stack([out["loss"] for out in head_outputs]))
+                if all("loss" in out and out["loss"] is not None for out in head_outputs)
+                else None
+            )
+            return MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
         elif len(used_heads) > 1:
             head_outputs = []
             for head in used_heads:

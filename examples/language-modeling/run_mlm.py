@@ -35,6 +35,7 @@ import transformers.adapters.composition as ac
 from transformers import (
     CONFIG_MAPPING,
     MODEL_FOR_MASKED_LM_MAPPING,
+    AdapterTrainer,
     AutoConfig,
     AutoModelForMaskedLM,
     AutoTokenizer,
@@ -512,15 +513,14 @@ def main():
     )
 
     # Initialize our Trainer
-    trainer = Trainer(
+    trainer_class = AdapterTrainer if adapter_args.train_adapter else Trainer
+    trainer = trainer_class(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
-        do_save_full_model=not adapter_args.train_adapter,
-        do_save_adapters=adapter_args.train_adapter,
     )
 
     # Training

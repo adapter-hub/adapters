@@ -8,10 +8,10 @@ from transformers import (
     AutoTokenizer,
     GlueDataset,
     GlueDataTrainingArguments,
-    Trainer,
     TrainingArguments,
 )
-from transformers.adapters.composition import Fuse
+from transformers.adapters.composition import BatchSplit, Fuse
+from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.testing_utils import require_torch
 
 
@@ -21,6 +21,29 @@ def filter_parameters(model, filter_string):
 
 @require_torch
 class AdapterTrainingTestMixin:
+    def trainings_run(self, model, tokenizer):
+        # setup dataset
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+        )
+        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+        training_args = TrainingArguments(
+            output_dir="./examples",
+            do_train=True,
+            learning_rate=0.1,
+            max_steps=7,
+            no_cuda=True,
+            per_device_train_batch_size=8,
+        )
+
+        # evaluate
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+        )
+        trainer.train()
+
     def test_train_single_adapter(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
@@ -51,22 +74,7 @@ class AdapterTrainingTestMixin:
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
-        # setup dataset
-        data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
-        )
-        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
-        training_args = TrainingArguments(
-            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
-        )
-
-        # evaluate
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-        )
-        trainer.train()
+        self.trainings_run(model, tokenizer)
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if "mrpc" in k1:
@@ -120,22 +128,7 @@ class AdapterTrainingTestMixin:
 
         model.base_model.get_fusion_regularization_loss = patched_fusion_reg_loss
 
-        # setup dataset
-        data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
-        )
-        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
-        training_args = TrainingArguments(
-            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
-        )
-
-        # evaluate
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-        )
-        trainer.train()
+        self.trainings_run(model, tokenizer)
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if "adapter_fusion_layer" in k1 or "classifier" in k1 or "classification_head" in k1 or "score" in k1:
@@ -143,3 +136,37 @@ class AdapterTrainingTestMixin:
             else:
                 self.assertTrue(torch.equal(v1, v2), k1)
         self.assertTrue(regularization_called)
+
+    def test_batch_split_training(self):
+        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        model = AutoModelWithHeads.from_config(self.config())
+
+        model.add_adapter("mrpc1")
+        model.add_adapter("mrpc2")
+        model.add_classification_head("mrpc1")
+        model.add_classification_head("mrpc2")
+        adapter_setup = BatchSplit("mrpc1", "mrpc2", batch_sizes=[3, 3])
+        model.active_adapters = adapter_setup
+        model.train_adapter(adapter_setup)
+
+        # all weights of the adapter should be activated
+        for k, v in filter_parameters(model, "adapters.mrpc1.").items():
+            self.assertTrue(v.requires_grad, k)
+        # all weights of the adapter not used for training should be freezed
+        for k, v in filter_parameters(model, "adapters.mrpc2.").items():
+            self.assertTrue(v.requires_grad, k)
+        # weights of the model should be freezed (check on some examples)
+        for k, v in filter_parameters(model, "encoder.layer.0.attention").items():
+            self.assertFalse(v.requires_grad, k)
+
+        state_dict_pre = copy.deepcopy(model.state_dict())
+
+        self.trainings_run(model, tokenizer)
+
+        for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
+            if "mrpc" in k1:
+                self.assertFalse(torch.equal(v1, v2))
+            else:
+                self.assertTrue(torch.equal(v1, v2))

@@ -16,7 +16,7 @@
 A subclass of `Trainer` specific to Question-Answering tasks
 """
 
-from transformers import Trainer, is_torch_tpu_available
+from transformers import AdapterTrainer, Trainer, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput
 
 
@@ -103,3 +103,7 @@ class QuestionAnsweringTrainer(Trainer):
                 metrics[f"{metric_key_prefix}_{key}"] = metrics.pop(key)
 
         return PredictionOutput(predictions=predictions.predictions, label_ids=predictions.label_ids, metrics=metrics)
+
+
+class QuestionAnsweringAdapterTrainer(QuestionAnsweringTrainer, AdapterTrainer):
+    pass
