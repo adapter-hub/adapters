@@ -224,7 +224,7 @@ class T5ModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
 
 class T5ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
-    """Adds flexible heads to a GPT-2 model."""
+    """Adds flexible heads to a T5 model."""
 
     head_types = {
         "seq2seq_lm": Seq2SeqLMHead,
@@ -232,7 +232,7 @@ class T5ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
 
     def add_seq2seq_lm_head(self, head_name, overwrite_ok=False):
         """
-        Adds a causal language modeling head on top of the model.
+        Adds a seq2seq language modeling head on top of the model.
 
         Args:
             head_name (str): The name of the head.
