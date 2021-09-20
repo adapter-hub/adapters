@@ -492,12 +492,14 @@ def style_file_docstrings(code_file, max_len=119, check_only=False):
         code = f.read()
     if _re_doc_ignore_file.search(code) is not None:
         return None
-    splits = code.split('"""')
+    # fmt: off
+    splits = code.split('\"\"\"')
     splits = [
         (s if i % 2 == 0 or _re_doc_ignore.search(splits[i - 1]) is not None else style_docstring(s, max_len=max_len))
         for i, s in enumerate(splits)
     ]
-    clean_code = '"""'.join(splits)
+    clean_code = '\"\"\"'.join(splits)
+    # fmt: on
 
     diff = clean_code != code
     if not check_only and diff:

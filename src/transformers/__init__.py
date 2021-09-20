@@ -23,7 +23,7 @@
 # in the namespace without actually importing anything (and especially none of the backends).
 
 __adapters_version__ = "2.1.2"
-__version__ = "4.8.2"
+__version__ = "4.9.2"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
 # default Python logging output behavior when present.
@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING
 # Check the dependencies satisfy the minimal versions required.
 from . import dependency_versions_check
 from .file_utils import (
-    _BaseLazyModule,
+    _LazyModule,
     is_flax_available,
     is_sentencepiece_available,
     is_speech_available,
@@ -171,6 +171,7 @@ _import_structure = {
     ],
     "models.byt5": ["ByT5Tokenizer"],
     "models.camembert": ["CAMEMBERT_PRETRAINED_CONFIG_ARCHIVE_MAP", "CamembertConfig"],
+    "models.canine": ["CANINE_PRETRAINED_CONFIG_ARCHIVE_MAP", "CanineConfig", "CanineTokenizer"],
     "models.clip": [
         "CLIP_PRETRAINED_CONFIG_ARCHIVE_MAP",
         "CLIPConfig",
@@ -506,7 +507,6 @@ if is_torch_available():
             "load_tf_weights_in_albert",
         ]
     )
-
     _import_structure["models.auto"].extend(
         [
             "MODEL_FOR_CAUSAL_LM_MAPPING",
@@ -635,6 +635,19 @@ if is_torch_available():
             "CamembertForSequenceClassification",
             "CamembertForTokenClassification",
             "CamembertModel",
+        ]
+    )
+    _import_structure["models.canine"].extend(
+        [
+            "CANINE_PRETRAINED_MODEL_ARCHIVE_LIST",
+            "CanineForMultipleChoice",
+            "CanineForQuestionAnswering",
+            "CanineForSequenceClassification",
+            "CanineForTokenClassification",
+            "CanineLayer",
+            "CanineModel",
+            "CaninePreTrainedModel",
+            "load_tf_weights_in_canine",
         ]
     )
     _import_structure["models.clip"].extend(
@@ -1394,6 +1407,14 @@ if is_tf_available():
             "TFGPT2PreTrainedModel",
         ]
     )
+    _import_structure["models.hubert"].extend(
+        [
+            "TF_HUBERT_PRETRAINED_MODEL_ARCHIVE_LIST",
+            "TFHubertForCTC",
+            "TFHubertModel",
+            "TFHubertPreTrainedModel",
+        ]
+    )
     _import_structure["models.layoutlm"].extend(
         [
             "TF_LAYOUTLM_PRETRAINED_MODEL_ARCHIVE_LIST",
@@ -1681,6 +1702,25 @@ if is_flax_available():
         ]
     )
     _import_structure["models.gpt2"].extend(["FlaxGPT2LMHeadModel", "FlaxGPT2Model", "FlaxGPT2PreTrainedModel"])
+    _import_structure["models.gpt_neo"].extend(
+        ["FlaxGPTNeoForCausalLM", "FlaxGPTNeoModel", "FlaxGPTNeoPreTrainedModel"]
+    )
+    _import_structure["models.marian"].extend(
+        [
+            "FlaxMarianModel",
+            "FlaxMarianMTModel",
+            "FlaxMarianPreTrainedModel",
+        ]
+    )
+    _import_structure["models.mbart"].extend(
+        [
+            "FlaxMBartForConditionalGeneration",
+            "FlaxMBartForQuestionAnswering",
+            "FlaxMBartForSequenceClassification",
+            "FlaxMBartModel",
+            "FlaxMBartPreTrainedModel",
+        ]
+    )
     _import_structure["models.roberta"].extend(
         [
             "FlaxRobertaForMaskedLM",
@@ -1694,6 +1734,9 @@ if is_flax_available():
     )
     _import_structure["models.t5"].extend(["FlaxT5ForConditionalGeneration", "FlaxT5Model", "FlaxT5PreTrainedModel"])
     _import_structure["models.vit"].extend(["FlaxViTForImageClassification", "FlaxViTModel", "FlaxViTPreTrainedModel"])
+    _import_structure["models.wav2vec2"].extend(
+        ["FlaxWav2Vec2ForCTC", "FlaxWav2Vec2ForPreTraining", "FlaxWav2Vec2Model", "FlaxWav2Vec2PreTrainedModel"]
+    )
 else:
     from .utils import dummy_flax_objects
 
@@ -1820,6 +1863,7 @@ if TYPE_CHECKING:
     )
     from .models.byt5 import ByT5Tokenizer
     from .models.camembert import CAMEMBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, CamembertConfig
+    from .models.canine import CANINE_PRETRAINED_CONFIG_ARCHIVE_MAP, CanineConfig, CanineTokenizer
     from .models.clip import (
         CLIP_PRETRAINED_CONFIG_ARCHIVE_MAP,
         CLIPConfig,
@@ -2223,6 +2267,17 @@ if TYPE_CHECKING:
             CamembertForSequenceClassification,
             CamembertForTokenClassification,
             CamembertModel,
+        )
+        from .models.canine import (
+            CANINE_PRETRAINED_MODEL_ARCHIVE_LIST,
+            CanineForMultipleChoice,
+            CanineForQuestionAnswering,
+            CanineForSequenceClassification,
+            CanineForTokenClassification,
+            CanineLayer,
+            CanineModel,
+            CaninePreTrainedModel,
+            load_tf_weights_in_canine,
         )
         from .models.clip import (
             CLIP_PRETRAINED_MODEL_ARCHIVE_LIST,
@@ -2878,6 +2933,12 @@ if TYPE_CHECKING:
             TFGPT2Model,
             TFGPT2PreTrainedModel,
         )
+        from .models.hubert import (
+            TF_HUBERT_PRETRAINED_MODEL_ARCHIVE_LIST,
+            TFHubertForCTC,
+            TFHubertModel,
+            TFHubertPreTrainedModel,
+        )
         from .models.led import TFLEDForConditionalGeneration, TFLEDModel, TFLEDPreTrainedModel
         from .models.longformer import (
             TF_LONGFORMER_PRETRAINED_MODEL_ARCHIVE_LIST,
@@ -3108,6 +3169,15 @@ if TYPE_CHECKING:
             FlaxElectraPreTrainedModel,
         )
         from .models.gpt2 import FlaxGPT2LMHeadModel, FlaxGPT2Model, FlaxGPT2PreTrainedModel
+        from .models.gpt_neo import FlaxGPTNeoForCausalLM, FlaxGPTNeoModel, FlaxGPTNeoPreTrainedModel
+        from .models.marian import FlaxMarianModel, FlaxMarianMTModel, FlaxMarianPreTrainedModel
+        from .models.mbart import (
+            FlaxMBartForConditionalGeneration,
+            FlaxMBartForQuestionAnswering,
+            FlaxMBartForSequenceClassification,
+            FlaxMBartModel,
+            FlaxMBartPreTrainedModel,
+        )
         from .models.roberta import (
             FlaxRobertaForMaskedLM,
             FlaxRobertaForMultipleChoice,
@@ -3119,36 +3189,26 @@ if TYPE_CHECKING:
         )
         from .models.t5 import FlaxT5ForConditionalGeneration, FlaxT5Model, FlaxT5PreTrainedModel
         from .models.vit import FlaxViTForImageClassification, FlaxViTModel, FlaxViTPreTrainedModel
+        from .models.wav2vec2 import (
+            FlaxWav2Vec2ForCTC,
+            FlaxWav2Vec2ForPreTraining,
+            FlaxWav2Vec2Model,
+            FlaxWav2Vec2PreTrainedModel,
+        )
     else:
         # Import the same objects as dummies to get them in the namespace.
         # They will raise an import error if the user tries to instantiate / use them.
         from .utils.dummy_flax_objects import *
 
 else:
-    import importlib
-    import os
     import sys
 
-    class _LazyModule(_BaseLazyModule):
-        """
-        Module class that surfaces all objects but only performs associated imports when the objects are requested.
-        """
-
-        __file__ = globals()["__file__"]
-        __path__ = [os.path.dirname(__file__)]
-
-        def _get_module(self, module_name: str):
-            return importlib.import_module("." + module_name, self.__name__)
-
-        def __getattr__(self, name: str):
-            # Special handling for the version, which is a constant from this module and not imported in a submodule.
-            if name == "__adapters_version__":
-                return __adapters_version__
-            elif name == "__version__":
-                return __version__
-            return super().__getattr__(name)
-
-    sys.modules[__name__] = _LazyModule(__name__, _import_structure)
+    sys.modules[__name__] = _LazyModule(
+        __name__,
+        globals()["__file__"],
+        _import_structure,
+        extra_objects={"__version__": __version__, "__adapters_version__": __adapters_version__},
+    )
 
 
 if not is_tf_available() and not is_torch_available() and not is_flax_available():
