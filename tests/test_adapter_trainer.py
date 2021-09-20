@@ -167,6 +167,7 @@ class TestAdapterTrainer(unittest.TestCase):
             remove_unused_columns=False,
             load_best_model_at_end=True,
             evaluation_strategy="epoch",
+            save_strategy="epoch",
             num_train_epochs=2,
         )
         trainer = Trainer(
@@ -200,6 +201,7 @@ class TestAdapterTrainer(unittest.TestCase):
             remove_unused_columns=False,
             load_best_model_at_end=True,
             evaluation_strategy="epoch",
+            save_strategy="epoch",
             num_train_epochs=2,
         )
         trainer = AdapterTrainer(
