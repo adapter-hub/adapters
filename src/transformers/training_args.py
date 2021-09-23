@@ -772,6 +772,8 @@ class TrainingArguments:
         del self_as_dict["per_gpu_train_batch_size"]
         del self_as_dict["per_gpu_eval_batch_size"]
 
+        self_as_dict = {k: f"<{k.upper()}>" if k.endswith("_token") else v for k, v in self_as_dict.items()}
+
         attrs_as_str = [f"{k}={v},\n" for k, v in sorted(self_as_dict.items())]
         return f"{self.__class__.__name__}(\n{''.join(attrs_as_str)})"
 
@@ -1053,7 +1055,7 @@ class TrainingArguments:
                     if is_torch_tpu_available():
                         xm.rendezvous(desc)
                     elif is_sagemaker_dp_enabled():
-                        sm_dist.Barrier()
+                        sm_dist.barrier()
                     else:
                         torch.distributed.barrier()
                 yield
@@ -1064,7 +1066,7 @@ class TrainingArguments:
                     if is_torch_tpu_available():
                         xm.rendezvous(desc)
                     elif is_sagemaker_dp_enabled():
-                        sm_dist.Barrier()
+                        sm_dist.barrier()
                     else:
                         torch.distributed.barrier()
         else:
@@ -1081,7 +1083,8 @@ class TrainingArguments:
 
     def to_dict(self):
         """
-        Serializes this instance while replace `Enum` by their values (for JSON serialization support).
+        Serializes this instance while replace `Enum` by their values (for JSON serialization support). It obfuscates
+        the token values by removing their value.
         """
         d = asdict(self)
         for k, v in d.items():
@@ -1089,6 +1092,8 @@ class TrainingArguments:
                 d[k] = v.value
             if isinstance(v, list) and len(v) > 0 and isinstance(v[0], Enum):
                 d[k] = [x.value for x in v]
+            if k.endswith("_token"):
+                d[k] = f"<{k.upper()}>"
         return d
 
     def to_json_string(self):
