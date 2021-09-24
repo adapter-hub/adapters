@@ -31,6 +31,7 @@ from .file_utils import (
     hf_bucket_url,
     is_offline_mode,
     is_remote_url,
+    is_torch_available,
 )
 from .utils import logging
 
@@ -208,6 +209,9 @@ class PretrainedConfig(PushToHubMixin):
           this attribute contains just the floating type string without the ``torch.`` prefix. For example, for
           ``torch.float16`` ``torch_dtype`` is the ``"float16"`` string.
 
+          This attribute is currently not being used during model loading time, but this may change in the future
+          versions. But we can already start preparing for the future by saving the dtype with save_pretrained.
+
     TensorFlow specific parameters
 
         - **use_bfloat16** (:obj:`bool`, `optional`, defaults to :obj:`False`) -- Whether or not the model should use
@@ -271,6 +275,14 @@ class PretrainedConfig(PushToHubMixin):
         else:
             self.num_labels = kwargs.pop("num_labels", 2)
 
+        if self.torch_dtype is not None and isinstance(self.torch_dtype, str):
+            # we will start using self.torch_dtype in v5, but to be consistent with
+            # from_pretrained's torch_dtype arg convert it to an actual torch.dtype object
+            if is_torch_available():
+                import torch
+
+                self.torch_dtype = getattr(torch, self.torch_dtype)
+
         # Tokenizer arguments TODO: eventually tokenizer and models should share the same config
         self.tokenizer_class = kwargs.pop("tokenizer_class", None)
         self.prefix = kwargs.pop("prefix", None)
@@ -289,7 +301,7 @@ class PretrainedConfig(PushToHubMixin):
         allowed_problem_types = ("regression", "single_label_classification", "multi_label_classification")
         if self.problem_type is not None and self.problem_type not in allowed_problem_types:
             raise ValueError(
-                f"The config parameter `problem_type` wasnot understood: received {self.problem_type}"
+                f"The config parameter `problem_type` was not understood: received {self.problem_type}"
                 "but only 'regression', 'single_label_classification' and 'multi_label_classification' are valid."
             )
 
@@ -530,6 +542,10 @@ class PretrainedConfig(PushToHubMixin):
                 f"- '{pretrained_model_name_or_path}' is a correct model identifier listed on 'https://huggingface.co/models'\n\n"
                 f"- or '{pretrained_model_name_or_path}' is the correct path to a directory containing a {CONFIG_NAME} file\n\n"
             )
+
+            if revision is not None:
+                msg += f"- or '{revision}' is a valid git identifier (branch name, a tag name, or a commit id) that exists for this model name as listed on its model page on 'https://huggingface.co/models'\n\n"
+
             raise EnvironmentError(msg)
 
         except json.JSONDecodeError:
@@ -575,7 +591,8 @@ class PretrainedConfig(PushToHubMixin):
         for key, value in kwargs.items():
             if hasattr(config, key):
                 setattr(config, key, value)
-                to_remove.append(key)
+                if key != "torch_dtype":
+                    to_remove.append(key)
             elif key == "custom_heads":
                 setattr(config, key, value)
         for key in to_remove:
@@ -643,6 +660,8 @@ class PretrainedConfig(PushToHubMixin):
             ):
                 serializable_config_dict[key] = value
 
+        self.dict_torch_dtype_to_str(serializable_config_dict)
+
         return serializable_config_dict
 
     def to_dict(self) -> Dict[str, Any]:
@@ -662,6 +681,8 @@ class PretrainedConfig(PushToHubMixin):
 
         # Transformers version when serializing the model
         output["transformers_version"] = __version__
+
+        self.dict_torch_dtype_to_str(output)
 
         return output
 
@@ -744,6 +765,15 @@ class PretrainedConfig(PushToHubMixin):
                 )
 
             setattr(self, k, v)
+
+    def dict_torch_dtype_to_str(self, d: Dict[str, Any]) -> None:
+        """
+        Checks whether the passed dictionary has a `torch_dtype` key and if it's not None, converts torch.dtype to a
+        string of just the type. For example, :obj:`torch.float32` get converted into `"float32"` string, which can
+        then be stored in the json format.
+        """
+        if d.get("torch_dtype", None) is not None and not isinstance(d["torch_dtype"], str):
+            d["torch_dtype"] = str(d["torch_dtype"]).split(".")[1]
 
 
 PretrainedConfig.push_to_hub = copy_func(PretrainedConfig.push_to_hub)
