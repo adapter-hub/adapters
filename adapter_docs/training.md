@@ -155,3 +155,33 @@ python run_fusion_glue.py \
   --output_dir /tmp/$TASK_NAME \
   --overwrite_output_dir
 ```
+
+
+## AdapterTrainer
+Similar to the Trainer class provided by huggingface, adapter-transformers has an AdapterTrainer class. This class is
+intended for training adapters. The Trainer class should be used to fully fine-tune models. To train adapters with the AdapterTrainer
+class, simply initialize it the same way you would initialize the Trainer class e.g.: 
+
+```python
+model.add_adapter(task_name)
+model.train_adapter(task_name)
+
+trainings_args =  TrainingsArguments(
+    learning_rate=1e-4,
+    num_train_epochs=6,
+)
+
+trainer = AdapterTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        tokenizer=tokenizer,
+        data_collator=data_collator,
+    )
+```
+```eval_rst
+.. important::
+    When you migrate from the previous version, which uses the Trainer class for adapter training and fully fine-tuning, note that the 
+    specialized AdapterTrainer class does not have the parameters `do_save_full_model`, `do_save_adapters` and `do_save_adapter_fusion`.
+```
