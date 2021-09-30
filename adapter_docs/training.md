@@ -158,8 +158,8 @@ python run_fusion_glue.py \
 
 
 ## AdapterTrainer
-Similar to the Trainer class provided by huggingface, adapter-transformers has an AdapterTrainer class. This class is
-intended for training adapters. The Trainer class should be used to fully fine-tune models. To train adapters with the AdapterTrainer
+Similar to the Trainer class provided by huggingface, adapter-transformers provides an AdapterTrainer class. This class is
+intended for training adapters. The Trainer class should still be used to fully fine-tune models. To train adapters with the AdapterTrainer
 class, simply initialize it the same way you would initialize the Trainer class e.g.: 
 
 ```python
@@ -181,7 +181,7 @@ trainer = AdapterTrainer(
     )
 ```
 ```eval_rst
-.. important::
-    When you migrate from the previous version, which uses the Trainer class for adapter training and fully fine-tuning, note that the 
+.. tip::
+    When you migrate from the previous versions, which use the Trainer class for adapter training and fully fine-tuning, note that the 
     specialized AdapterTrainer class does not have the parameters `do_save_full_model`, `do_save_adapters` and `do_save_adapter_fusion`.
 ```
