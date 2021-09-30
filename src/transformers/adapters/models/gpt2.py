@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from ..composition import AdapterCompositionBlock, parse_composition
-from ..heads import CausalLMHead, ClassificationHead, MultiLabelClassificationHead
+from ..heads import CausalLMHead, ClassificationHead, MultiLabelClassificationHead, TaggingHead
 from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 from .bert import (
     BertEncoderAdaptersMixin,
@@ -185,6 +185,7 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         "classification": ClassificationHead,
         "multilabel_classification": MultiLabelClassificationHead,
         "causal_lm": CausalLMHead,
+        "tagging": TaggingHead,
     }
 
     def add_classification_head(

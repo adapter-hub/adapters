@@ -626,6 +626,15 @@ class RobertaPreTrainedModel(PreTrainedModel):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
 
+    def update_keys_to_ignore(self, config, del_keys_to_ignore):
+        """Remove some keys from ignore list"""
+        if not config.tie_word_embeddings:
+            # must make a new list, or the class variable gets modified!
+            self._keys_to_ignore_on_save = [k for k in self._keys_to_ignore_on_save if k not in del_keys_to_ignore]
+            self._keys_to_ignore_on_load_missing = [
+                k for k in self._keys_to_ignore_on_load_missing if k not in del_keys_to_ignore
+            ]
+
 
 ROBERTA_START_DOCSTRING = r"""
 
@@ -746,7 +755,7 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
         for layer, heads in heads_to_prune.items():
             self.encoder.layer[layer].attention.prune_heads(heads)
 
-    @add_start_docstrings_to_model_forward(ROBERTA_INPUTS_DOCSTRING.format("(batch_size, sequence_length)"))
+    @add_start_docstrings_to_model_forward(ROBERTA_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
         tokenizer_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
@@ -807,13 +816,12 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
         elif input_ids is not None:
             input_shape = input_ids.size()
-            batch_size, seq_length = input_shape
         elif inputs_embeds is not None:
             input_shape = inputs_embeds.size()[:-1]
-            batch_size, seq_length = input_shape
         else:
             raise ValueError("You have to specify either input_ids or inputs_embeds")
 
+        batch_size, seq_length = input_shape
         device = input_ids.device if input_ids is not None else inputs_embeds.device
 
         # past_key_values_length
@@ -976,7 +984,8 @@ class RobertaModelWithHeads(BertModelHeadsMixin, RobertaPreTrainedModel):
     """RoBERTa Model with a `language modeling` head on top for CLM fine-tuning. """, ROBERTA_START_DOCSTRING
 )
 class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"position_ids", r"lm_head.decoder.bias"]
+    _keys_to_ignore_on_save = [r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
+    _keys_to_ignore_on_load_missing = [r"position_ids", r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
     def __init__(self, config):
@@ -987,6 +996,9 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
 
         self.roberta = RobertaModel(config, add_pooling_layer=False)
         self.lm_head = RobertaLMHead(config)
+
+        # The LM head weights require special treatment only when they are tied with the word embeddings
+        self.update_keys_to_ignore(config, ["lm_head.decoder.weight"])
 
         self.init_weights()
 
@@ -1127,7 +1139,8 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
 
 @add_start_docstrings("""RoBERTa Model with a `language modeling` head on top. """, ROBERTA_START_DOCSTRING)
 class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"position_ids", r"lm_head.decoder.bias"]
+    _keys_to_ignore_on_save = [r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
+    _keys_to_ignore_on_load_missing = [r"position_ids", r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
     def __init__(self, config):
@@ -1141,6 +1154,9 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
 
         self.roberta = RobertaModel(config, add_pooling_layer=False)
         self.lm_head = RobertaLMHead(config)
+
+        # The LM head weights require special treatment only when they are tied with the word embeddings
+        self.update_keys_to_ignore(config, ["lm_head.decoder.weight"])
 
         self.init_weights()
 
@@ -1229,10 +1245,8 @@ class RobertaLMHead(nn.Module):
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
-        self.decoder = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.decoder = nn.Linear(config.hidden_size, config.vocab_size)
         self.bias = nn.Parameter(torch.zeros(config.vocab_size))
-
-        # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
         self.decoder.bias = self.bias
 
     def forward(self, features, inv_lang_adapter=None, **kwargs):
@@ -1247,6 +1261,10 @@ class RobertaLMHead(nn.Module):
         x = self.decoder(x)
 
         return x
+
+    def _tie_weights(self):
+        # To tie those two weights if they get disconnected (on TPU or when the bias is resized)
+        self.bias = self.decoder.bias
 
 
 @add_start_docstrings(
@@ -1458,7 +1476,10 @@ class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, RobertaPreTrain
         self.num_labels = config.num_labels
 
         self.roberta = RobertaModel(config, add_pooling_layer=False)
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        classifier_dropout = (
+            config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
+        )
+        self.dropout = nn.Dropout(classifier_dropout)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
 
         self.init_weights()
@@ -1541,7 +1562,10 @@ class RobertaClassificationHead(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        classifier_dropout = (
+            config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
+        )
+        self.dropout = nn.Dropout(classifier_dropout)
         self.out_proj = nn.Linear(config.hidden_size, config.num_labels)
 
     def forward(self, features, **kwargs):

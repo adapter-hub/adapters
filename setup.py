@@ -1,4 +1,4 @@
-# Copyright 2020 The HuggingFace Team and the AdapterHub Team. All rights reserved.
+# Copyright 2021 The HuggingFace Team and the AdapterHub Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ _deps = [
     "cookiecutter==1.7.2",
     "dataclasses",
     "datasets",
-    "deepspeed>=0.4.0",
+    "deepspeed>=0.5.1",
     "docutils==0.16.0",
     "fairscale>0.3",
     "faiss-cpu",
@@ -100,6 +100,7 @@ _deps = [
     "flake8>=3.8.3",
     "flax>=0.3.4",
     "fugashi>=1.0",
+    "GitPython<3.1.19",
     "huggingface-hub>=0.0.14",
     "importlib_metadata",
     "ipadic>=1.0.0,<2.0",
@@ -119,11 +120,12 @@ _deps = [
     "parameterized",
     "protobuf",
     "psutil",
-    "pyyaml",
+    "pyyaml>=5.1",
     "pydantic",
     "pytest",
     "pytest-subtests",
     "pytest-sugar",
+    "pytest-timeout",
     "pytest-xdist",
     "python>=3.6.0",
     "ray[tune]",
@@ -140,8 +142,9 @@ _deps = [
     "sphinx-copybutton",
     "sphinx-markdown-tables",
     "sphinx-rtd-theme==0.4.3",  # sphinx-rtd-theme==0.5.0 introduced big changes in the style.
-    "sphinx==3.2.1",
+    "sphinx==3.5.4",
     "sphinxext-opengraph==0.4.1",
+    "sphinx-intl",
     "starlette",
     "tensorflow-cpu>=2.3",
     "tensorflow>=2.3",
@@ -252,7 +255,11 @@ extras["ray"] = deps_list("ray[tune]")
 extras["integrations"] = extras["optuna"] + extras["ray"]
 
 extras["serving"] = deps_list("pydantic", "uvicorn", "fastapi", "starlette")
-extras["speech"] = deps_list("soundfile", "torchaudio")
+extras["audio"] = deps_list("soundfile")
+extras["speech"] = deps_list("torchaudio") + extras["audio"]  # `pip install ".[speech]"` is deprecated and `pip install ".[torch-speech]"` should be used instead
+extras["torch-speech"] = deps_list("torchaudio") + extras["audio"]
+extras["tf-speech"] = extras["audio"]
+extras["flax-speech"] = extras["audio"]
 extras["vision"] = deps_list("Pillow")
 extras["timm"] = deps_list("timm")
 extras["codecarbon"] = deps_list("codecarbon")
@@ -260,7 +267,7 @@ extras["codecarbon"] = deps_list("codecarbon")
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = (
     deps_list(
-        "pytest", "pytest-xdist", "timeout-decorator", "parameterized", "psutil", "datasets", "pytest-sugar", "black", "sacrebleu", "rouge-score", "nltk"
+        "pytest", "pytest-xdist", "timeout-decorator", "parameterized", "psutil", "datasets", "pytest-timeout", "black", "sacrebleu", "rouge-score", "nltk", "GitPython"
     )
     + extras["retrieval"]
     + extras["modelcreation"]
@@ -274,7 +281,7 @@ extras["all"] = (
     + extras["flax"]
     + extras["sentencepiece"]
     + extras["tokenizers"]
-    + extras["speech"]
+    + extras["torch-speech"]
     + extras["vision"]
     + extras["integrations"]
     + extras["timm"]
@@ -289,6 +296,7 @@ extras["docs_specific"] = deps_list(
     "sphinx-rtd-theme",
     "sphinx-copybutton",
     "sphinxext-opengraph",
+    "sphinx-intl",
 )
 # "docs" needs "all" to resolve all the references
 extras["docs"] = extras["all"] + extras["docs_specific"]
@@ -337,7 +345,7 @@ install_requires = [
 
 setup(
     name="adapter-transformers",
-    version="2.1.2",
+    version="2.2.0a0",
     author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, Hannah Sterz, based on work by Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Sam Shleifer, Patrick von Platen, Sylvain Gugger, Suraj Patil, Stas Bekman, Google AI Language Team Authors, Open AI team Authors, Facebook AI Authors, Carnegie Mellon University Authors",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A friendly fork of Huggingface's Transformers, adding Adapters to PyTorch language models",
@@ -348,6 +356,8 @@ setup(
     url="https://github.com/adapter-hub/adapter-transformers",
     package_dir={"": "src"},
     packages=find_packages("src"),
+    package_data={"transformers": ["py.typed"]},
+    zip_safe=False,
     extras_require=extras,
     entry_points={"console_scripts": ["transformers-cli=transformers.commands.transformers_cli:main"]},
     python_requires=">=3.6.0",

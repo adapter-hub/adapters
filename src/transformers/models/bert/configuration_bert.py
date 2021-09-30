@@ -14,9 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ BERT model configuration """
+from collections import OrderedDict
+from typing import Mapping
 
 from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
+from ...onnx import OnnxConfig
 from ...utils import logging
 
 
@@ -102,6 +105,8 @@ class BertConfig(ModelConfigAdaptersMixin, PretrainedConfig):
         use_cache (:obj:`bool`, `optional`, defaults to :obj:`True`):
             Whether or not the model should return the last key/values attentions (not used by all models). Only
             relevant if ``config.is_decoder=True``.
+        classifier_dropout (:obj:`float`, `optional`):
+            The dropout ratio for the classification head.
 
     Examples::
 
@@ -136,6 +141,7 @@ class BertConfig(ModelConfigAdaptersMixin, PretrainedConfig):
         gradient_checkpointing=False,
         position_embedding_type="absolute",
         use_cache=True,
+        classifier_dropout=None,
         **kwargs
     ):
         super().__init__(pad_token_id=pad_token_id, **kwargs)
@@ -155,3 +161,20 @@ class BertConfig(ModelConfigAdaptersMixin, PretrainedConfig):
         self.gradient_checkpointing = gradient_checkpointing
         self.position_embedding_type = position_embedding_type
         self.use_cache = use_cache
+        self.classifier_dropout = classifier_dropout
+
+
+class BertOnnxConfig(OnnxConfig):
+    @property
+    def inputs(self) -> Mapping[str, Mapping[int, str]]:
+        return OrderedDict(
+            [
+                ("input_ids", {0: "batch", 1: "sequence"}),
+                ("attention_mask", {0: "batch", 1: "sequence"}),
+                ("token_type_ids", {0: "batch", 1: "sequence"}),
+            ]
+        )
+
+    @property
+    def outputs(self) -> Mapping[str, Mapping[int, str]]:
+        return OrderedDict([("last_hidden_state", {0: "batch", 1: "sequence"}), ("pooler_output", {0: "batch"})])
