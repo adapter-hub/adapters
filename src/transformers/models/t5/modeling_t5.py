@@ -25,7 +25,7 @@ from torch.nn import CrossEntropyLoss
 from torch.utils.checkpoint import checkpoint
 
 from ...activations import ACT2FN
-from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...adapters.models.t5 import (
     T5BlockAdaptersMixin,
     T5CrossAttentionLayerAdaptersMixin,
@@ -815,7 +815,7 @@ class T5PreTrainedModel(PreTrainedModel):
         return shifted_input_ids
 
 
-class T5Stack(T5StackAdaptersMixin, T5PreTrainedModel):
+class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
     def __init__(self, config, embed_tokens=None):
         super().__init__(config)
 

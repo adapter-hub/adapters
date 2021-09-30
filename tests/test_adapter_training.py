@@ -31,7 +31,7 @@ class AdapterTrainingTestMixin:
             output_dir="./examples",
             do_train=True,
             learning_rate=0.1,
-            max_steps=7,
+            max_steps=10,
             no_cuda=True,
             per_device_train_batch_size=8,
         )

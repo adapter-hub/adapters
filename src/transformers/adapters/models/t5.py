@@ -5,7 +5,7 @@ import torch
 from ..composition import AdapterCompositionBlock, parse_composition
 from ..heads import Seq2SeqLMHead
 from ..layer import AdapterLayerBaseMixin
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..model_mixin import ModelAdaptersMixin
 from .bert import ModelWithFlexibleHeadsAdaptersMixin
 
 
@@ -111,7 +111,7 @@ class T5StackAdaptersMixin:
             return attention_mask
 
 
-class T5ModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
+class T5ModelAdaptersMixin(ModelAdaptersMixin):
     """Adds adapters to the T5Model class."""
 
     def __init__(self, *args, **kwargs):
@@ -119,7 +119,14 @@ class T5ModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
     def _init_adapter_modules(self):
         super()._init_adapter_modules()
-        self.encoder.invertible_adapters_forward = self.invertible_adapters_forward
+        if hasattr(self, "encoder"):
+            # In T5, the invertible adapters are implemented by the encoder module.
+            # Therefore, relay mixin calls to the encoder here.
+            self.invertible_adapters = self.encoder.invertible_adapters
+            self.add_invertible_adapter = self.encoder.add_invertible_adapter
+            self.get_invertible_adapter = self.encoder.get_invertible_adapter
+            self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
+            self.delete_invertible_adapter = self.encoder.delete_invertible_adapter
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         """Sets the model into mode for training the given adapters."""
@@ -151,7 +158,7 @@ class T5ModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
             self.decoder.add_adapter(adapter_name, layer_idx_offset=len(self.encoder.block))
         else:
             self.decoder.add_adapter(adapter_name)
-        self.add_invertible_adapter(adapter_name)
+        self.encoder.add_invertible_adapter(adapter_name)
 
     def _add_fusion_layer(self, adapter_names):
         if hasattr(self, "encoder"):
@@ -161,7 +168,7 @@ class T5ModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
     def _delete_adapter(self, adapter_name: str):
         if hasattr(self, "encoder"):
             self.encoder.delete_adapter(adapter_name)
-            self.delete_invertible_adapter(adapter_name)
+            self.encoder.delete_invertible_adapter(adapter_name)
         self.decoder.delete_adapter(adapter_name)
 
     def _delete_fusion_layer(self, adapter_names):
