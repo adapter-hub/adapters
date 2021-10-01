@@ -86,12 +86,12 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         Every array in the list is normalized to have zero mean and unit variance
         """
         if attention_mask is not None:
-            attention_mask = np.array(attention_mask, np.bool)
+            attention_mask = np.array(attention_mask, np.int32)
             normed_input_values = []
 
             for vector, length in zip(input_values, attention_mask.sum(-1)):
                 normed_slice = (vector - vector[:length].mean()) / np.sqrt(vector[:length].var() + 1e-7)
-                if length > normed_slice.shape[0]:
+                if length < normed_slice.shape[0]:
                     normed_slice[length:] = padding_value
 
                 normed_input_values.append(normed_slice)
@@ -216,7 +216,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         # convert attention_mask to correct format
         attention_mask = padded_inputs.get("attention_mask")
         if attention_mask is not None:
-            padded_inputs["attention_mask"] = [np.asarray(array, dtype=np.bool) for array in attention_mask]
+            padded_inputs["attention_mask"] = [np.asarray(array, dtype=np.int32) for array in attention_mask]
 
         # zero-mean and unit-variance normalization
         if self.do_normalize:
