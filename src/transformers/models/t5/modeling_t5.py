@@ -1359,6 +1359,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
         use_cache=None,
         output_attentions=None,
         output_hidden_states=None,
+        adapter_names=None,
         return_dict=None,
         **kwargs,
     ):
@@ -1397,6 +1398,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
                 head_mask=head_mask,
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
+                adapter_names=adapter_names,
                 return_dict=return_dict,
                 **kwargs,
             )
@@ -1434,6 +1436,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
             use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
             return_dict=return_dict,
             **kwargs,
         )
@@ -1562,6 +1565,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
         **kwargs,
     ):
         r"""
@@ -1609,6 +1613,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
+                adapter_names=adapter_names,
                 **kwargs,
             )
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
@@ -1660,6 +1665,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
             use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
             return_dict=return_dict,
             **kwargs,
         )

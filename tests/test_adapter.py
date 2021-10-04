@@ -348,7 +348,6 @@ class T5AdapterTestBase(AdapterTestBase):
 class T5AdapterTest(
     T5AdapterTestBase,
     AdapterModelTestMixin,
-    AdapterTrainingTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTestBase,
