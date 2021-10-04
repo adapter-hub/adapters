@@ -326,15 +326,8 @@ class EncoderDecoderAdapterTest(
         self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
 
-
 @require_torch
-class T5AdapterTest(
-    AdapterModelTestMixin,
-    AdapterFusionModelTestMixin,
-    PredictionHeadModelTestMixin,
-    AdapterTestBase,
-    unittest.TestCase,
-):
+class T5AdapterTestBase(AdapterTestBase):
     config_class = T5Config
     config = make_config(
         T5Config,
@@ -348,3 +341,25 @@ class T5AdapterTest(
         tie_word_embeddings=False,
     )
     tokenizer_name = "t5-base"
+
+
+@require_torch
+class T5AdapterTest(
+    T5AdapterTestBase,
+    AdapterModelTestMixin,
+    AdapterTrainingTestMixin,
+    AdapterFusionModelTestMixin,
+    PredictionHeadModelTestMixin,
+    AdapterTestBase,
+    unittest.TestCase,
+):
+    pass
+
+
+@require_torch
+class T5ClassConversionTest(
+    ModelClassConversionTestMixin,
+    T5AdapterTestBase,
+    unittest.TestCase,
+):
+    pass

@@ -1929,6 +1929,7 @@ class T5ModelWithHeads(T5ModelHeadsMixin, T5PreTrainedModel):
             model_output["last_hidden_state"] = sequence_output * (self.config.d_model ** -0.5)
 
         if head or self.active_head:
+            kwargs["labels"] = labels
             head_outputs = self.forward_head(
                 model_output,
                 head_name=head,

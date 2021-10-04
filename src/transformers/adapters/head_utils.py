@@ -299,7 +299,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
     },
     "T5ForConditionalGeneration": {
         "config": {
-            "head_type": "causal_lm",
+            "head_type": "seq2seq_lm",
         },
         "layers": ["lm_head"],
     },

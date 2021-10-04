@@ -14,6 +14,7 @@ MODELS_WITH_ADAPTERS = [
     "mbart",
     "gpt2",
     "encoder_decoder",
+    "t5",
 ]
 
 IGNORE_NOT_IMPLEMENTING_MIXIN = [
