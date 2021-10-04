@@ -556,9 +556,18 @@ class PredictionHeadLoader(WeightsLoader):
         # ToDo remove this workaround
         if self.model.__class__.__name__ == "T5ForConditionalGeneration":
             if head_name:
-                return lambda x: not x.startswith("encoder") and not x.startswith("decoder") and not x.startswith("shared") and "heads.{}".format(head_name) in x
+                return (
+                    lambda x: not x.startswith("encoder")
+                    and not x.startswith("decoder")
+                    and not x.startswith("shared")
+                    and "heads.{}".format(head_name) in x
+                )
             else:
-                return lambda x: not x.startswith("encoder") and not x.startswith("decoder") and not x.startswith("shared")
+                return (
+                    lambda x: not x.startswith("encoder")
+                    and not x.startswith("decoder")
+                    and not x.startswith("shared")
+                )
 
         if head_name:
             return lambda x: not x.startswith(self.model.base_model_prefix) and "heads.{}".format(head_name) in x

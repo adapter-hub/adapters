@@ -326,6 +326,7 @@ class EncoderDecoderAdapterTest(
         self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
 
+
 @require_torch
 class T5AdapterTestBase(AdapterTestBase):
     config_class = T5Config
