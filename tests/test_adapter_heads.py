@@ -15,15 +15,6 @@ class PredictionHeadModelTestMixin:
     batch_size = 1
     seq_length = 128
 
-    def add_head(self, model, name, **kwargs):
-        if "classification" in model.head_types:
-            model.add_classification_head(name, **kwargs)
-            out_dim = kwargs.pop("num_labels", 2)
-        elif "seq2seq_lm" in model.head_types:
-            model.add_seq2seq_lm_head(name)
-            out_dim = self.seq_length, model.config.vocab_size
-        return out_dim
-
     def run_prediction_head_test(
         self, model, compare_model, head_name, input_shape=None, output_shape=(1, 2), label_dict=None
     ):

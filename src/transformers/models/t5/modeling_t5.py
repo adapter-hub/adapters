@@ -901,6 +901,11 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        if self.is_decoder:
+            input_ids = self.adjust_tensors_for_parallel(encoder_hidden_states, input_ids)[0]
+            encoder_attention_mask = self.adjust_attention_mask_for_parallel(
+                encoder_hidden_states, encoder_attention_mask
+            )
 
         if input_ids is not None and inputs_embeds is not None:
             err_msg_prefix = "decoder_" if self.is_decoder else ""
@@ -1042,6 +1047,9 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
 
             hidden_states, present_key_value_state = layer_outputs[:2]
 
+            attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
+            extended_attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, extended_attention_mask)
+
             # We share the position biases between the layers - the first layer store them
             # layer_outputs = hidden-states, key-value-states (self-attention position bias), (self-attention weights),
             # (cross-attention position bias), (cross-attention weights)
@@ -1051,6 +1059,13 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
             # append next layer key value states
             if use_cache:
                 present_key_value_states = present_key_value_states + (present_key_value_state,)
+
+            if position_bias is not None:
+                position_bias = self.adjust_tensors_for_parallel(hidden_states, position_bias)[0]
+            if encoder_decoder_position_bias is not None:
+                encoder_decoder_position_bias = self.adjust_tensors_for_parallel(
+                    hidden_states, encoder_decoder_position_bias
+                )[0]
 
             if output_attentions:
                 all_attentions = all_attentions + (layer_outputs[3],)

@@ -22,6 +22,7 @@ IGNORE_NOT_IMPLEMENTING_MIXIN = [
     "BartDecoder",
     "MBartEncoder",
     "MBartDecoder",
+    "T5Stack",
 ]
 
 

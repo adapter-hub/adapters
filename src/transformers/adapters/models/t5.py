@@ -50,8 +50,8 @@ class T5BlockAdaptersMixin:
         self.config = config
 
     def add_fusion_layer(self, adapter_names):
-        for layer in self.layer:
-            layer.add_fusion_layer(adapter_names)
+        self.layer[0].add_fusion_layer(adapter_names)  # attention adapters
+        self.layer[-1].add_fusion_layer(adapter_names)  # output adapters
 
     def add_adapter(self, adapter_name: str, layer_idx: int):
         for layer in self.layer:
@@ -109,6 +109,18 @@ class T5StackAdaptersMixin:
             repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
             attention_mask = attention_mask.repeat(*repeats)
             return attention_mask
+
+    def adjust_tensors_for_parallel(self, hidden_states, *tensors):
+        outputs = []
+        for tensor in tensors:
+            if tensor is not None and hidden_states.shape[0] != tensor.shape[0]:
+                repeats = [1] * len(tensor.shape)
+                repeats[0] = hidden_states.shape[0] // tensor.shape[0]
+                new_tensor = tensor.repeat(*repeats)
+                outputs.append(new_tensor)
+            else:
+                outputs.append(tensor)
+        return tuple(outputs)
 
 
 class T5ModelAdaptersMixin(ModelAdaptersMixin):
@@ -182,36 +194,24 @@ class T5ModelAdaptersMixin(ModelAdaptersMixin):
         # encoder
         if hasattr(self, "encoder"):
             for _, v in self.encoder.block._modules.items():
-                for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
+                for _, layer_fusion in v.layer[-1].adapter_fusion_layer.items():
                     if hasattr(layer_fusion, "value"):
                         reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
-                for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
+                for _, layer_fusion in v.layer[0].adapter_fusion_layer.items():
                     if hasattr(layer_fusion, "value"):
                         reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
         # decoder
         for _, v in self.decoder.block._modules.items():
-            for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
+            for _, layer_fusion in v.layer[-1].adapter_fusion_layer.items():
                 if hasattr(layer_fusion, "value"):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
-            for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
+            for _, layer_fusion in v.layer[0].adapter_fusion_layer.items():
                 if hasattr(layer_fusion, "value"):
                     reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
 
         return reg_loss
-
-    def adjust_tensors_for_parallel(self, hidden_states, *tensors):
-        outputs = []
-        for tensor in tensors:
-            if tensor is not None and hidden_states.shape[0] != tensor.shape[0]:
-                repeats = [1] * len(tensor.shape)
-                repeats[0] = hidden_states.shape[0] // tensor.shape[0]
-                new_tensor = tensor.repeat(*repeats)
-                outputs.append(new_tensor)
-            else:
-                outputs.append(tensor)
-        return tuple(outputs)
 
     def get_adapter(self, name):
         return_adapters = {}
