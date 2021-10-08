@@ -23,7 +23,7 @@
 # in the namespace without actually importing anything (and especially none of the backends).
 
 __adapters_version__ = "2.2.0a1"
-__version__ = "4.11.2"
+__version__ = "4.11.3"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
 # default Python logging output behavior when present.
@@ -779,6 +779,7 @@ if is_torch_available():
             "DPR_READER_PRETRAINED_MODEL_ARCHIVE_LIST",
             "DPRContextEncoder",
             "DPRPretrainedContextEncoder",
+            "DPRPreTrainedModel",
             "DPRPretrainedQuestionEncoder",
             "DPRPretrainedReader",
             "DPRQuestionEncoder",
@@ -2581,6 +2582,7 @@ if TYPE_CHECKING:
             DPR_READER_PRETRAINED_MODEL_ARCHIVE_LIST,
             DPRContextEncoder,
             DPRPretrainedContextEncoder,
+            DPRPreTrainedModel,
             DPRPretrainedQuestionEncoder,
             DPRPretrainedReader,
             DPRQuestionEncoder,

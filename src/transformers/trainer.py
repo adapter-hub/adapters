@@ -1213,7 +1213,11 @@ class Trainer:
         self.callback_handler.lr_scheduler = self.lr_scheduler
         self.callback_handler.train_dataloader = train_dataloader
         self.state.trial_name = self.hp_name(trial) if self.hp_name is not None else None
-        self.state.trial_params = hp_params(trial.assignments) if trial is not None else None
+        if trial is not None:
+            assignments = trial.assignments if self.hp_search_backend == HPSearchBackend.SIGOPT else trial
+            self.state.trial_params = hp_params(assignments)
+        else:
+            self.state.trial_params = None
         # This should be the same if the state has been saved but in case the training arguments changed, it's safer
         # to set this after the load.
         self.state.max_steps = max_steps
@@ -1286,7 +1290,11 @@ class Trainer:
                 else:
                     tr_loss_step = self.training_step(model, inputs)
 
-                if args.logging_nan_inf_filter and (torch.isnan(tr_loss_step) or torch.isinf(tr_loss_step)):
+                if (
+                    args.logging_nan_inf_filter
+                    and not is_torch_tpu_available()
+                    and (torch.isnan(tr_loss_step) or torch.isinf(tr_loss_step))
+                ):
                     # if loss is nan or inf simply add the average of previous logged losses
                     tr_loss += tr_loss / (1 + self.state.global_step - self._globalstep_last_logged)
                 else:
