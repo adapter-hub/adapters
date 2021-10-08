@@ -307,6 +307,9 @@ def load_tf_weights_in_albert(*args, **kwargs):
     requires_backends(load_tf_weights_in_albert, ["torch"])
 
 
+MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING = None
+
+
 MODEL_FOR_CAUSAL_LM_MAPPING = None
 
 
@@ -358,7 +361,25 @@ class AutoModel:
         requires_backends(cls, ["torch"])
 
 
+class AutoModelForAudioClassification:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
 class AutoModelForCausalLM:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class AutoModelForCTC:
     def __init__(self, *args, **kwargs):
         requires_backends(self, ["torch"])
 
@@ -403,6 +424,15 @@ class AutoModelForNextSentencePrediction:
         requires_backends(cls, ["torch"])
 
 
+class AutoModelForObjectDetection:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
 class AutoModelForPreTraining:
     def __init__(self, *args, **kwargs):
         requires_backends(self, ["torch"])
@@ -431,6 +461,15 @@ class AutoModelForSeq2SeqLM:
 
 
 class AutoModelForSequenceClassification:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class AutoModelForSpeechSeq2Seq:
     def __init__(self, *args, **kwargs):
         requires_backends(self, ["torch"])
 
@@ -1423,6 +1462,15 @@ class DPRPretrainedContextEncoder:
         requires_backends(self, ["torch"])
 
 
+class DPRPreTrainedModel:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
 class DPRPretrainedQuestionEncoder:
     def __init__(self, *args, **kwargs):
         requires_backends(self, ["torch"])
@@ -1585,6 +1633,87 @@ class FlaubertModel:
 
 
 class FlaubertWithLMHeadModel:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+FNET_PRETRAINED_MODEL_ARCHIVE_LIST = None
+
+
+class FNetForMaskedLM:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class FNetForMultipleChoice:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class FNetForNextSentencePrediction:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class FNetForPreTraining:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class FNetForQuestionAnswering:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class FNetForSequenceClassification:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class FNetForTokenClassification:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class FNetLayer:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class FNetModel:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class FNetPreTrainedModel:
     def __init__(self, *args, **kwargs):
         requires_backends(self, ["torch"])
 
@@ -1806,6 +1935,45 @@ class GPTNeoPreTrainedModel:
 
 def load_tf_weights_in_gpt_neo(*args, **kwargs):
     requires_backends(load_tf_weights_in_gpt_neo, ["torch"])
+
+
+GPTJ_PRETRAINED_MODEL_ARCHIVE_LIST = None
+
+
+class GPTJForCausalLM:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class GPTJForSequenceClassification:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class GPTJModel:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class GPTJPreTrainedModel:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
 
 
 HUBERT_PRETRAINED_MODEL_ARCHIVE_LIST = None
@@ -3101,6 +3269,15 @@ def load_tf_weights_in_roformer(*args, **kwargs):
     requires_backends(load_tf_weights_in_roformer, ["torch"])
 
 
+class SpeechEncoderDecoderModel:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
 SPEECH_TO_TEXT_PRETRAINED_MODEL_ARCHIVE_LIST = None
 
 
@@ -3123,6 +3300,24 @@ class Speech2TextModel:
 
 
 class Speech2TextPreTrainedModel:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class Speech2Text2ForCausalLM:
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        requires_backends(cls, ["torch"])
+
+
+class Speech2Text2PreTrainedModel:
     def __init__(self, *args, **kwargs):
         requires_backends(self, ["torch"])
 
@@ -3326,6 +3521,10 @@ class TapasPreTrainedModel:
     @classmethod
     def from_pretrained(cls, *args, **kwargs):
         requires_backends(cls, ["torch"])
+
+
+def load_tf_weights_in_tapas(*args, **kwargs):
+    requires_backends(load_tf_weights_in_tapas, ["torch"])
 
 
 TRANSFO_XL_PRETRAINED_MODEL_ARCHIVE_LIST = None
