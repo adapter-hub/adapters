@@ -901,7 +901,7 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        if self.is_decoder:
+        if self.is_decoder and encoder_hidden_states is not None:
             input_ids = self.adjust_tensors_for_parallel(encoder_hidden_states, input_ids)[0]
             encoder_attention_mask = self.adjust_attention_mask_for_parallel(
                 encoder_hidden_states, encoder_attention_mask
@@ -1947,7 +1947,11 @@ class T5ModelWithHeads(T5ModelHeadsMixin, T5PreTrainedModel):
         if self.config.tie_word_embeddings:
             # Rescale output before projecting on vocab
             # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/transformer.py#L586
-            model_output["last_hidden_state"] = sequence_output * (self.config.d_model ** -0.5)
+            new_hidden_state = sequence_output * (self.config.d_model ** -0.5)
+            if isinstance(model_output, tuple):
+                model_output = (new_hidden_state,) + model_output[1:]
+            else:
+                model_output["last_hidden_state"] = new_hidden_state
 
         if head or self.active_head:
             kwargs["labels"] = labels
