@@ -17,6 +17,7 @@ jobs:
           python-version: 3.6
       - name: Install
         run: |
+          pip install setuptools==57.4.0
           pip install .[tf,torch,docs]
       - name: Build
         run: |

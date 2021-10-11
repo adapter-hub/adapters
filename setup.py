@@ -124,7 +124,6 @@ _deps = [
     "pydantic",
     "pytest",
     "pytest-subtests",
-    "pytest-sugar",
     "pytest-timeout",
     "pytest-xdist",
     "python>=3.6.0",

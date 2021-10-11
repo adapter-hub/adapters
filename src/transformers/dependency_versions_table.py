@@ -41,7 +41,6 @@ deps = {
     "pydantic": "pydantic",
     "pytest": "pytest",
     "pytest-subtests": "pytest-subtests",
-    "pytest-sugar": "pytest-sugar",
     "pytest-timeout": "pytest-timeout",
     "pytest-xdist": "pytest-xdist",
     "python": "python>=3.6.0",
