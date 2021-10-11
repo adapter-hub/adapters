@@ -83,8 +83,6 @@ class BartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
         decoder_layerdrop: (:obj:`float`, `optional`, defaults to 0.0):
             The LayerDrop probability for the decoder. See the `LayerDrop paper <see
             https://arxiv.org/abs/1909.11556>`__ for more details.
-        gradient_checkpointing (:obj:`bool`, `optional`, defaults to :obj:`False`):
-            If True, use gradient checkpointing to save memory at the expense of slower backward pass.
         scale_embedding (:obj:`bool`, `optional`, defaults to :obj:`False`):
             Scale embeddings by diving by sqrt(d_model).
         use_cache (:obj:`bool`, `optional`, defaults to :obj:`True`):
@@ -110,6 +108,7 @@ class BartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
     """
     model_type = "bart"
     keys_to_ignore_at_inference = ["past_key_values"]
+    attribute_map = {"num_attention_heads": "encoder_attention_heads", "hidden_size": "d_model"}
 
     def __init__(
         self,
@@ -131,7 +130,6 @@ class BartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
         init_std=0.02,
         classifier_dropout=0.0,
         scale_embedding=False,
-        gradient_checkpointing=False,
         use_cache=True,
         num_labels=3,
         pad_token_id=1,
@@ -142,17 +140,6 @@ class BartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
         forced_eos_token_id=2,
         **kwargs
     ):
-        super().__init__(
-            num_labels=num_labels,
-            pad_token_id=pad_token_id,
-            bos_token_id=bos_token_id,
-            eos_token_id=eos_token_id,
-            is_encoder_decoder=is_encoder_decoder,
-            decoder_start_token_id=decoder_start_token_id,
-            forced_eos_token_id=forced_eos_token_id,
-            **kwargs,
-        )
-
         self.vocab_size = vocab_size
         self.max_position_embeddings = max_position_embeddings
         self.d_model = d_model
@@ -172,8 +159,18 @@ class BartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
         self.classifier_dropout = classifier_dropout
         self.use_cache = use_cache
         self.num_hidden_layers = encoder_layers
-        self.gradient_checkpointing = gradient_checkpointing
         self.scale_embedding = scale_embedding  # scale factor will be sqrt(d_model) if True
+
+        super().__init__(
+            num_labels=num_labels,
+            pad_token_id=pad_token_id,
+            bos_token_id=bos_token_id,
+            eos_token_id=eos_token_id,
+            is_encoder_decoder=is_encoder_decoder,
+            decoder_start_token_id=decoder_start_token_id,
+            forced_eos_token_id=forced_eos_token_id,
+            **kwargs,
+        )
 
         # ensure backward compatibility for BART CNN models
         if self.forced_bos_token_id is None and kwargs.get("force_bos_token_to_be_generated", False):
