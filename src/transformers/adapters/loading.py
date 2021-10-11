@@ -553,6 +553,22 @@ class PredictionHeadLoader(WeightsLoader):
         self.convert_to_flex_head = convert_to_flex_head
 
     def filter_func(self, head_name):
+        # ToDo remove this workaround
+        if self.model.__class__.__name__ == "T5ForConditionalGeneration":
+            if head_name:
+                return (
+                    lambda x: not x.startswith("encoder")
+                    and not x.startswith("decoder")
+                    and not x.startswith("shared")
+                    and "heads.{}".format(head_name) in x
+                )
+            else:
+                return (
+                    lambda x: not x.startswith("encoder")
+                    and not x.startswith("decoder")
+                    and not x.startswith("shared")
+                )
+
         if head_name:
             return lambda x: not x.startswith(self.model.base_model_prefix) and "heads.{}".format(head_name) in x
         else:

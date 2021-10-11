@@ -104,6 +104,7 @@ MODEL_WITH_HEADS_MAPPING_NAMES = OrderedDict(
         ("bart", "BartModelWithHeads"),
         ("mbart", "MBartModelWithHeads"),
         ("gpt2", "GPT2ModelWithHeads"),
+        ("t5", "T5ModelWithHeads"),
     ]
 )
 

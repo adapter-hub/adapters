@@ -19,6 +19,7 @@ from typing import Any, Dict, Iterable, Mapping, Optional
 from transformers import PreTrainedTokenizer, TensorType
 
 from ... import is_torch_available
+from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...onnx import OnnxConfigWithPast
 from ...utils import logging
@@ -35,7 +36,7 @@ T5_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class T5Config(PretrainedConfig):
+class T5Config(ModelConfigAdaptersMixin, PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a :class:`~transformers.T5Model` or a
     :class:`~transformers.TFT5Model`. It is used to instantiate a T5 model according to the specified arguments,
@@ -65,6 +66,8 @@ class T5Config(PretrainedConfig):
             Number of attention heads for each attention layer in the Transformer encoder.
         relative_attention_num_buckets (:obj:`int`, `optional`, defaults to 32):
             The number of buckets to use for each attention layer.
+        attention_probs_dropout_prob (:obj:`float`, `optional`, defaults to 0.1):
+            The dropout ratio for the attention probabilities.
         dropout_rate (:obj:`float`, `optional`, defaults to 0.1):
             The ratio for all dropout layers.
         layer_norm_eps (:obj:`float`, `optional`, defaults to 1e-6):
@@ -100,6 +103,8 @@ class T5Config(PretrainedConfig):
         use_cache=True,
         pad_token_id=0,
         eos_token_id=1,
+        gradient_checkpointing=False,
+        attention_probs_dropout_prob=0.1,
         **kwargs
     ):
         self.vocab_size = vocab_size
@@ -117,12 +122,30 @@ class T5Config(PretrainedConfig):
         self.initializer_factor = initializer_factor
         self.feed_forward_proj = feed_forward_proj
         self.use_cache = use_cache
+        self.gradient_checkpointing = gradient_checkpointing
+        self.attention_probs_dropout_prob = attention_probs_dropout_prob
         super().__init__(
             pad_token_id=pad_token_id,
             eos_token_id=eos_token_id,
             is_encoder_decoder=is_encoder_decoder,
             **kwargs,
         )
+
+    @property
+    def hidden_size(self):
+        return self.d_model
+
+    @property
+    def num_attention_heads(self):
+        return self.num_heads
+
+    @property
+    def num_hidden_layers(self):
+        return self.num_layers
+
+    @property
+    def hidden_dropout_prob(self):
+        return self.dropout_rate
 
 
 class T5OnnxConfig(OnnxConfigWithPast):

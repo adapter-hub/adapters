@@ -31,7 +31,10 @@ class ModelClassConversionTestMixin:
         )
         static_model.eval()
         flex_model.eval()
-        if static_model.base_model.__class__ != flex_model.base_model.__class__:
+        if (
+            static_model.base_model.__class__ != flex_model.base_model.__class__
+            and not static_model.base_model == static_model
+        ):
             self.skipTest("Skipping as base model classes are different.")
 
         with tempfile.TemporaryDirectory() as temp_dir:

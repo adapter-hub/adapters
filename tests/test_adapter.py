@@ -2,6 +2,7 @@ import random
 import unittest
 
 import torch
+from datasets import load_dataset
 
 from transformers import (
     AutoModel,
@@ -11,9 +12,12 @@ from transformers import (
     DistilBertConfig,
     EncoderDecoderConfig,
     EncoderDecoderModel,
+    GlueDataset,
+    GlueDataTrainingArguments,
     GPT2Config,
     MBartConfig,
     RobertaConfig,
+    T5Config,
 )
 from transformers.testing_utils import require_torch, torch_device
 
@@ -57,6 +61,15 @@ class AdapterTestBase:
         if config and config.is_encoder_decoder:
             in_data["decoder_input_ids"] = input_ids.clone()
         return in_data
+
+    def add_head(self, model, name, **kwargs):
+        model.add_classification_head(name, **kwargs)
+
+    def dataset(self, tokenizer):
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+        )
+        return GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
 
 class BertAdapterTestBase(AdapterTestBase):
@@ -324,3 +337,81 @@ class EncoderDecoderAdapterTest(
 
         self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
+
+
+@require_torch
+class T5AdapterTestBase(AdapterTestBase):
+    config_class = T5Config
+    config = make_config(
+        T5Config,
+        d_model=16,
+        encoder_layers=2,
+        decoder_layers=2,
+        encoder_attention_heads=4,
+        decoder_attention_heads=4,
+        encoder_ffn_dim=4,
+        decoder_ffn_dim=4,
+        tie_word_embeddings=False,
+        decoder_start_token_id=0,
+    )
+    tokenizer_name = "t5-base"
+
+    def add_head(self, model, name, **kwargs):
+        model.add_seq2seq_lm_head(name)
+
+    def dataset(self, tokenizer):
+        def preprocess_function(examples):
+            inputs = examples["document"]
+            targets = examples["summary"]
+            inputs = ["Summarize: " + inp for inp in inputs]
+            model_inputs = tokenizer(inputs, padding=True, truncation=True)
+
+            # Setup the tokenizer for targets
+            with tokenizer.as_target_tokenizer():
+                labels = tokenizer(targets, padding=True, truncation=True)
+
+            # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+            # padding in the loss.
+            labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
+
+            model_inputs["labels"] = labels["input_ids"]
+            return model_inputs
+
+        data_args = {
+            "task_name": "xsum",
+            "path": "./tests/fixtures/tests_samples/xsum/sample.json",
+        }
+        dataset = load_dataset("json", data_files=data_args["path"])
+        train_dataset = dataset["train"]
+        train_dataset = train_dataset.map(
+            preprocess_function,
+            batched=True,
+            desc="Running tokenizer on train dataset",
+        )
+        return train_dataset
+
+
+@require_torch
+class T5AdapterTest(
+    T5AdapterTestBase,
+    ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
+    AdapterModelTestMixin,
+    AdapterFusionModelTestMixin,
+    AdapterTrainingTestMixin,
+    PredictionHeadModelTestMixin,
+    AdapterTestBase,
+    unittest.TestCase,
+):
+    pass
+
+
+@require_torch
+class T5ClassConversionTest(
+    ModelClassConversionTestMixin,
+    T5AdapterTestBase,
+    unittest.TestCase,
+):
+    pass

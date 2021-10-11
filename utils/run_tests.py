@@ -15,6 +15,7 @@ TESTED_MODULES = [
     "test_modeling_roberta",
     "test_modeling_xlm_roberta",
     "test_modeling_encoder_decoder",
+    "test_modeling_t5",
     "test_trainer",
 ]
 
