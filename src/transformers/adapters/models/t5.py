@@ -108,7 +108,7 @@ class T5StackAdaptersMixin:
             repeats = [1] * len(attention_mask.shape)
             repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
             attention_mask = attention_mask.repeat(*repeats)
-            return attention_mask
+        return attention_mask
 
     def adjust_tensors_for_parallel(self, hidden_states, *tensors):
         outputs = []

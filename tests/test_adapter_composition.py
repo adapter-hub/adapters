@@ -174,8 +174,8 @@ class ParallelAdapterInferenceTestMixin:
         if self.config_class in MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING:
             self.assertEqual(outputs[0][0].shape, (2, 2))
             self.assertEqual(outputs[1][0].shape, (2, 3))
-        self.assertTrue(torch.allclose(outputs[0][0], outputs_a[0], atol=1e-6))
-        self.assertTrue(torch.allclose(outputs[1][0], outputs_b[0], atol=1e-6))
+        self.assertTrue(torch.allclose(outputs[0][0], outputs_a[0], atol=1e-5))
+        self.assertTrue(torch.allclose(outputs[1][0], outputs_b[0], atol=1e-5))
 
     def test_parallel_inference_with_wrong_number_of_heads(self):
         model = AutoModelWithHeads.from_config(self.config())
