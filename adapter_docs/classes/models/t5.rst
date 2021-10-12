@@ -1,0 +1,69 @@
+T5
+=====
+
+The T5 model was presented in `Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer
+<https://arxiv.org/pdf/1910.10683.pdf>`__ by Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang,
+Michael Matena, Yanqi Zhou, Wei Li, Peter J. Liu.
+
+The abstract from the paper is the following,
+
+
+- T5 is an encoder-decoder model pre-trained on a multi-task mixture of unsupervised and supervised tasks and for which
+  each task is converted into a text-to-text format. T5 works well on a variety of tasks out-of-the-box by prepending a
+  different prefix to the input corresponding to each task, e.g., for translation: *translate English to German: ...*,
+  for summarization: *summarize: ...*.
+
+  For more information about which prefix to use, it is easiest to look into Appendix D of the `paper
+  <https://arxiv.org/pdf/1910.10683.pdf>`__.
+
+.. note::
+    This class is nearly identical to the PyTorch implementation of T5 in Huggingface Transformers.
+    For more information, visit `the corresponding section in their documentation <https://huggingface.co/transformers/model_doc/t5.html>`_.
+  
+T5Config
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.T5Config
+    :members:
+
+
+T5Tokenizer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.T5Tokenizer
+    :members:
+
+
+T5TokenizerFast
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.T5TokenizerFast
+    :members:
+
+
+T5Model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.T5Model
+    :members: forward
+
+T5ModelWithHeads
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.T5ModelWithHeads
+    :members:
+    :inherited-members: T5PreTrainedModel
+
+
+
+T5ForConditionalGeneration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.T5ForConditionalGeneration
+    :members: forward
+
+T5EncoderModel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.T5EncoderModel
+    :members: forward

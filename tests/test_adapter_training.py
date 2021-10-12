@@ -2,14 +2,7 @@ import copy
 
 import torch
 
-from transformers import (
-    AutoModelForSequenceClassification,
-    AutoModelWithHeads,
-    AutoTokenizer,
-    GlueDataset,
-    GlueDataTrainingArguments,
-    TrainingArguments,
-)
+from transformers import AutoModelWithHeads, AutoTokenizer, TrainingArguments
 from transformers.adapters.composition import BatchSplit, Fuse
 from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.testing_utils import require_torch
@@ -23,17 +16,14 @@ def filter_parameters(model, filter_string):
 class AdapterTrainingTestMixin:
     def trainings_run(self, model, tokenizer):
         # setup dataset
-        data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
-        )
-        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+        train_dataset = self.dataset(tokenizer)
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,
             learning_rate=0.1,
-            max_steps=7,
+            max_steps=10,
             no_cuda=True,
-            per_device_train_batch_size=8,
+            per_device_train_batch_size=2,
         )
 
         # evaluate
@@ -53,7 +43,7 @@ class AdapterTrainingTestMixin:
         # add two adapters: one will be trained and the other should be frozen
         model.add_adapter("mrpc")
         model.add_adapter("dummy")
-        model.add_classification_head("mrpc")
+        self.add_head(model, "mrpc")
 
         self.assertIn("mrpc", model.config.adapters.adapters)
         self.assertIn("dummy", model.config.adapters.adapters)
@@ -86,7 +76,8 @@ class AdapterTrainingTestMixin:
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelForSequenceClassification.from_config(self.config())
+        model = AutoModelWithHeads.from_config(self.config())
+        self.add_head(model, "head")
 
         # add the adapters to be fused
         model.add_adapter("a")
@@ -131,11 +122,16 @@ class AdapterTrainingTestMixin:
         self.trainings_run(model, tokenizer)
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
-            if "adapter_fusion_layer" in k1 or "classifier" in k1 or "classification_head" in k1 or "score" in k1:
+            if (
+                "adapter_fusion_layer" in k1
+                or "classifier" in k1
+                or "classification_head" in k1
+                or "score" in k1
+                or "heads" in k1
+            ):
                 self.assertFalse(torch.equal(v1, v2), k1)
             else:
                 self.assertTrue(torch.equal(v1, v2), k1)
-
         self.assertTrue(regularization_called)
 
     def test_batch_split_training(self):
@@ -146,9 +142,9 @@ class AdapterTrainingTestMixin:
 
         model.add_adapter("mrpc1")
         model.add_adapter("mrpc2")
-        model.add_classification_head("mrpc1")
-        model.add_classification_head("mrpc2")
-        adapter_setup = BatchSplit("mrpc1", "mrpc2", batch_sizes=[3, 3])
+        self.add_head(model, "mrpc1")
+        self.add_head(model, "mrpc2")
+        adapter_setup = BatchSplit("mrpc1", "mrpc2", batch_sizes=[1, 1])
         model.active_adapters = adapter_setup
         model.train_adapter(adapter_setup)
 

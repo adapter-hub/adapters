@@ -1153,6 +1153,7 @@ if is_torch_available():
             "T5EncoderModel",
             "T5ForConditionalGeneration",
             "T5Model",
+            "T5ModelWithHeads",
             "T5PreTrainedModel",
             "load_tf_weights_in_t5",
         ]
@@ -2895,6 +2896,7 @@ if TYPE_CHECKING:
             T5EncoderModel,
             T5ForConditionalGeneration,
             T5Model,
+            T5ModelWithHeads,
             T5PreTrainedModel,
             load_tf_weights_in_t5,
         )
@@ -3558,7 +3560,6 @@ else:
         module_spec=__spec__,
         extra_objects={"__version__": __version__, "__adapters_version__": __adapters_version__},
     )
-
 
 if not is_tf_available() and not is_torch_available() and not is_flax_available():
     logger.warning(

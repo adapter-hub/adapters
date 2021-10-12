@@ -6,12 +6,12 @@ import torch
 
 from tests.test_adapter_training import filter_parameters
 from transformers import (
+    MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
     AutoModelWithHeads,
     AutoTokenizer,
     BertConfig,
     BertForSequenceClassification,
-    GlueDataset,
-    GlueDataTrainingArguments,
+    T5ModelWithHeads,
     Trainer,
     TrainingArguments,
 )
@@ -150,8 +150,8 @@ class ParallelAdapterInferenceTestMixin:
 
         model.add_adapter("a")
         model.add_adapter("b")
-        model.add_classification_head("a", num_labels=2)
-        model.add_classification_head("b", num_labels=3)
+        self.add_head(model, "a", num_labels=2)
+        self.add_head(model, "b", num_labels=3)
         model.eval()
 
         inputs = self.get_input_samples((2, 128), config=model.config)
@@ -171,10 +171,11 @@ class ParallelAdapterInferenceTestMixin:
         outputs = model(**inputs)
 
         self.assertEqual(len(outputs), 2)
-        self.assertEqual(outputs[0][0].shape, (2, 2))
-        self.assertEqual(outputs[1][0].shape, (2, 3))
-        self.assertTrue(torch.allclose(outputs[0][0], outputs_a[0]))
-        self.assertTrue(torch.allclose(outputs[1][0], outputs_b[0]))
+        if self.config_class in MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING:
+            self.assertEqual(outputs[0][0].shape, (2, 2))
+            self.assertEqual(outputs[1][0].shape, (2, 3))
+        self.assertTrue(torch.allclose(outputs[0][0], outputs_a[0], atol=1e-5))
+        self.assertTrue(torch.allclose(outputs[1][0], outputs_b[0], atol=1e-5))
 
     def test_parallel_inference_with_wrong_number_of_heads(self):
         model = AutoModelWithHeads.from_config(self.config())
@@ -182,7 +183,7 @@ class ParallelAdapterInferenceTestMixin:
 
         model.add_adapter("a")
         model.add_adapter("b")
-        model.add_classification_head("a", num_labels=2)
+        self.add_head(model, "a", num_labels=2)
 
         inputs = self.get_input_samples((2, 128), config=model.config)
 
@@ -199,47 +200,60 @@ class ParallelAdapterInferenceTestMixin:
         model = AutoModelWithHeads.from_config(self.config())
         model.add_adapter("a")
         model.add_adapter("b")
-        model.add_classification_head("a", num_labels=2)
-        model.add_classification_head("b", num_labels=3)
+        self.add_head(model, "a", num_labels=2)
+        self.add_head(model, "b", num_labels=3)
         model.eval()
 
-        inputs = self.get_input_samples((2, 128), config=model.config)["input_ids"]
+        inputs = {"input_ids": self.get_input_samples((2, 128), config=model.config)["input_ids"]}
+        if isinstance(model, T5ModelWithHeads):
+            inputs["decoder_input_ids"] = inputs["input_ids"]
 
         # for reference, pass through single adapters
         model.active_adapters = "a"
         model.active_head = "a"
-        outputs_a = model(inputs[:1])
+        outputs_a = model(**{k: v[:1] for k, v in inputs.items()})
         model.active_adapters = "b"
         model.active_head = "b"
-        outputs_b = model(inputs[1:])
+        outputs_b = model(**{k: v[1:] for k, v in inputs.items()})
 
         model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
-        output = model(inputs)
+        output = model(**inputs)
 
         self.assertEqual(2, len(output))
-        self.assertTrue(torch.allclose(output[0]["logits"], outputs_a["logits"]))
-        self.assertTrue(torch.allclose(output[1]["logits"], outputs_b["logits"]))
-
-
-def create_twin_adapters(model, name):
-    # create adapter
-    adapter1, adapter2 = name + "_1", name + "_2"
-    model.add_adapter(adapter1)
-    model.add_classification_head(adapter1)
-    # create a twin initialized with the same random weights
-    model.add_adapter(adapter2)
-    model.add_classification_head(adapter2)
-
-    state_dict = model.state_dict()
-    for k, v in state_dict.items():
-        if adapter1 in k:
-            state_dict[k.replace(adapter1, adapter2)] = v
-    model.load_state_dict(state_dict)
-
-    return adapter1, adapter2
+        self.assertTrue(
+            torch.allclose(
+                output[0]["logits"],
+                outputs_a["logits"],
+                atol=1e-05,
+            )
+        )
+        self.assertTrue(
+            torch.allclose(
+                output[1]["logits"],
+                outputs_b["logits"],
+                atol=1e-05,
+            )
+        )
 
 
 class ParallelTrainingMixin:
+    def create_twin_adapters(self, model, name):
+        # create adapter
+        adapter1, adapter2 = name + "_1", name + "_2"
+        model.add_adapter(adapter1)
+        self.add_head(model, adapter1)
+        # create a twin initialized with the same random weights
+        model.add_adapter(adapter2)
+        self.add_head(model, adapter2)
+
+        state_dict = model.state_dict()
+        for k, v in state_dict.items():
+            if adapter1 in k:
+                state_dict[k.replace(adapter1, adapter2)] = v
+        model.load_state_dict(state_dict)
+
+        return adapter1, adapter2
+
     def train_model(self, model, dataset):
         # trains model in eval mode for 2 epochs
         random.seed(42)
@@ -263,11 +277,11 @@ class ParallelTrainingMixin:
 
         model.add_adapter("mrpc1")
         model.add_adapter("mrpc2")
-        model.add_classification_head("mrpc1", num_labels=2)
-        model.add_classification_head("mrpc2", num_labels=3)
-        model.eval()
+        self.add_head(model, "mrpc1", num_labels=2)
+        self.add_head(model, "mrpc2", num_labels=3)
         model.active_adapters = Parallel("mrpc1", "mrpc2")
         model.train_adapter(Parallel("mrpc1", "mrpc2"))
+        # model.eval()
 
         # all weights of the adapter should be activated
         for k, v in filter_parameters(model, "adapters.mrpc1.").items():
@@ -281,13 +295,9 @@ class ParallelTrainingMixin:
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
-        # setup dataset
-        data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
-        )
-        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+        train_dataset = self.dataset(tokenizer)
         training_args = TrainingArguments(
-            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=7, no_cuda=True
+            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=10, no_cuda=True
         )
 
         # evaluate
@@ -300,7 +310,7 @@ class ParallelTrainingMixin:
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if "mrpc" in k1:
-                self.assertFalse(torch.equal(v1, v2))
+                self.assertFalse(torch.equal(v1, v2), k1)
             else:
                 self.assertTrue(torch.equal(v1, v2))
 
@@ -308,13 +318,16 @@ class ParallelTrainingMixin:
         model = AutoModelWithHeads.from_config(self.config())
         model.eval()
 
-        a1, a2 = create_twin_adapters(model, "a")
-        b1, b2 = create_twin_adapters(model, "b")
+        a1, a2 = self.create_twin_adapters(model, "a")
+        b1, b2 = self.create_twin_adapters(model, "b")
 
         dataset = []
         for i in range(3):
             input_data = self.get_input_samples((3, 128), config=model.config)
-            input_data["labels"] = torch.randint(0, 2, (3, 1))
+            if isinstance(model, T5ModelWithHeads):
+                input_data["labels"] = torch.randint(0, 2, (3, 128))
+            else:
+                input_data["labels"] = torch.randint(0, 2, (3, 1))
             dataset.append(input_data)
 
         for adapter in [a1, b1]:
@@ -334,16 +347,16 @@ class ParallelTrainingMixin:
         state_dict = model.state_dict()
         for k, v in state_dict.items():
             if a1 in k:
-                self.assertTrue(torch.allclose(v, state_dict[k.replace(a1, a2)]))
+                self.assertTrue(torch.allclose(v, state_dict[k.replace(a1, a2)], atol=1e-5))
             if b1 in k:
-                self.assertTrue(torch.allclose(v, state_dict[k.replace(b1, b2)]))
+                self.assertTrue(torch.allclose(v, state_dict[k.replace(b1, b2)], atol=1e-5))
 
     def test_parallel_training_single_forward_pass(self):
         model = AutoModelWithHeads.from_config(self.config())
         model.eval()
 
-        a1, a2 = create_twin_adapters(model, "a")
-        b1, b2 = create_twin_adapters(model, "b")
+        a1, a2 = self.create_twin_adapters(model, "a")
+        b1, b2 = self.create_twin_adapters(model, "b")
 
         state_dict = model.state_dict()
         for k, v in state_dict.items():
@@ -353,7 +366,10 @@ class ParallelTrainingMixin:
                 self.assertTrue(torch.equal(v, state_dict[k.replace(b1, b2)]))
 
         input_data = self.get_input_samples((3, 128), config=model.config)
-        input_data["labels"] = torch.randint(0, 2, (3, 1))
+        if isinstance(model, T5ModelWithHeads):
+            input_data["labels"] = torch.randint(0, 2, (3, 128))
+        else:
+            input_data["labels"] = torch.randint(0, 2, (3, 1))
 
         outputs = []
         for adapter in [a1, b1]:
@@ -370,5 +386,5 @@ class ParallelTrainingMixin:
         parallel_outputs = model(**input_data)
 
         for out1, out2 in zip(outputs, parallel_outputs.head_outputs):
-            self.assertTrue(torch.equal(out1["loss"], out2["loss"]))
-            self.assertTrue(torch.allclose(out1["logits"], out2["logits"]))
+            self.assertTrue(torch.allclose(out1["loss"], out2["loss"]))
+            self.assertTrue(torch.allclose(out1["logits"], out2["logits"], atol=1e-5))
