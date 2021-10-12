@@ -908,7 +908,7 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
         if self.is_decoder and encoder_hidden_states is not None:
-            input_ids, = self.adjust_tensors_for_parallel(encoder_hidden_states, input_ids)
+            (input_ids,) = self.adjust_tensors_for_parallel(encoder_hidden_states, input_ids)
             encoder_attention_mask = self.adjust_attention_mask_for_parallel(
                 encoder_hidden_states, encoder_attention_mask
             )
