@@ -18,6 +18,7 @@ from transformers import (
     MBartConfig,
     RobertaConfig,
     T5Config,
+    XLMRobertaConfig,
 )
 from transformers.testing_utils import require_torch, torch_device
 
@@ -137,6 +138,22 @@ class RobertaClassConversionTest(
     unittest.TestCase,
 ):
     pass
+
+
+@require_torch
+class XLMRobertaClassConversionTest(
+    ModelClassConversionTestMixin,
+    AdapterTestBase,
+    unittest.TestCase,
+):
+    config_class = XLMRobertaConfig
+    config = make_config(
+        XLMRobertaConfig,
+        hidden_size=32,
+        num_hidden_layers=4,
+        num_attention_heads=4,
+        intermediate_size=37,
+    )
 
 
 class DistilBertAdapterTestBase(AdapterTestBase):

@@ -172,7 +172,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layer_norm": True,
             "bias": True,
         },
-        "layers": ["lm_head.dense", "lm_head.layer_norm", "lm_head.decoder"],
+        "layers": ["lm_head.dense", None, "lm_head.layer_norm", "lm_head.decoder"],
     },
     "XLMRobertaForCausalLM": {
         "config": {
