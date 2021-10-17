@@ -170,6 +170,14 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
         return return_adapters
 
+    def set_active_embedding(self, name):
+        self.set_input_embeddings(self.loaded_embeddings[name])
+        self._active_embedding = name
+
+    @property
+    def active_embedding(self):
+        return self._active_embedding, self.get_input_embeddings()
+
 
 class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     """
@@ -303,3 +311,7 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
             self, head_name, layers=2, activation_function=activation_function, layer_norm=True, bias=True
         )
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+    @property
+    def active_embedding(self):
+        return self.base_model.active_embedding

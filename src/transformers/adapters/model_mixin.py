@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from os.path import join
 from typing import List, Optional, Union
 
+import torch
 from torch import nn
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
@@ -111,6 +112,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
+        self.loaded_embeddings = nn.ModuleDict()
+        #self.embeddings["default"] = self.active_embedding
+        self._active_embedding = "default"
 
         # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
         # Thus, we check the adapters config here to make sure everything is correct.
@@ -527,6 +531,17 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             logger.warning("There are adapters available but none are activated for the forward pass.")
 
         self.config.adapters.is_parallelized = False
+
+    def load_embedding(self, path: str, name: str):
+        if name in self.loaded_embeddings:
+            raise ValueError("An embedding with the name {} already exists".format(name))
+        weights = torch.load(path)
+        self.loaded_embeddings[name] = nn.Embedding.from_pretrained(weights)
+        self.set_active_embedding(name)
+
+    @abstractmethod
+    def set_active_embedding(self, name):
+        pass
 
 
 @inherit_doc

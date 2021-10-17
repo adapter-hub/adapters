@@ -4,6 +4,7 @@ import unittest
 import torch
 from datasets import load_dataset
 
+from tests.test_adapter_embeddings import EmbeddingTestMixin
 from transformers import (
     AutoModel,
     AutoModelForSeq2SeqLM,
@@ -87,12 +88,13 @@ class BertAdapterTestBase(AdapterTestBase):
 
 @require_torch
 class BertAdapterTest(
-    AdapterModelTestMixin,
-    AdapterFusionModelTestMixin,
-    PredictionHeadModelTestMixin,
-    AdapterTrainingTestMixin,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
+    EmbeddingTestMixin,
+    # AdapterModelTestMixin,
+    # AdapterFusionModelTestMixin,
+    # PredictionHeadModelTestMixin,
+    # AdapterTrainingTestMixin,
+    # ParallelAdapterInferenceTestMixin,
+    # ParallelTrainingMixin,
     BertAdapterTestBase,
     unittest.TestCase,
 ):
