@@ -170,14 +170,6 @@ class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
         return return_adapters
 
-    def set_active_embedding(self, name):
-        self.set_input_embeddings(self.loaded_embeddings[name])
-        self._active_embedding = name
-
-    @property
-    def active_embedding(self):
-        return self._active_embedding, self.get_input_embeddings()
-
 
 class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
     """

@@ -124,6 +124,7 @@ class RobertaAdapterTestBase(AdapterTestBase):
 @require_torch
 class RobertaAdapterTest(
     AdapterModelTestMixin,
+    EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
@@ -173,6 +174,7 @@ class DistilBertAdapterTestBase(AdapterTestBase):
 @require_torch
 class DistilBertAdapterTest(
     AdapterModelTestMixin,
+    EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
@@ -212,6 +214,7 @@ class BartAdapterTestBase(AdapterTestBase):
 class BartAdapterTest(
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
+    EmbeddingTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
@@ -282,6 +285,7 @@ class GPT2AdapterTestBase(AdapterTestBase):
 @require_torch
 class GPT2AdapterTest(
     AdapterModelTestMixin,
+    EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
@@ -415,6 +419,7 @@ class T5AdapterTestBase(AdapterTestBase):
 @require_torch
 class T5AdapterTest(
     T5AdapterTestBase,
+    EmbeddingTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     AdapterModelTestMixin,

@@ -3,6 +3,7 @@ import warnings
 from abc import ABC, abstractmethod
 from os.path import join
 from typing import List, Optional, Union
+import os
 
 import torch
 from torch import nn
@@ -14,7 +15,7 @@ from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, W
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .utils import inherit_doc
 
-
+EMBEDDING_FILE = "embedding.pt"
 logger = logging.getLogger(__name__)
 
 
@@ -113,7 +114,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
         self.loaded_embeddings = nn.ModuleDict()
-        #self.embeddings["default"] = self.active_embedding
         self._active_embedding = "default"
 
         # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
@@ -535,13 +535,29 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def load_embedding(self, path: str, name: str):
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
-        weights = torch.load(path)
+        embedding_path = os.path.join(path, EMBEDDING_FILE)
+        if not os.path.isfile(embedding_path):
+            raise FileNotFoundError("No embeddings found at {}".format(embedding_path))
+        weights = torch.load(embedding_path)
         self.loaded_embeddings[name] = nn.Embedding.from_pretrained(weights)
         self.set_active_embedding(name)
 
-    @abstractmethod
+    def save_embedding(self, path):
+        os.makedirs(path, exist_ok=True)
+        embedding_path = os.path.join(path, EMBEDDING_FILE)
+        torch.save(self.get_embedding_module().weight, embedding_path)
+
     def set_active_embedding(self, name):
-        pass
+        self.loaded_embeddings[self.active_embedding] = self.get_embedding_module()
+        self.set_input_embeddings(self.loaded_embeddings[name])
+        self._active_embedding = name
+
+    def get_embedding_module(self):
+        return self.get_input_embeddings()
+
+    @property
+    def active_embedding(self):
+        return self._active_embedding
 
 
 @inherit_doc
