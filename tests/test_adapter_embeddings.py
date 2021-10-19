@@ -1,3 +1,4 @@
+import os
 import tempfile
 
 import torch
@@ -20,8 +21,10 @@ class EmbeddingTestMixin:
         input_data = self.get_input_samples((1, 128))
         output1 = model(**input_data)
 
+        test_embedding_weights = torch.rand(model.get_embedding_module().weight.shape)
+
         with tempfile.TemporaryDirectory() as tmp_dir:
-            model.save_embedding(tmp_dir)
+            torch.save(test_embedding_weights, os.path.join(tmp_dir, "embedding.pt"))
             model.load_embedding(tmp_dir, "test")
         model.set_active_embedding("default")
         output2 = model(**input_data)
