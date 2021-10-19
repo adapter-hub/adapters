@@ -3,6 +3,7 @@ import tempfile
 
 import torch
 
+from transformers import T5ForConditionalGeneration
 from transformers.testing_utils import require_torch
 
 
@@ -19,7 +20,7 @@ class EmbeddingTestMixin:
     def test_back_to_default(self):
         model = self.get_model()
         model.eval()
-        input_data = self.get_input_samples((1, 128))
+        input_data = self.get_input_samples((1, 128), config=model.config)
         output1 = model(**input_data)
 
         test_embedding_weights = torch.rand(model.get_embedding_module().weight.shape)
