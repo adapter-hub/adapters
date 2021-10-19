@@ -5,6 +5,7 @@ import torch
 
 from transformers.testing_utils import require_torch
 
+
 @require_torch
 class EmbeddingTestMixin:
     def test_load_embedding(self):

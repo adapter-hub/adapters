@@ -1,9 +1,9 @@
 import logging
+import os
 import warnings
 from abc import ABC, abstractmethod
 from os.path import join
 from typing import List, Optional, Union
-import os
 
 import torch
 from torch import nn
@@ -14,6 +14,7 @@ from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .utils import inherit_doc
+
 
 EMBEDDING_FILE = "embedding.pt"
 logger = logging.getLogger(__name__)
