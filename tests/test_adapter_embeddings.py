@@ -3,7 +3,6 @@ import tempfile
 
 import torch
 
-from transformers import T5ForConditionalGeneration
 from transformers.testing_utils import require_torch
 
 
