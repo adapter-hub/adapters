@@ -89,12 +89,12 @@ class BertAdapterTestBase(AdapterTestBase):
 @require_torch
 class BertAdapterTest(
     EmbeddingTestMixin,
-    # AdapterModelTestMixin,
-    # AdapterFusionModelTestMixin,
-    # PredictionHeadModelTestMixin,
-    # AdapterTrainingTestMixin,
-    # ParallelAdapterInferenceTestMixin,
-    # ParallelTrainingMixin,
+    AdapterModelTestMixin,
+    AdapterFusionModelTestMixin,
+    PredictionHeadModelTestMixin,
+    AdapterTrainingTestMixin,
+    ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
     BertAdapterTestBase,
     unittest.TestCase,
 ):
@@ -251,6 +251,7 @@ class MBartAdapterTestBase(AdapterTestBase):
 @require_torch
 class MBartAdapterTest(
     AdapterModelTestMixin,
+    EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
