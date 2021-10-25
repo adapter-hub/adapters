@@ -303,7 +303,3 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
             self, head_name, layers=2, activation_function=activation_function, layer_norm=True, bias=True
         )
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
-
-    @property
-    def active_embedding(self):
-        return self.base_model.active_embedding

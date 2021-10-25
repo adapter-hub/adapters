@@ -13,10 +13,8 @@ from .configuration import AdapterConfig, AdapterFusionConfig, ModelAdaptersConf
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
-from .utils import inherit_doc
+from .utils import inherit_doc, EMBEDDING_FILE
 
-
-EMBEDDING_FILE = "embedding.pt"
 logger = logging.getLogger(__name__)
 
 
@@ -182,7 +180,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.set_active_adapters(adapter_setup)
 
     def set_active_adapters(
-        self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
+            self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
     ):
         """
         Sets the adapter modules to be used by default in every forward pass. If no adapter with the given name is
@@ -236,11 +234,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.add_adapter_fusion(adapter_names, adapter_fusion_config)
 
     def add_adapter_fusion(
-        self,
-        adapter_names: Union[Fuse, list],
-        config=None,
-        overwrite_ok: bool = False,
-        set_active: bool = False,
+            self,
+            adapter_names: Union[Fuse, list],
+            config=None,
+            overwrite_ok: bool = False,
+            set_active: bool = False,
     ):
         """
         Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
@@ -310,11 +308,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             self.active_adapters = None
 
     def save_adapter(
-        self,
-        save_directory: str,
-        adapter_name: str,
-        meta_dict: dict = None,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+            self,
+            save_directory: str,
+            adapter_name: str,
+            meta_dict: dict = None,
+            custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """
         Saves an adapter and its configuration file to a directory so that it can be shared or reloaded using
@@ -335,11 +333,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 weights_loader.save(save_directory, adapter_name)
 
     def save_adapter_fusion(
-        self,
-        save_directory: str,
-        adapter_names: list,
-        meta_dict: dict = None,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+            self,
+            save_directory: str,
+            adapter_names: list,
+            meta_dict: dict = None,
+            custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """
         Saves an adapter and its configuration file to a directory so that it can be shared or reloaded using
@@ -361,18 +359,18 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 weights_loader.save(save_directory, adapter_names)
 
     def load_adapter(
-        self,
-        adapter_name_or_path: str,
-        config: Union[dict, str] = None,
-        version: str = None,
-        model_name: str = None,
-        load_as: str = None,
-        source: str = "ah",
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
-        leave_out: Optional[List[int]] = None,
-        id2label=None,
-        set_active: bool = False,
-        **kwargs
+            self,
+            adapter_name_or_path: str,
+            config: Union[dict, str] = None,
+            version: str = None,
+            model_name: str = None,
+            load_as: str = None,
+            source: str = "ah",
+            custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+            leave_out: Optional[List[int]] = None,
+            id2label=None,
+            set_active: bool = False,
+            **kwargs
     ) -> str:
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.
@@ -427,12 +425,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         return load_name
 
     def load_adapter_fusion(
-        self,
-        adapter_fusion_name_or_path: str,
-        load_as: str = None,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
-        set_active: bool = False,
-        **kwargs
+            self,
+            adapter_fusion_name_or_path: str,
+            load_as: str = None,
+            custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+            set_active: bool = False,
+            **kwargs
     ) -> str:
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.
@@ -470,10 +468,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         return load_name
 
     def save_all_adapters(
-        self,
-        save_directory: str,
-        meta_dict: dict = None,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+            self,
+            save_directory: str,
+            meta_dict: dict = None,
+            custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """
         Saves all adapters of this model together with their configuration to subfolders of the given location.
@@ -492,10 +490,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             self.save_adapter(save_path, name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders)
 
     def save_all_adapter_fusions(
-        self,
-        save_directory: str,
-        meta_dict: dict = None,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+            self,
+            save_directory: str,
+            meta_dict: dict = None,
+            custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """
         Saves all adapters of this model together with their configuration to subfolders of the given location.
@@ -533,7 +531,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         self.config.adapters.is_parallelized = False
 
-    def load_embedding(self, path: str, name: str):
+    def load_embeddings(self, path: str, name: str):
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
         embedding_path = os.path.join(path, EMBEDDING_FILE)
@@ -543,18 +541,30 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.loaded_embeddings[name] = nn.Embedding.from_pretrained(weights)
         self.set_active_embedding(name)
 
+    def add_embeddings(self, name):
+        if name in self.loaded_embeddings:
+            raise ValueError("An embedding with the name {} already exists".format(name))
+        embedding = nn.Embedding(self.get_input_embeddings().num_embeddings, self.get_input_embeddings().embedding_dim)
+        self.loaded_embeddings[name] = embedding
+        self.set_active_embedding(name)
+
+    def delete_embeddings(self, name):
+        if name not in self.loaded_embeddings:
+            raise ValueError("No embedding with name {}".format(name))
+        if self.active_embedding == name:
+            logger.warning("The active embedding is deleted. Setting the default embedding as active.")
+            self.set_active_embedding("default")
+        del self.loaded_embeddings[name]
+
     def save_embedding(self, path):
         os.makedirs(path, exist_ok=True)
         embedding_path = os.path.join(path, EMBEDDING_FILE)
-        torch.save(self.get_embedding_module().weight, embedding_path)
+        torch.save(self.get_input_embeddings().weight, embedding_path)
 
     def set_active_embedding(self, name):
-        self.loaded_embeddings[self.active_embedding] = self.get_embedding_module()
+        self.loaded_embeddings[self.active_embedding] = self.get_input_embeddings()
         self.set_input_embeddings(self.loaded_embeddings[name])
         self._active_embedding = name
-
-    def get_embedding_module(self):
-        return self.get_input_embeddings()
 
     @property
     def active_embedding(self):
@@ -642,12 +652,12 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         return loader.load(save_directory, load_as=load_as, id2label=id2label, **kwargs)
 
     def save_adapter(
-        self,
-        save_directory: str,
-        adapter_name: str,
-        with_head: bool = True,
-        meta_dict: dict = None,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+            self,
+            save_directory: str,
+            adapter_name: str,
+            with_head: bool = True,
+            meta_dict: dict = None,
+            custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         if with_head:
             if custom_weights_loaders is None:
@@ -661,19 +671,19 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         )
 
     def load_adapter(
-        self,
-        adapter_name_or_path: str,
-        config: Union[dict, str] = None,
-        version: str = None,
-        model_name: str = None,
-        load_as: str = None,
-        source: str = "ah",
-        with_head: bool = True,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
-        leave_out: Optional[List[int]] = None,
-        id2label=None,
-        set_active: bool = False,
-        **kwargs
+            self,
+            adapter_name_or_path: str,
+            config: Union[dict, str] = None,
+            version: str = None,
+            model_name: str = None,
+            load_as: str = None,
+            source: str = "ah",
+            with_head: bool = True,
+            custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+            leave_out: Optional[List[int]] = None,
+            id2label=None,
+            set_active: bool = False,
+            **kwargs
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:
@@ -704,11 +714,11 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         )
 
     def save_all_adapters(
-        self,
-        save_directory: str,
-        with_head: bool = True,
-        meta_dict: dict = None,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+            self,
+            save_directory: str,
+            with_head: bool = True,
+            meta_dict: dict = None,
+            custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         if with_head:
             if custom_weights_loaders is None:
