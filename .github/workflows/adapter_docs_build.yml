@@ -2,8 +2,8 @@ name: Build Adapter Docs
 
 on:
   push:
-    branches: [ master ]
-    paths: [ 'adapter_docs/**' ]
+    tags:
+      - 'adapters*'
 
 jobs:
   build:
