@@ -1,0 +1,44 @@
+# Embeddings
+
+This latest version of the `adapter-transformers` supports dynamically adding, loading, and deleting of `Embeddings`. This section
+will give you an overview of these features. 
+
+```eval_rst
+.. important::
+    This feature is not yet contained in the latest version available on pip. If you want to use this feature, you need 
+    to install `adapter-transformers` from the master branch.
+```
+
+## Adding and Deleting Embeddings
+The methods for handling embeddings are similar to the ones handling adapters. To add new embeddings we call
+`add_embeddings('name')`. The new embedding will be created and set as the active embedding. If you are unsure which embedding
+is currently active, the `active_embeddings` property contains the currently active embedding.
+
+```python
+model.add_embeddings('name')
+embedding_name = model.active_embeddings
+```
+
+The original embedding of the transformers model is always available under the name `"default"`. To set it as the active
+embedding simply call the `set_active_embedding('name')` method.
+```python
+model.set_active_embeddings("default")
+```
+Similarly, all other embeddings can be set as active by passing their name to the `set_active_embedding` method.
+
+To delete an embedding that is no longer needed we can call the `delete_embeddings` method with the name of the adapter
+we want to delete. However, you can not delete the default embedding.
+```python
+model.delete_embeddings('name')
+```
+Please note, that if the active embedding is deleted the default embedding is set as the active embedding.
+
+## Saving and Loading Embeddings
+You can save the embeddings by calling `save_embeddings('path/to/dir', 'name')` and load them with `load_embeddings('path/to/dir', 'name')`.
+
+```python
+model.save_embeddings(path, 'name')
+model.load_embeddings(path, 'reloaded_name')
+```
+
+The path needs to be to a directory in which the weights of the embedding will be saved.
