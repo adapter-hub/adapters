@@ -297,7 +297,7 @@ class ParallelTrainingMixin:
 
         train_dataset = self.dataset(tokenizer)
         training_args = TrainingArguments(
-            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=12, no_cuda=True
+            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=15, no_cuda=True
         )
 
         # evaluate
