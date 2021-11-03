@@ -11,11 +11,14 @@ will give you an overview of these features.
 
 ## Adding and Deleting Embeddings
 The methods for handling embeddings are similar to the ones handling adapters. To add new embeddings we call
-`add_embeddings('name')`. The new embedding will be created and set as the active embedding. If you are unsure which embedding
+`add_embeddings('name', tokenizer, reference_embedding)`. This adds new embeddings for the vocabulary of the `tokenizer`. 
+In some cases, it might be useful to initialize embeddings of tokens to the ones of another embeddings module. If a 
+`reference_embedding` is provided all embeddings for tokens that are present in both embeddings are initialized to the 
+to the embedding provided by the `reference_embedding`.  The new embedding will be created and set as the active embedding. If you are unsure which embedding
 is currently active, the `active_embeddings` property contains the currently active embedding.
 
 ```python
-model.add_embeddings('name')
+model.add_embeddings('name', tokenizer, reference_embedding)
 embedding_name = model.active_embeddings
 ```
 
