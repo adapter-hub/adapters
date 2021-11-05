@@ -1769,6 +1769,9 @@ class MBartDecoderWrapper(BartModelAdaptersMixin, MBartPreTrainedModel):
 
         return self.decoder(*args, **kwargs)
 
+    def get_input_embeddings(self) -> nn.Module:
+        return self.decoder.get_input_embeddings()
+
 
 # Copied from transformers.models.bart.modeling_bart.BartForCausalLM with Bart->MBart
 class MBartForCausalLM(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):

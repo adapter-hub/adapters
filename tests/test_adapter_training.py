@@ -21,7 +21,7 @@ class AdapterTrainingTestMixin:
             output_dir="./examples",
             do_train=True,
             learning_rate=0.7,
-            max_steps=15,
+            max_steps=19,
             no_cuda=True,
             per_device_train_batch_size=2,
         )
@@ -129,7 +129,7 @@ class AdapterTrainingTestMixin:
                 or "score" in k1
                 or "heads" in k1
             ):
-                self.assertFalse(torch.equal(v1, v2), k1)
+                self.assertFalse(torch.allclose(v1, v2, atol=1e-6), k1)
             else:
                 self.assertTrue(torch.equal(v1, v2), k1)
         self.assertTrue(regularization_called)

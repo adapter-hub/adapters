@@ -565,10 +565,17 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 "Reference embedding and reference tokenizer are required to use initialize embeddings from reference embedding"
             )
         if reference_embedding is not None and reference_tokenizer is not None:
-            for v, idx in tokenizer.get_vocab().items():
-                if v in reference_tokenizer.get_vocab():
-                    idx_default = reference_tokenizer.get_vocab()[v]
-                    embedding.weight[idx] = self.loaded_embeddings[reference_embedding].weight[idx_default]
+            tokens = set(tokenizer.get_vocab().keys()) & set(reference_tokenizer.get_vocab().keys())
+            reference_vocab = reference_tokenizer.get_vocab()
+            vocab = tokenizer.get_vocab()
+            for t in tokens:
+                idx_reference = reference_vocab[t]
+                idx = vocab[t]
+                embedding.weight[idx] = self.loaded_embeddings[reference_embedding].weight[idx_reference]
+            # for v, idx in tokenizer.get_vocab().items():
+            #     if v in reference_tokenizer.get_vocab():
+            #         idx_default = reference_tokenizer.get_vocab()[v]
+            #         embedding.weight[idx] = self.loaded_embeddings[reference_embedding].weight[idx_default]
         embedding.train(False)
         self.loaded_embeddings[name] = embedding
         self.set_active_embeddings(name)
