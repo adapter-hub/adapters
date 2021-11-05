@@ -1756,6 +1756,9 @@ class BartDecoderWrapper(BartModelAdaptersMixin, BartPretrainedModel):
 
         return self.decoder(*args, **kwargs)
 
+    def get_input_embeddings(self):
+        return self.decoder.get_input_embeddings()
+
 
 class BartForCausalLM(ModelWithHeadsAdaptersMixin, BartPretrainedModel):
     def __init__(self, config):

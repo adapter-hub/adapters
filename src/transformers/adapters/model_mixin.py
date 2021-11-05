@@ -377,31 +377,31 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         **kwargs
     ) -> str:
         """
-                Loads a pre-trained pytorch adapter module from the local file system or a remote location. a
+        Loads a pre-trained pytorch adapter module from the local file system or a remote location. a
 
-                Args:
-                    adapter_name_or_path (str): can be either:
+        Args:
+            adapter_name_or_path (str): can be either:
 
-                        - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
-                        - a path to a directory containing adapter weights saved using `model.saved_adapter()`
-                        - a URL pointing to a zip folder containing a saved adapter module
-                    config (dict or str, optional): The requested configuration of the adapter.
-                        If not specified, will be either: - the default adapter config for the requested adapter if
-                        specified - the global default adapter config
-                    version (str, optional): The version of the adapter to be loaded.
-                    model_name (str, optional): The string identifier of the pre-trained model.
-                    load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
-                            saved will be used.
-                    source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
+                - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
+                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
+                - a URL pointing to a zip folder containing a saved adapter module
+            config (dict or str, optional): The requested configuration of the adapter.
+                If not specified, will be either: - the default adapter config for the requested adapter if specified -
+                the global default adapter config
+            version (str, optional): The version of the adapter to be loaded.
+            model_name (str, optional): The string identifier of the pre-trained model.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
+                    saved will be used.
+            source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
 
-                        - "ah" (default): search on AdapterHub.
-                        - "hf": search on HuggingFace model hub.
-                        - None: only search on local file system
-                    leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
-                    set_active (bool, optional): Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not activated.
+                - "ah" (default): search on AdapterHub.
+                - "hf": search on HuggingFace model hub.
+                - None: only search on local file system
+            leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
+            set_active (bool, optional): Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not activated.
 
-                Returns:
-                    str: The name with which the adapter was added to the model.
+        Returns:
+            str: The name with which the adapter was added to the model.
         """
         loader = AdapterLoader(self)
         load_dir, load_name = loader.load(
