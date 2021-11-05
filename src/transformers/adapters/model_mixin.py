@@ -114,7 +114,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
-        self.loaded_embeddings = nn.ModuleDict()
+        self.loaded_embeddings = {}
         self._active_embedding = "default"
 
         # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
@@ -571,7 +571,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             for t in tokens:
                 idx_reference = reference_vocab[t]
                 idx = vocab[t]
-                embedding.weight[idx] = self.loaded_embeddings[reference_embedding].weight[idx_reference]
+                embedding.weight[idx] = self.loaded_embeddings[reference_embedding].weight[idx_reference].clone()
             # for v, idx in tokenizer.get_vocab().items():
             #     if v in reference_tokenizer.get_vocab():
             #         idx_default = reference_tokenizer.get_vocab()[v]

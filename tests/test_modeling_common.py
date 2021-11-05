@@ -1305,6 +1305,7 @@ class ModelTesterMixin:
             config_tied.torchscript = False
             model_tied = model_class(config_tied)
             params_tied = list(model_tied.parameters())
+            named_params_tied = dict(model_tied.named_parameters()).keys()
             # Check that the embedding layer and decoding layer are the same in size and in value
             # self.assertTrue(check_same_values(embeddings, decoding))
 
@@ -1323,6 +1324,7 @@ class ModelTesterMixin:
             # Check that after resize they remain tied.
             model_tied.resize_token_embeddings(config.vocab_size + 10)
             params_tied_2 = list(model_tied.parameters())
+            named_params_tied_2 = dict(model_tied.named_parameters()).keys()
             self.assertEqual(len(params_tied_2), len(params_tied))
 
             # decoding.weight.data.mul_(20)
