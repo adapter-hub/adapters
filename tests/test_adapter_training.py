@@ -21,7 +21,7 @@ class AdapterTrainingTestMixin:
             output_dir="./examples",
             do_train=True,
             learning_rate=0.7,
-            max_steps=19,
+            max_steps=20,
             no_cuda=True,
             per_device_train_batch_size=2,
         )
@@ -164,6 +164,6 @@ class AdapterTrainingTestMixin:
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if "mrpc" in k1:
-                self.assertFalse(torch.equal(v1, v2))
+                self.assertFalse(torch.equal(v1, v2), k1)
             else:
                 self.assertTrue(torch.equal(v1, v2))
