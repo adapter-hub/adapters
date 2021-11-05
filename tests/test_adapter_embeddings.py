@@ -4,7 +4,7 @@ import tempfile
 import torch
 
 from tests.test_adapter_training import filter_parameters
-from transformers import AutoTokenizer, TrainingArguments, Trainer, AutoModelWithHeads
+from transformers import AutoModelWithHeads, AutoTokenizer, Trainer, TrainingArguments
 from transformers.testing_utils import require_torch
 
 
@@ -43,7 +43,7 @@ class EmbeddingTestMixin:
         self.assertEqual(model.active_embeddings, "test")
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            model.save_embeddings(tmp_dir, "test")
+            model.save_embeddings(tmp_dir, "test", tokenizer=tokenizer)
             tokenizer_ref = model.load_embeddings(tmp_dir, "test_reloaded")
 
         self.assertEqual(model.active_embeddings, "test_reloaded")
@@ -89,7 +89,7 @@ class EmbeddingTestMixin:
             output_dir="./examples",
             do_train=True,
             learning_rate=0.4,
-            max_steps=50,
+            max_steps=15,
             no_cuda=True,
             per_device_train_batch_size=2,
         )
@@ -109,26 +109,22 @@ class EmbeddingTestMixin:
                 self.assertTrue(torch.equal(v1, v2))
 
     def test_reference_embedding(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoModelWithHeads.from_config(self.config())  # self.get_model()
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         new_tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
 
-        # ToDo remove workaround
-        model.tokenizers["default"] = tokenizer
-        model.loaded_embeddings["default"] = model.get_input_embeddings()
+        model.add_embeddings("test", new_tokenizer, "default", tokenizer)
 
-        model.add_embeddings("test", new_tokenizer, "default")
-
-        default_embedding = model.loaded_embeddings["default"]
-        test_embedding = model.loaded_embeddings["test"]
+        default_embedding = model.base_model.loaded_embeddings["default"]
+        test_embedding = model.base_model.loaded_embeddings["test"]
 
         input_test = []
         input_default = []
 
         for v, idx in new_tokenizer.get_vocab().items():
-            if v in model.tokenizers["default"].get_vocab() and not v.startswith("##"):
+            if v in tokenizer.get_vocab() and not v.startswith("##"):
                 input_test.append(idx)
                 input_default.append(tokenizer.get_vocab()[v])
                 if len(input_test) >= 5:
@@ -141,6 +137,3 @@ class EmbeddingTestMixin:
         test = test_embedding(input_test)
 
         self.assertTrue(torch.equal(default, test))
-
-
-

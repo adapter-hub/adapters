@@ -8,14 +8,13 @@ from typing import List, Optional, Union
 import torch
 from torch import nn
 
+from ..models.auto.tokenization_auto import AutoTokenizer
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import AdapterConfig, AdapterFusionConfig, ModelAdaptersConfig, get_adapter_config_hash
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
-from ..models.auto.tokenization_auto import AutoTokenizer
-
 
 
 logger = logging.getLogger(__name__)
@@ -117,8 +116,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.model_name = None
         self.loaded_embeddings = nn.ModuleDict()
         self._active_embedding = "default"
-        self.tokenizers = {}
-        # ToDo
 
         # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
         # Thus, we check the adapters config here to make sure everything is correct.
@@ -137,6 +134,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # Initialize fusion from config
         for fusion_name in self.config.adapters.fusions:
             self._add_fusion_layer(fusion_name)
+
+        self.loaded_embeddings["default"] = self.get_input_embeddings()
 
     # These methods have to be implemented by every deriving class:
 
@@ -378,31 +377,31 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         **kwargs
     ) -> str:
         """
-        Loads a pre-trained pytorch adapter module from the local file system or a remote location.
-a
-        Args:
-            adapter_name_or_path (str): can be either:
+                Loads a pre-trained pytorch adapter module from the local file system or a remote location. a
 
-                - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
-                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
-                - a URL pointing to a zip folder containing a saved adapter module
-            config (dict or str, optional): The requested configuration of the adapter.
-                If not specified, will be either: - the default adapter config for the requested adapter if specified -
-                the global default adapter config
-            version (str, optional): The version of the adapter to be loaded.
-            model_name (str, optional): The string identifier of the pre-trained model.
-            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
-                    saved will be used.
-            source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
+                Args:
+                    adapter_name_or_path (str): can be either:
 
-                - "ah" (default): search on AdapterHub.
-                - "hf": search on HuggingFace model hub.
-                - None: only search on local file system
-            leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
-            set_active (bool, optional): Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not activated.
+                        - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
+                        - a path to a directory containing adapter weights saved using `model.saved_adapter()`
+                        - a URL pointing to a zip folder containing a saved adapter module
+                    config (dict or str, optional): The requested configuration of the adapter.
+                        If not specified, will be either: - the default adapter config for the requested adapter if
+                        specified - the global default adapter config
+                    version (str, optional): The version of the adapter to be loaded.
+                    model_name (str, optional): The string identifier of the pre-trained model.
+                    load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
+                            saved will be used.
+                    source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
 
-        Returns:
-            str: The name with which the adapter was added to the model.
+                        - "ah" (default): search on AdapterHub.
+                        - "hf": search on HuggingFace model hub.
+                        - None: only search on local file system
+                    leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
+                    set_active (bool, optional): Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not activated.
+
+                Returns:
+                    str: The name with which the adapter was added to the model.
         """
         loader = AdapterLoader(self)
         load_dir, load_name = loader.load(
@@ -550,29 +549,28 @@ a
         weights = torch.load(embedding_path)
 
         self.loaded_embeddings[name] = nn.Embedding.from_pretrained(weights)
-        self.tokenizers[name] = tokenizer
         self.set_active_embeddings(name)
         return tokenizer
 
-    def add_embeddings(self, name, tokenizer, reference_embedding=None, embedding_dim=None):
+    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
         if embedding_dim is None:
-            #ToDo
-            embedding_dim = self.get_input_embeddings().embedding_dim
+            embedding_dim = self.config.hidden_size
         embedding = nn.Embedding(tokenizer.vocab_size, embedding_dim)
-        if reference_embedding is not None:
-            if reference_embedding in self.tokenizers:
-                reference_tokenizer = self.tokenizers[reference_embedding]
-            else:
-                raise KeyError("No tokenizer with name: {}".format(reference_embedding))
+        if (reference_embedding is not None and reference_tokenizer is None) or (
+            reference_tokenizer is not None and reference_embedding is None
+        ):
+            raise KeyError(
+                "Reference embedding and reference tokenizer are required to use initialize embeddings from reference embedding"
+            )
+        if reference_embedding is not None and reference_tokenizer is not None:
             for v, idx in tokenizer.get_vocab().items():
                 if v in reference_tokenizer.get_vocab():
                     idx_default = reference_tokenizer.get_vocab()[v]
                     embedding.weight[idx] = self.loaded_embeddings[reference_embedding].weight[idx_default]
         embedding.train(False)
         self.loaded_embeddings[name] = embedding
-        self.tokenizers[name] = tokenizer
         self.set_active_embeddings(name)
 
     def delete_embeddings(self, name):
@@ -582,17 +580,16 @@ a
             logger.warning("The active embedding is deleted. Setting the default embedding as active.")
             self.set_active_embeddings("default")
         del self.loaded_embeddings[name]
-        del self.tokenizers[name]
 
-    def save_embeddings(self, path, name):
+    def save_embeddings(self, path, name, tokenizer=None):
         if self.active_embeddings == name:
             self.loaded_embeddings[name] = self.get_input_embeddings()
         os.makedirs(path, exist_ok=True)
         embedding_path = os.path.join(path, EMBEDDING_FILE)
         torch.save(self.loaded_embeddings[name].weight, embedding_path)
-        if name in self.tokenizers:
+        if tokenizer:
             tokenizer_path = os.path.join(path, TOKENIZER_PATH)
-            self.tokenizers[name].save_pretrained(tokenizer_path)
+            tokenizer.save_pretrained(tokenizer_path)
 
     def set_active_embeddings(self, name):
         self.loaded_embeddings[self.active_embeddings] = self.get_input_embeddings()
@@ -783,3 +780,35 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             return super().get_adapter(name)
         else:
             return self.base_model.get_adapter(name)
+
+    def load_embeddings(self, path: str, name: str):
+        if self.base_model is self:
+            return super().load_embeddings(path, name)
+        else:
+            return self.base_model.load_embeddings(path, name)
+
+    def save_embeddings(self, path, name, tokenizer=None):
+        if self.base_model is self:
+            return super().save_embeddings(path, name, tokenizer)
+        else:
+            return self.base_model.save_embeddings(path, name, tokenizer)
+
+    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
+        if self.base_model is None:
+            return super().add_embeddings(name, tokenizer, reference_embedding, reference_tokenizer, embedding_dim)
+        else:
+            return self.base_model.add_embeddings(
+                name, tokenizer, reference_embedding, reference_tokenizer, embedding_dim
+            )
+
+    def set_active_embeddings(self, name):
+        if self.base_model is None:
+            return super().set_active_embeddings(name)
+        else:
+            return self.base_model.set_active_embeddings(name)
+
+    def delete_embeddings(self, name):
+        if self.base_model is None:
+            return super().delete_embeddings(name)
+        else:
+            return self.base_model.delete_embeddings(name)
