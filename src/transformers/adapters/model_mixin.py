@@ -558,6 +558,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if embedding_dim is None:
             embedding_dim = self.config.hidden_size
         embedding = nn.Embedding(tokenizer.vocab_size, embedding_dim)
+        embedding.requires_grad_(False)
         if (reference_embedding is not None and reference_tokenizer is None) or (
             reference_tokenizer is not None and reference_embedding is None
         ):

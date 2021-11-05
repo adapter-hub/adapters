@@ -129,7 +129,7 @@ class AdapterTrainingTestMixin:
                 or "score" in k1
                 or "heads" in k1
             ):
-                self.assertFalse(torch.allclose(v1, v2, atol=1e-6), k1)
+                self.assertFalse(torch.equal(v1, v2), k1)
             else:
                 self.assertTrue(torch.equal(v1, v2), k1)
         self.assertTrue(regularization_called)
