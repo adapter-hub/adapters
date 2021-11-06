@@ -103,11 +103,18 @@ class EmbeddingTestMixin:
         trainer.train()
 
         self.assertFalse(
-            all(torch.equal(v1, v2) for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()) if "test" in k1)
+            all(
+                torch.equal(v1, v2)
+                for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
+                if "test" in k1
+            )
         )
         self.assertTrue(
-            all(torch.equal(v1, v2) for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
-                if "test" not in k1)
+            all(
+                torch.equal(v1, v2)
+                for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
+                if "test" not in k1
+            )
         )
 
     def test_reference_embedding(self):
