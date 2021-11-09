@@ -1,6 +1,6 @@
 # Embeddings
 
-This latest version of the `adapter-transformers` supports dynamically adding, loading, and deleting of `Embeddings`. This section
+Since v2.3.0, `adapter-transformers` supports dynamically adding, loading, and deleting of `Embeddings`. This section
 will give you an overview of these features. 
 
 ## Adding and Deleting Embeddings
