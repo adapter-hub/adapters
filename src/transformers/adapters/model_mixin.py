@@ -573,10 +573,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 idx_reference = reference_vocab[t]
                 idx = vocab[t]
                 embedding.weight[idx] = self.loaded_embeddings[reference_embedding].weight[idx_reference].clone()
-            # for v, idx in tokenizer.get_vocab().items():
-            #     if v in reference_tokenizer.get_vocab():
-            #         idx_default = reference_tokenizer.get_vocab()[v]
-            #         embedding.weight[idx] = self.loaded_embeddings[reference_embedding].weight[idx_default]
         embedding.train(False)
         self.loaded_embeddings[name] = embedding
         self.set_active_embeddings(name)
