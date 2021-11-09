@@ -377,7 +377,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         **kwargs
     ) -> str:
         """
-        Loads a pre-trained pytorch adapter module from the local file system or a remote location. a
+        Loads a pre-trained pytorch adapter module from the local file system or a remote location.
 
         Args:
             adapter_name_or_path (str): can be either:
