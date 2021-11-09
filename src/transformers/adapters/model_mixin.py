@@ -536,6 +536,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.config.adapters.is_parallelized = False
 
     def load_embeddings(self, path: str, name: str):
+        """
+        Load a saved embedding from the given path. If the embedding was saved with a tokenizer it is returned
+        Args:
+            path: the path to the saved embedding
+            name: the name the embedding should be loaded as
+
+        Returns: a tokenizer if it ws saved with the embedding otherwise None
+
+        """
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
         tokenizer = None
@@ -553,6 +562,17 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         return tokenizer
 
     def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
+        """
+        Add a new embedding to the model. If a reference embedding and reference tokenizer are provided tokens in the
+        present in both tokenizers are initialized to the embedding in the reference_embedding.
+        Args:
+            name: the name of the embedding
+            tokenizer: the tokenizer determining the vocab of the embedding
+            reference_embedding: the reference embedding to use for initializing the embeddings of tokens present in the newly created embedding
+            reference_tokenizer: the tokenizer providing the vocab for the reference embedding
+            embedding_dim: the dimension of the embeddings (if None the hidden_size from the config is used)
+
+        """
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
         if embedding_dim is None:
@@ -582,6 +602,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.set_active_embeddings(name)
 
     def delete_embeddings(self, name):
+        """
+        Deletes the embedding with the given name
+        Args:
+            name: The name of the embedding that should be deleted
+
+        """
         if name not in self.loaded_embeddings:
             raise ValueError("No embedding with name {}".format(name))
         if self.active_embeddings == name:
@@ -590,6 +616,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         del self.loaded_embeddings[name]
 
     def save_embeddings(self, path, name, tokenizer=None):
+        """
+        Saves the embedding with the given name. If a tokenizer is passed as well the tokenizer is saved together with the embedding.
+        Args:
+            path: The path where the embedding should be saved
+            name: The name of the embedding that should be saved
+            tokenizer: optionally a tokenizer to save with the embedding (default is None)
+
+        """
         if self.active_embeddings == name:
             self.loaded_embeddings[name] = self.get_input_embeddings()
         os.makedirs(path, exist_ok=True)
@@ -600,6 +634,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             tokenizer.save_pretrained(tokenizer_path)
 
     def set_active_embeddings(self, name):
+        """
+        Sets the active embedding for the forward pass of the model
+        Args:
+            name: The name of the embedding that should be used
+
+        """
         self.loaded_embeddings[self.active_embeddings] = self.get_input_embeddings()
         self.set_input_embeddings(self.loaded_embeddings[name])
         self._active_embedding = name
