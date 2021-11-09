@@ -538,6 +538,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def load_embeddings(self, path: str, name: str):
         """
         Load a saved embedding from the given path. If the embedding was saved with a tokenizer it is returned
+
         Args:
             path: the path to the saved embedding
             name: the name the embedding should be loaded as
@@ -565,6 +566,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         Add a new embedding to the model. If a reference embedding and reference tokenizer are provided tokens in the
         present in both tokenizers are initialized to the embedding in the reference_embedding.
+
         Args:
             name: the name of the embedding
             tokenizer: the tokenizer determining the vocab of the embedding
@@ -600,6 +602,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def delete_embeddings(self, name):
         """
         Deletes the embedding with the given name
+
         Args:
             name: The name of the embedding that should be deleted
 
@@ -613,7 +616,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     def save_embeddings(self, path, name, tokenizer=None):
         """
-        Saves the embedding with the given name. If a tokenizer is passed as well the tokenizer is saved together with the embedding.
+        Saves the embedding with the given name. If a tokenizer is passed as well the tokenizer is saved together with
+        the embedding.
+
         Args:
             path: The path where the embedding should be saved
             name: The name of the embedding that should be saved
@@ -632,6 +637,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def set_active_embeddings(self, name):
         """
         Sets the active embedding for the forward pass of the model
+
         Args:
             name: The name of the embedding that should be used
 
