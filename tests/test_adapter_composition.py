@@ -347,7 +347,7 @@ class ParallelTrainingMixin:
         state_dict = model.state_dict()
         for k, v in state_dict.items():
             if a1 in k:
-                self.assertTrue(torch.allclose(v, state_dict[k.replace(a1, a2)], atol=1e-5))
+                self.assertTrue(torch.allclose(v, state_dict[k.replace(a1, a2)], atol=1e-5), torch.max(torch.sub(v, state_dict[k.replace(a1, a2)])))
             if b1 in k:
                 self.assertTrue(torch.allclose(v, state_dict[k.replace(b1, b2)], atol=1e-5))
 
