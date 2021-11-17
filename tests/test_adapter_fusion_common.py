@@ -4,7 +4,8 @@ from dataclasses import asdict
 
 import torch
 
-from transformers import ADAPTERFUSION_CONFIG_MAP, AdapterConfig, PfeifferConfig
+from transformers import ADAPTERFUSION_CONFIG_MAP, AdapterConfig, PfeifferConfig, AutoModelWithHeads
+from transformers.adapters.composition import Fuse
 from transformers.testing_utils import require_torch
 
 
@@ -143,3 +144,36 @@ class AdapterFusionModelTestMixin:
             model.add_adapter_fusion(["test1", "test2"], config=v)
             # should not raise an exception
             model.config.to_json_string()
+
+    def test_adapter_fusion_save_with_head(self):
+        model1 = AutoModelWithHeads.from_config(self.config())
+        model1.eval()
+
+        name1 = "name1"
+        name2 = "name2"
+        head_name = "adapter_fusion_head"
+        model1.add_adapter(name1)
+        model1.add_adapter(name2)
+        model2 = copy.deepcopy(model1)
+        model2.eval()
+        model1.add_adapter_fusion([name1, name2])
+        self.add_head(model1, head_name)
+        model1.set_active_adapters(Fuse(name1, name2))
+        # save & reload model
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model1.save_adapter_fusion(temp_dir, ",".join([name1, name2]), head_name=head_name)
+            model2.load_adapter_fusion(temp_dir, set_active=True)
+
+        self.assertTrue(head_name in model2.heads)
+        self.assertEqual(model1.active_head, model2.active_head)
+        self.assertEqual(model1.active_adapters, model2.active_adapters)
+
+        #assert equal forward pass
+        in_data = self.get_input_samples((1, 128), config=model1.config)
+        output1 = model1(**in_data)
+        output2 = model2(**in_data)
+        self.assertEqual(len(output1), len(output2))
+        self.assertTrue(torch.equal(output1[0], output2[0]))
+
+
+

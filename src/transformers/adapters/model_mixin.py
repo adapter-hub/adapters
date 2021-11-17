@@ -342,6 +342,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         adapter_names: list,
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        head_name: Optional[str] = None,
     ):
         """
         Saves an adapter and its configuration file to a directory so that it can be shared or reloaded using
@@ -350,6 +351,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             save_directory (str): Path to a directory where the adapter should be saved.
             adapter_name (str): Name of the adapter to be saved.
+            with_head (str): The name of the head that should be saved with the adapter fusion
 
         Raises:
             ValueError: If the given adapter name is invalid.
@@ -361,6 +363,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
                 weights_loader.save(save_directory, adapter_names)
+
+        if head_name:
+            if head_name not in self.heads:
+                raise ValueError("No head with name {} found".format(head_name))
+            loader = PredictionHeadLoader(self)
+            loader.save(save_directory, head_name)
+
+
 
     def load_adapter(
         self,
@@ -469,6 +479,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     main_load_name=load_name,
                     set_active=set_active,
                 )
+
+        loader = PredictionHeadLoader(self)
+        try:
+            loader.load(load_dir)
+        except ValueError:
+            logger.log(msg="The loaded adapter fusion does not have a head. Before inference you should train or load a head.", level=logging.INFO)
         return load_name
 
     def save_all_adapters(
