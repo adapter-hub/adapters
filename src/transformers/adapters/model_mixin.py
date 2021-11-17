@@ -1,17 +1,20 @@
 import logging
+import os
 import warnings
 from abc import ABC, abstractmethod
 from os.path import join
 from typing import List, Optional, Union
 
+import torch
 from torch import nn
 
+from ..models.auto.tokenization_auto import AutoTokenizer
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import AdapterConfig, AdapterFusionConfig, ModelAdaptersConfig, get_adapter_config_hash
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
-from .utils import inherit_doc
+from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
 
 
 logger = logging.getLogger(__name__)
@@ -111,6 +114,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
+        self.loaded_embeddings = {}
+        self._active_embedding = "default"
 
         # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
         # Thus, we check the adapters config here to make sure everything is correct.
@@ -130,10 +135,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         for fusion_name in self.config.adapters.fusions:
             self._add_fusion_layer(fusion_name)
 
+        self.loaded_embeddings["default"] = self.get_input_embeddings()
+
     # These methods have to be implemented by every deriving class:
 
     @abstractmethod
-    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
         """Sets the model into mode for training the given adapters."""
         pass
 
@@ -528,6 +535,121 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         self.config.adapters.is_parallelized = False
 
+    def load_embeddings(self, path: str, name: str):
+        """
+        Load a saved embedding from the given path. If the embedding was saved with a tokenizer it is returned
+
+        Args:
+            path: the path to the saved embedding
+            name: the name the embedding should be loaded as
+
+        Returns: a tokenizer if it ws saved with the embedding otherwise None
+
+        """
+        if name in self.loaded_embeddings:
+            raise ValueError("An embedding with the name {} already exists".format(name))
+        tokenizer = None
+        tokenizer_path = os.path.join(path, TOKENIZER_PATH)
+        if os.path.isdir(tokenizer_path):
+            tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+
+        embedding_path = os.path.join(path, EMBEDDING_FILE)
+        if not os.path.isfile(embedding_path):
+            raise FileNotFoundError("No embeddings found at {}".format(embedding_path))
+        weights = torch.load(embedding_path)
+
+        self.loaded_embeddings[name] = nn.Embedding.from_pretrained(weights)
+        self.set_active_embeddings(name)
+        return tokenizer
+
+    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
+        """
+        Add a new embedding to the model. If a reference embedding and reference tokenizer are provided tokens in the
+        present in both tokenizers are initialized to the embedding in the reference_embedding.
+
+        Args:
+            name: the name of the embedding
+            tokenizer: the tokenizer determining the vocab of the embedding
+            reference_embedding: the reference embedding to use for initializing the embeddings of tokens present in the newly created embedding
+            reference_tokenizer: the tokenizer providing the vocab for the reference embedding
+            embedding_dim: the dimension of the embeddings (if None the hidden_size from the config is used)
+
+        """
+        if name in self.loaded_embeddings:
+            raise ValueError("An embedding with the name {} already exists".format(name))
+        if embedding_dim is None:
+            embedding_dim = self.config.hidden_size
+        embedding = nn.Embedding(tokenizer.vocab_size, embedding_dim)
+        embedding.requires_grad_(False)
+        if (reference_embedding is not None and reference_tokenizer is None) or (
+            reference_tokenizer is not None and reference_embedding is None
+        ):
+            raise KeyError(
+                "Reference embedding and reference tokenizer are required to use initialize embeddings from reference embedding"
+            )
+        if reference_embedding is not None and reference_tokenizer is not None:
+            tokens = set(tokenizer.get_vocab().keys()) & set(reference_tokenizer.get_vocab().keys())
+            reference_vocab = reference_tokenizer.get_vocab()
+            vocab = tokenizer.get_vocab()
+            for t in tokens:
+                idx_reference = reference_vocab[t]
+                idx = vocab[t]
+                embedding.weight[idx] = self.loaded_embeddings[reference_embedding].weight[idx_reference].clone()
+        embedding.train(False)
+        self.loaded_embeddings[name] = embedding
+        self.set_active_embeddings(name)
+
+    def delete_embeddings(self, name):
+        """
+        Deletes the embedding with the given name
+
+        Args:
+            name: The name of the embedding that should be deleted
+
+        """
+        if name not in self.loaded_embeddings:
+            raise ValueError("No embedding with name {}".format(name))
+        if self.active_embeddings == name:
+            logger.warning("The active embedding is deleted. Setting the default embedding as active.")
+            self.set_active_embeddings("default")
+        del self.loaded_embeddings[name]
+
+    def save_embeddings(self, path, name, tokenizer=None):
+        """
+        Saves the embedding with the given name. If a tokenizer is passed as well the tokenizer is saved together with
+        the embedding.
+
+        Args:
+            path: The path where the embedding should be saved
+            name: The name of the embedding that should be saved
+            tokenizer: optionally a tokenizer to save with the embedding (default is None)
+
+        """
+        if self.active_embeddings == name:
+            self.loaded_embeddings[name] = self.get_input_embeddings()
+        os.makedirs(path, exist_ok=True)
+        embedding_path = os.path.join(path, EMBEDDING_FILE)
+        torch.save(self.loaded_embeddings[name].weight, embedding_path)
+        if tokenizer:
+            tokenizer_path = os.path.join(path, TOKENIZER_PATH)
+            tokenizer.save_pretrained(tokenizer_path)
+
+    def set_active_embeddings(self, name):
+        """
+        Sets the active embedding for the forward pass of the model
+
+        Args:
+            name: The name of the embedding that should be used
+
+        """
+        self.loaded_embeddings[self.active_embeddings] = self.get_input_embeddings()
+        self.set_input_embeddings(self.loaded_embeddings[name])
+        self._active_embedding = name
+
+    @property
+    def active_embeddings(self):
+        return self._active_embedding
+
 
 @inherit_doc
 class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
@@ -561,15 +683,15 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         else:
             self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
 
-    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
         """
         Sets the model into mode for training the given adapters. If self.base_model is self, must inherit from a class
         that implements this method, to preclude infinite recursion
         """
         if self.base_model is self:
-            super().train_adapter(adapter_setup)
+            super().train_adapter(adapter_setup, train_embeddings)
         else:
-            self.base_model.train_adapter(adapter_setup)
+            self.base_model.train_adapter(adapter_setup, train_embeddings)
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """
@@ -708,3 +830,35 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             return super().get_adapter(name)
         else:
             return self.base_model.get_adapter(name)
+
+    def load_embeddings(self, path: str, name: str):
+        if self.base_model is self:
+            return super().load_embeddings(path, name)
+        else:
+            return self.base_model.load_embeddings(path, name)
+
+    def save_embeddings(self, path, name, tokenizer=None):
+        if self.base_model is self:
+            return super().save_embeddings(path, name, tokenizer)
+        else:
+            return self.base_model.save_embeddings(path, name, tokenizer)
+
+    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
+        if self.base_model is None:
+            return super().add_embeddings(name, tokenizer, reference_embedding, reference_tokenizer, embedding_dim)
+        else:
+            return self.base_model.add_embeddings(
+                name, tokenizer, reference_embedding, reference_tokenizer, embedding_dim
+            )
+
+    def set_active_embeddings(self, name):
+        if self.base_model is None:
+            return super().set_active_embeddings(name)
+        else:
+            return self.base_model.set_active_embeddings(name)
+
+    def delete_embeddings(self, name):
+        if self.base_model is None:
+            return super().delete_embeddings(name)
+        else:
+            return self.base_model.delete_embeddings(name)

@@ -104,7 +104,7 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
 
         self.add_invertible_adapter(adapter_name)
 
-    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock]):
+    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
@@ -112,6 +112,8 @@ class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
         self.enable_invertible_adapters(adapter_setup.flatten())
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
+        if train_embeddings:
+            self.get_input_embeddings().train()
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         self.train()

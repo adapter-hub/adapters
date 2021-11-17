@@ -297,7 +297,7 @@ class ParallelTrainingMixin:
 
         train_dataset = self.dataset(tokenizer)
         training_args = TrainingArguments(
-            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=10, no_cuda=True
+            output_dir="./examples", do_train=True, learning_rate=0.1, max_steps=15, no_cuda=True
         )
 
         # evaluate
@@ -347,7 +347,10 @@ class ParallelTrainingMixin:
         state_dict = model.state_dict()
         for k, v in state_dict.items():
             if a1 in k:
-                self.assertTrue(torch.allclose(v, state_dict[k.replace(a1, a2)], atol=1e-5))
+                self.assertTrue(
+                    torch.allclose(v, state_dict[k.replace(a1, a2)], atol=1e-5),
+                    torch.max(torch.sub(v, state_dict[k.replace(a1, a2)])),
+                )
             if b1 in k:
                 self.assertTrue(torch.allclose(v, state_dict[k.replace(b1, b2)], atol=1e-5))
 

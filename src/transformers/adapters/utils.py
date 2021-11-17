@@ -31,6 +31,8 @@ HEAD_CONFIG_NAME = "head_config.json"
 HEAD_WEIGHTS_NAME = "pytorch_model_head.bin"
 ADAPTERFUSION_CONFIG_NAME = "adapter_fusion_config.json"
 ADAPTERFUSION_WEIGHTS_NAME = "pytorch_model_adapter_fusion.bin"
+EMBEDDING_FILE = "embedding.pt"
+TOKENIZER_PATH = "tokenizer"
 
 ADAPTER_HUB_URL = "https://raw.githubusercontent.com/Adapter-Hub/Hub/master/dist/v2/"
 ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index/{}.json"

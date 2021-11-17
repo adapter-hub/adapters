@@ -31,6 +31,7 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    adapter_composition
    training
    prediction_heads
+   embeddings
    extending
    v2_transition
 

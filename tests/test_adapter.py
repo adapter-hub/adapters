@@ -4,6 +4,7 @@ import unittest
 import torch
 from datasets import load_dataset
 
+from tests.test_adapter_embeddings import EmbeddingTestMixin
 from transformers import (
     AutoModel,
     AutoModelForSeq2SeqLM,
@@ -54,7 +55,7 @@ class AdapterTestBase:
             values.append(random.randint(0, vocab_size - 1))
         input_ids = torch.tensor(data=values, dtype=torch.long, device=torch_device).view(shape).contiguous()
         # this is needed e.g. for BART
-        if config and config.eos_token_id is not None:
+        if config and config.eos_token_id is not None and config.eos_token_id < vocab_size:
             input_ids[input_ids == config.eos_token_id] = random.randint(0, config.eos_token_id - 1)
             input_ids[:, -1] = config.eos_token_id
         in_data = {"input_ids": input_ids}
@@ -87,6 +88,7 @@ class BertAdapterTestBase(AdapterTestBase):
 
 @require_torch
 class BertAdapterTest(
+    EmbeddingTestMixin,
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
@@ -171,6 +173,7 @@ class DistilBertAdapterTestBase(AdapterTestBase):
 @require_torch
 class DistilBertAdapterTest(
     AdapterModelTestMixin,
+    EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
@@ -210,6 +213,7 @@ class BartAdapterTestBase(AdapterTestBase):
 class BartAdapterTest(
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
+    EmbeddingTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
@@ -280,6 +284,7 @@ class GPT2AdapterTestBase(AdapterTestBase):
 @require_torch
 class GPT2AdapterTest(
     AdapterModelTestMixin,
+    EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
@@ -413,6 +418,7 @@ class T5AdapterTestBase(AdapterTestBase):
 @require_torch
 class T5AdapterTest(
     T5AdapterTestBase,
+    EmbeddingTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     AdapterModelTestMixin,

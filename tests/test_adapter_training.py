@@ -20,8 +20,8 @@ class AdapterTrainingTestMixin:
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,
-            learning_rate=0.1,
-            max_steps=10,
+            learning_rate=0.7,
+            max_steps=20,
             no_cuda=True,
             per_device_train_batch_size=2,
         )
@@ -162,8 +162,17 @@ class AdapterTrainingTestMixin:
 
         self.trainings_run(model, tokenizer)
 
-        for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
-            if "mrpc" in k1:
-                self.assertFalse(torch.equal(v1, v2))
-            else:
-                self.assertTrue(torch.equal(v1, v2))
+        self.assertFalse(
+            all(
+                torch.equal(v1, v2)
+                for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
+                if "mrpc" in k1
+            )
+        )
+        self.assertTrue(
+            all(
+                torch.equal(v1, v2)
+                for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
+                if "mrpc" not in k1
+            )
+        )
