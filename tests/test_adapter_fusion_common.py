@@ -4,7 +4,7 @@ from dataclasses import asdict
 
 import torch
 
-from transformers import ADAPTERFUSION_CONFIG_MAP, AdapterConfig, PfeifferConfig, AutoModelWithHeads
+from transformers import ADAPTERFUSION_CONFIG_MAP, AdapterConfig, AutoModelWithHeads, PfeifferConfig
 from transformers.adapters.composition import Fuse
 from transformers.testing_utils import require_torch
 
@@ -168,12 +168,9 @@ class AdapterFusionModelTestMixin:
         self.assertEqual(model1.active_head, model2.active_head)
         self.assertEqual(model1.active_adapters, model2.active_adapters)
 
-        #assert equal forward pass
+        # assert equal forward pass
         in_data = self.get_input_samples((1, 128), config=model1.config)
         output1 = model1(**in_data)
         output2 = model2(**in_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
-
-
-

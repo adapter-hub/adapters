@@ -370,8 +370,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             loader = PredictionHeadLoader(self)
             loader.save(save_directory, head_name)
 
-
-
     def load_adapter(
         self,
         adapter_name_or_path: str,
@@ -484,7 +482,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         try:
             loader.load(load_dir)
         except ValueError:
-            logger.log(msg="The loaded adapter fusion does not have a head. Before inference you should train or load a head.", level=logging.INFO)
+            logger.log(
+                msg="The loaded adapter fusion does not have a head. Before inference you should train or load a head.",
+                level=logging.INFO,
+            )
         return load_name
 
     def save_all_adapters(
