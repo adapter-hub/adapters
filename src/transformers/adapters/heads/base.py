@@ -597,7 +597,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     def add_custom_head(self, head_name, config, overwrite_ok=False, set_active=True):
         if config["head_type"] in self.config.custom_heads:
-            head = self.config.custom_heads[config["head_type"]](head_name, config, self)
+            head = self.config.custom_heads[config["head_type"]](self, head_name, config)
             self.add_prediction_head(head, overwrite_ok, set_active=set_active)
         else:
             raise AttributeError(

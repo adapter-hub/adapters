@@ -9,8 +9,12 @@ from transformers.adapters.heads import PredictionHead
 
 
 class CustomHead(PredictionHead):
-    def __init__(self, name, config, model):
-        super().__init__(name)
+    def __init__(self,
+        model,
+        head_name,
+        config,
+    ):
+        super().__init__(head_name)
         self.config = config
         self.build(model=model)
 
