@@ -77,7 +77,7 @@ class AdapterConfig(Mapping):
         # the constructor does not accept additional kwargs, so add them separately
         defined_kwargs, new_kwargs = {}, {}
         for k, v in config.items():
-            if k in cls.__annotations__:
+            if k in cls.__dataclass_fields__.keys():
                 defined_kwargs[k] = v
             else:
                 new_kwargs[k] = v
@@ -115,9 +115,12 @@ class AdapterConfig(Mapping):
             config_dict = resolve_adapter_config(config, local_map=local_map)
         # convert back to dict to allow attr overrides
         if isinstance(config_dict, AdapterConfig):
+            cls_new = config_dict.__class__
             config_dict = config_dict.to_dict()
+        else:
+            cls_new = AdapterConfig
         config_dict.update((k, v) for k, v in kwargs.items() if v is not None)
-        return AdapterConfig.from_dict(config_dict)
+        return cls_new.from_dict(config_dict)
 
 
 @dataclass
