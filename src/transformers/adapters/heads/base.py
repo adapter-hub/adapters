@@ -508,8 +508,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             self.add_prediction_head(head, overwrite_ok=overwrite_ok, set_active=set_active)
         elif head_type in self.config.custom_heads:
             # we have to re-add the head type for custom heads
-            config["head_type"] = head_type
-            self.add_custom_head(head_name, config, overwrite_ok=overwrite_ok)
+            # config["head_type"] = head_type
+            self.add_custom_head(head_name, head_type, overwrite_ok=overwrite_ok, **config)
         else:
             raise AttributeError(
                 "Given head type '{}' is not known. Please register this head type before loading the model".format(
@@ -598,6 +598,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     def add_custom_head(self, head_name, head_type, overwrite_ok=False, set_active=True, **kwargs):
         if head_type in self.config.custom_heads:
             head = self.config.custom_heads[head_type](self, head_name, **kwargs)
+            if not hasattr(head.config, "head_type") or head.config["head_type"] is not head_type:
+                # Is it valid to do this?
+                logger.log(logging.INFO, "Prediction head is initialized to the wrong head type. "
+                           "The head type in the config is adapted to the correct head_type")
+                head.config["head_type"] = head_type
             self.add_prediction_head(head, overwrite_ok, set_active=set_active)
         else:
             raise AttributeError(
