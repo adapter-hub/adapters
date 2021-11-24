@@ -5,11 +5,12 @@ import torch
 
 from tests.test_modeling_common import ids_tensor
 from transformers import AutoConfig, AutoModelWithHeads
-from transformers.adapters.heads import PredictionHead, ClassificationHead
+from transformers.adapters.heads import ClassificationHead, PredictionHead
 
 
 class CustomHead(PredictionHead):
-    def __init__(self,
+    def __init__(
+        self,
         model,
         head_name,
         **config,
@@ -30,7 +31,7 @@ class AdapterCustomHeadTest(unittest.TestCase):
         model = AutoModelWithHeads.from_pretrained(model_name)
         model.register_custom_head("tag", CustomHead)
         config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
-        model.add_custom_head("custom_head", head_type="tag",  **config)
+        model.add_custom_head(head_type="tag", head_name="custom_head", **config)
         model.eval()
         in_data = ids_tensor((1, 128), 1000)
         output1 = model(in_data)
@@ -43,7 +44,7 @@ class AdapterCustomHeadTest(unittest.TestCase):
         model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
         model = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
         config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
-        model.add_custom_head("custom_head", head_type="tag", **config)
+        model.add_custom_head(head_type="tag", head_name="custom_head", **config)
         model.eval()
         in_data = ids_tensor((1, 128), 1000)
         output1 = model(in_data)
@@ -57,7 +58,7 @@ class AdapterCustomHeadTest(unittest.TestCase):
         model1 = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
         model2 = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
         config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
-        model1.add_custom_head("custom_head", head_type="tag",  **config)
+        model1.add_custom_head(head_type="tag", head_name="custom_head", **config)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_head(temp_dir, "custom_head")
@@ -83,12 +84,10 @@ class AdapterCustomHeadTest(unittest.TestCase):
         in_data = ids_tensor((1, 128), 1000)
 
         model.register_custom_head("classification", ClassificationHead)
-        model.add_custom_head("custom_head", head_type="classification", num_labels=3, layers=2, activation_function="tanh")
+        model.add_custom_head(
+            head_type="classification", head_name="custom_head", num_labels=3, layers=2, activation_function="tanh"
+        )
         output = model(in_data)
 
         self.assertEqual((1, 3), output[0].shape)
         self.assertEqual("custom_head", model.active_head)
-
-
-
-
