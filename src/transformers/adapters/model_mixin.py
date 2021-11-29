@@ -811,12 +811,12 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         )
 
     def save_adapter_fusion(
-            self,
-            save_directory: str,
-            adapter_names: list,
-            meta_dict: dict = None,
-            custom_weights_loaders: Optional[List[WeightsLoader]] = None,
-            with_head: Optional[str] = False,
+        self,
+        save_directory: str,
+        adapter_names: list,
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        with_head: Optional[str] = False,
     ):
         """
         Saves an adapter and its configuration file to a directory so that it can be shared or reloaded using
