@@ -169,7 +169,7 @@ class AdapterFusionModelTestMixin:
         model1.set_active_adapters(Fuse(name1, name2))
         # save & reload model
         with tempfile.TemporaryDirectory() as temp_dir:
-            model1.save_adapter_fusion(temp_dir, ",".join([name1, name2]), head_name=head_name)
+            model1.save_adapter_fusion(temp_dir, ",".join([name1, name2]), with_head=head_name)
             model2.load_adapter_fusion(temp_dir, set_active=True)
 
         self.assertTrue(head_name in model2.heads)
