@@ -101,7 +101,7 @@ _deps = [
     "flax>=0.3.4",
     "fugashi>=1.0",
     "GitPython<3.1.19",
-    "huggingface-hub>=0.0.17",
+    "huggingface-hub>=0.1.0,<1.0",
     "importlib_metadata",
     "ipadic>=1.0.0,<2.0",
     "isort>=5.5.4",
@@ -138,7 +138,7 @@ _deps = [
     "scikit-learn",
     "sentencepiece>=0.1.91,!=0.1.92",
     "sigopt",
-    "soundfile",
+    "librosa",
     "sphinx-copybutton",
     "sphinx-markdown-tables",
     "sphinx-rtd-theme==0.4.3",  # sphinx-rtd-theme==0.5.0 introduced big changes in the style.
@@ -253,10 +253,10 @@ extras["optuna"] = deps_list("optuna")
 extras["ray"] = deps_list("ray[tune]")
 extras["sigopt"] = deps_list("sigopt")
 
-extras["integrations"] = extras["optuna"] + extras["ray"]+ extras["sigopt"]
+extras["integrations"] = extras["optuna"] + extras["ray"] + extras["sigopt"]
 
 extras["serving"] = deps_list("pydantic", "uvicorn", "fastapi", "starlette")
-extras["audio"] = deps_list("soundfile")
+extras["audio"] = deps_list("librosa")
 extras["speech"] = deps_list("torchaudio") + extras["audio"]  # `pip install ".[speech]"` is deprecated and `pip install ".[torch-speech]"` should be used instead
 extras["torch-speech"] = deps_list("torchaudio") + extras["audio"]
 extras["tf-speech"] = extras["audio"]
@@ -346,7 +346,7 @@ install_requires = [
 
 setup(
     name="adapter-transformers",
-    version="2.2.0",
+    version="2.3.0a0",
     author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, Hannah Sterz, based on work by Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Sam Shleifer, Patrick von Platen, Sylvain Gugger, Suraj Patil, Stas Bekman, Google AI Language Team Authors, Open AI team Authors, Facebook AI Authors, Carnegie Mellon University Authors",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A friendly fork of Huggingface's Transformers, adding Adapters to PyTorch language models",

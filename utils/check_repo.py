@@ -42,6 +42,7 @@ PRIVATE_MODELS = [
 # Being in this list is an exception and should **not** be the rule.
 IGNORE_NON_TESTED = PRIVATE_MODELS.copy() + [
     # models to ignore for not tested
+    "SegformerDecodeHead",  # Building part of bigger (tested) model.
     "BigBirdPegasusEncoder",  # Building part of bigger (tested) model.
     "BigBirdPegasusDecoder",  # Building part of bigger (tested) model.
     "BigBirdPegasusDecoderWrapper",  # Building part of bigger (tested) model.
@@ -97,6 +98,8 @@ TEST_FILES_WITH_NO_COMMON_TESTS = [
 # should **not** be the rule.
 IGNORE_NON_AUTO_CONFIGURED = PRIVATE_MODELS.copy() + [
     # models to ignore for model xxx mapping
+    "SegformerDecodeHead",
+    "SegformerForSemanticSegmentation",
     "FlaxBeitForMaskedImageModeling",
     "BeitForMaskedImageModeling",
     "CLIPTextModel",
@@ -123,6 +126,8 @@ IGNORE_NON_AUTO_CONFIGURED = PRIVATE_MODELS.copy() + [
     "TFRagTokenForGeneration",
     "Wav2Vec2ForCTC",
     "HubertForCTC",
+    "SEWForCTC",
+    "SEWDForCTC",
     "XLMForQuestionAnswering",
     "XLNetForQuestionAnswering",
     "SeparableConv1D",
@@ -160,10 +165,12 @@ def get_model_modules():
         "modeling_flax_utils",
         "modeling_transfo_xl_utilities",
         "modeling_tf_auto",
+        "modeling_tf_encoder_decoder",
         "modeling_tf_outputs",
         "modeling_tf_pytorch_utils",
         "modeling_tf_utils",
         "modeling_tf_transfo_xl_utilities",
+        "modeling_vision_encoder_decoder",
     ]
     modules = []
     for model in dir(transformers.models):
@@ -231,6 +238,7 @@ def get_model_test_files():
         "test_modeling_flax_encoder_decoder",
         "test_modeling_marian",
         "test_modeling_tf_common",
+        "test_modeling_tf_encoder_decoder",
     ]
     test_files = []
     for filename in os.listdir(PATH_TO_TESTS):

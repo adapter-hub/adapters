@@ -385,7 +385,7 @@ class Trainer:
         self.optimizer, self.lr_scheduler = optimizers
         if model_init is not None and (self.optimizer is not None or self.lr_scheduler is not None):
             raise RuntimeError(
-                "Passing a `model_init` is incompatible with providing the `optimizers` argument."
+                "Passing a `model_init` is incompatible with providing the `optimizers` argument. "
                 "You should subclass `Trainer` and override the `create_optimizer_and_scheduler` method."
             )
         default_callbacks = DEFAULT_CALLBACKS + get_reporting_integration_callbacks(self.args.report_to)
@@ -572,16 +572,16 @@ class Trainer:
             model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
             if self.args.world_size <= 1:
                 return LengthGroupedSampler(
-                    self.train_dataset,
                     self.args.train_batch_size,
+                    dataset=self.train_dataset,
                     lengths=lengths,
                     model_input_name=model_input_name,
                     generator=generator,
                 )
             else:
                 return DistributedLengthGroupedSampler(
-                    self.train_dataset,
                     self.args.train_batch_size,
+                    dataset=self.train_dataset,
                     num_replicas=self.args.world_size,
                     rank=self.args.process_index,
                     lengths=lengths,
@@ -996,7 +996,7 @@ class Trainer:
             elif isinstance(model, PreTrainedModel):
                 # find_unused_parameters breaks checkpointing as per
                 # https://github.com/huggingface/transformers/pull/4659#issuecomment-643356021
-                find_unused_parameters = not getattr(model.config, "_gradient_checkpointing", False)
+                find_unused_parameters = not model.is_gradient_checkpointing
             else:
                 find_unused_parameters = True
             model = nn.parallel.DistributedDataParallel(
@@ -1486,7 +1486,7 @@ class Trainer:
                 return
         else:
             rng_file = os.path.join(checkpoint, "rng_state.pth")
-            if not os.path.isfile(os.path.join(checkpoint, rng_file)):
+            if not os.path.isfile(rng_file):
                 logger.info(
                     "Didn't find an RNG file, if you are resuming a training that was launched in a distributed "
                     "fashion, reproducibility is not guaranteed."
@@ -1712,8 +1712,8 @@ class Trainer:
             if backend is None:
                 raise RuntimeError(
                     "At least one of optuna or ray should be installed. "
-                    "To install optuna run `pip install optuna`."
-                    "To install ray run `pip install ray[tune]`."
+                    "To install optuna run `pip install optuna`. "
+                    "To install ray run `pip install ray[tune]`. "
                     "To install sigopt run `pip install sigopt`."
                 )
         backend = HPSearchBackend(backend)
@@ -2489,7 +2489,11 @@ class Trainer:
                     logits = smp_nested_concat(logits_mb)
             else:
                 if has_labels:
-                    loss, outputs = self.compute_loss(model, inputs, return_outputs=True)
+                    if self.use_amp:
+                        with autocast():
+                            loss, outputs = self.compute_loss(model, inputs, return_outputs=True)
+                    else:
+                        loss, outputs = self.compute_loss(model, inputs, return_outputs=True)
                     loss = loss.mean().detach()
                     if isinstance(outputs, dict):
                         logits = tuple(v for k, v in outputs.items() if k not in ignore_keys + ["loss"])
@@ -2545,9 +2549,11 @@ class Trainer:
             return
         use_auth_token = True if self.args.hub_token is None else self.args.hub_token
         if self.args.hub_model_id is None:
-            repo_name = get_full_repo_name(Path(self.args.output_dir).name, token=self.args.hub_token)
+            repo_name = Path(self.args.output_dir).absolute().name
         else:
             repo_name = self.args.hub_model_id
+        if "/" not in repo_name:
+            repo_name = get_full_repo_name(repo_name, token=self.args.hub_token)
 
         try:
             self.repo = Repository(
