@@ -11,6 +11,7 @@ model.active_adapters = "adapter_name"
 ```
 
 Note that we also could have used `model.set_active_adapters("adapter_name")` which does the same.
+Alternatively, the [`AdapterSetup`](classes/adapter_config.html#transformers.AdapterSetup) context manager allows dynamic configuration of activated setups without changing the model state.
 
 ```eval_rst
 .. important::
