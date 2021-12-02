@@ -431,7 +431,7 @@ class AdapterLayerBaseMixin(ABC):
         hidden_states = torch.cat(children_hidden, 0)
         return hidden_states
 
-    def adapters_forward(self, hidden_states, input_tensor, **kwargs):
+    def adapters_forward(self, hidden_states, input_tensor):
         """
         Called for each forward pass through adapters.
         """

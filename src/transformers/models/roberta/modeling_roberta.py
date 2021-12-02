@@ -305,10 +305,10 @@ class RobertaSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self._init_adapter_modules()
 
-    def forward(self, hidden_states, input_tensor, **kwargs):
+    def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapters_forward(hidden_states, input_tensor, **kwargs)
+        hidden_states = self.adapters_forward(hidden_states, input_tensor)
         return hidden_states
 
 
@@ -347,7 +347,6 @@ class RobertaAttention(nn.Module):
         encoder_attention_mask=None,
         past_key_value=None,
         output_attentions=False,
-        **kwargs
     ):
         self_outputs = self.self(
             hidden_states,
@@ -358,7 +357,7 @@ class RobertaAttention(nn.Module):
             past_key_value,
             output_attentions,
         )
-        attention_output = self.output(self_outputs[0], hidden_states, **kwargs)
+        attention_output = self.output(self_outputs[0], hidden_states)
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
         return outputs
 
@@ -390,10 +389,10 @@ class RobertaOutput(BertOutputAdaptersMixin, nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self._init_adapter_modules()
 
-    def forward(self, hidden_states, input_tensor, **kwargs):
+    def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapters_forward(hidden_states, input_tensor, **kwargs)
+        hidden_states = self.adapters_forward(hidden_states, input_tensor)
         return hidden_states
 
 
@@ -422,7 +421,6 @@ class RobertaLayer(BertLayerAdaptersMixin, nn.Module):
         encoder_attention_mask=None,
         past_key_value=None,
         output_attentions=False,
-        **kwargs
     ):
         # decoder uni-directional self-attention cached key/values tuple is at positions 1,2
         self_attn_past_key_value = past_key_value[:2] if past_key_value is not None else None
@@ -432,7 +430,6 @@ class RobertaLayer(BertLayerAdaptersMixin, nn.Module):
             head_mask,
             output_attentions=output_attentions,
             past_key_value=self_attn_past_key_value,
-            **kwargs,
         )
         attention_output = self_attention_outputs[0]
 
@@ -469,7 +466,7 @@ class RobertaLayer(BertLayerAdaptersMixin, nn.Module):
             present_key_value = present_key_value + cross_attn_present_key_value
 
         layer_output = apply_chunking_to_forward(
-            self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output, **kwargs
+            self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output
         )
         outputs = (layer_output,) + outputs
 
@@ -479,9 +476,9 @@ class RobertaLayer(BertLayerAdaptersMixin, nn.Module):
 
         return outputs
 
-    def feed_forward_chunk(self, attention_output, **kwargs):
+    def feed_forward_chunk(self, attention_output):
         intermediate_output = self.intermediate(attention_output)
-        layer_output = self.output(intermediate_output, attention_output, **kwargs)
+        layer_output = self.output(intermediate_output, attention_output)
         return layer_output
 
 
@@ -505,7 +502,6 @@ class RobertaEncoder(BertEncoderAdaptersMixin, nn.Module):
         output_attentions=False,
         output_hidden_states=False,
         return_dict=True,
-        **kwargs
     ):
         all_hidden_states = () if output_hidden_states else None
         all_self_attentions = () if output_attentions else None
@@ -550,7 +546,6 @@ class RobertaEncoder(BertEncoderAdaptersMixin, nn.Module):
                     encoder_attention_mask,
                     past_key_value,
                     output_attentions,
-                    **kwargs,
                 )
 
             hidden_states = layer_outputs[0]
@@ -786,7 +781,6 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        **kwargs
     ):
         r"""
         encoder_hidden_states  (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
@@ -813,7 +807,7 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        self.pre_transformer_forward(**kwargs)
+        self.pre_transformer_forward()
 
         if self.config.is_decoder:
             use_cache = use_cache if use_cache is not None else self.config.use_cache
@@ -888,7 +882,6 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            **kwargs,
         )
         sequence_output = encoder_outputs[0]
         pooled_output = self.pooler(sequence_output) if self.pooler is not None else None
@@ -1034,7 +1027,6 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         encoder_hidden_states  (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
@@ -1096,7 +1088,6 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1196,7 +1187,6 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1220,7 +1210,6 @@ class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
         sequence_output = outputs[0]
         prediction_scores = self.lm_head(
@@ -1314,7 +1303,6 @@ class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, RobertaPreTr
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1334,7 +1322,6 @@ class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, RobertaPreTr
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
         sequence_output = outputs[0]
         logits = self.classifier(sequence_output)
@@ -1412,7 +1399,6 @@ class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, RobertaPreTrainedMod
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1443,7 +1429,6 @@ class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, RobertaPreTrainedMod
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
         pooled_output = outputs[1]
 
@@ -1511,7 +1496,6 @@ class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, RobertaPreTrain
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1530,7 +1514,6 @@ class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, RobertaPreTrain
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1626,7 +1609,6 @@ class RobertaForQuestionAnswering(ModelWithHeadsAdaptersMixin, RobertaPreTrained
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):

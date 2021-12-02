@@ -423,7 +423,6 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
         **kwargs,
     ):
         r"""
@@ -464,11 +463,9 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
         }
 
         if self.config.adapters:
-            self.pre_transformer_forward(adapter_names=adapter_names, **kwargs)
+            self.pre_transformer_forward()
 
         if encoder_outputs is None:
-            if adapter_names is not None:
-                kwargs_encoder["adapter_names"] = adapter_names
             encoder_outputs = self.encoder(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
@@ -487,8 +484,6 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
             )
 
         # Decode
-        if adapter_names is not None:
-            kwargs_decoder["adapter_names"] = adapter_names
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
             attention_mask=decoder_attention_mask,

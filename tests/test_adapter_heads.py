@@ -2,7 +2,7 @@ import tempfile
 
 import torch
 
-from transformers import MODEL_WITH_HEADS_MAPPING, AutoModelForSequenceClassification, AutoModelWithHeads
+from transformers import MODEL_WITH_HEADS_MAPPING, AdapterSetup, AutoModelForSequenceClassification, AutoModelWithHeads
 from transformers.adapters.composition import BatchSplit, Stack
 from transformers.testing_utils import require_torch, torch_device
 
@@ -298,8 +298,9 @@ class PredictionHeadModelTestMixin:
         in_data = self.get_input_samples((1, 128), config=flex_head_model.config)
         static_head_model.to(torch_device)
         flex_head_model.to(torch_device)
-        output1 = static_head_model(**in_data, adapter_names=["test"])
-        output2 = flex_head_model(**in_data, adapter_names=["test"], head="test")
+        with AdapterSetup("test"):
+            output1 = static_head_model(**in_data)
+            output2 = flex_head_model(**in_data, head="test")
         self.assertTrue(torch.all(torch.isclose(output1.logits, output2.logits)))
 
     def test_invertible_adapter_with_head(self):

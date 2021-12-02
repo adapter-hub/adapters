@@ -300,7 +300,6 @@ class BartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
         attention_mask: torch.Tensor,
         layer_head_mask: torch.Tensor,
         output_attentions: bool = False,
-        **kwargs
     ):
         """
         Args:
@@ -321,14 +320,14 @@ class BartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual, **kwargs)
+        hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
 
         residual = hidden_states
         hidden_states = self.activation_fn(self.fc1(hidden_states))
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.output_adapters.adapters_forward(hidden_states, residual, **kwargs)
+        hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
 
         if hidden_states.dtype == torch.float16 and (
             torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()
@@ -386,7 +385,6 @@ class BartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
         past_key_value: Optional[Tuple[torch.Tensor]] = None,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = True,
-        **kwargs
     ):
         """
         Args:
@@ -419,7 +417,7 @@ class BartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual, **kwargs)
+        hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
 
         # Cross-Attention Block
         cross_attn_present_key_value = None
@@ -438,7 +436,7 @@ class BartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
                 output_attentions=output_attentions,
             )
             hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-            hidden_states = self.cross_attention_adapters.adapters_forward(hidden_states, residual, **kwargs)
+            hidden_states = self.cross_attention_adapters.adapters_forward(hidden_states, residual)
 
             # add cross-attn to positions 3,4 of present_key_value tuple
             present_key_value = present_key_value + cross_attn_present_key_value
@@ -449,7 +447,7 @@ class BartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.output_adapters.adapters_forward(hidden_states, residual, **kwargs)
+        hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
 
         outputs = (hidden_states,)
 
@@ -728,7 +726,6 @@ class BartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, Bart
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        **kwargs
     ):
         r"""
         Args:
@@ -836,7 +833,6 @@ class BartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, Bart
                         attention_mask,
                         layer_head_mask=(head_mask[idx] if head_mask is not None else None),
                         output_attentions=output_attentions,
-                        **kwargs,
                     )
 
                 hidden_states = layer_outputs[0]
@@ -927,7 +923,6 @@ class BartDecoder(BartEncoderDecoderAdaptersMixin, BartPretrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        **kwargs
     ):
         r"""
         Args:
@@ -1099,7 +1094,6 @@ class BartDecoder(BartEncoderDecoderAdaptersMixin, BartPretrainedModel):
                     past_key_value=past_key_value,
                     output_attentions=output_attentions,
                     use_cache=use_cache,
-                    **kwargs,
                 )
             hidden_states = layer_outputs[0]
             attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
@@ -1189,7 +1183,6 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        **kwargs
     ):
 
         # different to other models, Bart automatically creates decoder_input_ids from
@@ -1205,7 +1198,7 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        self.pre_transformer_forward(**kwargs)
+        self.pre_transformer_forward()
 
         if encoder_outputs is None:
             encoder_outputs = self.encoder(
@@ -1216,7 +1209,6 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
-                **kwargs,
             )
         # If the user passed a tuple for encoder_outputs, we wrap it in a BaseModelOutput when return_dict=True
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
@@ -1244,7 +1236,6 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            **kwargs,
         )
 
         if not return_dict:
@@ -1408,7 +1399,6 @@ class BartForConditionalGeneration(ModelWithHeadsAdaptersMixin, BartPretrainedMo
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1442,7 +1432,6 @@ class BartForConditionalGeneration(ModelWithHeadsAdaptersMixin, BartPretrainedMo
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
         lm_logits = self.model.encoder.invertible_adapters_forward(outputs[0], rev=True)
         lm_logits = self.lm_head(lm_logits) + self.final_logits_bias
@@ -1554,7 +1543,6 @@ class BartForSequenceClassification(ModelWithHeadsAdaptersMixin, BartPretrainedM
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1585,7 +1573,6 @@ class BartForSequenceClassification(ModelWithHeadsAdaptersMixin, BartPretrainedM
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
         hidden_states = outputs[0]  # last hidden state
 
@@ -1670,7 +1657,6 @@ class BartForQuestionAnswering(ModelWithHeadsAdaptersMixin, BartPretrainedModel)
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1701,7 +1687,6 @@ class BartForQuestionAnswering(ModelWithHeadsAdaptersMixin, BartPretrainedModel)
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1762,7 +1747,7 @@ class BartDecoderWrapper(BartModelAdaptersMixin, BartPretrainedModel):
         self._init_adapter_modules()
 
     def forward(self, *args, **kwargs):
-        self.pre_transformer_forward(**kwargs)
+        self.pre_transformer_forward()
 
         return self.decoder(*args, **kwargs)
 
@@ -1818,7 +1803,6 @@ class BartForCausalLM(ModelWithHeadsAdaptersMixin, BartPretrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         Args:
@@ -1925,7 +1909,6 @@ class BartForCausalLM(ModelWithHeadsAdaptersMixin, BartPretrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
 
         logits = self.lm_head(outputs[0])
