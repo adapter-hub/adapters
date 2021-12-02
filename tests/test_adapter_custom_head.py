@@ -6,6 +6,7 @@ import torch
 from tests.test_modeling_common import ids_tensor
 from transformers import AutoConfig, AutoModelWithHeads
 from transformers.adapters.heads import PredictionHead
+from transformers.testing_utils import require_torch, torch_device
 
 
 class CustomHead(PredictionHead):
@@ -20,6 +21,7 @@ class CustomHead(PredictionHead):
         return outputs
 
 
+@require_torch
 class AdapterCustomHeadTest(unittest.TestCase):
     def test_add_custom_head(self):
         model_name = "bert-base-uncased"
@@ -28,9 +30,11 @@ class AdapterCustomHeadTest(unittest.TestCase):
         config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
         model.add_custom_head("custom_head", config)
         model.eval()
+        model.to(torch_device)
         in_data = ids_tensor((1, 128), 1000)
         output1 = model(in_data)
         model.add_tagging_head("tagging_head", num_labels=3, layers=2)
+        model.to(torch_device)
         output2 = model(in_data)
         self.assertEqual(output1[0].size(), output2[0].size())
 
@@ -41,9 +45,11 @@ class AdapterCustomHeadTest(unittest.TestCase):
         config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
         model.add_custom_head("custom_head", config)
         model.eval()
+        model.to(torch_device)
         in_data = ids_tensor((1, 128), 1000)
         output1 = model(in_data)
         model.add_tagging_head("tagging_head", num_labels=3, layers=2)
+        model.to(torch_device)
         output2 = model(in_data)
         self.assertEqual(output1[0].size(), output2[0].size())
 
@@ -63,6 +69,8 @@ class AdapterCustomHeadTest(unittest.TestCase):
         model2.eval()
 
         in_data = ids_tensor((1, 128), 1000)
+        model1.to(torch_device)
+        model2.to(torch_device)
         output1 = model1(in_data)
         output2 = model2(in_data)
         self.assertEqual(output1[0].size(), output2[0].size())

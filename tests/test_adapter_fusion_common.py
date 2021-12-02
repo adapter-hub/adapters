@@ -12,7 +12,7 @@ from transformers import (
     PfeifferConfig,
 )
 from transformers.adapters.composition import Fuse
-from transformers.testing_utils import require_torch
+from transformers.testing_utils import require_torch, torch_device
 
 
 @require_torch
@@ -42,6 +42,7 @@ class AdapterFusionModelTestMixin:
                 # check forward pass
                 input_data = self.get_input_samples((1, 128), config=model.config)
                 model.set_active_adapters([[name1, name2]])
+                model.to(torch_device)
                 adapter_output = model(**input_data)
                 model.set_active_adapters(None)
                 base_output = model(**input_data)
@@ -107,6 +108,8 @@ class AdapterFusionModelTestMixin:
 
                 # check equal output
                 in_data = self.get_input_samples((1, 128), config=model1.config)
+                model1.to(torch_device)
+                model2.to(torch_device)
                 output1 = model1(**in_data)
                 output2 = model2(**in_data)
                 self.assertEqual(len(output1), len(output2))
@@ -133,6 +136,8 @@ class AdapterFusionModelTestMixin:
         input_data = self.get_input_samples((1, 128), config=model1.config)
         model1.set_active_adapters([[name1, name2]])
         model2.set_active_adapters([[name1, name2]])
+        model1.to(torch_device)
+        model2.to(torch_device)
         output1 = model1(**input_data)
         output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))

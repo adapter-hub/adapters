@@ -30,6 +30,9 @@ class PredictionHeadModelTestMixin:
         # check if adapter was correctly loaded
         self.assertTrue(head_name in compare_model.heads)
 
+        model.to(torch_device)
+        compare_model.to(torch_device)
+
         # make a forward pass
         model.active_head = head_name
         input_shape = input_shape or (self.batch_size, self.seq_length)
@@ -185,6 +188,8 @@ class PredictionHeadModelTestMixin:
             model2.set_active_adapters(name)
         # check equal output
         in_data = self.get_input_samples((1, 128), config=model1.config)
+        model1.to(torch_device)
+        model2.to(torch_device)
         output1 = model1(**in_data)
         output2 = model2(**in_data)
         self.assertEqual(len(output1), len(output2))
@@ -209,6 +214,8 @@ class PredictionHeadModelTestMixin:
 
         # check equal output
         in_data = self.get_input_samples((1, 128), config=model1.config)
+        model1.to(torch_device)
+        model2.to(torch_device)
         output1 = model1(**in_data)
         output2 = model2(**in_data)
         self.assertEqual(len(output1), len(output2))
@@ -235,9 +242,11 @@ class PredictionHeadModelTestMixin:
         model.add_classification_head("a")
         model.add_classification_head("b")
         model.active_head = BatchSplit("a", "b", batch_sizes=[1, 2])
-        in_data = self.get_input_samples((3, 128), config=model.config)
 
+        in_data = self.get_input_samples((3, 128), config=model.config)
+        model.to(torch_device)
         out = model(**in_data)
+
         self.assertEqual(2, len(out))
         self.assertEqual((1, 2), out[0][0].shape)
         self.assertEqual((2, 2), out[1][0].shape)
@@ -252,6 +261,7 @@ class PredictionHeadModelTestMixin:
         model.set_active_adapters(BatchSplit(Stack("c", "a"), "b", batch_sizes=[2, 1]))
 
         in_data = self.get_input_samples((3, 128), config=model.config)
+        model.to(torch_device)
         out = model(**in_data)
 
         self.assertEqual(2, len(out))
@@ -286,6 +296,8 @@ class PredictionHeadModelTestMixin:
 
         # check equal output
         in_data = self.get_input_samples((1, 128), config=flex_head_model.config)
+        static_head_model.to(torch_device)
+        flex_head_model.to(torch_device)
         output1 = static_head_model(**in_data, adapter_names=["test"])
         output2 = flex_head_model(**in_data, adapter_names=["test"], head="test")
         self.assertTrue(torch.all(torch.isclose(output1.logits, output2.logits)))
@@ -325,6 +337,7 @@ class PredictionHeadModelTestMixin:
         inv_adapter.register_forward_pre_hook(forward_pre_hook)
 
         in_data = self.get_input_samples((self.batch_size, self.seq_length), config=model.config)
+        model.to(torch_device)
         out = model(**in_data)
 
         self.assertEqual((self.batch_size, self.seq_length, model.config.vocab_size), out[0].shape)

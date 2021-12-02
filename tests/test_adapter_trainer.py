@@ -117,7 +117,9 @@ class TestAdapterTrainer(unittest.TestCase):
 
         self.assertEqual(model.config.adapters.adapters, model_resume.config.adapters.adapters)
 
-        for ((k1, v1), (k2, v2)) in zip(trainer.model.state_dict().items(), trainer_resume.model.state_dict().items()):
+        for ((k1, v1), (k2, v2)) in zip(
+            trainer.model.to("cpu").state_dict().items(), trainer_resume.model.to("cpu").state_dict().items()
+        ):
             self.assertEqual(k1, k2)
             if "adapter" in k1:
                 self.assertTrue(torch.equal(v1, v2), k1)
@@ -275,7 +277,7 @@ class TestAdapterTrainer(unittest.TestCase):
             self.assertEqual(model.config.adapters.adapters, model_resume.config.adapters.adapters)
 
             for ((k1, v1), (k2, v2)) in zip(
-                trainer.model.state_dict().items(), trainer_resume.model.state_dict().items()
+                trainer.model.to("cpu").state_dict().items(), trainer_resume.model.to("cpu").state_dict().items()
             ):
                 self.assertEqual(k1, k2)
                 if "adapter" in k1 or "dummy" in k1:
