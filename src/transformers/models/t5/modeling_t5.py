@@ -25,6 +25,7 @@ from torch.nn import CrossEntropyLoss
 from torch.utils.checkpoint import checkpoint
 
 from ...activations import ACT2FN
+from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...adapters.models.t5 import (
     T5BlockAdaptersMixin,
@@ -1923,45 +1924,45 @@ class T5ModelWithHeads(T5ModelHeadsMixin, T5PreTrainedModel):
             # get decoder inputs from shifting lm labels to the right
             decoder_input_ids = self._shift_right(labels)
 
-        model_output = self.transformer(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            decoder_input_ids=decoder_input_ids,
-            decoder_attention_mask=decoder_attention_mask,
-            head_mask=head_mask,
-            decoder_head_mask=decoder_head_mask,
-            cross_attn_head_mask=cross_attn_head_mask,
-            encoder_outputs=encoder_outputs,
-            past_key_values=past_key_values,
-            inputs_embeds=inputs_embeds,
-            decoder_inputs_embeds=decoder_inputs_embeds,
-            labels=labels,
-            use_cache=use_cache,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-            adapter_names=adapter_names,
-        )
-        sequence_output = model_output[0]
-        # ToDo move head to device for parallel forward pass
-
-        if self.config.tie_word_embeddings:
-            # Rescale output before projecting on vocab
-            # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/transformer.py#L586
-            new_hidden_state = sequence_output * (self.config.d_model ** -0.5)
-            if isinstance(model_output, tuple):
-                model_output = (new_hidden_state,) + model_output[1:]
-            else:
-                model_output["last_hidden_state"] = new_hidden_state
-
-        if head or self.active_head:
-            kwargs["labels"] = labels
-            head_outputs = self.forward_head(
-                model_output,
-                head_name=head,
+        with AdapterSetup(adapter_names, ignore_empty=True):
+            model_output = self.transformer(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                decoder_input_ids=decoder_input_ids,
+                decoder_attention_mask=decoder_attention_mask,
+                head_mask=head_mask,
+                decoder_head_mask=decoder_head_mask,
+                cross_attn_head_mask=cross_attn_head_mask,
+                encoder_outputs=encoder_outputs,
+                past_key_values=past_key_values,
+                inputs_embeds=inputs_embeds,
+                decoder_inputs_embeds=decoder_inputs_embeds,
+                labels=labels,
+                use_cache=use_cache,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
-                **kwargs,
             )
-            return head_outputs
-        else:
-            return model_output
+            sequence_output = model_output[0]
+            # ToDo move head to device for parallel forward pass
+
+            if self.config.tie_word_embeddings:
+                # Rescale output before projecting on vocab
+                # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/transformer.py#L586
+                new_hidden_state = sequence_output * (self.config.d_model ** -0.5)
+                if isinstance(model_output, tuple):
+                    model_output = (new_hidden_state,) + model_output[1:]
+                else:
+                    model_output["last_hidden_state"] = new_hidden_state
+
+            if head or self.active_head:
+                kwargs["labels"] = labels
+                head_outputs = self.forward_head(
+                    model_output,
+                    head_name=head,
+                    return_dict=return_dict,
+                    **kwargs,
+                )
+                return head_outputs
+            else:
+                return model_output

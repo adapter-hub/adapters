@@ -5,6 +5,7 @@ import torch
 from torch import nn
 
 from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
+from .context import AdapterSetup
 from .modeling import Adapter, BertFusion
 
 
@@ -435,10 +436,10 @@ class AdapterLayerBaseMixin(ABC):
         Called for each forward pass through adapters.
         """
         if hasattr(self.config, "adapters"):
-            # First check for given arguments before falling back to defined setup
-            adapter_setup = kwargs.pop("adapter_names", None)
-            if adapter_setup is not None:
-                adapter_setup = parse_composition(adapter_setup)
+            # First check current context before falling back to defined setup
+            context = AdapterSetup.get_context()
+            if context is not None:
+                adapter_setup = context.adapter_setup
             else:
                 adapter_setup = self.config.adapters.active_setup
         else:

@@ -34,6 +34,7 @@ else:
     is_amp_available = False
 
 from ...activations import ACT2FN
+from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin, GPT2ModelHeadsMixin
 from ...file_utils import (
@@ -1595,44 +1596,46 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.transformer(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-            adapter_names=adapter_names,
-        )
+        with AdapterSetup(adapter_names, ignore_empty=True):
+            outputs = self.transformer(
+                input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+                position_ids=position_ids,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
 
-        batch_size = outputs[0].shape[0]
+            batch_size = outputs[0].shape[0]
 
-        if self.config.pad_token_id is None:
-            # TODO-AH: this may result in unexpected behavior for classification. Find a better way to do this?
-            sequence_lengths = -1
-        else:
-            if input_ids is not None:
-                sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
-                sequence_lengths = self.transformer.adjust_attention_mask_for_parallel(outputs[0], sequence_lengths)
-            else:
+            if self.config.pad_token_id is None:
+                # TODO-AH: this may result in unexpected behavior for classification. Find a better way to do this?
                 sequence_lengths = -1
-                logger.warning(
-                    f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
-                    f"unexpected if using padding tokens in conjunction with `inputs_embeds.`"
-                )
+            else:
+                if input_ids is not None:
+                    sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
+                    sequence_lengths = self.transformer.adjust_attention_mask_for_parallel(
+                        outputs[0], sequence_lengths
+                    )
+                else:
+                    sequence_lengths = -1
+                    logger.warning(
+                        f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
+                        f"unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                    )
 
-        cls_logits = outputs[0][range(batch_size), sequence_lengths]
+            cls_logits = outputs[0][range(batch_size), sequence_lengths]
 
-        outputs = self.forward_head(
-            outputs,
-            head_name=head,
-            cls_output=cls_logits,
-            attention_mask=attention_mask,
-            return_dict=return_dict,
-            **kwargs,
-        )
+            outputs = self.forward_head(
+                outputs,
+                head_name=head,
+                cls_output=cls_logits,
+                attention_mask=attention_mask,
+                return_dict=return_dict,
+                **kwargs,
+            )
 
-        return outputs
+            return outputs

@@ -28,6 +28,7 @@ from .test_adapter_composition import ParallelAdapterInferenceTestMixin, Paralle
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
+from .test_adapter_setup_context import AdapterSetupContextTestMixin
 from .test_adapter_training import AdapterTrainingTestMixin
 
 
@@ -94,6 +95,7 @@ class BertAdapterTest(
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
+    AdapterSetupContextTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
@@ -128,6 +130,7 @@ class RobertaAdapterTest(
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
+    AdapterSetupContextTestMixin,
     ParallelAdapterInferenceTestMixin,
     RobertaAdapterTestBase,
     unittest.TestCase,
@@ -178,6 +181,7 @@ class DistilBertAdapterTest(
     EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
+    AdapterSetupContextTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
@@ -217,6 +221,7 @@ class BartAdapterTest(
     AdapterFusionModelTestMixin,
     EmbeddingTestMixin,
     PredictionHeadModelTestMixin,
+    AdapterSetupContextTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
@@ -254,6 +259,7 @@ class MBartAdapterTest(
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
+    AdapterSetupContextTestMixin,
     ParallelAdapterInferenceTestMixin,
     MBartAdapterTestBase,
     unittest.TestCase,
@@ -289,6 +295,7 @@ class GPT2AdapterTest(
     EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
+    AdapterSetupContextTestMixin,
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
@@ -427,6 +434,7 @@ class T5AdapterTest(
     AdapterFusionModelTestMixin,
     AdapterTrainingTestMixin,
     PredictionHeadModelTestMixin,
+    AdapterSetupContextTestMixin,
     AdapterTestBase,
     unittest.TestCase,
 ):
