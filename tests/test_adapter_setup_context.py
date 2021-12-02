@@ -3,7 +3,7 @@ from threading import Thread
 
 from tests.test_modeling_common import ids_tensor
 from transformers import AdapterSetup, AutoModelWithHeads, BertConfig
-from transformers.testing_utils import require_torch, slow, torch_device
+from transformers.testing_utils import require_torch, torch_device
 
 
 @require_torch
@@ -16,7 +16,6 @@ class AdapterSetupContextTest(unittest.TestCase):
             intermediate_size=37,
         )
 
-    @slow
     def test_context_nested(self):
         model = AutoModelWithHeads.from_config(self.config)
         model.add_adapter("a")
@@ -57,7 +56,6 @@ class AdapterSetupContextTest(unittest.TestCase):
         self.assertEqual(out_b[0].shape, (1, 3))
         self.assertEqual(calls_b, 1)
 
-    @slow
     def test_context_multi_threading(self):
         model = AutoModelWithHeads.from_config(self.config)
         model.add_adapter("a")
