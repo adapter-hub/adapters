@@ -434,7 +434,6 @@ class T5AdapterTest(
     AdapterFusionModelTestMixin,
     AdapterTrainingTestMixin,
     PredictionHeadModelTestMixin,
-    AdapterSetupContextTestMixin,
     AdapterTestBase,
     unittest.TestCase,
 ):

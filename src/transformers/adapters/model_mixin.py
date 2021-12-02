@@ -11,6 +11,7 @@ from torch import nn
 from ..models.auto.tokenization_auto import AutoTokenizer
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import AdapterConfig, AdapterFusionConfig, ModelAdaptersConfig, get_adapter_config_hash
+from .context import AdapterSetup
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
@@ -533,12 +534,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             param.requires_grad = not freeze
         self.model_freezed = freeze
 
-    def pre_transformer_forward(self, **kwargs):
+    def pre_transformer_forward(self):
         """
         This method should be called by every adapter-implementing model at the very beginning of the forward() method.
         """
         # some warnings if we don't use available adapters
-        active_adapters = self.active_adapters or kwargs.get("adapter_names", None)
+        active_adapters = self.active_adapters or AdapterSetup.get_context()
         if not active_adapters and self.has_adapters():
             logger.warning("There are adapters available but none are activated for the forward pass.")
 

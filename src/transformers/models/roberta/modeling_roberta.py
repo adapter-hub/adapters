@@ -966,7 +966,7 @@ class RobertaModelWithHeads(BertModelHeadsMixin, RobertaPreTrainedModel):
                 head_inputs = outputs
             pooled_output = outputs[1]
 
-            if head or self.active_head:
+            if head or AdapterSetup.get_context_head_setup() or self.active_head:
                 head_outputs = self.forward_head(
                     head_inputs,
                     head_name=head,

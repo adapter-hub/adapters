@@ -2,7 +2,7 @@ import inspect
 
 import transformers
 from check_repo import get_models
-from transformers import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
+from transformers import ModelAdaptersMixin, ModelWithFlexibleHeadsAdaptersMixin
 
 
 MODELS_WITH_ADAPTERS = [
@@ -42,9 +42,9 @@ def check_models_implement_mixin():
                         ):
                             failures.append(f"{model_name} should implement ModelAdaptersMixin.")
                         forward_fn_params = inspect.signature(model_class.forward).parameters
-                        # all classes implementing ModelWithHeadsAdaptersMixin should additionally provide adapter_names as parameter
+                        # all classes implementing ModelWithFlexibleHeadsAdaptersMixin should additionally provide adapter_names as parameter
                         if (
-                            issubclass(model_class, ModelWithHeadsAdaptersMixin)
+                            issubclass(model_class, ModelWithFlexibleHeadsAdaptersMixin)
                             and "adapter_names" not in forward_fn_params
                         ):
                             failures.append(f"{model_name}'s forward() method should provide adapter_names parameter.")

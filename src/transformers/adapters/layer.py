@@ -4,7 +4,7 @@ from typing import List, Mapping, Union
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
+from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack
 from .context import AdapterSetup
 from .modeling import Adapter, BertFusion
 
