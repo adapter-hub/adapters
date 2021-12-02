@@ -343,3 +343,31 @@ class PredictionHeadModelTestMixin:
 
         self.assertEqual((self.batch_size, self.seq_length, model.config.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
+
+    def test_context_simple(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+            self.skipTest("No classification head available")
+        model = AutoModelWithHeads.from_config(self.config())
+        model.add_adapter("a")
+        model.add_classification_head("a", num_labels=3)
+        # Make sure no adapter is activated
+        model.active_adapters = None
+        model.active_head = None
+        model.to(torch_device)
+        in_data = self.get_input_samples((1, 128), config=model.config)
+
+        # Set a hook before the adapter to make sure it's actually called.
+        calls = 0
+
+        def forward_pre_hook(module, input):
+            nonlocal calls
+            calls += 1
+
+        adapter = model.get_adapter("a")[0]["output"]
+        adapter.register_forward_pre_hook(forward_pre_hook)
+
+        with AdapterSetup("a"):
+            out = model(**in_data)
+
+        self.assertEqual(out[0].shape, (1, 3))
+        self.assertEqual(calls, 1)

@@ -1,39 +1,23 @@
+import unittest
 from threading import Thread
 
-from transformers import AdapterSetup, AutoModelWithHeads
+from tests.test_modeling_common import ids_tensor
+from transformers import AdapterSetup, AutoModelWithHeads, BertConfig
 from transformers.testing_utils import require_torch, torch_device
 
 
 @require_torch
-class AdapterSetupContextTestMixin:
-    def test_context_simple(self):
-        model = AutoModelWithHeads.from_config(self.config())
-        model.add_adapter("a")
-        model.add_classification_head("a", num_labels=3)
-        # Make sure no adapter is activated
-        model.active_adapters = None
-        model.active_head = None
-        model.to(torch_device)
-        in_data = self.get_input_samples((1, 128), config=model.config)
-
-        # Set a hook before the adapter to make sure it's actually called.
-        calls = 0
-
-        def forward_pre_hook(module, input):
-            nonlocal calls
-            calls += 1
-
-        adapter = model.get_adapter("a")[0]["output"]
-        adapter.register_forward_pre_hook(forward_pre_hook)
-
-        with AdapterSetup("a"):
-            out = model(**in_data)
-
-        self.assertEqual(out[0].shape, (1, 3))
-        self.assertEqual(calls, 1)
+class AdapterSetupContextTest(unittest.TestCase):
+    def setUp(self):
+        self.config = BertConfig(
+            hidden_size=32,
+            num_hidden_layers=4,
+            num_attention_heads=4,
+            intermediate_size=37,
+        )
 
     def test_context_nested(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoModelWithHeads.from_config(self.config)
         model.add_adapter("a")
         model.add_classification_head("a", num_labels=2)
         model.add_adapter("b")
@@ -42,7 +26,7 @@ class AdapterSetupContextTestMixin:
         model.active_adapters = None
         model.active_head = None
         model.to(torch_device)
-        in_data = self.get_input_samples((1, 128), config=model.config)
+        in_data = {"input_ids": ids_tensor((1, 128), 1000)}
 
         # Set a hook before the adapter to make sure it's actually called.
         calls_a = 0
@@ -73,14 +57,14 @@ class AdapterSetupContextTestMixin:
         self.assertEqual(calls_b, 1)
 
     def test_context_multi_threading(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoModelWithHeads.from_config(self.config)
         model.add_adapter("a")
         model.add_classification_head("a", num_labels=2)
         model.add_adapter("b")
         model.add_classification_head("b", num_labels=3)
         model.active_head = None
         model.to(torch_device)
-        in_data = self.get_input_samples((1, 128), config=model.config)
+        in_data = {"input_ids": ids_tensor((1, 128), 1000)}
         outputs = []
         hook_called = []
 
