@@ -810,6 +810,75 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             custom_weights_loaders=custom_weights_loaders,
         )
 
+    def save_adapter_fusion(
+        self,
+        save_directory: str,
+        adapter_names: list,
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        with_head: Optional[str] = False,
+    ):
+        """
+        Saves an adapter and its configuration file to a directory so that it can be shared or reloaded using
+        `load_adapter()`.
+
+        Args:
+            save_directory (str): Path to a directory where the adapter should be saved.
+            adapter_names (list): Name of the adapter to be saved.
+            with_head (str): The name of the head that should be saved with the adapter fusion, if this is True the
+                head with the same name as the adapter fusion is used
+
+        Raises:
+            ValueError: If the given adapter name is invalid.
+        """
+
+        super().save_adapter_fusion(save_directory, adapter_names, meta_dict, custom_weights_loaders)
+
+        if with_head:
+            head_name = with_head if isinstance(with_head, str) else adapter_names
+            if head_name not in self.heads:
+                raise ValueError("No head with name {} found".format(head_name))
+            loader = PredictionHeadLoader(self)
+            loader.save(save_directory, head_name)
+
+    def load_adapter_fusion(
+        self,
+        adapter_fusion_name_or_path: str,
+        load_as: str = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        set_active: bool = False,
+        with_head: bool = True,
+        **kwargs
+    ) -> str:
+        """
+        Loads a pre-trained pytorch adapter module from the local file system or a remote location.
+
+        Args:
+            custom_weights_loaders: custom weight loaders that should be used
+            with_head: whether the head should be saved with the model. This can specify a head name or True if tha adapter has
+                the same name as the fusion
+            adapter_fusion_name_or_path (str): can be either:
+
+                - the identifier of a pre-trained task adapter fusion module to be loaded from Adapter Hub
+                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
+                - a URL pointing to a zip folder containing a saved adapter module
+            config (dict or str, optional): The requested configuration of the adapter fusion.
+                If not specified, will be either: - the default adapter config for the requested adapter fusion if
+                specified - the global default adapter fusion config
+            model_name (str, optional): The string identifier of the pre-trained model.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
+                    saved will be used.
+            set_active (bool, optional): Activate the loaded AdapterFusion. By default (False), the AdapterFusion is loaded but not activated.
+
+        Returns:
+            str: The name with which the adapter was added to the model.
+        """
+        if with_head:
+            if custom_weights_loaders is None:
+                custom_weights_loaders = []
+            custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
+        super().load_adapter_fusion(adapter_fusion_name_or_path, load_as, custom_weights_loaders, set_active)
+
     def save_all_heads(self, save_directory):
         for head_name in self.heads:
             save_path = join(save_directory, head_name)
