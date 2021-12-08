@@ -1,5 +1,6 @@
 # coding=utf-8
 
+import json
 import logging
 import os
 import sys
@@ -7,8 +8,7 @@ from unittest.mock import patch
 
 import torch
 
-from test_examples import get_results
-from transformers.testing_utils import TestCasePlus, get_gpu_count, require_torch_non_multi_gpu, slow, torch_device
+from transformers.testing_utils import TestCasePlus, get_gpu_count, slow, torch_device
 
 
 SRC_DIRS = [
@@ -19,7 +19,10 @@ SRC_DIRS = [
         "text-classification",
         "token-classification",
         "language-modeling",
+        "multiple-choice",
         "question-answering",
+        "summarization",
+        "translation",
     ]
 ]
 sys.path.extend(SRC_DIRS)
@@ -40,13 +43,24 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger()
 
 
+def get_results(output_dir):
+    results = {}
+    path = os.path.join(output_dir, "all_results.json")
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            results = json.load(f)
+    else:
+        raise ValueError(f"can't find {path}")
+    return results
+
+
 class AdapterExamplesTests(TestCasePlus):
-    @require_torch_non_multi_gpu
     def test_run_glue_adapters(self):
         stream_handler = logging.StreamHandler(sys.stdout)
         logger.addHandler(stream_handler)
 
-        testargs = """
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        testargs = f"""
             run_glue_alt.py
             --model_name_or_path bert-base-uncased
             --output_dir {tmp_dir}
@@ -64,13 +78,11 @@ class AdapterExamplesTests(TestCasePlus):
             --max_seq_length=128
             --train_adapter
             --adapter_config=houlsby
-            --load_adapter=qqp@ukp
             """.split()
         with patch.object(sys, "argv", testargs):
-            result = run_glue_alt.main()
-            del result["eval_loss"]
-            for value in result.values():
-                self.assertGreaterEqual(value, 0.75)
+            run_glue_alt.main()
+            result = get_results(tmp_dir)
+            self.assertGreaterEqual(result["eval_accuracy"], 0.75)
 
     def test_run_fusion_glue(self):
         stream_handler = logging.StreamHandler(sys.stdout)
@@ -102,7 +114,6 @@ class AdapterExamplesTests(TestCasePlus):
             for value in result.values():
                 self.assertGreaterEqual(value, 0.5)
 
-    @require_torch_non_multi_gpu
     def test_run_squad_adapters(self):
         stream_handler = logging.StreamHandler(sys.stdout)
         logger.addHandler(stream_handler)
