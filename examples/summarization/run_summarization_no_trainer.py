@@ -86,7 +86,7 @@ summarization_name_mapping = {
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Finetune a transformers model on a text classification task")
+    parser = argparse.ArgumentParser(description="Finetune a transformers model on a summarization task")
     parser.add_argument(
         "--dataset_name",
         type=str,
@@ -439,13 +439,14 @@ def main():
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
-    processed_datasets = raw_datasets.map(
-        preprocess_function,
-        batched=True,
-        remove_columns=column_names,
-        load_from_cache_file=not args.overwrite_cache,
-        desc="Running tokenizer on dataset",
-    )
+    with accelerator.main_process_first():
+        processed_datasets = raw_datasets.map(
+            preprocess_function,
+            batched=True,
+            remove_columns=column_names,
+            load_from_cache_file=not args.overwrite_cache,
+            desc="Running tokenizer on dataset",
+        )
 
     train_dataset = processed_datasets["train"]
     eval_dataset = processed_datasets["validation"]
