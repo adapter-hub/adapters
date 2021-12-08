@@ -637,6 +637,22 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     def forward_head(
         self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
     ):
+        """
+        The forward pass through a prediction head configuration.
+        There are three ways to specify the used prediction head configuration (in order of priority):
+
+            1. If a head_name is passed, the head with the given name is used.
+            2. If the forward call is executed within an ``AdapterSetup`` context, the head configuration is read from the context.
+            3. If the ``active_head`` property is set, the head configuration is read from there.
+
+        Args:
+            all_outputs (dict): The outputs of the base model.
+            head_name (str, optional): The name of the prediction head to use. If None, the active head is used.
+            cls_output (torch.Tensor, optional): The classification output of the model.
+            attention_mask (torch.Tensor, optional): The attention mask of the model.
+            return_dict (bool): Whether or not to return a ``ModelOutput`` instead of a plain tuple.
+            **kwargs: Additional keyword arguments passed to the forward pass of the head.
+        """
         if head_name:
             used_heads = [head_name]
         elif AdapterSetup.get_context_head_setup():
