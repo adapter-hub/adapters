@@ -18,7 +18,7 @@ from transformers import (  # get_adapter_config_hash,
 )
 from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.adapters.utils import find_in_index
-from transformers.testing_utils import require_torch
+from transformers.testing_utils import require_torch, torch_device
 
 from .test_modeling_common import ids_tensor
 
@@ -135,6 +135,7 @@ class AdapterHubTest(unittest.TestCase):
 
                 # check size of output
                 in_data = ids_tensor((1, 128), 1000)
+                model.to(torch_device)
                 output = model(in_data)
                 self.assertEqual([1, 128, 768], list(output[0].size()))
 
@@ -157,5 +158,6 @@ class AdapterHubTest(unittest.TestCase):
 
         # check size of output
         in_data = ids_tensor((1, 128), 1000)
+        model.to(torch_device)
         output = model(in_data)
         self.assertEqual([1, 128], list(output[0].size()))

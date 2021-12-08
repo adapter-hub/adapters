@@ -12,7 +12,7 @@ from transformers import (
     PfeifferConfig,
     PfeifferInvConfig,
 )
-from transformers.testing_utils import require_torch
+from transformers.testing_utils import require_torch, torch_device
 
 
 def create_twin_models(model_class, config_creator=None):
@@ -50,6 +50,7 @@ class AdapterModelTestMixin:
 
                 # check forward pass
                 input_data = self.get_input_samples((1, 128), config=model.config)
+                model.to(torch_device)
                 adapter_output = model(**input_data)
                 model.set_active_adapters(None)
                 base_output = model(**input_data)
@@ -97,6 +98,7 @@ class AdapterModelTestMixin:
 
                 # check forward pass
                 input_data = self.get_input_samples((1, 128), config=model.config)
+                model.to(torch_device)
                 adapter_output = model(**input_data)
                 # make sure the output is different without invertible adapter
                 del model.invertible_adapters[name]
@@ -176,6 +178,7 @@ class AdapterModelTestMixin:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
+                model.to(torch_device)
 
                 input_data = self.get_input_samples((1, 128), config=model.config)
 
@@ -209,6 +212,8 @@ class AdapterModelTestMixin:
 
         # check equal output
         input_data = self.get_input_samples((1, 128), config=model1.config)
+        model1.to(torch_device)
+        model2.to(torch_device)
         output1 = model1(**input_data)
         output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
@@ -232,6 +237,8 @@ class AdapterModelTestMixin:
 
         # check equal output
         input_data = self.get_input_samples((1, 128), config=model1.config)
+        model1.to(torch_device)
+        model2.to(torch_device)
         output1 = model1(**input_data)
         output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
@@ -270,6 +277,8 @@ class AdapterModelTestMixin:
 
         # check equal output
         input_data = self.get_input_samples((1, 128), config=model_with_head.config)
+        model_with_head.to(torch_device)
+        model_base.to(torch_device)
         output1 = model_with_head(**input_data)
         output2 = model_base(**input_data)
         self.assertEqual(len(output1), len(output2))
@@ -297,6 +306,8 @@ class AdapterModelTestMixin:
 
         # check equal output
         input_data = self.get_input_samples((1, 128), config=model_with_head.config)
+        model_with_head.to(torch_device)
+        model_base.to(torch_device)
         output1 = model_with_head(**input_data)
         output2 = model_base(**input_data)
         self.assertEqual(len(output1), len(output2))

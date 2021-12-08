@@ -5,7 +5,7 @@ import torch
 
 from tests.test_adapter_training import filter_parameters
 from transformers import AutoModelWithHeads, AutoTokenizer, Trainer, TrainingArguments
-from transformers.testing_utils import require_torch
+from transformers.testing_utils import require_torch, torch_device
 
 
 @require_torch
@@ -39,6 +39,7 @@ class EmbeddingTestMixin:
         input_data = self.get_input_samples((1, 128), vocab_size=tokenizer.vocab_size, config=model.config)
         model.add_embeddings("test", tokenizer)
         model.eval()
+        model.to(torch_device)
         output1 = model(**input_data)
         self.assertEqual(model.active_embeddings, "test")
 
@@ -47,6 +48,7 @@ class EmbeddingTestMixin:
             tokenizer_ref = model.load_embeddings(tmp_dir, "test_reloaded")
 
         self.assertEqual(model.active_embeddings, "test_reloaded")
+        model.to(torch_device)
         output2 = model(**input_data)
         self.assertTrue(
             torch.equal(model.loaded_embeddings["test"].weight, model.loaded_embeddings["test_reloaded"].weight)
