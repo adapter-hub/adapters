@@ -107,9 +107,7 @@ class AdapterFusionModelTestMixin:
                 # In another directly, also check that saving via passing a Fuse block works
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_adapter_fusion(temp_dir, Fuse(name1, name2))
-                    self.assertTrue(
-                        os.path.exists(os.path.join(temp_dir, ADAPTERFUSION_WEIGHTS_NAME))
-                    )
+                    self.assertTrue(os.path.exists(os.path.join(temp_dir, ADAPTERFUSION_WEIGHTS_NAME)))
 
                 # check if adapter was correctly loaded
                 self.assertEqual(model1.config.adapters.fusions.keys(), model2.config.adapters.fusions.keys())

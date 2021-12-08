@@ -349,8 +349,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """
-        Saves an AdapterFusion layer and its configuration file to a directory so that it can be shared or reloaded using
-        `load_adapter_fusion()`.
+        Saves an AdapterFusion layer and its configuration file to a directory so that it can be shared or reloaded
+        using `load_adapter_fusion()`.
 
         Args:
             save_directory (str): Path to a directory where the AdapterFusion should be saved.
@@ -503,7 +503,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """
-        Saves all AdapterFusion layers of this model together with their configuration to subfolders of the given location.
+        Saves all AdapterFusion layers of this model together with their configuration to subfolders of the given
+        location.
 
         Args:
             save_directory (str): Path to a directory where the AdapterFusion layers should be saved.
@@ -822,8 +823,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         with_head: Union[bool, str] = False,
     ):
         """
-        Saves an AdapterFusion layer and its configuration file to a directory so that it can be shared or reloaded using
-        `load_adapter_fusion()`.
+        Saves an AdapterFusion layer and its configuration file to a directory so that it can be shared or reloaded
+        using `load_adapter_fusion()`.
 
         Args:
             save_directory (str): Path to a directory where the AdapterFusion should be saved.
