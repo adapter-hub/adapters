@@ -327,7 +327,7 @@ class MBartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
+        hidden_states = self.attention_adapters(hidden_states, residual, self.self_attn_layer_norm)
 
         residual = hidden_states
         hidden_states = self.final_layer_norm(hidden_states)
@@ -335,7 +335,7 @@ class MBartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
+        hidden_states = self.output_adapters(hidden_states, residual, self.final_layer_norm)
 
         if hidden_states.dtype == torch.float16 and (
             torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()
@@ -426,7 +426,7 @@ class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.attention_adapters.adapters_forward(hidden_states, residual)
+        hidden_states = self.attention_adapters(hidden_states, residual, self.self_attn_layer_norm)
 
         # Cross-Attention Block
         cross_attn_present_key_value = None
@@ -446,7 +446,7 @@ class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
                 output_attentions=output_attentions,
             )
             hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-            hidden_states = self.cross_attention_adapters.adapters_forward(hidden_states, residual)
+            hidden_states = self.cross_attention_adapters(hidden_states, residual, self.encoder_attn_layer_norm)
 
             # add cross-attn to positions 3,4 of present_key_value tuple
             present_key_value = present_key_value + cross_attn_present_key_value
@@ -458,7 +458,7 @@ class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.output_adapters.adapters_forward(hidden_states, residual)
+        hidden_states = self.output_adapters(hidden_states, residual, self.final_layer_norm)
 
         outputs = (hidden_states,)
 

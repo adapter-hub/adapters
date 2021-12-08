@@ -189,6 +189,8 @@ class AdapterFusionModelTestMixin:
 
         # assert equal forward pass
         in_data = self.get_input_samples((1, 128), config=model1.config)
+        model1.to(torch_device)
+        model2.to(torch_device)
         output1 = model1(**in_data)
         output2 = model2(**in_data)
         self.assertEqual(len(output1), len(output2))

@@ -15,27 +15,27 @@ from ..heads import (
     QuestionAnsweringHead,
     TaggingHead,
 )
-from ..layer import AdapterLayerBaseMixin
+from ..layer import AdapterLayer
 from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
 logger = logging.getLogger(__name__)
 
 
-class BertSelfOutputAdaptersMixin(AdapterLayerBaseMixin):
+# For backwards compatibility, BertSelfOutput inherits directly from AdapterLayer
+class BertSelfOutputAdaptersMixin(AdapterLayer):
     """Adds adapters to the BertSelfOutput module."""
 
-    @property
-    def adapter_config_key(self):
-        return "mh_adapter"
+    def __init__(self):
+        super().__init__("mh_adapter", None)
 
 
-class BertOutputAdaptersMixin(AdapterLayerBaseMixin):
+# For backwards compatibility, BertOutput inherits directly from AdapterLayer
+class BertOutputAdaptersMixin(AdapterLayer):
     """Adds adapters to the BertOutput module."""
 
-    @property
-    def adapter_config_key(self):
-        return "output_adapter"
+    def __init__(self):
+        super().__init__("output_adapter", None)
 
 
 class BertLayerAdaptersMixin:

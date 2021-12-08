@@ -292,11 +292,11 @@ class TransformerBlock(DistilBertTransfomerBlockAdaptersMixin, nn.Module):
         else:  # To handle these `output_attentions` or `output_hidden_states` cases returning tuples
             assert type(sa_output) == tuple
             sa_output = sa_output[0]
-        sa_output = self.attention_adapters.adapters_forward(sa_output, x)  # (bs, seq_length, dim)
+        sa_output = self.attention_adapters(sa_output, x, self.sa_layer_norm)  # (bs, seq_length, dim)
 
         # Feed Forward Network
         ffn_output = self.ffn(sa_output)  # (bs, seq_length, dim)
-        ffn_output = self.output_adapters.adapters_forward(ffn_output, sa_output)  # (bs, seq_length, dim)
+        ffn_output = self.output_adapters(ffn_output, sa_output, self.output_layer_norm)  # (bs, seq_length, dim)
 
         output = (ffn_output,)
         if output_attentions:

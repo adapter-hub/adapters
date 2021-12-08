@@ -1,7 +1,6 @@
 from typing import Union
 
 import torch
-from torch import nn
 
 from ..composition import AdapterCompositionBlock, parse_composition
 from ..heads import (
@@ -11,79 +10,18 @@ from ..heads import (
     QuestionAnsweringHead,
     Seq2SeqLMHead,
 )
-from ..layer import AdapterLayerBaseMixin
+from ..layer import AdapterLayer
 from ..model_mixin import ModelAdaptersMixin
-
-
-class BartSelfAttentionAdaptersModule(AdapterLayerBaseMixin, nn.Module):
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
-    @property
-    def adapter_config_key(self):
-        return "mh_adapter"
-
-    @property
-    def transformer_layer_norm(self):
-        # MBart has layer norms before each component
-        if self.config.model_type == "mbart":
-            return None
-        else:
-            return self.parent.self_attn_layer_norm
-
-
-class BartCrossAttentionAdaptersModule(AdapterLayerBaseMixin, nn.Module):
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
-    @property
-    def adapter_config_key(self):
-        return "cross_adapter"
-
-    @property
-    def transformer_layer_norm(self):
-        # MBart has layer norms before each component
-        if self.config.model_type == "mbart":
-            return None
-        else:
-            return self.parent.encoder_attn_layer_norm
-
-
-class BartOutputAdaptersModule(AdapterLayerBaseMixin, nn.Module):
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
-    @property
-    def adapter_config_key(self):
-        return "output_adapter"
-
-    @property
-    def transformer_layer_norm(self):
-        # MBart has layer norms before each component
-        if self.config.model_type == "mbart":
-            return None
-        else:
-            return self.parent.final_layer_norm
 
 
 class BartEncoderLayerAdaptersMixin:
     """Adds adapters to the BartEncoderLayer module of BART."""
 
     def _init_adapter_modules(self):
-        self.attention_adapters = BartSelfAttentionAdaptersModule(self)
-        self.output_adapters = BartOutputAdaptersModule(self)
+        self.attention_adapters = AdapterLayer("mh_adapter", self.config)
+        self.output_adapters = AdapterLayer("output_adapter", self.config)
         self.attention_adapters._init_adapter_modules()
         self.output_adapters._init_adapter_modules()
-        self.register_forward_pre_hook(self._adapter_block_pre_hook)
 
     def add_fusion_layer(self, adapter_names):
         self.attention_adapters.add_fusion_layer(adapter_names)
@@ -105,20 +43,13 @@ class BartEncoderLayerAdaptersMixin:
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
 
-    # Makes sure the "parent" reference always points to the correct module.
-    # This is especially relevant when using torch data parallelism.
-    @staticmethod
-    def _adapter_block_pre_hook(module, input_tensors):
-        object.__setattr__(module.attention_adapters, "parent", module)
-        object.__setattr__(module.output_adapters, "parent", module)
-
 
 class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
     """Adds adapters to the BartDecoderLayer module of BART."""
 
     def _init_adapter_modules(self):
         super()._init_adapter_modules()
-        self.cross_attention_adapters = BartCrossAttentionAdaptersModule(self)
+        self.cross_attention_adapters = AdapterLayer("cross_adapter", self.config)
         self.cross_attention_adapters._init_adapter_modules()
 
     def add_fusion_layer(self, adapter_names):
@@ -140,14 +71,6 @@ class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         super().enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.cross_attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-
-    # Makes sure the "parent" reference always points to the correct module.
-    # This is especially relevant when using torch data parallelism.
-    @staticmethod
-    def _adapter_block_pre_hook(module, input_tensors):
-        object.__setattr__(module.attention_adapters, "parent", module)
-        object.__setattr__(module.output_adapters, "parent", module)
-        object.__setattr__(module.cross_attention_adapters, "parent", module)
 
 
 class BartEncoderDecoderAdaptersMixin:

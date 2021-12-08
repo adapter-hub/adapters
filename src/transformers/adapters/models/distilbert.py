@@ -1,50 +1,21 @@
 from typing import Union
 
 import torch
-from torch import nn
 
 from ..composition import AdapterCompositionBlock, parse_composition
+from ..layer import AdapterLayer
 from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
-from .bert import BertEncoderAdaptersMixin, BertModelHeadsMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
-
-
-class DistilBertSelfAttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):
-    """Adds attention adapters to the Transformer module of DistilBert."""
-
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
-    @property
-    def transformer_layer_norm(self):
-        return self.parent.sa_layer_norm
-
-
-class DistilBertOutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
-    """Adds output adapters to the Transformer module of DistilBert."""
-
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
-    @property
-    def transformer_layer_norm(self):
-        return self.parent.output_layer_norm
+from .bert import BertEncoderAdaptersMixin, BertModelHeadsMixin
 
 
 class DistilBertTransfomerBlockAdaptersMixin:
     """Adds adapters to the TransformerBlock module of DistilBert."""
 
     def _init_adapter_modules(self):
-        self.attention_adapters = DistilBertSelfAttentionAdaptersModule(self)
-        self.output_adapters = DistilBertOutputAdaptersModule(self)
+        self.attention_adapters = AdapterLayer("mh_adapter", self.config)
+        self.output_adapters = AdapterLayer("output_adapter", self.config)
         self.attention_adapters._init_adapter_modules()
         self.output_adapters._init_adapter_modules()
-        self.register_forward_pre_hook(self._adapter_block_pre_hook)
 
     def add_fusion_layer(self, adapter_names):
         self.attention_adapters.add_fusion_layer(adapter_names)
@@ -65,13 +36,6 @@ class DistilBertTransfomerBlockAdaptersMixin:
     def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
         self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
         self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-
-    # Makes sure the "parent" reference always points to the correct module.
-    # This is especially relevant when using torch data parallelism.
-    @staticmethod
-    def _adapter_block_pre_hook(module, input_tensors):
-        object.__setattr__(module.attention_adapters, "parent", module)
-        object.__setattr__(module.output_adapters, "parent", module)
 
 
 class DistilBertTransformerAdaptersMixin(BertEncoderAdaptersMixin):

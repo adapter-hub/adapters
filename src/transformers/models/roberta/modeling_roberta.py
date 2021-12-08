@@ -308,7 +308,7 @@ class RobertaSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapters_forward(hidden_states, input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
@@ -392,7 +392,7 @@ class RobertaOutput(BertOutputAdaptersMixin, nn.Module):
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapters_forward(hidden_states, input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 

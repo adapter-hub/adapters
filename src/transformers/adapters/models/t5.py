@@ -4,42 +4,24 @@ import torch
 
 from ..composition import AdapterCompositionBlock, parse_composition
 from ..heads import Seq2SeqLMHead
-from ..layer import AdapterLayerBaseMixin
+from ..layer import AdapterLayer
 from ..model_mixin import ModelAdaptersMixin
 from .bert import ModelWithFlexibleHeadsAdaptersMixin
 
 
-class T5SelfAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
-    @property
-    def adapter_config_key(self):
-        return "mh_adapter"
-
-    @property
-    def transformer_layer_norm(self):
-        # T5  has layer norms after each component
-        return None
+class T5SelfAttentionLayerAdaptersMixin(AdapterLayer):
+    def __init__(self):
+        super().__init__("mh_adapter", None)
 
 
-class T5CrossAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
-    @property
-    def adapter_config_key(self):
-        return "cross_adapter"
-
-    @property
-    def transformer_layer_norm(self):
-        # T5  has layer norms after each component
-        return None
+class T5CrossAttentionLayerAdaptersMixin(AdapterLayer):
+    def __init__(self):
+        super().__init__("cross_adapter", None)
 
 
-class T5FFLayerAdaptersMixin(AdapterLayerBaseMixin):
-    @property
-    def adapter_config_key(self):
-        return "output_adapter"
-
-    @property
-    def transformer_layer_norm(self):
-        # T5  has layer norms after each component
-        return None
+class T5FFLayerAdaptersMixin(AdapterLayer):
+    def __init__(self):
+        super().__init__("output_adapter", None)
 
 
 class T5BlockAdaptersMixin:
