@@ -594,10 +594,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             else:
                 logger.info("Could not identify '{}' as a valid prediction head.".format(final_block))
 
-    def add_custom_head(self, head_name, overwrite_ok=False, set_active=True, **kwargs):
-        if not hasattr(kwargs, "head_type"):
-            raise ValueError("No head type provided. Please specify which custom head you wnat to use.")
-        head_type = kwargs["head_type"]
+    def add_custom_head(self, head_type, head_name, overwrite_ok=False, set_active=True, **kwargs):
         if head_type in self.config.custom_heads:
             head = self.config.custom_heads[head_type](self, head_name, **kwargs)
             if not hasattr(head.config, "head_type") or head.config["head_type"] is not head_type:
