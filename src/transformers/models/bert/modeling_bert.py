@@ -1072,7 +1072,6 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
         head=None,
         **kwargs
     ):
@@ -1088,38 +1087,37 @@ class BertModelWithHeads(BertModelHeadsMixin, BertPreTrainedModel):
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        with AdapterSetup(adapter_names, ignore_empty=True):
-            outputs = self.bert(
-                input_ids,
-                attention_mask=attention_mask,
-                token_type_ids=token_type_ids,
-                position_ids=position_ids,
-                head_mask=head_mask,
-                inputs_embeds=inputs_embeds,
-                output_attentions=output_attentions,
-                output_hidden_states=output_hidden_states,
-                return_dict=return_dict,
-            )
-            # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
-            if not return_dict:
-                head_inputs = (outputs[0],) + outputs[2:]
-            else:
-                head_inputs = outputs
-            pooled_output = outputs[1]
+        outputs = self.bert(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
+        if not return_dict:
+            head_inputs = (outputs[0],) + outputs[2:]
+        else:
+            head_inputs = outputs
+        pooled_output = outputs[1]
 
-            if head or AdapterSetup.get_context_head_setup() or self.active_head:
-                head_outputs = self.forward_head(
-                    head_inputs,
-                    head_name=head,
-                    attention_mask=attention_mask,
-                    return_dict=return_dict,
-                    pooled_output=pooled_output,
-                    **kwargs,
-                )
-                return head_outputs
-            else:
-                # in case no head is used just return the output of the base model (including pooler output)
-                return outputs
+        if head or AdapterSetup.get_context_head_setup() or self.active_head:
+            head_outputs = self.forward_head(
+                head_inputs,
+                head_name=head,
+                attention_mask=attention_mask,
+                return_dict=return_dict,
+                pooled_output=pooled_output,
+                **kwargs,
+            )
+            return head_outputs
+        else:
+            # in case no head is used just return the output of the base model (including pooler output)
+            return outputs
 
 
 @add_start_docstrings(

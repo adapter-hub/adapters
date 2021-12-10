@@ -627,7 +627,6 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
         head=None,
         **kwargs
     ):
@@ -641,22 +640,21 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
             else None
         )
 
-        with AdapterSetup(adapter_names, ignore_empty=True):
-            distilbert_output = self.distilbert(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                head_mask=head_mask,
-                inputs_embeds=inputs_embeds,
-                output_attentions=output_attentions,
-                output_hidden_states=output_hidden_states,
-                return_dict=return_dict,
-            )
+        distilbert_output = self.distilbert(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
 
-            outputs = self.forward_head(
-                distilbert_output, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
-            )
+        outputs = self.forward_head(
+            distilbert_output, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
+        )
 
-            return outputs
+        return outputs
 
 
 @add_start_docstrings(

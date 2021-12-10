@@ -1286,7 +1286,6 @@ class BartModelWithHeads(BartModelHeadsMixin, BartPretrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
         head=None,
         **kwargs
     ):
@@ -1300,41 +1299,40 @@ class BartModelWithHeads(BartModelHeadsMixin, BartPretrainedModel):
         if "labels" in kwargs or "start_positions" in kwargs and "end_positions" in kwargs:
             use_cache = False
 
-        with AdapterSetup(adapter_names, ignore_empty=True):
-            outputs = self.model(
-                input_ids,
-                attention_mask=attention_mask,
-                decoder_input_ids=decoder_input_ids,
-                decoder_attention_mask=decoder_attention_mask,
-                head_mask=head_mask,
-                decoder_head_mask=decoder_head_mask,
-                cross_attn_head_mask=cross_attn_head_mask,
-                encoder_outputs=encoder_outputs,
-                inputs_embeds=inputs_embeds,
-                decoder_inputs_embeds=decoder_inputs_embeds,
-                use_cache=use_cache,
-                output_attentions=output_attentions,
-                output_hidden_states=output_hidden_states,
-                return_dict=return_dict,
-            )
-            # sequence classification based on last token in sequence
-            x = outputs[0]  # last hidden state
-            eos_mask = input_ids.eq(self.config.eos_token_id)
-            eos_mask = self.model.encoder.adjust_attention_mask_for_parallel(x, eos_mask)
-            if len(torch.unique(eos_mask.sum(1))) > 1:
-                raise ValueError("All examples must have the same number of <eos> tokens.")
-            cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
+        outputs = self.model(
+            input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            decoder_attention_mask=decoder_attention_mask,
+            head_mask=head_mask,
+            decoder_head_mask=decoder_head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            encoder_outputs=encoder_outputs,
+            inputs_embeds=inputs_embeds,
+            decoder_inputs_embeds=decoder_inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        # sequence classification based on last token in sequence
+        x = outputs[0]  # last hidden state
+        eos_mask = input_ids.eq(self.config.eos_token_id)
+        eos_mask = self.model.encoder.adjust_attention_mask_for_parallel(x, eos_mask)
+        if len(torch.unique(eos_mask.sum(1))) > 1:
+            raise ValueError("All examples must have the same number of <eos> tokens.")
+        cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
 
-            head_outputs = self.forward_head(
-                outputs,
-                head_name=head,
-                cls_output=cls_representation,
-                attention_mask=attention_mask,
-                return_dict=return_dict,
-                **kwargs,
-            )
+        head_outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            cls_output=cls_representation,
+            attention_mask=attention_mask,
+            return_dict=return_dict,
+            **kwargs,
+        )
 
-            return head_outputs
+        return head_outputs
 
 
 @add_start_docstrings(
