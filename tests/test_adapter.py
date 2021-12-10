@@ -41,9 +41,11 @@ class AdapterTestBase:
 
     def get_model(self):
         if self.model_class == AutoModel:
-            return AutoModel.from_config(self.config())
+            model = AutoModel.from_config(self.config())
         else:
-            return self.model_class(self.config())
+            model = self.model_class(self.config())
+        model.to(torch_device)
+        return model
 
     def get_input_samples(self, shape, vocab_size=5000, config=None):
         total_dims = 1

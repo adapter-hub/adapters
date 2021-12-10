@@ -153,9 +153,10 @@ class ParallelAdapterInferenceTestMixin:
         self.add_head(model, "a", num_labels=2)
         self.add_head(model, "b", num_labels=3)
         model.eval()
+        model.to(torch_device)
 
         inputs = self.get_input_samples((2, 128), config=model.config)
-        inputs["attention_mask"] = torch.randint(0, 2, size=(2, 128))
+        inputs["attention_mask"] = torch.randint(0, 2, size=(2, 128), device=torch_device)
 
         # for reference, pass through single adapters
         model.active_adapters = "a"
@@ -184,6 +185,7 @@ class ParallelAdapterInferenceTestMixin:
         model.add_adapter("a")
         model.add_adapter("b")
         self.add_head(model, "a", num_labels=2)
+        model.to(torch_device)
 
         inputs = self.get_input_samples((2, 128), config=model.config)
 
@@ -203,6 +205,7 @@ class ParallelAdapterInferenceTestMixin:
         self.add_head(model, "a", num_labels=2)
         self.add_head(model, "b", num_labels=3)
         model.eval()
+        model.to(torch_device)
 
         inputs = {"input_ids": self.get_input_samples((2, 128), config=model.config)["input_ids"]}
         if isinstance(model, T5ModelWithHeads):
@@ -259,9 +262,13 @@ class ParallelTrainingMixin:
         random.seed(42)
         torch.manual_seed(42)
         # Depending on the used optimizer the adapters are not exactly the same
+        model.to(torch_device)
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         for epoch in range(2):
             for data_input in dataset:
+                for key, value in data_input.items():
+                    data_input[key] = value.to(torch_device)
+
                 optimizer.zero_grad()
                 output = model(**data_input)
                 loss = output["loss"]
@@ -370,9 +377,9 @@ class ParallelTrainingMixin:
 
         input_data = self.get_input_samples((3, 128), config=model.config)
         if isinstance(model, T5ModelWithHeads):
-            input_data["labels"] = torch.randint(0, 2, (3, 128))
+            input_data["labels"] = torch.randint(0, 2, (3, 128), device=torch_device)
         else:
-            input_data["labels"] = torch.randint(0, 2, (3, 1))
+            input_data["labels"] = torch.randint(0, 2, (3, 1), device=torch_device)
 
         outputs = []
         for adapter in [a1, b1]:
@@ -380,11 +387,13 @@ class ParallelTrainingMixin:
             model.set_active_adapters(adapter)
             model.train_adapter(adapter)
             model.eval()
+            model.to(torch_device)
             outputs.append(model(**input_data))
 
         model.set_active_adapters(Parallel(a2, b2))
         model.train_adapter((Parallel(a2, b2)))
         model.eval()
+        model.to(torch_device)
 
         parallel_outputs = model(**input_data)
 

@@ -74,6 +74,11 @@ def default_data_collator(features: List[InputDataClass], return_tensors="pt") -
 class DefaultDataCollator(DataCollatorMixin):
     return_tensors: str = "pt"
 
+    def __call__(self, features: List[Dict[str, Any]], return_tensors=None) -> Dict[str, Any]:
+        if return_tensors is None:
+            return_tensors = self.return_tensors
+        return default_data_collator(features, return_tensors)
+
 
 def torch_default_data_collator(features: List[InputDataClass]) -> Dict[str, Any]:
     import torch
@@ -534,6 +539,13 @@ class DataCollatorForSeq2Seq:
         # same length to return tensors.
         if labels is not None:
             max_label_length = max(len(l) for l in labels)
+            if self.pad_to_multiple_of is not None:
+                max_label_length = (
+                    (max_label_length + self.pad_to_multiple_of - 1)
+                    // self.pad_to_multiple_of
+                    * self.pad_to_multiple_of
+                )
+
             padding_side = self.tokenizer.padding_side
             for feature in features:
                 remainder = [self.label_pad_token_id] * (max_label_length - len(feature["labels"]))
@@ -905,7 +917,7 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
         """
         if not isinstance(self.tokenizer, (BertTokenizer, BertTokenizerFast)):
             warnings.warn(
-                "DataCollatorForWholeWordMask is only suitable for BertTokenizer-like tokenizers."
+                "DataCollatorForWholeWordMask is only suitable for BertTokenizer-like tokenizers. "
                 "Please refer to the documentation for more information."
             )
 
@@ -941,7 +953,8 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
                 covered_indexes.add(index)
                 masked_lms.append(index)
 
-        assert len(covered_indexes) == len(masked_lms)
+        if len(covered_indexes) != len(masked_lms):
+            raise ValueError("Length of covered_indexes is not equal to length of masked_lms.")
         mask_labels = [1 if i in covered_indexes else 0 for i in range(len(input_tokens))]
         return mask_labels
 

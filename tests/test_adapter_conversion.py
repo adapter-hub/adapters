@@ -67,6 +67,8 @@ class ModelClassConversionTestMixin:
         if label_dict:
             for k, v in label_dict.items():
                 in_data[k] = v
+        static_model.to(torch_device)
+        flex_model.to(torch_device)
         output1 = static_model(**in_data)
         output2 = flex_model(**in_data)
         self.assertTrue(torch.allclose(output1.loss, output2.loss))
