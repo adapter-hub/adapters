@@ -6,8 +6,8 @@ from .composition import parse_composition, parse_heads_from_composition
 class AdapterSetup:
     """
     Represents an adapter setup of a model including active adapters and active heads. This class is intended to be
-    used as a context manager using the ``with`` statement.
-    The setup defined by the ``AdapterSetup`` context will override static adapter setups defined in a model (i.e. setups specified via ``active_adapters``).
+    used as a context manager using the ``with`` statement. The setup defined by the ``AdapterSetup`` context will
+    override static adapter setups defined in a model (i.e. setups specified via ``active_adapters``).
 
     Example::
 
@@ -15,7 +15,8 @@ class AdapterSetup:
             # will use the adapter stack "a" and "b"
             outputs = model(**inputs)
 
-    Note that the context manager is thread-local, i.e. it can be used with different setups in a multi-threaded environment.
+    Note that the context manager is thread-local, i.e. it can be used with different setups in a multi-threaded
+    environment.
     """
 
     # thread-local storage that holds a stack of active contexts

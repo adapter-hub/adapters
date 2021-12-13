@@ -78,9 +78,10 @@ class AdapterSetupContextTest(unittest.TestCase):
             adapter = model.get_adapter(adapter_setup)[0]["output"]
             adapter.register_forward_pre_hook(forward_pre_hook)
 
-            out = model(**in_data, adapter_names=adapter_setup, head=adapter_setup)
-            outputs.append((out, expected_shape))
-            hook_called.append(calls > 0)
+            with AdapterSetup(adapter_setup):
+                out = model(**in_data)
+                outputs.append((out, expected_shape))
+                hook_called.append(calls > 0)
 
         t1 = Thread(target=run_forward_pass, args=("a", (1, 2)))
         t2 = Thread(target=run_forward_pass, args=("b", (1, 3)))

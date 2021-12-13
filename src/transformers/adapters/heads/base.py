@@ -638,11 +638,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
     ):
         """
-        The forward pass through a prediction head configuration.
-        There are three ways to specify the used prediction head configuration (in order of priority):
+        The forward pass through a prediction head configuration. There are three ways to specify the used prediction
+        head configuration (in order of priority):
 
             1. If a head_name is passed, the head with the given name is used.
-            2. If the forward call is executed within an ``AdapterSetup`` context, the head configuration is read from the context.
+            2. If the forward call is executed within an ``AdapterSetup`` context, the head configuration is read from
+               the context.
             3. If the ``active_head`` property is set, the head configuration is read from there.
 
         Args:

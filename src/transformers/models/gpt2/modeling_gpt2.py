@@ -1604,9 +1604,7 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
         else:
             if input_ids is not None:
                 sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
-                sequence_lengths = self.transformer.adjust_attention_mask_for_parallel(
-                    outputs[0], sequence_lengths
-                )
+                sequence_lengths = self.transformer.adjust_attention_mask_for_parallel(outputs[0], sequence_lengths)
             else:
                 sequence_lengths = -1
                 logger.warning(
