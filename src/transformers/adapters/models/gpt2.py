@@ -5,7 +5,8 @@ from torch import nn
 
 from ..composition import AdapterCompositionBlock, parse_composition
 from ..heads import CausalLMHead, ClassificationHead, MultiLabelClassificationHead, TaggingHead
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..invertible_adapters_mixin import InvertibleAdaptersMixin
+from ..model_mixin import ModelAdaptersMixin
 from .bert import (
     BertEncoderAdaptersMixin,
     BertOutputAdaptersMixin,

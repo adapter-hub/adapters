@@ -1384,6 +1384,7 @@ if is_torch_available():
         "StaticAdapterFusionConfig",
     ]
     _import_structure["adapters.heads"] = ["ModelWithFlexibleHeadsAdaptersMixin"]
+    _import_structure["adapters.invertible_adapters_mixin"] = ["InvertibleAdaptersMixin"]
     _import_structure["adapters.layer"] = ["AdapterLayerBaseMixin"]
     _import_structure["adapters.loading"] = [
         "AdapterFusionLoader",
@@ -1393,7 +1394,6 @@ if is_torch_available():
         "WeightsLoaderHelper",
     ]
     _import_structure["adapters.model_mixin"] = [
-        "InvertibleAdaptersMixin",
         "ModelAdaptersMixin",
         "ModelConfigAdaptersMixin",
         "ModelWithHeadsAdaptersMixin",
@@ -3170,6 +3170,7 @@ if TYPE_CHECKING:
             StaticAdapterFusionConfig,
         )
         from .adapters.heads import ModelWithFlexibleHeadsAdaptersMixin
+        from .adapters.invertible_adapters_mixin import InvertibleAdaptersMixin
         from .adapters.layer import AdapterLayerBaseMixin
         from .adapters.loading import (
             AdapterFusionLoader,
@@ -3178,12 +3179,7 @@ if TYPE_CHECKING:
             WeightsLoader,
             WeightsLoaderHelper,
         )
-        from .adapters.model_mixin import (
-            InvertibleAdaptersMixin,
-            ModelAdaptersMixin,
-            ModelConfigAdaptersMixin,
-            ModelWithHeadsAdaptersMixin,
-        )
+        from .adapters.model_mixin import ModelAdaptersMixin, ModelConfigAdaptersMixin, ModelWithHeadsAdaptersMixin
         from .adapters.trainer import AdapterTrainer, Seq2SeqAdapterTrainer
         from .adapters.training import AdapterArguments, MultiLingAdapterArguments
         from .adapters.utils import (
