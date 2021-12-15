@@ -179,3 +179,19 @@ def parse_heads_from_composition(adapter_composition, reference_heads: list = No
             )
     else:
         return None
+
+
+def adjust_tensors_for_parallel(hidden_states, *tensors):
+    """
+    Replicates a given list of tensors based on the shape of the reference tensor (first argument).
+    """
+    outputs = []
+    for tensor in tensors:
+        if tensor is not None and hidden_states.shape[0] != tensor.shape[0]:
+            repeats = [1] * len(tensor.shape)
+            repeats[0] = hidden_states.shape[0] // tensor.shape[0]
+            new_tensor = tensor.repeat(*repeats)
+            outputs.append(new_tensor)
+        else:
+            outputs.append(tensor)
+    return tuple(outputs)

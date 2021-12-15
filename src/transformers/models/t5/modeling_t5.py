@@ -26,15 +26,15 @@ from torch.nn import CrossEntropyLoss
 from torch.utils.checkpoint import checkpoint
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...adapters.models.t5 import (
-    T5BlockAdaptersMixin,
     T5CrossAttentionLayerAdaptersMixin,
     T5FFLayerAdaptersMixin,
     T5ModelAdaptersMixin,
     T5ModelHeadsMixin,
     T5SelfAttentionLayerAdaptersMixin,
-    T5StackAdaptersMixin,
 )
 from ...file_utils import (
     DUMMY_INPUTS,
@@ -609,9 +609,9 @@ class T5LayerCrossAttention(T5CrossAttentionLayerAdaptersMixin, nn.Module):
         return outputs
 
 
-class T5Block(T5BlockAdaptersMixin, nn.Module):
+class T5Block(nn.Module):
     def __init__(self, config, has_relative_attention_bias=False):
-        super().__init__(config)
+        super().__init__()
         self.is_decoder = config.is_decoder
         self.layer = nn.ModuleList()
         self.layer.append(T5LayerSelfAttention(config, has_relative_attention_bias=has_relative_attention_bias))
@@ -817,13 +817,12 @@ class T5PreTrainedModel(PreTrainedModel):
         return shifted_input_ids
 
 
-class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
+class T5Stack(InvertibleAdaptersMixin, T5PreTrainedModel):
     def __init__(self, config, embed_tokens=None):
         super().__init__(config)
 
         self.embed_tokens = embed_tokens
         self.is_decoder = config.is_decoder
-        self.use_cache = config.use_cache
 
         self.block = nn.ModuleList(
             [T5Block(config, has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers)]
@@ -902,9 +901,8 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
         if self.is_decoder and encoder_hidden_states is not None:
-            (input_ids,) = self.adjust_tensors_for_parallel(encoder_hidden_states, input_ids)
-            encoder_attention_mask = self.adjust_attention_mask_for_parallel(
-                encoder_hidden_states, encoder_attention_mask
+            input_ids, encoder_attention_mask = adjust_tensors_for_parallel(
+                encoder_hidden_states, input_ids, encoder_attention_mask
             )
 
         if input_ids is not None and inputs_embeds is not None:
@@ -1045,8 +1043,9 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
 
             hidden_states, present_key_value_state = layer_outputs[:2]
 
-            attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
-            extended_attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, extended_attention_mask)
+            attention_mask, extended_attention_mask = adjust_tensors_for_parallel(
+                hidden_states, attention_mask, extended_attention_mask
+            )
 
             # We share the position biases between the layers - the first layer store them
             # layer_outputs = hidden-states, key-value-states (self-attention position bias), (self-attention weights),
@@ -1059,9 +1058,9 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
                 present_key_value_states = present_key_value_states + (present_key_value_state,)
 
             if position_bias is not None:
-                position_bias = self.adjust_tensors_for_parallel(hidden_states, position_bias)[0]
+                position_bias = adjust_tensors_for_parallel(hidden_states, position_bias)[0]
             if encoder_decoder_position_bias is not None:
-                encoder_decoder_position_bias = self.adjust_tensors_for_parallel(
+                encoder_decoder_position_bias = adjust_tensors_for_parallel(
                     hidden_states, encoder_decoder_position_bias
                 )[0]
 

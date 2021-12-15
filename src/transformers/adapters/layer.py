@@ -32,6 +32,11 @@ class AdapterLayer(nn.Module):
         self.layer_idx = layer_idx
         adapter_config = self.config.adapters.get(adapter_name)
         if adapter_config and adapter_config.get(self.location_key, None):
+            # Check whether to skip this layer.
+            leave_out = adapter_config.get("leave_out", [])
+            if self.layer_idx in leave_out:
+                return
+
             reduction_factor = adapter_config["reduction_factor"]
             if isinstance(reduction_factor, Mapping):
                 if str(self.layer_idx) in reduction_factor:
@@ -106,7 +111,7 @@ class AdapterLayer(nn.Module):
     def adapter_state_dict(self, adapter_name: str, destination=None, prefix=""):
         if adapter_name in self.adapters:
             return self.adapters[adapter_name].state_dict(
-                destination=destination, prefix=prefix + f"adapters.{adapter_name}."
+                destination=destination, prefix=prefix + f"{self.location_key}.adapters.{adapter_name}."
             )
         else:
             return destination

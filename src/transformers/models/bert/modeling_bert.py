@@ -29,11 +29,10 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.bert import (
-    BertEncoderAdaptersMixin,
-    BertLayerAdaptersMixin,
     BertModelAdaptersMixin,
     BertModelHeadsMixin,
     BertOutputAdaptersMixin,
@@ -456,7 +455,7 @@ class BertOutput(BertOutputAdaptersMixin, nn.Module):
         return hidden_states
 
 
-class BertLayer(BertLayerAdaptersMixin, nn.Module):
+class BertLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
@@ -541,7 +540,7 @@ class BertLayer(BertLayerAdaptersMixin, nn.Module):
         return layer_output
 
 
-class BertEncoder(BertEncoderAdaptersMixin, nn.Module):
+class BertEncoder(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -607,7 +606,7 @@ class BertEncoder(BertEncoderAdaptersMixin, nn.Module):
                 )
 
             hidden_states = layer_outputs[0]
-            attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
 
             if use_cache:
                 next_decoder_cache += (layer_outputs[-1],)

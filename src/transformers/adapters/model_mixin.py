@@ -2,8 +2,9 @@ import logging
 import os
 import warnings
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from os.path import join
-from typing import List, Optional, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -13,6 +14,7 @@ from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import AdapterConfig, AdapterFusionConfig, ModelAdaptersConfig, get_adapter_config_hash
 from .context import AdapterSetup
 from .hub_mixin import PushAdapterToHubMixin
+from .layer import AdapterLayer
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
@@ -131,19 +133,45 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         # Initialize adapters from config
         for adapter_name in self.config.adapters:
-            self._add_adapter(adapter_name)
+            self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
         # Initialize fusion from config
         for fusion_name in self.config.adapters.fusions:
-            self._add_fusion_layer(fusion_name)
+            self.apply_to_adapter_layers(lambda i, layer: layer.add_fusion_layer(fusion_name))
 
         self.loaded_embeddings["default"] = self.get_input_embeddings()
 
     # These methods have to be implemented by every deriving class:
 
     @abstractmethod
+    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
+        """
+        Iterates over all layers of the model.
+
+        This abstract method has to ne implemented by every implementing model.
+        """
+        pass
+
+    def apply_to_adapter_layers(self, fn):
+        """
+        Applies a function to all adapter layers of the model.
+        """
+        for i, layer in self.iter_layers():
+            for module in layer.modules():
+                if isinstance(module, AdapterLayer):
+                    fn(i, module)
+
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
         """Sets the model into mode for training the given adapters."""
-        pass
+        self.train()
+        self.freeze_model(True)
+        adapter_setup = parse_composition(adapter_setup)
+        self.apply_to_adapter_layers(lambda i, layer: layer.enable_adapters(adapter_setup, True, False))
+        if isinstance(self, InvertibleAdaptersMixin):
+            self.enable_invertible_adapters(adapter_setup.flatten())
+        # use the adapters to be trained by default in every forward pass
+        self.set_active_adapters(adapter_setup)
+        if train_embeddings:
+            self.get_input_embeddings().train()
 
     def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
@@ -153,18 +181,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         )
         self.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
 
-    @abstractmethod
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        pass
-
-    @abstractmethod
-    def _add_adapter(self, adapter_name):
-        pass
-
-    @abstractmethod
-    def _add_fusion_layer(self, adapter_names):
-        pass
+        self.train()
+        self.freeze_model(True)
+        adapter_setup = parse_composition(adapter_setup)
+        self.apply_to_adapter_layers(lambda i, layer: layer.enable_adapters(adapter_setup, unfreeze_adapters, True))
+        # use the adapters to be trained by default in every forward pass
+        self.set_active_adapters(adapter_setup)
+        # TODO implement fusion for invertible adapters
 
     def has_adapters(self):
         return len(self.config.adapters.adapters) > 0
@@ -226,7 +251,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if overwrite_ok and adapter_name in self.config.adapters:
             self.delete_adapter(adapter_name)
         self.config.adapters.add(adapter_name, config=config)
-        self.base_model._add_adapter(adapter_name)
+        self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
+        if isinstance(self, InvertibleAdaptersMixin):
+            self.add_invertible_adapter(adapter_name)
         if set_active:
             self.set_active_adapters(adapter_name)
 
@@ -273,7 +300,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if overwrite_ok and self.config.adapters.get_fusion(adapter_names) is not None:
             self.delete_adapter_fusion(adapter_names)
         self.config.adapters.add_fusion(adapter_names, config=config)
-        self.base_model._add_fusion_layer(adapter_names)
+        self.apply_to_adapter_layers(lambda i, layer: layer.add_fusion_layer(adapter_names))
         if set_active:
             if not isinstance(adapter_names, list):
                 adapter_names = adapter_names.split(",")
@@ -290,7 +317,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             logger.info("No adapter '%s' found for deletion. Skipping.", adapter_name)
             return
         del self.config.adapters.adapters[adapter_name]
-        self.base_model._delete_adapter(adapter_name)
+        self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
+        if isinstance(self, InvertibleAdaptersMixin):
+            self.delete_invertible_adapter(adapter_name)
         # Reset active adapters if this was the only active adapter
         if self.active_adapters == Stack(adapter_name):
             self.active_adapters = None
@@ -315,7 +344,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             logger.info("No AdapterFusion '%s' found for deletion. Skipping.", adapter_fusion_name)
             return
         del self.config.adapters.fusions[adapter_fusion_name]
-        self.base_model._delete_fusion_layer(adapter_fusion_name)
+        self.apply_to_adapter_layers(lambda i, layer: layer.delete_fusion_layer(adapter_fusion_name))
         # Reset active adapters if this was the active setup
         if self.active_adapters == adapter_names:
             self.active_adapters = None
@@ -660,6 +689,31 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def active_embeddings(self):
         return self._active_embedding
 
+    def get_fusion_regularization_loss(self):
+        reg_loss = 0.0
+
+        target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
+        for i, layer in self.iter_layers():
+            for module in layer.modules():
+                if isinstance(module, AdapterLayer):
+                    for _, layer_fusion in module.adapter_fusion_layer.items():
+                        if hasattr(layer_fusion, "value"):
+                            reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+
+        return reg_loss
+
+    def get_adapter(self, name):
+        destination = defaultdict(dict)
+
+        # use a custom index to ensure numbering is from 0 to N layers
+        for i, (_, layer) in enumerate(self.iter_layers()):
+            for module in layer.modules():
+                if isinstance(module, AdapterLayer):
+                    if name in module.adapters:
+                        destination[i][module.location_key] = module.adapters[name]
+
+        return dict(destination)
+
 
 @inherit_doc
 class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
@@ -670,6 +724,15 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self._convert_to_flex_head = False
+
+    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
+        """
+        Iterates over all layers of the model.
+        """
+        if self.base_model is self:
+            return super().iter_layers()
+        else:
+            return self.base_model.iter_layers()
 
     def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False, set_active: bool = False):
         """
@@ -712,26 +775,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             super().train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
         else:
             self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
-
-    def _add_adapter(self, adapter_name):
-        """
-        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite
-        recursion
-        """
-        if self.base_model is self:
-            super()._add_adapter(adapter_name)
-        else:
-            self.base_model._add_adapter(adapter_name)
-
-    def _add_fusion_layer(self, adapter_names):
-        """
-        If self.base_model is self, must inherit from a class that implements this method, to preclude infinite
-        recursion
-        """
-        if self.base_model is self:
-            super()._add_fusion_layer(adapter_names)
-        else:
-            self.base_model._add_fusion_layer(adapter_names)
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)

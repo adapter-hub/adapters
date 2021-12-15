@@ -24,10 +24,11 @@ from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...adapters.models.bart import (
     BartDecoderLayerAdaptersMixin,
-    BartEncoderDecoderAdaptersMixin,
     BartEncoderLayerAdaptersMixin,
     BartModelAdaptersMixin,
     BartModelHeadsMixin,
@@ -675,7 +676,7 @@ MBART_INPUTS_DOCSTRING = r"""
 """
 
 
-class MBartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, MBartPreTrainedModel):
+class MBartEncoder(InvertibleAdaptersMixin, MBartPreTrainedModel):
     """
     Transformer encoder consisting of *config.encoder_layers* self attention layers. Each layer is a
     :class:`MBartEncoderLayer`.
@@ -832,7 +833,7 @@ class MBartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, MBa
                     )
 
                 hidden_states = layer_outputs[0]
-                attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
+                (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
 
             if output_attentions:
                 all_attentions = all_attentions + (layer_outputs[1],)
@@ -849,7 +850,7 @@ class MBartEncoder(InvertibleAdaptersMixin, BartEncoderDecoderAdaptersMixin, MBa
         )
 
 
-class MBartDecoder(BartEncoderDecoderAdaptersMixin, MBartPreTrainedModel):
+class MBartDecoder(MBartPreTrainedModel):
     """
     Transformer decoder consisting of *config.decoder_layers* layers. Each layer is a :class:`MBartDecoderLayer`
 
@@ -860,8 +861,6 @@ class MBartDecoder(BartEncoderDecoderAdaptersMixin, MBartPreTrainedModel):
 
     def __init__(self, config: MBartConfig, embed_tokens: Optional[nn.Embedding] = None):
         super().__init__(config)
-        self.config = config
-
         self.dropout = config.dropout
         self.layerdrop = config.decoder_layerdrop
         self.padding_idx = config.pad_token_id
@@ -1096,7 +1095,7 @@ class MBartDecoder(BartEncoderDecoderAdaptersMixin, MBartPreTrainedModel):
                     use_cache=use_cache,
                 )
             hidden_states = layer_outputs[0]
-            attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
 
             if use_cache:
                 next_decoder_cache += (layer_outputs[3 if output_attentions else 1],)
@@ -1218,7 +1217,7 @@ class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
             )
 
         # inflate all decoder inputs according to encoder output
-        decoder_input_ids, decoder_attention_mask, attention_mask = self.adjust_tensors_for_parallel(
+        decoder_input_ids, decoder_attention_mask, attention_mask = adjust_tensors_for_parallel(
             encoder_outputs[0], decoder_input_ids, decoder_attention_mask, attention_mask
         )
         # decoder outputs consists of (dec_features, past_key_value, dec_hidden, dec_attn)
@@ -1317,7 +1316,7 @@ class MBartModelWithHeads(BartModelHeadsMixin, MBartPreTrainedModel):
         # sequence classification based on last token in sequence
         x = outputs[0]  # last hidden state
         eos_mask = input_ids.eq(self.config.eos_token_id)
-        eos_mask = self.model.encoder.adjust_attention_mask_for_parallel(x, eos_mask)
+        (eos_mask,) = adjust_tensors_for_parallel(x, eos_mask)
         if len(torch.unique(eos_mask.sum(1))) > 1:
             raise ValueError("All examples must have the same number of <eos> tokens.")
         cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
@@ -1579,7 +1578,7 @@ class MBartForSequenceClassification(ModelWithHeadsAdaptersMixin, MBartPreTraine
         hidden_states = outputs[0]  # last hidden state
 
         eos_mask = input_ids.eq(self.config.eos_token_id)
-        eos_mask = self.model.encoder.adjust_attention_mask_for_parallel(hidden_states, eos_mask)
+        (eos_mask,) = adjust_tensors_for_parallel(hidden_states, eos_mask)
 
         if len(torch.unique_consecutive(eos_mask.sum(1))) > 1:
             raise ValueError("All examples must have the same number of <eos> tokens.")
