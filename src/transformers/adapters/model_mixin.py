@@ -8,6 +8,7 @@ from typing import List, Optional, Union
 import torch
 from torch import nn
 
+from ..models.auto.tokenization_auto import AutoTokenizer
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import AdapterConfig, AdapterFusionConfig, ModelAdaptersConfig, get_adapter_config_hash
 from .hub_mixin import PushAdapterToHubMixin
@@ -555,7 +556,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         tokenizer = None
         tokenizer_path = os.path.join(path, TOKENIZER_PATH)
         if os.path.isdir(tokenizer_path):
-            tokenizer = self.config.tokenizer_class.from_pretrained(tokenizer_path)
+            tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
 
         embedding_path = os.path.join(path, EMBEDDING_FILE)
         if not os.path.isfile(embedding_path):
