@@ -24,7 +24,6 @@ from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
-from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...adapters.models.bart import (
     BartDecoderLayerAdaptersMixin,

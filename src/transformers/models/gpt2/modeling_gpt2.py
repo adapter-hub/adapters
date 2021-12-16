@@ -34,7 +34,6 @@ else:
     is_amp_available = False
 
 from ...activations import ACT2FN
-from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin, GPT2ModelHeadsMixin
 from ...file_utils import (

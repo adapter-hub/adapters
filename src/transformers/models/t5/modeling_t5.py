@@ -26,7 +26,6 @@ from torch.nn import CrossEntropyLoss
 from torch.utils.checkpoint import checkpoint
 
 from ...activations import ACT2FN
-from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...adapters.models.t5 import (
     T5BlockAdaptersMixin,

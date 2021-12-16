@@ -27,7 +27,6 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import gelu
-from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.distilbert import (
     DistilBertModelAdaptersMixin,
