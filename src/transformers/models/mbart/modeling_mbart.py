@@ -25,7 +25,6 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
 from ...adapters.composition import adjust_tensors_for_parallel
-from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...adapters.models.bart import (
     BartDecoderLayerAdaptersMixin,

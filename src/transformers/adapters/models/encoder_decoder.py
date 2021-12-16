@@ -1,8 +1,7 @@
-from typing import Iterable, Tuple, Union
+from typing import Iterable, Tuple
 
 import torch.nn as nn
 
-from ..composition import AdapterCompositionBlock
 from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 

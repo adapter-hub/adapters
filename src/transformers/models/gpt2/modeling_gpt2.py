@@ -35,7 +35,6 @@ else:
 
 from ...activations import ACT2FN
 from ...adapters.composition import adjust_tensors_for_parallel
-from ...adapters.context import AdapterSetup
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin, GPT2ModelHeadsMixin
 from ...file_utils import (
