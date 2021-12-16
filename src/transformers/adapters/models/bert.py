@@ -15,9 +15,8 @@ from ..heads import (
     QuestionAnsweringHead,
     TaggingHead,
 )
-from ..invertible_adapters_mixin import InvertibleAdaptersMixin
 from ..layer import AdapterLayerBaseMixin
-from ..model_mixin import ModelAdaptersMixin
+from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
 logger = logging.getLogger(__name__)
