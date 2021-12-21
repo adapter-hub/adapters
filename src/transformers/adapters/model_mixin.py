@@ -239,7 +239,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     def add_adapter_fusion(
         self,
-        adapter_names: Union[Fuse, list],
+        adapter_names: Union[Fuse, list, str],
         config=None,
         overwrite_ok: bool = False,
         set_active: bool = False,
@@ -248,18 +248,24 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Adds AdapterFusion to the model with alll the necessary configurations and weight initializations
 
         Args:
-            adapter_names: a list of adapter names which should be fused
-            adapter_fusion_config (str or dict): adapter fusion configuration, can be either:
+            adapter_names (Fuse or list or str): AdapterFusion layer to add. Can be either:
+
+                - a ``Fuse`` composition block
+                - a list of adapter names to fuse
+                - a comma-separated string of adapter names to fuse
+            config (str or dict): adapter fusion configuration, can be either:
 
                 - a string identifying a pre-defined adapter fusion configuration
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
-            override_kwargs: dictionary items for values which should be overwritten in the default AdapterFusion configuration
+            overwrite_ok (bool, optional): Overwrite an AdapterFusion layer with the same name if it exists. By default (False), an exception is thrown.
             set_active (bool, optional): Activate the added AdapterFusion. By default (False), the AdapterFusion is added but not activated.
         """
-        # TODO-V2 Allow nested items or directly pass Fuse block?
         if isinstance(adapter_names, Fuse):
             adapter_names = adapter_names.children
+        elif isinstance(adapter_names, str):
+            adapter_names = adapter_names.split(",")
+
         if isinstance(config, dict):
             config = AdapterFusionConfig.from_dict(config)  # ensure config is ok and up-to-date
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
@@ -288,19 +294,21 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if self.active_adapters == Stack(adapter_name):
             self.active_adapters = None
 
-    def delete_adapter_fusion(self, adapter_names: Union[Fuse, list]):
+    def delete_adapter_fusion(self, adapter_names: Union[Fuse, list, str]):
         """
         Deletes the AdapterFusion layer of the specified adapters.
 
         Args:
-            adapter_names (Union[Fuse, list]): List of adapters for which to delete the AdapterFusion layer.
+            adapter_names (Union[Fuse, list, str]): AdapterFusion layer to delete.
         """
         if isinstance(adapter_names, Fuse):
             adapter_fusion_name = ",".join(adapter_names.children)
         elif isinstance(adapter_names, list):
             adapter_fusion_name = ",".join(adapter_names)
-        else:
+        elif isinstance(adapter_names, str):
             adapter_fusion_name = adapter_names
+        else:
+            raise ValueError("Invalid AdapterFusion definition: {}".format(adapter_names))
 
         if adapter_fusion_name not in self.config.adapters.fusions:
             logger.info("No AdapterFusion '%s' found for deletion. Skipping.", adapter_fusion_name)
@@ -339,28 +347,36 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def save_adapter_fusion(
         self,
         save_directory: str,
-        adapter_names: list,
+        adapter_names: Union[Fuse, list, str],
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """
-        Saves an adapter and its configuration file to a directory so that it can be shared or reloaded using
-        `load_adapter()`.
+        Saves an AdapterFusion layer and its configuration file to a directory so that it can be shared or reloaded
+        using `load_adapter_fusion()`.
 
         Args:
-            save_directory (str): Path to a directory where the adapter should be saved.
-            adapter_name (str): Name of the adapter to be saved.
+            save_directory (str): Path to a directory where the AdapterFusion should be saved.
+            adapter_names (Union[Fuse, list, str]): AdapterFusion to be saved.
 
         Raises:
-            ValueError: If the given adapter name is invalid.
+            ValueError: If the given AdapterFusion name is invalid.
         """
+        if isinstance(adapter_names, Fuse):
+            adapter_fusion_name = ",".join(adapter_names.children)
+        elif isinstance(adapter_names, list):
+            adapter_fusion_name = ",".join(adapter_names)
+        elif isinstance(adapter_names, str):
+            adapter_fusion_name = adapter_names
+        else:
+            raise ValueError("Invalid AdapterFusion definition: {}".format(adapter_names))
 
         loader = AdapterFusionLoader(self)
-        loader.save(save_directory, adapter_names, meta_dict)
+        loader.save(save_directory, adapter_fusion_name, meta_dict)
         # save additional custom weights
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
-                weights_loader.save(save_directory, adapter_names)
+                weights_loader.save(save_directory, adapter_fusion_name)
 
     def load_adapter(
         self,
@@ -437,24 +453,16 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         **kwargs
     ) -> str:
         """
-        Loads a pre-trained pytorch adapter module from the local file system or a remote location.
+        Loads a pre-trained AdapterFusion layer from the local file system.
 
         Args:
-            adapter_fusion_name_or_path (str): can be either:
-
-                - the identifier of a pre-trained task adapter fusion module to be loaded from Adapter Hub
-                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
-                - a URL pointing to a zip folder containing a saved adapter module
-            config (dict or str, optional): The requested configuration of the adapter fusion.
-                If not specified, will be either: - the default adapter config for the requested adapter fusion if
-                specified - the global default adapter fusion config
-            model_name (str, optional): The string identifier of the pre-trained model.
-            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
-                    saved will be used.
+            adapter_fusion_name_or_path (str): a path to a directory containing AdapterFusion weights saved using `model.save_adapter_fusion()`.
+            load_as (str, optional): Load the AdapterFusion using this name.
+                    By default, the name with which the AdapterFusion layer was saved will be used.
             set_active (bool, optional): Activate the loaded AdapterFusion. By default (False), the AdapterFusion is loaded but not activated.
 
         Returns:
-            str: The name with which the adapter was added to the model.
+            str: The name with which the AdapterFusion was added to the model.
         """
 
         loader = AdapterFusionLoader(self)
@@ -500,10 +508,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         """
-        Saves all adapters of this model together with their configuration to subfolders of the given location.
+        Saves all AdapterFusion layers of this model together with their configuration to subfolders of the given
+        location.
 
         Args:
-            save_directory (str): Path to a directory where the adapters should be saved.
+            save_directory (str): Path to a directory where the AdapterFusion layers should be saved.
         """
         for name in self.config.adapters.fusions:
             adapter_fusion_config = self.config.adapters.get_fusion(name)
@@ -813,29 +822,36 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def save_adapter_fusion(
         self,
         save_directory: str,
-        adapter_names: list,
+        adapter_names: Union[Fuse, list, str],
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
-        with_head: Optional[str] = False,
+        with_head: Union[bool, str] = False,
     ):
         """
-        Saves an adapter and its configuration file to a directory so that it can be shared or reloaded using
-        `load_adapter()`.
+        Saves an AdapterFusion layer and its configuration file to a directory so that it can be shared or reloaded
+        using `load_adapter_fusion()`.
 
         Args:
-            save_directory (str): Path to a directory where the adapter should be saved.
-            adapter_names (list): Name of the adapter to be saved.
-            with_head (str): The name of the head that should be saved with the adapter fusion, if this is True the
-                head with the same name as the adapter fusion is used
+            save_directory (str): Path to a directory where the AdapterFusion should be saved.
+            adapter_names (Union[Fuse, list, str]): AdapterFusion to be saved.
+            with_head (Union[bool, str]): If True, will save a head with the same name as the AdapterFusionLayer. If a string,
+                this will be used as the name of the head to be saved.
 
         Raises:
-            ValueError: If the given adapter name is invalid.
+            ValueError: If the given AdapterFusion name is invalid.
         """
-
         super().save_adapter_fusion(save_directory, adapter_names, meta_dict, custom_weights_loaders)
 
         if with_head:
-            head_name = with_head if isinstance(with_head, str) else adapter_names
+            # Make sure to cover the different options for adapter_names
+            if isinstance(with_head, str):
+                head_name = with_head
+            elif isinstance(adapter_names, Fuse):
+                head_name = adapter_names.name
+            elif isinstance(adapter_names, list):
+                head_name = ",".join(adapter_names)
+            else:
+                head_name = adapter_names
             if head_name not in self.heads:
                 raise ValueError("No head with name {} found".format(head_name))
             loader = PredictionHeadLoader(self)
@@ -850,29 +866,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         with_head: bool = True,
         **kwargs
     ) -> str:
-        """
-        Loads a pre-trained pytorch adapter module from the local file system or a remote location.
-
-        Args:
-            custom_weights_loaders: custom weight loaders that should be used
-            with_head: whether the head should be saved with the model. This can specify a head name or True if tha adapter has
-                the same name as the fusion
-            adapter_fusion_name_or_path (str): can be either:
-
-                - the identifier of a pre-trained task adapter fusion module to be loaded from Adapter Hub
-                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
-                - a URL pointing to a zip folder containing a saved adapter module
-            config (dict or str, optional): The requested configuration of the adapter fusion.
-                If not specified, will be either: - the default adapter config for the requested adapter fusion if
-                specified - the global default adapter fusion config
-            model_name (str, optional): The string identifier of the pre-trained model.
-            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
-                    saved will be used.
-            set_active (bool, optional): Activate the loaded AdapterFusion. By default (False), the AdapterFusion is loaded but not activated.
-
-        Returns:
-            str: The name with which the adapter was added to the model.
-        """
         if with_head:
             if custom_weights_loaders is None:
                 custom_weights_loaders = []
