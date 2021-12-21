@@ -305,8 +305,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             adapter_fusion_name = ",".join(adapter_names.children)
         elif isinstance(adapter_names, list):
             adapter_fusion_name = ",".join(adapter_names)
-        else:
+        elif isinstance(adapter_names, str):
             adapter_fusion_name = adapter_names
+        else:
+            raise ValueError("Invalid AdapterFusion definition: {}".format(adapter_names))
 
         if adapter_fusion_name not in self.config.adapters.fusions:
             logger.info("No AdapterFusion '%s' found for deletion. Skipping.", adapter_fusion_name)
@@ -364,8 +366,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             adapter_fusion_name = ",".join(adapter_names.children)
         elif isinstance(adapter_names, list):
             adapter_fusion_name = ",".join(adapter_names)
-        else:
+        elif isinstance(adapter_names, str):
             adapter_fusion_name = adapter_names
+        else:
+            raise ValueError("Invalid AdapterFusion definition: {}".format(adapter_names))
 
         loader = AdapterFusionLoader(self)
         loader.save(save_directory, adapter_fusion_name, meta_dict)
