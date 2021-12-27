@@ -78,8 +78,8 @@ class AdapterTrainer(Trainer):
             )
         if model.active_adapters is None:
             raise ValueError(
-                "Expected a model with an active adapter setup. "
-                "If you want tu fully finetune the model use the Trainer class"
+                "Expected a model with an active adapter setup."
+                "If you want to fully finetune the model use the Trainer class."
             )
 
     def create_optimizer(self):
