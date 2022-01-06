@@ -26,6 +26,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
 from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...adapters.models.bart import (
     BartDecoderLayerAdaptersMixin,
@@ -1163,6 +1164,7 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
         output_type=Seq2SeqModelOutput,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -1195,7 +1197,6 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        self.pre_transformer_forward()
 
         if encoder_outputs is None:
             encoder_outputs = self.encoder(
@@ -1741,8 +1742,8 @@ class BartDecoderWrapper(BartModelAdaptersMixin, BartPretrainedModel):
 
         self._init_adapter_modules()
 
+    @ForwardContext.wrap
     def forward(self, *args, **kwargs):
-        self.pre_transformer_forward()
 
         return self.decoder(*args, **kwargs)
 
