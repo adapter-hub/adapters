@@ -207,8 +207,6 @@ class ModelAdaptersConfig(Collection):
         # TODO-V2 Save this with config?
         self.active_setup: Optional[AdapterCompositionBlock] = None
         self.skip_layers = None
-        # TODO This flag will be set & reset in every forward pass. Check if there is a better solution without state mutation.
-        self.is_parallelized = False
 
     def __contains__(self, item):
         return item in self.adapters.keys()

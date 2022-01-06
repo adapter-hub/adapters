@@ -24,7 +24,8 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN, gelu
-from ...adapters.context import AdapterSetup
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import AdapterSetup, ForwardContext
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.bert import (
     BertEncoderAdaptersMixin,
@@ -765,6 +766,7 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
         output_type=BaseModelOutputWithPoolingAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     # Copied from transformers.models.bert.modeling_bert.BertModel.forward
     def forward(
         self,
@@ -807,7 +809,6 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        self.pre_transformer_forward()
 
         if self.config.is_decoder:
             use_cache = use_cache if use_cache is not None else self.config.use_cache

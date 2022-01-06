@@ -34,6 +34,8 @@ else:
     is_amp_available = False
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin, GPT2ModelHeadsMixin
 from ...file_utils import (
@@ -741,6 +743,7 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         output_type=BaseModelOutputWithPastAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -757,8 +760,6 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         output_hidden_states=None,
         return_dict=None,
     ):
-        self.pre_transformer_forward()
-
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states

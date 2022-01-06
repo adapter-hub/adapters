@@ -5,7 +5,7 @@ import torch
 from torch import nn
 
 from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack
-from .context import AdapterSetup
+from .context import AdapterSetup, ForwardContext
 from .modeling import Adapter, BertFusion
 
 
@@ -305,11 +305,12 @@ class AdapterLayerBaseMixin(ABC):
         # We assume that all adapters have the same config
         adapter_config = self.config.adapters.get(adapter_setup.first())
 
-        if not self.config.adapters.is_parallelized:
+        context = ForwardContext.get_context()
+        if not context.adapters_parallelized:
             orig_batch_size = input_tensor.shape[0]
             input_tensor = input_tensor.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1)
             hidden_states = hidden_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1)
-            self.config.adapters.is_parallelized = True
+            context.adapters_parallelized = True
         else:
             # The base model should handle replication of input.
             # Therefore, we assume the (replicated) input batch to be divisible by the number of parallel channels.
