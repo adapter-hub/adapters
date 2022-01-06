@@ -1,0 +1,38 @@
+name: Pull Request Dependencies
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+      - closed
+      - reopened
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - closed
+      - reopened
+      - synchronize
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: z0al/dependent-issues@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.BOT_TOKEN }}
+        with:
+          # (Optional) A comma-separated list of keywords. Default
+          # "depends on, blocked by"
+          keywords: depends on, blocked by
+
+          # (Optional) A custom comment body. It supports `{{ dependencies }}` token.
+          comment: >
+            This PR/issue depends on:
+
+            {{ dependencies }}
+
+            ---
+
+            Automatically provided by **[Dependent Issues](https://github.com/z0al/dependent-issues)** (🤖).
