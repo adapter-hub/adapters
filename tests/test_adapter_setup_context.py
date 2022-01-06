@@ -40,9 +40,9 @@ class AdapterSetupContextTest(unittest.TestCase):
             nonlocal calls_b
             calls_b += 1
 
-        adapter_a = model.get_adapter("a")[0]["output"]
+        adapter_a = model.get_adapter("a")[0]["output_adapter"]
         adapter_a.register_forward_pre_hook(forward_pre_hook_a)
-        adapter_b = model.get_adapter("b")[0]["output"]
+        adapter_b = model.get_adapter("b")[0]["output_adapter"]
         adapter_b.register_forward_pre_hook(forward_pre_hook_b)
 
         with AdapterSetup("a"):
@@ -75,7 +75,7 @@ class AdapterSetupContextTest(unittest.TestCase):
                 nonlocal calls
                 calls += 1
 
-            adapter = model.get_adapter(adapter_setup)[0]["output"]
+            adapter = model.get_adapter(adapter_setup)[0]["output_adapter"]
             adapter.register_forward_pre_hook(forward_pre_hook)
 
             with AdapterSetup(adapter_setup):
