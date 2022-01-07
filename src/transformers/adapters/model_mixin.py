@@ -534,7 +534,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             param.requires_grad = not freeze
         self.model_freezed = freeze
 
-    def forward_context(self, context: ForwardContext):
+    def forward_context(self, context: ForwardContext, *args, **kwargs):
         """
         This method is called by the ``ForwardContext`` at the beginning of the forward pass.
         """

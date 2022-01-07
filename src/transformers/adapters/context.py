@@ -72,10 +72,10 @@ class ForwardContext:
     # thread-local storage that holds a stack of active contexts
     storage = threading.local()
 
-    def __init__(self, model):
+    def __init__(self, model, *args, **kwargs):
         # If the model has a method ``forward_context()``, use it to create the context.
         if hasattr(model, "forward_context"):
-            model.forward_context(self)
+            model.forward_context(self, *args, **kwargs)
 
     @classmethod
     def wrap(cls, f):
@@ -85,7 +85,7 @@ class ForwardContext:
 
         @functools.wraps(f)
         def wrapper_func(self, *args, **kwargs):
-            context = cls(self)
+            context = cls(self, *args, **kwargs)
             cls.get_contexts().append(context)
             results = f(self, *args, **kwargs)
             cls.get_contexts().pop()
