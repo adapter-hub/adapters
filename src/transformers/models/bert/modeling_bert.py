@@ -38,6 +38,7 @@ from ...adapters.models.bert import (
     BertOutputAdaptersMixin,
     BertSelfOutputAdaptersMixin,
 )
+from ...adapters.prefix_tuning import PrefixTuningLayer
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -257,6 +258,8 @@ class BertSelfAttention(nn.Module):
 
         self.is_decoder = config.is_decoder
 
+        self.prefix_tuning = PrefixTuningLayer(config)
+
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
         x = x.view(*new_x_shape)
@@ -308,6 +311,8 @@ class BertSelfAttention(nn.Module):
             # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_layer, value_layer)
+
+        key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))

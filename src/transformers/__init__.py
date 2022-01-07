@@ -1374,6 +1374,7 @@ if is_torch_available():
         "DEFAULT_ADAPTER_CONFIG",
         "DEFAULT_ADAPTERFUSION_CONFIG",
         "AdapterConfig",
+        "AdapterConfigBase",
         "AdapterFusionConfig",
         "DynamicAdapterFusionConfig",
         "HoulsbyConfig",
@@ -1381,11 +1382,12 @@ if is_torch_available():
         "ModelAdaptersConfig",
         "PfeifferConfig",
         "PfeifferInvConfig",
+        "PrefixTuningConfig",
         "StaticAdapterFusionConfig",
     ]
     _import_structure["adapters.context"] = ["AdapterSetup"]
     _import_structure["adapters.heads"] = ["ModelWithFlexibleHeadsAdaptersMixin"]
-    _import_structure["adapters.layer"] = ["AdapterLayer"]
+    _import_structure["adapters.layer"] = ["AdapterLayer", "AdapterLayerBase"]
     _import_structure["adapters.loading"] = [
         "AdapterFusionLoader",
         "AdapterLoader",
@@ -3161,6 +3163,7 @@ if TYPE_CHECKING:
             DEFAULT_ADAPTER_CONFIG,
             DEFAULT_ADAPTERFUSION_CONFIG,
             AdapterConfig,
+            AdapterConfigBase,
             AdapterFusionConfig,
             DynamicAdapterFusionConfig,
             HoulsbyConfig,
@@ -3168,11 +3171,12 @@ if TYPE_CHECKING:
             ModelAdaptersConfig,
             PfeifferConfig,
             PfeifferInvConfig,
+            PrefixTuningConfig,
             StaticAdapterFusionConfig,
         )
         from .adapters.context import AdapterSetup
         from .adapters.heads import ModelWithFlexibleHeadsAdaptersMixin
-        from .adapters.layer import AdapterLayer
+        from .adapters.layer import AdapterLayer, AdapterLayerBase
         from .adapters.loading import (
             AdapterFusionLoader,
             AdapterLoader,

@@ -7,7 +7,7 @@ from typing import Callable, Mapping, Sequence, Tuple
 
 import torch
 
-from .configuration import AdapterConfig, build_full_config
+from .configuration import AdapterConfigBase, build_full_config
 from .head_utils import STATIC_TO_FLEX_HEAD_MAP, get_head_config_and_rename_list
 from .utils import (
     ADAPTERFUSION_CONFIG_NAME,
@@ -288,7 +288,11 @@ class AdapterLoader(WeightsLoader):
             raise ValueError("Invalid adapter type {}".format(self.adapter_type))
 
     def filter_func(self, adapter_name):
-        return lambda x: "_adapters.{}.".format(adapter_name) in x or ".adapters.{}.".format(adapter_name) in x
+        return (
+            lambda x: "_adapters.{}.".format(adapter_name) in x
+            or ".adapters.{}.".format(adapter_name) in x
+            or ".prefix_tunings.{}.".format(adapter_name) in x
+        )
 
     # This dict maps the original weight names to the currently used equivalents.
     # The mapping is used by rename_func() to support loading from older weights files.
@@ -326,8 +330,10 @@ class AdapterLoader(WeightsLoader):
         return missing_keys
 
     def rename_func(self, old_name, new_name):
-        return lambda k: self._rename_legacy_weights(k).replace(
-            "adapters.{}.".format(old_name), "adapters.{}.".format(new_name)
+        return (
+            lambda k: self._rename_legacy_weights(k)
+            .replace("adapters.{}.".format(old_name), "adapters.{}.".format(new_name))
+            .replace(".prefix_tunings.{}.".format(old_name), ".prefix_tunings.{}.".format(new_name))
         )
 
     def save(self, save_directory, name, meta_dict=None):
@@ -397,7 +403,7 @@ class AdapterLoader(WeightsLoader):
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
             and the name of the loaded weights.
         """
-        requested_config = AdapterConfig.load(config) if config else None
+        requested_config = AdapterConfigBase.load(config) if config else None
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
         model_name = self.model.model_name or model_name
         resolved_folder = resolve_adapter_path(

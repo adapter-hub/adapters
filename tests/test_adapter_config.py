@@ -20,7 +20,7 @@ class AdapterConfigTest(unittest.TestCase):
 
     def test_config_immutable(self):
         def set_attr(config: AdapterConfig):
-            config.ln_before = True
+            config.non_linearity = "dummy"
 
         for config in ADAPTER_CONFIG_MAP.values():
             with self.subTest(config=config.__class__.__name__):

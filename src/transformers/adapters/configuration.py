@@ -11,8 +11,105 @@ from .utils import get_adapter_config_hash, resolve_adapter_config
 logger = logging.getLogger(__name__)
 
 
+class AdapterConfigBase(Mapping):
+    """
+    Base class for all adaptation methods. This class does not define specific configuration keys, but only provides some common helper methods.
+
+    Attributes:
+        architecture (str, optional): The type of adaptation method defined by the configuration.
+    """
+    architecture: Optional[str] = None
+
+    def __init__(self):
+        raise TypeError("AdapterConfigBase is an abstract class and cannot be instantiated.")
+
+    # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
+    # Therefore, we don't allow changing attribute values if set once.
+    def __setattr__(self, name, value):
+        if name in self.__dict__:
+            raise FrozenInstanceError()
+        else:
+            object.__setattr__(self, name, value)
+
+    def __delattr__(self, name):
+        raise FrozenInstanceError()
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __iter__(self):
+        return iter(self.__dict__)
+
+    def __len__(self):
+        return len(self.__dict__)
+
+    def to_dict(self):
+        return asdict(self)
+
+    def replace(self, **changes):
+        return replace(self, **changes)
+
+    @classmethod
+    def from_dict(cls, config):
+        if isinstance(config, AdapterConfigBase):
+            return config
+
+        # the constructor does not accept additional kwargs, so add them separately
+        defined_kwargs, new_kwargs = {}, {}
+        for k, v in config.items():
+            if k in cls.__dataclass_fields__.keys():
+                defined_kwargs[k] = v
+            else:
+                new_kwargs[k] = v
+        obj = cls(**defined_kwargs)
+        for k, v in new_kwargs.items():
+            setattr(obj, k, v)
+        return obj
+
+    @classmethod
+    def load(cls, config: Union[dict, str], download_kwargs=None, **kwargs):
+        """
+        Loads a given adapter configuration specifier into a full AdapterConfigBase instance.
+
+        Args:
+            config (Union[dict, str]): The configuration to load. Can be either:
+
+                - a dictionary representing the full config
+                - an identifier string available in ADAPTER_CONFIG_MAP
+                - the path to a file containing a full adapter configuration
+                - an identifier string available in Adapter-Hub
+
+        Returns:
+            dict: The resolved adapter configuration dictionary.
+        """
+        if not config:
+            return None
+        # if force_download is set, skip the local map
+        if download_kwargs and download_kwargs.get("force_download", False):
+            local_map = None
+        else:
+            local_map = ADAPTER_CONFIG_MAP
+        if download_kwargs:
+            config_dict = resolve_adapter_config(config, local_map=local_map, **download_kwargs)
+        else:
+            config_dict = resolve_adapter_config(config, local_map=local_map)
+        # convert back to dict to allow attr overrides
+        if isinstance(config_dict, AdapterConfigBase):
+            cls_new = config_dict.__class__
+            config_dict = config_dict.to_dict()
+        else:
+            architecture = config_dict.get("architecture", None)
+            if architecture == "prefix_tuning":
+                cls_new = PrefixTuningConfig
+            else:
+                cls_new = AdapterConfig
+        # The check for "None" is necessary because of the example script flags.
+        config_dict.update((k, v) for k, v in kwargs.items() if v is not None)
+        return cls_new.from_dict(config_dict)
+
+
 @dataclass
-class AdapterConfig(Mapping):
+class AdapterConfig(AdapterConfigBase):
     """
     Base class that models the architecture of an adapter.
 
@@ -50,77 +147,6 @@ class AdapterConfig(Mapping):
                 object.__setattr__(self, "inv_adapter_reduction_factor", value["reduction_factor"])
         else:
             object.__setattr__(self, name, value)
-
-    def __delattr__(self, name):
-        raise FrozenInstanceError()
-
-    def __getitem__(self, key):
-        return self.__dict__[key]
-
-    def __iter__(self):
-        return iter(self.__dict__)
-
-    def __len__(self):
-        return len(self.__dict__)
-
-    def to_dict(self):
-        return asdict(self)
-
-    def replace(self, **changes):
-        return replace(self, **changes)
-
-    @classmethod
-    def from_dict(cls, config):
-        if isinstance(config, AdapterConfig):
-            return config
-
-        # the constructor does not accept additional kwargs, so add them separately
-        defined_kwargs, new_kwargs = {}, {}
-        for k, v in config.items():
-            if k in cls.__dataclass_fields__.keys():
-                defined_kwargs[k] = v
-            else:
-                new_kwargs[k] = v
-        obj = cls(**defined_kwargs)
-        for k, v in new_kwargs.items():
-            setattr(obj, k, v)
-        return obj
-
-    @classmethod
-    def load(cls, config: Union[dict, str], download_kwargs=None, **kwargs):
-        """
-        Loads a given adapter configuration specifier into a full AdapterConfig instance.
-
-        Args:
-            config (Union[dict, str]): The configuration to load. Can be either:
-
-                - a dictionary representing the full config
-                - an identifier string available in ADAPTER_CONFIG_MAP
-                - the path to a file containing a full adapter configuration
-                - an identifier string available in Adapter-Hub
-
-        Returns:
-            dict: The resolved adapter configuration dictionary.
-        """
-        if not config:
-            return None
-        # if force_download is set, skip the local map
-        if download_kwargs and download_kwargs.get("force_download", False):
-            local_map = None
-        else:
-            local_map = ADAPTER_CONFIG_MAP
-        if download_kwargs:
-            config_dict = resolve_adapter_config(config, local_map=local_map, **download_kwargs)
-        else:
-            config_dict = resolve_adapter_config(config, local_map=local_map)
-        # convert back to dict to allow attr overrides
-        if isinstance(config_dict, AdapterConfig):
-            cls_new = config_dict.__class__
-            config_dict = config_dict.to_dict()
-        else:
-            cls_new = AdapterConfig
-        config_dict.update((k, v) for k, v in kwargs.items() if v is not None)
-        return cls_new.from_dict(config_dict)
 
 
 @dataclass
@@ -179,11 +205,30 @@ class HoulsbyInvConfig(HoulsbyConfig):
     inv_adapter_reduction_factor: Optional[int] = 2
 
 
+@dataclass
+class PrefixTuningConfig(AdapterConfigBase):
+    """
+    Configuration of Prefix Tuning proposed by Li & Liang (2021), described in https://arxiv.org/pdf/2101.00190.pdf.
+    """
+
+    architecture: Optional[str] = "prefix_tuning"
+
+    flat: bool = False
+    prefix_length: int = 10
+    bottleneck_size: int = 512
+    non_linearity: str = "tanh"
+    dropout: float = 0.0
+
+    leave_out: List[int] = field(default_factory=list)
+
+
 ADAPTER_CONFIG_MAP = {
     "pfeiffer": PfeifferConfig(),
     "houlsby": HoulsbyConfig(),
     "pfeiffer+inv": PfeifferInvConfig(),
     "houlsby+inv": HoulsbyInvConfig(),
+    "prefix": PrefixTuningConfig(),
+    "prefix_flat": PrefixTuningConfig(flat=True),
 }
 
 DEFAULT_ADAPTER_CONFIG = "pfeiffer"
@@ -238,6 +283,29 @@ class ModelAdaptersConfig(Collection):
         else:
             config = None
         return config
+
+    def match(
+        self,
+        adapter_name: str,
+        config_type: type,
+        layer_idx: Optional[int] = None,
+        location_key: Optional[str] = None,
+    ) -> Optional[dict]:
+        """
+        Tries to match the given criteria to an existing adapter.
+        Return the adapter config if a match is found, otherwise None.
+        """
+        config = self.get(adapter_name)
+        if config is None:
+            return None
+
+        if isinstance(config, config_type):
+            leave_out = config.get("leave_out", [])
+            if layer_idx is None or layer_idx not in leave_out:
+                if location_key is None or config.get(location_key, None):
+                    return config
+
+        return None
 
     def add(self, adapter_name: str, config: Optional[Union[str, dict]] = None):
         """
@@ -361,7 +429,7 @@ def build_full_config(adapter_config, model_config, save_id2label=False, **kwarg
 
 
 @dataclass
-class AdapterFusionConfig(Mapping):
+class AdapterFusionConfig(AdapterConfigBase):
     """Base class that models the architecture of an adapter fusion layer."""
 
     key: bool
@@ -373,36 +441,6 @@ class AdapterFusionConfig(Mapping):
     temperature: bool
     value_before_softmax: bool
     value_initialized: str
-
-    # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
-    # Therefore, we don't allow changing attribute values if set once.
-    def __setattr__(self, name, value):
-        if name in self.__dict__:
-            raise FrozenInstanceError()
-        else:
-            object.__setattr__(self, name, value)
-
-    def __delattr__(self, name):
-        raise FrozenInstanceError()
-
-    def __getitem__(self, key):
-        return self.__dict__[key]
-
-    def __iter__(self):
-        return iter(self.__dict__)
-
-    def __len__(self):
-        return len(self.__dict__)
-
-    def to_dict(self):
-        return asdict(self)
-
-    def replace(self, **changes):
-        return replace(self, **changes)
-
-    @classmethod
-    def from_dict(cls, config):
-        return cls(**config)
 
     @classmethod
     def load(cls, config: Union[dict, str], **kwargs):

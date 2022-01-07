@@ -12,6 +12,7 @@ from transformers import (
     HoulsbyInvConfig,
     PfeifferConfig,
     PfeifferInvConfig,
+    PrefixTuningConfig,
 )
 from transformers.testing_utils import require_torch, torch_device
 
@@ -35,11 +36,18 @@ def create_twin_models(model_class, config_creator=None):
 
 @require_torch
 class AdapterModelTestMixin:
+
+    adapter_configs_to_test = [
+        PfeifferConfig(),
+        HoulsbyConfig(),
+        PrefixTuningConfig(),
+    ]
+
     def test_add_adapter(self):
         model = self.get_model()
         model.eval()
 
-        for adapter_config in [PfeifferConfig(), HoulsbyConfig()]:
+        for adapter_config in self.adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
@@ -62,18 +70,20 @@ class AdapterModelTestMixin:
         model = self.get_model()
         model.eval()
 
-        name = "test_adapter"
-        model.add_adapter(name, config="houlsby")
-        model.set_active_adapters([name])
+        for adapter_config in self.adapter_configs_to_test:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = "test_adapter_" + adapter_config.__class__.__name__
+                model.add_adapter(name, config="houlsby")
+                model.set_active_adapters([name])
 
-        # adapter is correctly added to config
-        self.assertTrue(name in model.config.adapters)
-        self.assertGreater(len(model.get_adapter(name)), 0)
+                # adapter is correctly added to config
+                self.assertTrue(name in model.config.adapters)
+                self.assertGreater(len(model.get_adapter(name)), 0)
 
-        # remove the adapter again
-        model.delete_adapter(name)
-        self.assertFalse(name in model.config.adapters)
-        self.assertEqual(len(model.get_adapter(name)), 0)
+                # remove the adapter again
+                model.delete_adapter(name)
+                self.assertFalse(name in model.config.adapters)
+                self.assertEqual(len(model.get_adapter(name)), 0)
 
     def test_add_adapter_with_invertible(self):
         model = self.get_model()
@@ -175,7 +185,7 @@ class AdapterModelTestMixin:
         model = self.get_model()
         model.eval()
 
-        for adapter_config in [PfeifferConfig(), HoulsbyConfig()]:
+        for adapter_config in self.adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
@@ -200,8 +210,32 @@ class AdapterModelTestMixin:
     def test_load_adapter(self):
         model1, model2 = create_twin_models(self.model_class, self.config)
 
-        name = "dummy"
+        name = "dummy_adapter"
         model1.add_adapter(name)
+        model1.set_active_adapters([name])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model1.save_adapter(temp_dir, name)
+
+            # also tests that set_active works
+            model2.load_adapter(temp_dir, set_active=True)
+
+        # check if adapter was correctly loaded
+        self.assertTrue(name in model2.config.adapters)
+
+        # check equal output
+        input_data = self.get_input_samples((1, 128), config=model1.config)
+        model1.to(torch_device)
+        model2.to(torch_device)
+        output1 = model1(**input_data)
+        output2 = model2(**input_data)
+        self.assertEqual(len(output1), len(output2))
+        self.assertTrue(torch.equal(output1[0], output2[0]))
+
+    def test_load_prefix_tuning(self):
+        model1, model2 = create_twin_models(self.model_class, self.config)
+
+        name = "dummy_prefix_tuning"
+        model1.add_adapter(name, config=PrefixTuningConfig())
         model1.set_active_adapters([name])
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)

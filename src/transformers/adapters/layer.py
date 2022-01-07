@@ -1,18 +1,19 @@
+from abc import ABC, abstractmethod
 from typing import List, Mapping, Union
 
 import torch
 from torch import nn
 
 from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack
+from .configuration import AdapterConfig
 from .context import AdapterSetup, ForwardContext
 from .modeling import Adapter, BertFusion
 
 
-class AdapterLayer(nn.Module):
-    def __init__(self, location_key: str, config):
-        super().__init__()
-        self.location_key = location_key
-        self.config = config
+class AdapterLayerBase(ABC, nn.Module):
+    """
+    Base class for all adaptation methods that require per-layer modules.
+    """
 
     @property
     def layer_idx(self):
@@ -24,19 +25,50 @@ class AdapterLayer(nn.Module):
         assert idx == layer_idx
         setattr(self, "_layer_idx", idx)
 
+    @abstractmethod
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def delete_adapter(self, adapter_name: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def add_fusion_layer(self, adapter_names: Union[List, str]):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def delete_fusion_layer(self, adapter_names: Union[List, str]):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def adapter_state_dict(self, adapter_name: str, destination=None, prefix=""):
+        raise NotImplementedError()
+
+
+class AdapterLayer(AdapterLayerBase):
+    def __init__(self, location_key: str, config):
+        super().__init__()
+        self.location_key = location_key
+        self.config = config
+
     def _init_adapter_modules(self):
         self.adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
 
     def add_adapter(self, adapter_name: str, layer_idx: int):
         self.layer_idx = layer_idx
-        adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config and adapter_config.get(self.location_key, None):
-            # Check whether to skip this layer.
-            leave_out = adapter_config.get("leave_out", [])
-            if self.layer_idx in leave_out:
-                return
-
+        adapter_config = self.config.adapters.match(
+            adapter_name,
+            config_type=AdapterConfig,
+            layer_idx=self.layer_idx,
+            location_key=self.location_key,
+        )
+        if adapter_config is not None:
             reduction_factor = adapter_config["reduction_factor"]
             if isinstance(reduction_factor, Mapping):
                 if str(self.layer_idx) in reduction_factor:
