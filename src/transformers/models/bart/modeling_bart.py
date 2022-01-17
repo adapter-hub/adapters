@@ -145,6 +145,7 @@ class BartAttention(nn.Module):
         dropout: float = 0.0,
         is_decoder: bool = False,
         bias: bool = True,
+        location_key: Optional[str] = None,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -165,7 +166,7 @@ class BartAttention(nn.Module):
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
-        self.prefix_tuning = PrefixTuningLayer(config)
+        self.prefix_tuning = PrefixTuningLayer(location_key + "_prefix" if location_key else None, config)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
@@ -220,10 +221,11 @@ class BartAttention(nn.Module):
 
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
         query_states = self._shape(query_states, tgt_len, bsz).view(*proj_shape)
+
+        key_states, value_states, attention_mask = self.prefix_tuning(key_states, value_states, attention_mask)
+
         key_states = key_states.view(*proj_shape)
         value_states = value_states.view(*proj_shape)
-
-        key_states, values_states, attention_mask = self.prefix_tuning(key_states, value_states, attention_mask)
 
         src_len = key_states.size(1)
         attn_weights = torch.bmm(query_states, key_states.transpose(1, 2))
@@ -290,6 +292,7 @@ class BartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
             embed_dim=self.embed_dim,
             num_heads=config.encoder_attention_heads,
             dropout=config.attention_dropout,
+            location_key="encoder",
         )
         self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.dropout = config.dropout
@@ -363,6 +366,7 @@ class BartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
             num_heads=config.decoder_attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
+            location_key="self",
         )
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
@@ -375,6 +379,7 @@ class BartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
             config.decoder_attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
+            location_key="cross",
         )
         self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)

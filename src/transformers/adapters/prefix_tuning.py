@@ -77,17 +77,31 @@ class FlatPrefixTuning(nn.Module):
 
 
 class PrefixTuningLayer(AdapterLayerBase):
-    def __init__(self, config):
+    """Models one layer in a model containing prefix tuning modules.
+
+    Args:
+        location_key (str): The id describing the location of this layer in the model.
+                            Currently, can be "encoder_prefix", "cross_prefix" or None.
+        config (:class:`~transformers.PretrainedConfig`): The model config.
+    """
+    def __init__(self, location_key: str, config):
         super().__init__()
         self.config = config
+        self.location_key = location_key
         self.prefix_tunings = nn.ModuleDict()
 
     def add_adapter(self, adapter_name: str, layer_idx: int):
         self.layer_idx = layer_idx
+        # only match location keys for which we have config keys
+        if self.location_key.startswith("cross") or self.location_key.startswith("encoder"):
+            used_location_key = self.location_key
+        else:
+            used_location_key = None
         prefix_tuning_config = self.config.adapters.match(
             adapter_name,
             config_type=PrefixTuningConfig,
             layer_idx=self.layer_idx,
+            location_key=used_location_key,
         )
         if prefix_tuning_config is not None:
             if prefix_tuning_config["flat"]:

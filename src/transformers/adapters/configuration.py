@@ -208,17 +208,19 @@ class HoulsbyInvConfig(HoulsbyConfig):
 @dataclass
 class PrefixTuningConfig(AdapterConfigBase):
     """
-    Configuration of Prefix Tuning proposed by Li & Liang (2021), described in https://arxiv.org/pdf/2101.00190.pdf.
+    The Prefix Tuning architecture proposed by Li & Liang (2021), described in https://arxiv.org/pdf/2101.00190.pdf.
     """
 
     architecture: Optional[str] = "prefix_tuning"
 
     flat: bool = False
-    prefix_length: int = 10
+    prefix_length: int = 30
     bottleneck_size: int = 512
     non_linearity: str = "tanh"
     dropout: float = 0.0
 
+    encoder_prefix: bool = True
+    cross_prefix: bool = True
     leave_out: List[int] = field(default_factory=list)
 
 

@@ -16,6 +16,7 @@
 """PyTorch RoBERTa model. """
 
 import math
+from typing import Optional
 
 import torch
 import torch.utils.checkpoint
@@ -33,6 +34,7 @@ from ...adapters.models.bert import (
     BertOutputAdaptersMixin,
     BertSelfOutputAdaptersMixin,
 )
+from ...adapters.prefix_tuning import PrefixTuningLayer
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -169,7 +171,7 @@ class RobertaEmbeddings(nn.Module):
 
 # Copied from transformers.models.bert.modeling_bert.BertSelfAttention with Bert->Roberta
 class RobertaSelfAttention(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, location_key: Optional[str] = None):
         super().__init__()
         if config.hidden_size % config.num_attention_heads != 0 and not hasattr(config, "embedding_size"):
             raise ValueError(
@@ -192,6 +194,8 @@ class RobertaSelfAttention(nn.Module):
             self.distance_embedding = nn.Embedding(2 * config.max_position_embeddings - 1, self.attention_head_size)
 
         self.is_decoder = config.is_decoder
+
+        self.prefix_tuning = PrefixTuningLayer(location_key + "_prefix" if location_key else None, config)
 
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
@@ -244,6 +248,8 @@ class RobertaSelfAttention(nn.Module):
             # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_layer, value_layer)
+
+        key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
@@ -313,9 +319,9 @@ class RobertaSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
 
 # Copied from transformers.models.bert.modeling_bert.BertAttention with Bert->Roberta
 class RobertaAttention(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, location_key: Optional[str] = None):
         super().__init__()
-        self.self = RobertaSelfAttention(config)
+        self.self = RobertaSelfAttention(config, location_key=location_key)
         self.output = RobertaSelfOutput(config)
         self.pruned_heads = set()
 
@@ -401,13 +407,13 @@ class RobertaLayer(nn.Module):
         super().__init__()
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
         self.seq_len_dim = 1
-        self.attention = RobertaAttention(config)
+        self.attention = RobertaAttention(config, location_key="self")
         self.is_decoder = config.is_decoder
         self.add_cross_attention = config.add_cross_attention
         if self.add_cross_attention:
             if not self.is_decoder:
                 raise ValueError(f"{self} should be used as a decoder model if cross attention is added")
-            self.crossattention = RobertaAttention(config)
+            self.crossattention = RobertaAttention(config, location_key="cross")
         self.intermediate = RobertaIntermediate(config)
         self.output = RobertaOutput(config)
 
