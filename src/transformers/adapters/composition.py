@@ -149,3 +149,33 @@ def parse_composition(adapter_composition, level=0, model_type=None) -> AdapterC
         return block_class(*[parse_composition(b, level) for b in adapter_composition])
     else:
         raise TypeError(adapter_composition)
+
+
+def parse_heads_from_composition(adapter_composition, reference_heads: list = None):
+    """
+    Parses a potential head configuration from a setup of adapters.
+
+    Args:
+        adapter_composition: The adapter setup to be parsed.
+        reference_heads: The list of available to validate the retrieved head configuration against.
+    """
+    final_block = adapter_composition
+    if isinstance(final_block, Stack):
+        final_block = final_block.children[-1]
+
+    if isinstance(final_block, str) and (reference_heads is None or final_block in reference_heads):
+        return final_block
+    elif isinstance(final_block, Parallel):
+        return [a if isinstance(a, str) else a.last() for a in final_block.children]
+    elif isinstance(final_block, BatchSplit):
+        # Convert BatchSplit of adapters to a BatchSplit of heads.
+        blocks = [block.last() if isinstance(block, AdapterCompositionBlock) else block for block in final_block]
+        head_setup = BatchSplit(*blocks, batch_sizes=final_block.batch_sizes)
+        if reference_heads is None or all(head in reference_heads for head in head_setup):
+            return head_setup
+        else:
+            raise ValueError(
+                "Missing at least one head for the given BatchSplit setup. Expected heads: {}".format(blocks)
+            )
+    else:
+        return None
