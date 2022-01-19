@@ -53,8 +53,11 @@ class AdapterTrainingTestMixin:
         self.assertEqual(set(["mrpc"]), model.active_adapters.flatten())
 
         # all weights of the adapter should be activated
+        has_weights = False
         for k, v in filter_parameters(model, "adapters.mrpc.").items():
+            has_weights = True
             self.assertTrue(v.requires_grad, k)
+        self.assertTrue(has_weights)
         # all weights of the adapter not used for training should be frozen
         for k, v in filter_parameters(model, "adapters.dummy.").items():
             self.assertFalse(v.requires_grad, k)
@@ -68,9 +71,9 @@ class AdapterTrainingTestMixin:
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if "mrpc" in k1:
-                self.assertFalse(torch.equal(v1, v2))
+                self.assertFalse(torch.equal(v1, v2), k1)
             else:
-                self.assertTrue(torch.equal(v1, v2))
+                self.assertTrue(torch.equal(v1, v2), k1)
 
     def test_train_prefix_tuning(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
@@ -91,8 +94,11 @@ class AdapterTrainingTestMixin:
         self.assertEqual(set(["mrpc"]), model.active_adapters.flatten())
 
         # all weights of the adapter should be activated
+        has_weights = False
         for k, v in filter_parameters(model, "prefix_tunings.mrpc.").items():
+            has_weights = True
             self.assertTrue(v.requires_grad, k)
+        self.assertTrue(has_weights)
         # all weights of the adapter not used for training should be frozen
         for k, v in filter_parameters(model, "prefix_tunings.dummy.").items():
             self.assertFalse(v.requires_grad, k)
@@ -106,9 +112,9 @@ class AdapterTrainingTestMixin:
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if "mrpc" in k1:
-                self.assertFalse(torch.equal(v1, v2))
+                self.assertFalse(torch.equal(v1, v2), k1)
             else:
-                self.assertTrue(torch.equal(v1, v2))
+                self.assertTrue(torch.equal(v1, v2), k1)
 
     def test_train_adapter_fusion(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)

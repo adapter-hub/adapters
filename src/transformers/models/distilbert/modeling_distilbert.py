@@ -35,6 +35,7 @@ from ...adapters.models.distilbert import (
     DistilBertModelHeadsMixin,
     DistilBertTransfomerBlockAdaptersMixin,
 )
+from ...adapters.prefix_tuning import PrefixTuningLayer
 from ...deepspeed import is_deepspeed_zero3_enabled
 from ...file_utils import (
     ModelOutput,
@@ -162,6 +163,8 @@ class MultiHeadSelfAttention(nn.Module):
 
         self.pruned_heads = set()
 
+        self.prefix_tuning = PrefixTuningLayer("self", config)
+
     def prune_heads(self, heads):
         attention_head_size = self.dim // self.n_heads
         if len(heads) == 0:
@@ -190,13 +193,10 @@ class MultiHeadSelfAttention(nn.Module):
             seq_length, dim) Contextualized layer. Optional: only if `output_attentions=True`
         """
         bs, q_length, dim = query.size()
-        k_length = key.size(1)
         # assert dim == self.dim, f'Dimensions do not match: {dim} input vs {self.dim} configured'
         # assert key.size() == value.size()
 
         dim_per_head = self.dim // self.n_heads
-
-        mask_reshp = (bs, 1, 1, k_length)
 
         def shape(x):
             """separate heads"""
@@ -209,6 +209,10 @@ class MultiHeadSelfAttention(nn.Module):
         q = shape(self.q_lin(query))  # (bs, n_heads, q_length, dim_per_head)
         k = shape(self.k_lin(key))  # (bs, n_heads, k_length, dim_per_head)
         v = shape(self.v_lin(value))  # (bs, n_heads, k_length, dim_per_head)
+
+        k, v, mask = self.prefix_tuning(k, v, mask)
+
+        mask_reshp = (bs, 1, 1, k.size(2))
 
         q = q / math.sqrt(dim_per_head)  # (bs, n_heads, q_length, dim_per_head)
         scores = torch.matmul(q, k.transpose(2, 3))  # (bs, n_heads, q_length, k_length)

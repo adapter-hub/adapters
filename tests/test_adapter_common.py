@@ -1,4 +1,5 @@
 import copy
+import os
 import tempfile
 
 import torch
@@ -14,6 +15,7 @@ from transformers import (
     PfeifferInvConfig,
     PrefixTuningConfig,
 )
+from transformers.adapters.utils import WEIGHTS_NAME
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -216,6 +218,10 @@ class AdapterModelTestMixin:
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
 
+            # Check that there are actually weights saved
+            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu")
+            self.assertTrue(len(weights) > 0)
+
             # also tests that set_active works
             model2.load_adapter(temp_dir, set_active=True)
 
@@ -239,6 +245,10 @@ class AdapterModelTestMixin:
         model1.set_active_adapters([name])
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
+
+            # Check that there are actually weights saved
+            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu")
+            self.assertTrue(len(weights) > 0)
 
             # also tests that set_active works
             model2.load_adapter(temp_dir, set_active=True)

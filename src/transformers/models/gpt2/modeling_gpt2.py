@@ -38,6 +38,7 @@ from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin, GPT2ModelHeadsMixin
+from ...adapters.prefix_tuning import PrefixTuningLayer
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -177,6 +178,9 @@ class GPT2Attention(nn.Module):
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
 
         self.pruned_heads = set()
+
+        location_key = "cross_prefix" if self.is_cross_attention else "self_prefix"
+        self.prefix_tuning = PrefixTuningLayer(location_key, config)
 
     def prune_heads(self, heads):
         if len(heads) == 0:
@@ -323,6 +327,8 @@ class GPT2Attention(nn.Module):
         query = self._split_heads(query, self.num_heads, self.head_dim)
         key = self._split_heads(key, self.num_heads, self.head_dim)
         value = self._split_heads(value, self.num_heads, self.head_dim)
+
+        key, value, attention_mask = self.prefix_tuning(key, value, attention_mask)
 
         if layer_past is not None:
             past_key, past_value = layer_past

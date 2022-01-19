@@ -84,6 +84,7 @@ class PrefixTuningLayer(AdapterLayerBase):
                             Currently, can be "encoder_prefix", "cross_prefix" or None.
         config (:class:`~transformers.PretrainedConfig`): The model config.
     """
+
     def __init__(self, location_key: str, config):
         super().__init__()
         self.config = config
@@ -165,9 +166,12 @@ class PrefixTuningLayer(AdapterLayerBase):
                     key_states = torch.cat([prefix_keys, key_states], dim=2)
                     value_states = torch.cat([prefix_values, value_states], dim=2)
                     if attention_mask is not None:
-                        prefix_mask = torch.zeros(batch_size, 1, attention_mask.size(2), prefix_keys.size(2)).to(
-                            attention_mask.device
-                        )
+                        if attention_mask.dim() == 2:
+                            prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(attention_mask.device)
+                        else:
+                            prefix_mask = torch.ones(batch_size, 1, attention_mask.size(2), prefix_keys.size(2)).to(
+                                attention_mask.device
+                            )
                         attention_mask = torch.cat([prefix_mask, attention_mask], dim=-1)
             else:
                 raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with prefix tuning.")
