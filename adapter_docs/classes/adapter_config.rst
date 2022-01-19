@@ -32,3 +32,9 @@ Adapter Fusion
 
 .. autoclass:: transformers.DynamicAdapterFusionConfig
     :members:
+
+Adapter Setup
+~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.AdapterSetup
+    :members:

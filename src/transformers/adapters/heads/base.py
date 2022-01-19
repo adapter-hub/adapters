@@ -16,7 +16,8 @@ from ...modeling_outputs import (
     SequenceClassifierOutput,
     TokenClassifierOutput,
 )
-from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack
+from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, parse_heads_from_composition
+from ..context import AdapterSetup
 from ..model_mixin import ModelWithHeadsAdaptersMixin
 from ..modeling import Activation_Function_Class
 
@@ -572,28 +573,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         self.base_model.set_active_adapters(adapter_setup, skip_layers)
         # use last adapter name as name of prediction head
         if self.active_adapters:
-            final_block = self.active_adapters
-            if isinstance(final_block, Stack):
-                final_block = final_block.children[-1]
-
-            if isinstance(final_block, str) and final_block in self.heads:
-                self.active_head = final_block
-            elif isinstance(final_block, Parallel):
-                self.active_head = [a if isinstance(a, str) else a.last() for a in final_block.children]
-            elif isinstance(final_block, BatchSplit):
-                # Convert BatchSplit of adapters to a BatchSplit of heads.
-                blocks = [
-                    block.last() if isinstance(block, AdapterCompositionBlock) else block for block in final_block
-                ]
-                head_setup = BatchSplit(*blocks, batch_sizes=final_block.batch_sizes)
-                if all(head in self.heads for head in head_setup):
-                    self.active_head = head_setup
-                else:
-                    raise ValueError(
-                        "Missing at least one head for the given BatchSplit setup. Expected heads: {}".format(blocks)
-                    )
+            head_setup = parse_heads_from_composition(self.active_adapters)
+            if head_setup:
+                self.active_head = head_setup
             else:
-                logger.info("Could not identify '{}' as a valid prediction head.".format(final_block))
+                logger.info("Could not identify a valid prediction head from setup '{}'.".format(self.active_adapters))
 
     def add_custom_head(self, head_name, config, overwrite_ok=False, set_active=True):
         if config["head_type"] in self.config.custom_heads:
@@ -653,11 +637,34 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     def forward_head(
         self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
     ):
+        """
+        The forward pass through a prediction head configuration. There are three ways to specify the used prediction
+        head configuration (in order of priority):
 
-        if not head_name and not self.active_head:
+            1. If a head_name is passed, the head with the given name is used.
+            2. If the forward call is executed within an ``AdapterSetup`` context, the head configuration is read from
+               the context.
+            3. If the ``active_head`` property is set, the head configuration is read from there.
+
+        Args:
+            all_outputs (dict): The outputs of the base model.
+            head_name (str, optional): The name of the prediction head to use. If None, the active head is used.
+            cls_output (torch.Tensor, optional): The classification output of the model.
+            attention_mask (torch.Tensor, optional): The attention mask of the model.
+            return_dict (bool): Whether or not to return a ``ModelOutput`` instead of a plain tuple.
+            **kwargs: Additional keyword arguments passed to the forward pass of the head.
+        """
+        if head_name:
+            used_heads = [head_name]
+        elif AdapterSetup.get_context_head_setup():
+            used_heads = AdapterSetup.get_context_head_setup()
+            if isinstance(used_heads, str):
+                used_heads = [used_heads]
+        elif self._active_heads:
+            used_heads = self._active_heads
+        else:
             logger.debug("No prediction head is used.")
             return all_outputs
-        used_heads = [head_name] if head_name else self._active_heads
 
         def _get_head_input(outputs, cls_out, batch):
             # TODO-AH check possible edge cases here

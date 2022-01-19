@@ -6,6 +6,7 @@ import torch
 from transformers import (
     ADAPTER_CONFIG_MAP,
     MODEL_WITH_HEADS_MAPPING,
+    AdapterSetup,
     AutoModelWithHeads,
     HoulsbyConfig,
     HoulsbyInvConfig,
@@ -191,7 +192,8 @@ class AdapterModelTestMixin:
                 self.assertEqual(None, model.active_adapters)
 
                 # check forward pass
-                output_2 = model(**input_data, adapter_names=[name])
+                with AdapterSetup(name):
+                    output_2 = model(**input_data)
                 self.assertEqual(len(output_1), len(output_2))
                 self.assertTrue(torch.equal(output_1[0], output_2[0]))
 

@@ -46,8 +46,12 @@ At this point, we can start to [train our setup](training.md).
 
 ```eval_rst
 .. note::
-    The ``set_active_adapters()`` will search for an adapter module and a prediction head with the given name to be activated.
-    If this method is not used, you can still activate a specific adapter module or prediction head by providing the `adapter_names` or `head` parameter in the forward call.
+    The ``set_active_adapters()`` will search for an adapter and a prediction head with the given name to be activated.
+    Alternatively, prediction heads can also be activated explicitly (i.e. without adapter modules).
+    These three options are possible (in order of priority when multiple are specified):
+        1. If ``head`` is passed to the forward call, the head with the given name is used.
+        2. If the forward call is executed within an ``AdapterSetup`` context, the head configuration is read from the context.
+        3. If the ``active_head`` property is set, the head configuration is read from there.
 ```
 
 After training has completed, we can save our whole setup (adapter module _and_ prediction head), with a single call:
