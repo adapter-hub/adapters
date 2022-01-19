@@ -42,7 +42,6 @@ These classes allow flexible adding of and switching between multiple prediction
 
 ### Additional (optional) implementation steps
 
-- Dynamic adapter activation via `adapter_names` argument (cf. [PR#176](https://github.com/Adapter-Hub/adapter-transformers/pull/176)).
 - Parallel adapter inference via `Parallel` composition block (cf. [documentation](https://docs.adapterhub.ml/adapter_composition.html#parallel), [PR#150](https://github.com/Adapter-Hub/adapter-transformers/pull/150)).
 - Provide mappings for an architecture's existing (static) prediction heads into `adapter-transformers` flex heads (cf. [implementation](https://github.com/Adapter-Hub/adapter-transformers/blob/master/src/transformers/adapters/head_utils.py#L8)).
 

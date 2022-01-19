@@ -4,6 +4,8 @@ One of the great advantages of using adapters is the possibility to combine mult
 To enable such adapter compositions, `adapter-transformers` comes with a modular and flexible concept to define how the input to the model should flow through the available adapters.
 This not only allows stacking ([_MAD-X_](https://arxiv.org/pdf/2005.00052.pdf)) and fusing ([_AdapterFusion_](https://arxiv.org/pdf/2005.00247.pdf)) adapters, but also even more complex adapter setups.
 
+## Adapter activation
+
 The single location where all the adapter composition magic happens is the `active_adapters` property of the model class.
 In the simplest case, you can set the name of a single adapter here to activate it:
 ```python
@@ -18,6 +20,17 @@ Note that we also could have used `model.set_active_adapters("adapter_name")` wh
 
     - You cannot activate an adapter not previously added to the model using either ``add_adapter()`` or ``load_adapter()``.
     - All adapters not mentioned anywhere in the ``active_adapters`` setup are ignored although they might be loaded into the model. Thus, after adding an adapter, make sure to activate it.
+```
+
+Alternatively, the [`AdapterSetup`](classes/adapter_config.html#transformers.AdapterSetup) context manager allows dynamic configuration of activated setups without changing the model state:
+
+```python
+model = ...
+model.add_adapter("adapter_name")
+
+with AdapterSetup("adapter_name"):
+    # will use the adapter named "adapter_name" in the forward pass
+    outputs = model(**inputs)
 ```
 
 The basic building blocks of the more advanced setups are simple objects derived from `AdapterCompositionBlock`,

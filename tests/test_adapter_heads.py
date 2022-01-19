@@ -2,7 +2,7 @@ import tempfile
 
 import torch
 
-from transformers import MODEL_WITH_HEADS_MAPPING, AutoModelForSequenceClassification, AutoModelWithHeads
+from transformers import MODEL_WITH_HEADS_MAPPING, AdapterSetup, AutoModelForSequenceClassification, AutoModelWithHeads
 from transformers.adapters.composition import BatchSplit, Stack
 from transformers.testing_utils import require_torch, torch_device
 
@@ -298,8 +298,9 @@ class PredictionHeadModelTestMixin:
         in_data = self.get_input_samples((1, 128), config=flex_head_model.config)
         static_head_model.to(torch_device)
         flex_head_model.to(torch_device)
-        output1 = static_head_model(**in_data, adapter_names=["test"])
-        output2 = flex_head_model(**in_data, adapter_names=["test"], head="test")
+        with AdapterSetup("test"):
+            output1 = static_head_model(**in_data)
+            output2 = flex_head_model(**in_data, head="test")
         self.assertTrue(torch.all(torch.isclose(output1.logits, output2.logits)))
 
     def test_invertible_adapter_with_head(self):
@@ -342,3 +343,31 @@ class PredictionHeadModelTestMixin:
 
         self.assertEqual((self.batch_size, self.seq_length, model.config.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
+
+    def test_context_simple(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+            self.skipTest("No classification head available")
+        model = AutoModelWithHeads.from_config(self.config())
+        model.add_adapter("a")
+        model.add_classification_head("a", num_labels=3)
+        # Make sure no adapter is activated
+        model.active_adapters = None
+        model.active_head = None
+        model.to(torch_device)
+        in_data = self.get_input_samples((1, 128), config=model.config)
+
+        # Set a hook before the adapter to make sure it's actually called.
+        calls = 0
+
+        def forward_pre_hook(module, input):
+            nonlocal calls
+            calls += 1
+
+        adapter = model.get_adapter("a")[0]["output"]
+        adapter.register_forward_pre_hook(forward_pre_hook)
+
+        with AdapterSetup("a"):
+            out = model(**in_data)
+
+        self.assertEqual(out[0].shape, (1, 3))
+        self.assertEqual(calls, 1)

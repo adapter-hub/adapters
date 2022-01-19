@@ -268,7 +268,7 @@ class TransformerBlock(DistilBertTransfomerBlockAdaptersMixin, nn.Module):
 
         self._init_adapter_modules()
 
-    def forward(self, x, attn_mask=None, head_mask=None, output_attentions=False, **kwargs):
+    def forward(self, x, attn_mask=None, head_mask=None, output_attentions=False):
         """
         Parameters:
             x: torch.tensor(bs, seq_length, dim)
@@ -292,11 +292,11 @@ class TransformerBlock(DistilBertTransfomerBlockAdaptersMixin, nn.Module):
         else:  # To handle these `output_attentions` or `output_hidden_states` cases returning tuples
             assert type(sa_output) == tuple
             sa_output = sa_output[0]
-        sa_output = self.attention_adapters.adapters_forward(sa_output, x, **kwargs)  # (bs, seq_length, dim)
+        sa_output = self.attention_adapters.adapters_forward(sa_output, x)  # (bs, seq_length, dim)
 
         # Feed Forward Network
         ffn_output = self.ffn(sa_output)  # (bs, seq_length, dim)
-        ffn_output = self.output_adapters.adapters_forward(ffn_output, sa_output, **kwargs)  # (bs, seq_length, dim)
+        ffn_output = self.output_adapters.adapters_forward(ffn_output, sa_output)  # (bs, seq_length, dim)
 
         output = (ffn_output,)
         if output_attentions:
@@ -312,14 +312,7 @@ class Transformer(DistilBertTransformerAdaptersMixin, nn.Module):
         self.layer = nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layers)])
 
     def forward(
-        self,
-        x,
-        attn_mask=None,
-        head_mask=None,
-        output_attentions=False,
-        output_hidden_states=False,
-        return_dict=None,
-        **kwargs
+        self, x, attn_mask=None, head_mask=None, output_attentions=False, output_hidden_states=False, return_dict=None
     ):  # docstyle-ignore
         """
         Parameters:
@@ -344,11 +337,7 @@ class Transformer(DistilBertTransformerAdaptersMixin, nn.Module):
                 all_hidden_states = all_hidden_states + (hidden_state,)
 
             layer_outputs = layer_module(
-                x=hidden_state,
-                attn_mask=attn_mask,
-                head_mask=head_mask[i],
-                output_attentions=output_attentions,
-                **kwargs,
+                x=hidden_state, attn_mask=attn_mask, head_mask=head_mask[i], output_attentions=output_attentions
             )
             hidden_state = layer_outputs[-1]
             attn_mask = self.adjust_attention_mask_for_parallel(hidden_state, attn_mask)
@@ -548,14 +537,13 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        **kwargs
     ):
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        self.pre_transformer_forward(**kwargs)
+        self.pre_transformer_forward()
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
@@ -585,7 +573,6 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            **kwargs,
         )
 
 
@@ -639,7 +626,6 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
         head=None,
         **kwargs
     ):
@@ -661,7 +647,6 @@ class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedMo
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
 
         outputs = self.forward_head(
@@ -732,7 +717,6 @@ class DistilBertForMaskedLM(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedMod
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -750,7 +734,6 @@ class DistilBertForMaskedLM(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedMod
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
         hidden_states = dlbrt_output[0]  # (bs, seq_length, dim)
         prediction_logits = self.vocab_transform(hidden_states)  # (bs, seq_length, dim)
@@ -833,7 +816,6 @@ class DistilBertForSequenceClassification(ModelWithHeadsAdaptersMixin, DistilBer
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -851,7 +833,6 @@ class DistilBertForSequenceClassification(ModelWithHeadsAdaptersMixin, DistilBer
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
         hidden_state = distilbert_output[0]  # (bs, seq_len, dim)
         pooled_output = hidden_state[:, 0]  # (bs, dim)
@@ -952,7 +933,6 @@ class DistilBertForQuestionAnswering(ModelWithHeadsAdaptersMixin, DistilBertPreT
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -974,7 +954,6 @@ class DistilBertForQuestionAnswering(ModelWithHeadsAdaptersMixin, DistilBertPreT
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
         hidden_states = distilbert_output[0]  # (bs, max_query_len, dim)
 
@@ -1070,7 +1049,6 @@ class DistilBertForTokenClassification(ModelWithHeadsAdaptersMixin, DistilBertPr
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1087,7 +1065,6 @@ class DistilBertForTokenClassification(ModelWithHeadsAdaptersMixin, DistilBertPr
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
 
         sequence_output = outputs[0]
@@ -1174,7 +1151,6 @@ class DistilBertForMultipleChoice(ModelWithHeadsAdaptersMixin, DistilBertPreTrai
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1223,7 +1199,6 @@ class DistilBertForMultipleChoice(ModelWithHeadsAdaptersMixin, DistilBertPreTrai
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
 
         hidden_state = outputs[0]  # (bs * num_choices, seq_len, dim)
