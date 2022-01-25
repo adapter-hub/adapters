@@ -5,6 +5,7 @@ import torch
 from torch import nn
 
 from .configuration import AdapterFusionConfig
+from .context import ForwardContext
 
 
 class Activation_Function_Class(nn.Module):
@@ -54,18 +55,19 @@ class Adapter(nn.Module):
     """
 
     def __init__(
-        self,
-        input_size,
-        down_sample=None,
-        non_linearity="relu",
-        init_bert_weights=True,
-        add_layer_norm_before=True,
-        add_layer_norm_after=False,
-        residual_before_ln=True,
-        **kwargs,
+            self,
+            adapter_name,
+            input_size,
+            down_sample=None,
+            non_linearity="relu",
+            init_bert_weights=True,
+            add_layer_norm_before=True,
+            add_layer_norm_after=False,
+            residual_before_ln=True,
+            **kwargs,
     ):
         super().__init__()
-
+        self.name = adapter_name
         self.input_size = input_size
         self.add_layer_norm_before = add_layer_norm_before
         self.add_layer_norm_after = add_layer_norm_after
@@ -121,9 +123,37 @@ class Adapter(nn.Module):
             self.adapter_up.apply(self.init_bert_weights)
 
     def forward(self, x, residual_input):  # , residual_input=None):
-        down = self.adapter_down(x)
+        parameters = ForwardContext.get_context().shared_parameters[self.name]
+        if len(parameters) > 0:
+            phm_parameters = nn.ParameterDict()
+            if "phm_rule" in parameters:
+                phm_parameters["phm_rule"] = parameters["phm_rule"]
+            elif "phm_rule_left" in parameters:
+                phm_parameters["phm_rule_left"] = parameters["phm_rule_left"]
+                phm_parameters["phm_rule_right"] = parameters["phm_rule_right"]
 
-        up = self.adapter_up(down)
+            if "W_down" in parameters:
+                phm_parameters["W"] = parameters["W_down"]
+            elif "W_down_left" in parameters:
+                phm_parameters["W_left"] = parameters["W_down_left"]
+                phm_parameters["W_right"] = parameters["W_down_right"]
+
+            ForwardContext.get_context().phm_parameters = phm_parameters
+            down = self.adapter_down(x)
+
+            phm_parameters["W"] = None
+            phm_parameters["W_left"] = None
+            phm_parameters["W_right"] = None
+            if "W_up" in parameters:
+                phm_parameters["W"] = parameters["W_up"]
+            elif "W_up_left" in parameters:
+                phm_parameters["W_left"] = parameters["W_up_left"]
+                phm_parameters["W_right"] = parameters["W_up_right"]
+            ForwardContext.get_context().phm_parameters = phm_parameters
+            up = self.adapter_up(down)
+        else:
+            down = self.adapter_down(x)
+            up = self.adapter_up(down)
 
         output = up
 
@@ -164,10 +194,10 @@ class BertFusion(nn.Module):
     """
 
     def __init__(
-        self,
-        config: AdapterFusionConfig,
-        dense_size,
-        attention_probs_dropout_prob,
+            self,
+            config: AdapterFusionConfig,
+            dense_size,
+            attention_probs_dropout_prob,
     ):
         super(BertFusion, self).__init__()
         # if config.hidden_size % config.num_attention_heads != 0:
@@ -284,7 +314,7 @@ class NICECouplingBlock(nn.Module):
         self.G = subnet_constructor(self.split_len1 + condition_length, self.split_len2)
 
     def forward(self, x, c=[], rev=False):
-        x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1 :])
+        x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1:])
         if not rev:
             x2_c = torch.cat([x2, *c], 1) if self.conditional else x2
             y1 = x1 + self.F(x2_c)
@@ -343,14 +373,14 @@ class GLOWCouplingBlock(nn.Module):
         return self.clamp * 0.636 * torch.atan(s / self.clamp)
 
     def forward(self, x, c=[], rev=False):
-        x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1 :])
+        x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1:])
 
         if not rev:
             s2, t2 = x1.clone(), x2.clone()
             y1 = self.e(s2) * x1 + t2
 
             r1 = self.s1(torch.cat([y1, *c], 1) if self.conditional else y1)
-            s1, t1 = r1[:, : self.split_len2], r1[:, self.split_len2 :]
+            s1, t1 = r1[:, : self.split_len2], r1[:, self.split_len2:]
             y2 = self.e(s1) * x2 + t1
             self.last_jac = torch.sum(self.log_e(s1), dim=tuple(range(1, self.ndims + 1))) + torch.sum(
                 self.log_e(s2), dim=tuple(range(1, self.ndims + 1))
@@ -358,11 +388,11 @@ class GLOWCouplingBlock(nn.Module):
 
         else:  # names of x and y are swapped!
             r1 = self.s1(torch.cat([x1, *c], 1) if self.conditional else x1)
-            s1, t1 = r1[:, : self.split_len2], r1[:, self.split_len2 :]
+            s1, t1 = r1[:, : self.split_len2], r1[:, self.split_len2:]
             y2 = (x2 - t1) / self.e(s1)
 
             r2 = self.s2(torch.cat([y2, *c], 1) if self.conditional else y2)
-            s2, t2 = r2[:, : self.split_len1], r2[:, self.split_len1 :]
+            s2, t2 = r2[:, : self.split_len1], r2[:, self.split_len1:]
             y1 = (x1 - t2) / self.e(s2)
             self.last_jac = -torch.sum(self.log_e(s1), dim=tuple(range(1, self.ndims + 1))) - torch.sum(
                 self.log_e(s2), dim=tuple(range(1, self.ndims + 1))
@@ -378,6 +408,9 @@ class GLOWCouplingBlock(nn.Module):
 
 
 class PHMLayer(nn.Module):
+    """
+    This class is adapted from the compacter implementation at https://github.com/rabeehk/compacter
+    """
     def __init__(self,
                  in_features: int,
                  out_features: int,
@@ -406,6 +439,7 @@ class PHMLayer(nn.Module):
         self._in_feats_per_axis = in_features // phm_dim
         self._out_feats_per_axis = out_features // phm_dim
         self.phm_rank = phm_rank
+        self.phm_rule=phm_rule
         self.phm_init_range = phm_init_range
         self.kronecker_prod = kronecker_prod
         self.shared_phm_rule = shared_phm_rule
@@ -439,31 +473,36 @@ class PHMLayer(nn.Module):
             self.register_parameter("b", None)
         self.reset_parameters()
 
-    def init_W(self):
+    def init_W(self, W_left=None, W_right=None, W=None):
+        if self.factorized_phm:
+            W_left = W_left if W_left is not None else self.W_left
+            W_right = W_right if W_right is not None else self.W_right
+        else:
+            W = W if W is not None else self.W
         if self.w_init == "glorot-normal":
             if self.factorized_phm:
                 for i in range(self.phm_dim):
-                    self.W_left.data[i] = nn.init.xavier_normal_(self.W_left.data[i])
-                    self.W_right.data[i] = nn.init.xavier_normal_(self.W_right.data[i])
+                    W_left.data[i] = nn.init.xavier_normal_(W_left.data[i])
+                    W_right.data[i] = nn.init.xavier_normal_(W_right.data[i])
             else:
                 for i in range(self.phm_dim):
-                    self.W.data[i] = nn.init.xavier_normal_(self.W.data[i])
+                    W.data[i] = nn.init.xavier_normal_(W.data[i])
         elif self.w_init == "glorot-uniform":
             if self.factorized_phm:
                 for i in range(self.phm_dim):
-                    self.W_left.data[i] = nn.init.xavier_uniform_(self.W_left.data[i])
-                    self.W_right.data[i] = nn.init.xavier_uniform_(self.W_right.data[i])
+                    W_left.data[i] = nn.init.xavier_uniform_(W_left.data[i])
+                    W_right.data[i] = nn.init.xavier_uniform_(W_right.data[i])
             else:
                 for i in range(self.phm_dim):
-                    self.W.data[i] = nn.init.xavier_uniform_(self.W.data[i])
+                    W.data[i] = nn.init.xavier_uniform_(W.data[i])
         elif self.w_init == "normal":
             if self.factorized_phm:
                 for i in range(self.phm_dim):
-                    self.W_left.data[i].normal_(mean=0, std=self.phm_init_range)
-                    self.W_right.data[i].normal_(mean=0, std=self.phm_init_range)
+                    W_left.data[i].normal_(mean=0, std=self.phm_init_range)
+                    W_right.data[i].normal_(mean=0, std=self.phm_init_range)
             else:
                 for i in range(self.phm_dim):
-                    self.W.data[i].normal_(mean=0, std=self.phm_init_range)
+                    W.data[i].normal_(mean=0, std=self.phm_init_range)
         else:
             raise ValueError
 
@@ -509,12 +548,28 @@ class PHMLayer(nn.Module):
             self.W = W
 
     def forward(self, x: torch.Tensor, phm_rule: Union[None, nn.ParameterList] = None) -> torch.Tensor:
-        if self.factorized_phm:
-            W = torch.bmm(self.W_left, self.W_right)
-        if self.factorized_phm_rule:
-            phm_rule = torch.bmm(self.phm_rule_left, self.phm_rule_right)
-
-        phm_rule=phm_rule if self.factorized_phm_rule else self.phm_rule
+        if self.shared_W_phm:
+            parameters = ForwardContext.get_context().phm_parameters
+            if self.factorized_phm:
+                W = torch.bmm(parameters["W_left"], parameters["W_right"])
+            else:
+                W = parameters["W"]
+        else:
+            if self.factorized_phm:
+                W = torch.bmm(self.W_left, self.W_right)
+            else:
+                W = self.W
+        if self.shared_phm_rule:
+            parameters = ForwardContext.get_context().phm_parameters
+            if self.factorized_phm_rule:
+                phm_rule = torch.bmm(parameters["phm_rule_left"], parameters["phm_rule_right"])
+            else:
+                phm_rule = parameters["phm_rule"]
+        else:
+            if self.factorized_phm_rule:
+                phm_rule = torch.bmm(self.phm_rule_left, self.phm_rule_right)
+            else:
+                phm_rule = self.phm_rule
 
         if self.kronecker_prod:
             H = self.kronecker_product(phm_rule, W).sum(0)
@@ -525,3 +580,52 @@ class PHMLayer(nn.Module):
         if self.b is not None:
             y += self.b
         return y
+
+    def init_shared_parameters(self):
+        parameters = nn.ParameterDict()
+        if self.shared_W_phm:
+            if self.factorized_phm:
+                W_down_left = torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self.phm_rank))
+                W_down_right = torch.Tensor(size=(self.phm_dim, self.phm_rank, self._out_feats_per_axis))
+                W_up_left = torch.Tensor(size=(self.phm_dim, self._out_feats_per_axis, self.phm_rank))
+                W_up_right = torch.Tensor(size=(self.phm_dim, self.phm_rank, self._in_feats_per_axis))
+                self.init_W(W_left=W_down_left, W_right=W_down_right)
+                self.init_W(W_left=W_up_left, W_right=W_up_right)
+                parameters["W_down_left"] = nn.Parameter(W_down_left, requires_grad=True)
+                parameters["W_down_right"] = nn.Parameter(W_down_right, requires_grad=True)
+                parameters["W_up_left"] = nn.Parameter(W_up_left, requires_grad=True)
+                parameters["W_up_right"] = nn.Parameter(W_up_right, requires_grad=True)
+            else:
+                W_down = torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self._out_feats_per_axis))
+                W_up = torch.Tensor(size=(self.phm_dim, self._out_feats_per_axis, self._in_feats_per_axis))
+                self.init_W(W=W_down)
+                self.init_W(W=W_up)
+                parameters["W_down"] = nn.Parameter(W_down, requires_grad=True)
+                parameters["W_up"] = nn.Parameter(W_up, requires_grad=True)
+        if self.shared_phm_rule:
+            if self.factorized_phm_rule:
+                phm_rule_left = nn.Parameter(torch.FloatTensor(self.phm_dim, self.phm_dim, 1).to(self.device),
+                                             requires_grad=self.learn_phm)
+                phm_rule_right = nn.Parameter(torch.FloatTensor(self.phm_dim, 1, self.phm_dim).to(self.device),
+                                              requires_grad=self.learn_phm)
+                if self.c_init == "normal":
+                    phm_rule_left.data.normal_(mean=0, std=self.phm_init_range)
+                    phm_rule_right.data.normal_(mean=0, std=self.phm_init_range)
+                elif self.c_init == "uniform":
+                    phm_rule_left.data.uniform_(-1, 1)
+                    phm_rule_right.data.uniform_(-1, 1)
+                else:
+                    raise NotImplementedError
+                parameters["phm_rule_left"] = phm_rule_left
+                parameters["phm_rule_right"] = phm_rule_right
+            else:
+                phm_rule = nn.Parameter(torch.FloatTensor(self.phm_dim, self.phm_dim, self.phm_dim),
+                                        requires_grad=self.learn_phm)
+                if self.c_init == "normal":
+                    phm_rule.data.normal_(mean=0, std=self.phm_init_range)
+                elif self.c_init == "uniform":
+                    phm_rule.data.uniform_(-1, 1)
+                else:
+                    raise NotImplementedError
+                parameters["phm_rule"] = phm_rule
+        return parameters

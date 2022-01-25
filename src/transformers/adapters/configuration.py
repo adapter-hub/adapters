@@ -38,7 +38,12 @@ class AdapterConfig(Mapping):
     leave_out: List[int] = field(default_factory=list)
     phm_layer: bool = False
     phm_dim: int = None
-    factorized_phm: bool = True
+    factorized_phm: Optional[bool] = True
+    shared_W_phm: Optional[bool] = False
+    shared_phm_rule: Optional[bool] = True
+    factorized_phm_rule: Optional[bool] = False
+    c_init: Optional[str] = "normal"
+    learn_phm: Optional[bool] = True
 
     # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
     # Therefore, we don't allow changing attribute values if set once.
