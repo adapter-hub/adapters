@@ -64,6 +64,9 @@ class AdapterLayerBaseMixin(ABC):
                 add_layer_norm_after=adapter_config["ln_after"],
                 non_linearity=adapter_config["non_linearity"],
                 residual_before_ln=adapter_config["adapter_residual_before_ln"],
+                phm_layer=adapter_config["phm_layer"],
+                phm_dim=adapter_config["phm_dim"],
+                factorized_phm=adapter_config["factorized_phm"],
             )
             adapter.train(self.training)  # make sure training mode is consistent
             self.adapters[adapter_name] = adapter

@@ -36,6 +36,9 @@ class AdapterConfig(Mapping):
     inv_adapter_reduction_factor: Optional[int] = None
     cross_adapter: bool = False
     leave_out: List[int] = field(default_factory=list)
+    phm_layer: bool = False
+    phm_dim: int = None
+    factorized_phm: bool = True
 
     # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
     # Therefore, we don't allow changing attribute values if set once.
@@ -142,6 +145,13 @@ class PfeifferConfig(AdapterConfig):
 
 
 @dataclass
+class PfeifferCompactorConfig(PfeifferConfig):
+    phm_layer: bool = True
+    phm_dim: int = 2
+    factorized_phm: bool = True
+
+
+@dataclass
 class PfeifferInvConfig(PfeifferConfig):
     """
     The adapter architecture proposed by Pfeiffer et. al., 2020. Described in https://arxiv.org/pdf/2005.00247.pdf.
@@ -167,6 +177,13 @@ class HoulsbyConfig(AdapterConfig):
     output_adapter: bool = True
     non_linearity: str = "swish"
     reduction_factor: Union[int, Mapping] = 16
+
+
+@dataclass
+class HoulsbyCompactorConfig(HoulsbyConfig):
+    phm_layer: bool = True
+    phm_dim: int = 12
+    factorized_phm: bool = True
 
 
 @dataclass

@@ -29,6 +29,7 @@ from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 from .test_adapter_training import AdapterTrainingTestMixin
+from .test_adapter_compacter import CompacterTestMixin
 
 
 def make_config(config_class, **kwargs):
@@ -90,13 +91,14 @@ class BertAdapterTestBase(AdapterTestBase):
 
 @require_torch
 class BertAdapterTest(
-    EmbeddingTestMixin,
-    AdapterModelTestMixin,
-    AdapterFusionModelTestMixin,
-    PredictionHeadModelTestMixin,
-    AdapterTrainingTestMixin,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
+    # EmbeddingTestMixin,
+    # AdapterModelTestMixin,
+    # AdapterFusionModelTestMixin,
+    # PredictionHeadModelTestMixin,
+    # AdapterTrainingTestMixin,
+    # ParallelAdapterInferenceTestMixin,
+    # ParallelTrainingMixin,
+    CompacterTestMixin,
     BertAdapterTestBase,
     unittest.TestCase,
 ):

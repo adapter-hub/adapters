@@ -24,7 +24,6 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN, gelu
-from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import AdapterSetup, ForwardContext
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.bert import (
