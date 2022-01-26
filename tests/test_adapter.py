@@ -370,12 +370,11 @@ class T5AdapterTestBase(AdapterTestBase):
     config = make_config(
         T5Config,
         d_model=16,
-        encoder_layers=2,
-        decoder_layers=2,
-        encoder_attention_heads=4,
-        decoder_attention_heads=4,
-        encoder_ffn_dim=4,
-        decoder_ffn_dim=4,
+        num_layers=2,
+        num_decoder_layers=2,
+        num_heads=4,
+        d_ff=4,
+        d_kv=16 // 4,
         tie_word_embeddings=False,
         decoder_start_token_id=0,
     )

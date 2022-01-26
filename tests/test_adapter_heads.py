@@ -85,7 +85,7 @@ class PredictionHeadModelTestMixin:
         label_dict = {}
         label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
         self.run_prediction_head_test(
-            model1, model2, "dummy", output_shape=(1, self.seq_length, 2), label_dict=label_dict
+            model1, model2, "dummy", output_shape=(self.batch_size, self.seq_length, 2), label_dict=label_dict
         )
 
     def test_qa_head(self):
@@ -99,29 +99,57 @@ class PredictionHeadModelTestMixin:
         label_dict["start_positions"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
         label_dict["end_positions"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
         self.run_prediction_head_test(
-            model1, model2, "dummy", output_shape=(1, self.seq_length), label_dict=label_dict
+            model1, model2, "dummy", output_shape=(self.batch_size, self.seq_length), label_dict=label_dict
         )
 
-    def test_causal_or_seq2seq_lm_head(self):
+    def test_causal_lm_head(self):
         if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_causal_lm_head"):
-            if hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_seq2seq_lm_head"):
-                seq2seq_head = True
-            else:
-                self.skipTest("No causal or seq2seq language model head")
-        else:
-            seq2seq_head = False
+            self.skipTest("No causal language model head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
+        model1.add_causal_lm_head("dummy")
 
-        if seq2seq_head:
-            model1.add_seq2seq_lm_head("dummy")
-        else:
-            model1.add_causal_lm_head("dummy")
         label_dict = {}
         label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
+
         self.run_prediction_head_test(
-            model1, model2, "dummy", output_shape=(1, self.seq_length, model1.config.vocab_size), label_dict=label_dict
+            model1,
+            model2,
+            "dummy",
+            output_shape=(self.batch_size, self.seq_length, model1.config.vocab_size),
+            label_dict=label_dict,
         )
+
+    def test_seq2seq_lm_head(self):
+        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_seq2seq_lm_head"):
+            self.skipTest("No seq2seq language model head")
+
+        model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
+        model1.add_seq2seq_lm_head("dummy")
+
+        label_dict = {}
+        # Use a different length for the seq2seq output
+        seq_output_length = 32
+        label_dict["labels"] = torch.zeros((self.batch_size, seq_output_length), dtype=torch.long, device=torch_device)
+
+        # prepare decoder_input_ids similar to how DataCollatorForSeq2Seq does it
+        if hasattr(model1, "prepare_decoder_input_ids_from_labels"):
+            decoder_input_ids = model1.prepare_decoder_input_ids_from_labels(labels=label_dict["labels"])
+            label_dict["decoder_input_ids"] = decoder_input_ids
+
+        self.run_prediction_head_test(
+            model1,
+            model2,
+            "dummy",
+            output_shape=(self.batch_size, seq_output_length, model1.config.vocab_size),
+            label_dict=label_dict,
+        )
+
+        # Finally, also check if generation works properly
+        input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
+        input_ids = input_ids.to(torch_device)
+        generated = model1.generate(input_ids, max_length=seq_output_length)
+        self.assertEqual(generated.shape, (1, seq_output_length))
 
     def test_masked_lm_head(self):
         if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_masked_lm_head"):
@@ -133,7 +161,11 @@ class PredictionHeadModelTestMixin:
         label_dict = {}
         label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
         self.run_prediction_head_test(
-            model1, model2, "dummy", output_shape=(1, self.seq_length, model1.config.vocab_size), label_dict=label_dict
+            model1,
+            model2,
+            "dummy",
+            output_shape=(self.batch_size, self.seq_length, model1.config.vocab_size),
+            label_dict=label_dict,
         )
 
     def test_dependency_parsing_head(self):
