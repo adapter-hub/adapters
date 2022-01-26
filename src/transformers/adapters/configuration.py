@@ -13,11 +13,13 @@ logger = logging.getLogger(__name__)
 
 class AdapterConfigBase(Mapping):
     """
-    Base class for all adaptation methods. This class does not define specific configuration keys, but only provides some common helper methods.
+    Base class for all adaptation methods. This class does not define specific configuration keys, but only provides
+    some common helper methods.
 
     Attributes:
         architecture (str, optional): The type of adaptation method defined by the configuration.
     """
+
     architecture: Optional[str] = None
 
     def __init__(self):
@@ -294,8 +296,8 @@ class ModelAdaptersConfig(Collection):
         location_key: Optional[str] = None,
     ) -> Optional[dict]:
         """
-        Tries to match the given criteria to an existing adapter.
-        Return the adapter config if a match is found, otherwise None.
+        Tries to match the given criteria to an existing adapter. Return the adapter config if a match is found,
+        otherwise None.
         """
         config = self.get(adapter_name)
         if config is None:

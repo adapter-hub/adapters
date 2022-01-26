@@ -77,7 +77,8 @@ class FlatPrefixTuning(nn.Module):
 
 
 class PrefixTuningLayer(AdapterLayerBase):
-    """Models one layer in a model containing prefix tuning modules.
+    """
+    Models one layer in a model containing prefix tuning modules.
 
     Args:
         location_key (str): The id describing the location of this layer in the model.
@@ -137,9 +138,11 @@ class PrefixTuningLayer(AdapterLayerBase):
                     for param in self.prefix_tunings[prefix_tuning_name].parameters():
                         param.requires_grad = True
 
-    def adapter_state_dict(self, adapter_name: str, destination=None, prefix=""):
-        # TODO-AH: implement
-        raise NotImplementedError()
+    def get_adapter(self, adapter_name):
+        if adapter_name in self.prefix_tunings:
+            return self.prefix_tunings[adapter_name]
+        else:
+            return None
 
     def forward(self, key_states, value_states, attention_mask=None):
         if hasattr(self.config, "adapters"):

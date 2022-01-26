@@ -123,22 +123,26 @@ class AdapterModelTestMixin:
         model = self.get_model()
         model.eval()
 
-        adapter_config = HoulsbyConfig()
-        model.add_adapter("first", config=adapter_config)
-        model.add_adapter("second", config=adapter_config)
-        model.set_active_adapters(["first"])
+        for adapter_config in self.adapter_configs_to_test:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                model.add_adapter("first", config=adapter_config)
+                model.add_adapter("second", config=adapter_config)
+                model.set_active_adapters(["first"])
 
-        # adapter is correctly added to config
-        name = "first"
-        self.assertTrue(name in model.config.adapters)
-        self.assertEqual(adapter_config, model.config.adapters.get(name))
+                # adapter is correctly added to config
+                name = "first"
+                self.assertTrue(name in model.config.adapters)
+                self.assertEqual(adapter_config, model.config.adapters.get(name))
 
-        first_adapter = model.get_adapter("first")
-        second_adapter = model.get_adapter("second")
+                first_adapter = model.get_adapter("first")
+                second_adapter = model.get_adapter("second")
 
-        self.assertNotEqual(len(first_adapter), 0)
-        self.assertEqual(len(first_adapter), len(second_adapter))
-        self.assertNotEqual(first_adapter, second_adapter)
+                self.assertNotEqual(len(first_adapter), 0)
+                self.assertEqual(len(first_adapter), len(second_adapter))
+                self.assertNotEqual(first_adapter, second_adapter)
+
+                model.delete_adapter("first")
+                model.delete_adapter("second")
 
     def test_add_adapter_multiple_reduction_factors(self):
         model = self.get_model()

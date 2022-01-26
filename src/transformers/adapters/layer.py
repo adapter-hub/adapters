@@ -46,7 +46,7 @@ class AdapterLayerBase(ABC, nn.Module):
         raise NotImplementedError()
 
     @abstractmethod
-    def adapter_state_dict(self, adapter_name: str, destination=None, prefix=""):
+    def get_adapter(self, adapter_name: str) -> nn.Module:
         raise NotImplementedError()
 
 
@@ -140,13 +140,11 @@ class AdapterLayer(AdapterLayerBase):
                         for param in self.adapter_fusion_layer[sub_setup.name].parameters():
                             param.requires_grad = True
 
-    def adapter_state_dict(self, adapter_name: str, destination=None, prefix=""):
+    def get_adapter(self, adapter_name):
         if adapter_name in self.adapters:
-            return self.adapters[adapter_name].state_dict(
-                destination=destination, prefix=prefix + f"{self.location_key}.adapters.{adapter_name}."
-            )
+            return self.adapters[adapter_name]
         else:
-            return destination
+            return None
 
     def get_adapter_preparams(
         self,

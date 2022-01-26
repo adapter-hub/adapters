@@ -709,16 +709,26 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         return reg_loss
 
-    def get_adapter(self, name):
-        # TODO-AH: make this method work for prefix tuning
+    def get_adapter(self, name) -> dict:
+        """
+        Returns a dictionary with all weights of the adapter with the specified name.
+
+        Args:
+            name (str): The adapter name.
+
+        Returns:
+            dict: A nested dictionary containing the weights of the adapter. The dictionary is structured as follow:
+            {<layer id>: {<module location>: <nn.Module>}}.
+        """
         destination = defaultdict(dict)
 
         # use a custom index to ensure numbering is from 0 to N layers
         for i, (_, layer) in enumerate(self.iter_layers()):
             for module in layer.modules():
-                if isinstance(module, AdapterLayer):
-                    if name in module.adapters:
-                        destination[i][module.location_key] = module.adapters[name]
+                if isinstance(module, AdapterLayerBase):
+                    adapter_module = module.get_adapter(name)
+                    if adapter_module is not None:
+                        destination[i][module.location_key] = adapter_module
 
         return dict(destination)
 
