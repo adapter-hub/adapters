@@ -1320,7 +1320,7 @@ class MBartModelWithHeads(BartModelHeadsMixin, MBartPreTrainedModel):
         )
         # sequence classification based on last token in sequence
         x = outputs[0]  # last hidden state
-        if input_ids is not None and x.shape == input_ids.shape:
+        if input_ids is not None and x.shape[1] == input_ids.shape[1]:
             eos_mask = input_ids.eq(self.config.eos_token_id)
             (eos_mask,) = adjust_tensors_for_parallel(x, eos_mask)
             if len(torch.unique(eos_mask.sum(1))) > 1:
