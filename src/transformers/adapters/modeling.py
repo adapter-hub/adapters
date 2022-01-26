@@ -3,7 +3,7 @@ import math
 import torch
 from torch import nn
 
-from .configuration import AdapterFusionConfig
+from .configuration import AdapterConfig, AdapterFusionConfig
 
 
 class Activation_Function_Class(nn.Module):
@@ -55,19 +55,16 @@ class Adapter(nn.Module):
     def __init__(
         self,
         input_size,
-        down_sample=None,
-        non_linearity="relu",
-        init_bert_weights=True,
-        add_layer_norm_before=True,
-        add_layer_norm_after=False,
-        residual_before_ln=True,
+        down_sample,
+        config: AdapterConfig,
     ):
         super().__init__()
 
         self.input_size = input_size
-        self.add_layer_norm_before = add_layer_norm_before
-        self.add_layer_norm_after = add_layer_norm_after
-        self.residual_before_ln = residual_before_ln
+        self.add_layer_norm_before = config["ln_before"]
+        self.add_layer_norm_after = config["ln_after"]
+        self.residual_before_ln = config["adapter_residual_before_ln"]
+        self.is_parallel = config["is_parallel"]
 
         # list for all modules of the adapter, passed into nn.Sequential()
         seq_list = []
@@ -90,7 +87,7 @@ class Adapter(nn.Module):
         seq_list.append(nn.Linear(self.input_size, self.down_sample))
 
         # select non-linearity
-        self.non_linearity = Activation_Function_Class(non_linearity.lower())
+        self.non_linearity = Activation_Function_Class(config["non_linearity"].lower())
 
         seq_list.append(self.non_linearity)
 
@@ -101,25 +98,40 @@ class Adapter(nn.Module):
         # Up projection to input size
         self.adapter_up = nn.Linear(self.down_sample, self.input_size)
 
+        # Additional scaling factor (from He et al. (2021))
+        if isinstance(config["scaling"], float):
+            self.scaling = config["scaling"]
+        elif config["scaling"] == "learned":
+            self.scaling = nn.Parameter(torch.ones(1))
+        else:
+            raise ValueError("Unknown scaling type: {}".format(config["scaling"]))
+
         # If we want to have a layer norm on output, we apply it later after a separate residual connection
         # This means that we learn a new output layer norm, which replaces another layer norm learned in the bert layer
         if self.add_layer_norm_after:
             self.adapter_norm_after = nn.LayerNorm(self.input_size)
 
         # if we want to initialize with the bert strategy then this function is called for all the linear layers
-        if init_bert_weights:
+        if config["init_weights"] == "bert":
             self.adapter_down.apply(self.init_bert_weights)
             self.adapter_up.apply(self.init_bert_weights)
+        elif config["init_weights"] == "mam_adapter":
+            with torch.no_grad():
+                nn.init.kaiming_uniform_(self.down_proj.weight, a=math.sqrt(5))
+                nn.init.zeros_(self.up_proj.weight)
+                nn.init.zeros_(self.down_proj.bias)
+                nn.init.zeros_(self.up_proj.bias)
 
     def forward(self, x, residual_input):  # , residual_input=None):
         down = self.adapter_down(x)
 
         up = self.adapter_up(down)
+        up = up * self.scaling
 
         output = up
 
         # apply residual connection before layer norm if configured in this way
-        if self.residual_before_ln:
+        if not self.is_parallel and self.residual_before_ln:
             output = output + residual_input
 
         # apply layer norm if available
@@ -127,7 +139,7 @@ class Adapter(nn.Module):
             output = self.adapter_norm_after(output)
 
         # if residual should be applied after layer norm, apply it here
-        if not self.residual_before_ln:
+        if not self.is_parallel and not self.residual_before_ln:
             output = output + residual_input
 
         return output, down, up

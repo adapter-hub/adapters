@@ -11,6 +11,7 @@ from transformers import (
     AutoModelWithHeads,
     HoulsbyConfig,
     HoulsbyInvConfig,
+    ParallelConfig,
     PfeifferConfig,
     PfeifferInvConfig,
     PrefixTuningConfig,
@@ -43,6 +44,7 @@ class AdapterModelTestMixin:
         PfeifferConfig(),
         HoulsbyConfig(),
         PrefixTuningConfig(),
+        ParallelConfig(),
     ]
 
     def test_add_adapter(self):

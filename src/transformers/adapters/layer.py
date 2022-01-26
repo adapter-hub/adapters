@@ -85,10 +85,7 @@ class AdapterLayer(AdapterLayerBase):
             adapter = Adapter(
                 input_size=self.config.hidden_size,
                 down_sample=self.config.hidden_size // reduction_factor,
-                add_layer_norm_before=adapter_config["ln_before"],
-                add_layer_norm_after=adapter_config["ln_after"],
-                non_linearity=adapter_config["non_linearity"],
-                residual_before_ln=adapter_config["adapter_residual_before_ln"],
+                config=adapter_config,
             )
             adapter.train(self.training)  # make sure training mode is consistent
             self.adapters[adapter_name] = adapter
@@ -166,6 +163,12 @@ class AdapterLayer(AdapterLayerBase):
 
         """
         query = None
+
+        # In case of parallel adapter, return the input tensor as hidden states
+        if adapter_config["is_parallel"]:
+            if fusion_config is not None:
+                query = hidden_states
+            return input_tensor, query, hidden_states
 
         if adapter_config["residual_before_ln"]:
             residual = hidden_states

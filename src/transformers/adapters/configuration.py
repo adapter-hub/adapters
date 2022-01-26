@@ -121,16 +121,22 @@ class AdapterConfig(AdapterConfigBase):
                 in the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
     """
 
+    # Required options
     original_ln_before: bool
     original_ln_after: bool
-    residual_before_ln: bool
-    adapter_residual_before_ln: bool
     ln_before: bool
     ln_after: bool
     mh_adapter: bool
     output_adapter: bool
     non_linearity: str
     reduction_factor: Union[int, Mapping]
+
+    # Options with defaults
+    init_weights: str = "bert"
+    is_parallel: bool = False
+    scaling: Union[float, str] = 1.0
+    residual_before_ln: bool = True
+    adapter_residual_before_ln: bool = False
     inv_adapter: Optional[str] = None
     inv_adapter_reduction_factor: Optional[int] = None
     cross_adapter: bool = False
@@ -154,7 +160,7 @@ class AdapterConfig(AdapterConfigBase):
 @dataclass
 class PfeifferConfig(AdapterConfig):
     """
-    The adapter architecture proposed by Pfeiffer et. al., 2020. Described in https://arxiv.org/pdf/2005.00247.pdf.
+    The adapter architecture proposed by Pfeiffer et al. (2020). See https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     original_ln_before: bool = True
@@ -172,7 +178,7 @@ class PfeifferConfig(AdapterConfig):
 @dataclass
 class PfeifferInvConfig(PfeifferConfig):
     """
-    The adapter architecture proposed by Pfeiffer et. al., 2020. Described in https://arxiv.org/pdf/2005.00247.pdf.
+    The adapter architecture proposed by Pfeiffer et al. (2020). See https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     inv_adapter: Optional[str] = "nice"
@@ -182,7 +188,7 @@ class PfeifferInvConfig(PfeifferConfig):
 @dataclass
 class HoulsbyConfig(AdapterConfig):
     """
-    The adapter architecture proposed by Houlsby et. al., 2019. Described in https://arxiv.org/pdf/1902.00751.pdf.
+    The adapter architecture proposed by Houlsby et al. (2019). See https://arxiv.org/pdf/1902.00751.pdf.
     """
 
     original_ln_before: bool = False
@@ -200,7 +206,7 @@ class HoulsbyConfig(AdapterConfig):
 @dataclass
 class HoulsbyInvConfig(HoulsbyConfig):
     """
-    The adapter architecture proposed by Houlsby et. al., 2019. Described in https://arxiv.org/pdf/1902.00751.pdf.
+    The adapter architecture proposed by Houlsby et. al. (2019). See https://arxiv.org/pdf/1902.00751.pdf.
     """
 
     inv_adapter: Optional[str] = "nice"
@@ -208,9 +214,29 @@ class HoulsbyInvConfig(HoulsbyConfig):
 
 
 @dataclass
+class ParallelConfig(AdapterConfig):
+    """
+    The parallel adapter architecture proposed by He et al. (2021). See https://arxiv.org/pdf/2110.04366.pdf.
+    """
+
+    original_ln_before: bool = False
+    original_ln_after: bool = True
+    ln_before: bool = False
+    ln_after: bool = False
+    mh_adapter: bool = False
+    output_adapter: bool = True
+    non_linearity: str = "relu"
+    reduction_factor: Union[int, Mapping] = 2
+
+    init_weights: str = "mam"
+    is_parallel: bool = True
+    scaling: Union[float, str] = 4.0
+
+
+@dataclass
 class PrefixTuningConfig(AdapterConfigBase):
     """
-    The Prefix Tuning architecture proposed by Li & Liang (2021), described in https://arxiv.org/pdf/2101.00190.pdf.
+    The prefix tuning architecture proposed by Li & Liang (2021). See https://arxiv.org/pdf/2101.00190.pdf.
     """
 
     architecture: Optional[str] = "prefix_tuning"
@@ -233,6 +259,8 @@ ADAPTER_CONFIG_MAP = {
     "houlsby+inv": HoulsbyInvConfig(),
     "prefix": PrefixTuningConfig(),
     "prefix_flat": PrefixTuningConfig(flat=True),
+    "parallel": ParallelConfig(),
+    "scaled_parallel": ParallelConfig(scaling="learned"),
 }
 
 DEFAULT_ADAPTER_CONFIG = "pfeiffer"
