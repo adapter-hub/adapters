@@ -27,12 +27,12 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import gelu
+from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.distilbert import (
     DistilBertModelAdaptersMixin,
     DistilBertModelHeadsMixin,
     DistilBertTransfomerBlockAdaptersMixin,
-    DistilBertTransformerAdaptersMixin,
 )
 from ...deepspeed import is_deepspeed_zero3_enabled
 from ...file_utils import (
@@ -292,11 +292,11 @@ class TransformerBlock(DistilBertTransfomerBlockAdaptersMixin, nn.Module):
         else:  # To handle these `output_attentions` or `output_hidden_states` cases returning tuples
             assert type(sa_output) == tuple
             sa_output = sa_output[0]
-        sa_output = self.attention_adapters.adapters_forward(sa_output, x)  # (bs, seq_length, dim)
+        sa_output = self.attention_adapters(sa_output, x, self.sa_layer_norm)  # (bs, seq_length, dim)
 
         # Feed Forward Network
         ffn_output = self.ffn(sa_output)  # (bs, seq_length, dim)
-        ffn_output = self.output_adapters.adapters_forward(ffn_output, sa_output)  # (bs, seq_length, dim)
+        ffn_output = self.output_adapters(ffn_output, sa_output, self.output_layer_norm)  # (bs, seq_length, dim)
 
         output = (ffn_output,)
         if output_attentions:
@@ -304,10 +304,9 @@ class TransformerBlock(DistilBertTransfomerBlockAdaptersMixin, nn.Module):
         return output
 
 
-class Transformer(DistilBertTransformerAdaptersMixin, nn.Module):
+class Transformer(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.config = config
         self.n_layers = config.n_layers
         self.layer = nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layers)])
 
@@ -340,7 +339,7 @@ class Transformer(DistilBertTransformerAdaptersMixin, nn.Module):
                 x=hidden_state, attn_mask=attn_mask, head_mask=head_mask[i], output_attentions=output_attentions
             )
             hidden_state = layer_outputs[-1]
-            attn_mask = self.adjust_attention_mask_for_parallel(hidden_state, attn_mask)
+            (attn_mask,) = adjust_tensors_for_parallel(hidden_state, attn_mask)
 
             if output_attentions:
                 assert len(layer_outputs) == 2
