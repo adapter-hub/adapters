@@ -357,6 +357,7 @@ class EncoderDecoderAdapterTest(
         inv_adapter.register_forward_pre_hook(forward_pre_hook)
 
         in_data = self.get_input_samples((1, 128), config=model.config)
+        model.to(torch_device)
         out = model(**in_data)
 
         self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)

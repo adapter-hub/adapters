@@ -1385,7 +1385,7 @@ if is_torch_available():
     ]
     _import_structure["adapters.context"] = ["AdapterSetup"]
     _import_structure["adapters.heads"] = ["ModelWithFlexibleHeadsAdaptersMixin"]
-    _import_structure["adapters.layer"] = ["AdapterLayerBaseMixin"]
+    _import_structure["adapters.layer"] = ["AdapterLayer"]
     _import_structure["adapters.loading"] = [
         "AdapterFusionLoader",
         "AdapterLoader",
@@ -3172,7 +3172,7 @@ if TYPE_CHECKING:
         )
         from .adapters.context import AdapterSetup
         from .adapters.heads import ModelWithFlexibleHeadsAdaptersMixin
-        from .adapters.layer import AdapterLayerBaseMixin
+        from .adapters.layer import AdapterLayer
         from .adapters.loading import (
             AdapterFusionLoader,
             AdapterLoader,
