@@ -18,7 +18,6 @@ from transformers.testing_utils import require_torch
 
 @require_torch
 class AdapterConfigTest(unittest.TestCase):
-
     def test_config_load(self):
         download_kwargs = {"force_download": True}
         for config_name in ["pfeiffer", "houlsby"]:

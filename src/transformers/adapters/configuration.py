@@ -268,8 +268,8 @@ class PrefixTuningConfig(AdapterConfigBase):
 
 class ConfigUnion(AdapterConfigBase):
     """
-    Composes multiple adaptation method configurations into one.
-    This class can be used to define complex adaptation method setups.
+    Composes multiple adaptation method configurations into one. This class can be used to define complex adaptation
+    method setups.
     """
 
     architecture: Optional[str] = "union"
@@ -282,14 +282,16 @@ class ConfigUnion(AdapterConfigBase):
 
     @staticmethod
     def validate(configs):
-        """Performs simple validations of a list of configurations to check whether they can be combined to a common setup.
+        """
+        Performs simple validations of a list of configurations to check whether they can be combined to a common
+        setup.
 
         Args:
             configs (List[AdapterConfigBase]): list of configs to check.
 
         Raises:
-            TypeError: One of the configurations has a wrong type.
-            ValueError: At least two given configurations conflict.
+            TypeError: One of the configurations has a wrong type. ValueError: At least two given configurations
+            conflict.
         """
         # perform single config checks
         for config in configs:
