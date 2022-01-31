@@ -8,7 +8,6 @@ from typing import List, Optional, Union
 import torch
 from torch import nn
 
-from ..models.auto.tokenization_auto import AutoTokenizer
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import AdapterConfig, AdapterFusionConfig, ModelAdaptersConfig, get_adapter_config_hash
 from .hub_mixin import PushAdapterToHubMixin
@@ -555,6 +554,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Returns: a tokenizer if it ws saved with the embedding otherwise None
 
         """
+        from ..models.auto.tokenization_auto import AutoTokenizer
+
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
         tokenizer = None

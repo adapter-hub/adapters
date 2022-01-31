@@ -2,8 +2,8 @@ name: Build Adapter Docs
 
 on:
   push:
-    tags:
-      - 'adapters*'
+    branches: [ master ]
+    paths: [ 'adapter_docs/**' ]
   workflow_dispatch:
 
 jobs:
@@ -13,16 +13,17 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
+          fetch-depth: 0
       - uses: actions/setup-python@v2
         with:
           python-version: 3.6
       - name: Install
         run: |
           pip install setuptools==57.4.0
-          pip install .[tf,torch,docs]
+          pip install -e .[torch,docs]
       - name: Build
         run: |
-          cd adapter_docs && make html && cd ..
+          cd adapter_docs && make html-multi-version && cd ..
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
