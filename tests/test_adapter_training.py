@@ -116,6 +116,53 @@ class AdapterTrainingTestMixin:
             else:
                 self.assertTrue(torch.equal(v1, v2), k1)
 
+    def test_train_mam_adapter(self):
+        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        model = AutoModelWithHeads.from_config(self.config())
+
+        # add two adapters: one will be trained and the other should be frozen
+        model.add_adapter("mrpc", config="mam")
+        model.add_adapter("dummy", config="mam")
+        self.add_head(model, "mrpc")
+
+        self.assertIn("mrpc", model.config.adapters.adapters)
+        self.assertIn("dummy", model.config.adapters.adapters)
+
+        # train the mrpc adapter -> should be activated & unfreezed
+        model.train_adapter("mrpc")
+        self.assertEqual(set(["mrpc"]), model.active_adapters.flatten())
+
+        # all weights of the adapter should be activated
+        has_weights = False
+        for k, v in filter_parameters(model, "prefix_tunings.mrpc.").items():
+            has_weights = True
+            self.assertTrue(v.requires_grad, k)
+        for k, v in filter_parameters(model, "adapters.mrpc.").items():
+            has_weights = True
+            self.assertTrue(v.requires_grad, k)
+        self.assertTrue(has_weights)
+        # all weights of the adapter not used for training should be frozen
+        for k, v in filter_parameters(model, "prefix_tunings.dummy.").items():
+            self.assertFalse(v.requires_grad, k)
+        for k, v in filter_parameters(model, "adapters.dummy.").items():
+            self.assertFalse(v.requires_grad, k)
+        # weights of the model should be frozen (check on some examples)
+        for k, v in filter_parameters(model, "encoder.layer.0").items():
+            if "prefix_tunings" not in k and "adapters" not in k:
+                self.assertFalse(v.requires_grad, k)
+
+        state_dict_pre = copy.deepcopy(model.state_dict())
+
+        self.trainings_run(model, tokenizer)
+
+        for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
+            if "mrpc" in k1:
+                self.assertFalse(torch.equal(v1, v2), k1)
+            else:
+                self.assertTrue(torch.equal(v1, v2), k1)
+
     def test_train_adapter_fusion(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:

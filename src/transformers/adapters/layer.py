@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Mapping, Union
+from typing import List, Mapping, Optional, Union
 
 import torch
 from torch import nn
@@ -60,14 +60,17 @@ class AdapterLayer(AdapterLayerBase):
         self.adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
 
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        self.layer_idx = layer_idx
-        adapter_config = self.config.adapters.match(
+    def _get_adapter_config(self, adapter_name: str) -> Optional[AdapterConfig]:
+        return self.config.adapters.match(
             adapter_name,
             config_type=AdapterConfig,
             layer_idx=self.layer_idx,
             location_key=self.location_key,
         )
+
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        self.layer_idx = layer_idx
+        adapter_config = self._get_adapter_config(adapter_name)
         if adapter_config is not None:
             reduction_factor = adapter_config["reduction_factor"]
             if isinstance(reduction_factor, Mapping):
@@ -225,7 +228,7 @@ class AdapterLayer(AdapterLayerBase):
             # Case 5: We have a single adapter which is part of this module -> forward pass
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
-                adapter_config = self.config.adapters.get(adapter_stack_layer)
+                adapter_config = self._get_adapter_config(adapter_stack_layer)
                 hidden_states, _, residual = self.get_adapter_preparams(
                     adapter_config, hidden_states, input_tensor, layer_norm
                 )
@@ -245,7 +248,7 @@ class AdapterLayer(AdapterLayerBase):
         Performs adapter fusion with the given adapters for the given input.
         """
         # config of _last_ fused adapter is significant
-        adapter_config = self.config.adapters.get(adapter_setup.last())
+        adapter_config = self._get_adapter_config(adapter_setup.last())
         fusion_config = self.config.adapters.get_fusion(adapter_setup.name)
         hidden_states, query, residual = self.get_adapter_preparams(
             adapter_config, hidden_states, input_tensor, layer_norm, fusion_config=fusion_config
@@ -291,7 +294,7 @@ class AdapterLayer(AdapterLayerBase):
         Splits the given input between the given adapters.
         """
         # config of _first_ of splitted adapters is significant
-        adapter_config = self.config.adapters.get(adapter_setup.first())
+        adapter_config = self._get_adapter_config(adapter_setup.first())
         hidden_states, query, residual = self.get_adapter_preparams(
             adapter_config, hidden_states, input_tensor, layer_norm
         )
@@ -348,7 +351,7 @@ class AdapterLayer(AdapterLayerBase):
         feeding it to the adapters (where N is the number of adapters).
         """
         # We assume that all adapters have the same config
-        adapter_config = self.config.adapters.get(adapter_setup.first())
+        adapter_config = self._get_adapter_config(adapter_setup.first())
 
         context = ForwardContext.get_context()
         if not context.adapters_parallelized:
@@ -423,7 +426,7 @@ class AdapterLayer(AdapterLayerBase):
                 )
             )
 
-        adapter_config = self.config.adapters.get(adapter_setup.first())
+        adapter_config = self._get_adapter_config(adapter_setup.first())
         hidden_states, _, residual = self.get_adapter_preparams(
             adapter_config, hidden_states, input_tensor, layer_norm
         )
@@ -522,7 +525,7 @@ class AdapterLayer(AdapterLayerBase):
             else:
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
 
-            last_config = self.config.adapters.get(adapter_setup.last())
+            last_config = self._get_adapter_config(adapter_setup.last())
             if last_config["original_ln_after"]:
                 if layer_norm:
                     hidden_states = layer_norm(hidden_states + input_tensor)

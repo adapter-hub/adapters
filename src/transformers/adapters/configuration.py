@@ -1,7 +1,7 @@
 import copy
 import logging
 from collections.abc import Collection, Mapping
-from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass, replace
+from dataclasses import FrozenInstanceError, asdict, dataclass, field, replace
 from typing import List, Optional, Union
 
 from .composition import AdapterCompositionBlock
@@ -45,6 +45,9 @@ class AdapterConfigBase(Mapping):
     def __len__(self):
         return len(self.__dict__)
 
+    def __eq__(self, other):
+        return self.to_dict() == other.to_dict()
+
     def to_dict(self):
         return asdict(self)
 
@@ -67,6 +70,21 @@ class AdapterConfigBase(Mapping):
         for k, v in new_kwargs.items():
             setattr(obj, k, v)
         return obj
+
+    @staticmethod
+    def _get_config_class(config_dict):
+        """
+        Returns the matching config class for the given config dict based on its "architecture" key.
+        """
+        architecture = config_dict.get("architecture", None)
+        if architecture == "prefix_tuning":
+            cls_new = PrefixTuningConfig
+        elif architecture == "union":
+            cls_new = ConfigUnion
+        else:
+            cls_new = AdapterConfig
+
+        return cls_new
 
     @classmethod
     def load(cls, config: Union[dict, str], download_kwargs=None, **kwargs):
@@ -100,17 +118,13 @@ class AdapterConfigBase(Mapping):
             cls_new = config_dict.__class__
             config_dict = config_dict.to_dict()
         else:
-            architecture = config_dict.get("architecture", None)
-            if architecture == "prefix_tuning":
-                cls_new = PrefixTuningConfig
-            else:
-                cls_new = AdapterConfig
+            cls_new = cls._get_config_class(config_dict)
         # The check for "None" is necessary because of the example script flags.
         config_dict.update((k, v) for k, v in kwargs.items() if v is not None)
         return cls_new.from_dict(config_dict)
 
 
-@dataclass
+@dataclass(eq=False)
 class AdapterConfig(AdapterConfigBase):
     """
     Base class that models the architecture of an adapter.
@@ -157,7 +171,7 @@ class AdapterConfig(AdapterConfigBase):
             object.__setattr__(self, name, value)
 
 
-@dataclass
+@dataclass(eq=False)
 class PfeifferConfig(AdapterConfig):
     """
     The adapter architecture proposed by Pfeiffer et al. (2020). See https://arxiv.org/pdf/2005.00247.pdf.
@@ -175,7 +189,7 @@ class PfeifferConfig(AdapterConfig):
     reduction_factor: Union[int, Mapping] = 16
 
 
-@dataclass
+@dataclass(eq=False)
 class PfeifferInvConfig(PfeifferConfig):
     """
     The adapter architecture proposed by Pfeiffer et al. (2020). See https://arxiv.org/pdf/2005.00247.pdf.
@@ -185,7 +199,7 @@ class PfeifferInvConfig(PfeifferConfig):
     inv_adapter_reduction_factor: Optional[int] = 2
 
 
-@dataclass
+@dataclass(eq=False)
 class HoulsbyConfig(AdapterConfig):
     """
     The adapter architecture proposed by Houlsby et al. (2019). See https://arxiv.org/pdf/1902.00751.pdf.
@@ -203,7 +217,7 @@ class HoulsbyConfig(AdapterConfig):
     reduction_factor: Union[int, Mapping] = 16
 
 
-@dataclass
+@dataclass(eq=False)
 class HoulsbyInvConfig(HoulsbyConfig):
     """
     The adapter architecture proposed by Houlsby et. al. (2019). See https://arxiv.org/pdf/1902.00751.pdf.
@@ -213,7 +227,7 @@ class HoulsbyInvConfig(HoulsbyConfig):
     inv_adapter_reduction_factor: Optional[int] = 2
 
 
-@dataclass
+@dataclass(eq=False)
 class ParallelConfig(AdapterConfig):
     """
     The parallel adapter architecture proposed by He et al. (2021). See https://arxiv.org/pdf/2110.04366.pdf.
@@ -233,7 +247,7 @@ class ParallelConfig(AdapterConfig):
     scaling: Union[float, str] = 4.0
 
 
-@dataclass
+@dataclass(eq=False)
 class PrefixTuningConfig(AdapterConfigBase):
     """
     The prefix tuning architecture proposed by Li & Liang (2021). See https://arxiv.org/pdf/2101.00190.pdf.
@@ -252,6 +266,106 @@ class PrefixTuningConfig(AdapterConfigBase):
     leave_out: List[int] = field(default_factory=list)
 
 
+class ConfigUnion(AdapterConfigBase):
+    """
+    Composes multiple adaptation method configurations into one.
+    This class can be used to define complex adaptation method setups.
+    """
+
+    architecture: Optional[str] = "union"
+
+    configs: List[AdapterConfigBase]
+
+    def __init__(self, *configs: List[AdapterConfigBase]):
+        self.validate(configs)
+        self.configs = configs
+
+    @staticmethod
+    def validate(configs):
+        """Performs simple validations of a list of configurations to check whether they can be combined to a common setup.
+
+        Args:
+            configs (List[AdapterConfigBase]): list of configs to check.
+
+        Raises:
+            TypeError: One of the configurations has a wrong type.
+            ValueError: At least two given configurations conflict.
+        """
+        # perform single config checks
+        for config in configs:
+            if not isinstance(config, AdapterConfigBase):
+                raise TypeError(f"{config} is not an instance of AdapterConfigBase")
+            elif isinstance(config, ConfigUnion):
+                raise TypeError(f"{config} of type {type(config)} is not supported in a config union.")
+        # perform pairwise check
+        for c_a, c_b in [(c_a, c_b) for i, c_a in enumerate(configs) for j, c_b in enumerate(configs) if i > j]:
+            if c_a.architecture != c_b.architecture:
+                continue
+            elif c_a.architecture is None or c_a.architecture == "bottleneck":
+                is_valid = c_a.mh_adapter != c_b.mh_adapter and c_a.output_adapter != c_b.output_adapter
+                if not is_valid:
+                    raise ValueError(f"{c_a} and {c_b} cannot be combined.")
+                else:
+                    continue
+            # at this point, we know that the architectures are the same
+            raise ValueError(f"{c_a} and {c_b} have the same adapter architecture and cannot be combined.")
+
+    def __getitem__(self, key):
+        i, k = key.split(".")
+        return self.configs[int(i)][k]
+
+    def __iter__(self):
+        for i, c in enumerate(self.configs):
+            for k in iter(c):
+                yield f"{i}.{k}"
+
+    def __len__(self):
+        return sum([len(c) for c in self.configs])
+
+    def __eq__(self, other):
+        return all([c_a == c_b for c_a, c_b in zip(self.configs, other.configs)])
+
+    def to_dict(self):
+        return {"architecture": self.architecture, "configs": [c.to_dict() for c in self.configs]}
+
+    def replace(self, **changes):
+        return ConfigUnion(*[c.replace(**changes) for c in self.configs])
+
+    @classmethod
+    def from_dict(cls, config):
+        if isinstance(config, AdapterConfigBase):
+            return config
+
+        configs = []
+        for c in config["configs"]:
+            config_class = cls._get_config_class(c)
+            configs.append(config_class.from_dict(c))
+
+        return cls(*configs)
+
+
+class MAMConfig(ConfigUnion):
+    """
+    The Mix-And-Match adapter architecture proposed by He et al. (2021). See https://arxiv.org/pdf/2110.04366.pdf.
+    """
+
+    def __init__(self, prefix_tuning: Optional[PrefixTuningConfig] = None, adapter: Optional[AdapterConfig] = None):
+        prefix_tuning = prefix_tuning or PrefixTuningConfig()
+        adapter = adapter or ParallelConfig()
+
+        assert isinstance(prefix_tuning, PrefixTuningConfig)
+        assert isinstance(adapter, AdapterConfig)
+        super().__init__(prefix_tuning, adapter)
+
+    @property
+    def prefix_tuning(self):
+        return self[0]
+
+    @property
+    def adapter(self):
+        return self[1]
+
+
 ADAPTER_CONFIG_MAP = {
     "pfeiffer": PfeifferConfig(),
     "houlsby": HoulsbyConfig(),
@@ -261,6 +375,7 @@ ADAPTER_CONFIG_MAP = {
     "prefix_flat": PrefixTuningConfig(flat=True),
     "parallel": ParallelConfig(),
     "scaled_parallel": ParallelConfig(scaling="learned"),
+    "mam": MAMConfig(),
 }
 
 DEFAULT_ADAPTER_CONFIG = "pfeiffer"
@@ -334,8 +449,16 @@ class ModelAdaptersConfig(Collection):
         if isinstance(config, config_type):
             leave_out = config.get("leave_out", [])
             if layer_idx is None or layer_idx not in leave_out:
-                if location_key is None or config.get(location_key, None):
+                if location_key is None or config.get(location_key, False):
                     return config
+        # if we have a config union, match with all child configs
+        elif isinstance(config, ConfigUnion):
+            for c in config.configs:
+                if isinstance(c, config_type):
+                    leave_out = c.get("leave_out", [])
+                    if layer_idx is None or layer_idx not in leave_out:
+                        if location_key is None or c.get(location_key, False):
+                            return c
 
         return None
 
@@ -438,9 +561,19 @@ class ModelAdaptersConfig(Collection):
     def to_dict(self):
         output_dict = {}
         output_dict["adapters"] = copy.deepcopy(self.adapters)
-        output_dict["config_map"] = copy.deepcopy(self.config_map)
+        output_dict["config_map"] = {}
+        for k, v in self.config_map.items():
+            if isinstance(v, AdapterConfigBase):
+                output_dict["config_map"][k] = v.to_dict()
+            else:
+                output_dict["config_map"][k] = copy.deepcopy(v)
         output_dict["fusions"] = copy.deepcopy(self.fusions)
-        output_dict["fusion_config_map"] = copy.deepcopy(self.fusion_config_map)
+        output_dict["fusion_config_map"] = {}
+        for k, v in self.fusion_config_map.items():
+            if isinstance(v, AdapterConfigBase):
+                output_dict["fusion_config_map"][k] = v.to_dict()
+            else:
+                output_dict["fusion_config_map"][k] = copy.deepcopy(v)
         return output_dict
 
 
@@ -453,14 +586,14 @@ def build_full_config(adapter_config, model_config, save_id2label=False, **kwarg
     config_dict.update(kwargs)
     if not hasattr(model_config, "prediction_heads") and save_id2label:
         config_dict["label2id"] = model_config.label2id
-    if is_dataclass(adapter_config):
+    if isinstance(adapter_config, AdapterConfigBase):
         config_dict["config"] = adapter_config.to_dict()
     else:
         config_dict["config"] = adapter_config
     return config_dict
 
 
-@dataclass
+@dataclass(eq=False)
 class AdapterFusionConfig(AdapterConfigBase):
     """Base class that models the architecture of an adapter fusion layer."""
 
@@ -498,7 +631,7 @@ class AdapterFusionConfig(AdapterConfigBase):
         return AdapterFusionConfig.from_dict(config_dict)
 
 
-@dataclass
+@dataclass(eq=False)
 class StaticAdapterFusionConfig(AdapterFusionConfig):
     """
     Static version of adapter fusion without a value matrix. Described in https://arxiv.org/pdf/2005.00247.pdf.
@@ -515,7 +648,7 @@ class StaticAdapterFusionConfig(AdapterFusionConfig):
     value_initialized: str = False
 
 
-@dataclass
+@dataclass(eq=False)
 class DynamicAdapterFusionConfig(AdapterFusionConfig):
     """
     Dynamic version of adapter fusion with a value matrix and regularization. Described in

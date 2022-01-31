@@ -11,7 +11,7 @@ from transformers import (
     AutoModelWithHeads,
     HoulsbyConfig,
     HoulsbyInvConfig,
-    ParallelConfig,
+    MAMConfig,
     PfeifferConfig,
     PfeifferInvConfig,
     PrefixTuningConfig,
@@ -44,7 +44,7 @@ class AdapterModelTestMixin:
         PfeifferConfig(),
         HoulsbyConfig(),
         PrefixTuningConfig(),
-        ParallelConfig(),
+        MAMConfig(),
     ]
 
     def test_add_adapter(self):
@@ -215,11 +215,11 @@ class AdapterModelTestMixin:
                 self.assertEqual(len(output_1), len(output_2))
                 self.assertTrue(torch.equal(output_1[0], output_2[0]))
 
-    def test_load_adapter(self):
+    def run_load_test(self, config):
         model1, model2 = create_twin_models(self.model_class, self.config)
 
         name = "dummy_adapter"
-        model1.add_adapter(name)
+        model1.add_adapter(name, config=config)
         model1.set_active_adapters([name])
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
@@ -242,34 +242,15 @@ class AdapterModelTestMixin:
         output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
+
+    def test_load_adapter(self):
+        self.run_load_test(PfeifferConfig())
 
     def test_load_prefix_tuning(self):
-        model1, model2 = create_twin_models(self.model_class, self.config)
+        self.run_load_test(PrefixTuningConfig())
 
-        name = "dummy_prefix_tuning"
-        model1.add_adapter(name, config=PrefixTuningConfig())
-        model1.set_active_adapters([name])
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model1.save_adapter(temp_dir, name)
-
-            # Check that there are actually weights saved
-            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu")
-            self.assertTrue(len(weights) > 0)
-
-            # also tests that set_active works
-            model2.load_adapter(temp_dir, set_active=True)
-
-        # check if adapter was correctly loaded
-        self.assertTrue(name in model2.config.adapters)
-
-        # check equal output
-        input_data = self.get_input_samples((1, 128), config=model1.config)
-        model1.to(torch_device)
-        model2.to(torch_device)
-        output1 = model1(**input_data)
-        output2 = model2(**input_data)
-        self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.equal(output1[0], output2[0]))
+    def test_load_mam_adapter(self):
+        self.run_load_test(MAMConfig())
 
     def test_load_full_model(self):
         model1 = self.get_model()
