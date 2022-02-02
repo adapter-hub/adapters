@@ -1,3 +1,4 @@
+import functools
 import threading
 
 from .composition import parse_composition, parse_heads_from_composition
@@ -41,9 +42,9 @@ class AdapterSetup:
 
     @classmethod
     def get_contexts(cls):
-        if not hasattr(cls.storage, "setups"):
-            cls.storage.setups = []
-        return cls.storage.setups
+        if not hasattr(cls.storage, "contexts"):
+            cls.storage.contexts = []
+        return cls.storage.contexts
 
     @classmethod
     def get_context(cls):
@@ -58,3 +59,52 @@ class AdapterSetup:
         if context:
             return context.head_setup
         return None
+
+
+class ForwardContext:
+    """
+    Holds context information during a forward pass through a model. This class should be used via the
+    ``ForwardContext.wrap()`` method.
+
+    Note that the context is thread-local.
+    """
+
+    # thread-local storage that holds a stack of active contexts
+    storage = threading.local()
+
+    def __init__(self, model, *args, **kwargs):
+        # If the model has a method ``forward_context()``, use it to create the context.
+        if hasattr(model, "forward_context"):
+            model.forward_context(self, *args, **kwargs)
+
+    @classmethod
+    def wrap(cls, f):
+        """
+        Decorator method that wraps a ``forward()`` function of a model class.
+        """
+
+        @functools.wraps(f)
+        def wrapper_func(self, *args, **kwargs):
+            if self.config.adapters is not None:
+                context = cls(self, *args, **kwargs)
+                cls.get_contexts().append(context)
+                results = f(self, *args, **kwargs)
+                cls.get_contexts().pop()
+                return results
+            else:
+                return f(self, *args, **kwargs)
+
+        return wrapper_func
+
+    @classmethod
+    def get_contexts(cls):
+        if not hasattr(cls.storage, "contexts"):
+            cls.storage.contexts = []
+        return cls.storage.contexts
+
+    @classmethod
+    def get_context(cls):
+        try:
+            return cls.get_contexts()[-1]
+        except IndexError:
+            return None
