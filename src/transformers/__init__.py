@@ -1383,8 +1383,9 @@ if is_torch_available():
         "PfeifferInvConfig",
         "StaticAdapterFusionConfig",
     ]
+    _import_structure["adapters.context"] = ["AdapterSetup"]
     _import_structure["adapters.heads"] = ["ModelWithFlexibleHeadsAdaptersMixin"]
-    _import_structure["adapters.layer"] = ["AdapterLayerBaseMixin"]
+    _import_structure["adapters.layer"] = ["AdapterLayer"]
     _import_structure["adapters.loading"] = [
         "AdapterFusionLoader",
         "AdapterLoader",
@@ -3154,7 +3155,7 @@ if TYPE_CHECKING:
 
     # Adapters
     if is_torch_available():
-        from .adapter_config import (
+        from .adapters.config import (
             ADAPTER_CONFIG_MAP,
             ADAPTERFUSION_CONFIG_MAP,
             DEFAULT_ADAPTER_CONFIG,
@@ -3169,8 +3170,9 @@ if TYPE_CHECKING:
             PfeifferInvConfig,
             StaticAdapterFusionConfig,
         )
+        from .adapters.context import AdapterSetup
         from .adapters.heads import ModelWithFlexibleHeadsAdaptersMixin
-        from .adapters.layer import AdapterLayerBaseMixin
+        from .adapters.layer import AdapterLayer
         from .adapters.loading import (
             AdapterFusionLoader,
             AdapterLoader,

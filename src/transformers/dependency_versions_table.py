@@ -62,6 +62,7 @@ deps = {
     "sphinx": "sphinx==3.2.1",
     "sphinxext-opengraph": "sphinxext-opengraph==0.4.1",
     "sphinx-intl": "sphinx-intl",
+    "sphinx-multiversion": "sphinx-multiversion",
     "starlette": "starlette",
     "tensorflow-cpu": "tensorflow-cpu>=2.3",
     "tensorflow": "tensorflow>=2.3",

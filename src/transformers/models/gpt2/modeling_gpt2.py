@@ -34,6 +34,8 @@ else:
     is_amp_available = False
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.models.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin, GPT2ModelHeadsMixin
 from ...file_utils import (
@@ -393,7 +395,6 @@ class GPT2Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         encoder_attention_mask=None,
         use_cache=False,
         output_attentions=False,
-        **kwargs
     ):
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
@@ -407,7 +408,7 @@ class GPT2Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         )
         attn_output = attn_outputs[0]  # output_attn: a, present, (attentions)
         outputs = attn_outputs[1:]
-        hidden_states = self.attention_adapters.adapters_forward(attn_output, residual, **kwargs)
+        hidden_states = self.attention_adapters(attn_output, residual, None)
 
         if encoder_hidden_states is not None:
             # add one self-attention block for cross-attention
@@ -435,7 +436,7 @@ class GPT2Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         hidden_states = self.ln_2(hidden_states)
         feed_forward_hidden_states = self.mlp(hidden_states)
         # residual connection
-        hidden_states = self.output_adapters.adapters_forward(feed_forward_hidden_states, residual, **kwargs)
+        hidden_states = self.output_adapters(feed_forward_hidden_states, residual, None)
 
         if use_cache:
             outputs = (hidden_states,) + outputs
@@ -742,6 +743,7 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         output_type=BaseModelOutputWithPastAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -757,10 +759,7 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        **kwargs
     ):
-        self.pre_transformer_forward(**kwargs)
-
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -901,11 +900,10 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
                     encoder_attention_mask=encoder_attention_mask,
                     use_cache=use_cache,
                     output_attentions=output_attentions,
-                    **kwargs,
                 )
 
             hidden_states = outputs[0]
-            attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
             # HACK: if output_shape is identical to hidden states shape except for batch size, update output_shape
             if output_shape[1:] == hidden_states.size()[1:]:
                 output_shape = hidden_states.size()
@@ -1047,7 +1045,6 @@ class GPT2LMHeadModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1071,7 +1068,6 @@ class GPT2LMHeadModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
         hidden_states = transformer_outputs[0]
 
@@ -1217,7 +1213,6 @@ class GPT2DoubleHeadsModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
         **kwargs,
     ):
         r"""
@@ -1274,7 +1269,6 @@ class GPT2DoubleHeadsModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
 
         hidden_states = transformer_outputs[0]
@@ -1378,7 +1372,6 @@ class GPT2ForSequenceClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedM
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1400,7 +1393,6 @@ class GPT2ForSequenceClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedM
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
         hidden_states = transformer_outputs[0]
         logits = self.score(hidden_states)
@@ -1499,7 +1491,6 @@ class GPT2ForTokenClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedMode
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1521,7 +1512,6 @@ class GPT2ForTokenClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedMode
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=None,
         )
 
         hidden_states = transformer_outputs[0]
@@ -1589,7 +1579,6 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
         head=None,
         **kwargs
     ):
@@ -1605,7 +1594,6 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            adapter_names=adapter_names,
         )
 
         batch_size = outputs[0].shape[0]
@@ -1616,7 +1604,7 @@ class GPT2ModelWithHeads(GPT2ModelHeadsMixin, GPT2PreTrainedModel):
         else:
             if input_ids is not None:
                 sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
-                sequence_lengths = self.transformer.adjust_attention_mask_for_parallel(outputs[0], sequence_lengths)
+                (sequence_lengths,) = adjust_tensors_for_parallel(outputs[0], sequence_lengths)
             else:
                 sequence_lengths = -1
                 logger.warning(

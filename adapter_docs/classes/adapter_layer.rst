@@ -1,5 +1,5 @@
-AdapterLayerBaseMixin
+AdapterLayer
 =======================
 
-.. autoclass:: transformers.AdapterLayerBaseMixin
+.. autoclass:: transformers.AdapterLayer
     :members:
