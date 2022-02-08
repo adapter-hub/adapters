@@ -84,7 +84,7 @@ class AdapterCustomHeadTest(unittest.TestCase):
         for ((k1, v1), (k2, v2)) in zip(state1.items(), state2.items()):
             self.assertTrue(torch.equal(v1, v2))
 
-    def test_buildin_head_as_custom(self):
+    def test_builtin_head_as_custom(self):
         model_name = "bert-base-uncased"
         model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
         model = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
