@@ -97,6 +97,7 @@ class BertAdapterTest(
     AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
+
     BertAdapterTestBase,
     unittest.TestCase,
 ):

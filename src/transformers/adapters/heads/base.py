@@ -581,13 +581,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     def add_custom_head(self, head_type, head_name, overwrite_ok=False, set_active=True, **kwargs):
         if head_type in self.config.custom_heads:
             head = self.config.custom_heads[head_type](self, head_name, **kwargs)
-            if not hasattr(head.config, "head_type") or head.config["head_type"] is not head_type:
-                # Is it valid to do this?
-                logger.log(
-                    logging.INFO,
-                    "Prediction head is initialized to the wrong head type. "
-                    "The head type in the config is adapted to the correct head_type",
-                )
+            # When a build-in head is added as a custom head it does not have the head_type property
+            if not hasattr(head.config, "head_type"):
                 head.config["head_type"] = head_type
             self.add_prediction_head(head, overwrite_ok, set_active=set_active)
         else:
