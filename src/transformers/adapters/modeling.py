@@ -127,7 +127,7 @@ class Adapter(nn.Module):
                 nn.init.zeros_(self.down_proj.bias)
                 nn.init.zeros_(self.up_proj.bias)
 
-    def get_adapter_preparams(
+    def pre_forward(
         self,
         hidden_states,
         input_tensor,
@@ -194,6 +194,33 @@ class Adapter(nn.Module):
             output = output + residual_input
 
         return output, down, up
+
+    def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
+        """
+        Performs computations after the forward pass of the adapter block(s).
+        This e.g. includes applying the residual connection and layer norm if configured in this way.
+
+        Args:
+            hidden_states: The hidden states outputted by the adapter block(s).
+            input_hidden_states: Residual connection before the adapter block(s).
+            input_tensor: Residual connection before the Transformer FFN/ attention layer.
+            layer_norm: Transformer LayerNorm.
+
+        Returns:
+            The modified hidden states.
+        """
+        if self.is_parallel:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_hidden_states)
+            else:
+                hidden_states = hidden_states + input_hidden_states
+        elif self.original_ln_after:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        return hidden_states
 
     # This is copied from the BertPreTrainedModel class to make this a self containing class.
     @staticmethod

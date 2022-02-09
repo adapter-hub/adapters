@@ -178,9 +178,7 @@ class AdapterLayer(AdapterLayerBase):
             # Case 5: We have a single adapter which is part of this module -> forward pass
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
-                hidden_states, _, residual = adapter_layer.get_adapter_preparams(
-                    hidden_states, input_tensor, layer_norm
-                )
+                hidden_states, _, residual = adapter_layer.pre_forward(hidden_states, input_tensor, layer_norm)
                 hidden_states, _, up = adapter_layer(hidden_states, residual_input=residual)
                 # as this stack might be part of a fusion block, return the adapter up-projection output here
                 # together with the final output (with potential residuals & norms) if we reached the last block of the stack
@@ -199,7 +197,7 @@ class AdapterLayer(AdapterLayerBase):
         # config of _last_ fused adapter is significant
         fusion_config = self.config.adapters.get_fusion(adapter_setup.name)
         last_adapter = self.adapters[adapter_setup.last()]
-        hidden_states, query, residual = last_adapter.get_adapter_preparams(
+        hidden_states, query, residual = last_adapter.pre_forward(
             hidden_states, input_tensor, layer_norm, fusion_config=fusion_config
         )
 
@@ -244,7 +242,7 @@ class AdapterLayer(AdapterLayerBase):
         """
         # config of _first_ of splitted adapters is significant
         first_adapter = self.adapters[adapter_setup.first()]
-        hidden_states, query, residual = first_adapter.get_adapter_preparams(hidden_states, input_tensor, layer_norm)
+        hidden_states, query, residual = first_adapter.pre_forward(hidden_states, input_tensor, layer_norm)
 
         # split hidden representations and residuals at split index
         split_hidden_states = [
@@ -315,7 +313,7 @@ class AdapterLayer(AdapterLayerBase):
 
         # We assume all adapters have the same config
         first_adapter = self.adapters[adapter_setup.first()]
-        hidden_states, _, residual = first_adapter.get_adapter_preparams(hidden_states, input_tensor, layer_norm)
+        hidden_states, _, residual = first_adapter.pre_forward(hidden_states, input_tensor, layer_norm)
 
         # sequentially feed different parts of the blown-up batch into different adapters
         children_hidden = []
@@ -372,7 +370,7 @@ class AdapterLayer(AdapterLayerBase):
             )
 
         first_adapter = self.adapters[adapter_setup.first()]
-        hidden_states, _, residual = first_adapter.get_adapter_preparams(hidden_states, input_tensor, layer_norm)
+        hidden_states, _, residual = first_adapter.pre_forward(hidden_states, input_tensor, layer_norm)
         children_hidden = []
         for i, adapter_block in enumerate(adapter_setup):
             # compute ids of sequences thet should be passed to the ith adapter
@@ -449,6 +447,8 @@ class AdapterLayer(AdapterLayerBase):
             self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
         )
         if not skip_adapters and (len(set(self.adapters.keys()) & adapter_setup.flatten()) > 0):
+            input_hidden_states = hidden_states
+
             if isinstance(adapter_setup, Stack):
                 hidden_states, _, input_tensor = self.adapter_stack(
                     adapter_setup, hidden_states, input_tensor, layer_norm
@@ -469,11 +469,7 @@ class AdapterLayer(AdapterLayerBase):
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
 
             last_adapter = self.adapters[adapter_setup.last()]
-            if last_adapter.original_ln_after:
-                if layer_norm:
-                    hidden_states = layer_norm(hidden_states + input_tensor)
-                else:
-                    hidden_states = hidden_states + input_tensor
+            hidden_states = last_adapter.post_forward(hidden_states, input_hidden_states, input_tensor, layer_norm)
 
         elif layer_norm:
             hidden_states = layer_norm(hidden_states + input_tensor)
