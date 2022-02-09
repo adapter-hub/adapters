@@ -22,7 +22,7 @@
 # to defer the actual importing for when the objects are requested. This way `import transformers` provides the names
 # in the namespace without actually importing anything (and especially none of the backends).
 
-__adapters_version__ = "2.3.0a0"
+__adapters_version__ = "2.3.0"
 __version__ = "4.12.5"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
