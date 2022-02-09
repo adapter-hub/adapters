@@ -8,63 +8,10 @@ DistilBERT is a small, fast, cheap and light Transformer model trained by distil
 parameters than `bert-base-uncased`, runs 60% faster while preserving over 95% of Bert's performances as measured on
 the GLUE language understanding benchmark.
 
-.. note::
-    This class is nearly identical to the PyTorch implementation of DistilBERT in Huggingface Transformers.
-    For more information, visit `the corresponding section in their documentation <https://huggingface.co/transformers/model_doc/distilbert.html>`_.
 
-
-DistilBertConfig
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.DistilBertConfig
-    :members:
-
-
-DistilBertTokenizer
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.DistilBertTokenizer
-    :members:
-
-
-DistilBertTokenizerFast
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.DistilBertTokenizerFast
-    :members:
-
-
-DistilBertModel
+DistilBertAdapterModel
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: transformers.DistilBertModel
-    :members:
-
-
-DistilBertModelWithHeads
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.DistilBertModelWithHeads
+.. autoclass:: transformers.adapters.DistilBertAdapterModel
     :members:
     :inherited-members: DistilBertPreTrainedModel
-
-
-DistilBertForMaskedLM
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.DistilBertForMaskedLM
-    :members:
-
-
-DistilBertForSequenceClassification
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.DistilBertForSequenceClassification
-    :members:
-
-
-DistilBertForQuestionAnswering
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.DistilBertForQuestionAnswering
-    :members:

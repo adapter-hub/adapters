@@ -6,14 +6,13 @@ from ...file_utils import (
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
 )
-from ...models.bert.modeling_bert import (
-    _CHECKPOINT_FOR_DOC,
+from ...models.roberta.modeling_roberta import (
     _CONFIG_FOR_DOC,
     _TOKENIZER_FOR_DOC,
-    BERT_INPUTS_DOCSTRING,
-    BERT_START_DOCSTRING,
-    BertModel,
-    BertPreTrainedModel,
+    ROBERTA_INPUTS_DOCSTRING,
+    ROBERTA_START_DOCSTRING,
+    RobertaModel,
+    RobertaPreTrainedModel,
 )
 from ..context import AdapterSetup
 from ..heads import (
@@ -30,23 +29,23 @@ from ..heads import (
 
 
 @add_start_docstrings(
-    """Bert Model transformer with the option to add multiple flexible heads on top.""",
-    BERT_START_DOCSTRING,
+    """Roberta Model transformer with the option to add multiple flexible heads on top.""",
+    ROBERTA_START_DOCSTRING,
 )
-class BertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel):
+class RobertaAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, RobertaPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
-        self.bert = BertModel(config)
+        self.roberta = RobertaModel(config)
 
         self._init_head_modules()
 
         self.init_weights()
 
-    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_start_docstrings_to_model_forward(ROBERTA_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
         processor_class=_TOKENIZER_FOR_DOC,
-        checkpoint=_CHECKPOINT_FOR_DOC,
+        checkpoint="roberta-base",
         output_type=ModelOutput,
         config_class=_CONFIG_FOR_DOC,
     )
@@ -65,9 +64,9 @@ class BertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel)
         **kwargs
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
-        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
-        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
         position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
         inputs_embeds = (
             inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
             if inputs_embeds is not None
@@ -76,7 +75,7 @@ class BertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel)
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.bert(
+        outputs = self.roberta(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
@@ -107,17 +106,6 @@ class BertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel)
         else:
             # in case no head is used just return the output of the base model (including pooler output)
             return outputs
-
-    head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "tagging": TaggingHead,
-        "multiple_choice": MultipleChoiceHead,
-        "question_answering": QuestionAnsweringHead,
-        "dependency_parsing": BiaffineParsingHead,
-        "masked_lm": BertStyleMaskedLMHead,
-        "causal_lm": CausalLMHead,
-    }
 
     def add_classification_head(
         self,
@@ -237,7 +225,7 @@ class BertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel)
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
 
 
-class BertModelWithHeads(BertAdapterModel):
+class RobertaModelWithHeads(RobertaAdapterModel):
     def __init__(self, *args, **kwargs):
         warnings.warn(
             "This class has been renamed to `{}` in v3. "

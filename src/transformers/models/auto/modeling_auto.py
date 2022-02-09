@@ -100,19 +100,6 @@ MODEL_MAPPING_NAMES = OrderedDict(
     ]
 )
 
-MODEL_WITH_HEADS_MAPPING_NAMES = OrderedDict(
-    [
-        ("xlm-roberta", "XLMRobertaModelWithHeads"),
-        ("roberta", "RobertaModelWithHeads"),
-        ("bert", "BertModelWithHeads"),
-        ("distilbert", "DistilBertModelWithHeads"),
-        ("bart", "BartModelWithHeads"),
-        ("mbart", "MBartModelWithHeads"),
-        ("gpt2", "GPT2ModelWithHeads"),
-        ("t5", "T5ModelWithHeads"),
-    ]
-)
-
 MODEL_FOR_PRETRAINING_MAPPING_NAMES = OrderedDict(
     [
         # Model for pre-training mapping
@@ -515,7 +502,6 @@ MODEL_FOR_CTC_MAPPING_NAMES = OrderedDict(
 )
 
 MODEL_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_MAPPING_NAMES)
-MODEL_WITH_HEADS_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_WITH_HEADS_MAPPING_NAMES)
 MODEL_FOR_PRETRAINING_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_PRETRAINING_MAPPING_NAMES)
 MODEL_WITH_LM_HEAD_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_WITH_LM_HEAD_MAPPING_NAMES)
 MODEL_FOR_CAUSAL_LM_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_FOR_CAUSAL_LM_MAPPING_NAMES)
@@ -565,13 +551,6 @@ class AutoModelForPreTraining(_BaseAutoModelClass):
 
 
 AutoModelForPreTraining = auto_class_update(AutoModelForPreTraining, head_doc="pretraining")
-
-
-class AutoModelWithHeads(_BaseAutoModelClass):
-    _model_mapping = MODEL_WITH_HEADS_MAPPING
-
-
-AutoModelWithHeads = auto_class_update(AutoModelWithHeads, head_doc="flexible heads")
 
 
 # Private on purpose, the public class will add the deprecation warnings.

@@ -44,21 +44,10 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    huggingface_hub
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Adapter-Related Classes
-
-   classes/adapter_config
-   classes/model_adapters_config
-   classes/adapter_modules
-   classes/adapter_layer
-   classes/model_mixins
-   classes/adapter_utils
-   classes/weights_loaders
-
-.. toctree::
    :maxdepth: 1
    :caption: Supported Models
 
+   model_overview
    classes/models/bart
    classes/models/bert
    classes/models/distilbert
@@ -68,6 +57,17 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    classes/models/roberta
    classes/models/t5
    classes/models/xlmroberta
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Adapter-Related Classes
+
+   classes/adapter_config
+   classes/model_adapters_config
+   classes/adapter_modules
+   classes/adapter_layer
+   classes/model_mixins
+   classes/adapter_utils
 
 
 Citation

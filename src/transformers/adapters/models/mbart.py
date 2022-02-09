@@ -8,15 +8,15 @@ from ...file_utils import (
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
 )
-from ...models.bart.modeling_bart import (
+from ...models.mbart.modeling_mbart import (
     _CHECKPOINT_FOR_DOC,
     _CONFIG_FOR_DOC,
     _TOKENIZER_FOR_DOC,
-    BART_INPUTS_DOCSTRING,
-    BART_START_DOCSTRING,
-    BartConfig,
-    BartModel,
-    BartPretrainedModel,
+    MBART_INPUTS_DOCSTRING,
+    MBART_START_DOCSTRING,
+    MBartConfig,
+    MBartModel,
+    MBartPreTrainedModel,
     shift_tokens_right,
 )
 from ..composition import adjust_tensors_for_parallel
@@ -30,12 +30,12 @@ from ..heads import (
 
 
 @add_start_docstrings(
-    "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
+    "MBART Model with the option to add multiple flexible prediction heads on top.", MBART_START_DOCSTRING
 )
-class BartAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel):
-    def __init__(self, config: BartConfig, **kwargs):
+class MBartAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, MBartPreTrainedModel):
+    def __init__(self, config: MBartConfig, **kwargs):
         super().__init__(config, **kwargs)
-        self.model = BartModel(config)
+        self.model = MBartModel(config)
 
         self._init_head_modules()
 
@@ -45,7 +45,7 @@ class BartAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel)
     def get_decoder(self):
         return self.model.get_decoder()
 
-    @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(MBART_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
         processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
@@ -119,7 +119,7 @@ class BartAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel)
 
         return head_outputs
 
-    # Copied from BartForConditionalGeneration
+    # Copied from MBartForConditionalGeneration
     def prepare_inputs_for_generation(
         self,
         decoder_input_ids,
@@ -148,11 +148,11 @@ class BartAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel)
             "use_cache": use_cache,  # change this to avoid caching (presumably for debugging)
         }
 
-    # Copied from BartForConditionalGeneration
+    # Copied from MBartForConditionalGeneration
     def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
-        return shift_tokens_right(labels, self.config.pad_token_id, self.config.decoder_start_token_id)
+        return shift_tokens_right(labels, self.config.pad_token_id)
 
-    # Copied from BartForConditionalGeneration
+    # Copied from MBartForConditionalGeneration
     @staticmethod
     def _reorder_cache(past, beam_idx):
         reordered_past = ()
@@ -226,7 +226,7 @@ class BartAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel)
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
 
 
-class BartModelWithHeads(BartAdapterModel):
+class MBartModelWithHeads(MBartAdapterModel):
     def __init__(self, *args, **kwargs):
         warnings.warn(
             "This class has been renamed to `{}` in v3. "

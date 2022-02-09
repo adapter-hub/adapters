@@ -1,0 +1,201 @@
+# flake8: noqa
+# There's no way to ignore "F401 '...' imported but unused" warnings in this
+# module, but to preserve other warnings. So, don't check this module at all.
+
+# Copyright 2020 The Adapter-Hub Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from typing import TYPE_CHECKING
+
+from ..file_utils import _LazyModule
+
+
+_import_structure = {
+    "composition": [
+        "AdapterCompositionBlock",
+        "BatchSplit",
+        "Fuse",
+        "Parallel",
+        "Split",
+        "Stack",
+        "parse_composition",
+        "validate_composition",
+    ],
+    "configuration": [
+        "ADAPTER_CONFIG_MAP",
+        "ADAPTERFUSION_CONFIG_MAP",
+        "DEFAULT_ADAPTER_CONFIG",
+        "DEFAULT_ADAPTERFUSION_CONFIG",
+        "AdapterConfig",
+        "AdapterFusionConfig",
+        "DynamicAdapterFusionConfig",
+        "HoulsbyConfig",
+        "HoulsbyInvConfig",
+        "ModelAdaptersConfig",
+        "PfeifferConfig",
+        "PfeifferInvConfig",
+        "StaticAdapterFusionConfig",
+    ],
+    "context": [
+        "AdapterSetup",
+        "ForwardContext",
+    ],
+    "heads": [
+        "BertStyleMaskedLMHead",
+        "BiaffineParsingHead",
+        "CausalLMHead",
+        "ClassificationHead",
+        "DependencyParsingOutput",
+        "ModelWithFlexibleHeadsAdaptersMixin",
+        "MultiHeadOutput",
+        "MultiLabelClassificationHead",
+        "MultipleChoiceHead",
+        "PredictionHead",
+        "QuestionAnsweringHead",
+        "Seq2SeqLMHead",
+        "TaggingHead",
+    ],
+    "layer": ["AdapterLayer"],
+    "model_mixin": [
+        "InvertibleAdaptersMixin",
+        "ModelAdaptersMixin",
+        "ModelConfigAdaptersMixin",
+        "ModelWithHeadsAdaptersMixin",
+    ],
+    "models.auto": [
+        "ADAPTER_MODEL_MAPPING",
+        "AutoAdapterModel",
+        "AutoModelWithHeads",
+    ],
+    "models.bart": [
+        "BartAdapterModel",
+        "BartModelWithHeads",
+    ],
+    "models.bert": [
+        "BertAdapterModel",
+        "BertModelWithHeads",
+    ],
+    "models.distilbert": [
+        "DistilBertAdapterModel",
+        "DistilBertModelWithHeads",
+    ],
+    "models.gpt2": [
+        "GPT2AdapterModel",
+        "GPT2ModelWithHeads",
+    ],
+    "models.mbart": [
+        "MBartAdapterModel",
+        "MBartModelWithHeads",
+    ],
+    "models.roberta": [
+        "RobertaAdapterModel",
+        "RobertaModelWithHeads",
+    ],
+    "models.t5": [
+        "T5AdapterModel",
+        "T5ModelWithHeads",
+    ],
+    "models.xlm_roberta": [
+        "XLMRobertaAdapterModel",
+        "XLMRobertaModelWithHeads",
+    ],
+    "trainer": ["AdapterTrainer", "Seq2SeqAdapterTrainer"],
+    "training": [
+        "AdapterArguments",
+        "MultiLingAdapterArguments",
+    ],
+    "utils": [
+        "ADAPTER_CACHE",
+        "AdapterInfo",
+        "AdapterType",
+        "get_adapter_config_hash",
+        "get_adapter_info",
+        "list_adapters",
+    ],
+}
+
+
+if TYPE_CHECKING:
+    from .composition import (
+        AdapterCompositionBlock,
+        BatchSplit,
+        Fuse,
+        Parallel,
+        Split,
+        Stack,
+        parse_composition,
+        validate_composition,
+    )
+    from .configuration import (
+        ADAPTER_CONFIG_MAP,
+        ADAPTERFUSION_CONFIG_MAP,
+        DEFAULT_ADAPTER_CONFIG,
+        DEFAULT_ADAPTERFUSION_CONFIG,
+        AdapterConfig,
+        AdapterFusionConfig,
+        DynamicAdapterFusionConfig,
+        HoulsbyConfig,
+        HoulsbyInvConfig,
+        ModelAdaptersConfig,
+        PfeifferConfig,
+        PfeifferInvConfig,
+        StaticAdapterFusionConfig,
+    )
+    from .context import AdapterSetup, ForwardContext
+    from .heads import (
+        BertStyleMaskedLMHead,
+        BiaffineParsingHead,
+        CausalLMHead,
+        ClassificationHead,
+        DependencyParsingOutput,
+        ModelWithFlexibleHeadsAdaptersMixin,
+        MultiHeadOutput,
+        MultiLabelClassificationHead,
+        MultipleChoiceHead,
+        PredictionHead,
+        QuestionAnsweringHead,
+        Seq2SeqLMHead,
+        TaggingHead,
+    )
+    from .layer import AdapterLayer
+    from .model_mixin import (
+        InvertibleAdaptersMixin,
+        ModelAdaptersMixin,
+        ModelConfigAdaptersMixin,
+        ModelWithHeadsAdaptersMixin,
+    )
+    from .models.auto import ADAPTER_MODEL_MAPPING, AutoAdapterModel, AutoModelWithHeads
+    from .models.bart import BartAdapterModel, BartModelWithHeads
+    from .models.bert import BertAdapterModel, BertModelWithHeads
+    from .models.distilbert import DistilBertAdapterModel, DistilBertModelWithHeads
+    from .models.gpt2 import GPT2AdapterModel, GPT2ModelWithHeads
+    from .models.mbart import MBartAdapterModel, MBartModelWithHeads
+    from .models.roberta import RobertaAdapterModel, RobertaModelWithHeads
+    from .models.t5 import T5AdapterModel, T5ModelWithHeads
+    from .models.xlm_roberta import XLMRobertaAdapterModel, XLMRobertaModelWithHeads
+    from .trainer import AdapterTrainer, Seq2SeqAdapterTrainer
+    from .training import AdapterArguments, MultiLingAdapterArguments
+    from .utils import (
+        ADAPTER_CACHE,
+        AdapterInfo,
+        AdapterType,
+        get_adapter_config_hash,
+        get_adapter_info,
+        list_adapters,
+    )
+
+else:
+    import sys
+
+    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
