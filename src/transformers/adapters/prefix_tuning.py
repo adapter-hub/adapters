@@ -144,7 +144,7 @@ class PrefixTuningLayer(AdapterLayerBase):
         else:
             return None
 
-    def forward(self, key_states, value_states, attention_mask=None):
+    def forward(self, key_states, value_states, attention_mask=None, invert_mask=True):
         if hasattr(self.config, "adapters"):
             # First check current context before falling back to defined setup
             context = AdapterSetup.get_context()
@@ -175,6 +175,8 @@ class PrefixTuningLayer(AdapterLayerBase):
                             prefix_mask = torch.ones(batch_size, 1, attention_mask.size(2), prefix_keys.size(2)).to(
                                 attention_mask.device
                             )
+                        if invert_mask:
+                            prefix_mask = 1.0 - prefix_mask
                         attention_mask = torch.cat([prefix_mask, attention_mask], dim=-1)
             else:
                 raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with prefix tuning.")
