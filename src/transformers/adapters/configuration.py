@@ -303,6 +303,9 @@ class ConfigUnion(AdapterConfigBase):
         for c_a, c_b in [(c_a, c_b) for i, c_a in enumerate(configs) for j, c_b in enumerate(configs) if i > j]:
             if c_a.architecture != c_b.architecture:
                 continue
+            # if at least one config specifies a leave_out, we cannot make a final decision at this point
+            elif c_a.get("leave_out", []) or c_b.get("leave_out", []):
+                continue
             elif c_a.architecture is None or c_a.architecture == "bottleneck":
                 is_valid = c_a.mh_adapter != c_b.mh_adapter and c_a.output_adapter != c_b.output_adapter
                 if not is_valid:
@@ -313,8 +316,11 @@ class ConfigUnion(AdapterConfigBase):
             raise ValueError(f"{c_a} and {c_b} have the same adapter architecture and cannot be combined.")
 
     def __getitem__(self, key):
-        i, k = key.split(".")
-        return self.configs[int(i)][k]
+        if isinstance(key, int):
+            return self.configs[key]
+        else:
+            i, k = key.split(".")
+            return self.configs[int(i)][k]
 
     def __iter__(self):
         for i, c in enumerate(self.configs):
@@ -455,12 +461,22 @@ class ModelAdaptersConfig(Collection):
                     return config
         # if we have a config union, match with all child configs
         elif isinstance(config, ConfigUnion):
+            results = []
             for c in config.configs:
                 if isinstance(c, config_type):
                     leave_out = c.get("leave_out", [])
                     if layer_idx is None or layer_idx not in leave_out:
                         if location_key is None or c.get(location_key, False):
-                            return c
+                            results.append(c)
+            if len(results) == 1:
+                return results[0]
+            elif len(results) > 1:
+                raise ValueError(
+                    "Multiple adapter definitions conflict for adapter '{}' in layer {}. "
+                    "Please make sure there is only one adaptation block used per location and adapter.".format(
+                        adapter_name, layer_idx
+                    )
+                )
 
         return None
 

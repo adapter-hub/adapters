@@ -60,17 +60,14 @@ class AdapterLayer(AdapterLayerBase):
         self.adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
 
-    def _get_adapter_config(self, adapter_name: str) -> Optional[AdapterConfig]:
-        return self.config.adapters.match(
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        self.layer_idx = layer_idx
+        adapter_config = self.config.adapters.match(
             adapter_name,
             config_type=AdapterConfig,
             layer_idx=self.layer_idx,
             location_key=self.location_key,
         )
-
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        self.layer_idx = layer_idx
-        adapter_config = self._get_adapter_config(adapter_name)
         if adapter_config is not None:
             reduction_factor = adapter_config["reduction_factor"]
             if isinstance(reduction_factor, Mapping):
@@ -146,53 +143,6 @@ class AdapterLayer(AdapterLayerBase):
         else:
             return None
 
-    def get_adapter_preparams(
-        self,
-        adapter_config,
-        hidden_states,
-        input_tensor,
-        layer_norm,
-        fusion_config=None,
-    ):
-        """
-        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuratio
-
-        Args:
-            adapter_config: config file according to what the parameters are passed
-            hidden_states: output of previous layer
-            input_tensor: residual connection before FFN
-
-        Returns: hidden_states, query, residual
-
-        """
-        query = None
-
-        # In case of parallel adapter, return the input tensor as hidden states
-        if adapter_config["is_parallel"]:
-            if fusion_config is not None:
-                query = hidden_states
-            return input_tensor, query, hidden_states
-
-        if adapter_config["residual_before_ln"]:
-            residual = hidden_states
-
-        if fusion_config is not None and fusion_config["query_before_ln"]:
-            query = hidden_states
-
-        if adapter_config["original_ln_before"]:
-            if layer_norm:
-                hidden_states = layer_norm(hidden_states + input_tensor)
-            else:
-                hidden_states = hidden_states + input_tensor
-
-        if not adapter_config["residual_before_ln"]:
-            residual = hidden_states
-
-        if fusion_config is not None and not fusion_config["query_before_ln"]:
-            query = hidden_states
-
-        return hidden_states, query, residual
-
     def adapter_stack(self, adapter_setup: Stack, hidden_states, input_tensor, layer_norm, lvl=0):
         """
         Forwards the given input through the given stack of adapters.
@@ -228,9 +178,8 @@ class AdapterLayer(AdapterLayerBase):
             # Case 5: We have a single adapter which is part of this module -> forward pass
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
-                adapter_config = self._get_adapter_config(adapter_stack_layer)
-                hidden_states, _, residual = self.get_adapter_preparams(
-                    adapter_config, hidden_states, input_tensor, layer_norm
+                hidden_states, _, residual = adapter_layer.get_adapter_preparams(
+                    hidden_states, input_tensor, layer_norm
                 )
                 hidden_states, _, up = adapter_layer(hidden_states, residual_input=residual)
                 # as this stack might be part of a fusion block, return the adapter up-projection output here
@@ -248,10 +197,10 @@ class AdapterLayer(AdapterLayerBase):
         Performs adapter fusion with the given adapters for the given input.
         """
         # config of _last_ fused adapter is significant
-        adapter_config = self._get_adapter_config(adapter_setup.last())
         fusion_config = self.config.adapters.get_fusion(adapter_setup.name)
-        hidden_states, query, residual = self.get_adapter_preparams(
-            adapter_config, hidden_states, input_tensor, layer_norm, fusion_config=fusion_config
+        last_adapter = self.adapters[adapter_setup.last()]
+        hidden_states, query, residual = last_adapter.get_adapter_preparams(
+            hidden_states, input_tensor, layer_norm, fusion_config=fusion_config
         )
 
         up_list = []
@@ -294,10 +243,8 @@ class AdapterLayer(AdapterLayerBase):
         Splits the given input between the given adapters.
         """
         # config of _first_ of splitted adapters is significant
-        adapter_config = self._get_adapter_config(adapter_setup.first())
-        hidden_states, query, residual = self.get_adapter_preparams(
-            adapter_config, hidden_states, input_tensor, layer_norm
-        )
+        first_adapter = self.adapters[adapter_setup.first()]
+        hidden_states, query, residual = first_adapter.get_adapter_preparams(hidden_states, input_tensor, layer_norm)
 
         # split hidden representations and residuals at split index
         split_hidden_states = [
@@ -350,8 +297,6 @@ class AdapterLayer(AdapterLayerBase):
         For parallel execution of the adapters on the same input. This means that the input is repeated N times before
         feeding it to the adapters (where N is the number of adapters).
         """
-        # We assume that all adapters have the same config
-        adapter_config = self._get_adapter_config(adapter_setup.first())
 
         context = ForwardContext.get_context()
         if not context.adapters_parallelized:
@@ -368,9 +313,9 @@ class AdapterLayer(AdapterLayerBase):
                 )
             orig_batch_size = hidden_states.shape[0] // adapter_setup.parallel_channels
 
-        hidden_states, _, residual = self.get_adapter_preparams(
-            adapter_config, hidden_states, input_tensor, layer_norm
-        )
+        # We assume all adapters have the same config
+        first_adapter = self.adapters[adapter_setup.first()]
+        hidden_states, _, residual = first_adapter.get_adapter_preparams(hidden_states, input_tensor, layer_norm)
 
         # sequentially feed different parts of the blown-up batch into different adapters
         children_hidden = []
@@ -426,10 +371,8 @@ class AdapterLayer(AdapterLayerBase):
                 )
             )
 
-        adapter_config = self._get_adapter_config(adapter_setup.first())
-        hidden_states, _, residual = self.get_adapter_preparams(
-            adapter_config, hidden_states, input_tensor, layer_norm
-        )
+        first_adapter = self.adapters[adapter_setup.first()]
+        hidden_states, _, residual = first_adapter.get_adapter_preparams(hidden_states, input_tensor, layer_norm)
         children_hidden = []
         for i, adapter_block in enumerate(adapter_setup):
             # compute ids of sequences thet should be passed to the ith adapter
@@ -525,8 +468,8 @@ class AdapterLayer(AdapterLayerBase):
             else:
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
 
-            last_config = self._get_adapter_config(adapter_setup.last())
-            if last_config["original_ln_after"]:
+            last_adapter = self.adapters[adapter_setup.last()]
+            if last_adapter.original_ln_after:
                 if layer_norm:
                     hidden_states = layer_norm(hidden_states + input_tensor)
                 else:

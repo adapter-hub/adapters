@@ -63,8 +63,13 @@ class Adapter(nn.Module):
         self.input_size = input_size
         self.add_layer_norm_before = config["ln_before"]
         self.add_layer_norm_after = config["ln_after"]
-        self.residual_before_ln = config["adapter_residual_before_ln"]
+        self.adapter_residual_before_ln = config["adapter_residual_before_ln"]
+
+        # Params related to input & output of adapter
         self.is_parallel = config["is_parallel"]
+        self.residual_before_ln = config["residual_before_ln"]
+        self.original_ln_before = config["original_ln_before"]
+        self.original_ln_after = config["original_ln_after"]
 
         # list for all modules of the adapter, passed into nn.Sequential()
         seq_list = []
@@ -122,6 +127,52 @@ class Adapter(nn.Module):
                 nn.init.zeros_(self.down_proj.bias)
                 nn.init.zeros_(self.up_proj.bias)
 
+    def get_adapter_preparams(
+        self,
+        hidden_states,
+        input_tensor,
+        layer_norm,
+        fusion_config=None,
+    ):
+        """
+        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuratio
+
+        Args:
+            adapter_config: config file according to what the parameters are passed
+            hidden_states: output of previous layer
+            input_tensor: residual connection before FFN
+
+        Returns: hidden_states, query, residual
+
+        """
+        query = None
+
+        # In case of parallel adapter, return the input tensor as hidden states
+        if self.is_parallel:
+            if fusion_config is not None:
+                query = hidden_states
+            return input_tensor, query, hidden_states
+
+        if self.residual_before_ln:
+            residual = hidden_states
+
+        if fusion_config is not None and fusion_config["query_before_ln"]:
+            query = hidden_states
+
+        if self.original_ln_before:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        if not self.residual_before_ln:
+            residual = hidden_states
+
+        if fusion_config is not None and not fusion_config["query_before_ln"]:
+            query = hidden_states
+
+        return hidden_states, query, residual
+
     def forward(self, x, residual_input):  # , residual_input=None):
         down = self.adapter_down(x)
 
@@ -131,7 +182,7 @@ class Adapter(nn.Module):
         output = up
 
         # apply residual connection before layer norm if configured in this way
-        if not self.is_parallel and self.residual_before_ln:
+        if not self.is_parallel and self.adapter_residual_before_ln:
             output = output + residual_input
 
         # apply layer norm if available
@@ -139,7 +190,7 @@ class Adapter(nn.Module):
             output = self.adapter_norm_after(output)
 
         # if residual should be applied after layer norm, apply it here
-        if not self.is_parallel and not self.residual_before_ln:
+        if not self.is_parallel and not self.adapter_residual_before_ln:
             output = output + residual_input
 
         return output, down, up

@@ -45,7 +45,11 @@ class InvertibleAdaptersMixin:
         """
         if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
-        adapter_config = self.config.adapters.match(adapter_name, config_type=AdapterConfig)
+        adapter_config = self.config.adapters.match(
+            adapter_name,
+            config_type=AdapterConfig,
+            location_key="inv_adapter",
+        )
         if adapter_config and adapter_config["inv_adapter"]:
             if adapter_config["inv_adapter"] == "nice":
                 inv_adap = NICECouplingBlock(
@@ -256,9 +260,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if overwrite_ok and adapter_name in self.config.adapters:
             self.delete_adapter(adapter_name)
         self.config.adapters.add(adapter_name, config=config)
-        self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
-        if isinstance(self, InvertibleAdaptersMixin):
-            self.add_invertible_adapter(adapter_name)
+        try:
+            self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
+            if isinstance(self, InvertibleAdaptersMixin):
+                self.add_invertible_adapter(adapter_name)
+        except ValueError as ex:
+            self.delete_adapter(adapter_name)
+            raise ex
         if set_active:
             self.set_active_adapters(adapter_name)
 

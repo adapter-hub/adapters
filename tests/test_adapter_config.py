@@ -62,6 +62,7 @@ class AdapterConfigTest(unittest.TestCase):
             [PrefixTuningConfig(), ParallelConfig()],
             [PrefixTuningConfig(), PfeifferConfig()],
             [HoulsbyConfig(mh_adapter=False), HoulsbyConfig(output_adapter=False, reduction_factor=2)],
+            [PfeifferConfig(leave_out=[9, 10, 11], reduction_factor=2), PfeifferConfig(leave_out=list(range(9)))],
         ]
         for union in unions:
             with self.subTest(union=union):
