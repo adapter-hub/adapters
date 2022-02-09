@@ -66,10 +66,10 @@ class AdapterTrainer(Trainer):
             self.model.set_active_adapters(adapter_names)
         # Set the defaults for loading/ saving model & adapters
         if isinstance(self.model, PreTrainedModel):
-            model_freezed = getattr(self.model.base_model, "model_freezed", False)
+            model_frozen = getattr(self.model.base_model, "model_frozen", False)
         else:
-            model_freezed = False
-        if model_freezed and self.model.active_adapters:
+            model_frozen = False
+        if model_frozen and self.model.active_adapters:
             # Check if training AdapterFusion
             self.train_adapter_fusion = (
                 isinstance(self.model.active_adapters, Fuse)
@@ -245,9 +245,11 @@ class AdapterTrainerCallback(TrainerCallback):
 
     def on_train_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         model = kwargs.pop("model")
-        model_freezed = getattr(model.base_model, "model_freezed", False)
-        if not model_freezed:
-            raise ValueError("The model is not freezed. For training adapters please call the train_adapters() method")
+        model_frozen = getattr(model.base_model, "model_frozen", False)
+        if not model_frozen:
+            raise ValueError(
+                "The pre-trained model weights are not frozen. For training adapters, please call the train_adapter() method"
+            )
 
     def on_train_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         model = kwargs.pop("model")
