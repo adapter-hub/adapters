@@ -293,10 +293,10 @@ class ParallelTrainingMixin:
         # all weights of the adapter should be activated
         for k, v in filter_parameters(model, "adapters.mrpc1.").items():
             self.assertTrue(v.requires_grad, k)
-        # all weights of the adapter not used for training should be freezed
+        # all weights of the adapter not used for training should be frozen
         for k, v in filter_parameters(model, "adapters.mrpc2.").items():
             self.assertTrue(v.requires_grad, k)
-        # weights of the model should be freezed (check on some examples)
+        # weights of the model should be frozen (check on some examples)
         for k, v in filter_parameters(model, "encoder.layer.0.attention").items():
             self.assertFalse(v.requires_grad, k)
 

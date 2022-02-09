@@ -560,7 +560,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # first freeze/ unfreeze all model weights
         for param in self.base_model.parameters():
             param.requires_grad = not freeze
-        self.model_freezed = freeze
+        self.model_frozen = freeze
 
     def forward_context(self, context: ForwardContext, *args, **kwargs):
         """

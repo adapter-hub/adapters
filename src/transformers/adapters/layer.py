@@ -89,8 +89,8 @@ class AdapterLayer(nn.Module):
 
         Args:
             adapter_names: names of adapters to unfreeze (or names of adapters part of the fusion layer to unfreeze)
-            unfreeze_adapters: whether the adapters themselves should be unfreezed
-            unfreeze_fusion: whether the adapter attention layer for the given adapters should be unfreezed
+            unfreeze_adapters: whether the adapter weights should be activated
+            unfreeze_fusion: whether the adapter fusion layer for the given adapters should be activated
         """
         if unfreeze_adapters:
             for adapter_name in adapter_setup.flatten():
