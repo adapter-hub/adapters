@@ -331,55 +331,6 @@ class TestAdapterTrainer(unittest.TestCase):
             self.assertEqual("task", model.active_head)
             self.assertEqual(Stack("task"), model.active_adapters)
 
-    def test_evaluation(self):
-        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-        data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
-        )
-        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
-
-        model = AutoModelWithHeads.from_pretrained("bert-base-uncased")
-
-        model.add_classification_head("task", num_labels=3)
-
-        # add the adapters to be fused
-        model.add_adapter("task")
-        model.add_adapter("additional_adapter")
-
-        model.train_adapter("task")
-        self.assertEqual("task", model.active_head)
-        self.assertEqual(Stack("task"), model.active_adapters)
-        with TemporaryDirectory() as tempdir:
-            training_args = TrainingArguments(
-                output_dir=tempdir,
-                do_train=True,
-                learning_rate=0.1,
-                logging_steps=1,
-                max_steps=1,
-                save_steps=1,
-                remove_unused_columns=False,
-            )
-            trainer = AdapterTrainer(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-            )
-
-            trainer.evaluate()
-
-            # Check that adapters are actually saved but the full model is not
-            files_dir_checkpoint = [file_or_dir for file_or_dir in
-                                    os.listdir(os.path.join(tempdir, "checkpoint-1"))]
-            self.assertTrue("task" in files_dir_checkpoint)
-            self.assertTrue("additional_adapter" in files_dir_checkpoint)
-            # Check that full model weights are not stored
-            self.assertFalse("pytorch_model.bin" in files_dir_checkpoint)
-
-            # this should always be false in the adapter trainer
-            self.assertFalse(trainer.args.remove_unused_columns)
-            self.assertEqual("task", model.active_head)
-            self.assertEqual(Stack("task"), model.active_adapters)
-
 
 if __name__ == "__main__":
     unittest.main()
