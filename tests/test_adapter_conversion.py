@@ -15,7 +15,7 @@ from transformers import (
     AutoModelWithHeads,
     BertPreTrainedModel,
     RobertaPreTrainedModel,
-)
+    BartForConditionalGeneration)
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -141,3 +141,29 @@ class ModelClassConversionTestMixin:
         label_dict = {}
         label_dict["labels"] = torch.ones(self.batch_size, dtype=torch.long, device=torch_device)
         self.run_test(model, input_shape=(self.batch_size, 2, self.seq_length), label_dict=label_dict)
+
+    def test_equivalent_language_generation(self):
+        if self.config_class not in MODEL_FOR_CAUSAL_LM_MAPPING:
+            self.skipTest("no causal lm class.")
+
+        model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
+        flex_model = AutoModelWithHeads.from_pretrained(
+            "facebook/bart-base", state_dict=model.state_dict()
+        )
+
+        adapter_name = model.load_adapter("AdapterHub/narrativeqa", source="hf")
+        model.set_active_adapters(adapter_name)
+        flex_model.load_adapter("AdapterHub/narrativeqa", source="hf")
+        flex_model.set_active_adapters(adapter_name)
+
+        input_shape = (self.batch_size, 5)
+        input_samples = self.get_input_samples(input_shape, config=flex_model.config)
+
+        model_gen = model.generate(**input_samples)
+        flex_model_gen = flex_model.generate(**input_samples)
+
+        self.assertEquals(model_gen.shape, flex_model_gen.shape)
+        self.assertTrue(model_gen, flex_model_gen)
+
+
+

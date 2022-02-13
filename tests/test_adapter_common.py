@@ -12,7 +12,7 @@ from transformers import (
     HoulsbyInvConfig,
     PfeifferConfig,
     PfeifferInvConfig,
-)
+    AutoModelForCausalLM, AutoModelForSeq2SeqLM, BartForConditionalGeneration)
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -314,3 +314,30 @@ class AdapterModelTestMixin:
         output2 = model_base(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
+
+    def test_forward_with_past(self):
+        if self.config_class not in MODEL_WITH_HEADS_MAPPING:
+            self.skipTest("Does not support flex heads.")
+        # model_base, model_with_head_base = create_twin_models(self.model_class, self.config)
+        #
+        # model_with_head = AutoModelWithHeads.from_config(model_with_head_base.config)
+        # model = AutoModelForSeq2SeqLM.from_config(model_base.config)
+        # setattr(model_with_head, model_with_head.base_model_prefix, model_with_head_base)
+        model_name = "facebook/bart-base"
+        model_with_head = BartForConditionalGeneration.from_pretrained(model_name)
+        adapter_name = model_with_head.load_adapter("AdapterHub/narrativeqa", source="hf")
+        model_with_head.set_active_adapters(adapter_name)
+        model = AutoModelWithHeads.from_pretrained(model_name)
+        adapter_name = model.load_adapter("AdapterHub/narrativeqa", source="hf")
+        model.set_active_adapters(adapter_name)
+        input_data = self.get_input_samples((1, 128), config=model.config)
+        model.eval()
+        model_with_head.eval()
+        model.to(torch_device)
+        model_with_head.to(torch_device)
+        output = model(input_data["input_ids"])
+
+        output_base = model(input_data["input_ids"], past_key_values=output["past_key_values"])
+        output_with_head = model_with_head(input_data["input_ids"], past_key_values=output["past_key_values"])
+        self.assertTrue(torch.allclose(output_base["logits"], output_with_head["logits"]))
+
