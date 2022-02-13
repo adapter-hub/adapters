@@ -170,8 +170,3 @@ class ModelClassConversionTestMixin:
 
         self.assertEquals(model_gen.shape, flex_model_gen.shape)
         self.assertTrue(torch.equal(model_gen, flex_model_gen))
-
-
-
-
-

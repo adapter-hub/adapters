@@ -5,6 +5,7 @@ import torch
 
 from transformers import (
     ADAPTER_CONFIG_MAP,
+    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
     MODEL_WITH_HEADS_MAPPING,
     AdapterSetup,
     AutoModelWithHeads,
@@ -12,7 +13,7 @@ from transformers import (
     HoulsbyInvConfig,
     PfeifferConfig,
     PfeifferInvConfig,
-    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING)
+)
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -345,4 +346,3 @@ class AdapterModelTestMixin:
         output_base = static_model(input_data["input_ids"], past_key_values=output["past_key_values"])
         output_with_head = flex_model(input_data["input_ids"], past_key_values=output["past_key_values"])
         self.assertTrue(torch.allclose(output_base["logits"], output_with_head["logits"]))
-
