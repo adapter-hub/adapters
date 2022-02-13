@@ -15,7 +15,7 @@ from transformers import (
     AutoModelWithHeads,
     BertPreTrainedModel,
     RobertaPreTrainedModel,
-    BartForConditionalGeneration)
+)
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -143,27 +143,35 @@ class ModelClassConversionTestMixin:
         self.run_test(model, input_shape=(self.batch_size, 2, self.seq_length), label_dict=label_dict)
 
     def test_equivalent_language_generation(self):
-        if self.config_class not in MODEL_FOR_CAUSAL_LM_MAPPING:
+        if self.config_class not in MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING:
             self.skipTest("no causal lm class.")
 
-        model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
+        static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
         flex_model = AutoModelWithHeads.from_pretrained(
-            "facebook/bart-base", state_dict=model.state_dict()
+            None, config=self.config(), state_dict=static_model.state_dict()
         )
+        static_model.add_adapter("dummy")
+        static_model.set_active_adapters("dummy")
+        static_model.eval()
+        flex_model.eval()
 
-        adapter_name = model.load_adapter("AdapterHub/narrativeqa", source="hf")
-        model.set_active_adapters(adapter_name)
-        flex_model.load_adapter("AdapterHub/narrativeqa", source="hf")
-        flex_model.set_active_adapters(adapter_name)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            static_model.save_adapter(temp_dir, "dummy")
+
+            loading_info = {}
+            flex_model.load_adapter(temp_dir, loading_info=loading_info)
+            flex_model.set_active_adapters("dummy")
 
         input_shape = (self.batch_size, 5)
         input_samples = self.get_input_samples(input_shape, config=flex_model.config)
 
-        model_gen = model.generate(**input_samples)
+        model_gen = static_model.generate(**input_samples)
         flex_model_gen = flex_model.generate(**input_samples)
 
         self.assertEquals(model_gen.shape, flex_model_gen.shape)
-        self.assertTrue(model_gen, flex_model_gen)
+        self.assertTrue(torch.equal(model_gen, flex_model_gen))
+
+
 
 
 

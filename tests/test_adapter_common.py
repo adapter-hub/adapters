@@ -12,7 +12,7 @@ from transformers import (
     HoulsbyInvConfig,
     PfeifferConfig,
     PfeifferInvConfig,
-    AutoModelForCausalLM, AutoModelForSeq2SeqLM, BartForConditionalGeneration)
+    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING)
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -316,28 +316,33 @@ class AdapterModelTestMixin:
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_forward_with_past(self):
-        if self.config_class not in MODEL_WITH_HEADS_MAPPING:
-            self.skipTest("Does not support flex heads.")
-        # model_base, model_with_head_base = create_twin_models(self.model_class, self.config)
-        #
-        # model_with_head = AutoModelWithHeads.from_config(model_with_head_base.config)
-        # model = AutoModelForSeq2SeqLM.from_config(model_base.config)
-        # setattr(model_with_head, model_with_head.base_model_prefix, model_with_head_base)
-        model_name = "facebook/bart-base"
-        model_with_head = BartForConditionalGeneration.from_pretrained(model_name)
-        adapter_name = model_with_head.load_adapter("AdapterHub/narrativeqa", source="hf")
-        model_with_head.set_active_adapters(adapter_name)
-        model = AutoModelWithHeads.from_pretrained(model_name)
-        adapter_name = model.load_adapter("AdapterHub/narrativeqa", source="hf")
-        model.set_active_adapters(adapter_name)
-        input_data = self.get_input_samples((1, 128), config=model.config)
-        model.eval()
-        model_with_head.eval()
-        model.to(torch_device)
-        model_with_head.to(torch_device)
-        output = model(input_data["input_ids"])
+        if self.config_class not in MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING:
+            self.skipTest("no causal lm class.")
 
-        output_base = model(input_data["input_ids"], past_key_values=output["past_key_values"])
-        output_with_head = model_with_head(input_data["input_ids"], past_key_values=output["past_key_values"])
+        static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
+        flex_model = AutoModelWithHeads.from_pretrained(
+            None, config=self.config(), state_dict=static_model.state_dict()
+        )
+        static_model.add_adapter("dummy")
+        static_model.set_active_adapters("dummy")
+        static_model.eval()
+        flex_model.eval()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            static_model.save_adapter(temp_dir, "dummy")
+
+            loading_info = {}
+            flex_model.load_adapter(temp_dir, loading_info=loading_info)
+            flex_model.set_active_adapters("dummy")
+
+        input_data = self.get_input_samples((1, 128), config=static_model.config)
+        static_model.eval()
+        flex_model.eval()
+        static_model.to(torch_device)
+        flex_model.to(torch_device)
+        output = static_model(input_data["input_ids"])
+
+        output_base = static_model(input_data["input_ids"], past_key_values=output["past_key_values"])
+        output_with_head = flex_model(input_data["input_ids"], past_key_values=output["past_key_values"])
         self.assertTrue(torch.allclose(output_base["logits"], output_with_head["logits"]))
 

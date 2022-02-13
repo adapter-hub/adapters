@@ -214,14 +214,14 @@ class BartAdapterTestBase(AdapterTestBase):
 @require_torch
 class BartAdapterTest(
     AdapterModelTestMixin,
-    # AdapterFusionModelTestMixin,
-    # EmbeddingTestMixin,
-    # PredictionHeadModelTestMixin,
-    # AdapterTrainingTestMixin,
-    # ParallelAdapterInferenceTestMixin,
-    # ParallelTrainingMixin,
+    AdapterFusionModelTestMixin,
+    EmbeddingTestMixin,
+    PredictionHeadModelTestMixin,
+    AdapterTrainingTestMixin,
+    ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
     BartAdapterTestBase,
-    # ModelClassConversionTestMixin,
+    ModelClassConversionTestMixin,
     unittest.TestCase,
 ):
     pass

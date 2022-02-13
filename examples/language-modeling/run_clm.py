@@ -368,7 +368,6 @@ def main():
     if adapter_args.train_adapter:
         task_name = data_args.dataset_name or "clm"
         # check if adapter already exists, otherwise add it
-
         if task_name not in model.config.adapters:
             # resolve the adapter config
             adapter_config = AdapterConfig.load(
@@ -386,9 +385,6 @@ def main():
             # otherwise, add a fresh adapter
             else:
                 model.add_adapter(task_name, config=adapter_config)
-        if adapter_args.train_embedding:
-            model.add_embedding(task_name, tokenizer)
-
         # optionally load a pre-trained language adapter
         if adapter_args.load_lang_adapter:
             # resolve the language adapter config
@@ -406,10 +402,7 @@ def main():
         else:
             lang_adapter_name = None
         # Freeze all model weights except of those of this adapter
-        if adapter_args.train_embedding:
-            model.train_adapter([task_name], train_embeddings=True)
-        else:
-            model.train_adapter([task_name])
+        model.train_adapter([task_name])
         # Set the adapters to be used in every forward pass
         if lang_adapter_name:
             model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
@@ -536,8 +529,6 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        if adapter_args.train_embedding:
-            model.save_embedding("./embedding")
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
         metrics = train_result.metrics
