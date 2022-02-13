@@ -221,7 +221,6 @@ class BartAdapterTest(
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     BartAdapterTestBase,
-    ModelClassConversionTestMixin,
     unittest.TestCase,
 ):
     pass
