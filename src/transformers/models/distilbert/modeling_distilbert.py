@@ -35,7 +35,7 @@ from ...adapters.models.distilbert import (
     DistilBertModelHeadsMixin,
     DistilBertTransfomerBlockAdaptersMixin,
 )
-from ...adapters.prefix_tuning import PrefixTuningLayer
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...deepspeed import is_deepspeed_zero3_enabled
 from ...file_utils import (
     ModelOutput,
@@ -163,7 +163,7 @@ class MultiHeadSelfAttention(nn.Module):
 
         self.pruned_heads = set()
 
-        self.prefix_tuning = PrefixTuningLayer("self", config)
+        self.prefix_tuning = PrefixTuningShim("self", config)
 
     def prune_heads(self, heads):
         attention_head_size = self.dim // self.n_heads

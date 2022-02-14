@@ -34,7 +34,7 @@ from ...adapters.models.bart import (
     BartModelAdaptersMixin,
     BartModelHeadsMixin,
 )
-from ...adapters.prefix_tuning import PrefixTuningLayer
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -166,7 +166,7 @@ class BartAttention(nn.Module):
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
-        self.prefix_tuning = PrefixTuningLayer(location_key + "_prefix" if location_key else None, config)
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()

@@ -16,7 +16,7 @@ class AdapterConfigBase(Mapping):
     Base class for all adaptation methods. This class does not define specific configuration keys, but only provides
     some common helper methods.
 
-    Attributes:
+    Args:
         architecture (str, optional): The type of adaptation method defined by the configuration.
     """
 
@@ -49,13 +49,16 @@ class AdapterConfigBase(Mapping):
         return self.to_dict() == other.to_dict()
 
     def to_dict(self):
+        """Converts the config class to a Python dict."""
         return asdict(self)
 
     def replace(self, **changes):
+        """Returns a new instance of the config class with the specified changes applied."""
         return replace(self, **changes)
 
     @classmethod
     def from_dict(cls, config):
+        """Creates a config class from a Python dict."""
         if isinstance(config, AdapterConfigBase):
             return config
 
@@ -130,20 +133,21 @@ class AdapterConfig(AdapterConfigBase):
     Base class that models the architecture of an adapter.
 
     Args:
-            reduction_factor (:obj:`int` or :obj:`Mapping`): Either an integer specifying the reduction factor for all layers
-                or a mapping specifying the reduction_factor for individual layers. If not all layers are represented
-                in the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
+        reduction_factor (:obj:`int` or :obj:`Mapping`): Either an integer specifying the reduction factor for all layers
+            or a mapping specifying the reduction_factor for individual layers. If not all layers are represented
+            in the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
     """
 
     # Required options
+    mh_adapter: bool
+    output_adapter: bool
+
+    reduction_factor: Union[int, Mapping]
+    non_linearity: str
     original_ln_before: bool
     original_ln_after: bool
     ln_before: bool
     ln_after: bool
-    mh_adapter: bool
-    output_adapter: bool
-    non_linearity: str
-    reduction_factor: Union[int, Mapping]
 
     # Options with defaults
     init_weights: str = "bert"
@@ -250,20 +254,30 @@ class ParallelConfig(AdapterConfig):
 @dataclass(eq=False)
 class PrefixTuningConfig(AdapterConfigBase):
     """
-    The prefix tuning architecture proposed by Li & Liang (2021). See https://arxiv.org/pdf/2101.00190.pdf.
+    The Prefix Tuning architecture proposed by Li & Liang (2021). See https://arxiv.org/pdf/2101.00190.pdf.
+
+    Args:
+        encoder_prefix (bool): If True, add prefixes to the encoder of an encoder-decoder model.
+        cross_prefix (bool): If True, add prefixes to the cross attention of an encoder-decoder model.
+        flat (bool): If True, train the prefix parameters directly. Otherwise, reparametrize using a bottleneck MLP.
+        prefix_length (int): The length of the prefix.
+        bottleneck_size (int): If flat=False, the size of the bottleneck MLP.
+        non_linearity (str): If flat=False, the non-linearity used in the bottleneck MLP.
+        dropout (float): The dropout rate used in the prefix tuning layer.
+        leave_out (List[int]): The IDs of the layers (starting at 0) where NO prefix should be added.
     """
 
     architecture: Optional[str] = "prefix_tuning"
+
+    encoder_prefix: bool = True
+    cross_prefix: bool = True
+    leave_out: List[int] = field(default_factory=list)
 
     flat: bool = False
     prefix_length: int = 30
     bottleneck_size: int = 512
     non_linearity: str = "tanh"
     dropout: float = 0.0
-
-    encoder_prefix: bool = True
-    cross_prefix: bool = True
-    leave_out: List[int] = field(default_factory=list)
 
 
 class ConfigUnion(AdapterConfigBase):
@@ -291,7 +305,7 @@ class ConfigUnion(AdapterConfigBase):
 
         Raises:
             TypeError: One of the configurations has a wrong type. ValueError: At least two given configurations
-            conflict.
+                       conflict.
         """
         # perform single config checks
         for config in configs:

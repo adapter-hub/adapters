@@ -34,7 +34,7 @@ from ...adapters.models.bert import (
     BertOutputAdaptersMixin,
     BertSelfOutputAdaptersMixin,
 )
-from ...adapters.prefix_tuning import PrefixTuningLayer
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -195,7 +195,7 @@ class RobertaSelfAttention(nn.Module):
 
         self.is_decoder = config.is_decoder
 
-        self.prefix_tuning = PrefixTuningLayer(location_key + "_prefix" if location_key else None, config)
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)

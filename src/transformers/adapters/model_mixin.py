@@ -22,6 +22,7 @@ from .hub_mixin import PushAdapterToHubMixin
 from .layer import AdapterLayer, AdapterLayerBase
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
+from .prefix_tuning import PrefixTuningPool, PrefixTuningShim
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
 
 
@@ -136,10 +137,18 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         elif config.adapters is not None and not isinstance(config.adapters, ModelAdaptersConfig):
             config.adapters = ModelAdaptersConfig(**config.adapters)
 
+    def _link_prefix_to_pool(self, layer):
+        if isinstance(layer, PrefixTuningShim):
+            layer.set_pool(self.base_model.prefix_tuning)
+
     def _init_adapter_modules(self):
         """
         This method initializes adapter modules and fusion modules from the model config.
         """
+        # Link all prefix tunings
+        self.base_model.prefix_tuning = PrefixTuningPool(self.config)
+        self.apply_to_adapter_layers(lambda i, layer: self._link_prefix_to_pool(layer))
+
         # Initialize adapters from config
         for adapter_name in self.config.adapters:
             self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
@@ -262,6 +271,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.config.adapters.add(adapter_name, config=config)
         try:
             self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
+            # Prefix Tuning
+            self.base_model.prefix_tuning.confirm_prefix(adapter_name)
             if isinstance(self, InvertibleAdaptersMixin):
                 self.add_invertible_adapter(adapter_name)
         except ValueError as ex:
@@ -586,6 +597,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             logger.warning("There are adapters available but none are activated for the forward pass.")
 
         context.adapters_parallelized = False
+
+        # Prefix tuning
+        input_tensor = kwargs.get("input_ids", None)
+        if input_tensor is None:
+            input_tensor = kwargs.get("attention_mask", None)
+        if input_tensor is None:
+            input_tensor = args[0]
+        context.prefix_states = self.base_model.prefix_tuning(input_tensor.shape[0])
 
     def load_embeddings(self, path: str, name: str):
         """

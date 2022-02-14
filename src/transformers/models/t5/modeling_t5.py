@@ -36,7 +36,7 @@ from ...adapters.models.t5 import (
     T5ModelHeadsMixin,
     T5SelfAttentionLayerAdaptersMixin,
 )
-from ...adapters.prefix_tuning import PrefixTuningLayer
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import (
     DUMMY_INPUTS,
     DUMMY_MASK,
@@ -340,7 +340,7 @@ class T5Attention(nn.Module):
         self.pruned_heads = set()
         self.gradient_checkpointing = False
 
-        self.prefix_tuning = PrefixTuningLayer(location_key + "_prefix" if location_key else None, config)
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def prune_heads(self, heads):
         if len(heads) == 0:

@@ -43,7 +43,7 @@ class AdapterModelTestMixin:
     adapter_configs_to_test = [
         PfeifferConfig(),
         HoulsbyConfig(),
-        PrefixTuningConfig(),
+        PrefixTuningConfig(flat=True),
         MAMConfig(),
     ]
 

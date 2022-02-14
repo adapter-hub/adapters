@@ -3,8 +3,11 @@ Adapter Configuration
 
 Classes representing the architectures of adapter modules and fusion layers.
 
-Single Adapter
-~~~~~~~~~~~~~~~
+Single (bottleneck) adapters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.AdapterConfigBase
+    :members:
 
 .. autoclass:: transformers.AdapterConfig
     :members:
@@ -19,6 +22,24 @@ Single Adapter
     :members:
 
 .. autoclass:: transformers.HoulsbyInvConfig
+    :members:
+
+.. autoclass:: transformers.ParallelConfig
+    :members:
+
+Prefix Tuning
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.PrefixTuningConfig
+    :members:
+
+Combined configurations
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.ConfigUnion
+    :members:
+
+.. autoclass:: transformers.MAMConfig
     :members:
 
 Adapter Fusion
