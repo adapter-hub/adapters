@@ -450,7 +450,7 @@ class AdapterLayer(AdapterLayerBase):
             input_hidden_states = hidden_states
 
             if isinstance(adapter_setup, Stack):
-                hidden_states, _, input_tensor = self.adapter_stack(
+                hidden_states, _, _ = self.adapter_stack(
                     adapter_setup, hidden_states, input_tensor, layer_norm
                 )
             elif isinstance(adapter_setup, Fuse):
@@ -460,7 +460,7 @@ class AdapterLayer(AdapterLayerBase):
             elif isinstance(adapter_setup, Parallel):
                 # notice that we are overriding input tensor here to keep the same dim as hidden_states for the residual
                 # in case we were blowing up the batch for parallel processing of multiple adapters for the same input
-                hidden_states, input_tensor = self.adapter_parallel(
+                hidden_states, _ = self.adapter_parallel(
                     adapter_setup, hidden_states, input_tensor, layer_norm
                 )
             elif isinstance(adapter_setup, BatchSplit):

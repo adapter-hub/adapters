@@ -242,7 +242,7 @@ class ParallelConfig(AdapterConfig):
     non_linearity: str = "relu"
     reduction_factor: Union[int, Mapping] = 2
 
-    init_weights: str = "mam"
+    init_weights: str = "mam_adapter"
     is_parallel: bool = True
     scaling: Union[float, str] = 4.0
 

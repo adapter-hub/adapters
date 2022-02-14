@@ -122,10 +122,12 @@ class Adapter(nn.Module):
             self.adapter_up.apply(self.init_bert_weights)
         elif config["init_weights"] == "mam_adapter":
             with torch.no_grad():
-                nn.init.kaiming_uniform_(self.down_proj.weight, a=math.sqrt(5))
-                nn.init.zeros_(self.up_proj.weight)
-                nn.init.zeros_(self.down_proj.bias)
-                nn.init.zeros_(self.up_proj.bias)
+                nn.init.kaiming_uniform_(self.adapter_down[0].weight, a=math.sqrt(5))
+                nn.init.zeros_(self.adapter_up.weight)
+                nn.init.zeros_(self.adapter_down[0].bias)
+                nn.init.zeros_(self.adapter_up.bias)
+        else:
+            raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
 
     def pre_forward(
         self,
@@ -150,8 +152,8 @@ class Adapter(nn.Module):
         # In case of parallel adapter, return the input tensor as hidden states
         if self.is_parallel:
             if fusion_config is not None:
-                query = hidden_states
-            return input_tensor, query, hidden_states
+                query = input_tensor
+            return input_tensor, query, input_tensor
 
         if self.residual_before_ln:
             residual = hidden_states
@@ -210,11 +212,9 @@ class Adapter(nn.Module):
             The modified hidden states.
         """
         if self.is_parallel:
-            if layer_norm:
-                hidden_states = layer_norm(hidden_states + input_hidden_states)
-            else:
-                hidden_states = hidden_states + input_hidden_states
-        elif self.original_ln_after:
+            hidden_states = hidden_states + input_hidden_states
+
+        if self.original_ln_after:
             if layer_norm:
                 hidden_states = layer_norm(hidden_states + input_tensor)
             else:
