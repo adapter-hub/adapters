@@ -1184,7 +1184,7 @@ class ElectraForPreTraining(ModelWithHeadsAdaptersMixin, ElectraPreTrainedModel)
             output_attentions,
             output_hidden_states,
             return_dict,
-            adapter_names=adapter_names
+            adapter_names=adapter_names,
         )
         discriminator_sequence_output = discriminator_hidden_states[0]
 
