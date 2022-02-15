@@ -26,6 +26,15 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN, get_activation
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.models.bert import (
+    BertEncoderAdaptersMixin,
+    BertLayerAdaptersMixin,
+    BertModelAdaptersMixin,
+    BertModelHeadsMixin,
+    BertOutputAdaptersMixin,
+    BertSelfOutputAdaptersMixin,
+)
 from ...file_utils import (
     ModelOutput,
     add_code_sample_docstrings,
@@ -341,12 +350,15 @@ class ElectraSelfAttention(nn.Module):
 
 
 # Copied from transformers.models.bert.modeling_bert.BertSelfOutput
-class ElectraSelfOutput(nn.Module):
+class ElectraSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
+
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
@@ -422,12 +434,15 @@ class ElectraIntermediate(nn.Module):
 
 
 # Copied from transformers.models.bert.modeling_bert.BertOutput
-class ElectraOutput(nn.Module):
+class ElectraOutput(BertOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
+
         self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
@@ -437,7 +452,7 @@ class ElectraOutput(nn.Module):
 
 
 # Copied from transformers.models.bert.modeling_bert.BertLayer with Bert->Electra
-class ElectraLayer(nn.Module):
+class ElectraLayer(BertLayerAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
@@ -523,7 +538,7 @@ class ElectraLayer(nn.Module):
 
 
 # Copied from transformers.models.bert.modeling_bert.BertEncoder with Bert->Electra
-class ElectraEncoder(nn.Module):
+class ElectraEncoder(BertEncoderAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -805,7 +820,7 @@ ELECTRA_INPUTS_DOCSTRING = r"""
     "Both the generator and discriminator checkpoints may be loaded into this model.",
     ELECTRA_START_DOCSTRING,
 )
-class ElectraModel(ElectraPreTrainedModel):
+class ElectraModel(BertModelAdaptersMixin, ElectraPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.embeddings = ElectraEmbeddings(config)
@@ -815,6 +830,7 @@ class ElectraModel(ElectraPreTrainedModel):
 
         self.encoder = ElectraEncoder(config)
         self.config = config
+        self._init_adapter_modules()
         self.init_weights()
 
     def get_input_embeddings(self):
@@ -900,6 +916,88 @@ class ElectraModel(ElectraPreTrainedModel):
         return hidden_states
 
 
+@add_start_docstrings(
+    """Electra Model transformer with the option to add multiple flexible heads on top.""",
+    ELECTRA_START_DOCSTRING,
+)
+class ElectraModelWithHeads(BertModelHeadsMixin, ElectraPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.electra = ElectraModel(config)
+
+        self._init_head_modules()
+
+        self.init_weights()
+
+    @add_start_docstrings_to_model_forward(ELECTRA_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_code_sample_docstrings(
+        processor_class=_TOKENIZER_FOR_DOC,
+        checkpoint=_CHECKPOINT_FOR_DOC,
+        output_type=ModelOutput,
+        config_class=_CONFIG_FOR_DOC,
+    )
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        adapter_names=None,
+        head=None,
+        **kwargs
+    ):
+        input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
+        position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+        inputs_embeds = (
+            inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
+            if inputs_embeds is not None
+            else None
+        )
+
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        outputs = self.electra(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            adapter_names=adapter_names,
+        )
+        # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
+        if not return_dict:
+            head_inputs = (outputs[0],) + outputs[2:]
+        else:
+            head_inputs = outputs
+        pooled_output = outputs[1]
+
+        if head or self.active_head:
+            head_outputs = self.forward_head(
+                head_inputs,
+                head_name=head,
+                attention_mask=attention_mask,
+                return_dict=return_dict,
+                pooled_output=pooled_output,
+                **kwargs,
+            )
+            return head_outputs
+        else:
+            # in case no head is used just return the output of the base model (including pooler output)
+            return outputs
+
+
 class ElectraClassificationHead(nn.Module):
     """Head for sentence-level classification tasks."""
 
@@ -929,7 +1027,7 @@ class ElectraClassificationHead(nn.Module):
     """,
     ELECTRA_START_DOCSTRING,
 )
-class ElectraForSequenceClassification(ElectraPreTrainedModel):
+class ElectraForSequenceClassification(ModelWithHeadsAdaptersMixin, ElectraPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1118,7 +1216,7 @@ class ElectraForPreTraining(ElectraPreTrainedModel):
     """,
     ELECTRA_START_DOCSTRING,
 )
-class ElectraForMaskedLM(ElectraPreTrainedModel):
+class ElectraForMaskedLM(ModelWithHeadsAdaptersMixin, ElectraPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1204,7 +1302,7 @@ class ElectraForMaskedLM(ElectraPreTrainedModel):
     """,
     ELECTRA_START_DOCSTRING,
 )
-class ElectraForTokenClassification(ElectraPreTrainedModel):
+class ElectraForTokenClassification(ModelWithHeadsAdaptersMixin, ElectraPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1292,7 +1390,7 @@ class ElectraForTokenClassification(ElectraPreTrainedModel):
     """,
     ELECTRA_START_DOCSTRING,
 )
-class ElectraForQuestionAnswering(ElectraPreTrainedModel):
+class ElectraForQuestionAnswering(ModelWithHeadsAdaptersMixin, ElectraPreTrainedModel):
     config_class = ElectraConfig
     base_model_prefix = "electra"
 
@@ -1396,7 +1494,7 @@ class ElectraForQuestionAnswering(ElectraPreTrainedModel):
     """,
     ELECTRA_START_DOCSTRING,
 )
-class ElectraForMultipleChoice(ElectraPreTrainedModel):
+class ElectraForMultipleChoice(ModelWithHeadsAdaptersMixin, ElectraPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
