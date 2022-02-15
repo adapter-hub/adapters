@@ -36,6 +36,7 @@ if is_torch_available():
         ElectraForSequenceClassification,
         ElectraForTokenClassification,
         ElectraModel,
+        ElectraModelWithHeads,
     )
     from transformers.models.electra.modeling_electra import ELECTRA_PRETRAINED_MODEL_ARCHIVE_LIST
 
@@ -279,6 +280,7 @@ class ElectraModelTest(ModelTesterMixin, unittest.TestCase):
     all_model_classes = (
         (
             ElectraModel,
+            ElectraModelWithHeads,
             ElectraForPreTraining,
             ElectraForMaskedLM,
             ElectraForMultipleChoice,

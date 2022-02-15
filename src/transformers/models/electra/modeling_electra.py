@@ -360,9 +360,10 @@ class ElectraSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self._init_adapter_modules()
 
-    def forward(self, hidden_states, input_tensor):
+    def forward(self, hidden_states, input_tensor, **kwargs):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
+        hidden_states = self.adapters_forward(hidden_states, input_tensor, **kwargs)
         hidden_states = self.LayerNorm(hidden_states + input_tensor)
         return hidden_states
 
@@ -402,6 +403,7 @@ class ElectraAttention(nn.Module):
         encoder_attention_mask=None,
         past_key_value=None,
         output_attentions=False,
+        **kwargs,
     ):
         self_outputs = self.self(
             hidden_states,
@@ -412,7 +414,7 @@ class ElectraAttention(nn.Module):
             past_key_value,
             output_attentions,
         )
-        attention_output = self.output(self_outputs[0], hidden_states)
+        attention_output = self.output(self_outputs[0], hidden_states, **kwargs)
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
         return outputs
 
@@ -444,10 +446,10 @@ class ElectraOutput(BertOutputAdaptersMixin, nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self._init_adapter_modules()
 
-    def forward(self, hidden_states, input_tensor):
+    def forward(self, hidden_states, input_tensor, **kwargs):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapters_forward(hidden_states, input_tensor, **kwargs)
         return hidden_states
 
 
@@ -476,6 +478,7 @@ class ElectraLayer(BertLayerAdaptersMixin, nn.Module):
         encoder_attention_mask=None,
         past_key_value=None,
         output_attentions=False,
+        **kwargs,
     ):
         # decoder uni-directional self-attention cached key/values tuple is at positions 1,2
         self_attn_past_key_value = past_key_value[:2] if past_key_value is not None else None
@@ -485,6 +488,7 @@ class ElectraLayer(BertLayerAdaptersMixin, nn.Module):
             head_mask,
             output_attentions=output_attentions,
             past_key_value=self_attn_past_key_value,
+            **kwargs,
         )
         attention_output = self_attention_outputs[0]
 
@@ -521,7 +525,7 @@ class ElectraLayer(BertLayerAdaptersMixin, nn.Module):
             present_key_value = present_key_value + cross_attn_present_key_value
 
         layer_output = apply_chunking_to_forward(
-            self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output
+            self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output, **kwargs
         )
         outputs = (layer_output,) + outputs
 
@@ -531,9 +535,9 @@ class ElectraLayer(BertLayerAdaptersMixin, nn.Module):
 
         return outputs
 
-    def feed_forward_chunk(self, attention_output):
+    def feed_forward_chunk(self, attention_output, **kwargs):
         intermediate_output = self.intermediate(attention_output)
-        layer_output = self.output(intermediate_output, attention_output)
+        layer_output = self.output(intermediate_output, attention_output, **kwargs)
         return layer_output
 
 
@@ -557,6 +561,7 @@ class ElectraEncoder(BertEncoderAdaptersMixin, nn.Module):
         output_attentions=False,
         output_hidden_states=False,
         return_dict=True,
+        **kwargs,
     ):
         all_hidden_states = () if output_hidden_states else None
         all_self_attentions = () if output_attentions else None
@@ -601,6 +606,7 @@ class ElectraEncoder(BertEncoderAdaptersMixin, nn.Module):
                     encoder_attention_mask,
                     past_key_value,
                     output_attentions,
+                    **kwargs,
                 )
 
             hidden_states = layer_outputs[0]
@@ -865,12 +871,14 @@ class ElectraModel(BertModelAdaptersMixin, ElectraPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        **kwargs,
     ):
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        self.pre_transformer_forward(**kwargs)
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
@@ -900,6 +908,7 @@ class ElectraModel(BertModelAdaptersMixin, ElectraPreTrainedModel):
         hidden_states = self.embeddings(
             input_ids=input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds
         )
+        hidden_states = self.invertible_adapters_forward(hidden_states)
 
         if hasattr(self, "embeddings_project"):
             hidden_states = self.embeddings_project(hidden_states)
@@ -911,6 +920,7 @@ class ElectraModel(BertModelAdaptersMixin, ElectraPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            **kwargs,
         )
 
         return hidden_states
@@ -976,20 +986,12 @@ class ElectraModelWithHeads(BertModelHeadsMixin, ElectraPreTrainedModel):
             return_dict=return_dict,
             adapter_names=adapter_names,
         )
-        # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
-        if not return_dict:
-            head_inputs = (outputs[0],) + outputs[2:]
-        else:
-            head_inputs = outputs
-        pooled_output = outputs[1]
-
         if head or self.active_head:
             head_outputs = self.forward_head(
-                head_inputs,
+                outputs,
                 head_name=head,
                 attention_mask=attention_mask,
                 return_dict=return_dict,
-                pooled_output=pooled_output,
                 **kwargs,
             )
             return head_outputs
@@ -1056,6 +1058,7 @@ class ElectraForSequenceClassification(ModelWithHeadsAdaptersMixin, ElectraPreTr
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1075,6 +1078,7 @@ class ElectraForSequenceClassification(ModelWithHeadsAdaptersMixin, ElectraPreTr
             output_attentions,
             output_hidden_states,
             return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output = discriminator_hidden_states[0]
@@ -1123,7 +1127,7 @@ class ElectraForSequenceClassification(ModelWithHeadsAdaptersMixin, ElectraPreTr
     """,
     ELECTRA_START_DOCSTRING,
 )
-class ElectraForPreTraining(ElectraPreTrainedModel):
+class ElectraForPreTraining(ModelWithHeadsAdaptersMixin, ElectraPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1145,6 +1149,7 @@ class ElectraForPreTraining(ElectraPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (``torch.LongTensor`` of shape ``(batch_size, sequence_length)``, `optional`):
@@ -1179,6 +1184,7 @@ class ElectraForPreTraining(ElectraPreTrainedModel):
             output_attentions,
             output_hidden_states,
             return_dict,
+            adapter_names=adapter_names
         )
         discriminator_sequence_output = discriminator_hidden_states[0]
 
@@ -1251,6 +1257,7 @@ class ElectraForMaskedLM(ModelWithHeadsAdaptersMixin, ElectraPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1270,6 +1277,7 @@ class ElectraForMaskedLM(ModelWithHeadsAdaptersMixin, ElectraPreTrainedModel):
             output_attentions,
             output_hidden_states,
             return_dict,
+            adapter_names=adapter_names,
         )
         generator_sequence_output = generator_hidden_states[0]
 
@@ -1333,6 +1341,7 @@ class ElectraForTokenClassification(ModelWithHeadsAdaptersMixin, ElectraPreTrain
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1351,6 +1360,7 @@ class ElectraForTokenClassification(ModelWithHeadsAdaptersMixin, ElectraPreTrain
             output_attentions,
             output_hidden_states,
             return_dict,
+            adapter_names=adapter_names,
         )
         discriminator_sequence_output = discriminator_hidden_states[0]
 
@@ -1423,6 +1433,7 @@ class ElectraForQuestionAnswering(ModelWithHeadsAdaptersMixin, ElectraPreTrained
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1445,6 +1456,7 @@ class ElectraForQuestionAnswering(ModelWithHeadsAdaptersMixin, ElectraPreTrained
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
+            adapter_names=adapter_names,
         )
 
         sequence_output = discriminator_hidden_states[0]
@@ -1523,6 +1535,7 @@ class ElectraForMultipleChoice(ModelWithHeadsAdaptersMixin, ElectraPreTrainedMod
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        adapter_names=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -1553,6 +1566,7 @@ class ElectraForMultipleChoice(ModelWithHeadsAdaptersMixin, ElectraPreTrainedMod
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            adapter_names=adapter_names,
         )
 
         sequence_output = discriminator_hidden_states[0]

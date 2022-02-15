@@ -839,6 +839,7 @@ if is_torch_available():
             "ElectraForSequenceClassification",
             "ElectraForTokenClassification",
             "ElectraModel",
+            "ElectraModelWithHeads",
             "ElectraPreTrainedModel",
             "load_tf_weights_in_electra",
         ]
@@ -2711,6 +2712,7 @@ if TYPE_CHECKING:
             ElectraForSequenceClassification,
             ElectraForTokenClassification,
             ElectraModel,
+            ElectraModelWithHeads,
             ElectraPreTrainedModel,
             load_tf_weights_in_electra,
         )
