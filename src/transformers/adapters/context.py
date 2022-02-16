@@ -77,6 +77,13 @@ class ForwardContext:
         if hasattr(model, "forward_context"):
             model.forward_context(self, *args, **kwargs)
 
+    def __enter__(self):
+        ForwardContext.get_contexts().append(self)
+        return self
+
+    def __exit__(self, type, value, traceback):
+        ForwardContext.get_contexts().pop()
+
     @classmethod
     def wrap(cls, f):
         """
@@ -86,10 +93,8 @@ class ForwardContext:
         @functools.wraps(f)
         def wrapper_func(self, *args, **kwargs):
             if self.config.adapters is not None:
-                context = cls(self, *args, **kwargs)
-                cls.get_contexts().append(context)
-                results = f(self, *args, **kwargs)
-                cls.get_contexts().pop()
+                with cls(self, *args, **kwargs):
+                    results = f(self, *args, **kwargs)
                 return results
             else:
                 return f(self, *args, **kwargs)

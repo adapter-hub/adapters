@@ -133,9 +133,38 @@ class AdapterConfig(AdapterConfigBase):
     Base class that models the architecture of an adapter.
 
     Args:
+        mh_adapter (:obj:`bool`): If True, add adapter modules after the multi-head attention block of each layer.
+        output_adapter (:obj:`bool`): If True, add adapter modules after the output FFN of each layer.
         reduction_factor (:obj:`int` or :obj:`Mapping`): Either an integer specifying the reduction factor for all layers
             or a mapping specifying the reduction_factor for individual layers. If not all layers are represented
             in the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
+        non_linearity (:obj:`str`): The activation function to use in the adapter bottleneck.
+        original_ln_before (:obj:`bool`, optional): If True, apply layer pre-trained normalization and residual connection before the adapter modules.
+            Defaults to False. Only applicable if :obj:`is_parallel` is False.
+        original_ln_after (:obj:`bool`, optional): If True, apply pre-trained layer normalization and residual connection after the adapter modules.
+            Defaults to True.
+        ln_before (:obj:`bool`, optional): If True, add a new layer normalization before the adapter bottleneck.
+            Defaults to False.
+        ln_after (:obj:`bool`, optional): If True, add a new layer normalization after the adapter bottleneck.
+            Defaults to False.
+        init_weights (:obj:`str`, optional): Initialization method for the weights of the adapter modules.
+            Currently, this can be either "bert" (default) or "mam_adapter".
+        is_parallel (:obj:`bool`, optional): If True, apply adapter transformations in parallel.
+            By default (False), sequential application is used.
+        scaling: (:obj:`float` or :obj:`str`, optional): Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021).
+            Can bei either a constant factor (float) or the string "learned", in which case the scaling factor is learned.
+            Defaults to 1.0.
+        residual_before_ln (:obj:`bool`, optional): If True, take the residual connection around the adapter bottleneck before the layer normalization.
+            Only applicable if :obj:`original_ln_before` is True.
+        adapter_residual_before_ln (:obj:`bool`, optional): If True, apply the residual connection around the adapter modules before the new layer normalization within the adapter.
+            Only applicable if :obj:`ln_after` is True and :obj:`is_parallel` is False.
+        inv_adapter: (:obj:`str`, optional): If not None (default), add invertible adapter modules after the model embedding layer.
+            Currently, this can be either "nice" or "glow".
+        inv_adapter_reduction_factor (:obj:`int`, optional): The reduction to use within the invertible adapter modules.
+            Only applicable if :obj:`inv_adapter` is not None.
+        cross_adapter (:obj:`bool`, optional): If True, add adapter modules after the cross attention block of each decoder layer in an encoder-decoder model.
+            Defaults to False.
+        leave_out (:obj:`List[int]`, optional): The IDs of the layers (starting at 0) where NO adapter modules should be added.
     """
 
     # Required options
@@ -144,12 +173,12 @@ class AdapterConfig(AdapterConfigBase):
 
     reduction_factor: Union[int, Mapping]
     non_linearity: str
-    original_ln_before: bool
-    original_ln_after: bool
-    ln_before: bool
-    ln_after: bool
 
     # Options with defaults
+    original_ln_before: bool = False
+    original_ln_after: bool = True
+    ln_before: bool = False
+    ln_after: bool = False
     init_weights: str = "bert"
     is_parallel: bool = False
     scaling: Union[float, str] = 1.0
@@ -666,7 +695,8 @@ class AdapterFusionConfig(AdapterConfigBase):
 @dataclass(eq=False)
 class StaticAdapterFusionConfig(AdapterFusionConfig):
     """
-    Static version of adapter fusion without a value matrix. Described in https://arxiv.org/pdf/2005.00247.pdf.
+    Static version of adapter fusion without a value matrix.
+    See https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     key: bool = True
@@ -683,8 +713,8 @@ class StaticAdapterFusionConfig(AdapterFusionConfig):
 @dataclass(eq=False)
 class DynamicAdapterFusionConfig(AdapterFusionConfig):
     """
-    Dynamic version of adapter fusion with a value matrix and regularization. Described in
-    https://arxiv.org/pdf/2005.00247.pdf.
+    Dynamic version of adapter fusion with a value matrix and regularization.
+    See https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     key: bool = True

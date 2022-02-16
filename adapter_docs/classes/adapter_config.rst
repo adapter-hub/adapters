@@ -11,6 +11,7 @@ Single (bottleneck) adapters
 
 .. autoclass:: transformers.AdapterConfig
     :members:
+    :inherited-members: Mapping
 
 .. autoclass:: transformers.PfeifferConfig
     :members:
@@ -32,12 +33,14 @@ Prefix Tuning
 
 .. autoclass:: transformers.PrefixTuningConfig
     :members:
+    :inherited-members: Mapping
 
 Combined configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: transformers.ConfigUnion
     :members:
+    :inherited-members: Mapping
 
 .. autoclass:: transformers.MAMConfig
     :members:
@@ -47,6 +50,7 @@ Adapter Fusion
 
 .. autoclass:: transformers.AdapterFusionConfig
     :members:
+    :inherited-members: Mapping
 
 .. autoclass:: transformers.StaticAdapterFusionConfig
     :members:
