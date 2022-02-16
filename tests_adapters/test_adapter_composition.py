@@ -11,7 +11,7 @@ from transformers import (
     AutoTokenizer,
     BertConfig,
     BertForSequenceClassification,
-    T5ModelWithHeads,
+    T5AdapterModel,
     Trainer,
     TrainingArguments,
 )
@@ -208,7 +208,7 @@ class ParallelAdapterInferenceTestMixin:
         model.to(torch_device)
 
         inputs = {"input_ids": self.get_input_samples((2, 128), config=model.config)["input_ids"]}
-        if isinstance(model, T5ModelWithHeads):
+        if isinstance(model, T5AdapterModel):
             inputs["decoder_input_ids"] = inputs["input_ids"]
 
         # for reference, pass through single adapters
@@ -331,7 +331,7 @@ class ParallelTrainingMixin:
         dataset = []
         for i in range(3):
             input_data = self.get_input_samples((3, 128), config=model.config)
-            if isinstance(model, T5ModelWithHeads):
+            if isinstance(model, T5AdapterModel):
                 input_data["labels"] = torch.randint(0, 2, (3, 128))
             else:
                 input_data["labels"] = torch.randint(0, 2, (3, 1))
@@ -376,7 +376,7 @@ class ParallelTrainingMixin:
                 self.assertTrue(torch.equal(v, state_dict[k.replace(b1, b2)]))
 
         input_data = self.get_input_samples((3, 128), config=model.config)
-        if isinstance(model, T5ModelWithHeads):
+        if isinstance(model, T5AdapterModel):
             input_data["labels"] = torch.randint(0, 2, (3, 128), device=torch_device)
         else:
             input_data["labels"] = torch.randint(0, 2, (3, 1), device=torch_device)

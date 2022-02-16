@@ -107,6 +107,17 @@ class RobertaAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, RobertaPreTrained
             # in case no head is used just return the output of the base model (including pooler output)
             return outputs
 
+    head_types = {
+        "classification": ClassificationHead,
+        "multilabel_classification": MultiLabelClassificationHead,
+        "tagging": TaggingHead,
+        "multiple_choice": MultipleChoiceHead,
+        "question_answering": QuestionAnsweringHead,
+        "dependency_parsing": BiaffineParsingHead,
+        "masked_lm": BertStyleMaskedLMHead,
+        "causal_lm": CausalLMHead,
+    }
+
     def add_classification_head(
         self,
         head_name,
