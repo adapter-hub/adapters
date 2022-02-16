@@ -3,7 +3,7 @@ import tempfile
 
 import torch
 
-from transformers import AutoModelWithHeads, AutoTokenizer, Trainer, TrainingArguments
+from transformers import AutoAdapterModel, AutoTokenizer, Trainer, TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_adapter_training import filter_parameters
@@ -71,7 +71,7 @@ class EmbeddingTestMixin:
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def test_training_embedding(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
@@ -121,7 +121,7 @@ class EmbeddingTestMixin:
         )
 
     def test_reference_embedding(self):
-        model = AutoModelWithHeads.from_config(self.config())  # self.get_model()
+        model = AutoAdapterModel.from_config(self.config())  # self.get_model()
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token

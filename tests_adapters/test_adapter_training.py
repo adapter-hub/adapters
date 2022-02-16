@@ -2,7 +2,7 @@ import copy
 
 import torch
 
-from transformers import AutoModelWithHeads, AutoTokenizer, TrainingArguments
+from transformers import AutoAdapterModel, AutoTokenizer, TrainingArguments
 from transformers.adapters.composition import BatchSplit, Fuse
 from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.testing_utils import require_torch
@@ -38,7 +38,7 @@ class AdapterTrainingTestMixin:
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
 
         # add two adapters: one will be trained and the other should be frozen
         model.add_adapter("mrpc")
@@ -76,7 +76,7 @@ class AdapterTrainingTestMixin:
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
         self.add_head(model, "head")
 
         # add the adapters to be fused
@@ -138,7 +138,7 @@ class AdapterTrainingTestMixin:
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
 
         model.add_adapter("mrpc1")
         model.add_adapter("mrpc2")
