@@ -3,9 +3,10 @@ import tempfile
 
 import torch
 
-from tests.test_adapter_training import filter_parameters
 from transformers import AutoModelWithHeads, AutoTokenizer, Trainer, TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
+
+from .test_adapter_training import filter_parameters
 
 
 @require_torch
@@ -20,13 +21,13 @@ class EmbeddingTestMixin:
 
     def test_add_embeddings(self):
         model = self.get_model()
-        tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
+        tokenizer = AutoTokenizer.from_pretrained("tests_adapters/fixtures/SiBERT")
         model.add_embeddings("test", tokenizer)
         self.assertEqual(model.active_embeddings, "test")
 
     def test_delete_embeddings(self):
         model = self.get_model()
-        tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
+        tokenizer = AutoTokenizer.from_pretrained("tests_adapters/fixtures/SiBERT")
         model.add_embeddings("test", tokenizer)
         self.assertEqual(model.active_embeddings, "test")
         model.delete_embeddings("test")
@@ -35,7 +36,7 @@ class EmbeddingTestMixin:
 
     def test_save_load_embedding(self):
         model = self.get_model()
-        tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
+        tokenizer = AutoTokenizer.from_pretrained("tests_adapters/fixtures/SiBERT")
         input_data = self.get_input_samples((1, 128), vocab_size=tokenizer.vocab_size, config=model.config)
         model.add_embeddings("test", tokenizer)
         model.eval()
@@ -61,7 +62,7 @@ class EmbeddingTestMixin:
         model.eval()
         input_data = self.get_input_samples((1, 128), config=model.config)
         output1 = model(**input_data)
-        tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
+        tokenizer = AutoTokenizer.from_pretrained("tests_adapters/fixtures/SiBERT")
         model.add_embeddings("test", tokenizer)
         self.assertEqual(model.active_embeddings, "test")
         model.set_active_embeddings("default")
@@ -74,7 +75,7 @@ class EmbeddingTestMixin:
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
+        tokenizer = AutoTokenizer.from_pretrained("tests_adapters/fixtures/SiBERT")
         model.add_adapter("test")
         self.add_head(model, "test")
         model.train_adapter("test", train_embeddings=True)
@@ -124,7 +125,7 @@ class EmbeddingTestMixin:
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        new_tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
+        new_tokenizer = AutoTokenizer.from_pretrained("tests_adapters/fixtures/SiBERT")
 
         model.add_embeddings("test", new_tokenizer, "default", tokenizer)
 

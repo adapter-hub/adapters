@@ -2,7 +2,7 @@ import tempfile
 
 import torch
 
-from transformers import MODEL_WITH_HEADS_MAPPING, AdapterSetup, AutoModelForSequenceClassification, AutoModelWithHeads
+from transformers import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoModelForSequenceClassification, AutoModelWithHeads
 from transformers.adapters.composition import BatchSplit, Stack
 from transformers.testing_utils import require_torch, torch_device
 
@@ -52,7 +52,7 @@ class PredictionHeadModelTestMixin:
         self.assertTrue(torch.equal(output1[idx], output2[idx]))
 
     def test_classification_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
             self.skipTest("No classification head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
@@ -63,7 +63,7 @@ class PredictionHeadModelTestMixin:
         self.run_prediction_head_test(model1, model2, "dummy", label_dict=label_dict)
 
     def test_multiple_choice_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_multiple_choice_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_multiple_choice_head"):
             self.skipTest("No multiple choice head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
@@ -76,7 +76,7 @@ class PredictionHeadModelTestMixin:
         )
 
     def test_tagging_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_tagging_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_tagging_head"):
             self.skipTest("No tagging head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
@@ -89,7 +89,7 @@ class PredictionHeadModelTestMixin:
         )
 
     def test_qa_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_qa_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_qa_head"):
             self.skipTest("No QA head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
@@ -103,7 +103,7 @@ class PredictionHeadModelTestMixin:
         )
 
     def test_causal_lm_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_causal_lm_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head"):
             self.skipTest("No causal language model head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
@@ -121,7 +121,7 @@ class PredictionHeadModelTestMixin:
         )
 
     def test_seq2seq_lm_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_seq2seq_lm_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head"):
             self.skipTest("No seq2seq language model head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
@@ -152,7 +152,7 @@ class PredictionHeadModelTestMixin:
         self.assertEqual(generated.shape, (1, seq_output_length))
 
     def test_masked_lm_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_masked_lm_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_masked_lm_head"):
             self.skipTest("No causal or seq2seq language model head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
@@ -169,7 +169,7 @@ class PredictionHeadModelTestMixin:
         )
 
     def test_dependency_parsing_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_dependency_parsing_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_dependency_parsing_head"):
             self.skipTest("No dependency parsing head")
 
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
@@ -205,7 +205,7 @@ class PredictionHeadModelTestMixin:
         self.assertNotEqual(name, model.active_head)
 
     def test_adapter_with_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
             self.skipTest("No classification head available")
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
 
@@ -229,7 +229,7 @@ class PredictionHeadModelTestMixin:
         self.assertEqual(3, output1[0].size()[1])
 
     def test_adapter_with_head_load_as(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
             self.skipTest("No classification head available")
         model1, model2 = create_twin_models(AutoModelWithHeads, self.config)
 
@@ -268,7 +268,7 @@ class PredictionHeadModelTestMixin:
         self.assertDictEqual(true_config, model.get_prediction_heads_config())
 
     def test_batch_split_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
             self.skipTest("No classification head available")
         model = AutoModelWithHeads.from_config(self.config())
         model.add_classification_head("a")
@@ -300,7 +300,7 @@ class PredictionHeadModelTestMixin:
         self.assertTrue(isinstance(model.active_head, BatchSplit))
 
     def test_reload_static_to_flex_head(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
             self.skipTest("No classification head available")
         static_head_model = AutoModelForSequenceClassification.from_config(self.config())
         flex_head_model = AutoModelWithHeads.from_pretrained(
@@ -336,11 +336,11 @@ class PredictionHeadModelTestMixin:
         self.assertTrue(torch.all(torch.isclose(output1.logits, output2.logits)))
 
     def test_invertible_adapter_with_head(self):
-        if hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_masked_lm_head"):
+        if hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_masked_lm_head"):
             lm_head = "masked_lm"
-        elif hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_causal_lm_head"):
+        elif hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head"):
             lm_head = "casual_lm"
-        elif hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_seq2seq_lm_head"):
+        elif hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head"):
             lm_head = "seq2seq_lm"
         else:
             self.skipTest("No masked or causel language model head")
@@ -377,7 +377,7 @@ class PredictionHeadModelTestMixin:
         self.assertEqual(2, calls)
 
     def test_context_simple(self):
-        if not hasattr(MODEL_WITH_HEADS_MAPPING[self.config_class], "add_classification_head"):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
             self.skipTest("No classification head available")
         model = AutoModelWithHeads.from_config(self.config())
         model.add_adapter("a")

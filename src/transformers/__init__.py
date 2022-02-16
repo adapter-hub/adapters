@@ -598,7 +598,6 @@ if is_torch_available():
             "MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING",
             "MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING",
             "MODEL_MAPPING",
-            "MODEL_WITH_HEADS_MAPPING",
             "MODEL_WITH_LM_HEAD_MAPPING",
             "AutoModel",
             "AutoModelForAudioClassification",
@@ -1366,6 +1365,7 @@ if is_torch_available():
         "ADAPTER_MODEL_MAPPING",
         "DEFAULT_ADAPTER_CONFIG",
         "DEFAULT_ADAPTERFUSION_CONFIG",
+        "MODEL_WITH_HEADS_MAPPING",
         "AdapterArguments",
         "AdapterConfig",
         "AdapterFusionConfig",
@@ -2500,7 +2500,6 @@ if TYPE_CHECKING:
             MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING,
             MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
             MODEL_MAPPING,
-            MODEL_WITH_HEADS_MAPPING,
             MODEL_WITH_LM_HEAD_MAPPING,
             AutoModel,
             AutoModelForAudioClassification,
@@ -3144,6 +3143,7 @@ if TYPE_CHECKING:
             ADAPTERFUSION_CONFIG_MAP,
             DEFAULT_ADAPTER_CONFIG,
             DEFAULT_ADAPTERFUSION_CONFIG,
+            MODEL_WITH_HEADS_MAPPING,
             AdapterArguments,
             AdapterConfig,
             AdapterFusionConfig,
@@ -3698,6 +3698,7 @@ else:
         module_spec=__spec__,
         extra_objects={"__version__": __version__, "__adapters_version__": __adapters_version__},
     )
+
 
 if not is_tf_available() and not is_torch_available() and not is_flax_available():
     logger.warning(

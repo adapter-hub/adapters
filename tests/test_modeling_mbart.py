@@ -39,7 +39,6 @@ if is_torch_available():
         MBartForQuestionAnswering,
         MBartForSequenceClassification,
         MBartModel,
-        MBartModelWithHeads,
     )
     from transformers.models.mbart.modeling_mbart import MBartDecoder, MBartEncoder
 
@@ -219,13 +218,7 @@ class MBartModelTester:
 @require_torch
 class MBartModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
     all_model_classes = (
-        (
-            MBartModel,
-            MBartModelWithHeads,
-            MBartForConditionalGeneration,
-            MBartForSequenceClassification,
-            MBartForQuestionAnswering,
-        )
+        (MBartModel, MBartForConditionalGeneration, MBartForSequenceClassification, MBartForQuestionAnswering)
         if is_torch_available()
         else ()
     )

@@ -75,6 +75,7 @@ _import_structure = {
     ],
     "models.auto": [
         "ADAPTER_MODEL_MAPPING",
+        "MODEL_WITH_HEADS_MAPPING",
         "AutoAdapterModel",
         "AutoModelWithHeads",
     ],
@@ -175,7 +176,7 @@ if TYPE_CHECKING:
         ModelConfigAdaptersMixin,
         ModelWithHeadsAdaptersMixin,
     )
-    from .models.auto import ADAPTER_MODEL_MAPPING, AutoAdapterModel, AutoModelWithHeads
+    from .models.auto import ADAPTER_MODEL_MAPPING, MODEL_WITH_HEADS_MAPPING, AutoAdapterModel, AutoModelWithHeads
     from .models.bart import BartAdapterModel, BartModelWithHeads
     from .models.bert import BertAdapterModel, BertModelWithHeads
     from .models.distilbert import DistilBertAdapterModel, DistilBertModelWithHeads

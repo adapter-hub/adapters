@@ -4,7 +4,6 @@ import unittest
 import torch
 from datasets import load_dataset
 
-from tests.test_adapter_embeddings import EmbeddingTestMixin
 from transformers import (
     AutoModel,
     AutoModelForSeq2SeqLM,
@@ -26,6 +25,7 @@ from transformers.testing_utils import require_torch, torch_device
 from .test_adapter_common import AdapterModelTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
+from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 from .test_adapter_training import AdapterTrainingTestMixin

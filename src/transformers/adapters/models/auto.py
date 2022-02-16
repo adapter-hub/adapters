@@ -5,7 +5,20 @@ from ...models.auto.auto_factory import _BaseAutoModelClass, _LazyAutoMapping, a
 from ...models.auto.configuration_auto import CONFIG_MAPPING_NAMES
 
 
+# Make sure that children are placed before parents!
 ADAPTER_MODEL_MAPPING_NAMES = OrderedDict(
+    [
+        ("xlm-roberta", "XLMRobertaAdapterModel"),
+        ("roberta", "RobertaAdapterModel"),
+        ("bert", "BertAdapterModel"),
+        ("distilbert", "DistilBertAdapterModel"),
+        ("bart", "BartAdapterModel"),
+        ("mbart", "MBartAdapterModel"),
+        ("gpt2", "GPT2AdapterModel"),
+        ("t5", "T5AdapterModel"),
+    ]
+)
+MODEL_WITH_HEADS_MAPPING_NAMES = OrderedDict(
     [
         ("xlm-roberta", "XLMRobertaModelWithHeads"),
         ("roberta", "RobertaModelWithHeads"),
@@ -19,6 +32,7 @@ ADAPTER_MODEL_MAPPING_NAMES = OrderedDict(
 )
 
 ADAPTER_MODEL_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, ADAPTER_MODEL_MAPPING_NAMES)
+MODEL_WITH_HEADS_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, MODEL_WITH_HEADS_MAPPING_NAMES)
 
 
 class AutoAdapterModel(_BaseAutoModelClass):
@@ -29,7 +43,7 @@ AutoAdapterModel = auto_class_update(AutoAdapterModel, head_doc="adapters and fl
 
 
 class AutoModelWithHeads(_BaseAutoModelClass):
-    _model_mapping = ADAPTER_MODEL_MAPPING
+    _model_mapping = MODEL_WITH_HEADS_MAPPING
 
     @classmethod
     def from_config(cls, config):
