@@ -62,6 +62,9 @@ To get started with adapters, refer to these locations:
 - **https://adapterhub.ml** to explore available pre-trained adapter modules and share your own adapters
 - **[Examples folder](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples)** of this repository containing HuggingFace's example training scripts, many adapted for training adapters
 
+## Supported Models
+
+We currently support the PyTorch versions of all models listed on the **[Model Overview](https://docs.adapterhub.ml/model_overview.html) page** in our documentation.
 
 ## Citation
 

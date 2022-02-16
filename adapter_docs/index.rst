@@ -19,7 +19,7 @@ The *adapter-transformers* section documents the integration of adapters into th
 
 The section on *Adapter-Hub* describes the fundamentals of the pre-trained adapter repository and how to contribute new adapters.
 
-Currently, we support the PyTorch versions of all models listed in the *Supported Models* section.
+Currently, we support the PyTorch versions of all models as listed on the `Model Overview <model_overview.html>`_ page.
 
 .. toctree::
    :maxdepth: 2
@@ -48,6 +48,7 @@ Currently, we support the PyTorch versions of all models listed in the *Supporte
    :caption: Supported Models
 
    model_overview
+   classes/models/auto
    classes/models/bart
    classes/models/bert
    classes/models/distilbert
