@@ -141,3 +141,32 @@ class ModelClassConversionTestMixin:
         label_dict = {}
         label_dict["labels"] = torch.ones(self.batch_size, dtype=torch.long, device=torch_device)
         self.run_test(model, input_shape=(self.batch_size, 2, self.seq_length), label_dict=label_dict)
+
+    def test_equivalent_language_generation(self):
+        if self.config_class not in MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING:
+            self.skipTest("no causal lm class.")
+
+        static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
+        flex_model = AutoModelWithHeads.from_pretrained(
+            None, config=self.config(), state_dict=static_model.state_dict()
+        )
+        static_model.add_adapter("dummy")
+        static_model.set_active_adapters("dummy")
+        static_model.eval()
+        flex_model.eval()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            static_model.save_adapter(temp_dir, "dummy")
+
+            loading_info = {}
+            flex_model.load_adapter(temp_dir, loading_info=loading_info)
+            flex_model.set_active_adapters("dummy")
+
+        input_shape = (self.batch_size, 5)
+        input_samples = self.get_input_samples(input_shape, config=flex_model.config)
+
+        model_gen = static_model.generate(**input_samples)
+        flex_model_gen = flex_model.generate(**input_samples)
+
+        self.assertEquals(model_gen.shape, flex_model_gen.shape)
+        self.assertTrue(torch.equal(model_gen, flex_model_gen))

@@ -5,6 +5,7 @@ import torch
 
 from transformers import (
     ADAPTER_CONFIG_MAP,
+    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
     MODEL_WITH_HEADS_MAPPING,
     AdapterSetup,
     AutoModelWithHeads,
@@ -314,3 +315,37 @@ class AdapterModelTestMixin:
         output2 = model_base(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
+
+    def test_forward_with_past(self):
+        if self.config_class not in MODEL_WITH_HEADS_MAPPING:
+            self.skipTest("Does not support flex heads.")
+        if self.config_class not in MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING:
+            self.skipTest("No causal lm class.")
+
+        static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
+        flex_model = AutoModelWithHeads.from_pretrained(
+            None, config=self.config(), state_dict=static_model.state_dict()
+        )
+        static_model.add_adapter("dummy")
+        static_model.set_active_adapters("dummy")
+        static_model.eval()
+        flex_model.eval()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            static_model.save_adapter(temp_dir, "dummy")
+
+            loading_info = {}
+            flex_model.load_adapter(temp_dir, loading_info=loading_info)
+            flex_model.set_active_adapters("dummy")
+
+        input_data = self.get_input_samples((1, 128), config=static_model.config)
+        static_model.eval()
+        flex_model.eval()
+        static_model.to(torch_device)
+        flex_model.to(torch_device)
+        output = static_model(**input_data)
+
+        input_data["past_key_values"] = output["past_key_values"]
+        output_base = static_model(**input_data)
+        output_with_head = flex_model(**input_data)
+        self.assertTrue(torch.allclose(output_base["logits"], output_with_head["logits"]))

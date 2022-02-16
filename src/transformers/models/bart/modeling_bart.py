@@ -1291,6 +1291,7 @@ class BartModelWithHeads(BartModelHeadsMixin, BartPretrainedModel):
         output_hidden_states=None,
         return_dict=None,
         head=None,
+        past_key_values=None,
         **kwargs
     ):
         r"""
@@ -1318,6 +1319,7 @@ class BartModelWithHeads(BartModelHeadsMixin, BartPretrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            past_key_values=past_key_values,
         )
         # sequence classification based on last token in sequence
         x = outputs[0]  # last hidden state
