@@ -175,7 +175,7 @@ In the following example, we load two adapters for semantic textual similarity (
 We activate a parallel setup where the input is passed through both adapters and their respective prediction heads.
 
 ```python
-model = AutoModelWithHeads.from_pretrained("distilbert-base-uncased")
+model = AutoAdapterModel.from_pretrained("distilbert-base-uncased")
 tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
 adapter1 = model.load_adapter("sts/sts-b@ukp")

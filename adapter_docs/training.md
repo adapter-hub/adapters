@@ -16,11 +16,11 @@ pip install -r ./examples/<your_examples_folder>/requirements.txt
 Training a task adapter module on a dataset only requires minor modifications from training the full model.
 Suppose we have an existing script for training a Transformer model, here we will use HuggingFace's [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue.py) example script for training on the GLUE dataset.
 
-In our example, we replaced the built-in `AutoModelForSequenceClassification` class with the `AutoModelWithHeads` class introduced by `adapter-transformers` (learn more about prediction heads [here](prediction_heads.md)).
+In our example, we replaced the built-in `AutoModelForSequenceClassification` class with the `AutoAdapterModel` class introduced by `adapter-transformers` (learn more about prediction heads [here](prediction_heads.md)).
 Therefore, the model instantiation changed to:
 
 ```python
-model = AutoModelWithHeads.from_pretrained(
+model = AutoAdapterModel.from_pretrained(
         model_args.model_name_or_path,
         config=config,
 )
