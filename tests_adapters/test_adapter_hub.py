@@ -9,8 +9,8 @@ from transformers import (  # get_adapter_config_hash,
     AdapterConfig,
     AutoModel,
     AutoTokenizer,
+    BertAdapterModel,
     BertForSequenceClassification,
-    BertModelWithHeads,
     GlueDataset,
     GlueDataTrainingArguments,
     TrainingArguments,
@@ -139,7 +139,7 @@ class AdapterHubTest(unittest.TestCase):
                 self.assertEqual([1, 128, 768], list(output[0].size()))
 
     def test_load_adapter_with_head_from_hub(self):
-        model = BertModelWithHeads.from_pretrained("bert-base-uncased")
+        model = BertAdapterModel.from_pretrained("bert-base-uncased")
 
         loading_info = {}
         adapter_name = model.load_adapter(
