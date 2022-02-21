@@ -3,7 +3,7 @@ from typing import List, Union
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, Stack
+from .composition import AdapterCompositionBlock
 from .configuration import PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
 from .layer import AdapterLayerBase
@@ -84,6 +84,12 @@ class PrefixTuningPool(nn.Module):
     """
     The model layer that holds all Prefix Tuning prefixes.
     While each Transformers layer has its own prefix, this layer is shared across all Transformers layers.
+
+    How it works:
+        1. A `PrefixTuningShim` module that sets this module as pool module is added to each layer.
+        2. On adding a prefix, each shim module where a prefix should be added increments a counter in `prefix_counts`.
+        3. Finally, the base model class confirms adding a new prefix by calling `confirm_prefix()`.
+        4. This module adds a prefix layer that produces outputs corresponding to the indicated number of layers.
 
     Notes:
         - The forward call to this layer is executed in the ForwardContext of each model pass.
@@ -240,7 +246,7 @@ class PrefixTuningShim(AdapterLayerBase):
             self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
         )
         if not skip_adapters and (len(set(self.prefixes.keys()) & adapter_setup.flatten()) > 0):
-            if isinstance(adapter_setup, Stack) and len(adapter_setup) == 1:
+            if len(adapter_setup) == 1:
                 # we already made sure we only have 1 item
                 prefix_tuning_name = adapter_setup.first()
                 if prefix_tuning_name in self.prefixes:

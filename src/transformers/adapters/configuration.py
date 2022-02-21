@@ -401,7 +401,7 @@ class MAMConfig(ConfigUnion):
     """
 
     def __init__(self, prefix_tuning: Optional[PrefixTuningConfig] = None, adapter: Optional[AdapterConfig] = None):
-        prefix_tuning = prefix_tuning or PrefixTuningConfig()
+        prefix_tuning = prefix_tuning or PrefixTuningConfig(bottleneck_size=800)
         adapter = adapter or ParallelConfig()
 
         assert isinstance(prefix_tuning, PrefixTuningConfig)

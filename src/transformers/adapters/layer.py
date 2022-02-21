@@ -7,7 +7,7 @@ from torch import nn
 from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack
 from .configuration import AdapterConfig
 from .context import AdapterSetup, ForwardContext
-from .modeling import Adapter, BertFusion
+from .modeling import Adapter, BertFusion, ParallelAdapter
 
 
 class AdapterLayerBase(ABC, nn.Module):
@@ -82,7 +82,11 @@ class AdapterLayer(AdapterLayerBase):
                         '{"1": 16, "default": 16}'
                     )
 
-            adapter = Adapter(
+            if adapter_config.is_parallel:
+                adapter_class = ParallelAdapter
+            else:
+                adapter_class = Adapter
+            adapter = adapter_class(
                 input_size=self.config.hidden_size,
                 down_sample=self.config.hidden_size // reduction_factor,
                 config=adapter_config,
