@@ -677,6 +677,16 @@ class PredictionHeadLoader(WeightsLoader):
                 if self.model.__class__.__name__ == config["model_class"]:
                     head_name = load_as or config["name"]
                     head_config = config["config"]
+                elif config["model_class"].endswith("ModelWithHeads"):
+                    this_class = self.model.__class__.__name__.replace("AdapterModel", "")
+                    other_class = config["model_class"].replace("ModelWithHeads", "")
+                    if this_class == other_class:
+                        head_name = load_as or config["name"]
+                        head_config = config["config"]
+                    else:
+                        raise ValueError(
+                            f"Cannot automatically convert prediction head of model class {config['model_class']} to flex head."
+                        )
                 # try to convert a static head to a flex head
                 elif self.convert_to_flex_head and config["model_class"] in STATIC_TO_FLEX_HEAD_MAP:
                     head_name = kwargs.pop("main_load_name", load_as)
