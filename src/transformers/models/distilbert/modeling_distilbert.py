@@ -31,11 +31,6 @@ from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.mixins.distilbert import DistilBertModelAdaptersMixin, DistilBertTransfomerBlockAdaptersMixin
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
-from ...adapters.models.distilbert import (
-    DistilBertModelAdaptersMixin,
-    DistilBertModelHeadsMixin,
-    DistilBertTransfomerBlockAdaptersMixin,
-)
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...deepspeed import is_deepspeed_zero3_enabled
 from ...file_utils import (

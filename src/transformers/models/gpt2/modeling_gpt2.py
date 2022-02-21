@@ -38,7 +38,6 @@ from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.mixins.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
-from ...adapters.models.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin, GPT2ModelHeadsMixin
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import (
     ModelOutput,

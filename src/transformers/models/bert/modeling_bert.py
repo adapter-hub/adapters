@@ -33,12 +33,6 @@ from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.mixins.bert import BertModelAdaptersMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
-from ...adapters.models.bert import (
-    BertModelAdaptersMixin,
-    BertModelHeadsMixin,
-    BertOutputAdaptersMixin,
-    BertSelfOutputAdaptersMixin,
-)
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import (
     ModelOutput,
