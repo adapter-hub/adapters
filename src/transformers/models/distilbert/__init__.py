@@ -42,7 +42,6 @@ if is_torch_available():
         "DistilBertForSequenceClassification",
         "DistilBertForTokenClassification",
         "DistilBertModel",
-        "DistilBertModelWithHeads",
         "DistilBertPreTrainedModel",
     ]
 
@@ -91,7 +90,6 @@ if TYPE_CHECKING:
             DistilBertForSequenceClassification,
             DistilBertForTokenClassification,
             DistilBertModel,
-            DistilBertModelWithHeads,
             DistilBertPreTrainedModel,
         )
 

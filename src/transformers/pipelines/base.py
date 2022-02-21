@@ -27,11 +27,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from packaging import version
 
+from ..adapters.models.auto import ADAPTER_MODEL_MAPPING
 from ..feature_extraction_utils import PreTrainedFeatureExtractor
 from ..file_utils import ModelOutput, add_end_docstrings, is_tf_available, is_torch_available
 from ..modelcard import ModelCard
 from ..models.auto.configuration_auto import AutoConfig
-from ..models.auto.modeling_auto import MODEL_WITH_HEADS_MAPPING
 from ..tokenization_utils import PreTrainedTokenizer
 from ..utils import logging
 
@@ -815,7 +815,7 @@ class Pipeline(_ScikitCompat):
                 else:
                     supported_models_names.append(model.__name__)
             supported_models = supported_models_names
-        for item in MODEL_WITH_HEADS_MAPPING.values():
+        for item in ADAPTER_MODEL_MAPPING.values():
             supported_models.append(item.__name__)
         if self.model.__class__.__name__ not in supported_models:
             logger.error(

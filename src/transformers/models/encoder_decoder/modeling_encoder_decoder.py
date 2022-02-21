@@ -21,7 +21,7 @@ import torch
 from torch.nn import CrossEntropyLoss
 
 from ...adapters.context import ForwardContext
-from ...adapters.models.encoder_decoder import EncoderDecoderModelAdaptersMixin
+from ...adapters.mixins.encoder_decoder import EncoderDecoderModelAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward, replace_return_docstrings
 from ...modeling_outputs import Seq2SeqLMOutput

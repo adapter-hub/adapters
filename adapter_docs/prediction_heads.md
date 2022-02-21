@@ -93,14 +93,14 @@ In case the classes match, our prediction head weights will be automatically loa
 
 ## Automatic conversion 
 
-Beginning with v2.1 of `adapter-transformers`, it is possible to load static heads, e.g. created with `AutoModelForSequenceClassification`, into model classes with flexible heads, e.g. `AutoModelWithHeads`.
+Beginning with v2.1 of `adapter-transformers`, it is possible to load static heads, e.g. created with `AutoModelForSequenceClassification`, into model classes with flexible heads, e.g. `AutoAdapterModel`.
 The conversion of weights happens automatically during the call of `load_adapter()`, so no additional steps are needed:
 ```python
 static_head_model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
 static_head_model.add_adapter("test")
 static_head_model.save_adapter(temp_dir, "test")
 
-flex_head_model = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+flex_head_model = AutoAdapterModel.from_pretrained("bert-base-uncased")
 flex_head_model.load_adapter(temp_dir)
 
 assert "test" in flex_head_model.config.adapters

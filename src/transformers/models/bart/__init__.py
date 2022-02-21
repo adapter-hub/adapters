@@ -36,7 +36,6 @@ if is_torch_available():
         "BartForQuestionAnswering",
         "BartForSequenceClassification",
         "BartModel",
-        "BartModelWithHeads",
         "BartPretrainedModel",
         "PretrainedBartModel",
     ]
@@ -68,7 +67,6 @@ if TYPE_CHECKING:
             BartForQuestionAnswering,
             BartForSequenceClassification,
             BartModel,
-            BartModelWithHeads,
             BartPretrainedModel,
             PretrainedBartModel,
         )

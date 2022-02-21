@@ -34,9 +34,9 @@ _Note: adapter-transformers is a fork of transformers that acts as a drop-in rep
 Now, the adapter can be loaded and activated like this:
 
 ```python
-from transformers import AutoModelWithHeads
+from transformers import AutoAdapterModel
 
-model = AutoModelWithHeads.from_pretrained("{model_name}")
+model = AutoAdapterModel.from_pretrained("{model_name}")
 adapter_name = model.load_adapter("{adapter_repo_name}", source="hf", set_active=True)
 ```
 

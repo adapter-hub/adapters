@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 
+from tests.test_modeling_common import ids_tensor
 from transformers import (  # get_adapter_config_hash,
     ADAPTER_CONFIG_MAP,
     AdapterConfig,
@@ -19,8 +20,6 @@ from transformers import (  # get_adapter_config_hash,
 from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.adapters.utils import find_in_index
 from transformers.testing_utils import require_torch, torch_device
-
-from .test_modeling_common import ids_tensor
 
 
 SAMPLE_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/hub-index.sample.json")

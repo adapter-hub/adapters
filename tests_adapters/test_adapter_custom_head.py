@@ -4,7 +4,7 @@ import unittest
 import torch
 
 from tests.test_modeling_common import ids_tensor
-from transformers import AutoConfig, AutoModelWithHeads
+from transformers import AutoConfig, AutoAdapterModel
 from transformers.adapters.heads import ClassificationHead, PredictionHead
 from transformers.testing_utils import require_torch, torch_device
 
@@ -30,7 +30,7 @@ class CustomHead(PredictionHead):
 class AdapterCustomHeadTest(unittest.TestCase):
     def test_add_custom_head(self):
         model_name = "bert-base-uncased"
-        model = AutoModelWithHeads.from_pretrained(model_name)
+        model = AutoAdapterModel.from_pretrained(model_name)
         model.register_custom_head("tag", CustomHead)
         config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
         model.add_custom_head(head_type="tag", head_name="custom_head", **config)
@@ -46,7 +46,7 @@ class AdapterCustomHeadTest(unittest.TestCase):
     def test_custom_head_from_model_config(self):
         model_name = "bert-base-uncased"
         model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
-        model = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
+        model = AutoAdapterModel.from_pretrained(model_name, config=model_config)
         config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
         model.add_custom_head(head_type="tag", head_name="custom_head", **config)
         model.eval()
@@ -61,8 +61,8 @@ class AdapterCustomHeadTest(unittest.TestCase):
     def test_save_load_custom_head(self):
         model_name = "bert-base-uncased"
         model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
-        model1 = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
-        model2 = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
+        model1 = AutoAdapterModel.from_pretrained(model_name, config=model_config)
+        model2 = AutoAdapterModel.from_pretrained(model_name, config=model_config)
         config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
         model1.add_custom_head(head_type="tag", head_name="custom_head", **config)
 
@@ -87,7 +87,7 @@ class AdapterCustomHeadTest(unittest.TestCase):
     def test_builtin_head_as_custom(self):
         model_name = "bert-base-uncased"
         model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
-        model = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
+        model = AutoAdapterModel.from_pretrained(model_name, config=model_config)
         model.eval()
         in_data = ids_tensor((1, 128), 1000)
 

@@ -51,7 +51,6 @@ if is_torch_available():
         "XLMRobertaForSequenceClassification",
         "XLMRobertaForTokenClassification",
         "XLMRobertaModel",
-        "XLMRobertaModelWithHeads",
     ]
 
 if is_tf_available():
@@ -89,7 +88,6 @@ if TYPE_CHECKING:
             XLMRobertaForSequenceClassification,
             XLMRobertaForTokenClassification,
             XLMRobertaModel,
-            XLMRobertaModelWithHeads,
         )
 
     if is_tf_available():

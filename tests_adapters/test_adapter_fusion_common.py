@@ -6,10 +6,10 @@ from dataclasses import asdict
 import torch
 
 from transformers import (
+    ADAPTER_MODEL_MAPPING,
     ADAPTERFUSION_CONFIG_MAP,
-    MODEL_WITH_HEADS_MAPPING,
     AdapterConfig,
-    AutoModelWithHeads,
+    AutoAdapterModel,
     PfeifferConfig,
 )
 from transformers.adapters.composition import Fuse
@@ -163,9 +163,9 @@ class AdapterFusionModelTestMixin:
             model.config.to_json_string()
 
     def test_adapter_fusion_save_with_head(self):
-        if self.config_class not in MODEL_WITH_HEADS_MAPPING:
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
-        model1 = AutoModelWithHeads.from_config(self.config())
+        model1 = AutoAdapterModel.from_config(self.config())
         model1.eval()
 
         name1 = "name1"
