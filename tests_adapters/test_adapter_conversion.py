@@ -12,7 +12,7 @@ from transformers import (
     MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
     MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
     MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-    AutoModelWithHeads,
+    AutoAdapterModel,
     BertPreTrainedModel,
     RobertaPreTrainedModel,
 )
@@ -26,7 +26,7 @@ class ModelClassConversionTestMixin:
     seq_length = 128
 
     def run_test(self, static_model, input_shape=None, label_dict=None):
-        flex_model = AutoModelWithHeads.from_pretrained(
+        flex_model = AutoAdapterModel.from_pretrained(
             None, config=self.config(), state_dict=static_model.state_dict()
         )
         static_model.eval()
@@ -147,7 +147,7 @@ class ModelClassConversionTestMixin:
             self.skipTest("no causal lm class.")
 
         static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
-        flex_model = AutoModelWithHeads.from_pretrained(
+        flex_model = AutoAdapterModel.from_pretrained(
             None, config=self.config(), state_dict=static_model.state_dict()
         )
         static_model.add_adapter("dummy")

@@ -6,7 +6,7 @@ import torch
 
 from transformers import (
     AutoModelForSequenceClassification,
-    AutoModelWithHeads,
+    AutoAdapterModel,
     AutoTokenizer,
     BertConfig,
     BertForSequenceClassification,
@@ -221,7 +221,7 @@ class TestAdapterTrainer(unittest.TestCase):
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
-        model = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+        model = AutoAdapterModel.from_pretrained("bert-base-uncased")
 
         model.add_classification_head("adapter", num_labels=3)
         model.add_classification_head("dummy", num_labels=2)
@@ -255,7 +255,7 @@ class TestAdapterTrainer(unittest.TestCase):
 
             trainer.train()
             # create second model that should resume the training of the first
-            model_resume = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+            model_resume = AutoAdapterModel.from_pretrained("bert-base-uncased")
 
             model_resume.add_classification_head("adapter", num_labels=3)
             model_resume.add_classification_head("dummy", num_labels=2)
@@ -290,7 +290,7 @@ class TestAdapterTrainer(unittest.TestCase):
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
-        model = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+        model = AutoAdapterModel.from_pretrained("bert-base-uncased")
 
         model.add_classification_head("task", num_labels=3)
 

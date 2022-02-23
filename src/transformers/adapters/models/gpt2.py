@@ -1,31 +1,103 @@
-from typing import Iterable, Tuple
+import logging
+import warnings
 
-import torch.nn as nn
+import torch
 
-from ..heads import CausalLMHead, ClassificationHead, MultiLabelClassificationHead, TaggingHead
-from ..layer import AdapterLayer
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
-from .bert import ModelWithFlexibleHeadsAdaptersMixin
-
-
-class GPT2DecoderBlockAdaptersMixin:
-    """Adds adapters to the TransformerBlock module of DistilBert."""
-
-    def _init_adapter_modules(self):
-        self.attention_adapters = AdapterLayer("mh_adapter", self.config)
-        self.output_adapters = AdapterLayer("output_adapter", self.config)
-        self.attention_adapters._init_adapter_modules()
-        self.output_adapters._init_adapter_modules()
+from ...file_utils import add_start_docstrings
+from ...models.gpt2.modeling_gpt2 import GPT2_START_DOCSTRING, GPT2Model, GPT2PreTrainedModel
+from ..composition import adjust_tensors_for_parallel
+from ..heads import (
+    CausalLMHead,
+    ClassificationHead,
+    ModelWithFlexibleHeadsAdaptersMixin,
+    MultiLabelClassificationHead,
+    TaggingHead,
+)
 
 
-class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
-    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        for i, layer in enumerate(self.base_model.h):
-            yield i, layer
+logger = logging.getLogger(__name__)
 
 
-class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
-    """Adds flexible heads to a GPT-2 model."""
+@add_start_docstrings(
+    """
+The GPT2 Model that allows the loading of different heads dor different tasks. This enables a flexible use of the
+models and adpters. Since this class does classification on the last token, it requires to know the position of the
+last token. If a :obj:`pad_token_id` is defined in the configuration, it finds the last token that is not a padding
+token in each row. If no :obj:`pad_token_id` is defined, it simply takes the last value in each row of the batch. Since
+it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead of :obj:`input_ids`, it does the same
+(take the last value in each row of the batch).
+""",
+    GPT2_START_DOCSTRING,
+)
+class GPT2AdapterModel(ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.transformer = GPT2Model(config)
+
+        self._init_head_modules()
+
+        self.init_weights()
+
+        # Model parallel
+        self.model_parallel = False
+        self.device_map = None
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        head=None,
+        **kwargs
+    ):
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        outputs = self.transformer(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        batch_size = outputs[0].shape[0]
+
+        if self.config.pad_token_id is None:
+            # TODO-AH: this may result in unexpected behavior for classification. Find a better way to do this?
+            sequence_lengths = -1
+        else:
+            if input_ids is not None:
+                sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
+                (sequence_lengths,) = adjust_tensors_for_parallel(outputs[0], sequence_lengths)
+            else:
+                sequence_lengths = -1
+                logger.warning(
+                    f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
+                    f"unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                )
+
+        cls_logits = outputs[0][range(batch_size), sequence_lengths]
+
+        outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            cls_output=cls_logits,
+            attention_mask=attention_mask,
+            return_dict=return_dict,
+            **kwargs,
+        )
+
+        return outputs
 
     head_types = {
         "classification": ClassificationHead,
@@ -72,3 +144,37 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         """
         head = CausalLMHead(self, head_name)
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+
+class GPT2ModelWithHeads(GPT2AdapterModel):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                self.__class__.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_config(cls, config):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_config(config)
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

@@ -55,13 +55,13 @@ model.set_active_adapters(adapter_name)
 
 As the second example, let's have a look at how to load an adapter based on the [`AdapterInfo`](classes/adapter_utils.html#transformers.adapters.utils.AdapterInfo) returned by the [`list_adapters()`](classes/adapter_utils.html#transformers.adapters.utils.list_adapters) method from [above](#finding-pre-trained-adapters):
 ```python
-from transformers import AutoModelWithHeads, list_available_adapters
+from transformers import AutoAdapterModel, list_available_adapters
 
 adapter_infos = list_available_adapters(source="ah")
 # Take the first adapter info as an example
 adapter_info = adapter_infos[0]
 
-model = AutoModelWithHeads.from_pretrained(adapter_info.model_name)
+model = AutoAdapterModel.from_pretrained(adapter_info.model_name)
 model.load_adapter(adapter_info.adapter_id, source=adapter_info.source)
 ```
 

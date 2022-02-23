@@ -31,12 +31,6 @@ and decoder for a summarization model as was shown in: `Text Summarization with 
     This class is nearly identical to the PyTorch implementation of DistilBERT in Huggingface Transformers.
     For more information, visit `the corresponding section in their documentation <https://huggingface.co/transformers/model_doc/distilbert.html>`_.
 
-EncoderDecoderConfig
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.EncoderDecoderConfig
-    :members:
-
 
 EncoderDecoderModel
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

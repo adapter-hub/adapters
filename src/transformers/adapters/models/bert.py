@@ -1,8 +1,21 @@
-import logging
-from typing import Iterable, Tuple
+import warnings
 
-import torch.nn as nn
-
+from ...file_utils import (
+    ModelOutput,
+    add_code_sample_docstrings,
+    add_start_docstrings,
+    add_start_docstrings_to_model_forward,
+)
+from ...models.bert.modeling_bert import (
+    _CHECKPOINT_FOR_DOC,
+    _CONFIG_FOR_DOC,
+    _TOKENIZER_FOR_DOC,
+    BERT_INPUTS_DOCSTRING,
+    BERT_START_DOCSTRING,
+    BertModel,
+    BertPreTrainedModel,
+)
+from ..context import AdapterSetup
 from ..heads import (
     BertStyleMaskedLMHead,
     BiaffineParsingHead,
@@ -14,41 +27,86 @@ from ..heads import (
     QuestionAnsweringHead,
     TaggingHead,
 )
-from ..layer import AdapterLayer
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
-logger = logging.getLogger(__name__)
+@add_start_docstrings(
+    """Bert Model transformer with the option to add multiple flexible heads on top.""",
+    BERT_START_DOCSTRING,
+)
+class BertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
 
+        self.bert = BertModel(config)
 
-# For backwards compatibility, BertSelfOutput inherits directly from AdapterLayer
-class BertSelfOutputAdaptersMixin(AdapterLayer):
-    """Adds adapters to the BertSelfOutput module."""
+        self._init_head_modules()
 
-    def __init__(self):
-        super().__init__("mh_adapter", None)
+        self.init_weights()
 
+    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @add_code_sample_docstrings(
+        processor_class=_TOKENIZER_FOR_DOC,
+        checkpoint=_CHECKPOINT_FOR_DOC,
+        output_type=ModelOutput,
+        config_class=_CONFIG_FOR_DOC,
+    )
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        head=None,
+        **kwargs
+    ):
+        input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
+        position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+        inputs_embeds = (
+            inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
+            if inputs_embeds is not None
+            else None
+        )
 
-# For backwards compatibility, BertOutput inherits directly from AdapterLayer
-class BertOutputAdaptersMixin(AdapterLayer):
-    """Adds adapters to the BertOutput module."""
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-    def __init__(self):
-        super().__init__("output_adapter", None)
+        outputs = self.bert(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
+        if not return_dict:
+            head_inputs = (outputs[0],) + outputs[2:]
+        else:
+            head_inputs = outputs
+        pooled_output = outputs[1]
 
-
-class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
-    """Adds adapters to the BertModel module."""
-
-    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        for i, layer in enumerate(self.encoder.layer):
-            yield i, layer
-
-
-class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
-    """
-    Adds flexible heads to a BERT-based model class.
-    """
+        if head or AdapterSetup.get_context_head_setup() or self.active_head:
+            head_outputs = self.forward_head(
+                head_inputs,
+                head_name=head,
+                attention_mask=attention_mask,
+                return_dict=return_dict,
+                pooled_output=pooled_output,
+                **kwargs,
+            )
+            return head_outputs
+        else:
+            # in case no head is used just return the output of the base model (including pooler output)
+            return outputs
 
     head_types = {
         "classification": ClassificationHead,
@@ -177,3 +235,37 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
             self, head_name, layers=2, activation_function=activation_function, layer_norm=True, bias=True
         )
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+
+class BertModelWithHeads(BertAdapterModel):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                self.__class__.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_config(cls, config):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_config(config)
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

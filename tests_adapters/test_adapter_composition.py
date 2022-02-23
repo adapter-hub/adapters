@@ -4,21 +4,21 @@ import unittest
 
 import torch
 
-from tests.test_adapter_training import filter_parameters
+from tests.test_modeling_common import ids_tensor
 from transformers import (
     MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-    AutoModelWithHeads,
+    AutoAdapterModel,
     AutoTokenizer,
     BertConfig,
     BertForSequenceClassification,
-    T5ModelWithHeads,
+    T5AdapterModel,
     Trainer,
     TrainingArguments,
 )
 from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from transformers.testing_utils import require_torch, torch_device
 
-from .test_modeling_common import ids_tensor
+from .test_adapter_training import filter_parameters
 
 
 class AdapterCompositionParsingTest(unittest.TestCase):
@@ -146,7 +146,7 @@ class AdapterCompositionTest(unittest.TestCase):
 @require_torch
 class ParallelAdapterInferenceTestMixin:
     def test_parallel_inference_with_heads(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
 
         model.add_adapter("a")
         model.add_adapter("b")
@@ -179,7 +179,7 @@ class ParallelAdapterInferenceTestMixin:
         self.assertTrue(torch.allclose(outputs[1][0], outputs_b[0], atol=1e-5))
 
     def test_parallel_inference_with_wrong_number_of_heads(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
         model.add_adapter("a")
@@ -199,7 +199,7 @@ class ParallelAdapterInferenceTestMixin:
             model(**inputs)
 
     def test_batch_split_with_heads(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
         model.add_adapter("a")
         model.add_adapter("b")
         self.add_head(model, "a", num_labels=2)
@@ -208,7 +208,7 @@ class ParallelAdapterInferenceTestMixin:
         model.to(torch_device)
 
         inputs = {"input_ids": self.get_input_samples((2, 128), config=model.config)["input_ids"]}
-        if isinstance(model, T5ModelWithHeads):
+        if isinstance(model, T5AdapterModel):
             inputs["decoder_input_ids"] = inputs["input_ids"]
 
         # for reference, pass through single adapters
@@ -280,7 +280,7 @@ class ParallelTrainingMixin:
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
 
         model.add_adapter("mrpc1")
         model.add_adapter("mrpc2")
@@ -322,7 +322,7 @@ class ParallelTrainingMixin:
                 self.assertTrue(torch.equal(v1, v2))
 
     def test_parallel_training_equivalent_to_single_adapters(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
         a1, a2 = self.create_twin_adapters(model, "a")
@@ -331,7 +331,7 @@ class ParallelTrainingMixin:
         dataset = []
         for i in range(3):
             input_data = self.get_input_samples((3, 128), config=model.config)
-            if isinstance(model, T5ModelWithHeads):
+            if isinstance(model, T5AdapterModel):
                 input_data["labels"] = torch.randint(0, 2, (3, 128))
             else:
                 input_data["labels"] = torch.randint(0, 2, (3, 1))
@@ -362,7 +362,7 @@ class ParallelTrainingMixin:
                 self.assertTrue(torch.allclose(v, state_dict[k.replace(b1, b2)], atol=1e-5))
 
     def test_parallel_training_single_forward_pass(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
         a1, a2 = self.create_twin_adapters(model, "a")
@@ -376,7 +376,7 @@ class ParallelTrainingMixin:
                 self.assertTrue(torch.equal(v, state_dict[k.replace(b1, b2)]))
 
         input_data = self.get_input_samples((3, 128), config=model.config)
-        if isinstance(model, T5ModelWithHeads):
+        if isinstance(model, T5AdapterModel):
             input_data["labels"] = torch.randint(0, 2, (3, 128), device=torch_device)
         else:
             input_data["labels"] = torch.randint(0, 2, (3, 1), device=torch_device)

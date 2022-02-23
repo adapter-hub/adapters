@@ -1,7 +1,25 @@
-from typing import Iterable, Tuple
+import warnings
 
-import torch.nn as nn
+import torch
 
+from ...file_utils import (
+    ModelOutput,
+    add_code_sample_docstrings,
+    add_start_docstrings,
+    add_start_docstrings_to_model_forward,
+)
+from ...models.bart.modeling_bart import (
+    _CHECKPOINT_FOR_DOC,
+    _CONFIG_FOR_DOC,
+    _TOKENIZER_FOR_DOC,
+    BART_INPUTS_DOCSTRING,
+    BART_START_DOCSTRING,
+    BartConfig,
+    BartModel,
+    BartPretrainedModel,
+    shift_tokens_right,
+)
+from ..composition import adjust_tensors_for_parallel
 from ..heads import (
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
@@ -9,58 +27,143 @@ from ..heads import (
     QuestionAnsweringHead,
     Seq2SeqLMHead,
 )
-from ..layer import AdapterLayer
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
-class BartEncoderLayerAdaptersMixin:
-    """Adds adapters to the BartEncoderLayer module of BART."""
+@add_start_docstrings(
+    "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
+)
+class BartAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel):
+    def __init__(self, config: BartConfig, **kwargs):
+        super().__init__(config, **kwargs)
+        self.model = BartModel(config)
 
-    def _init_adapter_modules(self):
-        self.attention_adapters = AdapterLayer("mh_adapter", self.config)
-        self.output_adapters = AdapterLayer("output_adapter", self.config)
-        self.attention_adapters._init_adapter_modules()
-        self.output_adapters._init_adapter_modules()
+        self._init_head_modules()
 
+    def get_encoder(self):
+        return self.model.get_encoder()
 
-class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
-    """Adds adapters to the BartDecoderLayer module of BART."""
+    def get_decoder(self):
+        return self.model.get_decoder()
 
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-        self.cross_attention_adapters = AdapterLayer("cross_adapter", self.config)
-        self.cross_attention_adapters._init_adapter_modules()
+    @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
+    @add_code_sample_docstrings(
+        processor_class=_TOKENIZER_FOR_DOC,
+        checkpoint=_CHECKPOINT_FOR_DOC,
+        output_type=ModelOutput,
+        config_class=_CONFIG_FOR_DOC,
+    )
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        encoder_outputs=None,
+        inputs_embeds=None,
+        decoder_inputs_embeds=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        past_key_values=None,
+        head=None,
+        **kwargs
+    ):
+        r"""
+        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
+            Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
+            config.num_labels - 1]`. If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
+        if "labels" in kwargs or "start_positions" in kwargs and "end_positions" in kwargs:
+            use_cache = False
 
-class BartModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
-    """Adds adapters to the BartModel class."""
-
-    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        if hasattr(self, "encoder"):
-            for i, layer in enumerate(self.encoder.layers):
-                yield i, layer
-            for i, layer in enumerate(self.decoder.layers, start=len(self.encoder.layers)):
-                yield i, layer
+        outputs = self.model(
+            input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            decoder_attention_mask=decoder_attention_mask,
+            head_mask=head_mask,
+            decoder_head_mask=decoder_head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            encoder_outputs=encoder_outputs,
+            inputs_embeds=inputs_embeds,
+            decoder_inputs_embeds=decoder_inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            past_key_values=past_key_values,
+        )
+        # sequence classification based on last token in sequence
+        x = outputs[0]  # last hidden state
+        if input_ids is not None and x.shape[1] == input_ids.shape[1]:
+            eos_mask = input_ids.eq(self.config.eos_token_id)
+            (eos_mask,) = adjust_tensors_for_parallel(x, eos_mask)
+            if len(torch.unique(eos_mask.sum(1))) > 1:
+                raise ValueError("All examples must have the same number of <eos> tokens.")
+            cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
         else:
-            for i, layer in enumerate(self.decoder.layers):
-                yield i, layer
+            cls_representation = x
 
-    def _init_adapter_modules(self):
-        if hasattr(self, "encoder"):
-            # In BART, the invertible adapters are implemented by the encoder module.
-            # Therefore, relay mixin calls to the encoder here.
-            self.invertible_adapters = self.encoder.invertible_adapters
-            self.add_invertible_adapter = self.encoder.add_invertible_adapter
-            self.get_invertible_adapter = self.encoder.get_invertible_adapter
-            self.enable_invertible_adapters = self.encoder.enable_invertible_adapters
-            self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
-        super()._init_adapter_modules()
+        head_outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            cls_output=cls_representation,
+            attention_mask=attention_mask,
+            return_dict=return_dict,
+            **kwargs,
+        )
 
+        return head_outputs
 
-class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
-    """
-    Adds flexible heads to a BART model.
-    """
+    # Copied from BartForConditionalGeneration
+    def prepare_inputs_for_generation(
+        self,
+        decoder_input_ids,
+        past=None,
+        attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        use_cache=None,
+        encoder_outputs=None,
+        **kwargs
+    ):
+        # cut decoder_input_ids if past is used
+        if past is not None:
+            decoder_input_ids = decoder_input_ids[:, -1:]
+
+        return {
+            "input_ids": None,  # encoder_outputs is defined. input_ids not needed
+            "encoder_outputs": encoder_outputs,
+            "past_key_values": past,
+            "decoder_input_ids": decoder_input_ids,
+            "attention_mask": attention_mask,
+            "head_mask": head_mask,
+            "decoder_head_mask": decoder_head_mask,
+            "cross_attn_head_mask": cross_attn_head_mask,
+            "use_cache": use_cache,  # change this to avoid caching (presumably for debugging)
+        }
+
+    # Copied from BartForConditionalGeneration
+    def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
+        return shift_tokens_right(labels, self.config.pad_token_id, self.config.decoder_start_token_id)
+
+    # Copied from BartForConditionalGeneration
+    @staticmethod
+    def _reorder_cache(past, beam_idx):
+        reordered_past = ()
+        for layer_past in past:
+            # cached cross_attention states don't have to be reordered -> they are always the same
+            reordered_past += (
+                tuple(past_state.index_select(0, beam_idx) for past_state in layer_past[:2]) + layer_past[2:],
+            )
+        return reordered_past
 
     head_types = {
         "classification": ClassificationHead,
@@ -123,3 +226,37 @@ class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         """
         head = Seq2SeqLMHead(self, head_name)
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+
+class BartModelWithHeads(BartAdapterModel):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                self.__class__.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_config(cls, config):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_config(config)
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

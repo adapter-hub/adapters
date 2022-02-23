@@ -60,4 +60,4 @@ jobs:
           pip install datasets
       - name: Test
         run: |
-          make test-reduced
+          make test-adapters

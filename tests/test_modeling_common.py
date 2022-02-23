@@ -65,11 +65,9 @@ if is_torch_available():
         MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
         MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
         MODEL_MAPPING,
-        MODEL_WITH_HEADS_MAPPING,
         AdaptiveEmbedding,
         BertConfig,
         BertModel,
-        ModelWithHeadsAdaptersMixin,
         PretrainedConfig,
         PreTrainedModel,
         T5Config,
@@ -412,7 +410,7 @@ class ModelTesterMixin:
         config.return_dict = True
 
         for model_class in self.all_model_classes:
-            if model_class in get_values(MODEL_MAPPING) or model_class in get_values(MODEL_WITH_HEADS_MAPPING):
+            if model_class in get_values(MODEL_MAPPING):
                 continue
             model = model_class(config)
             model.to(torch_device)
@@ -430,11 +428,7 @@ class ModelTesterMixin:
         config.return_dict = True
 
         for model_class in self.all_model_classes:
-            if (
-                model_class in get_values(MODEL_MAPPING)
-                or model_class in get_values(MODEL_WITH_HEADS_MAPPING)
-                or not model_class.supports_gradient_checkpointing
-            ):
+            if model_class in get_values(MODEL_MAPPING) or not model_class.supports_gradient_checkpointing:
                 continue
             model = model_class(config)
             model.to(torch_device)
@@ -1331,7 +1325,7 @@ class ModelTesterMixin:
             model = model_class(config)
             base_model_prefix = model.base_model_prefix
 
-            if hasattr(model, base_model_prefix) and not isinstance(model, ModelWithHeadsAdaptersMixin):
+            if hasattr(model, base_model_prefix):
                 with tempfile.TemporaryDirectory() as temp_dir_name:
                     model.base_model.save_pretrained(temp_dir_name)
                     model, loading_info = model_class.from_pretrained(temp_dir_name, output_loading_info=True)
