@@ -82,18 +82,21 @@ class FlatPrefixTuning(nn.Module):
 
 class PrefixTuningPool(nn.Module):
     """
-    The model layer that holds all Prefix Tuning prefixes.
-    While each Transformers layer has its own prefix, this layer is shared across all Transformers layers.
+    The model layer that holds all Prefix Tuning prefixes. While each Transformers layer has its own prefix, this layer
+    is shared across all Transformers layers.
 
     How it works:
+
         1. A `PrefixTuningShim` module that sets this module as pool module is added to each layer.
         2. On adding a prefix, each shim module where a prefix should be added increments a counter in `prefix_counts`.
         3. Finally, the base model class confirms adding a new prefix by calling `confirm_prefix()`.
         4. This module adds a prefix layer that produces outputs corresponding to the indicated number of layers.
 
     Notes:
+
         - The forward call to this layer is executed in the ForwardContext of each model pass.
-        - All other methods of this class (except for `confirm_prefix()`) should be called exclusively by `PrefixTuningShim`.
+        - All other methods of this class (except for `confirm_prefix()`) should be called exclusively by
+          `PrefixTuningShim`.
 
     Args:
         config (:class:`~transformers.PretrainedConfig`): The model config.
@@ -173,9 +176,9 @@ class PrefixTuningPool(nn.Module):
 
 class PrefixTuningShim(AdapterLayerBase):
     """
-    Representation of a Prefix Tuning layer within one Transformer layer.
-    This class implements `AdapterLayerBase` for compatibility with adapters.
-    It uses `PrefixTuningPool` in the background and `set_pool()` must be called after initialization.
+    Representation of a Prefix Tuning layer within one Transformer layer. This class implements `AdapterLayerBase` for
+    compatibility with adapters. It uses `PrefixTuningPool` in the background and `set_pool()` must be called after
+    initialization.
 
     Args:
         location_key (str): The id describing the location of this layer in the model.

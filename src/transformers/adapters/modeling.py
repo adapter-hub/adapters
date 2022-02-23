@@ -192,8 +192,8 @@ class Adapter(nn.Module):
 
     def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
         """
-        Performs computations after the forward pass of the adapter block(s).
-        This e.g. includes applying the residual connection and layer norm if configured in this way.
+        Performs computations after the forward pass of the adapter block(s). This e.g. includes applying the residual
+        connection and layer norm if configured in this way.
 
         Args:
             hidden_states: The hidden states outputted by the adapter block(s).
@@ -274,8 +274,8 @@ class ParallelAdapter(Adapter):
 
     def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
         """
-        Performs computations after the forward pass of the adapter block(s).
-        This e.g. includes applying the residual connection and layer norm if configured in this way.
+        Performs computations after the forward pass of the adapter block(s). This e.g. includes applying the residual
+        connection and layer norm if configured in this way.
 
         Args:
             hidden_states: The hidden states outputted by the adapter block(s).

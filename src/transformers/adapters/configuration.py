@@ -136,8 +136,8 @@ class AdapterConfig(AdapterConfigBase):
         mh_adapter (:obj:`bool`): If True, add adapter modules after the multi-head attention block of each layer.
         output_adapter (:obj:`bool`): If True, add adapter modules after the output FFN of each layer.
         reduction_factor (:obj:`int` or :obj:`Mapping`): Either an integer specifying the reduction factor for all layers
-            or a mapping specifying the reduction_factor for individual layers. If not all layers are represented
-            in the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
+            or a mapping specifying the reduction_factor for individual layers. If not all layers are represented in
+            the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
         non_linearity (:obj:`str`): The activation function to use in the adapter bottleneck.
         original_ln_before (:obj:`bool`, optional): If True, apply layer pre-trained normalization and residual connection before the adapter modules.
             Defaults to False. Only applicable if :obj:`is_parallel` is False.
@@ -152,8 +152,8 @@ class AdapterConfig(AdapterConfigBase):
         is_parallel (:obj:`bool`, optional): If True, apply adapter transformations in parallel.
             By default (False), sequential application is used.
         scaling: (:obj:`float` or :obj:`str`, optional): Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021).
-            Can bei either a constant factor (float) or the string "learned", in which case the scaling factor is learned.
-            Defaults to 1.0.
+            Can bei either a constant factor (float) or the string "learned", in which case the scaling factor is
+            learned. Defaults to 1.0.
         residual_before_ln (:obj:`bool`, optional): If True, take the residual connection around the adapter bottleneck before the layer normalization.
             Only applicable if :obj:`original_ln_before` is True.
         adapter_residual_before_ln (:obj:`bool`, optional): If True, apply the residual connection around the adapter modules before the new layer normalization within the adapter.
@@ -334,7 +334,7 @@ class ConfigUnion(AdapterConfigBase):
 
         Raises:
             TypeError: One of the configurations has a wrong type. ValueError: At least two given configurations
-                       conflict.
+            conflict.
         """
         # perform single config checks
         for config in configs:
@@ -695,8 +695,7 @@ class AdapterFusionConfig(AdapterConfigBase):
 @dataclass(eq=False)
 class StaticAdapterFusionConfig(AdapterFusionConfig):
     """
-    Static version of adapter fusion without a value matrix.
-    See https://arxiv.org/pdf/2005.00247.pdf.
+    Static version of adapter fusion without a value matrix. See https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     key: bool = True
@@ -713,8 +712,7 @@ class StaticAdapterFusionConfig(AdapterFusionConfig):
 @dataclass(eq=False)
 class DynamicAdapterFusionConfig(AdapterFusionConfig):
     """
-    Dynamic version of adapter fusion with a value matrix and regularization.
-    See https://arxiv.org/pdf/2005.00247.pdf.
+    Dynamic version of adapter fusion with a value matrix and regularization. See https://arxiv.org/pdf/2005.00247.pdf.
     """
 
     key: bool = True

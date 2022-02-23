@@ -71,7 +71,5 @@ class Seq2SeqTrainingArguments(TrainingArguments):
 
     generation_length_penalty: Optional[float] = field(
         default=None,
-        metadata={
-            "help": "length penalty"
-        },
+        metadata={"help": "length penalty"},
     )
