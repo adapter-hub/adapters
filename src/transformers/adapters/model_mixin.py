@@ -601,6 +601,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # Prefix tuning
         input_tensor = kwargs.get("input_ids", None)
         if input_tensor is None:
+            input_tensor = kwargs.get("decoder_input_ids", None)
+        if input_tensor is None:
             input_tensor = kwargs.get("attention_mask", None)
         if input_tensor is None:
             input_tensor = args[0]
