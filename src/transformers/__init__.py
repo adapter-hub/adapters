@@ -1380,7 +1380,7 @@ if is_torch_available():
         "HoulsbyInvConfig",
         "ModelAdaptersConfig",
         "PfeifferConfig",
-        "PfeifferCompactorConfig",
+        "PfeifferCompacterConfig",
         "PfeifferInvConfig",
         "StaticAdapterFusionConfig",
     ]

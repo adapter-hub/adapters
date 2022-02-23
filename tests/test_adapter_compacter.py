@@ -2,7 +2,7 @@ import copy
 
 import torch
 
-from transformers import AutoModelWithHeads, AdapterConfig, PfeifferCompactorConfig, TrainingArguments, AdapterTrainer, \
+from transformers import AutoModelWithHeads, AdapterConfig, PfeifferCompacterConfig, TrainingArguments, AdapterTrainer, \
     AutoTokenizer
 from tests.test_modeling_common import ids_tensor
 from transformers.testing_utils import require_torch
@@ -35,7 +35,7 @@ class CompacterTestMixin:
 
     def test_add_compacter(self):
         model = AutoModelWithHeads.from_config(self.config())
-        adapter_config = PfeifferCompactorConfig()
+        adapter_config = PfeifferCompacterConfig()
 
         # add two adapters: one will be trained and the other should be frozen
         model.add_adapter("compacter", config=adapter_config)
@@ -55,7 +55,7 @@ class CompacterTestMixin:
 
     def test_forward_compacter(self):
         model = AutoModelWithHeads.from_config(self.config())
-        adapter_config = PfeifferCompactorConfig()
+        adapter_config = PfeifferCompacterConfig()
 
         model.add_adapter("compacter", config=adapter_config)
         model.add_classification_head("compacter", num_labels=3)
@@ -67,7 +67,7 @@ class CompacterTestMixin:
 
     def test_shared_phm_compacter(self):
         model = AutoModelWithHeads.from_config(self.config())
-        adapter_config = PfeifferCompactorConfig(shared_W_phm=True)
+        adapter_config = PfeifferCompacterConfig(shared_W_phm=True)
 
         model.add_adapter("compacter", config=adapter_config)
         model.add_classification_head("compacter", num_labels=3)
@@ -81,7 +81,7 @@ class CompacterTestMixin:
     def test_train_shared_W_compacter(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         model = AutoModelWithHeads.from_config(self.config())
-        adapter_config = PfeifferCompactorConfig(shared_W_phm=True, shared_phm_rule=False)
+        adapter_config = PfeifferCompacterConfig(shared_W_phm=True, shared_phm_rule=False)
 
         model.add_adapter("compacter", config=adapter_config)
         model.add_classification_head("compacter", num_labels=3)
@@ -98,7 +98,7 @@ class CompacterTestMixin:
     def test_train_shared_phm_compacter(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         model = AutoModelWithHeads.from_config(self.config())
-        adapter_config = PfeifferCompactorConfig()
+        adapter_config = PfeifferCompacterConfig()
         model.add_adapter("compacter", config=adapter_config)
         model.add_classification_head("compacter", num_labels=3)
 

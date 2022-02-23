@@ -150,7 +150,7 @@ class PfeifferConfig(AdapterConfig):
 
 
 @dataclass
-class PfeifferCompactorConfig(PfeifferConfig):
+class PfeifferCompacterConfig(PfeifferConfig):
     phm_layer: bool = True
     phm_dim: int = 2
     factorized_phm: bool = True
@@ -185,7 +185,7 @@ class HoulsbyConfig(AdapterConfig):
 
 
 @dataclass
-class HoulsbyCompactorConfig(HoulsbyConfig):
+class HoulsbyCompacterConfig(HoulsbyConfig):
     phm_layer: bool = True
     phm_dim: int = 12
     factorized_phm: bool = True
