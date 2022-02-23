@@ -79,7 +79,7 @@ class AdapterTrainingTestMixin:
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
 
         # add two adapters: one will be trained and the other should be frozen
         model.add_adapter("mrpc", config="prefix")
@@ -120,7 +120,7 @@ class AdapterTrainingTestMixin:
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
 
         # add two adapters: one will be trained and the other should be frozen
         model.add_adapter("mrpc", config="mam")

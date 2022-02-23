@@ -9,6 +9,6 @@ pre-trained using a combination of masked language modeling objective and next s
 BertAdapterModel
 ~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: transformers.adapters.BertModelWithHeads
+.. autoclass:: transformers.adapters.BertAdapterModel
     :members:
     :inherited-members: BertPreTrainedModel
