@@ -4,7 +4,6 @@ import torch
 
 from transformers import AutoModelWithHeads, TrainingArguments, AdapterTrainer, \
     AutoTokenizer, MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, AutoModelForSeq2SeqLM
-from tests.test_modeling_common import ids_tensor
 from transformers.testing_utils import require_torch
 from transformers.adapters.configuration import PfeifferCompacterConfig
 
@@ -117,3 +116,14 @@ class CompacterTestMixin:
             any(any(not torch.equal(p1, p2) for p1, p2 in zip(p_pre.values(), p_post.values())) for p_pre, p_post in
                 zip(parameters_pre.values(), model.base_model.shared_parameters.values()))
         )
+
+    def test_generation(self):
+        model = AutoModelForSeq2SeqLM.from_config(self.config())
+        adapter_config = PfeifferCompacterConfig(reduction_factor=8)
+        model.add_adapter("compacter", config=adapter_config)
+
+        model.train_adapter("compacter")
+
+        input_data = self.get_input_samples((2, 128), config=model.config)
+        model.generate(**input_data)
+
