@@ -167,8 +167,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         adapter_setup = parse_composition(adapter_setup)
         self.apply_to_adapter_layers(lambda i, layer: layer.enable_adapters(adapter_setup, True, False))
         for adapter_name in adapter_setup:
-            for param in self.shared_parameters[adapter_name].values():
-                param.requires_grad = True
+            if adapter_name in self.shared_parameters:
+                for param in self.shared_parameters[adapter_name].values():
+                    param.requires_grad = True
 
         if isinstance(self, InvertibleAdaptersMixin):
             self.enable_invertible_adapters(adapter_setup.flatten())
@@ -257,7 +258,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.config.adapters.add(adapter_name, config=config)
 
         self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
-        if config and config["phm_layer"]:
+        if config and "phm_layer" in config and config["phm_layer"]:
             self._add_shared_parameters(adapter_name, config)
         if isinstance(self, InvertibleAdaptersMixin):
             self.add_invertible_adapter(adapter_name)

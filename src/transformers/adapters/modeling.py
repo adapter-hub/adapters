@@ -123,8 +123,9 @@ class Adapter(nn.Module):
             self.adapter_up.apply(self.init_bert_weights)
 
     def forward(self, x, residual_input):  # , residual_input=None):
-        parameters = ForwardContext.get_context().shared_parameters[self.name]
-        if len(parameters) > 0:
+        if self.name in ForwardContext.get_context().shared_parameters:
+            parameters = ForwardContext.get_context().shared_parameters[self.name]
+        #if len(parameters) > 0:
             phm_parameters = nn.ParameterDict()
             if "phm_rule" in parameters:
                 phm_parameters["phm_rule"] = parameters["phm_rule"]
@@ -407,6 +408,23 @@ class GLOWCouplingBlock(nn.Module):
         return input_dims
 
 
+def kronecker_product(a, b):
+    """
+    Copied from rabeehk/compacter  seq2seq/hypercomplex/kronecker.py
+
+    Kronecker product of matrices a and b with leading batch dimensions.
+    Batch dimensions are broadcast. The number of them mush
+    :type a: torch.Tensor
+    :type b: torch.Tensor
+    :rtype: torch.Tensor
+    """
+    siz1 = torch.Size(torch.tensor(a.shape[-2:]) * torch.tensor(b.shape[-2:]))
+    res = a.unsqueeze(-1).unsqueeze(-3) * b.unsqueeze(-2).unsqueeze(-4)
+    siz0 = res.shape[:-4]
+    out = res.reshape(siz0 + siz1)
+    return out
+
+
 class PHMLayer(nn.Module):
     """
     This class is adapted from the compacter implementation at https://github.com/rabeehk/compacter
@@ -421,7 +439,7 @@ class PHMLayer(nn.Module):
                  c_init: str = "normal",
                  learn_phm: bool = True,
                  shared_phm_rule=False,
-                 factorized_phm=False,
+                 factorized_phm_W=False,
                  shared_W_phm=False,
                  factorized_phm_rule=False,
                  phm_rank=1,
@@ -457,9 +475,9 @@ class PHMLayer(nn.Module):
         self.w_init = w_init
         self.c_init = c_init
         self.shared_W_phm = shared_W_phm
-        self.factorized_phm = factorized_phm
+        self.factorized_phm_W = factorized_phm_W
         if not self.shared_W_phm:
-            if self.factorized_phm:
+            if self.factorized_phm_W:
                 self.W_left = nn.Parameter(torch.Tensor(size=(phm_dim, self._in_feats_per_axis, self.phm_rank)),
                                            requires_grad=True)
                 self.W_right = nn.Parameter(torch.Tensor(size=(phm_dim, self.phm_rank, self._out_feats_per_axis)),
@@ -474,13 +492,13 @@ class PHMLayer(nn.Module):
         self.reset_parameters()
 
     def init_W(self, W_left=None, W_right=None, W=None):
-        if self.factorized_phm:
+        if self.factorized_phm_W:
             W_left = W_left if W_left is not None else self.W_left
             W_right = W_right if W_right is not None else self.W_right
         else:
             W = W if W is not None else self.W
         if self.w_init == "glorot-normal":
-            if self.factorized_phm:
+            if self.factorized_phm_W:
                 for i in range(self.phm_dim):
                     W_left.data[i] = nn.init.xavier_normal_(W_left.data[i])
                     W_right.data[i] = nn.init.xavier_normal_(W_right.data[i])
@@ -488,7 +506,7 @@ class PHMLayer(nn.Module):
                 for i in range(self.phm_dim):
                     W.data[i] = nn.init.xavier_normal_(W.data[i])
         elif self.w_init == "glorot-uniform":
-            if self.factorized_phm:
+            if self.factorized_phm_W:
                 for i in range(self.phm_dim):
                     W_left.data[i] = nn.init.xavier_uniform_(W_left.data[i])
                     W_right.data[i] = nn.init.xavier_uniform_(W_right.data[i])
@@ -496,7 +514,7 @@ class PHMLayer(nn.Module):
                 for i in range(self.phm_dim):
                     W.data[i] = nn.init.xavier_uniform_(W.data[i])
         elif self.w_init == "normal":
-            if self.factorized_phm:
+            if self.factorized_phm_W:
                 for i in range(self.phm_dim):
                     W_left.data[i].normal_(mean=0, std=self.phm_init_range)
                     W_right.data[i].normal_(mean=0, std=self.phm_init_range)
@@ -541,7 +559,7 @@ class PHMLayer(nn.Module):
             self.phm_rule = phm_rule
 
     def set_W(self, W=None, W_left=None, W_right=None):
-        if self.factorized_phm:
+        if self.factorized_phm_W:
             self.W_left = W_left
             self.W_right = W_right
         else:
@@ -550,12 +568,12 @@ class PHMLayer(nn.Module):
     def forward(self, x: torch.Tensor, phm_rule: Union[None, nn.ParameterList] = None) -> torch.Tensor:
         if self.shared_W_phm:
             parameters = ForwardContext.get_context().phm_parameters
-            if self.factorized_phm:
+            if self.factorized_phm_W:
                 W = torch.bmm(parameters["W_left"], parameters["W_right"])
             else:
                 W = parameters["W"]
         else:
-            if self.factorized_phm:
+            if self.factorized_phm_W:
                 W = torch.bmm(self.W_left, self.W_right)
             else:
                 W = self.W
@@ -574,7 +592,7 @@ class PHMLayer(nn.Module):
         if self.kronecker_prod:
             H = self.kronecker_product(phm_rule, W).sum(0)
         else:
-            H = torch.kron(phm_rule, W).sum(0)
+            H = kronecker_product(phm_rule, W).sum(0)
 
         y = torch.matmul(input=x, other=H)
         if self.b is not None:
@@ -584,7 +602,7 @@ class PHMLayer(nn.Module):
     def init_shared_parameters(self):
         parameters = nn.ParameterDict()
         if self.shared_W_phm:
-            if self.factorized_phm:
+            if self.factorized_phm_W:
                 W_down_left = torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self.phm_rank))
                 W_down_right = torch.Tensor(size=(self.phm_dim, self.phm_rank, self._out_feats_per_axis))
                 W_up_left = torch.Tensor(size=(self.phm_dim, self._out_feats_per_axis, self.phm_rank))

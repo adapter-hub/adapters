@@ -3,7 +3,7 @@ import copy
 import torch
 
 from transformers import AutoModelWithHeads, AdapterConfig, PfeifferCompacterConfig, TrainingArguments, AdapterTrainer, \
-    AutoTokenizer
+    AutoTokenizer, MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, AutoModelForSeq2SeqLM
 from tests.test_modeling_common import ids_tensor
 from transformers.testing_utils import require_torch
 
@@ -35,7 +35,7 @@ class CompacterTestMixin:
 
     def test_add_compacter(self):
         model = AutoModelWithHeads.from_config(self.config())
-        adapter_config = PfeifferCompacterConfig()
+        adapter_config = PfeifferCompacterConfig(phm_dim=2, reduction_factor=8)
 
         # add two adapters: one will be trained and the other should be frozen
         model.add_adapter("compacter", config=adapter_config)
@@ -55,19 +55,22 @@ class CompacterTestMixin:
 
     def test_forward_compacter(self):
         model = AutoModelWithHeads.from_config(self.config())
-        adapter_config = PfeifferCompacterConfig()
+        adapter_config = PfeifferCompacterConfig(reduction_factor=8)
 
         model.add_adapter("compacter", config=adapter_config)
-        model.add_classification_head("compacter", num_labels=3)
+        self.add_head(model, "compacter", num_labels=3)
         model.set_active_adapters("compacter")
         self.assertEqual(set(["compacter"]), model.active_adapters.flatten())
-        input_tensor = ids_tensor((1, 128), vocab_size=1000)
-        output = model(input_tensor)
-        self.assertEqual((1, 3), output["logits"].shape)
+        input_tensor = self.get_input_samples((2, 128), config=model.config)
+        output = model(**input_tensor)
+        if self.config_class in MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING:
+            self.assertEqual((2, 3), output["logits"].shape)
+        else:
+            self.assertEqual(2, output["logits"].shape[0])
 
     def test_shared_phm_compacter(self):
         model = AutoModelWithHeads.from_config(self.config())
-        adapter_config = PfeifferCompacterConfig(shared_W_phm=True)
+        adapter_config = PfeifferCompacterConfig(shared_W_phm=True, reduction_factor=8)
 
         model.add_adapter("compacter", config=adapter_config)
         model.add_classification_head("compacter", num_labels=3)
@@ -81,7 +84,7 @@ class CompacterTestMixin:
     def test_train_shared_W_compacter(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         model = AutoModelWithHeads.from_config(self.config())
-        adapter_config = PfeifferCompacterConfig(shared_W_phm=True, shared_phm_rule=False)
+        adapter_config = PfeifferCompacterConfig(shared_W_phm=True, shared_phm_rule=False, reduction_factor=8)
 
         model.add_adapter("compacter", config=adapter_config)
         model.add_classification_head("compacter", num_labels=3)
@@ -98,7 +101,7 @@ class CompacterTestMixin:
     def test_train_shared_phm_compacter(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         model = AutoModelWithHeads.from_config(self.config())
-        adapter_config = PfeifferCompacterConfig()
+        adapter_config = PfeifferCompacterConfig(reduction_factor=8)
         model.add_adapter("compacter", config=adapter_config)
         model.add_classification_head("compacter", num_labels=3)
 
@@ -111,4 +114,15 @@ class CompacterTestMixin:
             any(any(not torch.equal(p1, p2) for p1, p2 in zip(p_pre.values(), p_post.values())) for p_pre, p_post in zip(parameters_pre.values(), model.base_model.shared_parameters.values()))
         )
 
+    def test_generation(self):
+        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+        model = AutoModelForSeq2SeqLM.from_config(self.config())
+        adapter_config = PfeifferCompacterConfig(reduction_factor=8)
+        model.add_adapter("compacter", config=adapter_config)
 
+        model.train_adapter("compacter")
+
+        parameters_pre = copy.deepcopy(model.base_model.shared_parameters)
+        self.trainings_run(model, tokenizer)
+
+        

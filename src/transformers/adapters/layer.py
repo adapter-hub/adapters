@@ -60,7 +60,7 @@ class AdapterLayer(nn.Module):
                 residual_before_ln=adapter_config["adapter_residual_before_ln"],
                 phm_layer=adapter_config["phm_layer"],
                 phm_dim=adapter_config["phm_dim"],
-                factorized_phm=adapter_config["factorized_phm"],
+                factorized_phm_W=adapter_config["factorized_phm_W"],
                 shared_W_phm=adapter_config["shared_W_phm"],
                 shared_phm_rule=adapter_config["shared_phm_rule"],
                 factorized_phm_rule=adapter_config["factorized_phm_rule"],

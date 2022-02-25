@@ -38,7 +38,7 @@ class AdapterConfig(Mapping):
     leave_out: List[int] = field(default_factory=list)
     phm_layer: bool = False
     phm_dim: int = None
-    factorized_phm: Optional[bool] = True
+    factorized_phm_W: Optional[bool] = True
     shared_W_phm: Optional[bool] = False
     shared_phm_rule: Optional[bool] = True
     factorized_phm_rule: Optional[bool] = False
@@ -153,7 +153,7 @@ class PfeifferConfig(AdapterConfig):
 class PfeifferCompacterConfig(PfeifferConfig):
     phm_layer: bool = True
     phm_dim: int = 2
-    factorized_phm: bool = True
+    factorized_phm_W: bool = True
 
 
 @dataclass
@@ -188,7 +188,7 @@ class HoulsbyConfig(AdapterConfig):
 class HoulsbyCompacterConfig(HoulsbyConfig):
     phm_layer: bool = True
     phm_dim: int = 12
-    factorized_phm: bool = True
+    factorized_phm_W: bool = True
 
 
 @dataclass
