@@ -509,8 +509,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             self.add_prediction_head(head, overwrite_ok=overwrite_ok, set_active=set_active)
         elif head_type in self.config.custom_heads:
             # we have to re-add the head type for custom heads
-            config["head_type"] = head_type
-            self.add_custom_head(head_name, config, overwrite_ok=overwrite_ok)
+            self.add_custom_head(head_type, head_name, overwrite_ok=overwrite_ok, **config)
         else:
             raise AttributeError(
                 "Given head type '{}' is not known. Please register this head type before loading the model".format(
@@ -579,9 +578,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             else:
                 logger.info("Could not identify a valid prediction head from setup '{}'.".format(self.active_adapters))
 
-    def add_custom_head(self, head_name, config, overwrite_ok=False, set_active=True):
-        if config["head_type"] in self.config.custom_heads:
-            head = self.config.custom_heads[config["head_type"]](head_name, config, self)
+    def add_custom_head(self, head_type, head_name, overwrite_ok=False, set_active=True, **kwargs):
+        if head_type in self.config.custom_heads:
+            head = self.config.custom_heads[head_type](self, head_name, **kwargs)
+            # When a build-in head is added as a custom head it does not have the head_type property
+            if not hasattr(head.config, "head_type"):
+                head.config["head_type"] = head_type
             self.add_prediction_head(head, overwrite_ok, set_active=set_active)
         else:
             raise AttributeError(

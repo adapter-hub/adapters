@@ -21,31 +21,29 @@ The following example shows the usage of a basic pre-trained transformer model w
 Our goal here is to predict the sentiment of a given sentence.
 
 We use BERT in this example, so we first load a pre-trained `BertTokenizer` to encode the input sentence and a pre-trained
-`BertModel` from HuggingFace:
+`bert-base-uncased` checkpoint from HuggingFace's Model Hub using the [`BertAdapterModel`](classes/models/bert.html#transformers.adapters.BertAdapterModel) class:
 
 ```python
 import torch
-from transformers import BertTokenizer, BertForSequenceClassification
+from transformers import BertTokenizer
+from transformers.adapters import BertAdapterModel
 
-# output more information
-import logging
-logging.basicConfig(level=logging.INFO)
-
-# load pre-trained BERT tokenizer from Huggingface
+# Load pre-trained BERT tokenizer from Huggingface.
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-# tokenize an input sentence
+# An input sentence.
 sentence = "It's also, clearly, great fun."
 
-# convert input tokens to indices and create PyTorch input tensor
-input_tensor = torch.tensor([tokenizer.encode(sentence)])
+# Tokenize the input sentence and create a PyTorch input tensor.
+input_data = tokenizer(sentence, return_tensors='pytorch')
 
-# load pre-trained BERT model from Huggingface
-# the `BertForSequenceClassification` class includes a prediction head for sequence classification
-model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+# Load pre-trained BERT model from HuggingFace Hub.
+# The `BertAdapterModel` class is specifically designed for working with adapters.
+# It can be used with different prediction heads.
+model = BertAdapterModel.from_pretrained('bert-base-uncased')
 ```
 
-Having loaded the model, we now add a pre-trained task adapter that is useful to our task from Adapter Hub.
+Having loaded the model, we now add a pre-trained task adapter that is useful to our task from AdapterHub.
 As we're doing sentiment classification, we use [an adapter trained on the SST-2 dataset](https://adapterhub.ml/adapters/ukp/bert-base-uncased_sentiment_sst-2_pfeiffer/) in this case.
 The task prediction head loaded together with the adapter gives us a class label for our sentence:
 
@@ -58,7 +56,7 @@ adapter_name = model.load_adapter('sst-2@ukp', config='pfeiffer')
 model.set_active_adapters(adapter_name)
 
 # predict output tensor
-outputs = model(input_tensor)
+outputs = model(**input_data)
 
 # retrieve the predicted class label
 predicted = torch.argmax(outputs[0]).item()
@@ -74,7 +72,7 @@ model.save_pretrained('./path/to/model/directory/')
 model.save_adapter('./path/to/adapter/directory/', 'sst-2')
 
 # load model
-model = BertModel.from_pretrained('./path/to/model/directory/')
+model = AutoAdapterModel.from_pretrained('./path/to/model/directory/')
 model.load_adapter('./path/to/adapter/directory/')
 ```
 

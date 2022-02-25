@@ -40,7 +40,6 @@ if is_torch_available():
         BartForQuestionAnswering,
         BartForSequenceClassification,
         BartModel,
-        BartModelWithHeads,
         BartTokenizer,
         pipeline,
     )
@@ -408,13 +407,7 @@ class BartHeadTests(unittest.TestCase):
 @require_torch
 class BartModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
     all_model_classes = (
-        (
-            BartModel,
-            BartModelWithHeads,
-            BartForConditionalGeneration,
-            BartForSequenceClassification,
-            BartForQuestionAnswering,
-        )
+        (BartModel, BartForConditionalGeneration, BartForSequenceClassification, BartForQuestionAnswering)
         if is_torch_available()
         else ()
     )

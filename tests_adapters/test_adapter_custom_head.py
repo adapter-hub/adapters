@@ -4,14 +4,19 @@ import unittest
 import torch
 
 from tests.test_modeling_common import ids_tensor
-from transformers import AutoConfig, AutoModelWithHeads
-from transformers.adapters.heads import PredictionHead
+from transformers import AutoConfig, AutoAdapterModel
+from transformers.adapters.heads import ClassificationHead, PredictionHead
 from transformers.testing_utils import require_torch, torch_device
 
 
 class CustomHead(PredictionHead):
-    def __init__(self, name, config, model):
-        super().__init__(name)
+    def __init__(
+        self,
+        model,
+        head_name,
+        **config,
+    ):
+        super().__init__(head_name)
         self.config = config
         self.build(model=model)
 
@@ -25,10 +30,10 @@ class CustomHead(PredictionHead):
 class AdapterCustomHeadTest(unittest.TestCase):
     def test_add_custom_head(self):
         model_name = "bert-base-uncased"
-        model = AutoModelWithHeads.from_pretrained(model_name)
+        model = AutoAdapterModel.from_pretrained(model_name)
         model.register_custom_head("tag", CustomHead)
-        config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
-        model.add_custom_head("custom_head", config)
+        config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
+        model.add_custom_head(head_type="tag", head_name="custom_head", **config)
         model.eval()
         model.to(torch_device)
         in_data = ids_tensor((1, 128), 1000)
@@ -41,9 +46,9 @@ class AdapterCustomHeadTest(unittest.TestCase):
     def test_custom_head_from_model_config(self):
         model_name = "bert-base-uncased"
         model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
-        model = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
-        config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
-        model.add_custom_head("custom_head", config)
+        model = AutoAdapterModel.from_pretrained(model_name, config=model_config)
+        config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
+        model.add_custom_head(head_type="tag", head_name="custom_head", **config)
         model.eval()
         model.to(torch_device)
         in_data = ids_tensor((1, 128), 1000)
@@ -56,10 +61,10 @@ class AdapterCustomHeadTest(unittest.TestCase):
     def test_save_load_custom_head(self):
         model_name = "bert-base-uncased"
         model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
-        model1 = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
-        model2 = AutoModelWithHeads.from_pretrained(model_name, config=model_config)
-        config = {"head_type": "tag", "num_labels": 3, "layers": 2, "activation_function": "tanh"}
-        model1.add_custom_head("custom_head", config)
+        model1 = AutoAdapterModel.from_pretrained(model_name, config=model_config)
+        model2 = AutoAdapterModel.from_pretrained(model_name, config=model_config)
+        config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
+        model1.add_custom_head(head_type="tag", head_name="custom_head", **config)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_head(temp_dir, "custom_head")
@@ -78,3 +83,19 @@ class AdapterCustomHeadTest(unittest.TestCase):
         state2 = model2.heads["custom_head"].state_dict()
         for ((k1, v1), (k2, v2)) in zip(state1.items(), state2.items()):
             self.assertTrue(torch.equal(v1, v2))
+
+    def test_builtin_head_as_custom(self):
+        model_name = "bert-base-uncased"
+        model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
+        model = AutoAdapterModel.from_pretrained(model_name, config=model_config)
+        model.eval()
+        in_data = ids_tensor((1, 128), 1000)
+
+        model.register_custom_head("classification", ClassificationHead)
+        model.add_custom_head(
+            head_type="classification", head_name="custom_head", num_labels=3, layers=2, activation_function="tanh"
+        )
+        output = model(in_data)
+
+        self.assertEqual((1, 3), output[0].shape)
+        self.assertEqual("custom_head", model.active_head)

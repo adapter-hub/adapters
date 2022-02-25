@@ -82,16 +82,8 @@ test:
 
 # Run the adapter tests
 
-test-adapter:
-	python -m pytest -n auto --dist=loadfile -s -v\
-		-k test_adapter\
-		--ignore-glob='tests/test_tokenization*'\
-		--ignore-glob='tests/test_processor*'\
-		./tests/
-
-# Run a reduced test suite in the CI pipeline of adapter-transformers
-test-reduced:
-	python utils/run_tests.py
+test-adapters:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests_adapters/
 
 # Run tests for examples
 

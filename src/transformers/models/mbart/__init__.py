@@ -45,7 +45,6 @@ if is_torch_available():
         "MBartForQuestionAnswering",
         "MBartForSequenceClassification",
         "MBartModel",
-        "MBartModelWithHeads",
         "MBartPreTrainedModel",
     ]
 
@@ -83,7 +82,6 @@ if TYPE_CHECKING:
             MBartForQuestionAnswering,
             MBartForSequenceClassification,
             MBartModel,
-            MBartModelWithHeads,
             MBartPreTrainedModel,
         )
 

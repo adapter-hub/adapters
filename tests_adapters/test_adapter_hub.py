@@ -3,13 +3,14 @@ import unittest
 
 import numpy as np
 
+from tests.test_modeling_common import ids_tensor
 from transformers import (  # get_adapter_config_hash,
     ADAPTER_CONFIG_MAP,
     AdapterConfig,
     AutoModel,
     AutoTokenizer,
+    BertAdapterModel,
     BertForSequenceClassification,
-    BertModelWithHeads,
     GlueDataset,
     GlueDataTrainingArguments,
     TrainingArguments,
@@ -19,8 +20,6 @@ from transformers import (  # get_adapter_config_hash,
 from transformers.adapters.trainer import AdapterTrainer as Trainer
 from transformers.adapters.utils import find_in_index
 from transformers.testing_utils import require_torch, torch_device
-
-from .test_modeling_common import ids_tensor
 
 
 SAMPLE_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/hub-index.sample.json")
@@ -140,7 +139,7 @@ class AdapterHubTest(unittest.TestCase):
                 self.assertEqual([1, 128, 768], list(output[0].size()))
 
     def test_load_adapter_with_head_from_hub(self):
-        model = BertModelWithHeads.from_pretrained("bert-base-uncased")
+        model = BertAdapterModel.from_pretrained("bert-base-uncased")
 
         loading_info = {}
         adapter_name = model.load_adapter(

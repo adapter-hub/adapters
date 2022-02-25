@@ -25,17 +25,15 @@ from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
-from ...adapters.context import ForwardContext
 from ...adapters.composition import adjust_tensors_for_parallel
-from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
-from ...adapters.models.bart import (
+from ...adapters.context import ForwardContext
+from ...adapters.mixins.bart import (
     BartDecoderLayerAdaptersMixin,
     BartEncoderLayerAdaptersMixin,
     BartModelAdaptersMixin,
-    BartModelHeadsMixin,
 )
+from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...file_utils import (
-    ModelOutput,
     add_code_sample_docstrings,
     add_end_docstrings,
     add_start_docstrings,
@@ -1249,88 +1247,6 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
             encoder_hidden_states=encoder_outputs.hidden_states,
             encoder_attentions=encoder_outputs.attentions,
         )
-
-
-@add_start_docstrings(
-    "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
-)
-class BartModelWithHeads(BartModelHeadsMixin, BartPretrainedModel):
-    def __init__(self, config: BartConfig, **kwargs):
-        super().__init__(config, **kwargs)
-        self.model = BartModel(config)
-
-        self._init_head_modules()
-
-    @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
-    @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
-        checkpoint="facebook/bart-large",
-        output_type=ModelOutput,
-        config_class=_CONFIG_FOR_DOC,
-    )
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        decoder_input_ids=None,
-        decoder_attention_mask=None,
-        head_mask=None,
-        decoder_head_mask=None,
-        cross_attn_head_mask=None,
-        encoder_outputs=None,
-        inputs_embeds=None,
-        decoder_inputs_embeds=None,
-        use_cache=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        head=None,
-        **kwargs
-    ):
-        r"""
-        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
-            Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
-            config.num_labels - 1]`. If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
-        """
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
-        if "labels" in kwargs or "start_positions" in kwargs and "end_positions" in kwargs:
-            use_cache = False
-
-        outputs = self.model(
-            input_ids,
-            attention_mask=attention_mask,
-            decoder_input_ids=decoder_input_ids,
-            decoder_attention_mask=decoder_attention_mask,
-            head_mask=head_mask,
-            decoder_head_mask=decoder_head_mask,
-            cross_attn_head_mask=cross_attn_head_mask,
-            encoder_outputs=encoder_outputs,
-            inputs_embeds=inputs_embeds,
-            decoder_inputs_embeds=decoder_inputs_embeds,
-            use_cache=use_cache,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
-        # sequence classification based on last token in sequence
-        x = outputs[0]  # last hidden state
-        eos_mask = input_ids.eq(self.config.eos_token_id)
-        (eos_mask,) = adjust_tensors_for_parallel(x, eos_mask)
-        if len(torch.unique(eos_mask.sum(1))) > 1:
-            raise ValueError("All examples must have the same number of <eos> tokens.")
-        cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
-
-        head_outputs = self.forward_head(
-            outputs,
-            head_name=head,
-            cls_output=cls_representation,
-            attention_mask=attention_mask,
-            return_dict=return_dict,
-            **kwargs,
-        )
-
-        return head_outputs
 
 
 @add_start_docstrings(

@@ -25,7 +25,6 @@ from ..roberta.modeling_roberta import (
     RobertaForSequenceClassification,
     RobertaForTokenClassification,
     RobertaModel,
-    RobertaModelWithHeads,
 )
 from .configuration_xlm_roberta import XLMRobertaConfig
 
@@ -68,19 +67,6 @@ XLM_ROBERTA_START_DOCSTRING = r"""
 class XLMRobertaModel(RobertaModel):
     """
     This class overrides :class:`~transformers.RobertaModel`. Please check the superclass for the appropriate
-    documentation alongside usage examples.
-    """
-
-    config_class = XLMRobertaConfig
-
-
-@add_start_docstrings(
-    """XLM-RoBERTa Model with the option to add multiple flexible heads on top.""",
-    XLM_ROBERTA_START_DOCSTRING,
-)
-class XLMRobertaModelWithHeads(RobertaModelWithHeads):
-    """
-    This class overrides :class:`~transformers.RobertaModelWithHeads`. Please check the superclass for the appropriate
     documentation alongside usage examples.
     """
 

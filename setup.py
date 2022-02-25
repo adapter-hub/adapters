@@ -145,6 +145,7 @@ _deps = [
     "sphinx==3.2.1",
     "sphinxext-opengraph==0.4.1",
     "sphinx-intl",
+    "sphinx-multiversion",
     "starlette",
     "tensorflow-cpu>=2.3",
     "tensorflow>=2.3",
@@ -298,6 +299,7 @@ extras["docs_specific"] = deps_list(
     "sphinx-copybutton",
     "sphinxext-opengraph",
     "sphinx-intl",
+    "sphinx-multiversion",
 )
 # "docs" needs "all" to resolve all the references
 extras["docs"] = extras["all"] + extras["docs_specific"]

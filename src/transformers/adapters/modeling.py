@@ -55,16 +55,16 @@ class Adapter(nn.Module):
     """
 
     def __init__(
-            self,
-            adapter_name,
-            input_size,
-            down_sample=None,
-            non_linearity="relu",
-            init_bert_weights=True,
-            add_layer_norm_before=True,
-            add_layer_norm_after=False,
-            residual_before_ln=True,
-            **kwargs,
+        self,
+        adapter_name,
+        input_size,
+        down_sample=None,
+        non_linearity="relu",
+        init_bert_weights=True,
+        add_layer_norm_before=True,
+        add_layer_norm_after=False,
+        residual_before_ln=True,
+        **kwargs,
     ):
         super().__init__()
         self.name = adapter_name
@@ -125,7 +125,7 @@ class Adapter(nn.Module):
     def forward(self, x, residual_input):  # , residual_input=None):
         if self.name in ForwardContext.get_context().shared_parameters:
             parameters = ForwardContext.get_context().shared_parameters[self.name]
-        #if len(parameters) > 0:
+            # if len(parameters) > 0:
             phm_parameters = nn.ParameterDict()
             if "phm_rule" in parameters:
                 phm_parameters["phm_rule"] = parameters["phm_rule"]
@@ -195,10 +195,10 @@ class BertFusion(nn.Module):
     """
 
     def __init__(
-            self,
-            config: AdapterFusionConfig,
-            dense_size,
-            attention_probs_dropout_prob,
+        self,
+        config: AdapterFusionConfig,
+        dense_size,
+        attention_probs_dropout_prob,
     ):
         super(BertFusion, self).__init__()
         # if config.hidden_size % config.num_attention_heads != 0:
@@ -315,7 +315,7 @@ class NICECouplingBlock(nn.Module):
         self.G = subnet_constructor(self.split_len1 + condition_length, self.split_len2)
 
     def forward(self, x, c=[], rev=False):
-        x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1:])
+        x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1 :])
         if not rev:
             x2_c = torch.cat([x2, *c], 1) if self.conditional else x2
             y1 = x1 + self.F(x2_c)
@@ -374,14 +374,14 @@ class GLOWCouplingBlock(nn.Module):
         return self.clamp * 0.636 * torch.atan(s / self.clamp)
 
     def forward(self, x, c=[], rev=False):
-        x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1:])
+        x1, x2 = (x[:, :, : self.split_len1], x[:, :, self.split_len1 :])
 
         if not rev:
             s2, t2 = x1.clone(), x2.clone()
             y1 = self.e(s2) * x1 + t2
 
             r1 = self.s1(torch.cat([y1, *c], 1) if self.conditional else y1)
-            s1, t1 = r1[:, : self.split_len2], r1[:, self.split_len2:]
+            s1, t1 = r1[:, : self.split_len2], r1[:, self.split_len2 :]
             y2 = self.e(s1) * x2 + t1
             self.last_jac = torch.sum(self.log_e(s1), dim=tuple(range(1, self.ndims + 1))) + torch.sum(
                 self.log_e(s2), dim=tuple(range(1, self.ndims + 1))
@@ -389,11 +389,11 @@ class GLOWCouplingBlock(nn.Module):
 
         else:  # names of x and y are swapped!
             r1 = self.s1(torch.cat([x1, *c], 1) if self.conditional else x1)
-            s1, t1 = r1[:, : self.split_len2], r1[:, self.split_len2:]
+            s1, t1 = r1[:, : self.split_len2], r1[:, self.split_len2 :]
             y2 = (x2 - t1) / self.e(s1)
 
             r2 = self.s2(torch.cat([y2, *c], 1) if self.conditional else y2)
-            s2, t2 = r2[:, : self.split_len1], r2[:, self.split_len1:]
+            s2, t2 = r2[:, : self.split_len1], r2[:, self.split_len1 :]
             y1 = (x1 - t2) / self.e(s2)
             self.last_jac = -torch.sum(self.log_e(s1), dim=tuple(range(1, self.ndims + 1))) - torch.sum(
                 self.log_e(s2), dim=tuple(range(1, self.ndims + 1))
@@ -429,27 +429,34 @@ class PHMLayer(nn.Module):
     """
     This class is adapted from the compacter implementation at https://github.com/rabeehk/compacter
     """
-    def __init__(self,
-                 in_features: int,
-                 out_features: int,
-                 phm_dim: int,
-                 phm_rule: Union[None, torch.Tensor] = None,
-                 bias: bool = True,
-                 w_init: str = "normal",
-                 c_init: str = "normal",
-                 learn_phm: bool = True,
-                 shared_phm_rule=False,
-                 factorized_phm_W=False,
-                 shared_W_phm=False,
-                 factorized_phm_rule=False,
-                 phm_rank=1,
-                 phm_init_range=0.0001,
-                 kronecker_prod=False) -> None:
+
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        phm_dim: int,
+        phm_rule: Union[None, torch.Tensor] = None,
+        bias: bool = True,
+        w_init: str = "normal",
+        c_init: str = "normal",
+        learn_phm: bool = True,
+        shared_phm_rule=False,
+        factorized_phm_W=False,
+        shared_W_phm=False,
+        factorized_phm_rule=False,
+        phm_rank=1,
+        phm_init_range=0.0001,
+        kronecker_prod=False,
+    ) -> None:
         super(PHMLayer, self).__init__()
         assert w_init in ["phm", "glorot-normal", "glorot-uniform", "normal"]
         assert c_init in ["normal", "uniform"]
-        assert in_features % phm_dim == 0, f"Argument `in_features`={in_features} is not divisble be `phm_dim`{phm_dim}"
-        assert out_features % phm_dim == 0, f"Argument `out_features`={out_features} is not divisble be `phm_dim`{phm_dim}"
+        assert (
+            in_features % phm_dim == 0
+        ), f"Argument `in_features`={in_features} is not divisble be `phm_dim`{phm_dim}"
+        assert (
+            out_features % phm_dim == 0
+        ), f"Argument `out_features`={out_features} is not divisble be `phm_dim`{phm_dim}"
         self.in_features = in_features
         self.out_features = out_features
         self.learn_phm = learn_phm
@@ -457,20 +464,17 @@ class PHMLayer(nn.Module):
         self._in_feats_per_axis = in_features // phm_dim
         self._out_feats_per_axis = out_features // phm_dim
         self.phm_rank = phm_rank
-        self.phm_rule=phm_rule
+        self.phm_rule = phm_rule
         self.phm_init_range = phm_init_range
         self.kronecker_prod = kronecker_prod
         self.shared_phm_rule = shared_phm_rule
         self.factorized_phm_rule = factorized_phm_rule
         if not self.shared_phm_rule:
             if self.factorized_phm_rule:
-                self.phm_rule_left = nn.Parameter(torch.FloatTensor(phm_dim, phm_dim, 1),
-                                                  requires_grad=learn_phm)
-                self.phm_rule_right = nn.Parameter(torch.FloatTensor(phm_dim, 1, phm_dim),
-                                                   requires_grad=learn_phm)
+                self.phm_rule_left = nn.Parameter(torch.FloatTensor(phm_dim, phm_dim, 1), requires_grad=learn_phm)
+                self.phm_rule_right = nn.Parameter(torch.FloatTensor(phm_dim, 1, phm_dim), requires_grad=learn_phm)
             else:
-                self.phm_rule = nn.Parameter(torch.FloatTensor(phm_dim, phm_dim, phm_dim),
-                                             requires_grad=learn_phm)
+                self.phm_rule = nn.Parameter(torch.FloatTensor(phm_dim, phm_dim, phm_dim), requires_grad=learn_phm)
         self.bias_flag = bias
         self.w_init = w_init
         self.c_init = c_init
@@ -478,13 +482,16 @@ class PHMLayer(nn.Module):
         self.factorized_phm_W = factorized_phm_W
         if not self.shared_W_phm:
             if self.factorized_phm_W:
-                self.W_left = nn.Parameter(torch.Tensor(size=(phm_dim, self._in_feats_per_axis, self.phm_rank)),
-                                           requires_grad=True)
-                self.W_right = nn.Parameter(torch.Tensor(size=(phm_dim, self.phm_rank, self._out_feats_per_axis)),
-                                            requires_grad=True)
+                self.W_left = nn.Parameter(
+                    torch.Tensor(size=(phm_dim, self._in_feats_per_axis, self.phm_rank)), requires_grad=True
+                )
+                self.W_right = nn.Parameter(
+                    torch.Tensor(size=(phm_dim, self.phm_rank, self._out_feats_per_axis)), requires_grad=True
+                )
             else:
-                self.W = nn.Parameter(torch.Tensor(size=(phm_dim, self._in_feats_per_axis, self._out_feats_per_axis)),
-                                      requires_grad=True)
+                self.W = nn.Parameter(
+                    torch.Tensor(size=(phm_dim, self._in_feats_per_axis, self._out_feats_per_axis)), requires_grad=True
+                )
         if self.bias_flag:
             self.b = nn.Parameter(torch.Tensor(out_features))
         else:
@@ -622,10 +629,12 @@ class PHMLayer(nn.Module):
                 parameters["W_up"] = nn.Parameter(W_up, requires_grad=True)
         if self.shared_phm_rule:
             if self.factorized_phm_rule:
-                phm_rule_left = nn.Parameter(torch.FloatTensor(self.phm_dim, self.phm_dim, 1).to(self.device),
-                                             requires_grad=self.learn_phm)
-                phm_rule_right = nn.Parameter(torch.FloatTensor(self.phm_dim, 1, self.phm_dim).to(self.device),
-                                              requires_grad=self.learn_phm)
+                phm_rule_left = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, self.phm_dim, 1).to(self.device), requires_grad=self.learn_phm
+                )
+                phm_rule_right = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, 1, self.phm_dim).to(self.device), requires_grad=self.learn_phm
+                )
                 if self.c_init == "normal":
                     phm_rule_left.data.normal_(mean=0, std=self.phm_init_range)
                     phm_rule_right.data.normal_(mean=0, std=self.phm_init_range)
@@ -637,8 +646,9 @@ class PHMLayer(nn.Module):
                 parameters["phm_rule_left"] = phm_rule_left
                 parameters["phm_rule_right"] = phm_rule_right
             else:
-                phm_rule = nn.Parameter(torch.FloatTensor(self.phm_dim, self.phm_dim, self.phm_dim),
-                                        requires_grad=self.learn_phm)
+                phm_rule = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, self.phm_dim, self.phm_dim), requires_grad=self.learn_phm
+                )
                 if self.c_init == "normal":
                     phm_rule.data.normal_(mean=0, std=self.phm_init_range)
                 elif self.c_init == "uniform":

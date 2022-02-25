@@ -14,31 +14,39 @@ Now we go through the integration of adapters into an existing model architectur
 
 ## Implementation
 
-❓ Each model architecture with adapter support has a main `<model_type>.py` module in `src/transformers/adapters/models` (e.g. `src/transformers/adapters/models/distilbert.py` for `modeling_distilbert.py`) that provides the required adapter mixins for each modeling component (e.g. there is a `DistilBertTransfomerBlockAdaptersMixin` for the `TransformerBlock` of DistilBERT etc.).
-This is the central module to implement.
+### Integration into model implementation
+
+❓ Adding adapter support to an existing model architecture requires modifying a few parts of the model forward pass logic. These changes have to be made directly in the respective `modeling_<model_type>.py` class.
+Additionally, a few adapter mixins need to be applied to the respective Transformer module classes to provide the adapter implementations to a model.
+For this purpose, there typically exists a module `src/transformers/adapters/mixins/<model_type>.py`.
 
 **📝 Steps**
 
-- Add a new `<model_type>.py` module for your architecture in `src/transformers/adapters/models` (or reuse an existing if possible).
-    - There usually should be one mixin that derives from `AdapterLayerBaseMixin` or has it as a child module.
-    - The mixin for the whole base model class (e.g. `BertModel`) should derive from `ModelAdaptersMixin` and (if possible) `InvertibleAdaptersMixin`. Make sure to implement the abstract methods these mixins might define.
+- Add a new `<model_type>.py` module for your architecture in `src/transformers/adapters/mixins` (or reuse an existing if possible).
+    - There usually exists a mixin on the Transformer layer level that derives that holds modules for adapter layers.
+    - The mixin for the whole base model class (e.g. `BertModel`) should derive from `ModelAdaptersMixin` and (if possible) `InvertibleAdaptersMixin`. This mixin should at least implement the `iter_layers()` method but might require additional modifications depending on the architecture.
     - Have a look at existing examples, e.g. `distilbert.py`, `bert.py`.
-- Implement the mixins on the modeling classes (`modeling_<model_type>.py`).
-    - Make sure the calls to `adapters_forward()` are added in the right places.
+- Implement the mixins and the required modifications on the modeling classes (`modeling_<model_type>.py`).
+    - Make sure the calls to `adapter_layer_forward()` are added in the right places.
     - The base model class (e.g. `BertModel`) should implement the mixin derived from `ModelAdaptersMixin` you created previously.
     - The model classes with heads (e.g. `BertForSequenceClassification`) should directly implement `ModelWithHeadsAdaptersMixin`.
+    - To additionally support Prefix Tuning, it's necessary to apply the forward call to the `PrefixTuningShim` module in the respective attention layer.
+    - Again, have a look at existing implementations, e.g. `modeling_distilbert.py` or `modeling_bart.py`.
 - Add the mixin for config classes, `ModelConfigAdaptersMixin`, to the model configuration class in `configuration_<model_type>`.
     - There are some naming differences on the config attributes of different model architectures. The adapter implementation requires some additional attributes with a specific name to be available. These currently are `hidden_dropout_prob` and `attention_probs_dropout_prob` as in the `BertConfig` class.
 
-❓ Adapter-supporting architectures have a new model class `<model_type>ModelWithHeads`.
-These classes allow flexible adding of and switching between multiple prediction heads of different types.
+### `...AdapterModel` class
+
+❓ Adapter-supporting architectures should provide a new model class `<model_type>AdapterModel`.
+This class allows flexible adding of and switching between multiple prediction heads of different types.
 
 **📝 Steps**
 
-- In `modeling_<model_type>.py`, add a new `<model_type>ModelWithHeads` class.
-    - This class should implement a mixin (in `src/transformers/adapters/models/<model_type>.py`) which derives from `ModelWithFlexibleHeadsAdaptersMixin`
-    - In the mixin, add methods for those prediction heads that make sense for the new model architecture.
-- Add `<model_type>ModelWithHeads` to the `MODEL_WITH_HEADS_MAPPING` mapping in `modeling_auto.py` and to `__init__.py`.
+- In `src/transformers/adapters/models`, add a new `<model_type>.py` file.
+    - This module should implement the `<model_type>AdapterModel` class, deriving from `ModelWithFlexibleHeadsAdaptersMixin` and `<model_type>PreTrainedModel`.
+    - In the model class, add methods for those prediction heads that make sense for the new model architecture.
+    - Again, have a look at existing implementations, e.g. `bert.py`. Note that the `<model_type>ModelWithHeads` classes in existing modules are kept for backwards compatibility and are not needed for newly added architectures.
+- Add `<model_type>AdapterModel` to the `ADAPTER_MODEL_MAPPING_NAMES` mapping in `src/transformers/adapters/models/auto.py` and to `src/transformers/adapters/__init__.py`.
 
 ### Additional (optional) implementation steps
 
@@ -47,13 +55,14 @@ These classes allow flexible adding of and switching between multiple prediction
 
 ## Testing
 
-❓ In addition to the general HuggingFace model tests, there are adapter-specific test cases (usually starting with `test_adapter_`).
+❓ In addition to the general HuggingFace model tests, there are adapter-specific test cases. All tests are executed from the `tests_adapters` folder.
 
 **📝 Steps**
 
-- Add a new `<model_type>AdapterTest` class in `test_adapter.py` similar to the existing classes (e.g. `BertAdapterTest`).
-- Add `<model_type>ModelWithHeads` to `test_modeling_<model_type>.py`.
-- Insert `test_modeling_<model_type>` into the list of tested modules in `utils/run_tests.py`.
+- Add a new `test_<model_type>.py` module in `tests_adapters`. This module typically holds three test classes:
+    - `<model_type>AdapterModelTest` derives directly from HuggingFace's existing model test class `<model_type>ModelTest` and adds `<model_type>AdapterModel` as class to test.
+    - `<model_type>AdapterModelTest` derives from a collection of test mixins that hold various adapter tests (depending on the implementation).
+    - (optionally) `<model_type>ClassConversionTest` runs tests for correct class conversion if conversion of prediction heads is implemented.
 - Append `<model_type>` to the list in `check_adapters.py`.
 
 ## Documentation
@@ -62,7 +71,7 @@ These classes allow flexible adding of and switching between multiple prediction
 
 **📝 Steps**
 
-- Add `adapter_docs/classes/models/<model_type>.rst` (oriented at the doc file in the HF docs, make sure to include `<model_type>ModelWithHeads` and the HF notice). 
+- Add `adapter_docs/classes/models/<model_type>.rst` (oriented at the doc file in the HF docs). Make sure to include `<model_type>AdapterModel` autodoc. 
 Finally, list the file in `index.rst`.
 
 ## Training Example Adapters

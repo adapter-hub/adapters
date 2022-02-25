@@ -1,38 +1,31 @@
 # Prediction Heads
 
 This section gives an overview how different prediction heads can be used together with adapter modules and how pre-trained adapters can be distributed side-by-side with matching prediction heads in AdapterHub.
-We will take a look at our own new **model classes with flexible heads** (e.g. `BertModelWithHeads`) as well as **models with static heads** provided out-of-the-box by HuggingFace (e.g. `BertForSequenceClassification`).
+We will take a look at the `AdapterModel` classes (e.g. `BertAdapterModel`) introduced by adapter-transformers, which provide **flexible** support for prediction heads, as well as models with **static** heads provided out-of-the-box by HuggingFace Transformers (e.g. `BertForSequenceClassification`).
 
 ```eval_rst
 .. tip::
-    We recommend to use the `model classes with flexible heads <#models-with-flexible-heads>`_ whenever possible.
+    We recommend to use the `AdapterModel classes <#adaptermodel-classes>`_ whenever possible. 
     They have been created specifically for working with adapters and provide more flexibility.
 ```
 
-```eval_rst
-.. important::
-    Although the two prediction head implementations serve the same use case, their weights are *not* directly compatible, i.e. you cannot load a head created with ``AutoModelWithHeds`` into a model of type ``AutoModelForSequenceClassification``.
-    There is however an `automatic conversion to model classes with flexible heads <#automatic-conversion>`_.
-```
+## AdapterModel classes
 
-## Models with flexible heads
+The AdapterModel classes provided by `adapter-transformers` allow a flexible configuration of prediction heads on top of a pre-trained language model.
 
-To allow for prediction heads to be configured in a flexible way on top of a pre-trained language model, `adapter-transformers` provides a new line of model classes.
-These classes follow the naming schema `<model_class>WithHeads` and are available for all model classes supporting adapters. Let's see how they work:
-
-First, we load pre-trained model from HuggingFace:
+First, we load pre-trained model from the HuggingFace Hub via the [`AutoAdapterModel`](classes/models/auto.html#transformers.adapters.AutoAdapterModel) class:
 ```python
-model = BertModelWithHeads.from_pretrained("bert-base-uncased")
+model = AutoAdapterModel.from_pretrained("bert-base-uncased")
 ```
 
-Although we use the class `BertModelWithHeads`, this model doesn't have any heads yet. We add a new one in the next step:
+By default, this model doesn't have any heads yet. We add a new one in the next step:
 ```python
 model.add_classification_head("mrpc", num_labels=2)
 ```
 The line above adds a binary sequence classification head on top of our model.
 As this head is named, we could add multiple other heads with different names to the same model.
 This is especially useful if used together with matching adapter modules.
-For more about the different head types and the configuration options, refer to the class references of the respective model classes, e.g. [BertModelWithHeads](classes/models/bert.html#transformers.BertModelWithHeads).
+To learn more about the different head types and the configuration options, please refer to the class references of the respective model classes, e.g. [`BertAdapterModel`](classes/models/bert.html#transformers.adapters.BertAdapterModel).
 
 Now, of course, we would like to train our classification head together with an adapter, so let's add one:
 ```python
@@ -49,9 +42,10 @@ At this point, we can start to [train our setup](training.md).
     The ``set_active_adapters()`` will search for an adapter and a prediction head with the given name to be activated.
     Alternatively, prediction heads can also be activated explicitly (i.e. without adapter modules).
     These three options are possible (in order of priority when multiple are specified):
-        1. If ``head`` is passed to the forward call, the head with the given name is used.
-        2. If the forward call is executed within an ``AdapterSetup`` context, the head configuration is read from the context.
-        3. If the ``active_head`` property is set, the head configuration is read from there.
+
+    1. If ``head`` is passed to the forward call, the head with the given name is used.
+    2. If the forward call is executed within an ``AdapterSetup`` context, the head configuration is read from the context.
+    3. If the ``active_head`` property is set, the head configuration is read from there.
 ```
 
 After training has completed, we can save our whole setup (adapter module _and_ prediction head), with a single call:
@@ -59,8 +53,8 @@ After training has completed, we can save our whole setup (adapter module _and_ 
 model.save_adapter("/path/to/dir", "mrpc", with_head=True)
 ```
 
-Now, we just have to [share our work with the world](contributing.html#add-your-pre-trained-adapter).
-After we published our adapter together with its head in the Hub, anyone else can load both adapter and head by using the same model class.
+Now, you just have to [share your work with the world](contributing.html#add-your-pre-trained-adapter).
+After you published our adapter together with its head in the Hub, anyone else can load both adapter and head by using the same model class.
 
 Alternatively, we can also save and load the prediction head separately from an adapter module:
 
@@ -77,7 +71,7 @@ Lastly, it's also possible to delete an added head again:
 model.delete_head("mrpc")
 ```
 
-## Model with static heads (HuggingFace heads)
+## Model classes with static heads (HuggingFace Transformers)
 
 The `transformers` library provides strongly typed model classes with heads for various different tasks (e.g. `RobertaForSequenceClassification`, `AutoModelForMultipleChoice` ...).
 If an adapter module is trained with one these out-of-the-box classes, it is encouraged to also distribute the prediction head weights together with the adapter weights.
@@ -93,14 +87,20 @@ In case the classes match, our prediction head weights will be automatically loa
 
 ## Automatic conversion 
 
-Beginning with v2.1 of `adapter-transformers`, it is possible to load static heads, e.g. created with `AutoModelForSequenceClassification`, into model classes with flexible heads, e.g. `AutoModelWithHeads`.
+```eval_rst
+.. important::
+    Although the two prediction head implementations serve the same use case, their weights are *not* directly compatible, i.e. you cannot load a head created with ``AutoAdapterModel`` into a model of type ``AutoModelForSequenceClassification``.
+    There is however an automatic conversion to model classes with flexible heads.
+```
+
+Beginning with v2.1 of `adapter-transformers`, it is possible to load static heads, e.g. created with `AutoModelForSequenceClassification`, into model classes with flexible heads, e.g. `AutoAdapterModel`.
 The conversion of weights happens automatically during the call of `load_adapter()`, so no additional steps are needed:
 ```python
 static_head_model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
 static_head_model.add_adapter("test")
 static_head_model.save_adapter(temp_dir, "test")
 
-flex_head_model = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+flex_head_model = AutoAdapterModel.from_pretrained("bert-base-uncased")
 flex_head_model.load_adapter(temp_dir)
 
 assert "test" in flex_head_model.config.adapters

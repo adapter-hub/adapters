@@ -1,0 +1,33 @@
+<!--- IMPORTANT: This file has modifications compared to the snippet on the documentation page! -->
+{%- if current_version %}
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Versions</span>
+    v: {{ current_version.name | replace('adapters', 'v') }}
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    {%- if versions.tags %}
+    <dl>
+      <dt>Tags</dt>
+      {%- for item in versions.tags %}
+      {%- if current_version.name == 'master' -%}
+      {%- set item_url = item.url | replace('../', './', 1) -%}
+      {%- else -%}
+      {%- set item_url = item.url -%}
+      {%- endif -%}
+      <dd><a href="{{ item_url | replace('/adapters', '/v', 1) }}">{{ item.name | replace('adapters', 'v') }}</a></dd>
+      {%- endfor %}
+    </dl>
+    {%- endif %}
+    {%- if versions.branches %}
+    <dl>
+      <dt>Branches</dt>
+      {%- for item in versions.branches %}
+      <dd><a href="{{ item.url | replace('master/', '', 1) }}">{{ item.name }}</a></dd>
+      {%- endfor %}
+    </dl>
+    {%- endif %}
+  </div>
+</div>
+{%- endif %}

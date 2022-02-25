@@ -85,11 +85,14 @@ class ForwardContext:
 
         @functools.wraps(f)
         def wrapper_func(self, *args, **kwargs):
-            context = cls(self, *args, **kwargs)
-            cls.get_contexts().append(context)
-            results = f(self, *args, **kwargs)
-            cls.get_contexts().pop()
-            return results
+            if self.config.adapters is not None:
+                context = cls(self, *args, **kwargs)
+                cls.get_contexts().append(context)
+                results = f(self, *args, **kwargs)
+                cls.get_contexts().pop()
+                return results
+            else:
+                return f(self, *args, **kwargs)
 
         return wrapper_func
 

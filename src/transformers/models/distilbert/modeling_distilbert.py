@@ -27,17 +27,12 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import gelu
-from ...adapters.context import ForwardContext
 from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.mixins.distilbert import DistilBertModelAdaptersMixin, DistilBertTransfomerBlockAdaptersMixin
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
-from ...adapters.models.distilbert import (
-    DistilBertModelAdaptersMixin,
-    DistilBertModelHeadsMixin,
-    DistilBertTransfomerBlockAdaptersMixin,
-)
 from ...deepspeed import is_deepspeed_zero3_enabled
 from ...file_utils import (
-    ModelOutput,
     add_code_sample_docstrings,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
@@ -574,86 +569,6 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-
-
-@add_start_docstrings(
-    """DistilBert Model transformer with the option to add multiple flexible heads on top.""",
-    DISTILBERT_START_DOCSTRING,
-)
-class DistilBertModelWithHeads(DistilBertModelHeadsMixin, DistilBertPreTrainedModel):
-    def __init__(self, config):
-        super().__init__(config)
-        self.distilbert = DistilBertModel(config)
-
-        self._init_head_modules()
-
-        self.init_weights()
-
-    def get_position_embeddings(self) -> nn.Embedding:
-        """
-        Returns the position embeddings
-        """
-        return self.distilbert.get_position_embeddings()
-
-    def resize_position_embeddings(self, new_num_position_embeddings: int):
-        """
-        Resizes position embeddings of the model if :obj:`new_num_position_embeddings !=
-        config.max_position_embeddings`.
-
-        Arguments:
-            new_num_position_embeddings (:obj:`int`):
-                The number of new position embedding matrix. If position embeddings are learned, increasing the size
-                will add newly initialized vectors at the end, whereas reducing the size will remove vectors from the
-                end. If position embeddings are not learned (*e.g.* sinusoidal position embeddings), increasing the
-                size will add correct vectors at the end following the position encoding algorithm, whereas reducing
-                the size will remove vectors from the end.
-        """
-        self.distilbert.resize_position_embeddings(new_num_position_embeddings)
-
-    @add_start_docstrings_to_model_forward(DISTILBERT_INPUTS_DOCSTRING.format("batch_size, num_choices"))
-    @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
-        checkpoint="distilbert-base-uncased",
-        output_type=ModelOutput,
-        config_class=_CONFIG_FOR_DOC,
-    )
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        head_mask=None,
-        inputs_embeds=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        head=None,
-        **kwargs
-    ):
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
-        input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
-        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
-        inputs_embeds = (
-            inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
-            if inputs_embeds is not None
-            else None
-        )
-
-        distilbert_output = self.distilbert(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
-
-        outputs = self.forward_head(
-            distilbert_output, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
-        )
-
-        return outputs
 
 
 @add_start_docstrings(
