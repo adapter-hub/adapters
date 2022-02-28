@@ -22,6 +22,7 @@ import torch
 import torch.distributed as dist
 from torch import nn
 
+from .adapters.context import ForwardContext
 from .file_utils import ModelOutput
 from .generation_beam_search import BeamScorer, BeamSearchScorer
 from .generation_logits_process import (
@@ -413,7 +414,8 @@ class GenerationMixin:
                 for argument, value in model_kwargs.items()
                 if not (argument.startswith("decoder_") or argument.startswith("cross_attn"))
             }
-            model_kwargs["encoder_outputs"]: ModelOutput = encoder(input_ids, return_dict=True, **encoder_kwargs)
+            with ForwardContext(self, input_ids, **encoder_kwargs):
+                model_kwargs["encoder_outputs"]: ModelOutput = encoder(input_ids, return_dict=True, **encoder_kwargs)
         return model_kwargs
 
     def _prepare_decoder_input_ids_for_generation(
