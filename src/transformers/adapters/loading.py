@@ -16,10 +16,11 @@ from .utils import (
     HEAD_CONFIG_NAME,
     HEAD_WEIGHTS_NAME,
     WEIGHTS_NAME,
+    ACTIVATION_RENAME,
     AdapterType,
     resolve_adapter_path,
 )
-
+from transformers import __adapters_version__
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,8 @@ class WeightsLoaderHelper:
             for k, v in meta_dict.items():
                 if k not in config:
                     config[k] = v
+        # add version to config
+        config["adapter_version"] = __adapters_version__
         # save to file system
         output_config_file = join(save_directory, self.config_name)
         with open(output_config_file, "w", encoding="utf-8") as f:
@@ -77,6 +80,11 @@ class WeightsLoaderHelper:
         # Load the config
         with open(config_file, "r", encoding="utf-8") as f:
             loaded_config = json.load(f)
+        # For older versions translate the activation function to the new format
+        if not "adapter_version" in loaded_config:
+            if "config" in loaded_config and loaded_config["config"] is not None:
+                if "non_linearity" in loaded_config["config"] and loaded_config["config"]["non_linearity"] in ACTIVATION_RENAME:
+                    loaded_config["config"]["non_linearity"] = ACTIVATION_RENAME[loaded_config["config"]["non_linearity"]]
         return loaded_config
 
     @staticmethod

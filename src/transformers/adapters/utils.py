@@ -46,6 +46,12 @@ ADAPTER_CACHE = join(torch_cache_home, "adapters")
 # these keys are ignored when calculating the config hash
 ADAPTER_CONFIG_HASH_IGNORE = []
 
+# old: new
+ACTIVATION_RENAME={
+    "gelu": "gelu_new",
+    "gelu_orig": "gelu",
+}
+
 
 class AdapterType(str, Enum):
     """Models all currently available model adapter types."""
