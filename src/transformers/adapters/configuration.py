@@ -42,8 +42,10 @@ class AdapterConfig(Mapping):
     shared_W_phm: Optional[bool] = False
     shared_phm_rule: Optional[bool] = True
     factorized_phm_rule: Optional[bool] = False
-    c_init: Optional[str] = "normal"
+    phm_c_init: Optional[str] = "normal"
+    phm_init_range: Optional[float] = 0.0001
     learn_phm: Optional[bool] = True
+    hypercomplex_nonlinearity: Optional[str] = "glorot-uniform"
 
     # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
     # Therefore, we don't allow changing attribute values if set once.

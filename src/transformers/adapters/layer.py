@@ -64,8 +64,10 @@ class AdapterLayer(nn.Module):
                 shared_W_phm=adapter_config["shared_W_phm"],
                 shared_phm_rule=adapter_config["shared_phm_rule"],
                 factorized_phm_rule=adapter_config["factorized_phm_rule"],
-                c_init=adapter_config["c_init"],
+                c_init=adapter_config["phm_c_init"],
                 learn_phm=adapter_config["learn_phm"],
+                phm_init_range=adapter_config["phm_init_range"],
+                w_init=adapter_config["hypercomplex_nonlinearity"],
             )
             adapter.train(self.training)  # make sure training mode is consistent
             self.adapters[adapter_name] = adapter

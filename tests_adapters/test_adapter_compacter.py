@@ -117,13 +117,3 @@ class CompacterTestMixin:
                 zip(parameters_pre.values(), model.base_model.shared_parameters.values()))
         )
 
-    def test_generation(self):
-        model = AutoModelForSeq2SeqLM.from_config(self.config())
-        adapter_config = PfeifferCompacterConfig(reduction_factor=8)
-        model.add_adapter("compacter", config=adapter_config)
-
-        model.train_adapter("compacter")
-
-        input_data = self.get_input_samples((2, 128), config=model.config)
-        model.generate(**input_data)
-
