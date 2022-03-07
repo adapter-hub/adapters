@@ -141,13 +141,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if isinstance(layer, PrefixTuningShim):
             layer.set_pool(self.base_model.prefix_tuning)
 
-    def _init_adapter_modules(self):
+    def _init_adapter_modules(self, add_prefix_tuning_pool=True):
         """
         This method initializes adapter modules and fusion modules from the model config.
         """
         # Link all prefix tunings
-        self.base_model.prefix_tuning = PrefixTuningPool(self.config)
-        self.apply_to_adapter_layers(lambda i, layer: self._link_prefix_to_pool(layer))
+        if add_prefix_tuning_pool:
+            self.base_model.prefix_tuning = PrefixTuningPool(self.config)
+            self.apply_to_adapter_layers(lambda i, layer: self._link_prefix_to_pool(layer))
 
         # Initialize adapters from config
         for adapter_name in self.config.adapters:
@@ -272,7 +273,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         try:
             self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
             # Prefix Tuning
-            self.base_model.prefix_tuning.confirm_prefix(adapter_name)
+            for module in self.modules():
+                if isinstance(module, PrefixTuningPool):
+                    module.confirm_prefix(adapter_name)
             if isinstance(self, InvertibleAdaptersMixin):
                 self.add_invertible_adapter(adapter_name)
         except ValueError as ex:

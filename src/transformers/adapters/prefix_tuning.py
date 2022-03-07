@@ -268,7 +268,9 @@ class PrefixTuningShim(AdapterLayerBase):
 
                     # Retrieve pre-computed prefix states from context
                     context = ForwardContext.get_context()
-                    prefix_keys, prefix_values = context.prefix_states[prefix_tuning_name][self.location_key][prefix_id]
+                    prefix_keys, prefix_values = context.prefix_states[prefix_tuning_name][self.location_key][
+                        prefix_id
+                    ]
 
                     key_states = torch.cat([prefix_keys, key_states], dim=2)
                     value_states = torch.cat([prefix_values, value_states], dim=2)
