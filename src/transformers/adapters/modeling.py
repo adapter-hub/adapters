@@ -185,7 +185,7 @@ class Adapter(nn.Module):
             output = self.adapter_norm_after(output)
 
         # if residual should be applied after layer norm, apply it here
-        if self.adapter_residual_before_ln:
+        if not self.adapter_residual_before_ln:
             output = output + residual_input
 
         return output, down, up

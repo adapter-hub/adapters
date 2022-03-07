@@ -80,6 +80,20 @@ class FlatPrefixTuning(nn.Module):
         return key_values
 
 
+class PrefixTuningGroup(nn.ModuleDict):
+    def __init__(self, module_configs, prefix_tuning_config):
+        super().__init__()
+        if prefix_tuning_config["flat"]:
+            prefix_tuning_class = FlatPrefixTuning
+        else:
+            prefix_tuning_class = PrefixTuning
+        for k, kwargs in module_configs.items():
+            self[k] = prefix_tuning_class(**kwargs, config=prefix_tuning_config)
+
+    def forward(self, batch_size):
+        return {k: v(batch_size) for k, v in self.items()}
+
+
 class PrefixTuningPool(nn.Module):
     """
     The model layer that holds all Prefix Tuning prefixes. While each Transformers layer has its own prefix, this layer
@@ -108,13 +122,15 @@ class PrefixTuningPool(nn.Module):
         self.prefix_counts = {}
         self.prefix_tunings = nn.ModuleDict()
 
-    def indicate_prefix(self, prefix_name: str):
+    def indicate_prefix(self, prefix_name: str, location_key: str):
         if prefix_name not in self.prefix_counts:
-            self.prefix_counts[prefix_name] = 1
+            self.prefix_counts[prefix_name] = {location_key: 1}
+        elif location_key not in self.prefix_counts[prefix_name]:
+            self.prefix_counts[prefix_name][location_key] = 1
         else:
-            self.prefix_counts[prefix_name] += 1
+            self.prefix_counts[prefix_name][location_key] += 1
 
-        return self.prefix_counts[prefix_name] - 1
+        return self.prefix_counts[prefix_name][location_key] - 1
 
     def confirm_prefix(self, prefix_name: str):
         """Create Prefix Tuning module based on shim layer infications."""
@@ -125,20 +141,14 @@ class PrefixTuningPool(nn.Module):
         if prefix_name not in self.prefix_counts:
             raise ValueError(f"Prefix {prefix_name} not found in PrefixTuningPool")
 
-        if prefix_tuning_config["flat"]:
-            prefix_tuning = FlatPrefixTuning(
-                n_layers=self.prefix_counts[prefix_name],
-                n_heads=self.config.num_attention_heads,
-                input_size=self.config.hidden_size,
-                config=prefix_tuning_config,
-            )
-        else:
-            prefix_tuning = PrefixTuning(
-                n_layers=self.prefix_counts[prefix_name],
-                n_heads=self.config.num_attention_heads,
-                input_size=self.config.hidden_size,
-                config=prefix_tuning_config,
-            )
+        module_configs = {}
+        for location_key, count in self.prefix_counts[prefix_name].items():
+            module_configs[location_key] = {
+                "n_layers": count,
+                "n_heads": self.config.num_attention_heads,
+                "input_size": self.config.hidden_size,
+            }
+        prefix_tuning = PrefixTuningGroup(module_configs, prefix_tuning_config)
         prefix_tuning.train(self.training)  # make sure training mode is consistent
         self.prefix_tunings[prefix_name] = prefix_tuning
         del self.prefix_counts[prefix_name]
@@ -209,7 +219,7 @@ class PrefixTuningShim(AdapterLayerBase):
             location_key=used_location_key,
         )
         if prefix_tuning_config is not None:
-            prefix_id = self.pool.indicate_prefix(adapter_name)
+            prefix_id = self.pool.indicate_prefix(adapter_name, self.location_key)
             self.prefixes[adapter_name] = prefix_id
 
     def delete_adapter(self, adapter_name: str):
@@ -258,7 +268,7 @@ class PrefixTuningShim(AdapterLayerBase):
 
                     # Retrieve pre-computed prefix states from context
                     context = ForwardContext.get_context()
-                    prefix_keys, prefix_values = context.prefix_states[prefix_tuning_name][prefix_id]
+                    prefix_keys, prefix_values = context.prefix_states[prefix_tuning_name][self.location_key][prefix_id]
 
                     key_states = torch.cat([prefix_keys, key_states], dim=2)
                     value_states = torch.cat([prefix_values, value_states], dim=2)

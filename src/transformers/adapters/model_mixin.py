@@ -593,8 +593,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         # some warnings if we don't use available adapters
         active_adapters = self.active_adapters or AdapterSetup.get_context()
-        if not active_adapters and self.has_adapters():
-            logger.warning("There are adapters available but none are activated for the forward pass.")
+        if not active_adapters:
+            if self.has_adapters():
+                logger.warning("There are adapters available but none are activated for the forward pass.")
+            return
 
         context.adapters_parallelized = False
 
