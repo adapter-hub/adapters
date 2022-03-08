@@ -15,6 +15,7 @@ from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 from .test_adapter_training import AdapterTrainingTestMixin
 from .test_common import AdapterModelTesterMixin
+from .test_adapter_backward_compability import CompabilityTestMixin
 
 
 @require_torch
@@ -80,13 +81,14 @@ class T5AdapterTestBase(AdapterTestBase):
 @require_torch
 class T5AdapterTest(
     T5AdapterTestBase,
-    EmbeddingTestMixin,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
-    AdapterModelTestMixin,
-    AdapterFusionModelTestMixin,
-    AdapterTrainingTestMixin,
-    PredictionHeadModelTestMixin,
+#    EmbeddingTestMixin,
+    CompabilityTestMixin,
+#    ParallelAdapterInferenceTestMixin,
+#    ParallelTrainingMixin,
+#    AdapterModelTestMixin,
+#    AdapterFusionModelTestMixin,
+#    AdapterTrainingTestMixin,
+#    PredictionHeadModelTestMixin,
     AdapterTestBase,
     unittest.TestCase,
 ):
