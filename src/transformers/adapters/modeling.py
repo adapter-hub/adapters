@@ -108,7 +108,7 @@ class Adapter(nn.Module):
         # Up projection to input size
         if kwargs.pop("phm_layer", False):
             # Linear down projection of the input
-            self.adapter_up = PHMLayer(self.down_sample, self.input_size, "up" **kwargs)
+            self.adapter_up = PHMLayer(self.down_sample, self.input_size, "up" ** kwargs)
         else:
             self.adapter_up = nn.Linear(self.down_sample, self.input_size)
 
@@ -410,13 +410,10 @@ class GLOWCouplingBlock(nn.Module):
 
 def kronecker_product(a, b):
     """
-    Copied from rabeehk/compacter  seq2seq/hypercomplex/kronecker.py
+    Copied from rabeehk/compacter seq2seq/hypercomplex/kronecker.py
 
-    Kronecker product of matrices a and b with leading batch dimensions.
-    Batch dimensions are broadcast. The number of them mush
-    :type a: torch.Tensor
-    :type b: torch.Tensor
-    :rtype: torch.Tensor
+    Kronecker product of matrices a and b with leading batch dimensions. Batch dimensions are broadcast. The number of
+    them mush :type a: torch.Tensor :type b: torch.Tensor :rtype: torch.Tensor
     """
     siz1 = torch.Size(torch.tensor(a.shape[-2:]) * torch.tensor(b.shape[-2:]))
     res = a.unsqueeze(-1).unsqueeze(-3) * b.unsqueeze(-2).unsqueeze(-4)
@@ -559,8 +556,10 @@ class PHMLayer(nn.Module):
                     raise NotImplementedError
 
     def set_phm_rule(self, phm_rule=None, phm_rule_left=None, phm_rule_right=None):
-        """If factorized_phm_rules is set, phm_rule is a tuple, showing the left and right
-        phm rules, and if this is not set, this is showing  the phm_rule."""
+        """
+        If factorized_phm_rules is set, phm_rule is a tuple, showing the left and right phm rules, and if this is not
+        set, this is showing the phm_rule.
+        """
         if self.factorized_phm_rule:
             self.phm_rule_left = phm_rule_left
             self.phm_rule_right = phm_rule_right

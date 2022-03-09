@@ -43,9 +43,9 @@ _import_structure = {
         "HoulsbyConfig",
         "HoulsbyInvConfig",
         "ModelAdaptersConfig",
+        "PfeifferCompacterConfig",
         "PfeifferConfig",
         "PfeifferInvConfig",
-        "PfeifferCompacterConfig",
         "StaticAdapterFusionConfig",
     ],
     "context": [
@@ -150,9 +150,9 @@ if TYPE_CHECKING:
         HoulsbyConfig,
         HoulsbyInvConfig,
         ModelAdaptersConfig,
+        PfeifferCompacterConfig,
         PfeifferConfig,
         PfeifferInvConfig,
-        PfeifferCompacterConfig,
         StaticAdapterFusionConfig,
     )
     from .context import AdapterSetup, ForwardContext

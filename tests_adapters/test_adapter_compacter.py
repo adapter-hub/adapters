@@ -84,6 +84,8 @@ class CompacterTestMixin:
 
     def test_train_shared_w_compacter(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
         model = AutoModelWithHeads.from_config(self.config())
         adapter_config = PfeifferCompacterConfig(shared_W_phm=True, shared_phm_rule=False, reduction_factor=8)
 
@@ -102,6 +104,8 @@ class CompacterTestMixin:
 
     def test_train_shared_phm_compacter(self):
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
         model = AutoModelWithHeads.from_config(self.config())
         adapter_config = PfeifferCompacterConfig(reduction_factor=8)
         model.add_adapter("compacter", config=adapter_config)

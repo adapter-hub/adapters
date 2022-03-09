@@ -18,6 +18,7 @@ from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, W
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, PHMLayer
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
 
+
 logger = logging.getLogger(__name__)
 
 

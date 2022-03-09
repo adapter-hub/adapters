@@ -20,6 +20,16 @@ class AdapterConfig(Mapping):
             reduction_factor (:obj:`int` or :obj:`Mapping`): Either an integer specifying the reduction factor for all layers
                 or a mapping specifying the reduction_factor for individual layers. If not all layers are represented
                 in the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
+            phm_layer (`bool`, *optional*, defaults to `True`): whether the adapter should have a phm layer as down and up projection layers
+            phm_dim (`int`, *optional*, defaults to `None`): the dimension of the phm matrix
+            shared_phm_rule (`bool`, *optional*, defaults to `True`): whether the phm matrix is shared across all layers
+            factorized_phm_rule (`bool`, *optional*, defaults to `False`): whether the phm matrix is factorized
+            learn_phm (`bool`, *optional*, defaults to `True`): whether the phm matrix should be learned during training
+            factorized_phm_W (`bool`, *optional*, defaults to `True`): whether the weights matrix is factorized
+            shared_W_phm (`bool`, *optional*, defaults to `False`): whether the weights matrix is shared across all layers
+            phm_c_init (`str`, *optional*, defaults to `normal`): the initialization function for the weights of the phm matrix of `["normal", "uniform"]'`
+            phm_init_range (`float`, *optional*, defaults to `0.0001`): std for initializing phm weights if `phm_c_init="normal"`
+            hypercomplex_nonlinearity (`str`, *optional*, defaults to `glorot-uniform`): the distribution to draw the weights in the phm layer from
     """
 
     original_ln_before: bool
