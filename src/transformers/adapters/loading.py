@@ -7,20 +7,22 @@ from typing import Callable, Mapping, Sequence, Tuple
 
 import torch
 
+from transformers import __adapters_version__
+
 from .configuration import AdapterConfig, build_full_config
 from .head_utils import STATIC_TO_FLEX_HEAD_MAP, get_head_config_and_rename_list
 from .utils import (
+    ACTIVATION_RENAME,
     ADAPTERFUSION_CONFIG_NAME,
     ADAPTERFUSION_WEIGHTS_NAME,
     CONFIG_NAME,
     HEAD_CONFIG_NAME,
     HEAD_WEIGHTS_NAME,
     WEIGHTS_NAME,
-    ACTIVATION_RENAME,
     AdapterType,
     resolve_adapter_path,
 )
-from transformers import __adapters_version__
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,8 +85,13 @@ class WeightsLoaderHelper:
         # For older versions translate the activation function to the new format
         if not "adapter_version" in loaded_config:
             if "config" in loaded_config and loaded_config["config"] is not None:
-                if "non_linearity" in loaded_config["config"] and loaded_config["config"]["non_linearity"] in ACTIVATION_RENAME:
-                    loaded_config["config"]["non_linearity"] = ACTIVATION_RENAME[loaded_config["config"]["non_linearity"]]
+                if (
+                    "non_linearity" in loaded_config["config"]
+                    and loaded_config["config"]["non_linearity"] in ACTIVATION_RENAME
+                ):
+                    loaded_config["config"]["non_linearity"] = ACTIVATION_RENAME[
+                        loaded_config["config"]["non_linearity"]
+                    ]
         return loaded_config
 
     @staticmethod

@@ -47,7 +47,7 @@ ADAPTER_CACHE = join(torch_cache_home, "adapters")
 ADAPTER_CONFIG_HASH_IGNORE = []
 
 # old: new
-ACTIVATION_RENAME={
+ACTIVATION_RENAME = {
     "gelu": "gelu_new",
     "gelu_orig": "gelu",
 }

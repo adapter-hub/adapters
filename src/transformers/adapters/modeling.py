@@ -3,8 +3,9 @@ import math
 import torch
 from torch import nn
 
-from .configuration import AdapterFusionConfig
 from transformers.activations import get_activation
+
+from .configuration import AdapterFusionConfig
 
 
 class Activation_Function_Class(nn.Module):
