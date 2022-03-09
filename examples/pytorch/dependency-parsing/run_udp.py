@@ -15,8 +15,8 @@ import transformers.adapters.composition as ac
 from preprocessing import preprocess_dataset
 from transformers import (
     AdapterConfig,
+    AutoAdapterModel,
     AutoConfig,
-    AutoModelWithHeads,
     AutoTokenizer,
     HfArgumentParser,
     MultiLingAdapterArguments,
@@ -167,7 +167,7 @@ def main():
     task_name = "ud_" + data_args.task_name
     language = adapter_args.language
 
-    model = AutoModelWithHeads.from_pretrained(
+    model = AutoAdapterModel.from_pretrained(
         model_args.model_name_or_path,
         config=config,
         cache_dir=model_args.cache_dir,
@@ -318,7 +318,7 @@ def main():
                     model.set_active_adapters(task_name)
                 model.to(training_args.device)
             else:
-                trainer.model = AutoModelWithHeads.from_pretrained(
+                trainer.model = AutoAdapterModel.from_pretrained(
                     os.path.join(training_args.output_dir, "best_model"),
                     from_tf=bool(".ckpt" in model_args.model_name_or_path),
                     config=config,
