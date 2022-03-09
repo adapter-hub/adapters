@@ -53,6 +53,12 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md"]
 
+# MyST parser markdown options
+myst_heading_anchors = 3
+myst_enable_extensions = [
+    "dollarmath",
+]
+
 
 # -- Options for HTML output -------------------------------------------------
 

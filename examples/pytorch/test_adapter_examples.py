@@ -30,7 +30,7 @@ sys.path.extend(SRC_DIRS)
 if SRC_DIRS is not None:
     import run_clm
     import run_fusion_glue
-    import run_glue_alt
+    import run_glue
     import run_mlm
     import run_ner
     import run_qa
@@ -61,7 +61,7 @@ class AdapterExamplesTests(TestCasePlus):
 
         tmp_dir = self.get_auto_remove_tmp_dir()
         testargs = f"""
-            run_glue_alt.py
+            run_glue.py
             --model_name_or_path bert-base-uncased
             --output_dir {tmp_dir}
             --overwrite_output_dir
@@ -80,7 +80,7 @@ class AdapterExamplesTests(TestCasePlus):
             --adapter_config=houlsby
             """.split()
         with patch.object(sys, "argv", testargs):
-            run_glue_alt.main()
+            run_glue.main()
             result = get_results(tmp_dir)
             self.assertGreaterEqual(result["eval_accuracy"], 0.75)
 

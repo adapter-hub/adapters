@@ -27,8 +27,13 @@ One early and successful method, (bottleneck) adapters, introduces bottleneck fe
 While these adapters have laid the foundation of the adapter-transformers library, multiple alternative methods have been introduced and integrated since.
 In the following, we present all methods currently integrated into this library (see [here](https://github.com/adapter-hub/adapter-transformers#implemented-methods) for a tabular overview).
 
-**Configuration:** All presented methods can be added, trained, saved and shared using the same set of methods (see [Method Walkthrough](walkthrough.md)).
-Each method is specified and configured using a specific configuration class, all of which derive from the common [`AdapterConfigBase`](classes/adapter_config.html#transformers.adapters.AdapterConfigBase) class.
+**Configuration:** All presented methods can be added, trained, saved and shared using the same set of model class functions (see [class documentation](transformers.ModelAdaptersMixin)).
+Each method is specified and configured using a specific configuration class, all of which derive from the common [`AdapterConfigBase`](transformers.AdapterConfigBase) class.
+E.g., adding one of the methods presented below to an existing model instance follows this scheme:
+```python
+config = ... # config class deriving from AdapterConfigBase
+model.add_adapter("name", config=config)
+```
 
 ```eval_rst
 .. important::
@@ -40,7 +45,7 @@ Each method is specified and configured using a specific configuration class, al
 
 ## Bottleneck Adapters
 
-_Configuration class_: [`AdapterConfig`](classes/adapter_config.html#transformers.adapters.AdapterConfig)
+_Configuration class_: [`AdapterConfig`](transformers.AdapterConfig)
 
 _Example_:
 ```python
@@ -66,7 +71,7 @@ $$
 \text{reduction_factor} = \frac{d_{hidden}}{d_{bottleneck}}
 $$
 
-A visualization of further configuration options related to the adapter structure is given in the figure below. For more details, refer to the documentation of [`AdapterConfig`](classes/adapter_config.html#transformers.adapters.AdapterConfig).
+A visualization of further configuration options related to the adapter structure is given in the figure below. For more details, refer to the documentation of [`AdapterConfig`](transformers.AdapterConfig).
 
 
 ```eval_rst
@@ -80,9 +85,9 @@ A visualization of further configuration options related to the adapter structur
 
 adapter-transformers comes with pre-defined configurations for some bottleneck adapter architectures proposed in literature:
 
-- [`HoulsbyConfig`](classes/adapter_config.html#transformers.adapters.HoulsbyConfig) as proposed by [Houlsby et al. (2019)](https://arxiv.org/pdf/1902.00751.pdf) places adapter layers after both the multi-head attention and feed-forward block in each Transformer layer.
-- [`PfeifferConfig`](classes/adapter_config.html#transformers.adapters.PfeifferConfig) as proposed by [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) places an adapter layer only after the feed-forward block in each Transformer layer.
-- [`ParallelConfig`](classes/adapter_config.html#transformers.adapters.ParallelConfig) as proposed by [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) places adapter layers in parallel to the original Transformer layers.
+- [`HoulsbyConfig`](transformers.HoulsbyConfig) as proposed by [Houlsby et al. (2019)](https://arxiv.org/pdf/1902.00751.pdf) places adapter layers after both the multi-head attention and feed-forward block in each Transformer layer.
+- [`PfeifferConfig`](transformers.PfeifferConfig) as proposed by [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) places an adapter layer only after the feed-forward block in each Transformer layer.
+- [`ParallelConfig`](transformers.ParallelConfig) as proposed by [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) places adapter layers in parallel to the original Transformer layers.
 
 _Papers:_
 
@@ -93,7 +98,7 @@ _Papers:_
 
 ## Language Adapters - Invertible Adapters
 
-_Configuration class_: [`PfeifferInvConfig`](classes/adapter_config.html#transformers.adapters.PfeifferInvConfig), [`HoulsbyInvConfig`](classes/adapter_config.html#transformers.adapters.HoulsbyInvConfig)
+_Configuration class_: [`PfeifferInvConfig`](transformers.PfeifferInvConfig), [`HoulsbyInvConfig`](transformers.HoulsbyInvConfig)
 
 _Example_:
 ```python
@@ -121,7 +126,7 @@ _Papers:_
 
 ## Prefix Tuning
 
-_Configuration class_: [`PrefixTuningConfig`](classes/adapter_config.html#transformers.adapters.PrefixTuningConfig)
+_Configuration class_: [`PrefixTuningConfig`](transformers.PrefixTuningConfig)
 
 _Example_:
 ```python
@@ -150,7 +155,7 @@ Todo
 
 ## Combinations - Mix-and-Match Adapters
 
-_Configuration class_: [`ConfigUnion`](classes/adapter_config.html#transformers.adapters.ConfigUnion)
+_Configuration class_: [`ConfigUnion`](transformers.ConfigUnion)
 
 While different efficient fine-tuning methods and configurations have often been proposed as standalone, it might be beneficial to combine them for joint training.
 To make this process easier, adapter-transformers provides the possibility to group multiple configuration instances together using the `ConfigUnion` class.

@@ -5,8 +5,8 @@
 **[AdapterHub.ml](https://adapterhub.ml/explore)** provides a central collection of all pre-trained adapters uploaded via [our Hub repository](https://github.com/adapter-hub/hub) or HuggingFace's [Model Hub](https://huggingface.co/models).
 You can easily find pre-trained adapters for your task of interest along with all relevant information and code snippets to get started (also see below).
 
-Alternatively, [`list_adapters()`](classes/adapter_utils.html#transformers.adapters.utils.list_adapters) provides a programmatical way of accessing all available pre-trained adapters.
-This will return an [`AdapterInfo`](classes/adapter_utils.html#transformers.adapters.utils.AdapterInfo) object for each retrieved adapter.
+Alternatively, [`list_adapters()`](transformers.adapters.utils.list_adapters) provides a programmatical way of accessing all available pre-trained adapters.
+This will return an [`AdapterInfo`](transformers.adapters.utils.AdapterInfo) object for each retrieved adapter.
 E.g., we can use it to retrieve information for all adapters trained for a specific model:
 
 ```python
@@ -21,7 +21,7 @@ for adapter_info in adapter_infos:
     print("Uploaded by:", adapter_info.username)
 ```
 
-In case the adapter ID is known, information for a single adapter can also be retrieved via [`get_adapter_info()`](classes/adapter_utils.html#transformers.adapters.utils.get_adapter_info):
+In case the adapter ID is known, information for a single adapter can also be retrieved via [`get_adapter_info()`](transformers.adapters.utils.get_adapter_info):
 
 ```python
 adapter_info = get_adapter_info("@ukp/bert-base-uncased_sentiment_sst-2_pfeiffer", source="ah")
@@ -41,19 +41,19 @@ from transformers import BertModel
 model = BertModel.from_pretrained('bert-base-uncased')
 ```
 
-We can now easily load a pre-trained adapter module from Adapter Hub by its identifier using the [`load_adapter()`](classes/model_mixins.html#transformers.ModelWithHeadsAdaptersMixin.load_adapter) method:
+We can now easily load a pre-trained adapter module from Adapter Hub by its identifier using the [`load_adapter()`](transformers.ModelWithHeadsAdaptersMixin.load_adapter) method:
 
 ```python
 adapter_name = model.load_adapter('sst-2')
 ```
 
 In the minimal case, that's everything we need to specify to load a pre-trained task adapter for sentiment analysis, trained on the `sst-2` dataset using BERT base and a suitable adapter configuration.
-The name of the adapter is returned by [`load_adapter()`](classes/model_mixins.html#transformers.ModelWithHeadsAdaptersMixin.load_adapter), so we can [activate it](adapter_composition.md) in the next step:
+The name of the adapter is returned by [`load_adapter()`](transformers.ModelWithHeadsAdaptersMixin.load_adapter), so we can [activate it](adapter_composition.md) in the next step:
 ```python
 model.set_active_adapters(adapter_name)
 ```
 
-As the second example, let's have a look at how to load an adapter based on the [`AdapterInfo`](classes/adapter_utils.html#transformers.adapters.utils.AdapterInfo) returned by the [`list_adapters()`](classes/adapter_utils.html#transformers.adapters.utils.list_adapters) method from [above](#finding-pre-trained-adapters):
+As the second example, let's have a look at how to load an adapter based on the [`AdapterInfo`](transformers.adapters.utils.AdapterInfo) returned by the [`list_adapters()`](transformers.adapters.utils.list_adapters) method from [above](#finding-pre-trained-adapters):
 ```python
 from transformers import AutoAdapterModel, list_available_adapters
 

@@ -26,9 +26,9 @@ Before making any kind of contribution to _Adapter-Hub_, you will first need to 
 
 As you're fully set up now, you can proceed on the specific steps if your contribution:
 
-- [Add your pre-trained adapter](#add-your-pre-trained-adapter)
-- [Add a new adapter architecture](#add-a-new-adapter-architecture)
-- [Add a new task or subtask](#add-a-new-task-or-subtask)
+- [](#add-your-pre-trained-adapter)
+- [](#add-a-new-adapter-architecture)
+- [](#add-a-new-task-or-subtask)
 
 ## Add your pre-trained adapter
 

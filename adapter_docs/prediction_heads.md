@@ -13,7 +13,7 @@ We will take a look at the `AdapterModel` classes (e.g. `BertAdapterModel`) intr
 
 The AdapterModel classes provided by `adapter-transformers` allow a flexible configuration of prediction heads on top of a pre-trained language model.
 
-First, we load pre-trained model from the HuggingFace Hub via the [`AutoAdapterModel`](classes/models/auto.html#transformers.adapters.AutoAdapterModel) class:
+First, we load pre-trained model from the HuggingFace Hub via the [`AutoAdapterModel`](transformers.adapters.AutoAdapterModel) class:
 ```python
 model = AutoAdapterModel.from_pretrained("bert-base-uncased")
 ```
@@ -25,7 +25,7 @@ model.add_classification_head("mrpc", num_labels=2)
 The line above adds a binary sequence classification head on top of our model.
 As this head is named, we could add multiple other heads with different names to the same model.
 This is especially useful if used together with matching adapter modules.
-To learn more about the different head types and the configuration options, please refer to the class references of the respective model classes, e.g. [`BertAdapterModel`](classes/models/bert.html#transformers.adapters.BertAdapterModel).
+To learn more about the different head types and the configuration options, please refer to the class references of the respective model classes, e.g. [`BertAdapterModel`](transformers.adapters.BertAdapterModel).
 
 Now, of course, we would like to train our classification head together with an adapter, so let's add one:
 ```python
@@ -53,7 +53,7 @@ After training has completed, we can save our whole setup (adapter module _and_ 
 model.save_adapter("/path/to/dir", "mrpc", with_head=True)
 ```
 
-Now, you just have to [share your work with the world](contributing.html#add-your-pre-trained-adapter).
+Now, you just have to [share your work with the world](./contributing.md#add-your-pre-trained-adapter).
 After you published our adapter together with its head in the Hub, anyone else can load both adapter and head by using the same model class.
 
 Alternatively, we can also save and load the prediction head separately from an adapter module:

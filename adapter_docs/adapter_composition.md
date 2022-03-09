@@ -22,7 +22,7 @@ Note that we also could have used `model.set_active_adapters("adapter_name")` wh
     - All adapters not mentioned anywhere in the ``active_adapters`` setup are ignored although they might be loaded into the model. Thus, after adding an adapter, make sure to activate it.
 ```
 
-Alternatively, the [`AdapterSetup`](classes/adapter_config.html#transformers.AdapterSetup) context manager allows dynamic configuration of activated setups without changing the model state:
+Alternatively, the [`AdapterSetup`](transformers.AdapterSetup) context manager allows dynamic configuration of activated setups without changing the model state:
 
 ```python
 model = ...

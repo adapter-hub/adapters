@@ -18,14 +18,14 @@ limitations under the License.
 
 ## Training Adapters in PyTorch
 
-Based on scripts `run_glue.py` and `run_glue_alt.py` (using model classes with flexible heads).
+Based on scripts `run_glue.py` and `run_glue.py` (using model classes with flexible heads).
 
 By specifying a few additional, adapter-specific flags, you can easily switch from fine-tuning a full model to training Adapter modules on GLUE:
 
 ```bash
 export TASK_NAME=mrpc
 
-python run_glue_alt.py \
+python run_glue.py \
   --model_name_or_path bert-base-uncased \
   --task_name $TASK_NAME \
   --do_train \
