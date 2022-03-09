@@ -92,7 +92,7 @@ class Adapter(nn.Module):
 
         if kwargs.pop("phm_layer", False):
             # Linear down projection of the input
-            seq_list.append(PHMLayer(self.input_size, self.down_sample, **kwargs))
+            seq_list.append(PHMLayer(self.input_size, self.down_sample, "down", **kwargs))
         else:
             seq_list.append(nn.Linear(self.input_size, self.down_sample))
 
@@ -108,7 +108,7 @@ class Adapter(nn.Module):
         # Up projection to input size
         if kwargs.pop("phm_layer", False):
             # Linear down projection of the input
-            self.adapter_up = PHMLayer(self.down_sample, self.input_size, **kwargs)
+            self.adapter_up = PHMLayer(self.down_sample, self.input_size, "up" **kwargs)
         else:
             self.adapter_up = nn.Linear(self.down_sample, self.input_size)
 
@@ -126,31 +126,31 @@ class Adapter(nn.Module):
         if self.name in ForwardContext.get_context().shared_parameters:
             parameters = ForwardContext.get_context().shared_parameters[self.name]
             # if len(parameters) > 0:
-            phm_parameters = nn.ParameterDict()
-            if "phm_rule" in parameters:
-                phm_parameters["phm_rule"] = parameters["phm_rule"]
-            elif "phm_rule_left" in parameters:
-                phm_parameters["phm_rule_left"] = parameters["phm_rule_left"]
-                phm_parameters["phm_rule_right"] = parameters["phm_rule_right"]
+            # phm_parameters = nn.ParameterDict()
+            # if "phm_rule" in parameters:
+            #     phm_parameters["phm_rule"] = parameters["phm_rule"]
+            # elif "phm_rule_left" in parameters:
+            #     phm_parameters["phm_rule_left"] = parameters["phm_rule_left"]
+            #     phm_parameters["phm_rule_right"] = parameters["phm_rule_right"]
+            #
+            # if "W_down" in parameters:
+            #     phm_parameters["W"] = parameters["W_down"]
+            # elif "W_down_left" in parameters:
+            #     phm_parameters["W_left"] = parameters["W_down_left"]
+            #     phm_parameters["W_right"] = parameters["W_down_right"]
 
-            if "W_down" in parameters:
-                phm_parameters["W"] = parameters["W_down"]
-            elif "W_down_left" in parameters:
-                phm_parameters["W_left"] = parameters["W_down_left"]
-                phm_parameters["W_right"] = parameters["W_down_right"]
-
-            ForwardContext.get_context().phm_parameters = phm_parameters
+            ForwardContext.get_context().phm_parameters = parameters
             down = self.adapter_down(x)
 
-            phm_parameters["W"] = None
-            phm_parameters["W_left"] = None
-            phm_parameters["W_right"] = None
-            if "W_up" in parameters:
-                phm_parameters["W"] = parameters["W_up"]
-            elif "W_up_left" in parameters:
-                phm_parameters["W_left"] = parameters["W_up_left"]
-                phm_parameters["W_right"] = parameters["W_up_right"]
-            ForwardContext.get_context().phm_parameters = phm_parameters
+            # phm_parameters["W"] = None
+            # phm_parameters["W_left"] = None
+            # phm_parameters["W_right"] = None
+            # if "W_up" in parameters:
+            #     phm_parameters["W"] = parameters["W_up"]
+            # elif "W_up_left" in parameters:
+            #     phm_parameters["W_left"] = parameters["W_up_left"]
+            #     phm_parameters["W_right"] = parameters["W_up_right"]
+            # ForwardContext.get_context().phm_parameters = phm_parameters
             up = self.adapter_up(down)
         else:
             down = self.adapter_down(x)
@@ -434,6 +434,7 @@ class PHMLayer(nn.Module):
         self,
         in_features: int,
         out_features: int,
+        position: str,
         phm_dim: int,
         phm_rule: Union[None, torch.Tensor] = None,
         bias: bool = True,
@@ -459,6 +460,7 @@ class PHMLayer(nn.Module):
         ), f"Argument `out_features`={out_features} is not divisble be `phm_dim`{phm_dim}"
         self.in_features = in_features
         self.out_features = out_features
+        self.position = position
         self.learn_phm = learn_phm
         self.phm_dim = phm_dim
         self._in_feats_per_axis = in_features // phm_dim
@@ -576,9 +578,9 @@ class PHMLayer(nn.Module):
         if self.shared_W_phm:
             parameters = ForwardContext.get_context().phm_parameters
             if self.factorized_phm_W:
-                W = torch.bmm(parameters["W_left"], parameters["W_right"])
+                W = torch.bmm(parameters[f"W_{self.position}_left"], parameters[f"W_{self.position}_right"])
             else:
-                W = parameters["W"]
+                W = parameters[f"W_{self.position}"]
         else:
             if self.factorized_phm_W:
                 W = torch.bmm(self.W_left, self.W_right)
