@@ -27,7 +27,8 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
 
    installation
    quickstart
-   adapters
+   overview
+   walkthrough
    adapter_composition
    training
    prediction_heads

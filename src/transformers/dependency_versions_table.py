@@ -45,7 +45,7 @@ deps = {
     "pytest-xdist": "pytest-xdist",
     "python": "python>=3.6.0",
     "ray[tune]": "ray[tune]",
-    "recommonmark": "recommonmark",
+    "myst-parser": "myst-parser",
     "regex": "regex!=2019.12.17",
     "requests": "requests",
     "rouge-score": "rouge-score",

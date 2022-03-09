@@ -128,7 +128,7 @@ _deps = [
     "pytest-xdist",
     "python>=3.6.0",
     "ray[tune]",
-    "recommonmark",
+    "myst-parser",
     "regex!=2019.12.17",
     "requests",
     "rouge-score",
@@ -292,7 +292,7 @@ extras["all"] = (
 
 extras["docs_specific"] = deps_list(
     "docutils",
-    "recommonmark",
+    "myst-parser",
     "sphinx",
     "sphinx-markdown-tables",
     "sphinx-rtd-theme",
