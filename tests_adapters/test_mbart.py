@@ -38,7 +38,6 @@ class MBartAdapterTestBase(AdapterTestBase):
 @require_torch
 class MBartAdapterTest(
     AdapterModelTestMixin,
-    CompacterTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,

@@ -15,7 +15,7 @@ from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .layer import AdapterLayer
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
-from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, PHMLayer
+from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
 
 

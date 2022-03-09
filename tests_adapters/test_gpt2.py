@@ -38,14 +38,14 @@ class GPT2AdapterTestBase(AdapterTestBase):
 
 @require_torch
 class GPT2AdapterTest(
-    # AdapterModelTestMixin,
+    AdapterModelTestMixin,
     CompacterTestMixin,
-    # EmbeddingTestMixin,
-    # AdapterFusionModelTestMixin,
-    # PredictionHeadModelTestMixin,
-    # AdapterTrainingTestMixin,
-    # ParallelAdapterInferenceTestMixin,
-    # ParallelTrainingMixin,
+    EmbeddingTestMixin,
+    AdapterFusionModelTestMixin,
+    PredictionHeadModelTestMixin,
+    AdapterTrainingTestMixin,
+    ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
     GPT2AdapterTestBase,
     unittest.TestCase,
 ):

@@ -35,7 +35,6 @@ class RobertaAdapterTestBase(AdapterTestBase):
 @require_torch
 class RobertaAdapterTest(
     AdapterModelTestMixin,
-    CompacterTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
