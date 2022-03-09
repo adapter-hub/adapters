@@ -44,7 +44,18 @@ ADAPTER_HUB_ADAPTER_ENTRY_JSON = ADAPTER_HUB_URL + "adapters/{}/{}.json"
 ADAPTER_CACHE = join(torch_cache_home, "adapters")
 
 # these keys are ignored when calculating the config hash
-ADAPTER_CONFIG_HASH_IGNORE = []
+ADAPTER_CONFIG_HASH_IGNORE = [
+    "phm_layer",
+    "phm_dim",
+    "factorized_phm_W",
+    "shared_W_phm",
+    "shared_phm_rule",
+    "factorized_phm_rule",
+    "phm_c_init",
+    "phm_init_range",
+    "learn_phm",
+    "hypercomplex_nonlinearity",
+]
 
 
 class AdapterType(str, Enum):
