@@ -768,6 +768,16 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         return dict(destination)
 
+    def eject_prefix_tuning(self, name: str):
+        """
+        Converts the prefix tuning with the given name from the reparameterized form into the flat form.
+
+        Args:
+            name (str): The name of the prefix tuning.
+        """
+        if name in self.base_model.prefix_tuning.prefix_tunings:
+            self.base_model.prefix_tuning.prefix_tunings[name].eject()
+
 
 @inherit_doc
 class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):

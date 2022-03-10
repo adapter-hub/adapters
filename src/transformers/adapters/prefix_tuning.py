@@ -34,6 +34,17 @@ class PrefixTuning(nn.Module):
         )
         self.dropout = nn.Dropout(self.config.dropout)
 
+    def eject(self):
+        device = next(self.parameters()).device
+        input_tokens = self.input_tokens.unsqueeze(0).expand(1, -1).to(device)
+        embs = self.wte(input_tokens)
+        key_values = self.control_trans(embs)  # batch_size x prefix_length x n_layers*2*input_size
+        key_values = key_values.view(
+            self.config.prefix_length * self.n_layers * 2 * self.input_size
+        )  # *2 for key and value
+
+        return key_values
+
     def forward(self, batch_size):
         device = next(self.parameters()).device
         input_tokens = self.input_tokens.unsqueeze(0).expand(batch_size, -1).to(device)
@@ -64,14 +75,17 @@ class FlatPrefixTuning(nn.Module):
         self.n_embd_per_head = self.input_size // self.n_heads
         self.config = config
 
-        self.wte = nn.Embedding(self.config.prefix_length, self.input_size)
         self.control_trans = nn.Parameter(torch.randn(self.config.prefix_length * self.n_layers * 2 * self.input_size))
 
         self.dropout = nn.Dropout(self.config.dropout)
 
     def forward(self, batch_size):
-        key_values = self.control_trans.view(
-            batch_size, self.config.prefix_length, self.n_layers * 2, self.n_heads, self.n_embd_per_head
+        device = next(self.parameters()).device
+        key_values = (
+            self.control_trans.unsqueeze(0)
+            .expand(batch_size, -1)
+            .view(batch_size, self.config.prefix_length, self.n_layers * 2, self.n_heads, self.n_embd_per_head)
+            .to(device)
         )  # *2 for key and value
         key_values = self.dropout(key_values)
         # n_layers * (2 x batch_size x n_heads x prefix_length x n_embd_per_head)
@@ -89,6 +103,15 @@ class PrefixTuningGroup(nn.ModuleDict):
             prefix_tuning_class = PrefixTuning
         for k, kwargs in module_configs.items():
             self[k] = prefix_tuning_class(**kwargs, config=prefix_tuning_config)
+
+    def eject(self):
+        """Converts all PrefixTuning modules into FlatPrefixTuning modules."""
+        for k, v in self.items():
+            if isinstance(v, PrefixTuning):
+                config = v.config.replace(flat=True)
+                self[k] = FlatPrefixTuning(v.n_layers, v.n_heads, v.input_size, config)
+                weights = v.eject()
+                self[k].control_trans = nn.Parameter(weights)
 
     def forward(self, batch_size):
         return {k: v(batch_size) for k, v in self.items()}

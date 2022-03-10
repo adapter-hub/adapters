@@ -82,8 +82,8 @@ class AdapterTrainingTestMixin:
         model = AutoAdapterModel.from_config(self.config())
 
         # add two adapters: one will be trained and the other should be frozen
-        model.add_adapter("mrpc", config="prefix")
-        model.add_adapter("dummy", config="prefix")
+        model.add_adapter("mrpc", config="prefix_tuning")
+        model.add_adapter("dummy", config="prefix_tuning")
         self.add_head(model, "mrpc")
 
         self.assertIn("mrpc", model.config.adapters.adapters)

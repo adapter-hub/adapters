@@ -380,3 +380,25 @@ class AdapterModelTestMixin:
         output_base = static_model(**input_data)
         output_with_head = flex_model(**input_data)
         self.assertTrue(torch.allclose(output_base["logits"], output_with_head["logits"]))
+
+    def test_eject_prefix(self):
+        model = self.get_model()
+        model.eval()
+        model.add_adapter("test_prefix", config="prefix_tuning")
+        model.to(torch_device)
+
+        input_data = self.get_input_samples((2, 128), config=model.config)
+
+        # user reparamterized prefix
+        model.set_active_adapters(["test_prefix"])
+        output_1 = model(**input_data)
+
+        # eject prefix
+        model.eject_prefix_tuning("test_prefix")
+        model.to(torch_device)
+        model.eval()
+        output_2 = model(**input_data)
+
+        # check forward pass
+        self.assertEqual(len(output_1), len(output_2))
+        self.assertTrue(torch.equal(output_1[0], output_2[0]))
