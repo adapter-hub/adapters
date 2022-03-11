@@ -47,13 +47,6 @@ model.add_adapter("name", config=config)
 
 _Configuration class_: [`AdapterConfig`](transformers.AdapterConfig)
 
-_Example_:
-```python
-from transformers.adapters import AdapterConfig
-
-config = AdapterConfig(mh_adapter=True, output_adapter=True, reduction_factor=16, non_linearity="relu")
-```
-
 Bottleneck adapters introduce bottleneck feed-forward layers in each layer of a Transformer model.
 Generally, these adapter layers consist of a down-projection matrix $W_{down}$ that projects the layer hidden states into a lower dimension $d_{bottleneck}$, a non-linearity $f$, an up-projection $W_{up}$ that projects back into the original hidden layer dimension and a residual connection $r$:
 
@@ -89,6 +82,14 @@ adapter-transformers comes with pre-defined configurations for some bottleneck a
 - [`PfeifferConfig`](transformers.PfeifferConfig) as proposed by [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) places an adapter layer only after the feed-forward block in each Transformer layer.
 - [`ParallelConfig`](transformers.ParallelConfig) as proposed by [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) places adapter layers in parallel to the original Transformer layers.
 
+_Example_:
+```python
+from transformers.adapters import AdapterConfig
+
+config = AdapterConfig(mh_adapter=True, output_adapter=True, reduction_factor=16, non_linearity="relu")
+model.add_adapter("bottleneck_adapter", config=config)
+```
+
 _Papers:_
 
 * [Parameter-Efficient Transfer Learning for NLP](https://arxiv.org/pdf/1902.00751.pdf) (Houlsby et al., 2019)
@@ -100,13 +101,6 @@ _Papers:_
 
 _Configuration class_: [`PfeifferInvConfig`](transformers.PfeifferInvConfig), [`HoulsbyInvConfig`](transformers.HoulsbyInvConfig)
 
-_Example_:
-```python
-from transformers.adapters import PfeifferInvConfig
-
-config = PfeifferInvConfig()
-```
-
 The MAD-X setup ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00052.pdf)) proposes language adapters to learn language-specific transformations.
 After being trained on a language modeling task, a language adapter can be stacked before a task adapter for training on a downstream task.
 To perform zero-shot cross-lingual transfer, one language adapter can simply be replaced by another.
@@ -114,6 +108,14 @@ To perform zero-shot cross-lingual transfer, one language adapter can simply be 
 In terms of architecture, language adapters are largely similar to regular bottleneck adapters, except for an additional _invertible adapter_ layer after the LM embedding layer.
 Embedding outputs are passed through this invertible adapter in the forward direction before entering the first Transformer layer and in the inverse direction after leaving the last Transformer layer.
 Invertible adapter architectures are further detailed in [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) and can be configured via the `inv_adapter` attribute of the `AdapterConfig` class.
+
+_Example_:
+```python
+from transformers.adapters import PfeifferInvConfig
+
+config = PfeifferInvConfig()
+model.add_adapter("lang_adapter", config=config)
+```
 
 _Papers:_
 - [MAD-X: An Adapter-based Framework for Multi-task Cross-lingual Transfer](https://arxiv.org/pdf/2005.00052.pdf) (Pfeiffer et al., 2020)
@@ -128,23 +130,30 @@ _Papers:_
 
 _Configuration class_: [`PrefixTuningConfig`](transformers.PrefixTuningConfig)
 
-_Example_:
-```python
-from transformers.adapters import PrefixTuningConfig
-
-config = PrefixTuningConfig(flat=False, prefix_length=30)
-```
-
-Prefix Tuning introduces new parameters in the multi-head attention blocks in each Transformer layer.
+Prefix Tuning ([Li and Liang, 2021](https://aclanthology.org/2021.acl-long.353.pdf)) introduces new parameters in the multi-head attention blocks in each Transformer layer.
 More, specifically, it prepends trainable prefix vectors $P^K$ and $P^V$ to the keys and values of the attention head input, each of a configurable prefix length $l$ (`prefix_length` attribute):
 
 $$
 head_i = \text{Attention}(Q W_i^Q, [P_i^K, K W_i^K], [P_i^V, V W_i^V])
 $$
 
-Following the original authors, the prefix vectors in $P^K$ and $P^V$ are note optimized directly, but reparametrized via a bottleneck MLP.
+Following the original authors, the prefix vectors in $P^K$ and $P^V$ are note optimized directly, but reparameterized via a bottleneck MLP.
 This behavior is controlled via the `flat` attribute of the configuration.
-Using `PrefixTuningConfig(flat=True)` will create prefix tuning vectors that are optimized without reparametrization.
+Using `PrefixTuningConfig(flat=True)` will create prefix tuning vectors that are optimized without reparameterization.
+
+_Example_:
+```python
+from transformers.adapters import PrefixTuningConfig
+
+config = PrefixTuningConfig(flat=False, prefix_length=30)
+model.add_adapter("prefix_tuning", config=config)
+```
+
+As reparameterization using the bottleneck MLP is not necessary for performing inference on an already trained Prefix Tuning module, adapter-transformers includes a function to "eject" a reparameterized Prefix Tuning into a flat one:
+```python
+model.eject_prefix_tuning("prefix_tuning")
+```
+This will only retain the necessary parameters and reduces the size of the trained Prefix Tuning.
 
 _Papers:_
 - [Prefix-Tuning: Optimizing Continuous Prompts for Generation](https://arxiv.org/pdf/2101.00190.pdf) (Li and Liang, 2021)
@@ -169,6 +178,7 @@ config = ConfigUnion(
     AdapterConfig(mh_adapter=True, output_adapter=False, reduction_factor=16, non_linearity="relu"),
     AdapterConfig(mh_adapter=False, output_adapter=True, reduction_factor=2, non_linearity="relu"),
 )
+model.add_adapter("union_adapter", config=config)
 ```
 
 [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) study various variants and combinations of efficient fine-tuning methods.
@@ -179,6 +189,7 @@ This configuration is supported by adapter-transformers out-of-the-box:
 from transformers.adapters import MAMConfig
 
 config = MAMConfig()
+model.add_adapter("mam_adapter", config=config)
 ```
 
 and is identical to using the following `ConfigUnion`:
@@ -190,6 +201,7 @@ config = ConfigUnion(
     PrefixTuningConfig(bottleneck_size=800),
     ParallelConfig(),
 )
+model.add_adapter("mam_adapter", config=config)
 ```
 
 _Papers:_
