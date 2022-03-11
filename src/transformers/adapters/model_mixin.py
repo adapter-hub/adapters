@@ -775,8 +775,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             name (str): The name of the prefix tuning.
         """
-        if name in self.base_model.prefix_tuning.prefix_tunings:
-            self.base_model.prefix_tuning.prefix_tunings[name].eject()
+        for module in self.modules():
+            if isinstance(module, PrefixTuningPool):
+                if name in module.prefix_tunings:
+                    module.prefix_tunings[name].eject()
 
 
 @inherit_doc

@@ -401,4 +401,4 @@ class AdapterModelTestMixin:
 
         # check forward pass
         self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.equal(output_1[0], output_2[0]))
+        self.assertTrue(torch.allclose(output_1[0], output_2[0]))
