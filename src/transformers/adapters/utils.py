@@ -93,13 +93,6 @@ class AdapterInfo:
     sha1_checksum: Optional[str] = None
 
 
-class DataclassJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if is_dataclass(o):
-            return asdict(o)
-        return super().default(o)
-
-
 def _minimize_dict(d):
     if isinstance(d, Mapping):
         return {k: _minimize_dict(v) for (k, v) in d.items() if v}

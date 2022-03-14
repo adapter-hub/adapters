@@ -23,7 +23,6 @@ import warnings
 from typing import Any, Dict, Tuple, Union
 
 from . import __version__
-from .adapters.utils import DataclassJSONEncoder
 from .file_utils import (
     CONFIG_NAME,
     PushToHubMixin,
@@ -729,7 +728,7 @@ class PretrainedConfig(PushToHubMixin):
             config_dict = self.to_diff_dict()
         else:
             config_dict = self.to_dict()
-        return json.dumps(config_dict, indent=2, sort_keys=True, cls=DataclassJSONEncoder) + "\n"
+        return json.dumps(config_dict, indent=2, sort_keys=True) + "\n"
 
     def to_json_file(self, json_file_path: Union[str, os.PathLike], use_diff: bool = True):
         """
