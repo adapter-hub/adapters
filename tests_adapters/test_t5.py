@@ -81,14 +81,14 @@ class T5AdapterTestBase(AdapterTestBase):
 @require_torch
 class T5AdapterTest(
     T5AdapterTestBase,
-#    EmbeddingTestMixin,
+    EmbeddingTestMixin,
     CompabilityTestMixin,
-#    ParallelAdapterInferenceTestMixin,
-#    ParallelTrainingMixin,
-#    AdapterModelTestMixin,
-#    AdapterFusionModelTestMixin,
-#    AdapterTrainingTestMixin,
-#    PredictionHeadModelTestMixin,
+    ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
+    AdapterModelTestMixin,
+    AdapterFusionModelTestMixin,
+    AdapterTrainingTestMixin,
+    PredictionHeadModelTestMixin,
     AdapterTestBase,
     unittest.TestCase,
 ):
