@@ -75,7 +75,6 @@ _import_structure = {
     "model_mixin": [
         "InvertibleAdaptersMixin",
         "ModelAdaptersMixin",
-        "ModelConfigAdaptersMixin",
         "ModelWithHeadsAdaptersMixin",
     ],
     "models.auto": [
@@ -180,12 +179,7 @@ if TYPE_CHECKING:
         TaggingHead,
     )
     from .layer import AdapterLayer, AdapterLayerBase
-    from .model_mixin import (
-        InvertibleAdaptersMixin,
-        ModelAdaptersMixin,
-        ModelConfigAdaptersMixin,
-        ModelWithHeadsAdaptersMixin,
-    )
+    from .model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
     from .models.auto import ADAPTER_MODEL_MAPPING, MODEL_WITH_HEADS_MAPPING, AutoAdapterModel, AutoModelWithHeads
     from .models.bart import BartAdapterModel, BartModelWithHeads
     from .models.bert import BertAdapterModel, BertModelWithHeads

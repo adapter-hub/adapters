@@ -17,7 +17,6 @@ import warnings
 from collections import OrderedDict
 from typing import Mapping
 
-from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...onnx import OnnxConfigWithPast
 from ...utils import logging
@@ -31,7 +30,7 @@ BART_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class BartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
+class BartConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a :class:`~transformers.BartModel`. It is used to
     instantiate a BART model according to the specified arguments, defining the model architecture. Instantiating a
@@ -179,22 +178,6 @@ class BartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
                 f"Please make sure the config includes `forced_bos_token_id={self.bos_token_id}` in future versions. "
                 "The config can simply be saved and uploaded again to be fixed."
             )
-
-    @property
-    def num_attention_heads(self) -> int:
-        return self.encoder_attention_heads
-
-    @property
-    def hidden_size(self) -> int:
-        return self.d_model
-
-    @property
-    def hidden_dropout_prob(self):
-        return self.dropout
-
-    @property
-    def attention_probs_dropout_prob(self):
-        return self.attention_dropout
 
 
 class BartOnnxConfig(OnnxConfigWithPast):

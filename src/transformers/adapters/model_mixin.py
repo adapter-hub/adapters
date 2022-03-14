@@ -19,6 +19,7 @@ from .configuration import (
 )
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
+from .injectors.configuration import inject_config
 from .layer import AdapterLayer, AdapterLayerBase
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
@@ -97,30 +98,6 @@ class InvertibleAdaptersMixin:
         return hidden_states
 
 
-class ModelConfigAdaptersMixin(ABC):
-    """
-    Mixin for model config classes, adding support for adapters.
-
-    Besides adding this mixin to the config class of a model supporting adapters, make sure the following attributes/
-    properties are present: hidden_dropout_prob, attention_probs_dropout_prob.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # adapter configuration
-        adapter_config_dict = kwargs.pop("adapters", None)
-        if adapter_config_dict:
-            self.adapters = ModelAdaptersConfig(**adapter_config_dict)
-        else:
-            self.adapters = ModelAdaptersConfig()
-        # Convert AdapterFusions from old format for backwards compatibility
-        fusion_models = kwargs.pop("adapter_fusion_models", [])
-        fusion_config = kwargs.pop("adapter_fusion", None)
-        for fusion_adapter_names in fusion_models:
-            self.adapters.add_fusion(fusion_adapter_names, config=fusion_config)
-
-
 class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
@@ -130,12 +107,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.loaded_embeddings = {}
         self._active_embedding = "default"
 
-        # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
-        # Thus, we check the adapters config here to make sure everything is correct.
-        if not hasattr(config, "adapters"):
-            config.adapters = ModelAdaptersConfig()
-        elif config.adapters is not None and not isinstance(config.adapters, ModelAdaptersConfig):
-            config.adapters = ModelAdaptersConfig(**config.adapters)
+        # Make sure config is wrapped
+        self.config = inject_config(self.config)
 
     def _link_prefix_to_pool(self, layer):
         if isinstance(layer, PrefixTuningShim):

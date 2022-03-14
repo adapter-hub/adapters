@@ -16,7 +16,6 @@
 from collections import OrderedDict
 from typing import Mapping
 
-from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...onnx import OnnxConfig
 from ...utils import logging
@@ -35,7 +34,7 @@ DISTILBERT_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class DistilBertConfig(ModelConfigAdaptersMixin, PretrainedConfig):
+class DistilBertConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a :class:`~transformers.DistilBertModel` or a
     :class:`~transformers.TFDistilBertModel`. It is used to instantiate a DistilBERT model according to the specified
@@ -132,14 +131,6 @@ class DistilBertConfig(ModelConfigAdaptersMixin, PretrainedConfig):
         self.qa_dropout = qa_dropout
         self.seq_classif_dropout = seq_classif_dropout
         super().__init__(**kwargs, pad_token_id=pad_token_id)
-
-    @property
-    def hidden_dropout_prob(self):
-        return self.dropout
-
-    @property
-    def attention_probs_dropout_prob(self):
-        return self.attention_dropout
 
 
 class DistilBertOnnxConfig(OnnxConfig):
