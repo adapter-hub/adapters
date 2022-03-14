@@ -7,7 +7,7 @@ import re
 import shutil
 import tarfile
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import dataclass
 from enum import Enum
 from os.path import basename, isdir, isfile, join
 from pathlib import Path

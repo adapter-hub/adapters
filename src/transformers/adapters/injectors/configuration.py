@@ -54,7 +54,8 @@ def _to_dict_new(self):
 
 
 def inject_config(config: PretrainedConfig) -> PretrainedConfig:
-    """Makes required changes to a model config class to allow usage with adapters.
+    """
+    Makes required changes to a model config class to allow usage with adapters.
 
     Args:
         config (PretrainedConfig): The config to be wrapped.

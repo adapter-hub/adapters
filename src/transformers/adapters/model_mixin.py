@@ -10,13 +10,7 @@ import torch
 from torch import nn
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import (
-    AdapterConfig,
-    AdapterConfigBase,
-    AdapterFusionConfig,
-    ModelAdaptersConfig,
-    get_adapter_config_hash,
-)
+from .configuration import AdapterConfig, AdapterConfigBase, AdapterFusionConfig, get_adapter_config_hash
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .injectors.configuration import inject_config
