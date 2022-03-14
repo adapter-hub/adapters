@@ -103,7 +103,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
-        self.model_name = None
+        if config.name_or_path and not os.path.exists(config.name_or_path):
+            self.model_name = config.name_or_path
+        else:
+            self.model_name = None
         self.loaded_embeddings = {}
         self._active_embedding = "default"
 

@@ -1274,7 +1274,6 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
             model_kwargs = kwargs
 
         # Load model
-        model_name = None  # pre-trained model identifier if given
         if pretrained_model_name_or_path is not None:
             pretrained_model_name_or_path = str(pretrained_model_name_or_path)
             if os.path.isdir(pretrained_model_name_or_path):
@@ -1319,7 +1318,6 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                     revision=revision,
                     mirror=mirror,
                 )
-                model_name = pretrained_model_name_or_path
 
             try:
                 # Load from URL or cache if already cached
@@ -1413,8 +1411,6 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         else:
             with no_init_weights(_enable=_fast_init):
                 model = cls(config, *model_args, **model_kwargs)
-        # set the name of the pretrained model if available
-        model.model_name = model_name
 
         if from_pt:
             # restore default dtype
