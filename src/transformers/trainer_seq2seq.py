@@ -161,9 +161,6 @@ class Seq2SeqTrainer(Trainer):
         gen_kwargs = {
             "max_length": self._max_length if self._max_length is not None else self.model.config.max_length,
             "num_beams": self._num_beams if self._num_beams is not None else self.model.config.num_beams,
-            "min_length": self.args.generation_min_length,
-            "no_repeat_ngram_size": self.args.generation_no_repeat_ngram_size,
-            "length_penalty": self.args.generation_length_penalty,
             "synced_gpus": True if is_deepspeed_zero3_enabled() else False,
         }
 

@@ -61,15 +61,3 @@ class Seq2SeqTrainingArguments(TrainingArguments):
             "to the `num_beams` value of the model configuration."
         },
     )
-    generation_min_length: Optional[int] = field(
-        default=None,
-    )
-
-    generation_no_repeat_ngram_size: Optional[int] = field(
-        default=None,
-    )
-
-    generation_length_penalty: Optional[float] = field(
-        default=None,
-        metadata={"help": "length penalty"},
-    )
