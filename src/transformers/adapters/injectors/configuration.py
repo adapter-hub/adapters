@@ -49,6 +49,7 @@ def _to_dict_new(self):
     # delete handles to overriden methods
     del output["to_dict"]
     del output["_to_dict_original"]
+    del output["has_adapters"]
 
     return output
 
@@ -63,6 +64,9 @@ def inject_config(config: PretrainedConfig) -> PretrainedConfig:
     Returns:
         PretrainedConfig: The same config object, with modifications applied.
     """
+    if getattr(config, "has_adapters", False):
+        return config
+
     # Init ModelAdaptersConfig
     if not hasattr(config, "adapters"):
         config.adapters = ModelAdaptersConfig()
@@ -87,7 +91,8 @@ def inject_config(config: PretrainedConfig) -> PretrainedConfig:
         config.to_dict = types.MethodType(_to_dict_new, config)
 
     # Ensure custom_heads attribute is present
-    config.custom_heads = {}
+    if not hasattr(config, "custom_heads"):
+        config.custom_heads = {}
 
     if isinstance(config, EncoderDecoderConfig):
         # make sure adapter config is shared
@@ -95,5 +100,7 @@ def inject_config(config: PretrainedConfig) -> PretrainedConfig:
         inject_config(config.decoder)
         config.decoder.adapters = config.encoder.adapters
         config.adapters = config.encoder.adapters
+
+    config.has_adapters = True
 
     return config

@@ -31,6 +31,9 @@ class InvertibleAdaptersMixin:
         super().__init__(*args, **kwargs)
         self.invertible_adapters = nn.ModuleDict(dict())
 
+        # Make sure config is wrapped
+        self.config = inject_config(self.config)
+
     def add_invertible_adapter(self, adapter_name: str):
         """
         Adds an invertible adapter module for the adapter with the given name. If the given adapter does not specify an

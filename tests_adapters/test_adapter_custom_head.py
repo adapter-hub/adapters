@@ -4,7 +4,7 @@ import unittest
 import torch
 
 from tests.test_modeling_common import ids_tensor
-from transformers import AutoConfig, AutoAdapterModel
+from transformers import AutoAdapterModel, AutoConfig
 from transformers.adapters.heads import ClassificationHead, PredictionHead
 from transformers.testing_utils import require_torch, torch_device
 
@@ -43,24 +43,10 @@ class AdapterCustomHeadTest(unittest.TestCase):
         output2 = model(in_data)
         self.assertEqual(output1[0].size(), output2[0].size())
 
-    def test_custom_head_from_model_config(self):
-        model_name = "bert-base-uncased"
-        model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
-        model = AutoAdapterModel.from_pretrained(model_name, config=model_config)
-        config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
-        model.add_custom_head(head_type="tag", head_name="custom_head", **config)
-        model.eval()
-        model.to(torch_device)
-        in_data = ids_tensor((1, 128), 1000)
-        output1 = model(in_data)
-        model.add_tagging_head("tagging_head", num_labels=3, layers=2)
-        model.to(torch_device)
-        output2 = model(in_data)
-        self.assertEqual(output1[0].size(), output2[0].size())
-
     def test_save_load_custom_head(self):
         model_name = "bert-base-uncased"
-        model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
+        model_config = AutoConfig.from_pretrained(model_name)
+        model_config.custom_heads = {"tag": CustomHead}
         model1 = AutoAdapterModel.from_pretrained(model_name, config=model_config)
         model2 = AutoAdapterModel.from_pretrained(model_name, config=model_config)
         config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
@@ -86,15 +72,17 @@ class AdapterCustomHeadTest(unittest.TestCase):
 
     def test_builtin_head_as_custom(self):
         model_name = "bert-base-uncased"
-        model_config = AutoConfig.from_pretrained(model_name, custom_heads={"tag": CustomHead})
+        model_config = AutoConfig.from_pretrained(model_name)
+        model_config.custom_heads = {"tag": CustomHead}
         model = AutoAdapterModel.from_pretrained(model_name, config=model_config)
-        model.eval()
         in_data = ids_tensor((1, 128), 1000)
 
         model.register_custom_head("classification", ClassificationHead)
         model.add_custom_head(
             head_type="classification", head_name="custom_head", num_labels=3, layers=2, activation_function="tanh"
         )
+        model.eval()
+        model.to(torch_device)
         output = model(in_data)
 
         self.assertEqual((1, 3), output[0].shape)
