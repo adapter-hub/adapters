@@ -15,7 +15,7 @@
 import platform
 from argparse import ArgumentParser
 
-from .. import __adapters_version__
+from ..adapters import __version__
 from ..file_utils import is_flax_available, is_tf_available, is_torch_available
 from . import BaseTransformersCLICommand
 
@@ -67,7 +67,7 @@ class EnvironmentCommand(BaseTransformersCLICommand):
             jax_backend = jax.lib.xla_bridge.get_backend().platform
 
         info = {
-            "`adapter-transformers` version": __adapters_version__,
+            "`adapter-transformers` version": __version__,
             "Platform": platform.platform(),
             "Python version": platform.python_version(),
             "PyTorch version (GPU?)": f"{pt_version} ({pt_cuda_available})",
