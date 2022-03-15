@@ -20,8 +20,8 @@ from typing import Optional
 import torch
 from torch.nn import CrossEntropyLoss
 
-from ...adapters.injectors.configuration import inject_config
 from ...adapters.mixins.encoder_decoder import EncoderDecoderModelAdaptersMixin
+from ...adapters.wrappers.configuration import wrap_config
 from ...configuration_utils import PretrainedConfig
 from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward, replace_return_docstrings
 from ...modeling_outputs import Seq2SeqLMOutput
@@ -402,10 +402,10 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
         config = EncoderDecoderConfig.from_encoder_decoder_configs(encoder.config, decoder.config, **kwargs)
         # HACK: make sure adapter configs are referring to the same objects
         if hasattr(encoder.config, "adapters"):
-            inject_config(encoder.config)
+            wrap_config(encoder.config)
             config.encoder.adapters = encoder.config.adapters
         if hasattr(decoder.config, "adapters"):
-            inject_config(decoder.config)
+            wrap_config(decoder.config)
             config.decoder.adapters = decoder.config.adapters
         return cls(encoder=encoder, decoder=decoder, config=config)
 

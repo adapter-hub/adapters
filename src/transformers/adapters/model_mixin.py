@@ -13,12 +13,12 @@ from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import AdapterConfig, AdapterConfigBase, AdapterFusionConfig, get_adapter_config_hash
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
-from .injectors.configuration import inject_config
 from .layer import AdapterLayer, AdapterLayerBase
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .prefix_tuning import PrefixTuningPool, PrefixTuningShim
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
+from .wrappers.configuration import wrap_config
 
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class InvertibleAdaptersMixin:
         self.invertible_adapters = nn.ModuleDict(dict())
 
         # Make sure config is wrapped
-        self.config = inject_config(self.config)
+        self.config = wrap_config(self.config)
 
     def add_invertible_adapter(self, adapter_name: str):
         """
@@ -108,7 +108,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self._active_embedding = "default"
 
         # Make sure config is wrapped
-        self.config = inject_config(self.config)
+        self.config = wrap_config(self.config)
 
     def _link_prefix_to_pool(self, layer):
         if isinstance(layer, PrefixTuningShim):
@@ -184,7 +184,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # TODO implement fusion for invertible adapters
 
     def has_adapters(self):
-        if not getattr(self.config, "adapters", None):
+        if not getattr(self.config, "is_adaptable", None):
             return False
         return len(self.config.adapters.adapters) > 0
 

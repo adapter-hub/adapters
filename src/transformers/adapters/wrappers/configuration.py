@@ -49,12 +49,12 @@ def _to_dict_new(self):
     # delete handles to overriden methods
     del output["to_dict"]
     del output["_to_dict_original"]
-    del output["has_adapters"]
+    del output["is_adaptable"]
 
     return output
 
 
-def inject_config(config: PretrainedConfig) -> PretrainedConfig:
+def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
     """
     Makes required changes to a model config class to allow usage with adapters.
 
@@ -64,7 +64,7 @@ def inject_config(config: PretrainedConfig) -> PretrainedConfig:
     Returns:
         PretrainedConfig: The same config object, with modifications applied.
     """
-    if getattr(config, "has_adapters", False):
+    if getattr(config, "is_adaptable", False):
         return config
 
     # Init ModelAdaptersConfig
@@ -96,11 +96,11 @@ def inject_config(config: PretrainedConfig) -> PretrainedConfig:
 
     if isinstance(config, EncoderDecoderConfig):
         # make sure adapter config is shared
-        inject_config(config.encoder)
-        inject_config(config.decoder)
+        wrap_config(config.encoder)
+        wrap_config(config.decoder)
         config.decoder.adapters = config.encoder.adapters
         config.adapters = config.encoder.adapters
 
-    config.has_adapters = True
+    config.is_adaptable = True
 
     return config
