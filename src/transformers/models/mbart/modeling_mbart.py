@@ -32,6 +32,7 @@ from ...adapters.mixins.bart import (
     BartModelAdaptersMixin,
 )
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import (
     add_code_sample_docstrings,
     add_end_docstrings,
@@ -143,11 +144,13 @@ class MBartAttention(nn.Module):
 
     def __init__(
         self,
+        config: MBartConfig,
         embed_dim: int,
         num_heads: int,
         dropout: float = 0.0,
         is_decoder: bool = False,
         bias: bool = True,
+        location_key: Optional[str] = None,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -167,6 +170,8 @@ class MBartAttention(nn.Module):
         self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
@@ -221,6 +226,9 @@ class MBartAttention(nn.Module):
 
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
         query_states = self._shape(query_states, tgt_len, bsz).view(*proj_shape)
+
+        key_states, value_states, attention_mask = self.prefix_tuning(key_states, value_states, attention_mask)
+
         key_states = key_states.view(*proj_shape)
         value_states = value_states.view(*proj_shape)
 
@@ -285,9 +293,11 @@ class MBartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
 
         self.embed_dim = config.d_model
         self.self_attn = MBartAttention(
+            config,
             embed_dim=self.embed_dim,
             num_heads=config.encoder_attention_heads,
             dropout=config.attention_dropout,
+            location_key="encoder",
         )
         self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.dropout = config.dropout
@@ -358,10 +368,12 @@ class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
         self.embed_dim = config.d_model
 
         self.self_attn = MBartAttention(
+            config,
             embed_dim=self.embed_dim,
             num_heads=config.decoder_attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
+            location_key="self",
         )
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
@@ -369,10 +381,12 @@ class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
 
         self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.encoder_attn = MBartAttention(
+            config,
             self.embed_dim,
             config.decoder_attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
+            location_key="cross",
         )
         self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)

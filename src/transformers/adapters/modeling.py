@@ -3,7 +3,7 @@ import math
 import torch
 from torch import nn
 
-from .configuration import AdapterFusionConfig
+from .configuration import AdapterConfig, AdapterFusionConfig
 
 
 class Activation_Function_Class(nn.Module):
@@ -49,25 +49,26 @@ class Activation_Function_Class(nn.Module):
 
 class Adapter(nn.Module):
     """
-    Implementation of a single Adapter block.
+    Implementation of a sequential bottleneck adapter block.
     """
 
     def __init__(
         self,
         input_size,
-        down_sample=None,
-        non_linearity="relu",
-        init_bert_weights=True,
-        add_layer_norm_before=True,
-        add_layer_norm_after=False,
-        residual_before_ln=True,
+        down_sample,
+        config: AdapterConfig,
     ):
         super().__init__()
 
         self.input_size = input_size
-        self.add_layer_norm_before = add_layer_norm_before
-        self.add_layer_norm_after = add_layer_norm_after
-        self.residual_before_ln = residual_before_ln
+        self.add_layer_norm_before = config["ln_before"]
+        self.add_layer_norm_after = config["ln_after"]
+        self.adapter_residual_before_ln = config["adapter_residual_before_ln"]
+
+        # Params related to input & output of adapter
+        self.residual_before_ln = config["residual_before_ln"]
+        self.original_ln_before = config["original_ln_before"]
+        self.original_ln_after = config["original_ln_after"]
 
         # list for all modules of the adapter, passed into nn.Sequential()
         seq_list = []
@@ -90,7 +91,7 @@ class Adapter(nn.Module):
         seq_list.append(nn.Linear(self.input_size, self.down_sample))
 
         # select non-linearity
-        self.non_linearity = Activation_Function_Class(non_linearity.lower())
+        self.non_linearity = Activation_Function_Class(config["non_linearity"].lower())
 
         seq_list.append(self.non_linearity)
 
@@ -101,25 +102,82 @@ class Adapter(nn.Module):
         # Up projection to input size
         self.adapter_up = nn.Linear(self.down_sample, self.input_size)
 
+        # Additional scaling factor (from He et al. (2021))
+        if isinstance(config["scaling"], float):
+            self.scaling = config["scaling"]
+        elif config["scaling"] == "learned":
+            self.scaling = nn.Parameter(torch.ones(1))
+        else:
+            raise ValueError("Unknown scaling type: {}".format(config["scaling"]))
+
         # If we want to have a layer norm on output, we apply it later after a separate residual connection
         # This means that we learn a new output layer norm, which replaces another layer norm learned in the bert layer
         if self.add_layer_norm_after:
             self.adapter_norm_after = nn.LayerNorm(self.input_size)
 
         # if we want to initialize with the bert strategy then this function is called for all the linear layers
-        if init_bert_weights:
+        if config["init_weights"] == "bert":
             self.adapter_down.apply(self.init_bert_weights)
             self.adapter_up.apply(self.init_bert_weights)
+        elif config["init_weights"] == "mam_adapter":
+            with torch.no_grad():
+                nn.init.kaiming_uniform_(self.adapter_down[0].weight, a=math.sqrt(5))
+                nn.init.zeros_(self.adapter_up.weight)
+                nn.init.zeros_(self.adapter_down[0].bias)
+                nn.init.zeros_(self.adapter_up.bias)
+        else:
+            raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
+
+    def pre_forward(
+        self,
+        hidden_states,
+        input_tensor,
+        layer_norm,
+        fusion_config=None,
+    ):
+        """
+        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration.
+
+        Args:
+            adapter_config: config file according to what the parameters are passed
+            hidden_states: output of previous layer
+            input_tensor: residual connection before FFN
+
+        Returns: hidden_states, query, residual
+
+        """
+        query = None
+
+        if self.residual_before_ln:
+            residual = hidden_states
+
+        if fusion_config is not None and fusion_config["query_before_ln"]:
+            query = hidden_states
+
+        if self.original_ln_before:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        if not self.residual_before_ln:
+            residual = hidden_states
+
+        if fusion_config is not None and not fusion_config["query_before_ln"]:
+            query = hidden_states
+
+        return hidden_states, query, residual
 
     def forward(self, x, residual_input):  # , residual_input=None):
         down = self.adapter_down(x)
 
         up = self.adapter_up(down)
+        up = up * self.scaling
 
         output = up
 
         # apply residual connection before layer norm if configured in this way
-        if self.residual_before_ln:
+        if self.adapter_residual_before_ln:
             output = output + residual_input
 
         # apply layer norm if available
@@ -127,10 +185,32 @@ class Adapter(nn.Module):
             output = self.adapter_norm_after(output)
 
         # if residual should be applied after layer norm, apply it here
-        if not self.residual_before_ln:
+        if not self.adapter_residual_before_ln:
             output = output + residual_input
 
         return output, down, up
+
+    def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
+        """
+        Performs computations after the forward pass of the adapter block(s). This e.g. includes applying the residual
+        connection and layer norm if configured in this way.
+
+        Args:
+            hidden_states: The hidden states outputted by the adapter block(s).
+            input_hidden_states: Residual connection before the adapter block(s).
+            input_tensor: Residual connection before the Transformer FFN/ attention layer.
+            layer_norm: Transformer LayerNorm.
+
+        Returns:
+            The modified hidden states.
+        """
+        if self.original_ln_after:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        return hidden_states
 
     # This is copied from the BertPreTrainedModel class to make this a self containing class.
     @staticmethod
@@ -144,6 +224,77 @@ class Adapter(nn.Module):
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:
             module.bias.data.zero_()
+
+
+class ParallelAdapter(Adapter):
+    """
+    Implementation of a parallel bottleneck adapter block.
+    """
+
+    def __init__(self, input_size, down_sample, config: AdapterConfig):
+        super().__init__(input_size, down_sample, config)
+
+    def pre_forward(
+        self,
+        hidden_states,
+        input_tensor,
+        layer_norm,
+        fusion_config=None,
+    ):
+        """
+        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration.
+
+        Args:
+            adapter_config: config file according to what the parameters are passed
+            hidden_states: output of previous layer
+            input_tensor: residual connection before FFN
+
+        Returns: hidden_states, query, residual
+
+        """
+        # In case of parallel adapter, return the input tensor as hidden states
+        query = None
+        if fusion_config is not None:
+            query = input_tensor
+        return input_tensor, query, input_tensor
+
+    def forward(self, x, residual_input):
+        down = self.adapter_down(x)
+
+        up = self.adapter_up(down)
+        up = up * self.scaling
+
+        output = up
+
+        # apply layer norm if available
+        if self.add_layer_norm_after:
+            output = self.adapter_norm_after(output)
+
+        return output, down, up
+
+    def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
+        """
+        Performs computations after the forward pass of the adapter block(s). This e.g. includes applying the residual
+        connection and layer norm if configured in this way.
+
+        Args:
+            hidden_states: The hidden states outputted by the adapter block(s).
+            input_hidden_states: Residual connection before the adapter block(s).
+            input_tensor: Residual connection before the Transformer FFN/ attention layer.
+            layer_norm: Transformer LayerNorm.
+
+        Returns:
+            The modified hidden states.
+        """
+        hidden_states = hidden_states + input_hidden_states
+
+        if self.original_ln_after:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        return hidden_states
 
 
 # Adapter Fusion

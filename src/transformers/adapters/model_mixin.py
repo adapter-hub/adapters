@@ -10,12 +10,19 @@ import torch
 from torch import nn
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import AdapterConfig, AdapterFusionConfig, ModelAdaptersConfig, get_adapter_config_hash
+from .configuration import (
+    AdapterConfig,
+    AdapterConfigBase,
+    AdapterFusionConfig,
+    ModelAdaptersConfig,
+    get_adapter_config_hash,
+)
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
-from .layer import AdapterLayer
+from .layer import AdapterLayer, AdapterLayerBase
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
+from .prefix_tuning import PrefixTuningPool, PrefixTuningShim
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
 
 
@@ -39,7 +46,11 @@ class InvertibleAdaptersMixin:
         """
         if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
-        adapter_config = self.config.adapters.get(adapter_name)
+        adapter_config = self.config.adapters.match(
+            adapter_name,
+            config_type=AdapterConfig,
+            location_key="inv_adapter",
+        )
         if adapter_config and adapter_config["inv_adapter"]:
             if adapter_config["inv_adapter"] == "nice":
                 inv_adap = NICECouplingBlock(
@@ -126,10 +137,19 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         elif config.adapters is not None and not isinstance(config.adapters, ModelAdaptersConfig):
             config.adapters = ModelAdaptersConfig(**config.adapters)
 
-    def _init_adapter_modules(self):
+    def _link_prefix_to_pool(self, layer):
+        if isinstance(layer, PrefixTuningShim):
+            layer.set_pool(self.base_model.prefix_tuning)
+
+    def _init_adapter_modules(self, add_prefix_tuning_pool=True):
         """
         This method initializes adapter modules and fusion modules from the model config.
         """
+        # Link all prefix tunings
+        if add_prefix_tuning_pool:
+            self.base_model.prefix_tuning = PrefixTuningPool(self.config)
+            self.apply_to_adapter_layers(lambda i, layer: self._link_prefix_to_pool(layer))
+
         # Initialize adapters from config
         for adapter_name in self.config.adapters:
             self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
@@ -156,7 +176,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         for i, layer in self.iter_layers():
             for module in layer.modules():
-                if isinstance(module, AdapterLayer):
+                if isinstance(module, AdapterLayerBase):
                     fn(i, module)
 
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
@@ -238,7 +258,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
 
             adapter_name (str): The name of the adapter module to be added.
-            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
+            config (str or dict or AdapterConfigBase, optional): The adapter configuration, can be either:
 
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
@@ -247,14 +267,22 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
         """
         if isinstance(config, dict):
-            config = AdapterConfig.from_dict(config)  # ensure config is ok and up-to-date
+            config = AdapterConfigBase.load(config)  # ensure config is ok and up-to-date
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
         if overwrite_ok and adapter_name in self.config.adapters:
             self.delete_adapter(adapter_name)
         self.config.adapters.add(adapter_name, config=config)
-        self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
-        if isinstance(self, InvertibleAdaptersMixin):
-            self.add_invertible_adapter(adapter_name)
+        try:
+            self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
+            # Prefix Tuning
+            for module in self.modules():
+                if isinstance(module, PrefixTuningPool):
+                    module.confirm_prefix(adapter_name)
+            if isinstance(self, InvertibleAdaptersMixin):
+                self.add_invertible_adapter(adapter_name)
+        except ValueError as ex:
+            self.delete_adapter(adapter_name)
+            raise ex
         if set_active:
             self.set_active_adapters(adapter_name)
 
@@ -570,10 +598,22 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         # some warnings if we don't use available adapters
         active_adapters = getattr(self, "active_adapters", None) or AdapterSetup.get_context()
-        if not active_adapters and self.has_adapters():
-            logger.warning("There are adapters available but none are activated for the forward pass.")
+        if not active_adapters:
+            if self.has_adapters():
+                logger.warning("There are adapters available but none are activated for the forward pass.")
+            return
 
         context.adapters_parallelized = False
+
+        # Prefix tuning
+        input_tensor = kwargs.get("input_ids", None)
+        if input_tensor is None:
+            input_tensor = kwargs.get("decoder_input_ids", None)
+        if input_tensor is None:
+            input_tensor = kwargs.get("attention_mask", None)
+        if input_tensor is None:
+            input_tensor = args[0]
+        context.prefix_states = self.base_model.prefix_tuning(input_tensor.shape[0])
 
     def load_embeddings(self, path: str, name: str):
         """
@@ -705,17 +745,40 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         return reg_loss
 
-    def get_adapter(self, name):
+    def get_adapter(self, name) -> dict:
+        """
+        Returns a dictionary with all weights of the adapter with the specified name.
+
+        Args:
+            name (str): The adapter name.
+
+        Returns:
+            dict: A nested dictionary containing the weights of the adapter. The dictionary is structured as follow:
+            {<layer id>: {<module location>: <nn.Module>}}.
+        """
         destination = defaultdict(dict)
 
         # use a custom index to ensure numbering is from 0 to N layers
         for i, (_, layer) in enumerate(self.iter_layers()):
             for module in layer.modules():
-                if isinstance(module, AdapterLayer):
-                    if name in module.adapters:
-                        destination[i][module.location_key] = module.adapters[name]
+                if isinstance(module, AdapterLayerBase):
+                    adapter_module = module.get_adapter(name)
+                    if adapter_module is not None:
+                        destination[i][module.location_key] = adapter_module
 
         return dict(destination)
+
+    def eject_prefix_tuning(self, name: str):
+        """
+        Converts the prefix tuning with the given name from the reparameterized form into the flat form.
+
+        Args:
+            name (str): The name of the prefix tuning.
+        """
+        for module in self.modules():
+            if isinstance(module, PrefixTuningPool):
+                if name in module.prefix_tunings:
+                    module.prefix_tunings[name].eject()
 
 
 @inherit_doc

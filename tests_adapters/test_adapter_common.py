@@ -1,4 +1,5 @@
 import copy
+import os
 import tempfile
 
 import torch
@@ -11,9 +12,12 @@ from transformers import (
     AutoAdapterModel,
     HoulsbyConfig,
     HoulsbyInvConfig,
+    MAMConfig,
     PfeifferConfig,
     PfeifferInvConfig,
+    PrefixTuningConfig,
 )
+from transformers.adapters.utils import WEIGHTS_NAME
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -36,11 +40,19 @@ def create_twin_models(model_class, config_creator=None):
 
 @require_torch
 class AdapterModelTestMixin:
+
+    adapter_configs_to_test = [
+        PfeifferConfig(),
+        HoulsbyConfig(),
+        PrefixTuningConfig(flat=True),
+        MAMConfig(),
+    ]
+
     def test_add_adapter(self):
         model = self.get_model()
         model.eval()
 
-        for adapter_config in [PfeifferConfig(), HoulsbyConfig()]:
+        for adapter_config in self.adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
@@ -63,18 +75,20 @@ class AdapterModelTestMixin:
         model = self.get_model()
         model.eval()
 
-        name = "test_adapter"
-        model.add_adapter(name, config="houlsby")
-        model.set_active_adapters([name])
+        for adapter_config in self.adapter_configs_to_test:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = "test_adapter_" + adapter_config.__class__.__name__
+                model.add_adapter(name, config="houlsby")
+                model.set_active_adapters([name])
 
-        # adapter is correctly added to config
-        self.assertTrue(name in model.config.adapters)
-        self.assertGreater(len(model.get_adapter(name)), 0)
+                # adapter is correctly added to config
+                self.assertTrue(name in model.config.adapters)
+                self.assertGreater(len(model.get_adapter(name)), 0)
 
-        # remove the adapter again
-        model.delete_adapter(name)
-        self.assertFalse(name in model.config.adapters)
-        self.assertEqual(len(model.get_adapter(name)), 0)
+                # remove the adapter again
+                model.delete_adapter(name)
+                self.assertFalse(name in model.config.adapters)
+                self.assertEqual(len(model.get_adapter(name)), 0)
 
     def test_add_adapter_with_invertible(self):
         model = self.get_model()
@@ -112,22 +126,26 @@ class AdapterModelTestMixin:
         model = self.get_model()
         model.eval()
 
-        adapter_config = HoulsbyConfig()
-        model.add_adapter("first", config=adapter_config)
-        model.add_adapter("second", config=adapter_config)
-        model.set_active_adapters(["first"])
+        for adapter_config in self.adapter_configs_to_test:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                model.add_adapter("first", config=adapter_config)
+                model.add_adapter("second", config=adapter_config)
+                model.set_active_adapters(["first"])
 
-        # adapter is correctly added to config
-        name = "first"
-        self.assertTrue(name in model.config.adapters)
-        self.assertEqual(adapter_config, model.config.adapters.get(name))
+                # adapter is correctly added to config
+                name = "first"
+                self.assertTrue(name in model.config.adapters)
+                self.assertEqual(adapter_config, model.config.adapters.get(name))
 
-        first_adapter = model.get_adapter("first")
-        second_adapter = model.get_adapter("second")
+                first_adapter = model.get_adapter("first")
+                second_adapter = model.get_adapter("second")
 
-        self.assertNotEqual(len(first_adapter), 0)
-        self.assertEqual(len(first_adapter), len(second_adapter))
-        self.assertNotEqual(first_adapter, second_adapter)
+                self.assertNotEqual(len(first_adapter), 0)
+                self.assertEqual(len(first_adapter), len(second_adapter))
+                self.assertNotEqual(first_adapter, second_adapter)
+
+                model.delete_adapter("first")
+                model.delete_adapter("second")
 
     def test_add_adapter_multiple_reduction_factors(self):
         model = self.get_model()
@@ -176,7 +194,7 @@ class AdapterModelTestMixin:
         model = self.get_model()
         model.eval()
 
-        for adapter_config in [PfeifferConfig(), HoulsbyConfig()]:
+        for adapter_config in self.adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
@@ -198,14 +216,18 @@ class AdapterModelTestMixin:
                 self.assertEqual(len(output_1), len(output_2))
                 self.assertTrue(torch.equal(output_1[0], output_2[0]))
 
-    def test_load_adapter(self):
+    def run_load_test(self, config):
         model1, model2 = create_twin_models(self.model_class, self.config)
 
-        name = "dummy"
-        model1.add_adapter(name)
+        name = "dummy_adapter"
+        model1.add_adapter(name, config=config)
         model1.set_active_adapters([name])
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
+
+            # Check that there are actually weights saved
+            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu")
+            self.assertTrue(len(weights) > 0)
 
             # also tests that set_active works
             model2.load_adapter(temp_dir, set_active=True)
@@ -221,6 +243,15 @@ class AdapterModelTestMixin:
         output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
+
+    def test_load_adapter(self):
+        self.run_load_test(PfeifferConfig())
+
+    def test_load_prefix_tuning(self):
+        self.run_load_test(PrefixTuningConfig())
+
+    def test_load_mam_adapter(self):
+        self.run_load_test(MAMConfig())
 
     def test_load_full_model(self):
         model1 = self.get_model()
@@ -349,3 +380,25 @@ class AdapterModelTestMixin:
         output_base = static_model(**input_data)
         output_with_head = flex_model(**input_data)
         self.assertTrue(torch.allclose(output_base["logits"], output_with_head["logits"]))
+
+    def test_eject_prefix(self):
+        model = self.get_model()
+        model.eval()
+        model.add_adapter("test_prefix", config="prefix_tuning")
+        model.to(torch_device)
+
+        input_data = self.get_input_samples((2, 128), config=model.config)
+
+        # user reparamterized prefix
+        model.set_active_adapters(["test_prefix"])
+        output_1 = model(**input_data)
+
+        # eject prefix
+        model.eject_prefix_tuning("test_prefix")
+        model.to(torch_device)
+        model.eval()
+        output_2 = model(**input_data)
+
+        # check forward pass
+        self.assertEqual(len(output_1), len(output_2))
+        self.assertTrue(torch.allclose(output_1[0], output_2[0]))
