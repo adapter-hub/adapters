@@ -191,6 +191,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # TODO implement fusion for invertible adapters
 
     def has_adapters(self):
+        if not getattr(self.config, "adapters", None):
+            return False
         return len(self.config.adapters.adapters) > 0
 
     @property
@@ -567,7 +569,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         This method is called by the ``ForwardContext`` at the beginning of the forward pass.
         """
         # some warnings if we don't use available adapters
-        active_adapters = self.active_adapters or AdapterSetup.get_context()
+        active_adapters = getattr(self, "active_adapters", None) or AdapterSetup.get_context()
         if not active_adapters and self.has_adapters():
             logger.warning("There are adapters available but none are activated for the forward pass.")
 
