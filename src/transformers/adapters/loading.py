@@ -56,7 +56,7 @@ class WeightsLoaderHelper:
                 if k not in config:
                     config[k] = v
         # add version to config
-        config["adapter_version"] = __adapters_version__
+        config["version"] = __adapters_version__
         # save to file system
         output_config_file = join(save_directory, self.config_name)
         with open(output_config_file, "w", encoding="utf-8") as f:
@@ -83,7 +83,7 @@ class WeightsLoaderHelper:
         with open(config_file, "r", encoding="utf-8") as f:
             loaded_config = json.load(f)
         # For older versions translate the activation function to the new format
-        if "adapter_version" not in loaded_config:
+        if "version" not in loaded_config:
             if "config" in loaded_config and loaded_config["config"] is not None:
                 if (
                     "non_linearity" in loaded_config["config"]

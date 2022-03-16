@@ -22,7 +22,7 @@ class CompabilityTestMixin:
             with open(os.path.join(temp_dir, "adapter_config.json"), "r") as file:
                 data = json.load(file)
                 data["config"]["non_linearity"] = "gelu_orig"
-                del data["adapter_version"]
+                del data["version"]
             with open(os.path.join(temp_dir, "adapter_config.json"), "w") as file:
                 json.dump(data, file)
 
@@ -44,4 +44,4 @@ class CompabilityTestMixin:
 
             with open(os.path.join(temp_dir, "adapter_config.json"), "r") as file:
                 data = json.load(file)
-                self.assertEqual(__adapters_version__, data["adapter_version"])
+                self.assertEqual(__adapters_version__, data["version"])

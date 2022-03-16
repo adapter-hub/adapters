@@ -12,6 +12,7 @@ from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 from .test_adapter_training import AdapterTrainingTestMixin
+from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_common import AdapterModelTesterMixin
 
 
@@ -41,6 +42,7 @@ class BartAdapterTestBase(AdapterTestBase):
 class BartAdapterTest(
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
+    CompabilityTestMixin,
     EmbeddingTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,
