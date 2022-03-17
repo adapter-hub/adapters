@@ -7,8 +7,6 @@ from typing import Callable, Mapping, Sequence, Tuple
 
 import torch
 
-from transformers import __adapters_version__
-
 from .configuration import AdapterConfig, build_full_config
 from .head_utils import STATIC_TO_FLEX_HEAD_MAP, get_head_config_and_rename_list
 from .utils import (
@@ -55,8 +53,6 @@ class WeightsLoaderHelper:
             for k, v in meta_dict.items():
                 if k not in config:
                     config[k] = v
-        # add version to config
-        config["version"] = __adapters_version__
         # save to file system
         output_config_file = join(save_directory, self.config_name)
         with open(output_config_file, "w", encoding="utf-8") as f:
