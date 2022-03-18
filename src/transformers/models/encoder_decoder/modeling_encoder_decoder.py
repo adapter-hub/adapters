@@ -20,7 +20,6 @@ from typing import Optional
 import torch
 from torch.nn import CrossEntropyLoss
 
-from ...adapters.context import ForwardContext
 from ...adapters.mixins.encoder_decoder import EncoderDecoderModelAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward, replace_return_docstrings
@@ -409,7 +408,6 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
 
     @add_start_docstrings_to_model_forward(ENCODER_DECODER_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
-    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,

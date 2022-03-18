@@ -12,7 +12,7 @@ class EncoderDecoderModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMix
         super().__init__(*args, **kwargs)
 
     def _init_adapter_modules(self):
-        if self.config.adapters is None:
+        if not isinstance(self.encoder, ModelAdaptersMixin) or not isinstance(self.decoder, ModelAdaptersMixin):
             return
 
         # Relay all invertible adapter calls to encoder
@@ -37,7 +37,7 @@ class EncoderDecoderModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMix
 
         self.decoder.base_model.invertible_adapters_forward = decoder_invertible_adapters_forward
 
-        super()._init_adapter_modules()
+        super()._init_adapter_modules(add_prefix_tuning_pool=False)
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in self.encoder.iter_layers():

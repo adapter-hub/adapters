@@ -4,9 +4,8 @@ from typing import Union
 import torch
 from torch import nn
 
-from .configuration import AdapterFusionConfig
+from .configuration import AdapterConfig, AdapterFusionConfig
 from .context import ForwardContext
-
 
 class Activation_Function_Class(nn.Module):
     """
@@ -51,27 +50,27 @@ class Activation_Function_Class(nn.Module):
 
 class Adapter(nn.Module):
     """
-    Implementation of a single Adapter block.
+    Implementation of a sequential bottleneck adapter block.
     """
 
     def __init__(
         self,
         adapter_name,
         input_size,
-        down_sample=None,
-        non_linearity="relu",
-        init_bert_weights=True,
-        add_layer_norm_before=True,
-        add_layer_norm_after=False,
-        residual_before_ln=True,
-        **kwargs,
+        down_sample,
+        config: AdapterConfig,
     ):
         super().__init__()
         self.name = adapter_name
         self.input_size = input_size
-        self.add_layer_norm_before = add_layer_norm_before
-        self.add_layer_norm_after = add_layer_norm_after
-        self.residual_before_ln = residual_before_ln
+        self.add_layer_norm_before = config["ln_before"]
+        self.add_layer_norm_after = config["ln_after"]
+        self.adapter_residual_before_ln = config["adapter_residual_before_ln"]
+
+        # Params related to input & output of adapter
+        self.residual_before_ln = config["residual_before_ln"]
+        self.original_ln_before = config["original_ln_before"]
+        self.original_ln_after = config["original_ln_after"]
 
         # list for all modules of the adapter, passed into nn.Sequential()
         seq_list = []
@@ -90,14 +89,14 @@ class Adapter(nn.Module):
         if self.down_sample < 1:
             self.down_sample = 1
 
-        if kwargs.pop("phm_layer", False):
+        if config["phm_layer"]:
             # Linear down projection of the input
-            seq_list.append(PHMLayer(self.input_size, self.down_sample, "down", **kwargs))
+            seq_list.append(PHMLayer(adapter_name, self.input_size, self.down_sample, "down", config))
         else:
             seq_list.append(nn.Linear(self.input_size, self.down_sample))
 
         # select non-linearity
-        self.non_linearity = Activation_Function_Class(non_linearity.lower())
+        self.non_linearity = Activation_Function_Class(config["non_linearity"].lower())
 
         seq_list.append(self.non_linearity)
 
@@ -106,11 +105,19 @@ class Adapter(nn.Module):
         self.adapter_down = nn.Sequential(*seq_list)
 
         # Up projection to input size
-        if kwargs.pop("phm_layer", False):
+        if config["phm_layer"]:
             # Linear down projection of the input
-            self.adapter_up = PHMLayer(self.down_sample, self.input_size, "up" ** kwargs)
+            self.adapter_up = PHMLayer(adapter_name, self.down_sample, self.input_size, "up", config)
         else:
             self.adapter_up = nn.Linear(self.down_sample, self.input_size)
+
+        # Additional scaling factor (from He et al. (2021))
+        if isinstance(config["scaling"], float):
+            self.scaling = config["scaling"]
+        elif config["scaling"] == "learned":
+            self.scaling = nn.Parameter(torch.ones(1))
+        else:
+            raise ValueError("Unknown scaling type: {}".format(config["scaling"]))
 
         # If we want to have a layer norm on output, we apply it later after a separate residual connection
         # This means that we learn a new output layer norm, which replaces another layer norm learned in the bert layer
@@ -118,48 +125,67 @@ class Adapter(nn.Module):
             self.adapter_norm_after = nn.LayerNorm(self.input_size)
 
         # if we want to initialize with the bert strategy then this function is called for all the linear layers
-        if init_bert_weights:
+        if config["init_weights"] == "bert":
             self.adapter_down.apply(self.init_bert_weights)
             self.adapter_up.apply(self.init_bert_weights)
+        elif config["init_weights"] == "mam_adapter":
+            with torch.no_grad():
+                nn.init.kaiming_uniform_(self.adapter_down[0].weight, a=math.sqrt(5))
+                nn.init.zeros_(self.adapter_up.weight)
+                nn.init.zeros_(self.adapter_down[0].bias)
+                nn.init.zeros_(self.adapter_up.bias)
+        else:
+            raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
+
+    def pre_forward(
+        self,
+        hidden_states,
+        input_tensor,
+        layer_norm,
+        fusion_config=None,
+    ):
+        """
+        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration.
+
+        Args:
+            adapter_config: config file according to what the parameters are passed
+            hidden_states: output of previous layer
+            input_tensor: residual connection before FFN
+
+        Returns: hidden_states, query, residual
+
+        """
+        query = None
+
+        if self.residual_before_ln:
+            residual = hidden_states
+
+        if fusion_config is not None and fusion_config["query_before_ln"]:
+            query = hidden_states
+
+        if self.original_ln_before:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        if not self.residual_before_ln:
+            residual = hidden_states
+
+        if fusion_config is not None and not fusion_config["query_before_ln"]:
+            query = hidden_states
+
+        return hidden_states, query, residual
 
     def forward(self, x, residual_input):  # , residual_input=None):
-        if self.name in ForwardContext.get_context().shared_parameters:
-            parameters = ForwardContext.get_context().shared_parameters[self.name]
-            # if len(parameters) > 0:
-            # phm_parameters = nn.ParameterDict()
-            # if "phm_rule" in parameters:
-            #     phm_parameters["phm_rule"] = parameters["phm_rule"]
-            # elif "phm_rule_left" in parameters:
-            #     phm_parameters["phm_rule_left"] = parameters["phm_rule_left"]
-            #     phm_parameters["phm_rule_right"] = parameters["phm_rule_right"]
-            #
-            # if "W_down" in parameters:
-            #     phm_parameters["W"] = parameters["W_down"]
-            # elif "W_down_left" in parameters:
-            #     phm_parameters["W_left"] = parameters["W_down_left"]
-            #     phm_parameters["W_right"] = parameters["W_down_right"]
+        down = self.adapter_down(x)
 
-            ForwardContext.get_context().phm_parameters = parameters
-            down = self.adapter_down(x)
-
-            # phm_parameters["W"] = None
-            # phm_parameters["W_left"] = None
-            # phm_parameters["W_right"] = None
-            # if "W_up" in parameters:
-            #     phm_parameters["W"] = parameters["W_up"]
-            # elif "W_up_left" in parameters:
-            #     phm_parameters["W_left"] = parameters["W_up_left"]
-            #     phm_parameters["W_right"] = parameters["W_up_right"]
-            # ForwardContext.get_context().phm_parameters = phm_parameters
-            up = self.adapter_up(down)
-        else:
-            down = self.adapter_down(x)
-            up = self.adapter_up(down)
-
+        up = self.adapter_up(down)
+        up = up * self.scaling
         output = up
 
         # apply residual connection before layer norm if configured in this way
-        if self.residual_before_ln:
+        if self.adapter_residual_before_ln:
             output = output + residual_input
 
         # apply layer norm if available
@@ -167,10 +193,32 @@ class Adapter(nn.Module):
             output = self.adapter_norm_after(output)
 
         # if residual should be applied after layer norm, apply it here
-        if not self.residual_before_ln:
+        if not self.adapter_residual_before_ln:
             output = output + residual_input
 
         return output, down, up
+
+    def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
+        """
+        Performs computations after the forward pass of the adapter block(s). This e.g. includes applying the residual
+        connection and layer norm if configured in this way.
+
+        Args:
+            hidden_states: The hidden states outputted by the adapter block(s).
+            input_hidden_states: Residual connection before the adapter block(s).
+            input_tensor: Residual connection before the Transformer FFN/ attention layer.
+            layer_norm: Transformer LayerNorm.
+
+        Returns:
+            The modified hidden states.
+        """
+        if self.original_ln_after:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        return hidden_states
 
     # This is copied from the BertPreTrainedModel class to make this a self containing class.
     @staticmethod
@@ -184,6 +232,77 @@ class Adapter(nn.Module):
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:
             module.bias.data.zero_()
+
+
+class ParallelAdapter(Adapter):
+    """
+    Implementation of a parallel bottleneck adapter block.
+    """
+
+    def __init__(self, adapter_name, input_size, down_sample, config: AdapterConfig):
+        super().__init__(adapter_name, input_size, down_sample, config)
+
+    def pre_forward(
+        self,
+        hidden_states,
+        input_tensor,
+        layer_norm,
+        fusion_config=None,
+    ):
+        """
+        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration.
+
+        Args:
+            adapter_config: config file according to what the parameters are passed
+            hidden_states: output of previous layer
+            input_tensor: residual connection before FFN
+
+        Returns: hidden_states, query, residual
+
+        """
+        # In case of parallel adapter, return the input tensor as hidden states
+        query = None
+        if fusion_config is not None:
+            query = input_tensor
+        return input_tensor, query, input_tensor
+
+    def forward(self, x, residual_input):
+        down = self.adapter_down(x)
+
+        up = self.adapter_up(down)
+        up = up * self.scaling
+
+        output = up
+
+        # apply layer norm if available
+        if self.add_layer_norm_after:
+            output = self.adapter_norm_after(output)
+
+        return output, down, up
+
+    def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
+        """
+        Performs computations after the forward pass of the adapter block(s). This e.g. includes applying the residual
+        connection and layer norm if configured in this way.
+
+        Args:
+            hidden_states: The hidden states outputted by the adapter block(s).
+            input_hidden_states: Residual connection before the adapter block(s).
+            input_tensor: Residual connection before the Transformer FFN/ attention layer.
+            layer_norm: Transformer LayerNorm.
+
+        Returns:
+            The modified hidden states.
+        """
+        hidden_states = hidden_states + input_hidden_states
+
+        if self.original_ln_after:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        return hidden_states
 
 
 # Adapter Fusion
@@ -429,67 +548,55 @@ class PHMLayer(nn.Module):
 
     def __init__(
         self,
+        adapter_name: str,
         in_features: int,
         out_features: int,
         position: str,
-        phm_dim: int,
-        phm_rule: Union[None, torch.Tensor] = None,
-        bias: bool = True,
-        w_init: str = "normal",
-        c_init: str = "normal",
-        learn_phm: bool = True,
-        shared_phm_rule=False,
-        factorized_phm_W=False,
-        shared_W_phm=False,
-        factorized_phm_rule=False,
-        phm_rank=1,
-        phm_init_range=0.0001,
-        kronecker_prod=False,
+        config: dict,
     ) -> None:
         super(PHMLayer, self).__init__()
-        assert w_init in ["phm", "glorot-normal", "glorot-uniform", "normal"]
-        assert c_init in ["normal", "uniform"]
+        assert config["hypercomplex_nonlinearity"] in ["phm", "glorot-normal", "glorot-uniform", "normal"]
+        assert config["phm_c_init"] in ["normal", "uniform"]
         assert (
-            in_features % phm_dim == 0
+            in_features % config["phm_dim"] == 0
         ), f"Argument `in_features`={in_features} is not divisble be `phm_dim`{phm_dim}"
         assert (
-            out_features % phm_dim == 0
+            out_features % config["phm_dim"] == 0
         ), f"Argument `out_features`={out_features} is not divisble be `phm_dim`{phm_dim}"
+        self.name = adapter_name
         self.in_features = in_features
         self.out_features = out_features
         self.position = position
-        self.learn_phm = learn_phm
-        self.phm_dim = phm_dim
-        self._in_feats_per_axis = in_features // phm_dim
-        self._out_feats_per_axis = out_features // phm_dim
-        self.phm_rank = phm_rank
-        self.phm_rule = phm_rule
-        self.phm_init_range = phm_init_range
-        self.kronecker_prod = kronecker_prod
-        self.shared_phm_rule = shared_phm_rule
-        self.factorized_phm_rule = factorized_phm_rule
+        self.learn_phm = config["learn_phm"]
+        self.phm_dim = config["phm_dim"]
+        self._in_feats_per_axis = in_features // config["phm_dim"]
+        self._out_feats_per_axis = out_features // config["phm_dim"]
+        self.phm_rank = config["phm_rank"]
+        self.phm_init_range = config["phm_init_range"]
+        self.shared_phm_rule = config["shared_phm_rule"]
+        self.factorized_phm_rule = config["factorized_phm_rule"]
         if not self.shared_phm_rule:
             if self.factorized_phm_rule:
-                self.phm_rule_left = nn.Parameter(torch.FloatTensor(phm_dim, phm_dim, 1), requires_grad=learn_phm)
-                self.phm_rule_right = nn.Parameter(torch.FloatTensor(phm_dim, 1, phm_dim), requires_grad=learn_phm)
+                self.phm_rule_left = nn.Parameter(torch.FloatTensor(self.phm_dim, self.phm_dim, 1), requires_grad=self.learn_phm)
+                self.phm_rule_right = nn.Parameter(torch.FloatTensor(self.phm_dim, 1, self.phm_dim), requires_grad=self.learn_phm)
             else:
-                self.phm_rule = nn.Parameter(torch.FloatTensor(phm_dim, phm_dim, phm_dim), requires_grad=learn_phm)
-        self.bias_flag = bias
-        self.w_init = w_init
-        self.c_init = c_init
-        self.shared_W_phm = shared_W_phm
-        self.factorized_phm_W = factorized_phm_W
+                self.phm_rule = nn.Parameter(torch.FloatTensor(self.phm_dim, self.phm_dim, self.phm_dim), requires_grad=self.learn_phm)
+        self.bias_flag = config["phm_bias"]
+        self.w_init = config["hypercomplex_nonlinearity"]
+        self.c_init = config["phm_c_init"]
+        self.shared_W_phm = config["shared_W_phm"]
+        self.factorized_phm_W = config["factorized_phm_W"]
         if not self.shared_W_phm:
             if self.factorized_phm_W:
                 self.W_left = nn.Parameter(
-                    torch.Tensor(size=(phm_dim, self._in_feats_per_axis, self.phm_rank)), requires_grad=True
+                    torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self.phm_rank)), requires_grad=True
                 )
                 self.W_right = nn.Parameter(
-                    torch.Tensor(size=(phm_dim, self.phm_rank, self._out_feats_per_axis)), requires_grad=True
+                    torch.Tensor(size=(self.phm_dim, self.phm_rank, self._out_feats_per_axis)), requires_grad=True
                 )
             else:
                 self.W = nn.Parameter(
-                    torch.Tensor(size=(phm_dim, self._in_feats_per_axis, self._out_feats_per_axis)), requires_grad=True
+                    torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self._out_feats_per_axis)), requires_grad=True
                 )
         if self.bias_flag:
             self.b = nn.Parameter(torch.Tensor(out_features))
@@ -573,9 +680,9 @@ class PHMLayer(nn.Module):
         else:
             self.W = W
 
-    def forward(self, x: torch.Tensor, phm_rule: Union[None, nn.ParameterList] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.shared_W_phm:
-            parameters = ForwardContext.get_context().phm_parameters
+            parameters = ForwardContext.get_context().shared_parameters[self.name]
             if self.factorized_phm_W:
                 W = torch.bmm(parameters[f"W_{self.position}_left"], parameters[f"W_{self.position}_right"])
             else:
@@ -586,7 +693,7 @@ class PHMLayer(nn.Module):
             else:
                 W = self.W
         if self.shared_phm_rule:
-            parameters = ForwardContext.get_context().phm_parameters
+            parameters = ForwardContext.get_context().shared_parameters[self.name]
             if self.factorized_phm_rule:
                 phm_rule = torch.bmm(parameters["phm_rule_left"], parameters["phm_rule_right"])
             else:
@@ -597,10 +704,7 @@ class PHMLayer(nn.Module):
             else:
                 phm_rule = self.phm_rule
 
-        if self.kronecker_prod:
-            H = self.kronecker_product(phm_rule, W).sum(0)
-        else:
-            H = kronecker_product(phm_rule, W).sum(0)
+        H = kronecker_product(phm_rule, W).sum(0)
 
         y = torch.matmul(input=x, other=H)
         if self.b is not None:
