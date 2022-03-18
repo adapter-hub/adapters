@@ -5,7 +5,7 @@ from torch import nn
 
 from transformers.activations import get_activation
 
-from .configuration import AdapterFusionConfig, AdapterConfig
+from .configuration import AdapterConfig, AdapterFusionConfig
 
 
 class Activation_Function_Class(nn.Module):
