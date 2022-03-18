@@ -216,7 +216,7 @@ class AdapterConfig(AdapterConfigBase):
     cross_adapter: bool = False
     leave_out: List[int] = field(default_factory=list)
     phm_layer: bool = False
-    phm_dim: int = None
+    phm_dim: int = 4
     factorized_phm_W: Optional[bool] = True
     shared_W_phm: Optional[bool] = False
     shared_phm_rule: Optional[bool] = True

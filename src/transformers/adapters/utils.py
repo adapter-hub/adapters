@@ -44,19 +44,24 @@ ADAPTER_HUB_ADAPTER_ENTRY_JSON = ADAPTER_HUB_URL + "adapters/{}/{}.json"
 ADAPTER_CACHE = join(torch_cache_home, "adapters")
 
 # these keys are ignored when calculating the config hash
-ADAPTER_CONFIG_HASH_IGNORE = [
-    "phm_layer",
-    "phm_dim",
-    "factorized_phm_W",
-    "shared_W_phm",
-    "shared_phm_rule",
-    "factorized_phm_rule",
-    "phm_c_init",
-    "phm_init_range",
-    "learn_phm",
-    "hypercomplex_nonlinearity",
-]
+ADAPTER_CONFIG_HASH_IGNORE = []
 
+ADAPTER_CONFIG_HASH_IGNORE_DEFAULT = {
+    "phm_layer": True,
+    "phm_dim": 4,
+    "factorized_phm_W": True,
+    "shared_W_phm": False,
+    "shared_phm_rule": True,
+    "factorized_phm_rule": False,
+    "phm_c_init": "normal",
+    "phm_init_range": 0.0001,
+    "learn_phm": True,
+    "hypercomplex_nonlinearity": "glorot-uniform",
+    "phm_rank": 1,
+    "phm_bias": True,
+    "init_weights": "bert",
+     "scaling": 1.0,
+}
 
 class AdapterType(str, Enum):
     """Models all currently available model adapter types."""
@@ -121,10 +126,9 @@ def get_adapter_config_hash(config, length=16):
     """
     minimized_config = _minimize_dict({k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE})
     # ensure hash is kept consistent to previous versions
-    if minimized_config.get("init_weights", None) == "bert":
-        del minimized_config["init_weights"]
-    if minimized_config.get("scaling", None) == 1.0:
-        del minimized_config["scaling"]
+    for name, default in ADAPTER_CONFIG_HASH_IGNORE_DEFAULT.items():
+        if minimized_config.get(name, None) == default:
+            del minimized_config[name]
     dict_str = json.dumps(minimized_config, sort_keys=True)
     h = hashlib.sha1()
     h.update(dict_str.encode(encoding="utf-8"))
