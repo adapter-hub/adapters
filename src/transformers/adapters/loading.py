@@ -10,6 +10,7 @@ import torch
 from .configuration import AdapterConfigBase, build_full_config
 from .head_utils import STATIC_TO_FLEX_HEAD_MAP, get_head_config_and_rename_list
 from .utils import (
+    ACTIVATION_RENAME,
     ADAPTERFUSION_CONFIG_NAME,
     ADAPTERFUSION_WEIGHTS_NAME,
     CONFIG_NAME,
@@ -77,6 +78,16 @@ class WeightsLoaderHelper:
         # Load the config
         with open(config_file, "r", encoding="utf-8") as f:
             loaded_config = json.load(f)
+        # For older versions translate the activation function to the new format
+        if "version" not in loaded_config:
+            if "config" in loaded_config and loaded_config["config"] is not None:
+                if (
+                    "non_linearity" in loaded_config["config"]
+                    and loaded_config["config"]["non_linearity"] in ACTIVATION_RENAME
+                ):
+                    loaded_config["config"]["non_linearity"] = ACTIVATION_RENAME[
+                        loaded_config["config"]["non_linearity"]
+                    ]
         return loaded_config
 
     @staticmethod
