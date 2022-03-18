@@ -38,13 +38,18 @@ _import_structure = {
         "DEFAULT_ADAPTER_CONFIG",
         "DEFAULT_ADAPTERFUSION_CONFIG",
         "AdapterConfig",
+        "AdapterConfigBase",
         "AdapterFusionConfig",
+        "ConfigUnion",
         "DynamicAdapterFusionConfig",
         "HoulsbyConfig",
         "HoulsbyInvConfig",
+        "MAMConfig",
         "ModelAdaptersConfig",
+        "ParallelConfig",
         "PfeifferConfig",
         "PfeifferInvConfig",
+        "PrefixTuningConfig",
         "StaticAdapterFusionConfig",
     ],
     "context": [
@@ -66,7 +71,7 @@ _import_structure = {
         "Seq2SeqLMHead",
         "TaggingHead",
     ],
-    "layer": ["AdapterLayer"],
+    "layer": ["AdapterLayer", "AdapterLayerBase"],
     "model_mixin": [
         "InvertibleAdaptersMixin",
         "ModelAdaptersMixin",
@@ -144,13 +149,18 @@ if TYPE_CHECKING:
         DEFAULT_ADAPTER_CONFIG,
         DEFAULT_ADAPTERFUSION_CONFIG,
         AdapterConfig,
+        AdapterConfigBase,
         AdapterFusionConfig,
+        ConfigUnion,
         DynamicAdapterFusionConfig,
         HoulsbyConfig,
         HoulsbyInvConfig,
+        MAMConfig,
         ModelAdaptersConfig,
+        ParallelConfig,
         PfeifferConfig,
         PfeifferInvConfig,
+        PrefixTuningConfig,
         StaticAdapterFusionConfig,
     )
     from .context import AdapterSetup, ForwardContext
@@ -169,7 +179,7 @@ if TYPE_CHECKING:
         Seq2SeqLMHead,
         TaggingHead,
     )
-    from .layer import AdapterLayer
+    from .layer import AdapterLayer, AdapterLayerBase
     from .model_mixin import (
         InvertibleAdaptersMixin,
         ModelAdaptersMixin,

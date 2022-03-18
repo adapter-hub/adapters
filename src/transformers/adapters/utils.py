@@ -115,6 +115,11 @@ def get_adapter_config_hash(config, length=16):
         str: The resulting hash of the given config dict.
     """
     minimized_config = _minimize_dict({k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE})
+    # ensure hash is kept consistent to previous versions
+    if minimized_config.get("init_weights", None) == "bert":
+        del minimized_config["init_weights"]
+    if minimized_config.get("scaling", None) == 1.0:
+        del minimized_config["scaling"]
     dict_str = json.dumps(minimized_config, sort_keys=True)
     h = hashlib.sha1()
     h.update(dict_str.encode(encoding="utf-8"))

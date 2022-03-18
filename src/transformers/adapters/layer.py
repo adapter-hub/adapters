@@ -1,18 +1,19 @@
+from abc import ABC, abstractmethod
 from typing import List, Mapping, Union
 
 import torch
 from torch import nn
 
 from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack
+from .configuration import AdapterConfig
 from .context import AdapterSetup, ForwardContext
-from .modeling import Adapter, BertFusion
+from .modeling import Adapter, BertFusion, ParallelAdapter
 
 
-class AdapterLayer(nn.Module):
-    def __init__(self, location_key: str, config):
-        super().__init__()
-        self.location_key = location_key
-        self.config = config
+class AdapterLayerBase(ABC, nn.Module):
+    """
+    Base class for all adaptation methods that require per-layer modules.
+    """
 
     @property
     def layer_idx(self):
@@ -24,19 +25,50 @@ class AdapterLayer(nn.Module):
         assert idx == layer_idx
         setattr(self, "_layer_idx", idx)
 
+    @abstractmethod
+    def add_adapter(self, adapter_name: str, layer_idx: int):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def delete_adapter(self, adapter_name: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def add_fusion_layer(self, adapter_names: Union[List, str]):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def delete_fusion_layer(self, adapter_names: Union[List, str]):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_adapter(self, adapter_name: str) -> nn.Module:
+        raise NotImplementedError()
+
+
+class AdapterLayer(AdapterLayerBase):
+    def __init__(self, location_key: str, config):
+        super().__init__()
+        self.location_key = location_key
+        self.config = config
+
     def _init_adapter_modules(self):
         self.adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
 
     def add_adapter(self, adapter_name: str, layer_idx: int):
         self.layer_idx = layer_idx
-        adapter_config = self.config.adapters.get(adapter_name)
-        if adapter_config and adapter_config.get(self.location_key, None):
-            # Check whether to skip this layer.
-            leave_out = adapter_config.get("leave_out", [])
-            if self.layer_idx in leave_out:
-                return
-
+        adapter_config = self.config.adapters.match(
+            adapter_name,
+            config_type=AdapterConfig,
+            layer_idx=self.layer_idx,
+            location_key=self.location_key,
+        )
+        if adapter_config is not None:
             reduction_factor = adapter_config["reduction_factor"]
             if isinstance(reduction_factor, Mapping):
                 if str(self.layer_idx) in reduction_factor:
@@ -50,13 +82,14 @@ class AdapterLayer(nn.Module):
                         '{"1": 16, "default": 16}'
                     )
 
-            adapter = Adapter(
+            if adapter_config.is_parallel:
+                adapter_class = ParallelAdapter
+            else:
+                adapter_class = Adapter
+            adapter = adapter_class(
                 input_size=self.config.hidden_size,
                 down_sample=self.config.hidden_size // reduction_factor,
-                add_layer_norm_before=adapter_config["ln_before"],
-                add_layer_norm_after=adapter_config["ln_after"],
-                non_linearity=adapter_config["non_linearity"],
-                residual_before_ln=adapter_config["adapter_residual_before_ln"],
+                config=adapter_config,
             )
             adapter.train(self.training)  # make sure training mode is consistent
             self.adapters[adapter_name] = adapter
@@ -108,54 +141,11 @@ class AdapterLayer(nn.Module):
                         for param in self.adapter_fusion_layer[sub_setup.name].parameters():
                             param.requires_grad = True
 
-    def adapter_state_dict(self, adapter_name: str, destination=None, prefix=""):
+    def get_adapter(self, adapter_name):
         if adapter_name in self.adapters:
-            return self.adapters[adapter_name].state_dict(
-                destination=destination, prefix=prefix + f"{self.location_key}.adapters.{adapter_name}."
-            )
+            return self.adapters[adapter_name]
         else:
-            return destination
-
-    def get_adapter_preparams(
-        self,
-        adapter_config,
-        hidden_states,
-        input_tensor,
-        layer_norm,
-        fusion_config=None,
-    ):
-        """
-        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuratio
-
-        Args:
-            adapter_config: config file according to what the parameters are passed
-            hidden_states: output of previous layer
-            input_tensor: residual connection before FFN
-
-        Returns: hidden_states, query, residual
-
-        """
-        query = None
-
-        if adapter_config["residual_before_ln"]:
-            residual = hidden_states
-
-        if fusion_config is not None and fusion_config["query_before_ln"]:
-            query = hidden_states
-
-        if adapter_config["original_ln_before"]:
-            if layer_norm:
-                hidden_states = layer_norm(hidden_states + input_tensor)
-            else:
-                hidden_states = hidden_states + input_tensor
-
-        if not adapter_config["residual_before_ln"]:
-            residual = hidden_states
-
-        if fusion_config is not None and not fusion_config["query_before_ln"]:
-            query = hidden_states
-
-        return hidden_states, query, residual
+            return None
 
     def adapter_stack(self, adapter_setup: Stack, hidden_states, input_tensor, layer_norm, lvl=0):
         """
@@ -192,10 +182,7 @@ class AdapterLayer(nn.Module):
             # Case 5: We have a single adapter which is part of this module -> forward pass
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
-                adapter_config = self.config.adapters.get(adapter_stack_layer)
-                hidden_states, _, residual = self.get_adapter_preparams(
-                    adapter_config, hidden_states, input_tensor, layer_norm
-                )
+                hidden_states, _, residual = adapter_layer.pre_forward(hidden_states, input_tensor, layer_norm)
                 hidden_states, _, up = adapter_layer(hidden_states, residual_input=residual)
                 # as this stack might be part of a fusion block, return the adapter up-projection output here
                 # together with the final output (with potential residuals & norms) if we reached the last block of the stack
@@ -212,10 +199,10 @@ class AdapterLayer(nn.Module):
         Performs adapter fusion with the given adapters for the given input.
         """
         # config of _last_ fused adapter is significant
-        adapter_config = self.config.adapters.get(adapter_setup.last())
         fusion_config = self.config.adapters.get_fusion(adapter_setup.name)
-        hidden_states, query, residual = self.get_adapter_preparams(
-            adapter_config, hidden_states, input_tensor, layer_norm, fusion_config=fusion_config
+        last_adapter = self.adapters[adapter_setup.last()]
+        hidden_states, query, residual = last_adapter.pre_forward(
+            hidden_states, input_tensor, layer_norm, fusion_config=fusion_config
         )
 
         up_list = []
@@ -258,10 +245,8 @@ class AdapterLayer(nn.Module):
         Splits the given input between the given adapters.
         """
         # config of _first_ of splitted adapters is significant
-        adapter_config = self.config.adapters.get(adapter_setup.first())
-        hidden_states, query, residual = self.get_adapter_preparams(
-            adapter_config, hidden_states, input_tensor, layer_norm
-        )
+        first_adapter = self.adapters[adapter_setup.first()]
+        hidden_states, query, residual = first_adapter.pre_forward(hidden_states, input_tensor, layer_norm)
 
         # split hidden representations and residuals at split index
         split_hidden_states = [
@@ -314,8 +299,6 @@ class AdapterLayer(nn.Module):
         For parallel execution of the adapters on the same input. This means that the input is repeated N times before
         feeding it to the adapters (where N is the number of adapters).
         """
-        # We assume that all adapters have the same config
-        adapter_config = self.config.adapters.get(adapter_setup.first())
 
         context = ForwardContext.get_context()
         if not context.adapters_parallelized:
@@ -332,9 +315,9 @@ class AdapterLayer(nn.Module):
                 )
             orig_batch_size = hidden_states.shape[0] // adapter_setup.parallel_channels
 
-        hidden_states, _, residual = self.get_adapter_preparams(
-            adapter_config, hidden_states, input_tensor, layer_norm
-        )
+        # We assume all adapters have the same config
+        first_adapter = self.adapters[adapter_setup.first()]
+        hidden_states, _, residual = first_adapter.pre_forward(hidden_states, input_tensor, layer_norm)
 
         # sequentially feed different parts of the blown-up batch into different adapters
         children_hidden = []
@@ -390,10 +373,8 @@ class AdapterLayer(nn.Module):
                 )
             )
 
-        adapter_config = self.config.adapters.get(adapter_setup.first())
-        hidden_states, _, residual = self.get_adapter_preparams(
-            adapter_config, hidden_states, input_tensor, layer_norm
-        )
+        first_adapter = self.adapters[adapter_setup.first()]
+        hidden_states, _, residual = first_adapter.pre_forward(hidden_states, input_tensor, layer_norm)
         children_hidden = []
         for i, adapter_block in enumerate(adapter_setup):
             # compute ids of sequences thet should be passed to the ith adapter
@@ -470,6 +451,8 @@ class AdapterLayer(nn.Module):
             self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
         )
         if not skip_adapters and (len(set(self.adapters.keys()) & adapter_setup.flatten()) > 0):
+            input_hidden_states = hidden_states
+
             if isinstance(adapter_setup, Stack):
                 hidden_states, _, input_tensor = self.adapter_stack(
                     adapter_setup, hidden_states, input_tensor, layer_norm
@@ -489,12 +472,8 @@ class AdapterLayer(nn.Module):
             else:
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
 
-            last_config = self.config.adapters.get(adapter_setup.last())
-            if last_config["original_ln_after"]:
-                if layer_norm:
-                    hidden_states = layer_norm(hidden_states + input_tensor)
-                else:
-                    hidden_states = hidden_states + input_tensor
+            last_adapter = self.adapters[adapter_setup.last()]
+            hidden_states = last_adapter.post_forward(hidden_states, input_hidden_states, input_tensor, layer_norm)
 
         elif layer_norm:
             hidden_states = layer_norm(hidden_states + input_tensor)

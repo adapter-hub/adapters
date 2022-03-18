@@ -19,6 +19,7 @@ import copy
 import math
 import os
 import warnings
+from typing import Optional
 
 import torch
 from torch import nn
@@ -35,6 +36,7 @@ from ...adapters.mixins.t5 import (
     T5SelfAttentionLayerAdaptersMixin,
 )
 from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import (
     DUMMY_INPUTS,
     DUMMY_MASK,
@@ -315,7 +317,7 @@ class T5LayerFF(T5FFLayerAdaptersMixin, nn.Module):
 
 
 class T5Attention(nn.Module):
-    def __init__(self, config: T5Config, has_relative_attention_bias=False):
+    def __init__(self, config: T5Config, has_relative_attention_bias=False, location_key: Optional[str] = None):
         super().__init__()
         self.is_decoder = config.is_decoder
         self.has_relative_attention_bias = has_relative_attention_bias
@@ -337,6 +339,8 @@ class T5Attention(nn.Module):
             self.relative_attention_bias = nn.Embedding(self.relative_attention_num_buckets, self.n_heads)
         self.pruned_heads = set()
         self.gradient_checkpointing = False
+
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def prune_heads(self, heads):
         if len(heads) == 0:
@@ -490,6 +494,9 @@ class T5Attention(nn.Module):
             hidden_states, self.v, key_value_states, past_key_value[1] if past_key_value is not None else None
         )
 
+        key_states, value_states, mask = self.prefix_tuning(key_states, value_states, mask)
+        key_length = key_states.size(2)
+
         # compute scores
         scores = torch.matmul(
             query_states, key_states.transpose(3, 2)
@@ -537,10 +544,12 @@ class T5Attention(nn.Module):
 
 
 class T5LayerSelfAttention(T5SelfAttentionLayerAdaptersMixin, nn.Module):
-    def __init__(self, config, has_relative_attention_bias=False):
+    def __init__(self, config, has_relative_attention_bias=False, location_key: Optional[str] = None):
         super().__init__()
         self.config = config
-        self.SelfAttention = T5Attention(config, has_relative_attention_bias=has_relative_attention_bias)
+        self.SelfAttention = T5Attention(
+            config, has_relative_attention_bias=has_relative_attention_bias, location_key=location_key
+        )
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
         self._init_adapter_modules()
@@ -574,7 +583,7 @@ class T5LayerCrossAttention(T5CrossAttentionLayerAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.EncDecAttention = T5Attention(config, has_relative_attention_bias=False)
+        self.EncDecAttention = T5Attention(config, has_relative_attention_bias=False, location_key="cross")
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
         self._init_adapter_modules()
@@ -613,7 +622,12 @@ class T5Block(nn.Module):
         super().__init__()
         self.is_decoder = config.is_decoder
         self.layer = nn.ModuleList()
-        self.layer.append(T5LayerSelfAttention(config, has_relative_attention_bias=has_relative_attention_bias))
+        location_key = "self" if self.is_decoder else "encoder"
+        self.layer.append(
+            T5LayerSelfAttention(
+                config, has_relative_attention_bias=has_relative_attention_bias, location_key=location_key
+            )
+        )
         if self.is_decoder:
             self.layer.append(T5LayerCrossAttention(config))
 
