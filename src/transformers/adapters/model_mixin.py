@@ -15,7 +15,6 @@ from .configuration import (
     AdapterConfigBase,
     AdapterFusionConfig,
     ConfigUnion,
-    MAMConfig,
     ModelAdaptersConfig,
     get_adapter_config_hash,
 )

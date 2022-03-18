@@ -1,5 +1,4 @@
 import math
-from typing import Union
 
 import torch
 from torch import nn
@@ -560,10 +559,10 @@ class PHMLayer(nn.Module):
         assert config["phm_c_init"] in ["normal", "uniform"]
         assert (
             in_features % config["phm_dim"] == 0
-        ), f"Argument `in_features`={in_features} is not divisble be `phm_dim`{phm_dim}"
+        ), f"Argument `in_features`={in_features} is not divisble be `phm_dim`{config["phm_dim"]}"
         assert (
             out_features % config["phm_dim"] == 0
-        ), f"Argument `out_features`={out_features} is not divisble be `phm_dim`{phm_dim}"
+        ), f"Argument `out_features`={out_features} is not divisble be `phm_dim`{config["phm_dim"]}"
         self.name = adapter_name
         self.in_features = in_features
         self.out_features = out_features
