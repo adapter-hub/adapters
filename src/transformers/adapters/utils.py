@@ -60,8 +60,9 @@ ADAPTER_CONFIG_HASH_IGNORE_DEFAULT = {
     "phm_rank": 1,
     "phm_bias": True,
     "init_weights": "bert",
-     "scaling": 1.0,
+    "scaling": 1.0,
 }
+
 
 class AdapterType(str, Enum):
     """Models all currently available model adapter types."""

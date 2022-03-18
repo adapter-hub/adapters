@@ -7,6 +7,7 @@ from torch import nn
 from .configuration import AdapterConfig, AdapterFusionConfig
 from .context import ForwardContext
 
+
 class Activation_Function_Class(nn.Module):
     """
     Implementation of various activation function.
@@ -577,10 +578,16 @@ class PHMLayer(nn.Module):
         self.factorized_phm_rule = config["factorized_phm_rule"]
         if not self.shared_phm_rule:
             if self.factorized_phm_rule:
-                self.phm_rule_left = nn.Parameter(torch.FloatTensor(self.phm_dim, self.phm_dim, 1), requires_grad=self.learn_phm)
-                self.phm_rule_right = nn.Parameter(torch.FloatTensor(self.phm_dim, 1, self.phm_dim), requires_grad=self.learn_phm)
+                self.phm_rule_left = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, self.phm_dim, 1), requires_grad=self.learn_phm
+                )
+                self.phm_rule_right = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, 1, self.phm_dim), requires_grad=self.learn_phm
+                )
             else:
-                self.phm_rule = nn.Parameter(torch.FloatTensor(self.phm_dim, self.phm_dim, self.phm_dim), requires_grad=self.learn_phm)
+                self.phm_rule = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, self.phm_dim, self.phm_dim), requires_grad=self.learn_phm
+                )
         self.bias_flag = config["phm_bias"]
         self.w_init = config["hypercomplex_nonlinearity"]
         self.c_init = config["phm_c_init"]
@@ -596,7 +603,8 @@ class PHMLayer(nn.Module):
                 )
             else:
                 self.W = nn.Parameter(
-                    torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self._out_feats_per_axis)), requires_grad=True
+                    torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self._out_feats_per_axis)),
+                    requires_grad=True,
                 )
         if self.bias_flag:
             self.b = nn.Parameter(torch.Tensor(out_features))

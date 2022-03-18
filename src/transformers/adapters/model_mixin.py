@@ -14,9 +14,9 @@ from .configuration import (
     AdapterConfig,
     AdapterConfigBase,
     AdapterFusionConfig,
-    ModelAdaptersConfig,
-    MAMConfig,
     ConfigUnion,
+    MAMConfig,
+    ModelAdaptersConfig,
     get_adapter_config_hash,
 )
 from .context import AdapterSetup, ForwardContext
@@ -284,8 +284,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
             # PHM Layer
             if config:
-                if (isinstance(config, ConfigUnion) and any("phm_layer" in config[i] and config[i]["phm_layer"] for i in range(len(config.configs)))) or \
-                        (not isinstance(config, ConfigUnion) and "phm_layer" in config and config["phm_layer"]):
+                if (
+                    isinstance(config, ConfigUnion)
+                    and any("phm_layer" in config[i] and config[i]["phm_layer"] for i in range(len(config.configs)))
+                ) or (not isinstance(config, ConfigUnion) and "phm_layer" in config and config["phm_layer"]):
                     self._add_shared_parameters(adapter_name, config)
             # Prefix Tuning
             for module in self.modules():
@@ -623,7 +625,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         context.adapters_parallelized = False
         # Add the shared parameters for the active adapters to the context
-        context.shared_parameters = {name: param for name, param in self.shared_parameters.items() if name in active_adapters.flatten()}
+        context.shared_parameters = {
+            name: param for name, param in self.shared_parameters.items() if name in active_adapters.flatten()
+        }
 
         # Prefix tuning
         input_tensor = kwargs.get("input_ids", None)

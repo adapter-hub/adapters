@@ -180,16 +180,14 @@ class AdapterConfig(AdapterConfigBase):
         shared_W_phm (:obj:`bool`, optional): Whether the weights matrix is shared across all layers.
             Defaults to False.
         phm_c_init (:obj:`str`, optional): The initialization function for the weights of the phm matrix.
-            The possible values are `["normal", "uniform"]`.
-            Defaults to `normal`.
+            The possible values are `["normal", "uniform"]`. Defaults to `normal`.
         phm_init_range (:obj:`float`, optional): std for initializing phm weights if `phm_c_init="normal"`.
             Defaults to 0.0001.
         hypercomplex_nonlinearity (:obj:`str`, optional): This specifies the distribution to draw the weights in the phm layer from,
             Defaults to `glorot-uniform`.
         phm_rank (:obj:`int`,  optional): If the weight matrix is factorized this specifies the rank of the matrix. E.g. the left matrix
-            of the down projection has the shape (phm_dim, _in_feats_per_axis, phm_rank) and the
-            right matrix (phm_dim, phm_rank, _out_feats_per_axis).
-            Defaults to 1
+            of the down projection has the shape (phm_dim, _in_feats_per_axis, phm_rank) and the right matrix (phm_dim,
+            phm_rank, _out_feats_per_axis). Defaults to 1
         phm_bias (:obj:`bool`, optional): If True the down and up projection PHMLayer has a bias term. If `phm_layer`is False this is ignored.
             Defaults to True
     """
