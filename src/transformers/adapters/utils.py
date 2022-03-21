@@ -46,6 +46,12 @@ ADAPTER_CACHE = join(torch_cache_home, "adapters")
 # these keys are ignored when calculating the config hash
 ADAPTER_CONFIG_HASH_IGNORE = []
 
+# old: new
+ACTIVATION_RENAME = {
+    "gelu": "gelu_new",
+    "gelu_orig": "gelu",
+}
+
 ADAPTER_CONFIG_HASH_IGNORE_DEFAULT = {
     "phm_layer": True,
     "phm_dim": 4,

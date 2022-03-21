@@ -14,6 +14,7 @@ from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 from .test_adapter_training import AdapterTrainingTestMixin
 from .test_common import AdapterModelTesterMixin
+from .test_adapter_backward_compability import CompabilityTestMixin
 
 
 @require_torch
@@ -41,6 +42,7 @@ class GPT2AdapterTest(
     AdapterModelTestMixin,
     CompacterTestMixin,
     EmbeddingTestMixin,
+    CompabilityTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     AdapterTrainingTestMixin,

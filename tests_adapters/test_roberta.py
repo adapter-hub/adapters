@@ -12,6 +12,7 @@ from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 from .test_common import AdapterModelTesterMixin
+from .test_adapter_backward_compability import CompabilityTestMixin
 
 
 @require_torch
@@ -36,6 +37,7 @@ class RobertaAdapterTestBase(AdapterTestBase):
 class RobertaAdapterTest(
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
+    CompabilityTestMixin,
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
     RobertaAdapterTestBase,

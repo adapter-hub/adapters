@@ -48,7 +48,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         "config": {
             "head_type": "masked_lm",
             "layers": 2,
-            "activation_function": "gelu_orig",
+            "activation_function": "gelu",
             "layer_norm": True,
             "bias": True,
         },
@@ -63,7 +63,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         "config": {
             "head_type": "causal_lm",
             "layers": 2,
-            "activation_function": "gelu_orig",
+            "activation_function": "gelu",
             "layer_norm": True,
             "bias": True,
         },
@@ -113,7 +113,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         "config": {
             "head_type": "masked_lm",
             "layers": 2,
-            "activation_function": "gelu_orig",
+            "activation_function": "gelu",
             "layer_norm": True,
             "bias": True,
         },
@@ -123,7 +123,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         "config": {
             "head_type": "causal_lm",
             "layers": 2,
-            "activation_function": "gelu_orig",
+            "activation_function": "gelu",
             "layer_norm": True,
             "bias": True,
         },
@@ -168,7 +168,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         "config": {
             "head_type": "masked_lm",
             "layers": 2,
-            "activation_function": "gelu_orig",
+            "activation_function": "gelu",
             "layer_norm": True,
             "bias": True,
         },
@@ -178,7 +178,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         "config": {
             "head_type": "causal_lm",
             "layers": 2,
-            "activation_function": "gelu_orig",
+            "activation_function": "gelu",
             "layer_norm": True,
             "bias": True,
         },
@@ -267,7 +267,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         "config": {
             "head_type": "masked_lm",
             "layers": 2,
-            "activation_function": "gelu_orig",
+            "activation_function": "gelu",
             "layer_norm": True,
             "bias": True,
         },
