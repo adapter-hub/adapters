@@ -4,8 +4,7 @@ from collections.abc import Collection, Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, replace
 from typing import List, Optional, Union
 
-from transformers import __adapters_version__
-
+from . import __version__
 from .composition import AdapterCompositionBlock
 from .utils import get_adapter_config_hash, resolve_adapter_config
 
@@ -653,7 +652,7 @@ def build_full_config(adapter_config, model_config, save_id2label=False, **kwarg
         config_dict["config"] = adapter_config.to_dict()
     else:
         config_dict["config"] = adapter_config
-    config_dict["version"] = __adapters_version__
+    config_dict["version"] = __version__
     return config_dict
 
 
