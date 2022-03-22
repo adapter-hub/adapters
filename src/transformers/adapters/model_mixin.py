@@ -237,6 +237,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         self.set_active_adapters(adapter_setup)
 
+    def set_shared_parameters(self, param):
+        self.shared_parameters = param
+
     def set_active_adapters(
         self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
     ):
@@ -282,11 +285,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         try:
             self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
             # PHM Layer
-            if config:
-                if (
-                    isinstance(config, ConfigUnion)
-                    and any("phm_layer" in config[i] and config[i]["phm_layer"] for i in range(len(config.configs)))
-                ) or (not isinstance(config, ConfigUnion) and "phm_layer" in config and config["phm_layer"]):
+            if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
                     self._add_shared_parameters(adapter_name, config)
             # Prefix Tuning
             for module in self.modules():
@@ -813,6 +812,11 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self._convert_to_flex_head = False
+
+    def set_shared_parameters(self, param):
+        self.shared_parameters = param
+        if self.base_model is not self:
+            self.base_model.shared_parameters = self.shared_parameters
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         """

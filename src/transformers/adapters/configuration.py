@@ -264,8 +264,8 @@ class PfeifferConfig(AdapterConfig):
 @dataclass(eq=False)
 class PfeifferCompacterConfig(PfeifferConfig):
     phm_layer: bool = True
-    phm_dim: int = 2
-    factorized_phm_W: bool = True
+    reduction_factor: int = 32
+    non_linearity: str = "gelu"
 
 
 @dataclass(eq=False)
@@ -299,8 +299,8 @@ class HoulsbyConfig(AdapterConfig):
 @dataclass(eq=False)
 class HoulsbyCompacterConfig(HoulsbyConfig):
     phm_layer: bool = True
-    phm_dim: int = 12
-    factorized_phm_W: bool = True
+    reduction_factor: int = 32
+    non_linearity: str = "gelu"
 
 
 @dataclass(eq=False)
@@ -475,6 +475,8 @@ ADAPTER_CONFIG_MAP = {
     "houlsby": HoulsbyConfig(),
     "pfeiffer+inv": PfeifferInvConfig(),
     "houlsby+inv": HoulsbyInvConfig(),
+    "pfeiffer+compacter": PfeifferCompacterConfig(),
+    "houlsby+compacter": HoulsbyCompacterConfig(),
     "prefix_tuning": PrefixTuningConfig(),
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
     "parallel": ParallelConfig(),

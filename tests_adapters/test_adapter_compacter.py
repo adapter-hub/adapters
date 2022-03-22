@@ -2,8 +2,8 @@ import copy
 
 import torch
 
-from transformers import AutoModelWithHeads, TrainingArguments, AdapterTrainer, \
-    AutoTokenizer, MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, AutoModelForSeq2SeqLM
+from transformers import AutoAdapterModel, TrainingArguments, AdapterTrainer, \
+    AutoTokenizer, MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, ADAPTER_MODEL_MAPPING
 from transformers.testing_utils import require_torch
 from transformers.adapters.configuration import PfeifferCompacterConfig
 
@@ -35,7 +35,7 @@ class CompacterTestMixin:
         trainer.train()
 
     def test_add_compacter(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = self.get_model()
         adapter_config = PfeifferCompacterConfig(phm_dim=2, reduction_factor=8)
 
         # add two adapters: one will be trained and the other should be frozen
@@ -55,26 +55,21 @@ class CompacterTestMixin:
             self.assertFalse(v.requires_grad, k)
 
     def test_forward_compacter(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = self.get_model()
         adapter_config = PfeifferCompacterConfig(reduction_factor=8)
 
         model.add_adapter("compacter", config=adapter_config)
-        self.add_head(model, "compacter", num_labels=3)
         model.set_active_adapters("compacter")
         self.assertEqual(set(["compacter"]), model.active_adapters.flatten())
         input_tensor = self.get_input_samples((2, 128), config=model.config)
         output = model(**input_tensor)
-        if self.config_class in MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING:
-            self.assertEqual((2, 3), output["logits"].shape)
-        else:
-            self.assertEqual(2, output["logits"].shape[0])
+        self.assertEqual(2, output["logits"].shape[0])
 
     def test_shared_phm_compacter(self):
-        model = AutoModelWithHeads.from_config(self.config())
+        model = self.get_model()
         adapter_config = PfeifferCompacterConfig(shared_W_phm=True, reduction_factor=8)
 
         model.add_adapter("compacter", config=adapter_config)
-        self.add_head(model, "compacter", num_labels=3)
 
         model.set_active_adapters("compacter")
 
@@ -83,10 +78,12 @@ class CompacterTestMixin:
         self.assertEqual(2, output["logits"].shape[0])
 
     def test_train_shared_w_compacter(self):
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
+            self.skipTest("Does not support flex heads.")
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
         adapter_config = PfeifferCompacterConfig(shared_W_phm=True, shared_phm_rule=False, reduction_factor=8)
 
         model.add_adapter("compacter", config=adapter_config)
@@ -103,10 +100,12 @@ class CompacterTestMixin:
         )
 
     def test_train_shared_phm_compacter(self):
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
+            self.skipTest("Does not support flex heads.")
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelWithHeads.from_config(self.config())
+        model = AutoAdapterModel.from_config(self.config())
         adapter_config = PfeifferCompacterConfig(reduction_factor=8)
         model.add_adapter("compacter", config=adapter_config)
         self.add_head(model, "compacter", num_labels=3)
