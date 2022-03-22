@@ -286,7 +286,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
             # PHM Layer
             if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
-                    self._add_shared_parameters(adapter_name, config)
+                self._add_shared_parameters(adapter_name, config)
             # Prefix Tuning
             for module in self.modules():
                 if isinstance(module, PrefixTuningPool):
