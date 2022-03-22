@@ -51,7 +51,7 @@ ACTIVATION_RENAME = {
     "gelu": "gelu_new",
     "gelu_orig": "gelu",
 }
-
+# HACK: To keep config hashs consistent with v2, remove default values of keys introduced in v3 from hash computation
 ADAPTER_CONFIG_HASH_IGNORE_DEFAULT = {
     "phm_layer": True,
     "phm_dim": 4,

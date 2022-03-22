@@ -262,7 +262,7 @@ class PfeifferConfig(AdapterConfig):
 
 
 @dataclass(eq=False)
-class PfeifferCompacterConfig(PfeifferConfig):
+class CompacterPlusPlusConfig(PfeifferConfig):
     phm_layer: bool = True
     reduction_factor: int = 32
     non_linearity: str = "gelu"
@@ -297,7 +297,7 @@ class HoulsbyConfig(AdapterConfig):
 
 
 @dataclass(eq=False)
-class HoulsbyCompacterConfig(HoulsbyConfig):
+class CompacterConfig(HoulsbyConfig):
     phm_layer: bool = True
     reduction_factor: int = 32
     non_linearity: str = "gelu"
@@ -475,8 +475,8 @@ ADAPTER_CONFIG_MAP = {
     "houlsby": HoulsbyConfig(),
     "pfeiffer+inv": PfeifferInvConfig(),
     "houlsby+inv": HoulsbyInvConfig(),
-    "pfeiffer+compacter": PfeifferCompacterConfig(),
-    "houlsby+compacter": HoulsbyCompacterConfig(),
+    "pfeiffer+compacter": CompacterPlusPlusConfig(),
+    "houlsby+compacter": CompacterConfig(),
     "prefix_tuning": PrefixTuningConfig(),
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
     "parallel": ParallelConfig(),
