@@ -3,7 +3,7 @@ import copy
 import torch
 
 from transformers import AutoAdapterModel, TrainingArguments, AdapterTrainer, \
-    AutoTokenizer, MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, ADAPTER_MODEL_MAPPING
+    AutoTokenizer, ADAPTER_MODEL_MAPPING
 from transformers.testing_utils import require_torch
 from transformers.adapters.configuration import CompacterPlusPlusConfig
 
