@@ -108,3 +108,34 @@ assert "test" in flex_head_model.heads
 ```
 
 Note that a conversion in the opposite direction is not supported.
+
+## Custom Heads
+If none of the available prediction heads fit your requirements, you can define and add a custom head.
+
+First, we need to define the new head class. For that, the initialization and the forward pass need to be implemented.
+The initialization of the head gets a reference to the model, the name of the head, and additionally defined kwargs. 
+You can use the following template as a guideline.
+```python 
+class CustomHead(PredictionHead):
+    def __init__(
+        self,
+        model,
+        head_name,
+        **kwargs,
+    ):
+        # innitialization of the custom head
+
+    def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
+        # implementation of the forward pass
+``` 
+
+
+Next, we can register the new custom head and give the new head type a name. This only notifies
+the model that there is a new head type. Then, we can add an instance of the new head to the model by
+calling `add_custom_head` with the name of the new head type, the name of the head instance we are creating, and 
+additional arguments required by the head.
+```python
+model.register_custom_head("my_custom_head", CustomHead)
+model.add_custom_head(head_type="my_custom_head", head_name="custom_head", **kwargs)
+```
+After adding the custom head you can treat it like any other build-in head type.

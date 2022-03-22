@@ -160,7 +160,26 @@ _Papers:_
 
 ## Compacter
 
-Todo
+_Configuration class_: [`PfeifferCompacterConfig`](transformers.PfeifferCompacterConfig), [`HoulsbyCompacterConfig`](transformers.HoulsbyCompacterConfig)
+
+The Compacter architecture proposed by [Mahabadi et al., 2021](https://arxiv.org/pdf/2106.04647.pdf)
+is similar to the bottleneck adapter architecture. It only exchanges the linear down- and 
+up-projection with a PHM layer. Unlike the linear layer, the PHM layer constructs its weight matrix from two smaller matrices, which reduces the number of parameters.
+ These matrices can be factorized and shared between all adapter layers. You can exchange the down- and up-projection layers from any of the bottleneck adapters described in the previous section
+for a PHM layer by specifying `use_phm=True` in the config.
+
+The PHM layer has the following additional properties: `phm_dim`, `shared_phm_rule`, `factorized_phm_rule`, `learn_phm`, 
+`factorized_phm_W`, `shared_W_phm`, `phm_c_init`, `phm_init_range`, `hypercomplex_nonlinearity`
+
+For more information check out the [AdapterConfig](classes/adapter_config.html#transformers.AdapterConfig) class.
+
+To add a Compacter to your model you can use the predefined configs:
+```python
+config = PfeifferCompacterConfig()
+model.add_adapter("dummy", config=config)
+```
+_Papers:_
+- [COMPACTER: Efficient Low-Rank Hypercomplex Adapter Layers](https://arxiv.org/pdf/2106.04647.pdf) (Mahabadi, Henderson and Ruder, 2021)
 
 ## Combinations - Mix-and-Match Adapters
 
