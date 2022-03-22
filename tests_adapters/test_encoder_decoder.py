@@ -1,5 +1,3 @@
-import unittest
-
 from tests.test_modeling_encoder_decoder import *  # Imported to execute model tests
 from transformers import AutoModelForSeq2SeqLM, BertConfig
 

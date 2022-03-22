@@ -56,18 +56,18 @@ class CompacterTestMixin:
 
     def test_forward_compacter(self):
         model = self.get_model()
-        adapter_config = CompacterPlusPlusConfig(reduction_factor=8)
+        adapter_config = CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8)
 
         model.add_adapter("compacter", config=adapter_config)
         model.set_active_adapters("compacter")
         self.assertEqual(set(["compacter"]), model.active_adapters.flatten())
         input_tensor = self.get_input_samples((2, 128), config=model.config)
         output = model(**input_tensor)
-        self.assertEqual(2, output["last_hidden_state"].shape[0])
+        self.assertEqual(2, output[0].shape[0])
 
     def test_shared_phm_compacter(self):
         model = self.get_model()
-        adapter_config = CompacterPlusPlusConfig(shared_W_phm=True, reduction_factor=8)
+        adapter_config = CompacterPlusPlusConfig(phm_dim=2, shared_W_phm=True, reduction_factor=8)
 
         model.add_adapter("compacter", config=adapter_config)
 
@@ -75,7 +75,7 @@ class CompacterTestMixin:
 
         input_tensor = self.get_input_samples((2, 128), config=model.config)
         output = model(**input_tensor)
-        self.assertEqual(2, output["last_hidden_state"].shape[0])
+        self.assertEqual(2, output[0].shape[0])
 
     def test_train_shared_w_compacter(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
@@ -84,7 +84,7 @@ class CompacterTestMixin:
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         model = AutoAdapterModel.from_config(self.config())
-        adapter_config = CompacterPlusPlusConfig(shared_W_phm=True, shared_phm_rule=False, reduction_factor=8)
+        adapter_config = CompacterPlusPlusConfig(phm_dim=2, shared_W_phm=True, shared_phm_rule=False, reduction_factor=8)
 
         model.add_adapter("compacter", config=adapter_config)
         self.add_head(model, "compacter", num_labels=3)
@@ -106,7 +106,7 @@ class CompacterTestMixin:
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         model = AutoAdapterModel.from_config(self.config())
-        adapter_config = CompacterPlusPlusConfig(reduction_factor=8)
+        adapter_config = CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8)
         model.add_adapter("compacter", config=adapter_config)
         self.add_head(model, "compacter", num_labels=3)
 
