@@ -205,8 +205,11 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
         self.encoder = encoder
         self.decoder = decoder
 
-        self.encoder.set_shared_parameters(self.shared_parameters)
-        self.decoder.set_shared_parameters(self.shared_parameters)
+        # ensure that encoder and decoder use the sam shared parameters
+        if hasattr(self.encoder, "set_shared_parameters"):
+            self.encoder.set_shared_parameters(self.shared_parameters)
+        if hasattr(self.decoder, "set_shared_parameters"):
+            self.decoder.set_shared_parameters(self.shared_parameters)
 
         if self.encoder.config.to_dict() != self.config.encoder.to_dict():
             logger.warning(
