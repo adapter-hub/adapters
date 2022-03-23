@@ -17,7 +17,7 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...file_utils import _LazyModule, is_flax_available, is_torch_available, is_vision_available
+from ...file_utils import _LazyModule, is_flax_available, is_tf_available, is_torch_available, is_vision_available
 
 
 _import_structure = {
@@ -31,10 +31,17 @@ if is_torch_available():
     _import_structure["modeling_vit"] = [
         "VIT_PRETRAINED_MODEL_ARCHIVE_LIST",
         "ViTForImageClassification",
+        "ViTForMaskedImageModeling",
         "ViTModel",
         "ViTPreTrainedModel",
     ]
 
+if is_tf_available():
+    _import_structure["modeling_tf_vit"] = [
+        "TFViTForImageClassification",
+        "TFViTModel",
+        "TFViTPreTrainedModel",
+    ]
 
 if is_flax_available():
     _import_structure["modeling_flax_vit"] = [
@@ -53,9 +60,13 @@ if TYPE_CHECKING:
         from .modeling_vit import (
             VIT_PRETRAINED_MODEL_ARCHIVE_LIST,
             ViTForImageClassification,
+            ViTForMaskedImageModeling,
             ViTModel,
             ViTPreTrainedModel,
         )
+
+    if is_tf_available():
+        from .modeling_tf_vit import TFViTForImageClassification, TFViTModel, TFViTPreTrainedModel
 
     if is_flax_available():
         from .modeling_flax_vit import FlaxViTForImageClassification, FlaxViTModel, FlaxViTPreTrainedModel
@@ -64,4 +75,4 @@ if TYPE_CHECKING:
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)

@@ -24,12 +24,14 @@ To create the package for pypi.
 
 3. Unpin specific versions from setup.py that use a git install.
 
-4. Commit these changes with the message: "Release: VERSION"
+4. Commit these changes with the message: "Release: <VERSION>" and push.
 
-5. Add a tag in git to mark the release: "git tag VERSION -m 'Adds tag VERSION for pypi' "
+5. Wait for the tests on master to be completed and be green (otherwise revert and fix bugs)
+
+6. Add a tag in git to mark the release: "git tag v<VERSION> -m 'Adds tag v<VERSION> for pypi' "
    Push the tag to git: git push --tags origin master
 
-6. Build both the sources and the wheel. Do not change anything in setup.py between
+7. Build both the sources and the wheel. Do not change anything in setup.py between
    creating the wheel and the source distribution (obviously).
 
    For the wheel, run: "python setup.py bdist_wheel" in the top level directory.
@@ -38,7 +40,7 @@ To create the package for pypi.
    For the sources, run: "python setup.py sdist"
    You should now have a /dist directory with both .whl and .tar.gz source versions.
 
-7. Check that everything looks correct by uploading the package to the pypi test server:
+8. Check that everything looks correct by uploading the package to the pypi test server:
 
    twine upload dist/* -r pypitest
    (pypi suggest using twine as other methods upload files via plaintext.)
@@ -48,12 +50,17 @@ To create the package for pypi.
    Check that you can install it in a virtualenv by running:
    pip install -i https://testpypi.python.org/pypi transformers
 
-8. Upload the final version to actual pypi:
+   Check you can run the following commands:
+   python -c "from transformers import pipeline; classifier = pipeline('text-classification'); print(classifier('What a nice release'))"
+   python -c "from transformers import *"
+
+9. Upload the final version to actual pypi:
    twine upload dist/* -r pypi
 
-9. Copy the release notes from RELEASE.md to the tag in github once everything is looking hunky-dory.
+10. Copy the release notes from RELEASE.md to the tag in github once everything is looking hunky-dory.
 
-10. Run `make post-release` (or `make post-patch` for a patch release).
+11. Run `make post-release` (or, for a patch release, `make post-patch`). If you were on a branch for the release,
+    you need to go back to master before executing this.
 """
 
 import os
@@ -86,19 +93,19 @@ if stale_egg_info.exists():
 # 2. once modified, run: `make deps_table_update` to update src/transformers/dependency_versions_table.py
 _deps = [
     "Pillow",
-    "black==21.4b0",
+    "black~=22.0",
     "codecarbon==1.2.0",
     "cookiecutter==1.7.2",
     "dataclasses",
     "datasets",
-    "deepspeed>=0.5.3",
-    "docutils==0.16.0",
+    "deepspeed>=0.5.9",
     "fairscale>0.3",
     "faiss-cpu",
     "fastapi",
     "filelock",
     "flake8>=3.8.3",
-    "flax>=0.3.4",
+    "flax>=0.3.5",
+    "ftfy",
     "fugashi>=1.0",
     "GitPython<3.1.19",
     "huggingface-hub>=0.1.0,<1.0",
@@ -108,7 +115,6 @@ _deps = [
     "jax>=0.2.8",
     "jaxlib>=0.1.65",
     "jieba",
-    "keras2onnx",
     "nltk",
     "numpy>=1.17",
     "onnxconverter-common",
@@ -118,6 +124,7 @@ _deps = [
     "optax>=0.0.8",
     "packaging>=20.0",
     "parameterized",
+    "phonemizer",
     "protobuf",
     "psutil",
     "pyyaml>=5.1",
@@ -149,11 +156,13 @@ _deps = [
     "starlette",
     "tensorflow-cpu>=2.3",
     "tensorflow>=2.3",
+    "tf2onnx",
     "timeout-decorator",
     "timm",
-    "tokenizers>=0.10.1,<0.11",
+    "tokenizers>=0.11.1,!=0.11.3",
     "torch>=1.0",
     "torchaudio",
+    "pyctcdecode>=0.3.0",
     "tqdm>=4.27",
     "unidic>=1.0.2",
     "unidic_lite>=1.0.7",
@@ -167,7 +176,7 @@ _deps = [
 # packaging: "packaging"
 #
 # some of the values are versioned whereas others aren't.
-deps = {b: a for a, b in (re.findall(r"^(([^!=<>]+)(?:[!=<>].*)?$)", x)[0] for x in _deps)}
+deps = {b: a for a, b in (re.findall(r"^(([^!=<>~]+)(?:[!=<>~].*)?$)", x)[0] for x in _deps)}
 
 # since we save this data in src/transformers/dependency_versions_table.py it can be easily accessed from
 # anywhere. If you need to quickly access the data from this table in a shell, you can do so easily with:
@@ -230,8 +239,8 @@ extras = {}
 extras["ja"] = deps_list("fugashi", "ipadic", "unidic_lite", "unidic")
 extras["sklearn"] = deps_list("scikit-learn")
 
-extras["tf"] = deps_list("tensorflow", "onnxconverter-common", "keras2onnx")
-extras["tf-cpu"] = deps_list("tensorflow-cpu", "onnxconverter-common", "keras2onnx")
+extras["tf"] = deps_list("tensorflow", "onnxconverter-common", "tf2onnx")
+extras["tf-cpu"] = deps_list("tensorflow-cpu", "onnxconverter-common", "tf2onnx")
 
 extras["torch"] = deps_list("torch")
 
@@ -243,8 +252,9 @@ else:
     extras["flax"] = deps_list("jax", "jaxlib", "flax", "optax")
 
 extras["tokenizers"] = deps_list("tokenizers")
+extras["ftfy"] = deps_list("ftfy")
 extras["onnxruntime"] = deps_list("onnxruntime", "onnxruntime-tools")
-extras["onnx"] = deps_list("onnxconverter-common", "keras2onnx") + extras["onnxruntime"]
+extras["onnx"] = deps_list("onnxconverter-common", "tf2onnx") + extras["onnxruntime"]
 extras["modelcreation"] = deps_list("cookiecutter")
 
 extras["sagemaker"] = deps_list("sagemaker")
@@ -257,8 +267,9 @@ extras["sigopt"] = deps_list("sigopt")
 extras["integrations"] = extras["optuna"] + extras["ray"] + extras["sigopt"]
 
 extras["serving"] = deps_list("pydantic", "uvicorn", "fastapi", "starlette")
-extras["audio"] = deps_list("librosa")
-extras["speech"] = deps_list("torchaudio") + extras["audio"]  # `pip install ".[speech]"` is deprecated and `pip install ".[torch-speech]"` should be used instead
+extras["audio"] = deps_list("librosa", "pyctcdecode", "phonemizer")
+# `pip install ".[speech]"` is deprecated and `pip install ".[torch-speech]"` should be used instead
+extras["speech"] = deps_list("torchaudio") + extras["audio"]
 extras["torch-speech"] = deps_list("torchaudio") + extras["audio"]
 extras["tf-speech"] = extras["audio"]
 extras["flax-speech"] = extras["audio"]
@@ -269,13 +280,24 @@ extras["codecarbon"] = deps_list("codecarbon")
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = (
     deps_list(
-        "pytest", "pytest-xdist", "timeout-decorator", "parameterized", "psutil", "datasets", "pytest-timeout", "black", "sacrebleu", "rouge-score", "nltk", "GitPython"
+        "pytest",
+        "pytest-xdist",
+        "timeout-decorator",
+        "parameterized",
+        "psutil",
+        "datasets",
+        "pytest-timeout",
+        "black",
+        "sacrebleu",
+        "rouge-score",
+        "nltk",
+        "GitPython",
     )
     + extras["retrieval"]
     + extras["modelcreation"]
 )
 
-extras["quality"] = deps_list("black", "isort", "flake8")
+extras["quality"] = deps_list("black", "isort", "flake8", "GitPython")
 
 extras["all"] = (
     extras["tf"]
@@ -304,6 +326,36 @@ extras["docs_specific"] = deps_list(
 # "docs" needs "all" to resolve all the references
 extras["docs"] = extras["all"] + extras["docs_specific"]
 
+extras["dev-torch"] = (
+    extras['testing']
+    + extras['torch']
+    + extras["sentencepiece"]
+    + extras["tokenizers"]
+    + extras["torch-speech"]
+    + extras["vision"]
+    + extras["integrations"]
+    + extras["timm"]
+    + extras["codecarbon"]
+    + extras["quality"]
+    + extras["ja"]
+    + extras["docs_specific"]
+    + extras["sklearn"]
+    + extras["modelcreation"]
+    + extras["onnxruntime"]
+)
+extras["dev-tensorflow"] = (
+        extras['testing']
+        + extras['tf']
+        + extras["sentencepiece"]
+        + extras["tokenizers"]
+        + extras["vision"]
+        + extras["quality"]
+        + extras["docs_specific"]
+        + extras["sklearn"]
+        + extras["modelcreation"]
+        + extras["onnx"]
+        + extras["tf-speech"]
+)
 extras["dev"] = (
     extras["all"]
     + extras["testing"]

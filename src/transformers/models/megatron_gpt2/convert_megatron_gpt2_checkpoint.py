@@ -16,6 +16,22 @@
 
 ####################################################################################################
 
+#
+# Note: If when running this conversion script you're getting an exception:
+#     ModuleNotFoundError: No module named 'megatron.model.enums'
+# you need to tell python where to find the clone of Megatron-LM, e.g.:
+#
+# cd /tmp
+# git clone https://github.com/NVIDIA/Megatron-LM
+# PYTHONPATH=/tmp/Megatron-LM python src/transformers/models/megatron_gpt2/convert_megatron_gpt2_checkpoint.py ...
+#
+# if you already have it cloned elsewhere, simply adjust the path to the existing path
+#
+# If the training was done using a Megatron-LM fork, e.g.,
+# https://github.com/microsoft/Megatron-DeepSpeed/ then chances are that you need to have that one
+# in your path, i.e., /path/to/Megatron-DeepSpeed/
+#
+
 import argparse
 import os
 import re
@@ -88,7 +104,6 @@ def convert_megatron_checkpoint(args, input_state_dict, config):
 
         config.vocab_size = ds_args.padded_vocab_size
         config.n_positions = ds_args.max_position_embeddings
-        config.n_ctx = ds_args.seq_length
         config.n_embd = ds_args.hidden_size
         config.n_layer = ds_args.num_layers
         config.n_head = ds_args.num_attention_heads
@@ -121,10 +136,10 @@ def convert_megatron_checkpoint(args, input_state_dict, config):
     # The position embeddings.
     pos_embeddings = embeddings["position_embeddings"]["weight"]
     # Read the causal mask dimension (seqlen). [max_sequence_length, hidden_size]
-    n_ctx = pos_embeddings.size(0)
+    n_positions = pos_embeddings.size(0)
     assert (
-        n_ctx == config.n_ctx
-    ), f"pos_embeddings.max_sequence_length={n_ctx} and config.n_ctx={config.n_ctx} don't match"
+        n_positions == config.n_positions
+    ), f"pos_embeddings.max_sequence_length={n_positions} and config.n_positions={config.n_positions} don't match"
     # Store the position embeddings.
     output_state_dict["transformer.wpe.weight"] = pos_embeddings
 
@@ -173,7 +188,9 @@ def convert_megatron_checkpoint(args, input_state_dict, config):
         ) and weight_or_bias == "weight":
 
             # Insert a tensor of 1x1xDxD bias.
-            causal_mask = torch.tril(torch.ones((n_ctx, n_ctx), dtype=torch.float16)).view(1, 1, n_ctx, n_ctx)
+            causal_mask = torch.tril(torch.ones((n_positions, n_positions), dtype=torch.float16)).view(
+                1, 1, n_positions, n_positions
+            )
             output_state_dict[layer_name + ".attn.bias"] = causal_mask
 
             # Insert a "dummy" tensor for masked_bias.
@@ -274,7 +291,6 @@ def main():
         config = GPT2Config(
             vocab_size=50257,
             n_positions=1024,
-            n_ctx=1024,
             n_embd=1024,
             n_layer=24,
             n_head=16,
