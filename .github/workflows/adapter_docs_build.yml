@@ -21,6 +21,7 @@ jobs:
         run: |
           pip install setuptools==57.4.0
           pip install -e .[torch,docs]
+          pip install recommonmark==0.7.1
       - name: Build
         run: |
           cd adapter_docs && make html-multi-version && cd ..
