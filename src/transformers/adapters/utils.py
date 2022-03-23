@@ -422,7 +422,7 @@ def resolve_adapter_path(
     model_name: str = None,
     adapter_config: Union[dict, str] = None,
     version: str = None,
-    source: str = "ah",
+    source: str = None,
     **kwargs
 ) -> str:
     """
@@ -438,6 +438,11 @@ def resolve_adapter_path(
         model_name (str, optional): The identifier of the pre-trained model for which to load an adapter.
         adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
+        source (str, optional): Identifier of the source(s) from where to get adapters. Can be either:
+
+            - "ah": search on AdapterHub.ml.
+            - "hf": search on HuggingFace model hub (huggingface.co).
+            - None (default): search on all sources
 
     Returns:
         str: The local path from where the adapter module can be loaded.
@@ -466,6 +471,24 @@ def resolve_adapter_path(
         )
     elif source == "hf":
         return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
+    elif source is None:
+        try:
+            logger.info("Attempting to load adapter from source 'ah'...")
+            return pull_from_hub(
+                adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
+            )
+        except EnvironmentError as ex:
+            logger.info(ex)
+            logger.info("Attempting to load adapter from source 'hf'...")
+            try:
+                return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
+            except Exception as ex:
+                logger.info(ex)
+                raise EnvironmentError(
+                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source.".format(
+                        adapter_name_or_path
+                    )
+                )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
 

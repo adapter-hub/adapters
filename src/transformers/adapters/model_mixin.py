@@ -444,7 +444,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
-        source: str = "ah",
+        source: str = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
         id2label=None,
@@ -471,7 +471,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
                 - "ah" (default): search on AdapterHub.
                 - "hf": search on HuggingFace model hub.
-                - None: only search on local file system
+                - None: search on all sources
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
             set_active (bool, optional): Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not activated.
 
@@ -876,7 +876,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
-        source: str = "ah",
+        source: str = None,
         with_head: bool = True,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
