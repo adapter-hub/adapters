@@ -17,7 +17,6 @@
 from collections import OrderedDict
 from typing import Mapping
 
-from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...onnx import OnnxConfig
 from ...utils import logging
@@ -52,7 +51,7 @@ BERT_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class BertConfig(ModelConfigAdaptersMixin, PretrainedConfig):
+class BertConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a :class:`~transformers.BertModel` or a
     :class:`~transformers.TFBertModel`. It is used to instantiate a BERT model according to the specified arguments,

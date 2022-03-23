@@ -7,7 +7,7 @@ import re
 import shutil
 import tarfile
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import dataclass
 from enum import Enum
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
@@ -19,8 +19,8 @@ import requests
 from filelock import FileLock
 from huggingface_hub import HfApi, snapshot_download
 
-from .. import __adapters_version__
 from ..file_utils import get_from_cache, is_remote_url, torch_cache_home
+from . import __version__
 
 
 logger = logging.getLogger(__name__)
@@ -108,13 +108,6 @@ class AdapterInfo:
     username: Optional[str] = None
     adapter_config: Optional[dict] = None
     sha1_checksum: Optional[str] = None
-
-
-class DataclassJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if is_dataclass(o):
-            return asdict(o)
-        return super().default(o)
 
 
 def _minimize_dict(d):
@@ -428,7 +421,7 @@ def pull_from_hf_model_hub(specifier: str, version: str = None, **kwargs) -> str
         revision=version,
         cache_dir=kwargs.pop("cache_dir", None),
         library_name="adapter-transformers",
-        library_version=__adapters_version__,
+        library_version=__version__,
     )
     return download_path
 

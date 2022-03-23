@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+__version__ = "3.0.0a0"
+
 from typing import TYPE_CHECKING
 
 from ..file_utils import _LazyModule
@@ -77,7 +79,6 @@ _import_structure = {
     "model_mixin": [
         "InvertibleAdaptersMixin",
         "ModelAdaptersMixin",
-        "ModelConfigAdaptersMixin",
         "ModelWithHeadsAdaptersMixin",
     ],
     "models.auto": [
@@ -184,12 +185,7 @@ if TYPE_CHECKING:
         TaggingHead,
     )
     from .layer import AdapterLayer, AdapterLayerBase
-    from .model_mixin import (
-        InvertibleAdaptersMixin,
-        ModelAdaptersMixin,
-        ModelConfigAdaptersMixin,
-        ModelWithHeadsAdaptersMixin,
-    )
+    from .model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
     from .models.auto import ADAPTER_MODEL_MAPPING, MODEL_WITH_HEADS_MAPPING, AutoAdapterModel, AutoModelWithHeads
     from .models.bart import BartAdapterModel, BartModelWithHeads
     from .models.bert import BertAdapterModel, BertModelWithHeads
@@ -213,4 +209,9 @@ if TYPE_CHECKING:
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+    sys.modules[__name__] = _LazyModule(
+        __name__,
+        globals()["__file__"],
+        _import_structure,
+        extra_objects={"__version__": __version__},
+    )

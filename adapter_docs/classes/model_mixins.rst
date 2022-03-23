@@ -10,12 +10,6 @@ InvertibleAdaptersMixin
 .. autoclass:: transformers.InvertibleAdaptersMixin
     :members:
 
-ModelConfigAdaptersMixin
-----------------------------------
-
-.. autoclass:: transformers.ModelConfigAdaptersMixin
-    :members:
-
 ModelAdaptersMixin
 ------------------
 

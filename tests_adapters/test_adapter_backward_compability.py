@@ -1,11 +1,12 @@
-import tempfile
-import os
 import json
+import os
+import tempfile
+
 import torch
 
 from tests_adapters.test_adapter_common import create_twin_models
+from transformers.adapters import PfeifferConfig, __version__
 from transformers.testing_utils import require_torch, torch_device
-from transformers import PfeifferConfig, __adapters_version__
 
 
 @require_torch
@@ -44,4 +45,4 @@ class CompabilityTestMixin:
 
             with open(os.path.join(temp_dir, "adapter_config.json"), "r") as file:
                 data = json.load(file)
-                self.assertEqual(__adapters_version__, data["version"])
+                self.assertEqual(__version__, data["version"])

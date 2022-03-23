@@ -18,7 +18,6 @@ from typing import Mapping
 
 from transformers.onnx import OnnxConfigWithPast
 
-from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
@@ -31,7 +30,7 @@ MBART_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class MBartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
+class MBartConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a :class:`~transformers.MBartModel`. It is used to
     instantiate an MBART model according to the specified arguments, defining the model architecture. Instantiating a
@@ -164,14 +163,6 @@ class MBartConfig(ModelConfigAdaptersMixin, PretrainedConfig):
             forced_eos_token_id=forced_eos_token_id,
             **kwargs,
         )
-
-    @property
-    def hidden_dropout_prob(self):
-        return self.dropout
-
-    @property
-    def attention_probs_dropout_prob(self):
-        return self.attention_dropout
 
 
 class MBartOnnxConfig(OnnxConfigWithPast):

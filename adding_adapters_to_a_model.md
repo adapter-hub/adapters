@@ -32,8 +32,9 @@ For this purpose, there typically exists a module `src/transformers/adapters/mix
     - The model classes with heads (e.g. `BertForSequenceClassification`) should directly implement `ModelWithHeadsAdaptersMixin`.
     - To additionally support Prefix Tuning, it's necessary to apply the forward call to the `PrefixTuningShim` module in the respective attention layer.
     - Again, have a look at existing implementations, e.g. `modeling_distilbert.py` or `modeling_bart.py`.
-- Add the mixin for config classes, `ModelConfigAdaptersMixin`, to the model configuration class in `configuration_<model_type>`.
-    - There are some naming differences on the config attributes of different model architectures. The adapter implementation requires some additional attributes with a specific name to be available. These currently are `hidden_dropout_prob` and `attention_probs_dropout_prob` as in the `BertConfig` class.
+- Adapt the config class to the requirements of adapters in `src/transformers/adapters/wrappers/configuration.py`.
+    - There are some naming differences on the config attributes of different model architectures. The adapter implementation requires some additional attributes with a specific name to be available. These currently are `num_attention_heads`, `hidden_size`, `hidden_dropout_prob` and `attention_probs_dropout_prob` as in the `BertConfig` class.
+    If your model config does not provide these, add corresponding mappings to `CONFIG_CLASS_KEYS_MAPPING`.
 
 ### `...AdapterModel` class
 

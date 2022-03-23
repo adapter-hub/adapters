@@ -439,7 +439,7 @@ class AdapterLayer(AdapterLayerBase):
         """
         Called for each forward pass through adapters.
         """
-        if hasattr(self.config, "adapters"):
+        if getattr(self.config, "is_adaptable", False):
             # First check current context before falling back to defined setup
             context = AdapterSetup.get_context()
             if context is not None:

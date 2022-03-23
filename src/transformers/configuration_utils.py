@@ -23,7 +23,6 @@ import warnings
 from typing import Any, Dict, Tuple, Union
 
 from . import __version__
-from .adapters.utils import DataclassJSONEncoder
 from .file_utils import (
     CONFIG_NAME,
     PushToHubMixin,
@@ -620,8 +619,6 @@ class PretrainedConfig(PushToHubMixin):
                 setattr(config, key, value)
                 if key != "torch_dtype":
                     to_remove.append(key)
-            elif key == "custom_heads":
-                setattr(config, key, value)
         for key in to_remove:
             kwargs.pop(key, None)
 
@@ -701,10 +698,6 @@ class PretrainedConfig(PushToHubMixin):
         output = copy.deepcopy(self.__dict__)
         if hasattr(self.__class__, "model_type"):
             output["model_type"] = self.__class__.model_type
-        if hasattr(self, "adapters") and not isinstance(output["adapters"], dict):
-            output["adapters"] = self.adapters.to_dict()
-        if "custom_heads" in output.keys():
-            del output["custom_heads"]
 
         # Transformers version when serializing the model
         output["transformers_version"] = __version__
@@ -729,7 +722,7 @@ class PretrainedConfig(PushToHubMixin):
             config_dict = self.to_diff_dict()
         else:
             config_dict = self.to_dict()
-        return json.dumps(config_dict, indent=2, sort_keys=True, cls=DataclassJSONEncoder) + "\n"
+        return json.dumps(config_dict, indent=2, sort_keys=True) + "\n"
 
     def to_json_file(self, json_file_path: Union[str, os.PathLike], use_diff: bool = True):
         """

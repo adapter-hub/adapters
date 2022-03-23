@@ -22,7 +22,6 @@
 # to defer the actual importing for when the objects are requested. This way `import transformers` provides the names
 # in the namespace without actually importing anything (and especially none of the backends).
 
-__adapters_version__ = "2.3.0a0"
 __version__ = "4.12.5"
 
 # Work around to update TensorFlow's absl.logging threshold which alters the
@@ -1397,7 +1396,6 @@ if is_torch_available():
         "MBartModelWithHeads",
         "ModelAdaptersConfig",
         "ModelAdaptersMixin",
-        "ModelConfigAdaptersMixin",
         "ModelWithFlexibleHeadsAdaptersMixin",
         "ModelWithHeadsAdaptersMixin",
         "MultiLingAdapterArguments",
@@ -3181,7 +3179,6 @@ if TYPE_CHECKING:
             MBartModelWithHeads,
             ModelAdaptersConfig,
             ModelAdaptersMixin,
-            ModelConfigAdaptersMixin,
             ModelWithFlexibleHeadsAdaptersMixin,
             ModelWithHeadsAdaptersMixin,
             MultiLingAdapterArguments,
@@ -3708,7 +3705,7 @@ else:
         globals()["__file__"],
         _import_structure,
         module_spec=__spec__,
-        extra_objects={"__version__": __version__, "__adapters_version__": __adapters_version__},
+        extra_objects={"__version__": __version__},
     )
 
 

@@ -19,7 +19,6 @@ from typing import Any, Mapping, Optional
 
 from transformers import PreTrainedTokenizer, TensorType, is_torch_available
 
-from ...adapters.model_mixin import ModelConfigAdaptersMixin
 from ...configuration_utils import PretrainedConfig
 from ...onnx import OnnxConfigWithPast
 from ...utils import logging
@@ -36,7 +35,7 @@ GPT2_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class GPT2Config(ModelConfigAdaptersMixin, PretrainedConfig):
+class GPT2Config(PretrainedConfig):
     """
     This is the configuration class to store the configuration of a :class:`~transformers.GPT2Model` or a
     :class:`~transformers.TFGPT2Model`. It is used to instantiate a GPT-2 model according to the specified arguments,
@@ -196,14 +195,6 @@ class GPT2Config(ModelConfigAdaptersMixin, PretrainedConfig):
         self.eos_token_id = eos_token_id
 
         super().__init__(bos_token_id=bos_token_id, eos_token_id=eos_token_id, **kwargs)
-
-    @property
-    def hidden_dropout_prob(self):
-        return self.resid_pdrop
-
-    @property
-    def attention_probs_dropout_prob(self):
-        return self.attn_pdrop
 
 
 class GPT2OnnxConfig(OnnxConfigWithPast):

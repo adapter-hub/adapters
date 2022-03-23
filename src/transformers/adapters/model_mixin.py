@@ -10,13 +10,7 @@ import torch
 from torch import nn
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import (
-    AdapterConfig,
-    AdapterConfigBase,
-    AdapterFusionConfig,
-    ModelAdaptersConfig,
-    get_adapter_config_hash,
-)
+from .configuration import AdapterConfig, AdapterConfigBase, AdapterFusionConfig, get_adapter_config_hash
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .layer import AdapterLayer, AdapterLayerBase
@@ -24,6 +18,7 @@ from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, W
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .prefix_tuning import PrefixTuningPool, PrefixTuningShim
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
+from .wrappers.configuration import wrap_config
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +30,9 @@ class InvertibleAdaptersMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.invertible_adapters = nn.ModuleDict(dict())
+
+        # Make sure config is wrapped
+        self.config = wrap_config(self.config)
 
     def add_invertible_adapter(self, adapter_name: str):
         """
@@ -97,46 +95,21 @@ class InvertibleAdaptersMixin:
         return hidden_states
 
 
-class ModelConfigAdaptersMixin(ABC):
-    """
-    Mixin for model config classes, adding support for adapters.
-
-    Besides adding this mixin to the config class of a model supporting adapters, make sure the following attributes/
-    properties are present: hidden_dropout_prob, attention_probs_dropout_prob.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # adapter configuration
-        adapter_config_dict = kwargs.pop("adapters", None)
-        if adapter_config_dict:
-            self.adapters = ModelAdaptersConfig(**adapter_config_dict)
-        else:
-            self.adapters = ModelAdaptersConfig()
-        # Convert AdapterFusions from old format for backwards compatibility
-        fusion_models = kwargs.pop("adapter_fusion_models", [])
-        fusion_config = kwargs.pop("adapter_fusion", None)
-        for fusion_adapter_names in fusion_models:
-            self.adapters.add_fusion(fusion_adapter_names, config=fusion_config)
-
-
 class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
-        self.model_name = None
+        if config.name_or_path and not os.path.exists(config.name_or_path):
+            self.model_name = config.name_or_path
+        else:
+            self.model_name = None
         self.loaded_embeddings = {}
         self.shared_parameters = nn.ModuleDict()
         self._active_embedding = "default"
 
-        # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
-        # Thus, we check the adapters config here to make sure everything is correct.
-        if not hasattr(config, "adapters"):
-            config.adapters = ModelAdaptersConfig()
-        elif config.adapters is not None and not isinstance(config.adapters, ModelAdaptersConfig):
-            config.adapters = ModelAdaptersConfig(**config.adapters)
+        # Make sure config is wrapped
+        self.config = wrap_config(self.config)
 
     def _link_prefix_to_pool(self, layer):
         if isinstance(layer, PrefixTuningShim):
@@ -217,7 +190,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # TODO implement fusion for invertible adapters
 
     def has_adapters(self):
-        if not getattr(self.config, "adapters", None):
+        if not getattr(self.config, "is_adaptable", None):
             return False
         return len(self.config.adapters.adapters) > 0
 
