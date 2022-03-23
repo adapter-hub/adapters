@@ -153,6 +153,7 @@ if TYPE_CHECKING:
         AdapterConfig,
         AdapterConfigBase,
         AdapterFusionConfig,
+        CompacterConfig,
         CompacterPlusPlusConfig,
         ConfigUnion,
         DynamicAdapterFusionConfig,
