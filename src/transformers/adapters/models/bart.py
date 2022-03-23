@@ -2,16 +2,8 @@ import warnings
 
 import torch
 
-from ...file_utils import (
-    ModelOutput,
-    add_code_sample_docstrings,
-    add_start_docstrings,
-    add_start_docstrings_to_model_forward,
-)
+from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward
 from ...models.bart.modeling_bart import (
-    _CHECKPOINT_FOR_DOC,
-    _CONFIG_FOR_DOC,
-    _TOKENIZER_FOR_DOC,
     BART_INPUTS_DOCSTRING,
     BART_START_DOCSTRING,
     BartConfig,
@@ -46,12 +38,6 @@ class BartAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel)
         return self.model.get_decoder()
 
     @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
-    @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
-        checkpoint=_CHECKPOINT_FOR_DOC,
-        output_type=ModelOutput,
-        config_class=_CONFIG_FOR_DOC,
-    )
     def forward(
         self,
         input_ids=None,

@@ -317,7 +317,9 @@ class RobertaSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
 class RobertaAttention(nn.Module):
     def __init__(self, config, position_embedding_type=None, location_key: Optional[str] = None):
         super().__init__()
-        self.self = RobertaSelfAttention(config, position_embedding_type=position_embedding_type, location_key=location_key)
+        self.self = RobertaSelfAttention(
+            config, position_embedding_type=position_embedding_type, location_key=location_key
+        )
         self.output = RobertaSelfOutput(config)
         self.pruned_heads = set()
 

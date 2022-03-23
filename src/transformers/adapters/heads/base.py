@@ -567,7 +567,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         adapter names.
 
         Args:
-            adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
+            adapter_setup (list):
+                The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
         self.base_model.set_active_adapters(adapter_setup, skip_layers)
         # use last adapter name as name of prediction head

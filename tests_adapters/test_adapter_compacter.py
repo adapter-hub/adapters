@@ -2,10 +2,9 @@ import copy
 
 import torch
 
-from transformers import AutoAdapterModel, TrainingArguments, AdapterTrainer, \
-    AutoTokenizer, ADAPTER_MODEL_MAPPING
-from transformers.testing_utils import require_torch
+from transformers import ADAPTER_MODEL_MAPPING, AdapterTrainer, AutoAdapterModel, AutoTokenizer, TrainingArguments
 from transformers.adapters.configuration import CompacterPlusPlusConfig
+from transformers.testing_utils import require_torch, torch_device
 
 
 def filter_parameters(model, filter_string):
@@ -62,6 +61,7 @@ class CompacterTestMixin:
         model.set_active_adapters("compacter")
         self.assertEqual(set(["compacter"]), model.active_adapters.flatten())
         input_tensor = self.get_input_samples((2, 128), config=model.config)
+        model.to(torch_device)
         output = model(**input_tensor)
         self.assertEqual(2, output[0].shape[0])
 
@@ -74,6 +74,7 @@ class CompacterTestMixin:
         model.set_active_adapters("compacter")
 
         input_tensor = self.get_input_samples((2, 128), config=model.config)
+        model.to(torch_device)
         output = model(**input_tensor)
         self.assertEqual(2, output[0].shape[0])
 

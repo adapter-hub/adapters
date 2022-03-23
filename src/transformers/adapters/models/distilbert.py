@@ -2,15 +2,8 @@ import warnings
 
 import torch.nn as nn
 
-from ...file_utils import (
-    ModelOutput,
-    add_code_sample_docstrings,
-    add_start_docstrings,
-    add_start_docstrings_to_model_forward,
-)
+from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward
 from ...models.distilbert.modeling_distilbert import (
-    _CONFIG_FOR_DOC,
-    _TOKENIZER_FOR_DOC,
     DISTILBERT_INPUTS_DOCSTRING,
     DISTILBERT_START_DOCSTRING,
     DistilBertModel,
@@ -64,12 +57,6 @@ class DistilBertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, DistilBertPreT
         self.distilbert.resize_position_embeddings(new_num_position_embeddings)
 
     @add_start_docstrings_to_model_forward(DISTILBERT_INPUTS_DOCSTRING.format("batch_size, num_choices"))
-    @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
-        checkpoint="distilbert-base-uncased",
-        output_type=ModelOutput,
-        config_class=_CONFIG_FOR_DOC,
-    )
     def forward(
         self,
         input_ids=None,

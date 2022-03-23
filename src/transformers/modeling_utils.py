@@ -420,17 +420,6 @@ class ModuleUtilsMixin:
         return 6 * self.estimate_tokens(input_dict) * self.num_parameters(exclude_embeddings=exclude_embeddings)
 
 
-def gradient_checkpointing_hook(module, _):
-    # Hook to enable backward compatibility for gradient checkpointing. Will be removed once all models have a
-    # proper post_init method.
-    if getattr(module.config, "gradient_checkpointing", False):
-        module.gradient_checkpointing_enable()
-        # Remove the attribute now that is has been consumed, so it's no saved in the config.
-        delattr(module.config, "gradient_checkpointing")
-    # The hook will remove itself after the first execution
-    module._gradient_checkpointing_hook.remove()
-
-
 class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMixin):
     r"""
     Base class for all models.

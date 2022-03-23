@@ -1,10 +1,10 @@
-from tests.test_modeling_encoder_decoder import *  # Imported to execute model tests
+from tests.encoder_decoder.test_modeling_encoder_decoder import *  # Imported to execute model tests
 from transformers import AutoModelForSeq2SeqLM, BertConfig
 
 from .test_adapter import AdapterTestBase
 from .test_adapter_common import AdapterModelTestMixin
-from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_compacter import CompacterTestMixin
+from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 
 
 class EncoderDecoderAdapterTestBase(AdapterTestBase):

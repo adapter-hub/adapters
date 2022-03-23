@@ -165,6 +165,9 @@ class ModelClassConversionTestMixin:
         input_shape = (self.batch_size, 5)
         input_samples = self.get_input_samples(input_shape, config=flex_model.config)
 
+        static_model.to(torch_device)
+        flex_model.to(torch_device)
+
         model_gen = static_model.generate(**input_samples)
         flex_model_gen = flex_model.generate(**input_samples)
 

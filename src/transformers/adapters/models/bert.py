@@ -1,15 +1,10 @@
 import warnings
 
 from ...file_utils import (
-    ModelOutput,
-    add_code_sample_docstrings,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
 )
 from ...models.bert.modeling_bert import (
-    _CHECKPOINT_FOR_DOC,
-    _CONFIG_FOR_DOC,
-    _TOKENIZER_FOR_DOC,
     BERT_INPUTS_DOCSTRING,
     BERT_START_DOCSTRING,
     BertModel,
@@ -44,12 +39,6 @@ class BertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel)
         self.init_weights()
 
     @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
-    @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
-        checkpoint=_CHECKPOINT_FOR_DOC,
-        output_type=ModelOutput,
-        config_class=_CONFIG_FOR_DOC,
-    )
     def forward(
         self,
         input_ids=None,

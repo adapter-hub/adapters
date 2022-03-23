@@ -13,8 +13,7 @@ class AdapterSetup:
     Example::
 
         with AdapterSetup(Stack("a", "b")):
-            # will use the adapter stack "a" and "b"
-            outputs = model(**inputs)
+            # will use the adapter stack "a" and "b" outputs = model(**inputs)
 
     Note that the context manager is thread-local, i.e. it can be used with different setups in a multi-threaded
     environment.

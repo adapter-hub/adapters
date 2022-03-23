@@ -82,7 +82,7 @@ class T5AdapterModel(ModelWithFlexibleHeadsAdaptersMixin, T5PreTrainedModel):
         if self.config.tie_word_embeddings:
             # Rescale output before projecting on vocab
             # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/transformer.py#L586
-            new_hidden_state = sequence_output * (self.config.d_model ** -0.5)
+            new_hidden_state = sequence_output * (self.config.d_model**-0.5)
             if isinstance(model_output, tuple):
                 model_output = (new_hidden_state,) + model_output[1:]
             else:

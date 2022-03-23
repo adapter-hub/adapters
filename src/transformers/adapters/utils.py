@@ -382,7 +382,8 @@ def pull_from_hub(
         model_name (str): The identifier of the pre-trained model for which to load an adapter.
         adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
-        strict (bool, optional): If set to True, only allow adapters exactly matching the given config to be loaded. Defaults to False.
+        strict (bool, optional):
+            If set to True, only allow adapters exactly matching the given config to be loaded. Defaults to False.
 
     Returns:
         str: The local path to which the adapter has been downloaded.

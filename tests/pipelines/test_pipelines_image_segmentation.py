@@ -59,7 +59,6 @@ def hashimage(image: Image) -> str:
 @require_timm
 @require_torch
 @is_pipeline_test
-@unittest.skip("Skip while fixing segmentation pipeline tests")
 class ImageSegmentationPipelineTests(unittest.TestCase, metaclass=PipelineTestCaseMeta):
     model_mapping = {
         k: v

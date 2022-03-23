@@ -51,13 +51,16 @@ class AdapterCompositionTest(unittest.TestCase):
 
     def training_pass(self):
         inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000)
-        inputs["labels"] = torch.ones(1, dtype=torch.long)
+        inputs["input_ids"] = ids_tensor((1, 128), 1000).to(torch_device)
+        inputs["labels"] = torch.ones(1, dtype=torch.long).to(torch_device)
         loss = self.model(**inputs).loss
         loss.backward()
 
     def batched_training_pass(self):
-        inputs = {"input_ids": ids_tensor((4, 128), 1000), "labels": torch.ones(4, dtype=torch.long)}
+        inputs = {
+            "input_ids": ids_tensor((4, 128), 1000).to(torch_device),
+            "labels": torch.ones(4, dtype=torch.long).to(torch_device),
+        }
         loss = self.model(**inputs).loss
         loss.backward()
 
@@ -75,6 +78,7 @@ class AdapterCompositionTest(unittest.TestCase):
 
     def test_stacked_fusion(self):
         self.model.add_adapter_fusion(Fuse("b", "d"))
+        self.model.to(torch_device)
 
         # fuse two stacks
         self.model.set_active_adapters(Fuse(Stack("a", "b"), Stack("c", "d")))
@@ -83,6 +87,7 @@ class AdapterCompositionTest(unittest.TestCase):
 
     def test_mixed_stack(self):
         self.model.add_adapter_fusion(Fuse("a", "b"))
+        self.model.to(torch_device)
 
         self.model.set_active_adapters(Stack("a", Split("c", "d", split_index=64), Fuse("a", "b")))
 

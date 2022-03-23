@@ -15,11 +15,11 @@ class Activation_Function_Class(nn.Module):
     """
 
     def __init__(self, hidden_act):
+        super().__init__()
         if hidden_act.lower() == "leakyrelu":
             self.f = nn.functional.leaky_relu
         else:
             self.f = get_activation(hidden_act.lower())
-        super().__init__()
 
     def forward(self, x):
         return self.f(x)

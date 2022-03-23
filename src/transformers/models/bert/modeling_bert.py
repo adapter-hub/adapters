@@ -379,7 +379,9 @@ class BertSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
 class BertAttention(nn.Module):
     def __init__(self, config, position_embedding_type=None, location_key: Optional[str] = None):
         super().__init__()
-        self.self = BertSelfAttention(config, position_embedding_type=position_embedding_type, location_key=location_key)
+        self.self = BertSelfAttention(
+            config, position_embedding_type=position_embedding_type, location_key=location_key
+        )
         self.output = BertSelfOutput(config)
         self.pruned_heads = set()
 

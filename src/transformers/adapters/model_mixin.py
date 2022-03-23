@@ -220,7 +220,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         found, no module of the respective type will be activated.
 
         Args:
-            adapter_setup (list): The list of adapters to be activated by default. Can be a fusion or stacking configuration.
+            adapter_setup (list):
+                The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
         adapter_setup = parse_composition(adapter_setup, model_type=self.config.model_type)
         if adapter_setup:
@@ -239,14 +240,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         Args:
 
-            adapter_name (str): The name of the adapter module to be added.
-            config (str or dict or AdapterConfigBase, optional): The adapter configuration, can be either:
+            adapter_name (str): The name of the adapter module to be added. config (str or dict or AdapterConfigBase,
+            optional): The adapter configuration, can be either:
 
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
-            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
-            set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
+            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an
+            exception is thrown. set_active (bool, optional): Set the adapter to be the active one. By default (False),
+            the adapter is added but not activated.
         """
         if isinstance(config, dict):
             config = AdapterConfigBase.load(config)  # ensure config is ok and up-to-date
@@ -305,8 +307,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - a string identifying a pre-defined adapter fusion configuration
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
-            overwrite_ok (bool, optional): Overwrite an AdapterFusion layer with the same name if it exists. By default (False), an exception is thrown.
-            set_active (bool, optional): Activate the added AdapterFusion. By default (False), the AdapterFusion is added but not activated.
+            overwrite_ok (bool, optional):
+                Overwrite an AdapterFusion layer with the same name if it exists. By default (False), an exception is
+                thrown.
+            set_active (bool, optional):
+                Activate the added AdapterFusion. By default (False), the AdapterFusion is added but not activated.
         """
         if isinstance(adapter_names, Fuse):
             adapter_names = adapter_names.children
@@ -463,7 +468,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - "hf": search on HuggingFace model hub.
                 - None: search on all sources
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
-            set_active (bool, optional): Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not activated.
+            set_active (bool, optional):
+                Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not
+                activated.
 
         Returns:
             str: The name with which the adapter was added to the model.
@@ -505,10 +512,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Loads a pre-trained AdapterFusion layer from the local file system.
 
         Args:
-            adapter_fusion_name_or_path (str): a path to a directory containing AdapterFusion weights saved using `model.save_adapter_fusion()`.
+            adapter_fusion_name_or_path (str):
+                a path to a directory containing AdapterFusion weights saved using `model.save_adapter_fusion()`.
             load_as (str, optional): Load the AdapterFusion using this name.
                     By default, the name with which the AdapterFusion layer was saved will be used.
-            set_active (bool, optional): Activate the loaded AdapterFusion. By default (False), the AdapterFusion is loaded but not activated.
+            set_active (bool, optional):
+                Activate the loaded AdapterFusion. By default (False), the AdapterFusion is loaded but not activated.
 
         Returns:
             str: The name with which the AdapterFusion was added to the model.
@@ -646,7 +655,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             name: the name of the embedding
             tokenizer: the tokenizer determining the vocab of the embedding
-            reference_embedding: the reference embedding to use for initializing the embeddings of tokens present in the newly created embedding
+            reference_embedding:
+                the reference embedding to use for initializing the embeddings of tokens present in the newly created
+                embedding
             reference_tokenizer: the tokenizer providing the vocab for the reference embedding
             embedding_dim: the dimension of the embeddings (if None the hidden_size from the config is used)
 
@@ -810,8 +821,10 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
-            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
-            set_active (bool, optional): Set the adapter to be the active one. By default (False), the adapter is added but not activated.
+            overwrite_ok (bool, optional):
+                Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
+            set_active (bool, optional):
+                Set the adapter to be the active one. By default (False), the adapter is added but not activated.
 
         If self.base_model is self, must inherit from a class that implements this method, to preclude infinite
         recursion
@@ -943,8 +956,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         Args:
             save_directory (str): Path to a directory where the AdapterFusion should be saved.
             adapter_names (Union[Fuse, list, str]): AdapterFusion to be saved.
-            with_head (Union[bool, str]): If True, will save a head with the same name as the AdapterFusionLayer. If a string,
-                this will be used as the name of the head to be saved.
+            with_head (Union[bool, str]):
+                If True, will save a head with the same name as the AdapterFusionLayer. If a string, this will be used
+                as the name of the head to be saved.
 
         Raises:
             ValueError: If the given AdapterFusion name is invalid.

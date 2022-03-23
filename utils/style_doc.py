@@ -417,7 +417,7 @@ def style_file_docstrings(code_file, max_len=119, check_only=False):
     with open(code_file, "r", encoding="utf-8", newline="\n") as f:
         code = f.read()
     if _re_doc_ignore_file.search(code) is not None:
-        return None
+        return None, []
 
     clean_code, black_errors = style_docstrings_in_code(code, max_len=max_len)
 

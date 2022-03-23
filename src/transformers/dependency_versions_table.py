@@ -9,6 +9,7 @@ deps = {
     "dataclasses": "dataclasses",
     "datasets": "datasets",
     "deepspeed": "deepspeed>=0.5.9",
+    "docutils": "docutils==0.16.0",
     "fairscale": "fairscale>0.3",
     "faiss-cpu": "faiss-cpu",
     "fastapi": "fastapi",
