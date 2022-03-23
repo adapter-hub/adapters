@@ -167,6 +167,31 @@ class AdapterConfig(AdapterConfigBase):
         cross_adapter (:obj:`bool`, optional): If True, add adapter modules after the cross attention block of each decoder layer in an encoder-decoder model.
             Defaults to False.
         leave_out (:obj:`List[int]`, optional): The IDs of the layers (starting at 0) where NO adapter modules should be added.
+        phm_layer (:obj:`bool`, optional): If True the down and up projection layers are a PHMLayer.
+            Defaults to False
+        phm_dim (:obj:`int`, optional): The dimension of the phm matrix.
+            Defaults to None.
+        shared_phm_rule (:obj:`bool`, optional): Whether the phm matrix is shared across all layers.
+            Defaults to True
+        factorized_phm_rule (:obj:`bool`, optional): Whether the phm matrix is factorized into a left and right matrix.
+            Defaults to False.
+        learn_phm (:obj:`bool`, optional): Whether the phm matrix should be learned during training.
+            Defaults to True
+        factorized_phm_W (:obj:`bool`, optional): Whether the weights matrix is factorized into a left and right matrix.
+            Defaults to True
+        shared_W_phm (:obj:`bool`, optional): Whether the weights matrix is shared across all layers.
+            Defaults to False.
+        phm_c_init (:obj:`str`, optional): The initialization function for the weights of the phm matrix.
+            The possible values are `["normal", "uniform"]`. Defaults to `normal`.
+        phm_init_range (:obj:`float`, optional): std for initializing phm weights if `phm_c_init="normal"`.
+            Defaults to 0.0001.
+        hypercomplex_nonlinearity (:obj:`str`, optional): This specifies the distribution to draw the weights in the phm layer from,
+            Defaults to `glorot-uniform`.
+        phm_rank (:obj:`int`,  optional): If the weight matrix is factorized this specifies the rank of the matrix. E.g. the left matrix
+            of the down projection has the shape (phm_dim, _in_feats_per_axis, phm_rank) and the right matrix (phm_dim,
+            phm_rank, _out_feats_per_axis). Defaults to 1
+        phm_bias (:obj:`bool`, optional): If True the down and up projection PHMLayer has a bias term. If `phm_layer`is False this is ignored.
+            Defaults to True
     """
 
     # Required options
@@ -190,6 +215,18 @@ class AdapterConfig(AdapterConfigBase):
     inv_adapter_reduction_factor: Optional[int] = None
     cross_adapter: bool = False
     leave_out: List[int] = field(default_factory=list)
+    phm_layer: bool = False
+    phm_dim: int = 4
+    factorized_phm_W: Optional[bool] = True
+    shared_W_phm: Optional[bool] = False
+    shared_phm_rule: Optional[bool] = True
+    factorized_phm_rule: Optional[bool] = False
+    phm_c_init: Optional[str] = "normal"
+    phm_init_range: Optional[float] = 0.0001
+    learn_phm: Optional[bool] = True
+    hypercomplex_nonlinearity: Optional[str] = "glorot-uniform"
+    phm_rank: Optional[int] = 1
+    phm_bias: Optional[bool] = True
 
     # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
     # Therefore, we don't allow changing attribute values if set once.
@@ -225,6 +262,13 @@ class PfeifferConfig(AdapterConfig):
 
 
 @dataclass(eq=False)
+class CompacterPlusPlusConfig(PfeifferConfig):
+    phm_layer: bool = True
+    reduction_factor: int = 32
+    non_linearity: str = "gelu"
+
+
+@dataclass(eq=False)
 class PfeifferInvConfig(PfeifferConfig):
     """
     The adapter architecture proposed by Pfeiffer et al. (2020). See https://arxiv.org/pdf/2005.00247.pdf.
@@ -250,6 +294,13 @@ class HoulsbyConfig(AdapterConfig):
     output_adapter: bool = True
     non_linearity: str = "swish"
     reduction_factor: Union[int, Mapping] = 16
+
+
+@dataclass(eq=False)
+class CompacterConfig(HoulsbyConfig):
+    phm_layer: bool = True
+    reduction_factor: int = 32
+    non_linearity: str = "gelu"
 
 
 @dataclass(eq=False)
@@ -424,6 +475,8 @@ ADAPTER_CONFIG_MAP = {
     "houlsby": HoulsbyConfig(),
     "pfeiffer+inv": PfeifferInvConfig(),
     "houlsby+inv": HoulsbyInvConfig(),
+    "compacter++": CompacterPlusPlusConfig(),
+    "compacter": CompacterConfig(),
     "prefix_tuning": PrefixTuningConfig(),
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
     "parallel": ParallelConfig(),

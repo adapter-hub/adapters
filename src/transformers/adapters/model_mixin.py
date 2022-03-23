@@ -128,6 +128,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         super().__init__(config, *args, **kwargs)
         self.model_name = None
         self.loaded_embeddings = {}
+        self.shared_parameters = nn.ModuleDict()
         self._active_embedding = "default"
 
         # In some cases, the config is not an instance of a directly supported config class such as BertConfig.
@@ -185,6 +186,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
         self.apply_to_adapter_layers(lambda i, layer: layer.enable_adapters(adapter_setup, True, False))
+        for adapter_name in adapter_setup:
+            if adapter_name in self.shared_parameters:
+                for param in self.shared_parameters[adapter_name].values():
+                    param.requires_grad = True
+
         if isinstance(self, InvertibleAdaptersMixin):
             self.enable_invertible_adapters(adapter_setup.flatten())
         # use the adapters to be trained by default in every forward pass
@@ -230,6 +236,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
         self.set_active_adapters(adapter_setup)
 
+    def set_shared_parameters(self, param):
+        self.shared_parameters = param
+
     def set_active_adapters(
         self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
     ):
@@ -274,6 +283,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.config.adapters.add(adapter_name, config=config)
         try:
             self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
+            # PHM Layer
+            if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
+                self._add_shared_parameters(adapter_name, config)
             # Prefix Tuning
             for module in self.modules():
                 if isinstance(module, PrefixTuningPool):
@@ -285,6 +297,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             raise ex
         if set_active:
             self.set_active_adapters(adapter_name)
+
+    def _add_shared_parameters(self, adapter_name, adapter_config: AdapterConfig):
+        self.shared_parameters[adapter_name] = (
+            list(self.get_adapter(adapter_name)[0].values())[0].adapter_down[0].init_shared_parameters()
+        )
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
         warnings.warn(
@@ -604,6 +621,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             return
 
         context.adapters_parallelized = False
+        # Add the shared parameters for the active adapters to the context
+        context.shared_parameters = {
+            name: param for name, param in self.shared_parameters.items() if name in active_adapters.flatten()
+        }
 
         # Prefix tuning
         input_tensor = kwargs.get("input_ids", None)
@@ -790,6 +811,11 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self._convert_to_flex_head = False
+
+    def set_shared_parameters(self, param):
+        self.shared_parameters = param
+        if self.base_model is not self:
+            self.base_model.shared_parameters = self.shared_parameters
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         """

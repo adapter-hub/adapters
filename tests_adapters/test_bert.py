@@ -6,6 +6,7 @@ from transformers.testing_utils import require_torch
 
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_common import AdapterModelTestMixin
+from .test_adapter_compacter import CompacterTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
@@ -38,6 +39,7 @@ class BertAdapterTestBase(AdapterTestBase):
 @require_torch
 class BertAdapterTest(
     EmbeddingTestMixin,
+    CompacterTestMixin,
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,

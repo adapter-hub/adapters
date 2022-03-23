@@ -285,6 +285,10 @@ class AdapterModelTestMixin:
         """
         for k, v in ADAPTER_CONFIG_MAP.items():
             model = self.get_model()
+            # HACK: reduce the reduction factor such that
+            # the small test model can have a phm_dim of 4
+            if hasattr(v, "phm_layer") and v.phm_layer:
+                v = v.__class__(reduction_factor=4)
             model.add_adapter("test", config=v)
             # should not raise an exception
             model.config.to_json_string()

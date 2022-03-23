@@ -2,7 +2,7 @@ import unittest
 from threading import Thread
 
 from tests.test_modeling_common import ids_tensor
-from transformers import AdapterSetup, AutoAdapterModel, BertConfig
+from transformers import AdapterSetup, AutoModelWithHeads, BertConfig
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -17,7 +17,7 @@ class AdapterSetupContextTest(unittest.TestCase):
         )
 
     def test_context_nested(self):
-        model = AutoAdapterModel.from_config(self.config)
+        model = AutoModelWithHeads.from_config(self.config)
         model.add_adapter("a")
         model.add_classification_head("a", num_labels=2)
         model.add_adapter("b")
@@ -57,7 +57,7 @@ class AdapterSetupContextTest(unittest.TestCase):
         self.assertEqual(calls_b, 1)
 
     def test_context_multi_threading(self):
-        model = AutoAdapterModel.from_config(self.config)
+        model = AutoModelWithHeads.from_config(self.config)
         model.add_adapter("a")
         model.add_classification_head("a", num_labels=2)
         model.add_adapter("b")
