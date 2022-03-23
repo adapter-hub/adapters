@@ -60,7 +60,7 @@ To get started with adapters, refer to these locations:
 - **[Colab notebook tutorials](https://github.com/Adapter-Hub/adapter-transformers/tree/master/notebooks)**, a series notebooks providing an introduction to all the main concepts of (adapter-)transformers and AdapterHub
 - **https://docs.adapterhub.ml**, our documentation on training and using adapters with _adapter-transformers_
 - **https://adapterhub.ml** to explore available pre-trained adapter modules and share your own adapters
-- **[Examples folder](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples)** of this repository containing HuggingFace's example training scripts, many adapted for training adapters
+- **[Examples folder](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/pytorch)** of this repository containing HuggingFace's example training scripts, many adapted for training adapters
 
 ## Implemented Methods
 

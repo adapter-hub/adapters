@@ -2108,6 +2108,8 @@ class Trainer:
             self.tokenizer.save_pretrained(output_dir)
 
     def _load(self, resume_from_checkpoint):
+        args = self.args
+
         if not os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
             raise ValueError(f"Can't find a valid checkpoint at {resume_from_checkpoint}")
 

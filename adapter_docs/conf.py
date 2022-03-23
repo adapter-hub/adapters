@@ -6,8 +6,6 @@
 import os
 import sys
 
-from recommonmark.transform import AutoStructify
-
 
 # -- Path setup --------------------------------------------------------------
 
@@ -90,5 +88,4 @@ smv_remote_whitelist = None
 
 def setup(app):
     app.add_config_value("recommonmark_config", {"enable_eval_rst": True}, True)
-    app.add_transform(AutoStructify)
     app.add_css_file("custom.css")

@@ -136,17 +136,17 @@ class AdapterConfig(AdapterConfigBase):
     Args:
         mh_adapter (:obj:`bool`): If True, add adapter modules after the multi-head attention block of each layer.
         output_adapter (:obj:`bool`): If True, add adapter modules after the output FFN of each layer.
-        reduction_factor (:
-            obj:`int` or :obj:`Mapping`): Either an integer specifying the reduction factor for all layers or a mapping
-            specifying the reduction_factor for individual layers. If not all layers are represented in the mapping a
-            default value should be given e.g. {'1': 8, '6': 32, 'default': 16}
+        reduction_factor (:obj:`int` or :obj:`Mapping`):
+            Either an integer specifying the reduction factor for all layers or a mapping specifying the
+            reduction_factor for individual layers. If not all layers are represented in the mapping a default value
+            should be given e.g. {'1': 8, '6': 32, 'default': 16}
         non_linearity (:obj:`str`): The activation function to use in the adapter bottleneck.
-        original_ln_before (:
-            obj:`bool`, optional): If True, apply layer pre-trained normalization and residual connection before the
-            adapter modules. Defaults to False. Only applicable if :obj:`is_parallel` is False.
-        original_ln_after (:
-            obj:`bool`, optional): If True, apply pre-trained layer normalization and residual connection after the
-            adapter modules. Defaults to True.
+        original_ln_before (:obj:`bool`, optional):
+            If True, apply layer pre-trained normalization and residual connection before the adapter modules. Defaults
+            to False. Only applicable if :obj:`is_parallel` is False.
+        original_ln_after (:obj:`bool`, optional):
+            If True, apply pre-trained layer normalization and residual connection after the adapter modules. Defaults
+            to True.
         ln_before (:obj:`bool`, optional): If True, add a new layer normalization before the adapter bottleneck.
             Defaults to False.
         ln_after (:obj:`bool`, optional): If True, add a new layer normalization after the adapter bottleneck.
@@ -155,37 +155,35 @@ class AdapterConfig(AdapterConfigBase):
             Currently, this can be either "bert" (default) or "mam_adapter".
         is_parallel (:obj:`bool`, optional): If True, apply adapter transformations in parallel.
             By default (False), sequential application is used.
-        scaling:
-            (:obj:`float` or :obj:`str`, optional): Scaling factor to use for scaled addition of adapter outputs as
-            done by He et al. (2021). Can bei either a constant factor (float) or the string "learned", in which case
-            the scaling factor is learned. Defaults to 1.0.
-        residual_before_ln (:
-            obj:`bool`, optional): If True, take the residual connection around the adapter bottleneck before the layer
-            normalization. Only applicable if :obj:`original_ln_before` is True.
-        adapter_residual_before_ln (:
-            obj:`bool`, optional): If True, apply the residual connection around the adapter modules before the new
-            layer normalization within the adapter. Only applicable if :obj:`ln_after` is True and :obj:`is_parallel`
-            is False.
-        inv_adapter:
-            (:obj:`str`, optional): If not None (default), add invertible adapter modules after the model embedding
-            layer. Currently, this can be either "nice" or "glow".
-        inv_adapter_reduction_factor (:
-            obj:`int`, optional): The reduction to use within the invertible adapter modules. Only applicable if
-            :obj:`inv_adapter` is not None.
-        cross_adapter (:
-            obj:`bool`, optional): If True, add adapter modules after the cross attention block of each decoder layer
-            in an encoder-decoder model. Defaults to False.
-        leave_out (:
-            obj:`List[int]`, optional): The IDs of the layers (starting at 0) where NO adapter modules should be added.
+        scaling (:obj:`float` or :obj:`str`, optional):
+            Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021). Can bei either a
+            constant factor (float) or the string "learned", in which case the scaling factor is learned. Defaults to
+            1.0.
+        residual_before_ln (:obj:`bool`, optional):
+            If True, take the residual connection around the adapter bottleneck before the layer normalization. Only
+            applicable if :obj:`original_ln_before` is True.
+        adapter_residual_before_ln (:obj:`bool`, optional):
+            If True, apply the residual connection around the adapter modules before the new layer normalization within
+            the adapter. Only applicable if :obj:`ln_after` is True and :obj:`is_parallel` is False.
+        inv_adapter (:obj:`str`, optional):
+            If not None (default), add invertible adapter modules after the model embedding layer. Currently, this can
+            be either "nice" or "glow".
+        inv_adapter_reduction_factor (:obj:`int`, optional):
+            The reduction to use within the invertible adapter modules. Only applicable if :obj:`inv_adapter` is not
+            None.
+        cross_adapter (:obj:`bool`, optional):
+            If True, add adapter modules after the cross attention block of each decoder layer in an encoder-decoder
+            model. Defaults to False.
+        leave_out (:obj:`List[int]`, optional):
+            The IDs of the layers (starting at 0) where NO adapter modules should be added.
         phm_layer (:obj:`bool`, optional): If True the down and up projection layers are a PHMLayer.
             Defaults to False
         phm_dim (:obj:`int`, optional): The dimension of the phm matrix.
             Defaults to None.
         shared_phm_rule (:obj:`bool`, optional): Whether the phm matrix is shared across all layers.
             Defaults to True
-        factorized_phm_rule (:
-            obj:`bool`, optional): Whether the phm matrix is factorized into a left and right matrix. Defaults to
-            False.
+        factorized_phm_rule (:obj:`bool`, optional):
+            Whether the phm matrix is factorized into a left and right matrix. Defaults to False.
         learn_phm (:obj:`bool`, optional): Whether the phm matrix should be learned during training.
             Defaults to True
         factorized_phm_W (:
@@ -197,16 +195,15 @@ class AdapterConfig(AdapterConfigBase):
             The possible values are `["normal", "uniform"]`. Defaults to `normal`.
         phm_init_range (:obj:`float`, optional): std for initializing phm weights if `phm_c_init="normal"`.
             Defaults to 0.0001.
-        hypercomplex_nonlinearity (:
-            obj:`str`, optional): This specifies the distribution to draw the weights in the phm layer from, Defaults
-            to `glorot-uniform`.
-        phm_rank (:
-            obj:`int`, optional): If the weight matrix is factorized this specifies the rank of the matrix. E.g. the
-            left matrix of the down projection has the shape (phm_dim, _in_feats_per_axis, phm_rank) and the right
-            matrix (phm_dim, phm_rank, _out_feats_per_axis). Defaults to 1
-        phm_bias (:
-            obj:`bool`, optional): If True the down and up projection PHMLayer has a bias term. If `phm_layer`is False
-            this is ignored. Defaults to True
+        hypercomplex_nonlinearity (:obj:`str`, optional):
+            This specifies the distribution to draw the weights in the phm layer from. Defaults to `glorot-uniform`.
+        phm_rank (:obj:`int`, optional):
+            If the weight matrix is factorized this specifies the rank of the matrix. E.g. the left matrix of the down
+            projection has the shape (phm_dim, _in_feats_per_axis, phm_rank) and the right matrix (phm_dim, phm_rank,
+            _out_feats_per_axis). Defaults to 1
+        phm_bias (:obj:`bool`, optional):
+            If True the down and up projection PHMLayer has a bias term. If `phm_layer` is False this is ignored.
+            Defaults to True
     """
 
     # Required options

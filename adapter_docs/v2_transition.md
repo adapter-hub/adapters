@@ -106,7 +106,7 @@ model.active_adapters = "awesome_adapter"
 model(**input_data)
 ```
 
-```eval_rst
+```{eval-rst}
 .. note::
     Version 2.0.0 temporarily removed the ``adapter_names`` parameter entirely.
     Due to user feedback regarding limitations of the ``active_adapters`` property in multi-threaded contexts,

@@ -35,7 +35,7 @@ config = ... # config class deriving from AdapterConfigBase
 model.add_adapter("name", config=config)
 ```
 
-```eval_rst
+```{eval-rst}
 .. important::
     In literature, different terms are used to refer to efficient fine-tuning methods.
     The term "adapter" is usually only applied to bottleneck adapter modules.
@@ -67,7 +67,7 @@ $$
 A visualization of further configuration options related to the adapter structure is given in the figure below. For more details, refer to the documentation of [`AdapterConfig`](transformers.AdapterConfig).
 
 
-```eval_rst
+```{eval-rst}
 .. figure:: img/architecture.png
     :width: 350
     :align: center
@@ -120,7 +120,7 @@ model.add_adapter("lang_adapter", config=config)
 _Papers:_
 - [MAD-X: An Adapter-based Framework for Multi-task Cross-lingual Transfer](https://arxiv.org/pdf/2005.00052.pdf) (Pfeiffer et al., 2020)
 
-```eval_rst
+```{eval-rst}
 .. note::
     V1.x of adapter-transformers made a distinction between task adapters (without invertible adapters) and language adapters (with invertible adapters) with the help of the ``AdapterType`` enumeration.
     This distinction was dropped with v2.x.
@@ -171,7 +171,7 @@ for a PHM layer by specifying `use_phm=True` in the config.
 The PHM layer has the following additional properties: `phm_dim`, `shared_phm_rule`, `factorized_phm_rule`, `learn_phm`, 
 `factorized_phm_W`, `shared_W_phm`, `phm_c_init`, `phm_init_range`, `hypercomplex_nonlinearity`
 
-For more information check out the [AdapterConfig](classes/adapter_config.html#transformers.AdapterConfig) class.
+For more information check out the [`AdapterConfig`](transformers.AdapterConfig) class.
 
 To add a Compacter to your model you can use the predefined configs:
 ```python

@@ -3,7 +3,7 @@
 This page gives an overview of the Transformer models currently supported by `adapter-transformers`.
 The table below further shows which model architectures support which adaptation methods and which features of `adapter-transformers`.
 
-```eval_rst
+```{eval-rst}
 .. note::
     Each supported model architecture X typically provides a class ``XAdapterModel`` for usage with ``AutoAdapterModel``.
     Additionally, it is possible to use adapters with the model classes already shipped with HuggingFace Transformers.

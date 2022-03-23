@@ -424,7 +424,7 @@ def style_file_docstrings(code_file, max_len=119, check_only=False):
     diff = clean_code != code
     if not check_only and diff:
         print(f"Overwriting content of {code_file}.")
-        with open(code_file, "w", encoding="utf-8") as f:
+        with open(code_file, "w", encoding="utf-8", newline="\n") as f:
             f.write(clean_code)
 
     return diff, black_errors

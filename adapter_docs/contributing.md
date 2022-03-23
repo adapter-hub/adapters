@@ -1,6 +1,6 @@
 # Contributing to AdapterHub
 
-```eval_rst
+```{eval-rst}
 .. note::
     This document describes how to contribute adapters via the AdapterHub `Hub repository <https://github.com/adapter-hub/hub>`_. See `Integration with HuggingFace's Model Hub <huggingface_hub.html>`_ for uploading adapters via the HuggingFace Model Hub.
 ```
@@ -49,7 +49,7 @@ Let's go through the upload process step by step:
     ```
     `adapter-hub-cli` will search for available adapters in the path you specify and interactively lead you through the packing process.
 
-    ```eval_rst
+    ```{eval-rst}
     .. note::
         The configuration of the adapter is specified by an identifier string in the YAML file. This string should refer to an adapter architecture available in the Hub. If you use a new or custom architecture, make sure to also `add an entry for your architecture <#add-a-new-adapter-architecture>`_ to the repo. 
     ```

@@ -14,7 +14,7 @@ model.active_adapters = "adapter_name"
 
 Note that we also could have used `model.set_active_adapters("adapter_name")` which does the same.
 
-```eval_rst
+```{eval-rst}
 .. important::
     ``active_adapters`` defines which of the available adapters are used in each forward and backward pass through the model. This means:
 
@@ -39,7 +39,7 @@ They are presented in more detail in the following.
 
 ## `Stack`
 
-```eval_rst
+```{eval-rst}
 .. figure:: img/stacking_adapters.png
     :height: 300
     :align: center
@@ -71,7 +71,7 @@ For backwards compatibility, you can still do this, although it is recommended t
 
 ## `Fuse`
 
-```eval_rst
+```{eval-rst}
 .. figure:: img/Fusion.png
     :height: 300
     :align: center
@@ -98,7 +98,7 @@ model.add_adapter_fusion(["d", "e", "f"])
 model.active_adapters = ac.Fuse("d", "e", "f")
 ```
 
-```eval_rst
+```{eval-rst}
 .. important::
     Fusing adapters with the ``Fuse`` block only works successfully if an adapter fusion layer combining all of the adapters listed in the ``Fuse`` has been added to the model.
     This can be done either using ``add_adapter_fusion()`` or ``load_adapter_fusion()``.
@@ -111,7 +111,7 @@ For backwards compatibility, you can still do this, although it is recommended t
 
 ## `Split`
 
-```eval_rst
+```{eval-rst}
 .. figure:: img/splitting_adapters.png
     :height: 300
     :align: center
@@ -159,7 +159,7 @@ model.active_adapters = ac.BatchSplit("i", "k", "l", batch_sizes=[2, 1, 2])
 
 ## `Parallel`
 
-```eval_rst
+```{eval-rst}
 .. figure:: img/parallel.png
     :height: 300
     :align: center
@@ -206,7 +206,7 @@ model.active_adapters = ac.Stack("a", ac.Split("b", "c", split_index=60))
 
 However, combinations of adapter composition blocks cannot be arbitrarily deep. All currently supported possibilities are visualized in the figure below. 
 
-```eval_rst
+```{eval-rst}
 .. figure:: img/adapter_blocks_nesting.png
     :height: 300
     :align: center

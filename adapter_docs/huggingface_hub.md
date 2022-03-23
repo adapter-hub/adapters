@@ -1,6 +1,6 @@
 # Integration with HuggingFace's Model Hub
 
-```eval_rst
+```{eval-rst}
 .. figure:: img/hfhub.svg
     :align: center
     :alt: HuggingFace Hub logo.
@@ -53,7 +53,7 @@ For more options and information, e.g. for managing models via the CLI and Git, 
     This will create a repository `my-awesome-adapter` under your username, generate a default adapter card as `README.md` and upload the adapter named `awesome_adapter` together with the adapter card to the new repository.
     `adapterhub_tag` and `datasets_tag` provide additional information for categorization.
 
-    ```eval_rst
+    ```{eval-rst}
     .. important::
         All adapters uploaded to HuggingFace's Model Hub are automatically also listed on AdapterHub.ml. Thus, for better categorization, either ``adapterhub_tag`` or ``datasets_tag`` is required when uploading a new adapter to the Model Hub.
 

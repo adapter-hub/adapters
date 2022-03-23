@@ -28,6 +28,12 @@ Single (bottleneck) adapters
 .. autoclass:: transformers.ParallelConfig
     :members:
 
+.. autoclass:: transformers.CompacterConfig
+    :members:
+
+.. autoclass:: transformers.CompacterPlusPlusConfig
+    :members:
+
 Prefix Tuning
 ~~~~~~~~~~~~~~~~~~~~~~~
 

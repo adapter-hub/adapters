@@ -3,7 +3,7 @@
 This section gives an overview how different prediction heads can be used together with adapter modules and how pre-trained adapters can be distributed side-by-side with matching prediction heads in AdapterHub.
 We will take a look at the `AdapterModel` classes (e.g. `BertAdapterModel`) introduced by adapter-transformers, which provide **flexible** support for prediction heads, as well as models with **static** heads provided out-of-the-box by HuggingFace Transformers (e.g. `BertForSequenceClassification`).
 
-```eval_rst
+```{eval-rst}
 .. tip::
     We recommend to use the `AdapterModel classes <#adaptermodel-classes>`_ whenever possible. 
     They have been created specifically for working with adapters and provide more flexibility.
@@ -37,7 +37,7 @@ Since we gave the task adapter the same name as our head, we can easily identify
 The call to `set_active_adapters()` in the second line tells our model to use the adapter - head configuration we specified by default in a forward pass.
 At this point, we can start to [train our setup](training.md).
 
-```eval_rst
+```{eval-rst}
 .. note::
     The ``set_active_adapters()`` will search for an adapter and a prediction head with the given name to be activated.
     Alternatively, prediction heads can also be activated explicitly (i.e. without adapter modules).
@@ -87,7 +87,7 @@ In case the classes match, our prediction head weights will be automatically loa
 
 ## Automatic conversion 
 
-```eval_rst
+```{eval-rst}
 .. important::
     Although the two prediction head implementations serve the same use case, their weights are *not* directly compatible, i.e. you cannot load a head created with ``AutoAdapterModel`` into a model of type ``AutoModelForSequenceClassification``.
     There is however an automatic conversion to model classes with flexible heads.

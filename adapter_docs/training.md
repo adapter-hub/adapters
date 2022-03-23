@@ -47,7 +47,7 @@ if task_name not in model.config.adapters:
 model.train_adapter(task_name)
 ```
 
-```eval_rst
+```{eval-rst}
 .. important::
     The most crucial step when training an adapter module is to freeze all weights in the model except for those of the
     adapter. In the previous snippet, this is achieved by calling the ``train_adapter()`` method which disables training
@@ -90,12 +90,12 @@ python run_glue.py \
 
 The important flag here is `--train_adapter` which switches from fine-tuning the full model to training an adapter module for the given GLUE task.
 
-```eval_rst
+```{eval-rst}
 .. tip::
     Adapter weights are usually initialized randomly. That is why we require a higher learning rate. We have found that a default adapter learning rate of ``1e-4`` works well for most settings.
 ```
 
-```eval_rst
+```{eval-rst}
 .. tip::
     Depending on your data set size you might also need to train longer than usual. To avoid overfitting you can evaluating the adapters after each epoch on the development set and only save the best model.
 ```
@@ -129,7 +129,7 @@ python run_mlm.py \
 We provide an example for training _AdapterFusion_ ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00247)) on the GLUE dataset: [run_fusion_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/adapterfusion/run_fusion_glue.py). 
 You can adapt this script to train AdapterFusion with different pre-trained adapters on your own dataset.
 
-```eval_rst
+```{eval-rst}
 .. important::
     AdapterFusion on a target task is trained in a second training stage, after independently training adapters on individual tasks.
     When setting up a fusion architecture on your model, make sure to load the pre-trained adapter modules to be fused using ``model.load_adapter()`` before adding a fusion layer.
@@ -180,7 +180,7 @@ trainer = AdapterTrainer(
         data_collator=data_collator,
     )
 ```
-```eval_rst
+```{eval-rst}
 .. tip::
     When you migrate from the previous versions, which use the Trainer class for adapter training and fully fine-tuning, note that the 
     specialized AdapterTrainer class does not have the parameters `do_save_full_model`, `do_save_adapters` and `do_save_adapter_fusion`.

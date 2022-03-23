@@ -6,7 +6,7 @@ Currently, *adapter-transformers* adds adapter components to the PyTorch impleme
 For working with adapters, a couple of methods for creation (`add_adapter()`), loading (`load_adapter()`), 
 storing (`save_adapter()`) and deletion (`delete_adapter()`) are added to the model classes. In the following, we will briefly go through some examples.
 
-```eval_rst
+```{eval-rst}
 .. note::
     This document focuses on the adapter-related functionalities added by *adapter-transformers*.
     For a more general overview of the *transformers* library, visit
