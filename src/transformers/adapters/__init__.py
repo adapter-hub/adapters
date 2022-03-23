@@ -40,6 +40,7 @@ _import_structure = {
         "AdapterConfig",
         "AdapterConfigBase",
         "AdapterFusionConfig",
+        "CompacterConfig",
         "CompacterPlusPlusConfig",
         "ConfigUnion",
         "DynamicAdapterFusionConfig",
