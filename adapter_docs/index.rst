@@ -6,8 +6,8 @@
 AdapterHub Documentation
 ================================================
 
-*AdapterHub* is a framework simplifying the integration, training and usage of adapter modules for Transformer-based language models.
-It integrates adapters for downstream tasks (`Houlsby et al., 2019 <https://arxiv.org/pdf/1902.00751>`_), adapters for cross-lingual transfer (`Pfeiffer et al., 2020a <https://arxiv.org/pdf/2005.00052>`_) and *AdapterFusion* (`Pfeiffer et al., 2020b <https://arxiv.org/pdf/2005.00247>`_).
+*AdapterHub* is a framework simplifying the integration, training and usage of adapters and other efficient fine-tuning methods for Transformer-based language models.
+For a full list of currently implemented methods, see the `table in our repository <https://github.com/adapter-hub/adapter-transformers#implemented-methods>`_.
 
 The framework consists of two main components:
 
@@ -15,21 +15,22 @@ The framework consists of two main components:
 
 - `The Hub <https://adapterhub.ml>`_, a central repository collecting pre-trained adapter modules
 
-The *adapter-transformers* section documents the integration of adapters into the ``transformers`` library and how training adapters works.
-
-The section on *Adapter-Hub* describes the fundamentals of the pre-trained adapter repository and how to contribute new adapters.
-
 Currently, we support the PyTorch versions of all models as listed on the `Model Overview <model_overview.html>`_ page.
 
 .. toctree::
    :maxdepth: 2
-   :caption: adapter-transformers
+   :caption: Getting Started
 
    installation
    quickstart
-   adapters
-   adapter_composition
+   overview
    training
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced
+
+   adapter_composition
    prediction_heads
    embeddings
    extending
@@ -37,7 +38,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
 
 .. toctree::
    :maxdepth: 2
-   :caption: Adapter-Hub
+   :caption: Loading and Sharing
 
    loading
    contributing

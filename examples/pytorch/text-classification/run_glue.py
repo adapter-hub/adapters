@@ -32,8 +32,8 @@ import transformers.adapters.composition as ac
 from transformers import (
     AdapterConfig,
     AdapterTrainer,
+    AutoAdapterModel,
     AutoConfig,
-    AutoModelForSequenceClassification,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
@@ -334,13 +334,19 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    model = AutoModelForSequenceClassification.from_pretrained(
+    # We use the AutoAdapterModel class here for better adapter support.
+    model = AutoAdapterModel.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
+    )
+    model.add_classification_head(
+        data_args.task_name or "glue",
+        num_labels=num_labels,
+        id2label={i: v for i, v in enumerate(label_list)} if num_labels > 0 else None,
     )
 
     # Setup adapters

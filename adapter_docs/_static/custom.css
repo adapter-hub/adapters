@@ -22,6 +22,9 @@ a {
 }
 /* The literal code blocks */
 .rst-content tt.literal, .rst-content tt.literal, .rst-content code.literal {
+    color: #666;
+}
+.rst-content a code.literal {
     color: #39B3C6;
 }
 /* Sidebar scroll space for version switcher */

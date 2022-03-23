@@ -21,7 +21,7 @@ The following example shows the usage of a basic pre-trained transformer model w
 Our goal here is to predict the sentiment of a given sentence.
 
 We use BERT in this example, so we first load a pre-trained `BertTokenizer` to encode the input sentence and a pre-trained
-`bert-base-uncased` checkpoint from HuggingFace's Model Hub using the [`BertAdapterModel`](classes/models/bert.html#transformers.adapters.BertAdapterModel) class:
+`bert-base-uncased` checkpoint from HuggingFace's Model Hub using the [`BertAdapterModel`](transformers.adapters.BertAdapterModel) class:
 
 ```python
 import torch

@@ -7,7 +7,7 @@ The used biaffine dependency parsing prediction head is described in ["Is Superv
 
 A new prediction head can be added to BERT-based models via the `add_dependency_parsing_head()` methods, e.g.:
 ```python
-model = AutoModelWithHeads.from_pretrained("bert-base-uncased")
+model = AutoAdapterModel.from_pretrained("bert-base-uncased")
 model.add_dependency_parsing_head(
     "dependency_parsing",
     num_labels=num_labels,

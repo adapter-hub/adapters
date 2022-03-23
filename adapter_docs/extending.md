@@ -12,7 +12,7 @@ For a detailed guide, refer to [Adding Adapters to a Model](https://github.com/A
 However, countless additional module integrations into language models are thinkable.
 To provide a basis for such new custom model plugins, `adapter-transformers` integrates a basic mechanism to save and load custom weights.
 
-All adapter and head module weights are extracted, saved and loaded by implementations of the [`WeightsLoader`](classes/weights_loaders.html#weightsloader) class, the two preincluded being [`AdapterLoader`](classes/weights_loaders.html#adapterloader) and [`PredictionHeadLoader`](classes/weights_loaders.html#predictionheadloader). To add basic saving and loading functionalities to your custom module weights, you can implement a new subclass of `WeightsLoader`. The two required abstract methods to be implemented are:
+All adapter and head module weights are extracted, saved and loaded by implementations of the `WeightsLoader` class, the two preincluded being `AdapterLoader` and `PredictionHeadLoader`. To add basic saving and loading functionalities to your custom module weights, you can implement a new subclass of `WeightsLoader`. The two required abstract methods to be implemented are:
 
 - `filter_func(self, name: str) -> Callable[[str], bool]`: The callable returned by this method is used to extract the module weights to be saved or loaded based on their names.
 

@@ -69,4 +69,4 @@ model.load_adapter("<your_username>/my-awesome-adapter", source="hf")
 
 To update your adapter, simply run `push_adapter_to_hub()` with the same repository name again. This will push a new commit to the existing repository.
 
-You can find the full documentation of `push_adapter_to_hub()` [here](classes/model_mixins.html#transformers.adapters.hub_mixin.PushAdapterToHubMixin.push_adapter_to_hub).
+You can find the full documentation of `push_adapter_to_hub()` [here](transformers.adapters.hub_mixin.PushAdapterToHubMixin.push_adapter_to_hub).
