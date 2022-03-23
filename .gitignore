@@ -167,3 +167,6 @@ scripts/git-strip-merge
 
 # .lock
 *.lock
+
+# DS_Store (MacOS)
+.DS_Store

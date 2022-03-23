@@ -51,7 +51,6 @@ if is_torch_available():
         "XLMRobertaForSequenceClassification",
         "XLMRobertaForTokenClassification",
         "XLMRobertaModel",
-        "XLMRobertaModelWithHeads",
     ]
 
 if is_tf_available():
@@ -89,7 +88,6 @@ if TYPE_CHECKING:
             XLMRobertaForSequenceClassification,
             XLMRobertaForTokenClassification,
             XLMRobertaModel,
-            XLMRobertaModelWithHeads,
         )
 
     if is_tf_available():
@@ -106,4 +104,4 @@ if TYPE_CHECKING:
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)

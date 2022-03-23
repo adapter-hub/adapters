@@ -7,9 +7,10 @@ from typing import Callable, Mapping, Sequence, Tuple
 
 import torch
 
-from .configuration import AdapterConfig, build_full_config
+from .configuration import AdapterConfigBase, build_full_config
 from .head_utils import STATIC_TO_FLEX_HEAD_MAP, get_head_config_and_rename_list
 from .utils import (
+    ACTIVATION_RENAME,
     ADAPTERFUSION_CONFIG_NAME,
     ADAPTERFUSION_WEIGHTS_NAME,
     CONFIG_NAME,
@@ -77,6 +78,16 @@ class WeightsLoaderHelper:
         # Load the config
         with open(config_file, "r", encoding="utf-8") as f:
             loaded_config = json.load(f)
+        # For older versions translate the activation function to the new format
+        if "version" not in loaded_config:
+            if "config" in loaded_config and loaded_config["config"] is not None:
+                if (
+                    "non_linearity" in loaded_config["config"]
+                    and loaded_config["config"]["non_linearity"] in ACTIVATION_RENAME
+                ):
+                    loaded_config["config"]["non_linearity"] = ACTIVATION_RENAME[
+                        loaded_config["config"]["non_linearity"]
+                    ]
         return loaded_config
 
     @staticmethod
@@ -288,7 +299,11 @@ class AdapterLoader(WeightsLoader):
             raise ValueError("Invalid adapter type {}".format(self.adapter_type))
 
     def filter_func(self, adapter_name):
-        return lambda x: "_adapters.{}.".format(adapter_name) in x or ".adapters.{}.".format(adapter_name) in x
+        return (
+            lambda x: "_adapters.{}.".format(adapter_name) in x
+            or ".adapters.{}.".format(adapter_name) in x
+            or ".prefix_tunings.{}.".format(adapter_name) in x
+        )
 
     # This dict maps the original weight names to the currently used equivalents.
     # The mapping is used by rename_func() to support loading from older weights files.
@@ -326,8 +341,10 @@ class AdapterLoader(WeightsLoader):
         return missing_keys
 
     def rename_func(self, old_name, new_name):
-        return lambda k: self._rename_legacy_weights(k).replace(
-            "adapters.{}.".format(old_name), "adapters.{}.".format(new_name)
+        return (
+            lambda k: self._rename_legacy_weights(k)
+            .replace("adapters.{}.".format(old_name), "adapters.{}.".format(new_name))
+            .replace(".prefix_tunings.{}.".format(old_name), ".prefix_tunings.{}.".format(new_name))
         )
 
     def save(self, save_directory, name, meta_dict=None):
@@ -397,7 +414,7 @@ class AdapterLoader(WeightsLoader):
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
             and the name of the loaded weights.
         """
-        requested_config = AdapterConfig.load(config) if config else None
+        requested_config = AdapterConfigBase.load(config) if config else None
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
         model_name = self.model.model_name or model_name
         resolved_folder = resolve_adapter_path(
@@ -677,6 +694,16 @@ class PredictionHeadLoader(WeightsLoader):
                 if self.model.__class__.__name__ == config["model_class"]:
                     head_name = load_as or config["name"]
                     head_config = config["config"]
+                elif config["model_class"].endswith("ModelWithHeads"):
+                    this_class = self.model.__class__.__name__.replace("AdapterModel", "")
+                    other_class = config["model_class"].replace("ModelWithHeads", "")
+                    if this_class == other_class:
+                        head_name = load_as or config["name"]
+                        head_config = config["config"]
+                    else:
+                        raise ValueError(
+                            f"Cannot automatically convert prediction head of model class {config['model_class']} to flex head."
+                        )
                 # try to convert a static head to a flex head
                 elif self.convert_to_flex_head and config["model_class"] in STATIC_TO_FLEX_HEAD_MAP:
                     head_name = kwargs.pop("main_load_name", load_as)

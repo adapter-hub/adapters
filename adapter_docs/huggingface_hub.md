@@ -18,9 +18,9 @@ Alternatively, all adapters on the HuggingFace Model Hub are also listed on [htt
 After you have found an adapter you would like to use, loading it into a Transformer model is very similar to [loading adapters from AdapterHub](loading.md).
 For example, for loading and activating the adapter [`AdapterHub/roberta-base-pf-sick`](https://huggingface.co/AdapterHub/roberta-base-pf-sick), write:
 ```python
-from transformers import AutoModelWithHeads
+from transformers import AutoAdapterModel
 
-model = AutoModelWithHeads.from_pretrained("roberta-base")
+model = AutoAdapterModel.from_pretrained("roberta-base")
 adapter_name = model.load_adapter("AdapterHub/roberta-base-pf-sick", source="hf")
 model.active_adapters = adapter_name
 ```
@@ -69,4 +69,4 @@ model.load_adapter("<your_username>/my-awesome-adapter", source="hf")
 
 To update your adapter, simply run `push_adapter_to_hub()` with the same repository name again. This will push a new commit to the existing repository.
 
-You can find the full documentation of `push_adapter_to_hub()` [here](classes/model_mixins.html#transformers.adapters.hub_mixin.PushAdapterToHubMixin.push_adapter_to_hub).
+You can find the full documentation of `push_adapter_to_hub()` [here](transformers.adapters.hub_mixin.PushAdapterToHubMixin.push_adapter_to_hub).

@@ -7,7 +7,7 @@ import re
 import shutil
 import tarfile
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import dataclass
 from enum import Enum
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
@@ -19,8 +19,8 @@ import requests
 from filelock import FileLock
 from huggingface_hub import HfApi, snapshot_download
 
-from .. import __adapters_version__
 from ..file_utils import get_from_cache, is_remote_url, torch_cache_home
+from . import __version__
 
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,29 @@ ADAPTER_CACHE = join(torch_cache_home, "adapters")
 
 # these keys are ignored when calculating the config hash
 ADAPTER_CONFIG_HASH_IGNORE = []
+
+# old: new
+ACTIVATION_RENAME = {
+    "gelu": "gelu_new",
+    "gelu_orig": "gelu",
+}
+# HACK: To keep config hashs consistent with v2, remove default values of keys introduced in v3 from hash computation
+ADAPTER_CONFIG_HASH_IGNORE_DEFAULT = {
+    "phm_layer": True,
+    "phm_dim": 4,
+    "factorized_phm_W": True,
+    "shared_W_phm": False,
+    "shared_phm_rule": True,
+    "factorized_phm_rule": False,
+    "phm_c_init": "normal",
+    "phm_init_range": 0.0001,
+    "learn_phm": True,
+    "hypercomplex_nonlinearity": "glorot-uniform",
+    "phm_rank": 1,
+    "phm_bias": True,
+    "init_weights": "bert",
+    "scaling": 1.0,
+}
 
 
 class AdapterType(str, Enum):
@@ -87,13 +110,6 @@ class AdapterInfo:
     sha1_checksum: Optional[str] = None
 
 
-class DataclassJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if is_dataclass(o):
-            return asdict(o)
-        return super().default(o)
-
-
 def _minimize_dict(d):
     if isinstance(d, Mapping):
         return {k: _minimize_dict(v) for (k, v) in d.items() if v}
@@ -109,6 +125,10 @@ def get_adapter_config_hash(config, length=16):
         str: The resulting hash of the given config dict.
     """
     minimized_config = _minimize_dict({k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE})
+    # ensure hash is kept consistent to previous versions
+    for name, default in ADAPTER_CONFIG_HASH_IGNORE_DEFAULT.items():
+        if minimized_config.get(name, None) == default:
+            del minimized_config[name]
     dict_str = json.dumps(minimized_config, sort_keys=True)
     h = hashlib.sha1()
     h.update(dict_str.encode(encoding="utf-8"))
@@ -362,7 +382,8 @@ def pull_from_hub(
         model_name (str): The identifier of the pre-trained model for which to load an adapter.
         adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
-        strict (bool, optional): If set to True, only allow adapters exactly matching the given config to be loaded. Defaults to False.
+        strict (bool, optional):
+            If set to True, only allow adapters exactly matching the given config to be loaded. Defaults to False.
 
     Returns:
         str: The local path to which the adapter has been downloaded.
@@ -401,7 +422,7 @@ def pull_from_hf_model_hub(specifier: str, version: str = None, **kwargs) -> str
         revision=version,
         cache_dir=kwargs.pop("cache_dir", None),
         library_name="adapter-transformers",
-        library_version=__adapters_version__,
+        library_version=__version__,
     )
     return download_path
 
@@ -411,7 +432,7 @@ def resolve_adapter_path(
     model_name: str = None,
     adapter_config: Union[dict, str] = None,
     version: str = None,
-    source: str = "ah",
+    source: str = None,
     **kwargs
 ) -> str:
     """
@@ -427,6 +448,11 @@ def resolve_adapter_path(
         model_name (str, optional): The identifier of the pre-trained model for which to load an adapter.
         adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
+        source (str, optional): Identifier of the source(s) from where to get adapters. Can be either:
+
+            - "ah": search on AdapterHub.ml.
+            - "hf": search on HuggingFace model hub (huggingface.co).
+            - None (default): search on all sources
 
     Returns:
         str: The local path from where the adapter module can be loaded.
@@ -455,6 +481,24 @@ def resolve_adapter_path(
         )
     elif source == "hf":
         return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
+    elif source is None:
+        try:
+            logger.info("Attempting to load adapter from source 'ah'...")
+            return pull_from_hub(
+                adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
+            )
+        except EnvironmentError as ex:
+            logger.info(ex)
+            logger.info("Attempting to load adapter from source 'hf'...")
+            try:
+                return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
+            except Exception as ex:
+                logger.info(ex)
+                raise EnvironmentError(
+                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source.".format(
+                        adapter_name_or_path
+                    )
+                )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
 

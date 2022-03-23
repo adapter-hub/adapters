@@ -1,9 +1,8 @@
-import logging
-from typing import Union
+import warnings
 
-import torch
-
-from ..composition import AdapterCompositionBlock, parse_composition
+from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from ...models.bert.modeling_bert import BERT_INPUTS_DOCSTRING, BERT_START_DOCSTRING, BertModel, BertPreTrainedModel
+from ..context import AdapterSetup
 from ..heads import (
     BertStyleMaskedLMHead,
     BiaffineParsingHead,
@@ -15,168 +14,80 @@ from ..heads import (
     QuestionAnsweringHead,
     TaggingHead,
 )
-from ..layer import AdapterLayerBaseMixin
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
-logger = logging.getLogger(__name__)
+@add_start_docstrings(
+    """Bert Model transformer with the option to add multiple flexible heads on top.""",
+    BERT_START_DOCSTRING,
+)
+class BertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
 
+        self.bert = BertModel(config)
 
-class BertSelfOutputAdaptersMixin(AdapterLayerBaseMixin):
-    """Adds adapters to the BertSelfOutput module."""
+        self._init_head_modules()
 
-    @property
-    def adapter_config_key(self):
-        return "mh_adapter"
+        self.init_weights()
 
-
-class BertOutputAdaptersMixin(AdapterLayerBaseMixin):
-    """Adds adapters to the BertOutput module."""
-
-    @property
-    def adapter_config_key(self):
-        return "output_adapter"
-
-
-class BertLayerAdaptersMixin:
-    """Adds adapters to the BertLayer module."""
-
-    def add_fusion_layer(self, adapter_names):
-        self.attention.output.add_fusion_layer(adapter_names)
-        self.output.add_fusion_layer(adapter_names)
-
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        self.attention.output.add_adapter(adapter_name, layer_idx)
-        self.output.add_adapter(adapter_name, layer_idx)
-
-    def delete_adapter(self, adapter_name):
-        self.attention.output.delete_adapter(adapter_name)
-        self.output.delete_adapter(adapter_name)
-
-    def delete_fusion_layer(self, adapter_names):
-        self.attention.output.delete_fusion_layer(adapter_names)
-        self.output.delete_fusion_layer(adapter_names)
-
-    def enable_adapters(
-        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        head=None,
+        **kwargs
     ):
-        self.attention.output.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
-        self.output.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
+        input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
+        position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+        inputs_embeds = (
+            inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
+            if inputs_embeds is not None
+            else None
+        )
 
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-class BertEncoderAdaptersMixin:
-    """Adds adapters to the BertEncoder module."""
+        outputs = self.bert(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
+        if not return_dict:
+            head_inputs = (outputs[0],) + outputs[2:]
+        else:
+            head_inputs = outputs
+        pooled_output = outputs[1]
 
-    def add_fusion_layer(self, adapter_names):
-        for layer in self.layer:
-            layer.add_fusion_layer(adapter_names)
-
-    def add_adapter(self, adapter_name: str):
-        adapter_config = self.config.adapters.get(adapter_name)
-        leave_out = adapter_config.get("leave_out", [])
-        for i, layer in enumerate(self.layer):
-            if i not in leave_out:
-                layer.add_adapter(adapter_name, i)
-
-    def delete_adapter(self, adapter_name: str):
-        for layer in self.layer:
-            layer.delete_adapter(adapter_name)
-
-    def delete_fusion_layer(self, adapter_names):
-        for layer in self.layer:
-            layer.delete_fusion_layer(adapter_names)
-
-    def enable_adapters(
-        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
-    ):
-        for layer in self.layer:
-            layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
-
-    def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
-        if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
-            repeats = [1] * len(attention_mask.shape)
-            repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
-            attention_mask = attention_mask.repeat(*repeats)
-        return attention_mask
-
-
-class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
-    """Adds adapters to the BertModel module."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
-        """Sets the model into mode for training the given adapters."""
-        self.train()
-        self.freeze_model(True)
-        adapter_setup = parse_composition(adapter_setup)
-        self.encoder.enable_adapters(adapter_setup, True, False)
-        self.enable_invertible_adapters(adapter_setup.flatten())
-        # use the adapters to be trained by default in every forward pass
-        self.set_active_adapters(adapter_setup)
-        if train_embeddings:
-            self.get_input_embeddings().train()
-
-    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.train()
-        self.freeze_model(True)
-        adapter_setup = parse_composition(adapter_setup)
-        self.encoder.enable_adapters(adapter_setup, unfreeze_adapters, True)
-        # use the adapters to be trained by default in every forward pass
-        self.set_active_adapters(adapter_setup)
-        # TODO implement fusion for invertible adapters
-
-    def _add_adapter(self, adapter_name):
-        self.encoder.add_adapter(adapter_name)
-        self.add_invertible_adapter(adapter_name)
-
-    def _add_fusion_layer(self, adapter_names):
-        self.encoder.add_fusion_layer(adapter_names)
-
-    def _delete_adapter(self, adapter_name: str):
-        self.encoder.delete_adapter(adapter_name)
-        self.delete_invertible_adapter(adapter_name)
-
-    def _delete_fusion_layer(self, adapter_names):
-        self.encoder.delete_fusion_layer(adapter_names)
-
-    def get_fusion_regularization_loss(self):
-        reg_loss = 0.0
-
-        target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
-        for _, v in self.encoder.layer._modules.items():
-
-            for _, layer_fusion in v.output.adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
-            for _, layer_fusion in v.attention.output.adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-        return reg_loss
-
-    def get_adapter(self, name):
-        return_adapters = {}
-        for idx, layer in enumerate(self.encoder.layer):
-            adapters = {
-                "attention": layer.attention.output.adapters,
-                "output": layer.output.adapters,
-            }
-            for key, adapt in adapters.items():
-                if hasattr(adapt, name):
-                    if idx not in return_adapters:
-                        return_adapters[idx] = {}
-                    return_adapters[idx][key] = getattr(adapt, name)
-
-        return return_adapters
-
-
-class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
-    """
-    Adds flexible heads to a BERT-based model class.
-    """
+        if head or AdapterSetup.get_context_head_setup() or self.active_head:
+            head_outputs = self.forward_head(
+                head_inputs,
+                head_name=head,
+                attention_mask=attention_mask,
+                return_dict=return_dict,
+                pooled_output=pooled_output,
+                **kwargs,
+            )
+            return head_outputs
+        else:
+            # in case no head is used just return the output of the base model (including pooler output)
+            return outputs
 
     head_types = {
         "classification": ClassificationHead,
@@ -305,3 +216,37 @@ class BertModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
             self, head_name, layers=2, activation_function=activation_function, layer_norm=True, bias=True
         )
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+
+class BertModelWithHeads(BertAdapterModel):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                self.__class__.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_config(cls, config):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_config(config)
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

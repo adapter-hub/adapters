@@ -3,7 +3,10 @@ import math
 import torch
 from torch import nn
 
-from .configuration import AdapterFusionConfig
+from transformers.activations import get_activation
+
+from .configuration import AdapterConfig, AdapterFusionConfig
+from .context import ForwardContext
 
 
 class Activation_Function_Class(nn.Module):
@@ -12,33 +15,11 @@ class Activation_Function_Class(nn.Module):
     """
 
     def __init__(self, hidden_act):
-
-        if hidden_act.lower() == "relu":
-            self.f = nn.functional.relu
-        elif hidden_act.lower() == "tanh":
-            self.f = torch.tanh
-        elif hidden_act.lower() == "swish":
-
-            def swish(x):
-                return x * torch.sigmoid(x)
-
-            self.f = swish
-        elif hidden_act.lower() == "gelu":
-
-            def gelu_new(x):
-                """
-                Implementation of the gelu activation function currently in Google Bert repo (identical to OpenAI GPT).
-                Also see https://arxiv.org/abs/1606.08415
-                """
-                return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
-
-            self.f = gelu_new
-        elif hidden_act.lower() == "gelu_orig":
-            self.f = nn.functional.gelu
-        elif hidden_act.lower() == "leakyrelu":
-            self.f = nn.functional.leaky_relu
-
         super().__init__()
+        if hidden_act.lower() == "leakyrelu":
+            self.f = nn.functional.leaky_relu
+        else:
+            self.f = get_activation(hidden_act.lower())
 
     def forward(self, x):
         return self.f(x)
@@ -49,25 +30,27 @@ class Activation_Function_Class(nn.Module):
 
 class Adapter(nn.Module):
     """
-    Implementation of a single Adapter block.
+    Implementation of a sequential bottleneck adapter block.
     """
 
     def __init__(
         self,
+        adapter_name,
         input_size,
-        down_sample=None,
-        non_linearity="relu",
-        init_bert_weights=True,
-        add_layer_norm_before=True,
-        add_layer_norm_after=False,
-        residual_before_ln=True,
+        down_sample,
+        config: AdapterConfig,
     ):
         super().__init__()
-
+        self.name = adapter_name
         self.input_size = input_size
-        self.add_layer_norm_before = add_layer_norm_before
-        self.add_layer_norm_after = add_layer_norm_after
-        self.residual_before_ln = residual_before_ln
+        self.add_layer_norm_before = config["ln_before"]
+        self.add_layer_norm_after = config["ln_after"]
+        self.adapter_residual_before_ln = config["adapter_residual_before_ln"]
+
+        # Params related to input & output of adapter
+        self.residual_before_ln = config["residual_before_ln"]
+        self.original_ln_before = config["original_ln_before"]
+        self.original_ln_after = config["original_ln_after"]
 
         # list for all modules of the adapter, passed into nn.Sequential()
         seq_list = []
@@ -86,11 +69,14 @@ class Adapter(nn.Module):
         if self.down_sample < 1:
             self.down_sample = 1
 
-        # Linear down projection of the input
-        seq_list.append(nn.Linear(self.input_size, self.down_sample))
+        if config["phm_layer"]:
+            # Linear down projection of the input
+            seq_list.append(PHMLayer(adapter_name, self.input_size, self.down_sample, "down", config))
+        else:
+            seq_list.append(nn.Linear(self.input_size, self.down_sample))
 
         # select non-linearity
-        self.non_linearity = Activation_Function_Class(non_linearity.lower())
+        self.non_linearity = Activation_Function_Class(config["non_linearity"].lower())
 
         seq_list.append(self.non_linearity)
 
@@ -99,7 +85,19 @@ class Adapter(nn.Module):
         self.adapter_down = nn.Sequential(*seq_list)
 
         # Up projection to input size
-        self.adapter_up = nn.Linear(self.down_sample, self.input_size)
+        if config["phm_layer"]:
+            # Linear down projection of the input
+            self.adapter_up = PHMLayer(adapter_name, self.down_sample, self.input_size, "up", config)
+        else:
+            self.adapter_up = nn.Linear(self.down_sample, self.input_size)
+
+        # Additional scaling factor (from He et al. (2021))
+        if isinstance(config["scaling"], float):
+            self.scaling = config["scaling"]
+        elif config["scaling"] == "learned":
+            self.scaling = nn.Parameter(torch.ones(1))
+        else:
+            raise ValueError("Unknown scaling type: {}".format(config["scaling"]))
 
         # If we want to have a layer norm on output, we apply it later after a separate residual connection
         # This means that we learn a new output layer norm, which replaces another layer norm learned in the bert layer
@@ -107,19 +105,67 @@ class Adapter(nn.Module):
             self.adapter_norm_after = nn.LayerNorm(self.input_size)
 
         # if we want to initialize with the bert strategy then this function is called for all the linear layers
-        if init_bert_weights:
+        if config["init_weights"] == "bert":
             self.adapter_down.apply(self.init_bert_weights)
             self.adapter_up.apply(self.init_bert_weights)
+        elif config["init_weights"] == "mam_adapter":
+            with torch.no_grad():
+                nn.init.kaiming_uniform_(self.adapter_down[0].weight, a=math.sqrt(5))
+                nn.init.zeros_(self.adapter_up.weight)
+                nn.init.zeros_(self.adapter_down[0].bias)
+                nn.init.zeros_(self.adapter_up.bias)
+        else:
+            raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
+
+    def pre_forward(
+        self,
+        hidden_states,
+        input_tensor,
+        layer_norm,
+        fusion_config=None,
+    ):
+        """
+        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration.
+
+        Args:
+            adapter_config: config file according to what the parameters are passed
+            hidden_states: output of previous layer
+            input_tensor: residual connection before FFN
+
+        Returns: hidden_states, query, residual
+
+        """
+        query = None
+
+        if self.residual_before_ln:
+            residual = hidden_states
+
+        if fusion_config is not None and fusion_config["query_before_ln"]:
+            query = hidden_states
+
+        if self.original_ln_before:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        if not self.residual_before_ln:
+            residual = hidden_states
+
+        if fusion_config is not None and not fusion_config["query_before_ln"]:
+            query = hidden_states
+
+        return hidden_states, query, residual
 
     def forward(self, x, residual_input):  # , residual_input=None):
         down = self.adapter_down(x)
 
         up = self.adapter_up(down)
-
+        up = up * self.scaling
         output = up
 
         # apply residual connection before layer norm if configured in this way
-        if self.residual_before_ln:
+        if self.adapter_residual_before_ln:
             output = output + residual_input
 
         # apply layer norm if available
@@ -127,10 +173,32 @@ class Adapter(nn.Module):
             output = self.adapter_norm_after(output)
 
         # if residual should be applied after layer norm, apply it here
-        if not self.residual_before_ln:
+        if not self.adapter_residual_before_ln:
             output = output + residual_input
 
         return output, down, up
+
+    def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
+        """
+        Performs computations after the forward pass of the adapter block(s). This e.g. includes applying the residual
+        connection and layer norm if configured in this way.
+
+        Args:
+            hidden_states: The hidden states outputted by the adapter block(s).
+            input_hidden_states: Residual connection before the adapter block(s).
+            input_tensor: Residual connection before the Transformer FFN/ attention layer.
+            layer_norm: Transformer LayerNorm.
+
+        Returns:
+            The modified hidden states.
+        """
+        if self.original_ln_after:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        return hidden_states
 
     # This is copied from the BertPreTrainedModel class to make this a self containing class.
     @staticmethod
@@ -144,6 +212,77 @@ class Adapter(nn.Module):
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:
             module.bias.data.zero_()
+
+
+class ParallelAdapter(Adapter):
+    """
+    Implementation of a parallel bottleneck adapter block.
+    """
+
+    def __init__(self, adapter_name, input_size, down_sample, config: AdapterConfig):
+        super().__init__(adapter_name, input_size, down_sample, config)
+
+    def pre_forward(
+        self,
+        hidden_states,
+        input_tensor,
+        layer_norm,
+        fusion_config=None,
+    ):
+        """
+        Retrieves the hidden_states, query (for Fusion), and residual connection according to the set configuration.
+
+        Args:
+            adapter_config: config file according to what the parameters are passed
+            hidden_states: output of previous layer
+            input_tensor: residual connection before FFN
+
+        Returns: hidden_states, query, residual
+
+        """
+        # In case of parallel adapter, return the input tensor as hidden states
+        query = None
+        if fusion_config is not None:
+            query = input_tensor
+        return input_tensor, query, input_tensor
+
+    def forward(self, x, residual_input):
+        down = self.adapter_down(x)
+
+        up = self.adapter_up(down)
+        up = up * self.scaling
+
+        output = up
+
+        # apply layer norm if available
+        if self.add_layer_norm_after:
+            output = self.adapter_norm_after(output)
+
+        return output, down, up
+
+    def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
+        """
+        Performs computations after the forward pass of the adapter block(s). This e.g. includes applying the residual
+        connection and layer norm if configured in this way.
+
+        Args:
+            hidden_states: The hidden states outputted by the adapter block(s).
+            input_hidden_states: Residual connection before the adapter block(s).
+            input_tensor: Residual connection before the Transformer FFN/ attention layer.
+            layer_norm: Transformer LayerNorm.
+
+        Returns:
+            The modified hidden states.
+        """
+        hidden_states = hidden_states + input_hidden_states
+
+        if self.original_ln_after:
+            if layer_norm:
+                hidden_states = layer_norm(hidden_states + input_tensor)
+            else:
+                hidden_states = hidden_states + input_tensor
+
+        return hidden_states
 
 
 # Adapter Fusion
@@ -366,3 +505,247 @@ class GLOWCouplingBlock(nn.Module):
 
     def output_dims(self, input_dims):
         return input_dims
+
+
+def kronecker_product(a, b):
+    """
+    Copied from rabeehk/compacter seq2seq/hypercomplex/kronecker.py
+
+    Kronecker product of matrices a and b with leading batch dimensions. Batch dimensions are broadcast. The number of
+    them mush :type a: torch.Tensor :type b: torch.Tensor :rtype: torch.Tensor
+    """
+    siz1 = torch.Size(torch.tensor(a.shape[-2:]) * torch.tensor(b.shape[-2:]))
+    res = a.unsqueeze(-1).unsqueeze(-3) * b.unsqueeze(-2).unsqueeze(-4)
+    siz0 = res.shape[:-4]
+    out = res.reshape(siz0 + siz1)
+    return out
+
+
+class PHMLayer(nn.Module):
+    """
+    This class is adapted from the compacter implementation at https://github.com/rabeehk/compacter
+    """
+
+    def __init__(
+        self,
+        adapter_name: str,
+        in_features: int,
+        out_features: int,
+        position: str,
+        config: dict,
+    ) -> None:
+        super(PHMLayer, self).__init__()
+        assert config["hypercomplex_nonlinearity"] in ["phm", "glorot-normal", "glorot-uniform", "normal"]
+        assert config["phm_c_init"] in ["normal", "uniform"]
+        assert (
+            in_features % config["phm_dim"] == 0
+        ), f"Argument `in_features`={in_features} is not divisble be `phm_dim`{config['phm_dim']}"
+        assert (
+            out_features % config["phm_dim"] == 0
+        ), f"Argument `out_features`={out_features} is not divisble be `phm_dim`{config['phm_dim']}"
+        self.name = adapter_name
+        self.in_features = in_features
+        self.out_features = out_features
+        self.position = position
+        self.learn_phm = config["learn_phm"]
+        self.phm_dim = config["phm_dim"]
+        self._in_feats_per_axis = in_features // config["phm_dim"]
+        self._out_feats_per_axis = out_features // config["phm_dim"]
+        self.phm_rank = config["phm_rank"]
+        self.phm_init_range = config["phm_init_range"]
+        self.shared_phm_rule = config["shared_phm_rule"]
+        self.factorized_phm_rule = config["factorized_phm_rule"]
+        if not self.shared_phm_rule:
+            if self.factorized_phm_rule:
+                self.phm_rule_left = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, self.phm_dim, 1), requires_grad=self.learn_phm
+                )
+                self.phm_rule_right = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, 1, self.phm_dim), requires_grad=self.learn_phm
+                )
+            else:
+                self.phm_rule = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, self.phm_dim, self.phm_dim), requires_grad=self.learn_phm
+                )
+        self.bias_flag = config["phm_bias"]
+        self.w_init = config["hypercomplex_nonlinearity"]
+        self.c_init = config["phm_c_init"]
+        self.shared_W_phm = config["shared_W_phm"]
+        self.factorized_phm_W = config["factorized_phm_W"]
+        if not self.shared_W_phm:
+            if self.factorized_phm_W:
+                self.W_left = nn.Parameter(
+                    torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self.phm_rank)), requires_grad=True
+                )
+                self.W_right = nn.Parameter(
+                    torch.Tensor(size=(self.phm_dim, self.phm_rank, self._out_feats_per_axis)), requires_grad=True
+                )
+            else:
+                self.W = nn.Parameter(
+                    torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self._out_feats_per_axis)),
+                    requires_grad=True,
+                )
+        if self.bias_flag:
+            self.b = nn.Parameter(torch.Tensor(out_features))
+        else:
+            self.register_parameter("b", None)
+        self.reset_parameters()
+
+    def init_W(self, W_left=None, W_right=None, W=None):
+        if self.factorized_phm_W:
+            W_left = W_left if W_left is not None else self.W_left
+            W_right = W_right if W_right is not None else self.W_right
+        else:
+            W = W if W is not None else self.W
+        if self.w_init == "glorot-normal":
+            if self.factorized_phm_W:
+                for i in range(self.phm_dim):
+                    W_left.data[i] = nn.init.xavier_normal_(W_left.data[i])
+                    W_right.data[i] = nn.init.xavier_normal_(W_right.data[i])
+            else:
+                for i in range(self.phm_dim):
+                    W.data[i] = nn.init.xavier_normal_(W.data[i])
+        elif self.w_init == "glorot-uniform":
+            if self.factorized_phm_W:
+                for i in range(self.phm_dim):
+                    W_left.data[i] = nn.init.xavier_uniform_(W_left.data[i])
+                    W_right.data[i] = nn.init.xavier_uniform_(W_right.data[i])
+            else:
+                for i in range(self.phm_dim):
+                    W.data[i] = nn.init.xavier_uniform_(W.data[i])
+        elif self.w_init == "normal":
+            if self.factorized_phm_W:
+                for i in range(self.phm_dim):
+                    W_left.data[i].normal_(mean=0, std=self.phm_init_range)
+                    W_right.data[i].normal_(mean=0, std=self.phm_init_range)
+            else:
+                for i in range(self.phm_dim):
+                    W.data[i].normal_(mean=0, std=self.phm_init_range)
+        else:
+            raise ValueError
+
+    def reset_parameters(self):
+        if not self.shared_W_phm:
+            self.init_W()
+
+        if self.bias_flag:
+            self.b.data = torch.zeros_like(self.b.data)
+
+        if not self.shared_phm_rule:
+            if self.factorized_phm_rule:
+                if self.c_init == "uniform":
+                    self.phm_rule_left.data.uniform_(-0.01, 0.01)
+                    self.phm_rule_right.data.uniform_(-0.01, 0.01)
+                elif self.c_init == "normal":
+                    self.phm_rule_left.data.normal_(std=0.01)
+                    self.phm_rule_right.data.normal_(std=0.01)
+                else:
+                    raise NotImplementedError
+            else:
+                if self.c_init == "uniform":
+                    self.phm_rule.data.uniform_(-0.01, 0.01)
+                elif self.c_init == "normal":
+                    self.phm_rule.data.normal_(mean=0, std=0.01)
+                else:
+                    raise NotImplementedError
+
+    def set_phm_rule(self, phm_rule=None, phm_rule_left=None, phm_rule_right=None):
+        """
+        If factorized_phm_rules is set, phm_rule is a tuple, showing the left and right phm rules, and if this is not
+        set, this is showing the phm_rule.
+        """
+        if self.factorized_phm_rule:
+            self.phm_rule_left = phm_rule_left
+            self.phm_rule_right = phm_rule_right
+        else:
+            self.phm_rule = phm_rule
+
+    def set_W(self, W=None, W_left=None, W_right=None):
+        if self.factorized_phm_W:
+            self.W_left = W_left
+            self.W_right = W_right
+        else:
+            self.W = W
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.shared_W_phm:
+            parameters = ForwardContext.get_context().shared_parameters[self.name]
+            if self.factorized_phm_W:
+                W = torch.bmm(parameters[f"W_{self.position}_left"], parameters[f"W_{self.position}_right"])
+            else:
+                W = parameters[f"W_{self.position}"]
+        else:
+            if self.factorized_phm_W:
+                W = torch.bmm(self.W_left, self.W_right)
+            else:
+                W = self.W
+        if self.shared_phm_rule:
+            parameters = ForwardContext.get_context().shared_parameters[self.name]
+            if self.factorized_phm_rule:
+                phm_rule = torch.bmm(parameters["phm_rule_left"], parameters["phm_rule_right"])
+            else:
+                phm_rule = parameters["phm_rule"]
+        else:
+            if self.factorized_phm_rule:
+                phm_rule = torch.bmm(self.phm_rule_left, self.phm_rule_right)
+            else:
+                phm_rule = self.phm_rule
+
+        H = kronecker_product(phm_rule, W).sum(0)
+
+        y = torch.matmul(input=x, other=H)
+        if self.b is not None:
+            y += self.b
+        return y
+
+    def init_shared_parameters(self):
+        parameters = nn.ParameterDict()
+        if self.shared_W_phm:
+            if self.factorized_phm_W:
+                W_down_left = torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self.phm_rank))
+                W_down_right = torch.Tensor(size=(self.phm_dim, self.phm_rank, self._out_feats_per_axis))
+                W_up_left = torch.Tensor(size=(self.phm_dim, self._out_feats_per_axis, self.phm_rank))
+                W_up_right = torch.Tensor(size=(self.phm_dim, self.phm_rank, self._in_feats_per_axis))
+                self.init_W(W_left=W_down_left, W_right=W_down_right)
+                self.init_W(W_left=W_up_left, W_right=W_up_right)
+                parameters["W_down_left"] = nn.Parameter(W_down_left, requires_grad=True)
+                parameters["W_down_right"] = nn.Parameter(W_down_right, requires_grad=True)
+                parameters["W_up_left"] = nn.Parameter(W_up_left, requires_grad=True)
+                parameters["W_up_right"] = nn.Parameter(W_up_right, requires_grad=True)
+            else:
+                W_down = torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self._out_feats_per_axis))
+                W_up = torch.Tensor(size=(self.phm_dim, self._out_feats_per_axis, self._in_feats_per_axis))
+                self.init_W(W=W_down)
+                self.init_W(W=W_up)
+                parameters["W_down"] = nn.Parameter(W_down, requires_grad=True)
+                parameters["W_up"] = nn.Parameter(W_up, requires_grad=True)
+        if self.shared_phm_rule:
+            if self.factorized_phm_rule:
+                phm_rule_left = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, self.phm_dim, 1).to(self.device), requires_grad=self.learn_phm
+                )
+                phm_rule_right = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, 1, self.phm_dim).to(self.device), requires_grad=self.learn_phm
+                )
+                if self.c_init == "normal":
+                    phm_rule_left.data.normal_(mean=0, std=self.phm_init_range)
+                    phm_rule_right.data.normal_(mean=0, std=self.phm_init_range)
+                elif self.c_init == "uniform":
+                    phm_rule_left.data.uniform_(-1, 1)
+                    phm_rule_right.data.uniform_(-1, 1)
+                else:
+                    raise NotImplementedError
+                parameters["phm_rule_left"] = phm_rule_left
+                parameters["phm_rule_right"] = phm_rule_right
+            else:
+                phm_rule = nn.Parameter(
+                    torch.FloatTensor(self.phm_dim, self.phm_dim, self.phm_dim), requires_grad=self.learn_phm
+                )
+                if self.c_init == "normal":
+                    phm_rule.data.normal_(mean=0, std=self.phm_init_range)
+                elif self.c_init == "uniform":
+                    phm_rule.data.uniform_(-1, 1)
+                else:
+                    raise NotImplementedError
+                parameters["phm_rule"] = phm_rule
+        return parameters

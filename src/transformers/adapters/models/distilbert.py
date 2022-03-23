@@ -1,158 +1,258 @@
-from typing import Union
+import warnings
 
-import torch
-from torch import nn
+import torch.nn as nn
 
-from ..composition import AdapterCompositionBlock, parse_composition
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
-from .bert import BertEncoderAdaptersMixin, BertModelHeadsMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
-
-
-class DistilBertSelfAttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):
-    """Adds attention adapters to the Transformer module of DistilBert."""
-
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
-    @property
-    def transformer_layer_norm(self):
-        return self.parent.sa_layer_norm
-
-
-class DistilBertOutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
-    """Adds output adapters to the Transformer module of DistilBert."""
-
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
-    @property
-    def transformer_layer_norm(self):
-        return self.parent.output_layer_norm
+from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from ...models.distilbert.modeling_distilbert import (
+    DISTILBERT_INPUTS_DOCSTRING,
+    DISTILBERT_START_DOCSTRING,
+    DistilBertModel,
+    DistilBertPreTrainedModel,
+)
+from ..heads import (
+    BertStyleMaskedLMHead,
+    BiaffineParsingHead,
+    CausalLMHead,
+    ClassificationHead,
+    ModelWithFlexibleHeadsAdaptersMixin,
+    MultiLabelClassificationHead,
+    MultipleChoiceHead,
+    QuestionAnsweringHead,
+    TaggingHead,
+)
 
 
-class DistilBertTransfomerBlockAdaptersMixin:
-    """Adds adapters to the TransformerBlock module of DistilBert."""
+@add_start_docstrings(
+    """DistilBert Model transformer with the option to add multiple flexible heads on top.""",
+    DISTILBERT_START_DOCSTRING,
+)
+class DistilBertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, DistilBertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.distilbert = DistilBertModel(config)
 
-    def _init_adapter_modules(self):
-        self.attention_adapters = DistilBertSelfAttentionAdaptersModule(self)
-        self.output_adapters = DistilBertOutputAdaptersModule(self)
-        self.attention_adapters._init_adapter_modules()
-        self.output_adapters._init_adapter_modules()
-        self.register_forward_pre_hook(self._adapter_block_pre_hook)
+        self._init_head_modules()
 
-    def add_fusion_layer(self, adapter_names):
-        self.attention_adapters.add_fusion_layer(adapter_names)
-        self.output_adapters.add_fusion_layer(adapter_names)
+        self.init_weights()
 
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        self.attention_adapters.add_adapter(adapter_name, layer_idx)
-        self.output_adapters.add_adapter(adapter_name, layer_idx)
+    def get_position_embeddings(self) -> nn.Embedding:
+        """
+        Returns the position embeddings
+        """
+        return self.distilbert.get_position_embeddings()
 
-    def delete_adapter(self, adapter_name):
-        self.attention_adapters.delete_adapter(adapter_name)
-        self.output_adapters.delete_adapter(adapter_name)
+    def resize_position_embeddings(self, new_num_position_embeddings: int):
+        """
+        Resizes position embeddings of the model if :obj:`new_num_position_embeddings !=
+        config.max_position_embeddings`.
 
-    def delete_fusion_layer(self, adapter_names):
-        self.attention_adapters.delete_fusion_layer(adapter_names)
-        self.output_adapters.delete_fusion_layer(adapter_names)
+        Arguments:
+            new_num_position_embeddings (:obj:`int`):
+                The number of new position embedding matrix. If position embeddings are learned, increasing the size
+                will add newly initialized vectors at the end, whereas reducing the size will remove vectors from the
+                end. If position embeddings are not learned (*e.g.* sinusoidal position embeddings), increasing the
+                size will add correct vectors at the end following the position encoding algorithm, whereas reducing
+                the size will remove vectors from the end.
+        """
+        self.distilbert.resize_position_embeddings(new_num_position_embeddings)
 
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
-        self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-        self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
+    @add_start_docstrings_to_model_forward(DISTILBERT_INPUTS_DOCSTRING.format("batch_size, num_choices"))
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        head_mask=None,
+        inputs_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        head=None,
+        **kwargs
+    ):
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-    # Makes sure the "parent" reference always points to the correct module.
-    # This is especially relevant when using torch data parallelism.
-    @staticmethod
-    def _adapter_block_pre_hook(module, input_tensors):
-        object.__setattr__(module.attention_adapters, "parent", module)
-        object.__setattr__(module.output_adapters, "parent", module)
+        input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
+        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+        inputs_embeds = (
+            inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
+            if inputs_embeds is not None
+            else None
+        )
+
+        distilbert_output = self.distilbert(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        outputs = self.forward_head(
+            distilbert_output, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
+        )
+
+        return outputs
+
+    head_types = {
+        "classification": ClassificationHead,
+        "multilabel_classification": MultiLabelClassificationHead,
+        "tagging": TaggingHead,
+        "multiple_choice": MultipleChoiceHead,
+        "question_answering": QuestionAnsweringHead,
+        "dependency_parsing": BiaffineParsingHead,
+        "masked_lm": BertStyleMaskedLMHead,
+        "causal_lm": CausalLMHead,
+    }
+
+    def add_classification_head(
+        self,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        overwrite_ok=False,
+        multilabel=False,
+        id2label=None,
+        use_pooler=False,
+    ):
+        """
+        Adds a sequence classification head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            num_labels (int, optional): Number of classification labels. Defaults to 2.
+            layers (int, optional): Number of layers. Defaults to 2.
+            activation_function (str, optional): Activation function. Defaults to 'tanh'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
+        """
+
+        if multilabel:
+            head = MultiLabelClassificationHead(
+                self, head_name, num_labels, layers, activation_function, id2label, use_pooler
+            )
+        else:
+            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label, use_pooler)
+        self.add_prediction_head(head, overwrite_ok)
+
+    def add_multiple_choice_head(
+        self,
+        head_name,
+        num_choices=2,
+        layers=2,
+        activation_function="tanh",
+        overwrite_ok=False,
+        id2label=None,
+        use_pooler=False,
+    ):
+        """
+        Adds a multiple choice head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            num_choices (int, optional): Number of choices. Defaults to 2.
+            layers (int, optional): Number of layers. Defaults to 2.
+            activation_function (str, optional): Activation function. Defaults to 'tanh'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        head = MultipleChoiceHead(self, head_name, num_choices, layers, activation_function, id2label, use_pooler)
+        self.add_prediction_head(head, overwrite_ok)
+
+    def add_tagging_head(
+        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
+    ):
+        """
+        Adds a token classification head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            num_labels (int, optional): Number of classification labels. Defaults to 2.
+            layers (int, optional): Number of layers. Defaults to 1.
+            activation_function (str, optional): Activation function. Defaults to 'tanh'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        head = TaggingHead(self, head_name, num_labels, layers, activation_function, id2label)
+        self.add_prediction_head(head, overwrite_ok)
+
+    def add_qa_head(
+        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
+    ):
+        head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
+        self.add_prediction_head(head, overwrite_ok)
+
+    def add_dependency_parsing_head(self, head_name, num_labels=2, overwrite_ok=False, id2label=None):
+        """
+        Adds a biaffine dependency parsing head on top of the model. The parsing head uses the architecture described
+        in "Is Supervised Syntactic Parsing Beneficial for Language Understanding? An Empirical Investigation" (Glavaš
+        & Vulić, 2021) (https://arxiv.org/pdf/2008.06788.pdf).
+
+        Args:
+            head_name (str): The name of the head.
+            num_labels (int, optional): Number of labels. Defaults to 2.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+            id2label (dict, optional): Mapping from label ids to labels. Defaults to None.
+        """
+        head = BiaffineParsingHead(self, head_name, num_labels, id2label)
+        self.add_prediction_head(head, overwrite_ok)
+
+    def add_masked_lm_head(self, head_name, activation_function="gelu", overwrite_ok=False):
+        """
+        Adds a masked language modeling head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            activation_function (str, optional): Activation function. Defaults to 'gelu'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        head = BertStyleMaskedLMHead(self, head_name, activation_function=activation_function)
+        self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+    def add_causal_lm_head(self, head_name, activation_function="gelu", overwrite_ok=False):
+        """
+        Adds a causal language modeling head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            activation_function (str, optional): Activation function. Defaults to 'gelu'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+        """
+        head = CausalLMHead(
+            self, head_name, layers=2, activation_function=activation_function, layer_norm=True, bias=True
+        )
+        self.add_prediction_head(head, overwrite_ok=overwrite_ok)
 
 
-class DistilBertTransformerAdaptersMixin(BertEncoderAdaptersMixin):
-    """Adds adapters to the Transformer module of DistilBert."""
-
-    pass
-
-
-class DistilBertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
-    """Adds adapters to the DistilBert module."""
-
+class DistilBertModelWithHeads(DistilBertAdapterModel):
     def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                self.__class__.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
         super().__init__(*args, **kwargs)
 
-    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
-        """Sets the model into mode for training the given adapters."""
-        self.train()
-        self.freeze_model(True)
-        adapter_setup = parse_composition(adapter_setup)
-        self.transformer.enable_adapters(adapter_setup, True, False)
-        self.enable_invertible_adapters(adapter_setup.flatten())
-        # use the adapters to be trained by default in every forward pass
-        self.set_active_adapters(adapter_setup)
-        if train_embeddings:
-            self.get_input_embeddings().train()
+    @classmethod
+    def from_config(cls, config):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_config(config)
 
-    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.train()
-        self.freeze_model(True)
-        adapter_setup = parse_composition(adapter_setup)
-        self.transformer.enable_adapters(adapter_setup, unfreeze_adapters, True)
-        # use the adapters to be trained by default in every forward pass
-        self.set_active_adapters(adapter_setup)
-
-    def _add_adapter(self, adapter_name):
-        self.transformer.add_adapter(adapter_name)
-        self.add_invertible_adapter(adapter_name)
-
-    def _add_fusion_layer(self, adapter_names):
-        self.transformer.add_fusion_layer(adapter_names)
-
-    def _delete_adapter(self, adapter_name: str):
-        self.transformer.delete_adapter(adapter_name)
-        self.delete_invertible_adapter(adapter_name)
-
-    def _delete_fusion_layer(self, adapter_names):
-        self.transformer.delete_fusion_layer(adapter_names)
-
-    def get_fusion_regularization_loss(self):
-        reg_loss = 0.0
-        target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
-        for _, v in self.transformer.layer._modules.items():
-
-            for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
-            for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
-        return reg_loss
-
-    def get_adapter(self, name):
-        return_adapters = {}
-        for idx, layer in enumerate(self.transformer.layer):
-            adapters = {
-                "attention": layer.attention_adapters.adapters,
-                "output": layer.output_adapters.adapters,
-            }
-            for key, adapt in adapters.items():
-                if hasattr(adapt, name):
-                    if idx not in return_adapters:
-                        return_adapters[idx] = {}
-                    return_adapters[idx][key] = getattr(adapt, name)
-
-        return return_adapters
-
-
-class DistilBertModelHeadsMixin(BertModelHeadsMixin):
-    """Adds heads to a DistilBert model."""
-
-    pass
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

@@ -1,9 +1,17 @@
-from typing import Union
+import warnings
 
 import torch
-from torch import nn
 
-from ..composition import AdapterCompositionBlock, parse_composition
+from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from ...models.bart.modeling_bart import (
+    BART_INPUTS_DOCSTRING,
+    BART_START_DOCSTRING,
+    BartConfig,
+    BartModel,
+    BartPretrainedModel,
+    shift_tokens_right,
+)
+from ..composition import adjust_tensors_for_parallel
 from ..heads import (
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
@@ -11,304 +19,137 @@ from ..heads import (
     QuestionAnsweringHead,
     Seq2SeqLMHead,
 )
-from ..layer import AdapterLayerBaseMixin
-from ..model_mixin import ModelAdaptersMixin
 
 
-class BartSelfAttentionAdaptersModule(AdapterLayerBaseMixin, nn.Module):
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
+@add_start_docstrings(
+    "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
+)
+class BartAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel):
+    def __init__(self, config: BartConfig, **kwargs):
+        super().__init__(config, **kwargs)
+        self.model = BartModel(config)
 
-    @property
-    def adapter_config_key(self):
-        return "mh_adapter"
+        self._init_head_modules()
 
-    @property
-    def transformer_layer_norm(self):
-        # MBart has layer norms before each component
-        if self.config.model_type == "mbart":
-            return None
-        else:
-            return self.parent.self_attn_layer_norm
+    def get_encoder(self):
+        return self.model.get_encoder()
 
+    def get_decoder(self):
+        return self.model.get_decoder()
 
-class BartCrossAttentionAdaptersModule(AdapterLayerBaseMixin, nn.Module):
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
-    @property
-    def adapter_config_key(self):
-        return "cross_adapter"
-
-    @property
-    def transformer_layer_norm(self):
-        # MBart has layer norms before each component
-        if self.config.model_type == "mbart":
-            return None
-        else:
-            return self.parent.encoder_attn_layer_norm
-
-
-class BartOutputAdaptersModule(AdapterLayerBaseMixin, nn.Module):
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
-    @property
-    def adapter_config_key(self):
-        return "output_adapter"
-
-    @property
-    def transformer_layer_norm(self):
-        # MBart has layer norms before each component
-        if self.config.model_type == "mbart":
-            return None
-        else:
-            return self.parent.final_layer_norm
-
-
-class BartEncoderLayerAdaptersMixin:
-    """Adds adapters to the BartEncoderLayer module of BART."""
-
-    def _init_adapter_modules(self):
-        self.attention_adapters = BartSelfAttentionAdaptersModule(self)
-        self.output_adapters = BartOutputAdaptersModule(self)
-        self.attention_adapters._init_adapter_modules()
-        self.output_adapters._init_adapter_modules()
-        self.register_forward_pre_hook(self._adapter_block_pre_hook)
-
-    def add_fusion_layer(self, adapter_names):
-        self.attention_adapters.add_fusion_layer(adapter_names)
-        self.output_adapters.add_fusion_layer(adapter_names)
-
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        self.attention_adapters.add_adapter(adapter_name, layer_idx)
-        self.output_adapters.add_adapter(adapter_name, layer_idx)
-
-    def delete_adapter(self, adapter_name):
-        self.attention_adapters.delete_adapter(adapter_name)
-        self.output_adapters.delete_adapter(adapter_name)
-
-    def delete_fusion_layer(self, adapter_names):
-        self.attention_adapters.delete_fusion_layer(adapter_names)
-        self.output_adapters.delete_fusion_layer(adapter_names)
-
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
-        self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-        self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-
-    # Makes sure the "parent" reference always points to the correct module.
-    # This is especially relevant when using torch data parallelism.
-    @staticmethod
-    def _adapter_block_pre_hook(module, input_tensors):
-        object.__setattr__(module.attention_adapters, "parent", module)
-        object.__setattr__(module.output_adapters, "parent", module)
-
-
-class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
-    """Adds adapters to the BartDecoderLayer module of BART."""
-
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-        self.cross_attention_adapters = BartCrossAttentionAdaptersModule(self)
-        self.cross_attention_adapters._init_adapter_modules()
-
-    def add_fusion_layer(self, adapter_names):
-        super().add_fusion_layer(adapter_names)
-        self.cross_attention_adapters.add_fusion_layer(adapter_names)
-
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        super().add_adapter(adapter_name, layer_idx)
-        self.cross_attention_adapters.add_adapter(adapter_name, layer_idx)
-
-    def delete_adapter(self, adapter_name):
-        super().delete_adapter(adapter_name)
-        self.cross_attention_adapters.delete_adapter(adapter_name)
-
-    def delete_fusion_layer(self, adapter_names):
-        super().delete_fusion_layer(adapter_names)
-        self.cross_attention_adapters.delete_fusion_layer(adapter_names)
-
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
-        super().enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-        self.cross_attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-
-    # Makes sure the "parent" reference always points to the correct module.
-    # This is especially relevant when using torch data parallelism.
-    @staticmethod
-    def _adapter_block_pre_hook(module, input_tensors):
-        object.__setattr__(module.attention_adapters, "parent", module)
-        object.__setattr__(module.output_adapters, "parent", module)
-        object.__setattr__(module.cross_attention_adapters, "parent", module)
-
-
-class BartEncoderDecoderAdaptersMixin:
-    """Adds adapters to the BartEncoder or BartDecoder module."""
-
-    def add_fusion_layer(self, adapter_names):
-        for layer in self.layers:
-            layer.add_fusion_layer(adapter_names)
-
-    def add_adapter(self, adapter_name: str, layer_idx_offset: int = 0):
-        adapter_config = self.config.adapters.get(adapter_name)
-        leave_out = adapter_config.get("leave_out", [])
-        for i, layer in enumerate(self.layers, start=layer_idx_offset):
-            if i not in leave_out:
-                layer.add_adapter(adapter_name, i)
-
-    def delete_adapter(self, adapter_name: str):
-        for layer in self.layers:
-            layer.delete_adapter(adapter_name)
-
-    def delete_fusion_layer(self, adapter_names):
-        for layer in self.layers:
-            layer.delete_fusion_layer(adapter_names)
-
-    def enable_adapters(
-        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+    @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        encoder_outputs=None,
+        inputs_embeds=None,
+        decoder_inputs_embeds=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        past_key_values=None,
+        head=None,
+        **kwargs
     ):
-        for layer in self.layers:
-            layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
+        r"""
+        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
+            Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
+            config.num_labels - 1]`. If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-    def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
-        if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
-            repeats = [1] * len(attention_mask.shape)
-            repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
-            attention_mask = attention_mask.repeat(*repeats)
-        return attention_mask
+        if "labels" in kwargs or "start_positions" in kwargs and "end_positions" in kwargs:
+            use_cache = False
 
-
-class BartModelAdaptersMixin(ModelAdaptersMixin):
-    """Adds adapters to the BartModel class."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-        if hasattr(self, "encoder"):
-            # In BART, the invertible adapters are implemented by the encoder module.
-            # Therefore, relay mixin calls to the encoder here.
-            self.invertible_adapters = self.encoder.invertible_adapters
-            self.add_invertible_adapter = self.encoder.add_invertible_adapter
-            self.get_invertible_adapter = self.encoder.get_invertible_adapter
-            self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
-
-    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
-        """Sets the model into mode for training the given adapters."""
-        self.train()
-        self.freeze_model(True)
-        adapter_setup = parse_composition(adapter_setup)
-        if hasattr(self, "encoder"):
-            self.encoder.enable_adapters(adapter_setup, True, False)
-            self.encoder.enable_invertible_adapters(adapter_setup.flatten())
-        self.decoder.enable_adapters(adapter_setup, True, False)
-        # use the adapters to be trained by default in every forward pass
-        self.set_active_adapters(adapter_setup)
-        if train_embeddings:
-            self.get_input_embeddings().train()
-
-    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.train()
-        self.freeze_model(True)
-        adapter_setup = parse_composition(adapter_setup)
-        if hasattr(self, "encoder"):
-            self.encoder.enable_adapters(adapter_setup, unfreeze_adapters, True)
-        self.decoder.enable_adapters(adapter_setup, unfreeze_adapters, True)
-        # use the adapters to be trained by default in every forward pass
-        self.set_active_adapters(adapter_setup)
-
-    def _add_adapter(self, adapter_name):
-        if hasattr(self, "encoder"):
-            self.encoder.add_adapter(adapter_name)
-            # make sure the layers in encoder & decoder are numbered from 0 to len(encoder+decoder)
-            self.decoder.add_adapter(adapter_name, layer_idx_offset=len(self.encoder.layers))
-            self.encoder.add_invertible_adapter(adapter_name)
+        outputs = self.model(
+            input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            decoder_attention_mask=decoder_attention_mask,
+            head_mask=head_mask,
+            decoder_head_mask=decoder_head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            encoder_outputs=encoder_outputs,
+            inputs_embeds=inputs_embeds,
+            decoder_inputs_embeds=decoder_inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            past_key_values=past_key_values,
+        )
+        # sequence classification based on last token in sequence
+        x = outputs[0]  # last hidden state
+        if input_ids is not None and x.shape[1] == input_ids.shape[1]:
+            eos_mask = input_ids.eq(self.config.eos_token_id)
+            (eos_mask,) = adjust_tensors_for_parallel(x, eos_mask)
+            if len(torch.unique(eos_mask.sum(1))) > 1:
+                raise ValueError("All examples must have the same number of <eos> tokens.")
+            cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
         else:
-            self.decoder.add_adapter(adapter_name)
+            cls_representation = x
 
-    def _add_fusion_layer(self, adapter_names):
-        if hasattr(self, "encoder"):
-            self.encoder.add_fusion_layer(adapter_names)
-        self.decoder.add_fusion_layer(adapter_names)
+        head_outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            cls_output=cls_representation,
+            attention_mask=attention_mask,
+            return_dict=return_dict,
+            **kwargs,
+        )
 
-    def _delete_adapter(self, adapter_name: str):
-        if hasattr(self, "encoder"):
-            self.encoder.delete_adapter(adapter_name)
-            self.encoder.delete_invertible_adapter(adapter_name)
-        self.decoder.delete_adapter(adapter_name)
+        return head_outputs
 
-    def _delete_fusion_layer(self, adapter_names):
-        if hasattr(self, "encoder"):
-            self.encoder.delete_fusion_layer(adapter_names)
-        self.decoder.delete_fusion_layer(adapter_names)
+    # Copied from BartForConditionalGeneration
+    def prepare_inputs_for_generation(
+        self,
+        decoder_input_ids,
+        past=None,
+        attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        use_cache=None,
+        encoder_outputs=None,
+        **kwargs
+    ):
+        # cut decoder_input_ids if past is used
+        if past is not None:
+            decoder_input_ids = decoder_input_ids[:, -1:]
 
-    def get_fusion_regularization_loss(self):
-        reg_loss = 0.0
-        target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
-        # encoder
-        if hasattr(self, "encoder"):
-            for _, v in self.encoder.layers._modules.items():
-                for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
-                    if hasattr(layer_fusion, "value"):
-                        reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+        return {
+            "input_ids": None,  # encoder_outputs is defined. input_ids not needed
+            "encoder_outputs": encoder_outputs,
+            "past_key_values": past,
+            "decoder_input_ids": decoder_input_ids,
+            "attention_mask": attention_mask,
+            "head_mask": head_mask,
+            "decoder_head_mask": decoder_head_mask,
+            "cross_attn_head_mask": cross_attn_head_mask,
+            "use_cache": use_cache,  # change this to avoid caching (presumably for debugging)
+        }
 
-                for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
-                    if hasattr(layer_fusion, "value"):
-                        reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-        # decoder
-        for _, v in self.decoder.layers._modules.items():
-            for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+    # Copied from BartForConditionalGeneration
+    def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
+        return shift_tokens_right(labels, self.config.pad_token_id, self.config.decoder_start_token_id)
 
-            for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
-        return reg_loss
-
-    def adjust_tensors_for_parallel(self, hidden_states, *tensors):
-        outputs = []
-        for tensor in tensors:
-            if tensor is not None and hidden_states.shape[0] != tensor.shape[0]:
-                repeats = [1] * len(tensor.shape)
-                repeats[0] = hidden_states.shape[0] // tensor.shape[0]
-                new_tensor = tensor.repeat(*repeats)
-                outputs.append(new_tensor)
-            else:
-                outputs.append(tensor)
-        return tuple(outputs)
-
-    def get_adapter(self, name):
-        return_adapters = {}
-        for idx, layer in enumerate(self.encoder.layers):
-            adapters = {
-                "attention": layer.attention_adapters.adapters,
-                "output": layer.output_adapters.adapters,
-            }
-            for key, adapt in adapters.items():
-                if hasattr(adapt, name):
-                    if idx not in return_adapters:
-                        return_adapters[idx] = {}
-                    return_adapters[idx][key] = getattr(adapt, name)
-
-        return return_adapters
-
-
-class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
-    """
-    Adds flexible heads to a BART model.
-    """
+    # Copied from BartForConditionalGeneration
+    @staticmethod
+    def _reorder_cache(past, beam_idx):
+        reordered_past = ()
+        for layer_past in past:
+            # cached cross_attention states don't have to be reordered -> they are always the same
+            reordered_past += (
+                tuple(past_state.index_select(0, beam_idx) for past_state in layer_past[:2]) + layer_past[2:],
+            )
+        return reordered_past
 
     head_types = {
         "classification": ClassificationHead,
@@ -371,3 +212,37 @@ class BartModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         """
         head = Seq2SeqLMHead(self, head_name)
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+
+class BartModelWithHeads(BartAdapterModel):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                self.__class__.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_config(cls, config):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_config(config)
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

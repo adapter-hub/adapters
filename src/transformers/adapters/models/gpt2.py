@@ -1,187 +1,103 @@
-from typing import Union
+import logging
+import warnings
 
 import torch
-from torch import nn
 
-from ..composition import AdapterCompositionBlock, parse_composition
-from ..heads import CausalLMHead, ClassificationHead, MultiLabelClassificationHead, TaggingHead
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
-from .bert import (
-    BertEncoderAdaptersMixin,
-    BertOutputAdaptersMixin,
-    BertSelfOutputAdaptersMixin,
+from ...file_utils import add_start_docstrings
+from ...models.gpt2.modeling_gpt2 import GPT2_START_DOCSTRING, GPT2Model, GPT2PreTrainedModel
+from ..composition import adjust_tensors_for_parallel
+from ..heads import (
+    CausalLMHead,
+    ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
+    MultiLabelClassificationHead,
+    TaggingHead,
 )
 
 
-class GPT2AttentionAdaptersModule(BertSelfOutputAdaptersMixin, nn.Module):
-    """Adds attention adapters to the Transformer module of DistilBert."""
-
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
-
-    @property
-    def transformer_layer_norm(self):
-        return None
+logger = logging.getLogger(__name__)
 
 
-class GPT2OutputAdaptersModule(BertOutputAdaptersMixin, nn.Module):
-    """Adds output adapters to the Transformer module of DistilBert."""
+@add_start_docstrings(
+    """
+The GPT2 Model that allows the loading of different heads dor different tasks. This enables a flexible use of the
+models and adpters. Since this class does classification on the last token, it requires to know the position of the
+last token. If a :obj:`pad_token_id` is defined in the configuration, it finds the last token that is not a padding
+token in each row. If no :obj:`pad_token_id` is defined, it simply takes the last value in each row of the batch. Since
+it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead of :obj:`input_ids`, it does the same
+(take the last value in each row of the batch).
+""",
+    GPT2_START_DOCSTRING,
+)
+class GPT2AdapterModel(ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.transformer = GPT2Model(config)
 
-    def __init__(self, parent):
-        super().__init__()
-        # keep a reference to the parent module without registering as a submodule
-        object.__setattr__(self, "parent", parent)
-        self.config = parent.config
+        self._init_head_modules()
 
-    @property
-    def transformer_layer_norm(self):
-        return None
+        self.init_weights()
 
+        # Model parallel
+        self.model_parallel = False
+        self.device_map = None
 
-class GPT2DecoderBlockAdaptersMixin(BertEncoderAdaptersMixin):
-    """Adds adapters to the TransformerBlock module of DistilBert."""
-
-    def _init_adapter_modules(self):
-        self.attention_adapters = GPT2AttentionAdaptersModule(self)
-        self.output_adapters = GPT2OutputAdaptersModule(self)
-        self.attention_adapters._init_adapter_modules()
-        self.output_adapters._init_adapter_modules()
-        self.register_forward_pre_hook(self._adapter_block_pre_hook)
-
-    def add_fusion_layer(self, adapter_names):
-        self.attention_adapters.add_fusion_layer(adapter_names)
-        self.output_adapters.add_fusion_layer(adapter_names)
-
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        self.attention_adapters.add_adapter(adapter_name, layer_idx)
-        self.output_adapters.add_adapter(adapter_name, layer_idx)
-
-    def delete_adapter(self, adapter_name):
-        self.attention_adapters.delete_adapter(adapter_name)
-        self.output_adapters.delete_adapter(adapter_name)
-
-    def delete_fusion_layer(self, adapter_names):
-        self.attention_adapters.delete_fusion_layer(adapter_names)
-        self.output_adapters.delete_fusion_layer(adapter_names)
-
-    def enable_adapters(self, adapter_names: list, unfreeze_adapters: bool, unfreeze_attention: bool):
-        self.attention_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-        self.output_adapters.enable_adapters(adapter_names, unfreeze_adapters, unfreeze_attention)
-
-    # Makes sure the "parent" reference always points to the correct module.
-    # This is especially relevant when using torch data parallelism.
-    @staticmethod
-    def _adapter_block_pre_hook(module, input_tensors):
-        object.__setattr__(module.attention_adapters, "parent", module)
-        object.__setattr__(module.output_adapters, "parent", module)
-
-
-class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-
-        # add adapters specified in config; invertible adapter will only be added if required
-        for adapter_name in self.config.adapters.adapters:
-            self._add_adapter(adapter_name)
-        # fusion
-        if hasattr(self.config, "fusion_models"):
-            for fusion_adapter_names in self.config.fusion_models:
-                self.add_fusion_layer(fusion_adapter_names)
-
-    def _add_adapter(self, adapter_name: str):
-        adapter_config = self.config.adapters.get(adapter_name)
-        leave_out = adapter_config.get("leave_out", [])
-        for i, layer in enumerate(self.base_model.h):
-            if i not in leave_out:
-                layer.add_adapter(adapter_name, i)
-
-        self.add_invertible_adapter(adapter_name)
-
-    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
-        self.train()
-        self.freeze_model(True)
-        adapter_setup = parse_composition(adapter_setup)
-        self.enable_adapters(adapter_setup, True, False)
-        self.enable_invertible_adapters(adapter_setup.flatten())
-        # use the adapters to be trained by default in every forward pass
-        self.set_active_adapters(adapter_setup)
-        if train_embeddings:
-            self.get_input_embeddings().train()
-
-    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        self.train()
-        self.freeze_model(True)
-        adapter_setup = parse_composition(adapter_setup)
-        self.enable_adapters(adapter_setup, unfreeze_adapters, True)
-        # use the adapters to be trained by default in every forward pass
-        self.set_active_adapters(adapter_setup)
-
-    def enable_adapters(
-        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        head=None,
+        **kwargs
     ):
-        for layer in self.base_model.h:
-            layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-    def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
-        if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
-            repeats = [1] * len(attention_mask.shape)
-            repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
-            attention_mask = attention_mask.repeat(*repeats)
-        return attention_mask
+        outputs = self.transformer(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
 
-    def _add_fusion_layer(self, adapter_names):
-        for layer in self.base_model.h:
-            layer.add_fusion_layer(adapter_names)
+        batch_size = outputs[0].shape[0]
 
-    def _delete_adapter(self, adapter_name: str):
-        for layer in self.base_model.h:
-            layer.delete_adapter(adapter_name)
-        self.delete_invertible_adapter(adapter_name)
+        if self.config.pad_token_id is None:
+            # TODO-AH: this may result in unexpected behavior for classification. Find a better way to do this?
+            sequence_lengths = -1
+        else:
+            if input_ids is not None:
+                sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
+                (sequence_lengths,) = adjust_tensors_for_parallel(outputs[0], sequence_lengths)
+            else:
+                sequence_lengths = -1
+                logger.warning(
+                    f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
+                    f"unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                )
 
-    def _delete_fusion_layer(self, adapter_names):
-        for layer in self.base_model.h:
-            layer.delete_fusion_layer(adapter_names)
+        cls_logits = outputs[0][range(batch_size), sequence_lengths]
 
-    def get_fusion_regularization_loss(self):
-        reg_loss = 0.0
-        target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
-        for _, v in self.base_model.h._modules.items():
+        outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            cls_output=cls_logits,
+            attention_mask=attention_mask,
+            return_dict=return_dict,
+            **kwargs,
+        )
 
-            for _, layer_fusion in v.output_adapters.adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
-            for _, layer_fusion in v.attention_adapters.adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-
-        return reg_loss
-
-    def get_adapter(self, name):
-        return_adapters = {}
-        for idx, layer in enumerate(self.h):
-            adapters = {
-                "attention": layer.attention_adapters.adapters,
-                "output": layer.output_adapters.adapters,
-            }
-            for key, adapt in adapters.items():
-                if hasattr(adapt, name):
-                    if idx not in return_adapters:
-                        return_adapters[idx] = {}
-                    return_adapters[idx][key] = getattr(adapt, name)
-
-        return return_adapters
-
-
-class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
-    """Adds flexible heads to a GPT-2 model."""
+        return outputs
 
     head_types = {
         "classification": ClassificationHead,
@@ -228,3 +144,37 @@ class GPT2ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         """
         head = CausalLMHead(self, head_name)
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+
+class GPT2ModelWithHeads(GPT2AdapterModel):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                self.__class__.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_config(cls, config):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_config(config)
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

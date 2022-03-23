@@ -12,12 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" PyTorch T5 model. """
+""" PyTorch T5 model."""
+
 
 import copy
 import math
 import os
 import warnings
+from typing import Optional
 
 import torch
 from torch import nn
@@ -25,16 +27,16 @@ from torch.nn import CrossEntropyLoss
 from torch.utils.checkpoint import checkpoint
 
 from ...activations import ACT2FN
-from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
-from ...adapters.models.t5 import (
-    T5BlockAdaptersMixin,
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.mixins.t5 import (
     T5CrossAttentionLayerAdaptersMixin,
     T5FFLayerAdaptersMixin,
     T5ModelAdaptersMixin,
-    T5ModelHeadsMixin,
     T5SelfAttentionLayerAdaptersMixin,
-    T5StackAdaptersMixin,
 )
+from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import (
     DUMMY_INPUTS,
     DUMMY_MASK,
@@ -197,7 +199,7 @@ PARALLELIZE_DOCSTRING = r"""
     it will evenly distribute blocks across all devices.
 
     Args:
-        device_map (:obj:`Dict[int, list]`, optional, defaults to None):
+        device_map (`Dict[int, list]`, optional, defaults to None):
             A dictionary that maps attention modules to devices. Note that the embedding module and LMHead are always
             automatically mapped to the first device (for esoteric reasons). That means that the first device should
             have fewer attention modules mapped to it than other devices. For reference, the t5 models have the
@@ -209,52 +211,78 @@ PARALLELIZE_DOCSTRING = r"""
                 - t5-3b: 24
                 - t5-11b: 24
 
-    Example::
+    Example:
 
-            # Here is an example of a device map on a machine with 4 GPUs using t5-3b, which has a total of 24 attention modules:
-            model = T5ForConditionalGeneration.from_pretrained('t5-3b')
-            device_map = {0: [0, 1, 2],
-
-                         1: [3, 4, 5, 6, 7, 8, 9],
-                         2: [10, 11, 12, 13, 14, 15, 16],
-                         3: [17, 18, 19, 20, 21, 22, 23]}
-            model.parallelize(device_map)
+    ```python
+    # Here is an example of a device map on a machine with 4 GPUs using t5-3b, which has a total of 24 attention modules:
+    model = T5ForConditionalGeneration.from_pretrained("t5-3b")
+    device_map = {
+        0: [0, 1, 2],
+        1: [3, 4, 5, 6, 7, 8, 9],
+        2: [10, 11, 12, 13, 14, 15, 16],
+        3: [17, 18, 19, 20, 21, 22, 23],
+    }
+    model.parallelize(device_map)
+    ```
 """
 DEPARALLELIZE_DOCSTRING = r"""
     Moves the model to cpu from a model parallel state.
 
-    Example::
+    Example:
 
-        # On a 4 GPU machine with t5-3b:
-        model = T5ForConditionalGeneration.from_pretrained('t5-3b')
-        device_map = {0: [0, 1, 2],
-
-                     1: [3, 4, 5, 6, 7, 8, 9],
-                     2: [10, 11, 12, 13, 14, 15, 16],
-                     3: [17, 18, 19, 20, 21, 22, 23]}
-        model.parallelize(device_map) # Splits the model across several devices
-        model.deparallelize() # Put the model back on cpu and cleans memory by calling torch.cuda.empty_cache()
+    ```python
+    # On a 4 GPU machine with t5-3b:
+    model = T5ForConditionalGeneration.from_pretrained("t5-3b")
+    device_map = {
+        0: [0, 1, 2],
+        1: [3, 4, 5, 6, 7, 8, 9],
+        2: [10, 11, 12, 13, 14, 15, 16],
+        3: [17, 18, 19, 20, 21, 22, 23],
+    }
+    model.parallelize(device_map)  # Splits the model across several devices
+    model.deparallelize()  # Put the model back on cpu and cleans memory by calling torch.cuda.empty_cache()
+    ```
 """
 
 
 class T5LayerNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
         """
-        Construct a layernorm module in the T5 style No bias and no subtraction of mean.
+        Construct a layernorm module in the T5 style. No bias and no subtraction of mean.
         """
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.variance_epsilon = eps
 
     def forward(self, hidden_states):
-        # layer norm should always be calculated in float32
+
+        # T5 uses a layer_norm which only scales and doesn't shift, which is also known as Root Mean
+        # Square Layer Normalization https://arxiv.org/abs/1910.07467 thus varience is calculated
+        # w/o mean and there is no bias. Additionally we want to make sure that the accumulation for
+        # half-precision inputs is done in fp32
+
         variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
 
-        # convert into float16 if necessary
-        if self.weight.dtype == torch.float16:
-            hidden_states = hidden_states.to(torch.float16)
+        # convert into half-precision if necessary
+        if self.weight.dtype in [torch.float16, torch.bfloat16]:
+            hidden_states = hidden_states.to(self.weight.dtype)
+
         return self.weight * hidden_states
+
+
+try:
+    from apex.normalization import FusedRMSNorm
+
+    T5LayerNorm = FusedRMSNorm  # noqa
+
+    logger.info("Discovered apex.normalization.FusedRMSNorm - will use it instead of T5LayerNorm")
+except ImportError:
+    # using the normal T5LayerNorm
+    pass
+except Exception:
+    logger.warning("discovered apex but it failed to load, falling back to T5LayerNorm")
+    pass
 
 
 class T5DenseReluDense(nn.Module):
@@ -307,15 +335,15 @@ class T5LayerFF(T5FFLayerAdaptersMixin, nn.Module):
         self.dropout = nn.Dropout(config.dropout_rate)
         self._init_adapter_modules()
 
-    def forward(self, hidden_states, **kwargs):
+    def forward(self, hidden_states):
         forwarded_states = self.layer_norm(hidden_states)
         forwarded_states = self.DenseReluDense(forwarded_states)
-        hidden_states = self.adapters_forward(hidden_states, self.dropout(forwarded_states), **kwargs)
+        hidden_states = self.adapter_layer_forward(hidden_states, self.dropout(forwarded_states), None)
         return hidden_states
 
 
 class T5Attention(nn.Module):
-    def __init__(self, config: T5Config, has_relative_attention_bias=False):
+    def __init__(self, config: T5Config, has_relative_attention_bias=False, location_key: Optional[str] = None):
         super().__init__()
         self.is_decoder = config.is_decoder
         self.has_relative_attention_bias = has_relative_attention_bias
@@ -337,6 +365,8 @@ class T5Attention(nn.Module):
             self.relative_attention_bias = nn.Embedding(self.relative_attention_num_buckets, self.n_heads)
         self.pruned_heads = set()
         self.gradient_checkpointing = False
+
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def prune_heads(self, heads):
         if len(heads) == 0:
@@ -490,6 +520,9 @@ class T5Attention(nn.Module):
             hidden_states, self.v, key_value_states, past_key_value[1] if past_key_value is not None else None
         )
 
+        key_states, value_states, mask = self.prefix_tuning(key_states, value_states, mask)
+        key_length = key_states.size(2)
+
         # compute scores
         scores = torch.matmul(
             query_states, key_states.transpose(3, 2)
@@ -537,10 +570,12 @@ class T5Attention(nn.Module):
 
 
 class T5LayerSelfAttention(T5SelfAttentionLayerAdaptersMixin, nn.Module):
-    def __init__(self, config, has_relative_attention_bias=False):
+    def __init__(self, config, has_relative_attention_bias=False, location_key: Optional[str] = None):
         super().__init__()
         self.config = config
-        self.SelfAttention = T5Attention(config, has_relative_attention_bias=has_relative_attention_bias)
+        self.SelfAttention = T5Attention(
+            config, has_relative_attention_bias=has_relative_attention_bias, location_key=location_key
+        )
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
         self._init_adapter_modules()
@@ -554,7 +589,6 @@ class T5LayerSelfAttention(T5SelfAttentionLayerAdaptersMixin, nn.Module):
         past_key_value=None,
         use_cache=False,
         output_attentions=False,
-        **kwargs,
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
         attention_output = self.SelfAttention(
@@ -566,7 +600,7 @@ class T5LayerSelfAttention(T5SelfAttentionLayerAdaptersMixin, nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions,
         )
-        hidden_states = self.adapters_forward(hidden_states, self.dropout(attention_output[0]), **kwargs)
+        hidden_states = self.adapter_layer_forward(hidden_states, self.dropout(attention_output[0]), None)
         outputs = (hidden_states,) + attention_output[1:]  # add attentions if we output them
         return outputs
 
@@ -575,7 +609,7 @@ class T5LayerCrossAttention(T5CrossAttentionLayerAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.EncDecAttention = T5Attention(config, has_relative_attention_bias=False)
+        self.EncDecAttention = T5Attention(config, has_relative_attention_bias=False, location_key="cross")
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
         self._init_adapter_modules()
@@ -591,7 +625,6 @@ class T5LayerCrossAttention(T5CrossAttentionLayerAdaptersMixin, nn.Module):
         use_cache=False,
         query_length=None,
         output_attentions=False,
-        **kwargs
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
         attention_output = self.EncDecAttention(
@@ -605,18 +638,22 @@ class T5LayerCrossAttention(T5CrossAttentionLayerAdaptersMixin, nn.Module):
             query_length=query_length,
             output_attentions=output_attentions,
         )
-        layer_output = self.adapters_forward(hidden_states, self.dropout(attention_output[0]), **kwargs)
+        layer_output = self.adapter_layer_forward(hidden_states, self.dropout(attention_output[0]), None)
         outputs = (layer_output,) + attention_output[1:]  # add attentions if we output them
         return outputs
 
 
-class T5Block(T5BlockAdaptersMixin, nn.Module):
+class T5Block(nn.Module):
     def __init__(self, config, has_relative_attention_bias=False):
-        super().__init__(config)
+        super().__init__()
         self.is_decoder = config.is_decoder
         self.layer = nn.ModuleList()
-        self.layer.append(T5LayerSelfAttention(config, has_relative_attention_bias=has_relative_attention_bias))
-
+        location_key = "self" if self.is_decoder else "encoder"
+        self.layer.append(
+            T5LayerSelfAttention(
+                config, has_relative_attention_bias=has_relative_attention_bias, location_key=location_key
+            )
+        )
         if self.is_decoder:
             self.layer.append(T5LayerCrossAttention(config))
 
@@ -636,7 +673,6 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
         use_cache=False,
         output_attentions=False,
         return_dict=True,
-        **kwargs
     ):
 
         if past_key_value is not None:
@@ -663,7 +699,6 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
             past_key_value=self_attn_past_key_value,
             use_cache=use_cache,
             output_attentions=output_attentions,
-            **kwargs,
         )
         hidden_states, present_key_value_state = self_attention_outputs[:2]
         attention_outputs = self_attention_outputs[2:]  # Keep self-attention outputs and relative position weights
@@ -692,7 +727,6 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
                 query_length=query_length,
                 use_cache=use_cache,
                 output_attentions=output_attentions,
-                **kwargs,
             )
             hidden_states = cross_attention_outputs[0]
 
@@ -709,7 +743,7 @@ class T5Block(T5BlockAdaptersMixin, nn.Module):
             attention_outputs = attention_outputs + cross_attention_outputs[2:]
 
         # Apply Feed Forward layer
-        hidden_states = self.layer[-1](hidden_states, **kwargs)
+        hidden_states = self.layer[-1](hidden_states)
 
         # clamp inf values to enable fp16 training
         if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
@@ -785,8 +819,8 @@ class T5PreTrainedModel(PreTrainedModel):
             key_value_proj_dim = self.config.d_kv
             n_heads = self.config.num_heads
             module.q.weight.data.normal_(mean=0.0, std=factor * ((d_model * key_value_proj_dim) ** -0.5))
-            module.k.weight.data.normal_(mean=0.0, std=factor * (d_model ** -0.5))
-            module.v.weight.data.normal_(mean=0.0, std=factor * (d_model ** -0.5))
+            module.k.weight.data.normal_(mean=0.0, std=factor * (d_model**-0.5))
+            module.v.weight.data.normal_(mean=0.0, std=factor * (d_model**-0.5))
             module.o.weight.data.normal_(mean=0.0, std=factor * ((n_heads * key_value_proj_dim) ** -0.5))
             if module.has_relative_attention_bias:
                 module.relative_attention_bias.weight.data.normal_(mean=0.0, std=factor * ((d_model) ** -0.5))
@@ -822,13 +856,12 @@ class T5PreTrainedModel(PreTrainedModel):
         return shifted_input_ids
 
 
-class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
+class T5Stack(InvertibleAdaptersMixin, T5PreTrainedModel):
     def __init__(self, config, embed_tokens=None):
         super().__init__(config)
 
         self.embed_tokens = embed_tokens
         self.is_decoder = config.is_decoder
-        self.use_cache = config.use_cache
 
         self.block = nn.ModuleList(
             [T5Block(config, has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers)]
@@ -836,7 +869,8 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
         self.final_layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
 
-        self.init_weights()
+        # Initialize weights and apply final processing
+        self.post_init()
         # Model parallel
         self.model_parallel = False
         self.device_map = None
@@ -895,7 +929,6 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        **kwargs,
     ):
         # Model parallel
         if self.model_parallel:
@@ -908,9 +941,8 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
         if self.is_decoder and encoder_hidden_states is not None:
-            (input_ids,) = self.adjust_tensors_for_parallel(encoder_hidden_states, input_ids)
-            encoder_attention_mask = self.adjust_attention_mask_for_parallel(
-                encoder_hidden_states, encoder_attention_mask
+            input_ids, encoder_attention_mask = adjust_tensors_for_parallel(
+                encoder_hidden_states, input_ids, encoder_attention_mask
             )
 
         if input_ids is not None and inputs_embeds is not None:
@@ -937,7 +969,7 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
         mask_seq_length = past_key_values[0][0].shape[2] + seq_length if past_key_values is not None else seq_length
 
         if use_cache is True:
-            assert self.is_decoder, f":obj:`use_cache` can only be set to `True` if {self} is used as a decoder"
+            assert self.is_decoder, f"`use_cache` can only be set to `True` if {self} is used as a decoder"
 
         if attention_mask is None:
             attention_mask = torch.ones(batch_size, mask_seq_length).to(inputs_embeds.device)
@@ -1006,14 +1038,14 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
 
             if self.gradient_checkpointing and self.training:
                 if use_cache:
-                    logger.warn(
+                    logger.warning(
                         "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
                     )
                     use_cache = False
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
-                        return tuple(module(*inputs, use_cache, output_attentions, **kwargs))
+                        return tuple(module(*inputs, use_cache, output_attentions))
 
                     return custom_forward
 
@@ -1042,7 +1074,6 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
                     past_key_value=past_key_value,
                     use_cache=use_cache,
                     output_attentions=output_attentions,
-                    **kwargs,
                 )
 
             # layer_outputs is a tuple with:
@@ -1052,8 +1083,9 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
 
             hidden_states, present_key_value_state = layer_outputs[:2]
 
-            attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, attention_mask)
-            extended_attention_mask = self.adjust_attention_mask_for_parallel(hidden_states, extended_attention_mask)
+            attention_mask, extended_attention_mask = adjust_tensors_for_parallel(
+                hidden_states, attention_mask, extended_attention_mask
+            )
 
             # We share the position biases between the layers - the first layer store them
             # layer_outputs = hidden-states, key-value-states (self-attention position bias), (self-attention weights),
@@ -1066,9 +1098,9 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
                 present_key_value_states = present_key_value_states + (present_key_value_state,)
 
             if position_bias is not None:
-                position_bias = self.adjust_tensors_for_parallel(hidden_states, position_bias)[0]
+                position_bias = adjust_tensors_for_parallel(hidden_states, position_bias)[0]
             if encoder_decoder_position_bias is not None:
-                encoder_decoder_position_bias = self.adjust_tensors_for_parallel(
+                encoder_decoder_position_bias = adjust_tensors_for_parallel(
                     hidden_states, encoder_decoder_position_bias
                 )[0]
 
@@ -1113,161 +1145,153 @@ class T5Stack(InvertibleAdaptersMixin, T5StackAdaptersMixin, T5PreTrainedModel):
 
 T5_START_DOCSTRING = r"""
 
-    The T5 model was proposed in `Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer
-    <https://arxiv.org/abs/1910.10683>`__ by Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang,
-    Michael Matena, Yanqi Zhou, Wei Li, Peter J. Liu. It's an encoder decoder transformer pre-trained in a text-to-text
-    denoising generative setting.
+    The T5 model was proposed in [Exploring the Limits of Transfer Learning with a Unified Text-to-Text
+    Transformer](https://arxiv.org/abs/1910.10683) by Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan
+    Narang, Michael Matena, Yanqi Zhou, Wei Li, Peter J. Liu. It's an encoder decoder transformer pre-trained in a
+    text-to-text denoising generative setting.
 
-    This model inherits from :class:`~transformers.PreTrainedModel`. Check the superclass documentation for the generic
-    methods the library implements for all its model (such as downloading or saving, resizing the input embeddings,
-    pruning heads etc.)
+    This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
+    library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
+    etc.)
 
-    This model is also a PyTorch `torch.nn.Module <https://pytorch.org/docs/stable/nn.html#torch.nn.Module>`__
-    subclass. Use it as a regular PyTorch Module and refer to the PyTorch documentation for all matter related to
-    general usage and behavior.
+    This model is also a PyTorch [torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module) subclass.
+    Use it as a regular PyTorch Module and refer to the PyTorch documentation for all matter related to general usage
+    and behavior.
 
     Parameters:
-        config (:class:`~transformers.T5Config`): Model configuration class with all the parameters of the model.
+        config ([`T5Config`]): Model configuration class with all the parameters of the model.
             Initializing with a config file does not load the weights associated with the model, only the
-            configuration. Check out the :meth:`~transformers.PreTrainedModel.from_pretrained` method to load the model
-            weights.
+            configuration. Check out the [`~PreTrainedModel.from_pretrained`] method to load the model weights.
 """
 
 T5_INPUTS_DOCSTRING = r"""
     Args:
-        input_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`):
+        input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
             Indices of input sequence tokens in the vocabulary. T5 is a model with relative position embeddings so you
             should be able to pad the inputs on both the right and the left.
 
-            Indices can be obtained using :class:`~transformers.T5Tokenizer`. See
-            :meth:`transformers.PreTrainedTokenizer.encode` and :meth:`transformers.PreTrainedTokenizer.__call__` for
-            detail.
+            Indices can be obtained using [`T5Tokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            [`PreTrainedTokenizer.__call__`] for detail.
 
-            `What are input IDs? <../glossary.html#input-ids>`__
+            [What are input IDs?](../glossary#input-ids)
 
-            To know more on how to prepare :obj:`input_ids` for pretraining take a look a `T5 Training
-            <./t5.html#training>`__.
-        attention_mask (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-            Mask to avoid performing attention on padding token indices. Mask values selected in ``[0, 1]``:
+            To know more on how to prepare `input_ids` for pretraining take a look a [T5 Training](./t5#training).
+        attention_mask (`torch.FloatTensor` of shape `(batch_size, sequence_length)`, *optional*):
+            Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
 
             - 1 for tokens that are **not masked**,
             - 0 for tokens that are **masked**.
 
-            `What are attention masks? <../glossary.html#attention-mask>`__
-        decoder_input_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, target_sequence_length)`, `optional`):
+            [What are attention masks?](../glossary#attention-mask)
+        decoder_input_ids (`torch.LongTensor` of shape `(batch_size, target_sequence_length)`, *optional*):
             Indices of decoder input sequence tokens in the vocabulary.
 
-            Indices can be obtained using :class:`~transformers.T5Tokenizer`. See
-            :meth:`transformers.PreTrainedTokenizer.encode` and :meth:`transformers.PreTrainedTokenizer.__call__` for
-            details.
+            Indices can be obtained using [`T5Tokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            [`PreTrainedTokenizer.__call__`] for details.
 
-            `What are decoder input IDs? <../glossary.html#decoder-input-ids>`__
+            [What are decoder input IDs?](../glossary#decoder-input-ids)
 
-            T5 uses the :obj:`pad_token_id` as the starting token for :obj:`decoder_input_ids` generation. If
-            :obj:`past_key_values` is used, optionally only the last :obj:`decoder_input_ids` have to be input (see
-            :obj:`past_key_values`).
+            T5 uses the `pad_token_id` as the starting token for `decoder_input_ids` generation. If `past_key_values`
+            is used, optionally only the last `decoder_input_ids` have to be input (see `past_key_values`).
 
-            To know more on how to prepare :obj:`decoder_input_ids` for pretraining take a look at `T5 Training
-            <./t5.html#training>`__.
-        decoder_attention_mask (:obj:`torch.BoolTensor` of shape :obj:`(batch_size, target_sequence_length)`, `optional`):
-            Default behavior: generate a tensor that ignores pad tokens in :obj:`decoder_input_ids`. Causal mask will
-            also be used by default.
-        head_mask (:obj:`torch.FloatTensor` of shape :obj:`(num_heads,)` or :obj:`(num_layers, num_heads)`, `optional`):
-            Mask to nullify selected heads of the self-attention modules in the encoder. Mask values selected in ``[0,
-            1]``:
+            To know more on how to prepare `decoder_input_ids` for pretraining take a look at [T5
+            Training](./t5#training).
+        decoder_attention_mask (`torch.BoolTensor` of shape `(batch_size, target_sequence_length)`, *optional*):
+            Default behavior: generate a tensor that ignores pad tokens in `decoder_input_ids`. Causal mask will also
+            be used by default.
+        head_mask (`torch.FloatTensor` of shape `(num_heads,)` or `(num_layers, num_heads)`, *optional*):
+            Mask to nullify selected heads of the self-attention modules in the encoder. Mask values selected in `[0,
+            1]`:
 
             - 1 indicates the head is **not masked**,
             - 0 indicates the head is **masked**.
 
-        decoder_head_mask (:obj:`torch.FloatTensor` of shape :obj:`(num_heads,)` or :obj:`(num_layers, num_heads)`, `optional`):
-            Mask to nullify selected heads of the self-attention modules in the decoder. Mask values selected in ``[0,
-            1]``:
+        decoder_head_mask (`torch.FloatTensor` of shape `(num_heads,)` or `(num_layers, num_heads)`, *optional*):
+            Mask to nullify selected heads of the self-attention modules in the decoder. Mask values selected in `[0,
+            1]`:
 
             - 1 indicates the head is **not masked**,
             - 0 indicates the head is **masked**.
 
-        cross_attn_head_mask (:obj:`torch.Tensor` of shape :obj:`(num_heads,)` or :obj:`(num_layers, num_heads)`, `optional`):
+        cross_attn_head_mask (`torch.Tensor` of shape `(num_heads,)` or `(num_layers, num_heads)`, *optional*):
                 Mask to nullify selected heads of the cross-attention modules in the decoder. Mask values selected in
-                ``[0, 1]``:
+                `[0, 1]`:
 
                 - 1 indicates the head is **not masked**,
                 - 0 indicates the head is **masked**.
 
-        encoder_outputs (:obj:`tuple(tuple(torch.FloatTensor)`, `optional`):
-            Tuple consists of (:obj:`last_hidden_state`, :obj:`optional`: `hidden_states`, :obj:`optional`:
-            `attentions`) :obj:`last_hidden_state` of shape :obj:`(batch_size, sequence_length, hidden_size)` is a
-            sequence of hidden states at the output of the last layer of the encoder. Used in the cross-attention of
-            the decoder.
-        past_key_values (:obj:`tuple(tuple(torch.FloatTensor))` of length :obj:`config.n_layers` with each tuple having 4 tensors of shape :obj:`(batch_size, num_heads, sequence_length - 1, embed_size_per_head)`):
+        encoder_outputs (`tuple(tuple(torch.FloatTensor)`, *optional*):
+            Tuple consists of (`last_hidden_state`, `optional`: *hidden_states*, `optional`: *attentions*)
+            `last_hidden_state` of shape `(batch_size, sequence_length, hidden_size)` is a sequence of hidden states at
+            the output of the last layer of the encoder. Used in the cross-attention of the decoder.
+        past_key_values (`tuple(tuple(torch.FloatTensor))` of length `config.n_layers` with each tuple having 4 tensors of shape `(batch_size, num_heads, sequence_length - 1, embed_size_per_head)`):
             Contains precomputed key and value hidden states of the attention blocks. Can be used to speed up decoding.
 
-            If :obj:`past_key_values` are used, the user can optionally input only the last :obj:`decoder_input_ids`
-            (those that don't have their past key value states given to this model) of shape :obj:`(batch_size, 1)`
-            instead of all :obj:`decoder_input_ids` of shape :obj:`(batch_size, sequence_length)`.
-        inputs_embeds (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
-            Optionally, instead of passing :obj:`input_ids` you can choose to directly pass an embedded representation.
-            This is useful if you want more control over how to convert :obj:`input_ids` indices into associated
-            vectors than the model's internal embedding lookup matrix.
-        decoder_inputs_embeds (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, target_sequence_length, hidden_size)`, `optional`):
-            Optionally, instead of passing :obj:`decoder_input_ids` you can choose to directly pass an embedded
-            representation. If :obj:`past_key_values` is used, optionally only the last :obj:`decoder_inputs_embeds`
-            have to be input (see :obj:`past_key_values`). This is useful if you want more control over how to convert
-            :obj:`decoder_input_ids` indices into associated vectors than the model's internal embedding lookup matrix.
+            If `past_key_values` are used, the user can optionally input only the last `decoder_input_ids` (those that
+            don't have their past key value states given to this model) of shape `(batch_size, 1)` instead of all
+            `decoder_input_ids` of shape `(batch_size, sequence_length)`.
+        inputs_embeds (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`, *optional*):
+            Optionally, instead of passing `input_ids` you can choose to directly pass an embedded representation. This
+            is useful if you want more control over how to convert `input_ids` indices into associated vectors than the
+            model's internal embedding lookup matrix.
+        decoder_inputs_embeds (`torch.FloatTensor` of shape `(batch_size, target_sequence_length, hidden_size)`, *optional*):
+            Optionally, instead of passing `decoder_input_ids` you can choose to directly pass an embedded
+            representation. If `past_key_values` is used, optionally only the last `decoder_inputs_embeds` have to be
+            input (see `past_key_values`). This is useful if you want more control over how to convert
+            `decoder_input_ids` indices into associated vectors than the model's internal embedding lookup matrix.
 
-            If :obj:`decoder_input_ids` and :obj:`decoder_inputs_embeds` are both unset, :obj:`decoder_inputs_embeds`
-            takes the value of :obj:`inputs_embeds`.
+            If `decoder_input_ids` and `decoder_inputs_embeds` are both unset, `decoder_inputs_embeds` takes the value
+            of `inputs_embeds`.
 
-        use_cache (:obj:`bool`, `optional`):
-            If set to :obj:`True`, :obj:`past_key_values` key value states are returned and can be used to speed up
-            decoding (see :obj:`past_key_values`).
+        use_cache (`bool`, *optional*):
+            If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding (see
+            `past_key_values`).
 
-        output_attentions (:obj:`bool`, `optional`):
-            Whether or not to return the attentions tensors of all attention layers. See ``attentions`` under returned
+        output_attentions (`bool`, *optional*):
+            Whether or not to return the attentions tensors of all attention layers. See `attentions` under returned
             tensors for more detail.
-        output_hidden_states (:obj:`bool`, `optional`):
-            Whether or not to return the hidden states of all layers. See ``hidden_states`` under returned tensors for
+        output_hidden_states (`bool`, *optional*):
+            Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors for
             more detail.
-        return_dict (:obj:`bool`, `optional`):
-            Whether or not to return a :class:`~transformers.file_utils.ModelOutput` instead of a plain tuple.
+        return_dict (`bool`, *optional*):
+            Whether or not to return a [`~file_utils.ModelOutput`] instead of a plain tuple.
 """
 
 T5_ENCODER_INPUTS_DOCSTRING = r"""
     Args:
-        input_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`):
+        input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
             Indices of input sequence tokens in the vocabulary. T5 is a model with relative position embeddings so you
             should be able to pad the inputs on both the right and the left.
 
-            Indices can be obtained using :class:`~transformers.T5Tokenizer`. See
-            :meth:`transformers.PreTrainedTokenizer.encode` and :meth:`transformers.PreTrainedTokenizer.__call__` for
-            detail.
+            Indices can be obtained using [`T5Tokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            [`PreTrainedTokenizer.__call__`] for detail.
 
-            To know more on how to prepare :obj:`input_ids` for pretraining take a look a `T5 Training
-            <./t5.html#training>`__.
-        attention_mask (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-            Mask to avoid performing attention on padding token indices. Mask values selected in ``[0, 1]``:
+            To know more on how to prepare `input_ids` for pretraining take a look a [T5 Training](./t5#training).
+        attention_mask (`torch.FloatTensor` of shape `(batch_size, sequence_length)`, *optional*):
+            Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
 
             - 1 for tokens that are **not masked**,
             - 0 for tokens that are **masked**.
 
-            `What are attention masks? <../glossary.html#attention-mask>`__
-        head_mask (:obj:`torch.FloatTensor` of shape :obj:`(num_heads,)` or :obj:`(num_layers, num_heads)`, `optional`):
-            Mask to nullify selected heads of the self-attention modules. Mask values selected in ``[0, 1]``:
+            [What are attention masks?](../glossary#attention-mask)
+        head_mask (`torch.FloatTensor` of shape `(num_heads,)` or `(num_layers, num_heads)`, *optional*):
+            Mask to nullify selected heads of the self-attention modules. Mask values selected in `[0, 1]`:
 
             - 1 indicates the head is **not masked**,
             - 0 indicates the head is **masked**.
 
-        inputs_embeds (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
-            Optionally, instead of passing :obj:`input_ids` you can choose to directly pass an embedded representation.
-            This is useful if you want more control over how to convert :obj:`input_ids` indices into associated
-            vectors than the model's internal embedding lookup matrix.
-        output_attentions (:obj:`bool`, `optional`):
-            Whether or not to return the attentions tensors of all attention layers. See ``attentions`` under returned
+        inputs_embeds (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`, *optional*):
+            Optionally, instead of passing `input_ids` you can choose to directly pass an embedded representation. This
+            is useful if you want more control over how to convert `input_ids` indices into associated vectors than the
+            model's internal embedding lookup matrix.
+        output_attentions (`bool`, *optional*):
+            Whether or not to return the attentions tensors of all attention layers. See `attentions` under returned
             tensors for more detail.
-        output_hidden_states (:obj:`bool`, `optional`):
-            Whether or not to return the hidden states of all layers. See ``hidden_states`` under returned tensors for
+        output_hidden_states (`bool`, *optional*):
+            Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors for
             more detail.
-        return_dict (:obj:`bool`, `optional`):
-            Whether or not to return a :class:`~transformers.file_utils.ModelOutput` instead of a plain tuple.
+        return_dict (`bool`, *optional*):
+            Whether or not to return a [`~file_utils.ModelOutput`] instead of a plain tuple.
 """
 
 # Warning message for FutureWarning: head_mask was separated into two input args - head_mask, decoder_head_mask
@@ -1311,7 +1335,9 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
         self.decoder = T5Stack(decoder_config, self.shared)
 
         self._init_adapter_modules()
-        self.init_weights()
+
+        # Initialize weights and apply final processing
+        self.post_init()
 
         # Model parallel
         self.model_parallel = False
@@ -1363,6 +1389,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
 
     @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqModelOutput, config_class=_CONFIG_FOR_DOC)
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -1379,30 +1406,30 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
         use_cache=None,
         output_attentions=None,
         output_hidden_states=None,
-        adapter_names=None,
         return_dict=None,
-        **kwargs,
     ):
         r"""
         Returns:
 
-        Example::
+        Example:
 
-            >>> from transformers import T5Tokenizer, T5Model
+        ```python
+        >>> from transformers import T5Tokenizer, T5Model
 
-            >>> tokenizer = T5Tokenizer.from_pretrained('t5-small')
-            >>> model = T5Model.from_pretrained('t5-small')
+        >>> tokenizer = T5Tokenizer.from_pretrained("t5-small")
+        >>> model = T5Model.from_pretrained("t5-small")
 
-            >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
-            >>> decoder_input_ids = tokenizer("Studies show that", return_tensors="pt").input_ids  # Batch size 1
+        >>> input_ids = tokenizer(
+        ...     "Studies have been shown that owning a dog is good for you", return_tensors="pt"
+        >>> ).input_ids  # Batch size 1
+        >>> decoder_input_ids = tokenizer("Studies show that", return_tensors="pt").input_ids  # Batch size 1
 
-            >>> # forward pass
-            >>> outputs = model(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
-            >>> last_hidden_states = outputs.last_hidden_state
-        """
+        >>> # forward pass
+        >>> outputs = model(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
+        >>> last_hidden_states = outputs.last_hidden_state
+        ```"""
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        self.pre_transformer_forward()
 
         # FutureWarning: head_mask was separated into two input args - head_mask, decoder_head_mask
         if head_mask is not None and decoder_head_mask is None:
@@ -1419,9 +1446,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
                 head_mask=head_mask,
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
-                adapter_names=adapter_names,
                 return_dict=return_dict,
-                **kwargs,
             )
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
@@ -1457,9 +1482,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
             use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            adapter_names=adapter_names,
             return_dict=return_dict,
-            **kwargs,
         )
 
         if not return_dict:
@@ -1477,13 +1500,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
         )
 
 
-@add_start_docstrings(
-    """
-T5 Model with a `language modeling` head on top. The exact order of inheritance here is necessary, as
-T5ModelAdaptersMixin replaces methods in ModelWithHeadsAdaptersMixin that would result in infinite recursion otherwise.
-""",
-    T5_START_DOCSTRING,
-)
+@add_start_docstrings("""T5 Model with a `language modeling` head on top.""", T5_START_DOCSTRING)
 class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin, T5PreTrainedModel):
     _keys_to_ignore_on_load_missing = [
         r"encoder\.embed_tokens\.weight",
@@ -1497,6 +1514,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
     def __init__(self, config):
         super().__init__(config)
         self.model_dim = config.d_model
+
         self.shared = nn.Embedding(config.vocab_size, config.d_model)
 
         encoder_config = copy.deepcopy(config)
@@ -1516,7 +1534,9 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
         self._init_adapter_modules()
-        self.init_weights()
+
+        # Initialize weights and apply final processing
+        self.post_init()
 
         # Model parallel
         self.model_parallel = False
@@ -1568,6 +1588,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
 
     @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -1586,40 +1607,40 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        adapter_names=None,
-        **kwargs,
     ):
         r"""
-        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
-            Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[-100, 0, ...,
-            config.vocab_size - 1]`. All labels set to ``-100`` are ignored (masked), the loss is only computed for
-            labels in ``[0, ..., config.vocab_size]``
+        labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
+            Labels for computing the sequence classification/regression loss. Indices should be in `[-100, 0, ...,
+            config.vocab_size - 1]`. All labels set to `-100` are ignored (masked), the loss is only computed for
+            labels in `[0, ..., config.vocab_size]`
 
         Returns:
 
-        Examples::
+        Examples:
 
-            >>> from transformers import T5Tokenizer, T5ForConditionalGeneration
+        ```python
+        >>> from transformers import T5Tokenizer, T5ForConditionalGeneration
 
-            >>> tokenizer = T5Tokenizer.from_pretrained('t5-small')
-            >>> model = T5ForConditionalGeneration.from_pretrained('t5-small')
+        >>> tokenizer = T5Tokenizer.from_pretrained("t5-small")
+        >>> model = T5ForConditionalGeneration.from_pretrained("t5-small")
 
-            >>> # training
-            >>> input_ids = tokenizer('The <extra_id_0> walks in <extra_id_1> park', return_tensors='pt').input_ids
-            >>> labels = tokenizer('<extra_id_0> cute dog <extra_id_1> the <extra_id_2>', return_tensors='pt').input_ids
-            >>> outputs = model(input_ids=input_ids, labels=labels)
-            >>> loss = outputs.loss
-            >>> logits = outputs.logits
+        >>> # training
+        >>> input_ids = tokenizer("The <extra_id_0> walks in <extra_id_1> park", return_tensors="pt").input_ids
+        >>> labels = tokenizer("<extra_id_0> cute dog <extra_id_1> the <extra_id_2>", return_tensors="pt").input_ids
+        >>> outputs = model(input_ids=input_ids, labels=labels)
+        >>> loss = outputs.loss
+        >>> logits = outputs.logits
 
-            >>> # inference
-            >>> input_ids = tokenizer("summarize: studies have shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
-            >>> outputs = model.generate(input_ids)
-            >>> print(tokenizer.decode(outputs[0], skip_special_tokens=True))
-            >>> # studies have shown that owning a dog is good for you.
-        """
+        >>> # inference
+        >>> input_ids = tokenizer(
+        ...     "summarize: studies have shown that owning a dog is good for you", return_tensors="pt"
+        >>> ).input_ids  # Batch size 1
+        >>> outputs = model.generate(input_ids)
+        >>> print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+        >>> # studies have shown that owning a dog is good for you.
+        ```"""
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        self.pre_transformer_forward()
 
         # FutureWarning: head_mask was separated into two input args - head_mask, decoder_head_mask
         if head_mask is not None and decoder_head_mask is None:
@@ -1638,8 +1659,6 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
-                adapter_names=adapter_names,
-                **kwargs,
             )
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
@@ -1681,9 +1700,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
             use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            adapter_names=adapter_names,
             return_dict=return_dict,
-            **kwargs,
         )
 
         sequence_output = decoder_outputs[0]
@@ -1697,7 +1714,7 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
         if self.config.tie_word_embeddings:
             # Rescale output before projecting on vocab
             # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/transformer.py#L586
-            sequence_output = sequence_output * (self.model_dim ** -0.5)
+            sequence_output = sequence_output * (self.model_dim**-0.5)
 
         projected_output = self.encoder.invertible_adapters_forward(sequence_output, rev=True)
 
@@ -1801,7 +1818,8 @@ class T5EncoderModel(T5ModelAdaptersMixin, T5PreTrainedModel):
         encoder_config.is_encoder_decoder = False
         self.encoder = T5Stack(encoder_config, self.shared)
 
-        self.init_weights()
+        # Initialize weights and apply final processing
+        self.post_init()
 
         # Model parallel
         self.model_parallel = False
@@ -1859,15 +1877,19 @@ class T5EncoderModel(T5ModelAdaptersMixin, T5PreTrainedModel):
         r"""
         Returns:
 
-        Example::
+        Example:
 
-            >>> from transformers import T5Tokenizer, T5EncoderModel
-            >>> tokenizer = T5Tokenizer.from_pretrained('t5-small')
-            >>> model = T5EncoderModel.from_pretrained('t5-small')
-            >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
-            >>> outputs = model(input_ids=input_ids)
-            >>> last_hidden_states = outputs.last_hidden_state
-        """
+        ```python
+        >>> from transformers import T5Tokenizer, T5EncoderModel
+
+        >>> tokenizer = T5Tokenizer.from_pretrained("t5-small")
+        >>> model = T5EncoderModel.from_pretrained("t5-small")
+        >>> input_ids = tokenizer(
+        ...     "Studies have been shown that owning a dog is good for you", return_tensors="pt"
+        >>> ).input_ids  # Batch size 1
+        >>> outputs = model(input_ids=input_ids)
+        >>> last_hidden_states = outputs.last_hidden_state
+        ```"""
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         encoder_outputs = self.encoder(
@@ -1879,89 +1901,5 @@ class T5EncoderModel(T5ModelAdaptersMixin, T5PreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
+
         return encoder_outputs
-
-
-class T5ModelWithHeads(T5ModelHeadsMixin, T5PreTrainedModel):
-    def __init__(self, config):
-        super().__init__(config)
-
-        self.transformer = T5Model(config)
-
-        self._init_head_modules()
-        self._init_adapter_modules()
-        self.init_weights()
-
-        # Model parallel
-        self.model_parallel = False
-        self.device_map = None
-
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        decoder_input_ids=None,
-        decoder_attention_mask=None,
-        head_mask=None,
-        decoder_head_mask=None,
-        cross_attn_head_mask=None,
-        encoder_outputs=None,
-        past_key_values=None,
-        inputs_embeds=None,
-        decoder_inputs_embeds=None,
-        labels=None,
-        use_cache=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        adapter_names=None,
-        head=None,
-        **kwargs
-    ):
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        if labels is not None and decoder_input_ids is None and decoder_inputs_embeds is None:
-            # get decoder inputs from shifting lm labels to the right
-            decoder_input_ids = self._shift_right(labels)
-
-        model_output = self.transformer(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            decoder_input_ids=decoder_input_ids,
-            decoder_attention_mask=decoder_attention_mask,
-            head_mask=head_mask,
-            decoder_head_mask=decoder_head_mask,
-            cross_attn_head_mask=cross_attn_head_mask,
-            encoder_outputs=encoder_outputs,
-            past_key_values=past_key_values,
-            inputs_embeds=inputs_embeds,
-            decoder_inputs_embeds=decoder_inputs_embeds,
-            labels=labels,
-            use_cache=use_cache,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-            adapter_names=adapter_names,
-        )
-        sequence_output = model_output[0]
-        # ToDo move head to device for parallel forward pass
-
-        if self.config.tie_word_embeddings:
-            # Rescale output before projecting on vocab
-            # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/transformer.py#L586
-            new_hidden_state = sequence_output * (self.config.d_model ** -0.5)
-            if isinstance(model_output, tuple):
-                model_output = (new_hidden_state,) + model_output[1:]
-            else:
-                model_output["last_hidden_state"] = new_hidden_state
-
-        if head or self.active_head:
-            kwargs["labels"] = labels
-            head_outputs = self.forward_head(
-                model_output,
-                head_name=head,
-                return_dict=return_dict,
-                **kwargs,
-            )
-            return head_outputs
-        else:
-            return model_output

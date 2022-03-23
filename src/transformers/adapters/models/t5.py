@@ -1,239 +1,162 @@
-from typing import Union
+import logging
+import warnings
 
 import torch
 
-from ..composition import AdapterCompositionBlock, parse_composition
-from ..heads import Seq2SeqLMHead
-from ..layer import AdapterLayerBaseMixin
-from ..model_mixin import ModelAdaptersMixin
-from .bert import ModelWithFlexibleHeadsAdaptersMixin
+from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from ...models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOCSTRING, T5Model, T5PreTrainedModel
+from ..heads import ModelWithFlexibleHeadsAdaptersMixin, Seq2SeqLMHead
 
 
-class T5SelfAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
-    @property
-    def adapter_config_key(self):
-        return "mh_adapter"
-
-    @property
-    def transformer_layer_norm(self):
-        # T5  has layer norms after each component
-        return None
+logger = logging.getLogger(__name__)
 
 
-class T5CrossAttentionLayerAdaptersMixin(AdapterLayerBaseMixin):
-    @property
-    def adapter_config_key(self):
-        return "cross_adapter"
+@add_start_docstrings("T5 Model with the option to add multiple flexible prediction heads on top.", T5_START_DOCSTRING)
+class T5AdapterModel(ModelWithFlexibleHeadsAdaptersMixin, T5PreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
 
-    @property
-    def transformer_layer_norm(self):
-        # T5  has layer norms after each component
-        return None
+        self.transformer = T5Model(config)
 
+        self._init_head_modules()
+        self._init_adapter_modules()
+        self.init_weights()
 
-class T5FFLayerAdaptersMixin(AdapterLayerBaseMixin):
-    @property
-    def adapter_config_key(self):
-        return "output_adapter"
+        # Model parallel
+        self.model_parallel = False
+        self.device_map = None
 
-    @property
-    def transformer_layer_norm(self):
-        # T5  has layer norms after each component
-        return None
+    def get_encoder(self):
+        return self.transformer.encoder
 
+    def get_decoder(self):
+        return self.transformer.decoder
 
-class T5BlockAdaptersMixin:
-    """Adds adapters to the T5Block module of T5."""
-
-    def __init__(self, config, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.config = config
-
-    def add_fusion_layer(self, adapter_names):
-        self.layer[0].add_fusion_layer(adapter_names)  # attention adapters
-        self.layer[-1].add_fusion_layer(adapter_names)  # output adapters
-
-    def add_adapter(self, adapter_name: str, layer_idx: int):
-        for layer in self.layer:
-            layer.add_adapter(adapter_name, layer_idx)
-
-    def enable_adapters(
-        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
+    @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        encoder_outputs=None,
+        past_key_values=None,
+        inputs_embeds=None,
+        decoder_inputs_embeds=None,
+        labels=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        head=None,
+        **kwargs
     ):
-        for layer in self.layer:
-            layer.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        if labels is not None and decoder_input_ids is None and decoder_inputs_embeds is None:
+            # get decoder inputs from shifting lm labels to the right
+            decoder_input_ids = self._shift_right(labels)
 
-    def delete_adapter(self, adapter_name):
-        for layer in self.layer:
-            layer.delete_adapter(adapter_name)
+        model_output = self.transformer(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            decoder_attention_mask=decoder_attention_mask,
+            head_mask=head_mask,
+            decoder_head_mask=decoder_head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            encoder_outputs=encoder_outputs,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            decoder_inputs_embeds=decoder_inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        sequence_output = model_output[0]
+        # ToDo move head to device for parallel forward pass
 
-    def delete_fusion_layer(self, adapter_names):
-        for layer in self.layer:
-            layer.delete_fusion_layer(adapter_names)
-
-
-class T5StackAdaptersMixin:
-    """Adds adapters to the T5Stack module of T5."""
-
-    def point_adapter_configs(self, parent_config):
-        self.config = parent_config
-
-    def add_fusion_layer(self, adapter_names):
-        for block in self.block:
-            block.add_fusion_layer(adapter_names)
-
-    def add_adapter(self, adapter_name: str, layer_idx_offset: int = 0):
-        adapter_config = self.config.adapters.get(adapter_name)
-        leave_out = adapter_config.get("leave_out", [])
-        for i, block in enumerate(self.block, start=layer_idx_offset):
-            if i not in leave_out:
-                block.add_adapter(adapter_name, i)
-
-    def delete_adapter(self, adapter_name: str):
-        for layer in self.block:
-            layer.delete_adapter(adapter_name)
-
-    def delete_fusion_layer(self, adapter_names):
-        for layer in self.block:
-            layer.delete_fusion_layer(adapter_names)
-
-    def enable_adapters(
-        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_attention: bool
-    ):
-        for block in self.block:
-            block.enable_adapters(adapter_setup, unfreeze_adapters, unfreeze_attention)
-
-    def adjust_attention_mask_for_parallel(self, hidden_states, attention_mask):
-        if attention_mask is not None and hidden_states.shape[0] != attention_mask.shape[0]:
-            repeats = [1] * len(attention_mask.shape)
-            repeats[0] = hidden_states.shape[0] // attention_mask.shape[0]
-            attention_mask = attention_mask.repeat(*repeats)
-        return attention_mask
-
-    def adjust_tensors_for_parallel(self, hidden_states, *tensors):
-        outputs = []
-        for tensor in tensors:
-            if tensor is not None and hidden_states.shape[0] != tensor.shape[0]:
-                repeats = [1] * len(tensor.shape)
-                repeats[0] = hidden_states.shape[0] // tensor.shape[0]
-                new_tensor = tensor.repeat(*repeats)
-                outputs.append(new_tensor)
+        if self.config.tie_word_embeddings:
+            # Rescale output before projecting on vocab
+            # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/transformer.py#L586
+            new_hidden_state = sequence_output * (self.config.d_model**-0.5)
+            if isinstance(model_output, tuple):
+                model_output = (new_hidden_state,) + model_output[1:]
             else:
-                outputs.append(tensor)
-        return tuple(outputs)
+                model_output["last_hidden_state"] = new_hidden_state
 
-
-class T5ModelAdaptersMixin(ModelAdaptersMixin):
-    """Adds adapters to the T5Model class."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def _init_adapter_modules(self):
-        super()._init_adapter_modules()
-        if hasattr(self, "encoder"):
-            # In T5, the invertible adapters are implemented by the encoder module.
-            # Therefore, relay mixin calls to the encoder here.
-            self.invertible_adapters = self.encoder.invertible_adapters
-            self.add_invertible_adapter = self.encoder.add_invertible_adapter
-            self.get_invertible_adapter = self.encoder.get_invertible_adapter
-            self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
-            self.delete_invertible_adapter = self.encoder.delete_invertible_adapter
-
-    def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
-        """Sets the model into mode for training the given adapters."""
-        self.train()
-        self.freeze_model(True)
-        adapter_setup = parse_composition(adapter_setup)
-        if hasattr(self, "encoder"):
-            self.encoder.enable_adapters(adapter_setup, True, False)
-            self.encoder.enable_invertible_adapters(adapter_setup.flatten())
-        self.decoder.enable_adapters(adapter_setup, True, False)
-        # use the adapters to be trained by default in every forward pass
-        self.set_active_adapters(adapter_setup)
-        if train_embeddings:
-            self.get_input_embeddings().train()
-
-    def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        self.train()
-        self.freeze_model(True)
-        adapter_setup = parse_composition(adapter_setup)
-        if hasattr(self, "encoder"):
-            self.encoder.enable_adapters(adapter_setup, unfreeze_adapters, True)
-        self.decoder.enable_adapters(adapter_setup, unfreeze_adapters, True)
-        # use the adapters to be trained by default in every forward pass
-        self.set_active_adapters(adapter_setup)
-
-    def _add_adapter(self, adapter_name):
-        if hasattr(self, "encoder"):
-            self.encoder.add_adapter(adapter_name)
-            # make sure the layers in encoder & decoder are numbered from 0 to len(encoder+decoder)
-            self.decoder.add_adapter(adapter_name, layer_idx_offset=len(self.encoder.block))
+        if head or self.active_head:
+            kwargs["labels"] = labels
+            head_outputs = self.forward_head(
+                model_output,
+                head_name=head,
+                return_dict=return_dict,
+                **kwargs,
+            )
+            return head_outputs
         else:
-            self.decoder.add_adapter(adapter_name)
-        self.encoder.add_invertible_adapter(adapter_name)
+            return model_output
 
-    def _add_fusion_layer(self, adapter_names):
-        if hasattr(self, "encoder"):
-            self.encoder.add_fusion_layer(adapter_names)
-        self.decoder.add_fusion_layer(adapter_names)
+    # Copied from T5ForConditionalGeneration
+    def prepare_inputs_for_generation(
+        self,
+        input_ids,
+        past=None,
+        attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        use_cache=None,
+        encoder_outputs=None,
+        **kwargs
+    ):
 
-    def _delete_adapter(self, adapter_name: str):
-        if hasattr(self, "encoder"):
-            self.encoder.delete_adapter(adapter_name)
-            self.encoder.delete_invertible_adapter(adapter_name)
-        self.decoder.delete_adapter(adapter_name)
+        # cut decoder_input_ids if past is used
+        if past is not None:
+            input_ids = input_ids[:, -1:]
 
-    def _delete_fusion_layer(self, adapter_names):
-        if hasattr(self, "encoder"):
-            self.encoder.delete_fusion_layer(adapter_names)
-        self.decoder.delete_fusion_layer(adapter_names)
+        return {
+            "decoder_input_ids": input_ids,
+            "past_key_values": past,
+            "encoder_outputs": encoder_outputs,
+            "attention_mask": attention_mask,
+            "head_mask": head_mask,
+            "decoder_head_mask": decoder_head_mask,
+            "cross_attn_head_mask": cross_attn_head_mask,
+            "use_cache": use_cache,
+        }
 
-    def get_fusion_regularization_loss(self):
-        reg_loss = 0.0
-        target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
-        # encoder
-        if hasattr(self, "encoder"):
-            for _, v in self.encoder.block._modules.items():
-                for _, layer_fusion in v.layer[-1].adapter_fusion_layer.items():
-                    if hasattr(layer_fusion, "value"):
-                        reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+    # Copied from T5ForConditionalGeneration
+    def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
+        return self._shift_right(labels)
 
-                for _, layer_fusion in v.layer[0].adapter_fusion_layer.items():
-                    if hasattr(layer_fusion, "value"):
-                        reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
-        # decoder
-        for _, v in self.decoder.block._modules.items():
-            for _, layer_fusion in v.layer[-1].adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+    # Copied from T5ForConditionalGeneration
+    def _reorder_cache(self, past, beam_idx):
+        # if decoder past is not included in output
+        # speedy decoding is disabled and no need to reorder
+        if past is None:
+            logger.warning("You might want to consider setting `use_cache=True` to speed up decoding")
+            return past
 
-            for _, layer_fusion in v.layer[0].adapter_fusion_layer.items():
-                if hasattr(layer_fusion, "value"):
-                    reg_loss += 0.01 * (target - layer_fusion.value.weight).pow(2).sum()
+        reordered_decoder_past = ()
+        for layer_past_states in past:
+            # get the correct batch idx from layer past batch dim
+            # batch dim of `past` is at 2nd position
+            reordered_layer_past_states = ()
+            for layer_past_state in layer_past_states:
+                # need to set correct `past` for each of the four key / value states
+                reordered_layer_past_states = reordered_layer_past_states + (
+                    layer_past_state.index_select(0, beam_idx.to(layer_past_state.device)),
+                )
 
-        return reg_loss
+            assert reordered_layer_past_states[0].shape == layer_past_states[0].shape
+            assert len(reordered_layer_past_states) == len(layer_past_states)
 
-    def get_adapter(self, name):
-        return_adapters = {}
-        for idx, block in enumerate(self.encoder.block):
-            # In each block of T5Stack that is an encoder, the first layer is T5LayerSelfAttention, the second is T5LayerFF
-            adapters = {
-                "attention": block.layer[0].adapters,
-                "output": block.layer[1].adapters,
-            }
-            for key, adapt in adapters.items():
-                if hasattr(adapt, name):
-                    if idx not in return_adapters:
-                        return_adapters[idx] = {}
-                    return_adapters[idx][key] = getattr(adapt, name)
-
-        return return_adapters
-
-
-class T5ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
-    """Adds flexible heads to a T5 model."""
+            reordered_decoder_past = reordered_decoder_past + (reordered_layer_past_states,)
+        return reordered_decoder_past
 
     head_types = {
         "seq2seq_lm": Seq2SeqLMHead,
@@ -249,3 +172,37 @@ class T5ModelHeadsMixin(ModelWithFlexibleHeadsAdaptersMixin):
         """
         head = Seq2SeqLMHead(self, head_name)
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+
+class T5ModelWithHeads(T5AdapterModel):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                self.__class__.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_config(cls, config):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_config(config)
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        warnings.warn(
+            "This class has been renamed to `{}` in v3. "
+            "Please use the new class instead as this class might be removed in a future version.".format(
+                cls.__bases__[0].__name__
+            ),
+            FutureWarning,
+        )
+        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

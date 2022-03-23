@@ -16,11 +16,11 @@ pip install -r ./examples/<your_examples_folder>/requirements.txt
 Training a task adapter module on a dataset only requires minor modifications from training the full model.
 Suppose we have an existing script for training a Transformer model, here we will use HuggingFace's [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue.py) example script for training on the GLUE dataset.
 
-In our example, we replaced the built-in `AutoModelForSequenceClassification` class with the `AutoModelWithHeads` class introduced by `adapter-transformers` (learn more about prediction heads [here](prediction_heads.md)).
+In our example, we replaced the built-in `AutoModelForSequenceClassification` class with the `AutoAdapterModel` class introduced by `adapter-transformers` (learn more about prediction heads [here](prediction_heads.md)).
 Therefore, the model instantiation changed to:
 
 ```python
-model = AutoModelWithHeads.from_pretrained(
+model = AutoAdapterModel.from_pretrained(
         model_args.model_name_or_path,
         config=config,
 )
@@ -65,7 +65,7 @@ model.set_active_adapters(task_name)
 
 The rest of the training procedure does not require any further changes in code.
 
-You can find the full version of the modified training script for GLUE at [run_glue_alt.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue_alt.py) in the `examples` folder of our repository.
+You can find the full version of the modified training script for GLUE at [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue.py) in the `examples` folder of our repository.
 We also adapted [various other example scripts](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples) (e.g. `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
 
 To start adapter training on a GLUE task, you can run something similar to:
@@ -73,7 +73,7 @@ To start adapter training on a GLUE task, you can run something similar to:
 ```
 export TASK_NAME=mrpc
 
-python run_glue_alt.py \
+python run_glue.py \
   --model_name_or_path bert-base-uncased \
   --task_name $TASK_NAME \
   --do_train \

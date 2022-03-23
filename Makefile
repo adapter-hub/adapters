@@ -31,25 +31,25 @@ deps_table_check_updated:
 
 autogenerate_code: deps_table_update
 
-# Check that source code meets quality standards
+# Check that the repo is in a good state
 
 # NOTE FOR adapter-transformers: The following check is skipped as not all copies implement adapters yet
 # python utils/check_copies.py
 # python utils/check_table.py
 # python utils/check_dummies.py
-# python utils/tests_fetcher.py --sanity_check
-extra_quality_checks:
+repo-consistency:
 	python utils/check_repo.py
 	python utils/check_inits.py
 	python utils/check_adapters.py
 
 # this target runs checks on all files
+
 quality:
 	black --check $(check_dirs)
 	isort --check-only $(check_dirs)
 	python utils/custom_init_isort.py --check_only
 	flake8 $(check_dirs)
-	${MAKE} extra_quality_checks
+	python utils/style_doc.py src/transformers docs/source --max_len 119 --check_only
 
 # Format source code automatically and check is there are any problems left that need manual fixing
 
@@ -58,6 +58,7 @@ extra_style_checks:
 	python utils/style_doc.py src/transformers docs/source --max_len 119
 
 # this target runs checks on all files and potentially modifies some of them
+
 style:
 	black $(check_dirs)
 	isort $(check_dirs)
@@ -66,7 +67,7 @@ style:
 
 # Super fast fix and check target that only works on relevant modified files since the branch was made
 
-fixup: modified_only_fixup extra_style_checks autogenerate_code extra_quality_checks
+fixup: modified_only_fixup extra_style_checks autogenerate_code repo-consistency
 
 # Make marked copies of snippets of codes conform to the original
 
@@ -82,16 +83,8 @@ test:
 
 # Run the adapter tests
 
-test-adapter:
-	python -m pytest -n auto --dist=loadfile -s -v\
-		-k test_adapter\
-		--ignore-glob='tests/test_tokenization*'\
-		--ignore-glob='tests/test_processor*'\
-		./tests/
-
-# Run a reduced test suite in the CI pipeline of adapter-transformers
-test-reduced:
-	python utils/run_tests.py
+test-adapters:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests_adapters/
 
 # Run tests for examples
 
@@ -103,11 +96,6 @@ test-examples:
 test-sagemaker: # install sagemaker dependencies in advance with pip install .[sagemaker]
 	TEST_SAGEMAKER=True python -m pytest -n auto  -s -v ./tests/sagemaker
 
-
-# Check that docs can build
-
-docs:
-	cd docs && make html SPHINXOPTS="-W -j 4"
 
 # Release stuff
 

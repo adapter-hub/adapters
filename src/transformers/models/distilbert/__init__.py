@@ -42,7 +42,6 @@ if is_torch_available():
         "DistilBertForSequenceClassification",
         "DistilBertForTokenClassification",
         "DistilBertModel",
-        "DistilBertModelWithHeads",
         "DistilBertPreTrainedModel",
     ]
 
@@ -91,7 +90,6 @@ if TYPE_CHECKING:
             DistilBertForSequenceClassification,
             DistilBertForTokenClassification,
             DistilBertModel,
-            DistilBertModelWithHeads,
             DistilBertPreTrainedModel,
         )
 
@@ -122,4 +120,4 @@ if TYPE_CHECKING:
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
