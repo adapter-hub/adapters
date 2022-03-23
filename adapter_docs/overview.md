@@ -175,7 +175,9 @@ For more information check out the [AdapterConfig](classes/adapter_config.html#t
 
 To add a Compacter to your model you can use the predefined configs:
 ```python
-config = PfeifferCompacterConfig()
+from transformers.adapters import CompacterConfig
+
+config = CompacterConfig()
 model.add_adapter("dummy", config=config)
 ```
 _Papers:_
