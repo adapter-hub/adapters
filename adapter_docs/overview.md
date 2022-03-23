@@ -160,7 +160,7 @@ _Papers:_
 
 ## Compacter
 
-_Configuration class_: [`PfeifferCompacterConfig`](transformers.PfeifferCompacterConfig), [`HoulsbyCompacterConfig`](transformers.HoulsbyCompacterConfig)
+_Configuration class_: [`CompacterConfig`](transformers.CompacterConfig), [`CompacterPlusPlusConfig`](transformers.CompacterPlusPlusConfig)
 
 The Compacter architecture proposed by [Mahabadi et al., 2021](https://arxiv.org/pdf/2106.04647.pdf)
 is similar to the bottleneck adapter architecture. It only exchanges the linear down- and 
