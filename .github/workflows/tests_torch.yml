@@ -17,6 +17,7 @@ on:
       - 'templates/**'
       - 'tests/**'
       - 'utils/**'
+  workflow_dispatch:
 
 jobs:
   check_code_quality:
