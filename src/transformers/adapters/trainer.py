@@ -48,6 +48,7 @@ class AdapterTrainer(Trainer):
         callbacks: Optional[List[TrainerCallback]] = None,
         adapter_names: Optional[List[List[str]]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
+        preprocess_logits_for_metrics: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] = None,
     ):
         super().__init__(
             model,
@@ -60,6 +61,7 @@ class AdapterTrainer(Trainer):
             compute_metrics=compute_metrics,
             callbacks=[AdapterTrainerCallback(self)] + callbacks if callbacks else [AdapterTrainerCallback(self)],
             optimizers=optimizers,
+            preprocess_logits_for_metrics=preprocess_logits_for_metrics,
         )
 
         if adapter_names is not None:
