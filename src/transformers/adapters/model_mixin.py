@@ -939,7 +939,13 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 meta_dict.update({"config_id": h})
             else:
                 meta_dict = {"config_id": h}
-            self.save_adapter(save_path, name, meta_dict=meta_dict, with_head=with_head, custom_weights_loaders=custom_weights_loaders)
+            self.save_adapter(
+                save_path,
+                name,
+                meta_dict=meta_dict,
+                with_head=with_head,
+                custom_weights_loaders=custom_weights_loaders,
+            )
 
     def save_adapter_fusion(
         self,
