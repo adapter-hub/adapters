@@ -23,7 +23,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
     def test_forward_lora(self):
         model = self.get_model()
-        self.run_forward_test(model, LoRAConfig(init_weights="bert"))
+        self.run_forward_test(model, LoRAConfig(init_weights="bert", output_lora=True))
 
     def test_load_lora(self):
         self.run_load_test(LoRAConfig())
@@ -52,7 +52,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
         # check forward pass
         self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-4))
+        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))
 
     def test_reset_lora(self):
         model = self.get_model()
@@ -74,4 +74,4 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
         # check forward pass
         self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-4))
+        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))

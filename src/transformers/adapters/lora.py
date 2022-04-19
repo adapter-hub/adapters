@@ -18,8 +18,8 @@ from .layer import AdapterLayerBase
 class LoRA(nn.Module):
     def __init__(
         self,
-        in_features: int,
-        out_features: int,
+        lora_A_shape,
+        lora_B_shape,
         config: LoRAConfig,
     ):
         super().__init__()
@@ -33,8 +33,8 @@ class LoRA(nn.Module):
 
         # Actual trainable parameters
         if self.r > 0:
-            self.lora_A = nn.Parameter(torch.zeros((self.r, in_features)))
-            self.lora_B = nn.Parameter(torch.zeros((out_features, self.r)))
+            self.lora_A = nn.Parameter(torch.zeros(lora_A_shape))
+            self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
             self.scaling = self.lora_alpha / self.r
 
             if config.init_weights == "lora":
@@ -57,6 +57,9 @@ class LoRALayer(AdapterLayerBase):
 
         self.merged = False
 
+    def _get_lora_shapes(self, config):
+        raise NotImplementedError()
+
     def add_adapter(self, adapter_name: str, layer_idx: int):
         self.layer_idx = layer_idx
         lora_config = self.config.adapters.match(
@@ -66,7 +69,7 @@ class LoRALayer(AdapterLayerBase):
             location_key=self.location_key,
         )
         if lora_config is not None:
-            lora = LoRA(self.weight.shape[1], self.weight.shape[0], lora_config)
+            lora = LoRA(*self._get_lora_shapes(lora_config), lora_config)
             lora.train(self.training)
             self.loras[adapter_name] = lora
 
@@ -80,9 +83,7 @@ class LoRALayer(AdapterLayerBase):
     def delete_fusion_layer(self, adapter_names: Union[List, str]):
         pass  # not applicable to lora
 
-    def enable_adapters(
-        self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool
-    ):
+    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
         if unfreeze_adapters:
             for name in adapter_setup.flatten():
                 if name in self.loras:
@@ -112,6 +113,9 @@ class Linear(LoRALayer, nn.Linear):
         self.fan_in_fan_out = fan_in_fan_out
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
+
+    def _get_lora_shapes(self, config):
+        return (config.r, self.in_features), (self.out_features, config.r)
 
     def reset_lora(self):
         def T(w):
@@ -185,6 +189,12 @@ class MergedLinear(LoRALayer, nn.Linear):
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
 
+    def _get_lora_shapes(self, config):
+        return (config.r * sum(self.enable_lora), self.in_features), (
+            self.out_features // len(self.enable_lora) * sum(self.enable_lora),
+            config.r,
+        )
+
     def zero_pad(self, x):
         result = x.new_zeros((*x.shape[:-1], self.out_features))
         result = result.view(-1, self.out_features)
@@ -200,7 +210,7 @@ class MergedLinear(LoRALayer, nn.Linear):
             # Make sure that the weights are not merged
             if lora.r > 0 and any(self.enable_lora):
                 delta_w = F.conv1d(
-                    lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
+                    lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(self.enable_lora)
                 ).squeeze(0)
                 self.weight.data -= self.zero_pad(T(delta_w * lora.scaling))
             self.merged = None
@@ -217,7 +227,7 @@ class MergedLinear(LoRALayer, nn.Linear):
                 # Merge the weights and mark it
                 if lora.r > 0 and any(self.enable_lora):
                     delta_w = F.conv1d(
-                        lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
+                        lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(self.enable_lora)
                     ).squeeze(0)
                     self.weight.data += self.zero_pad(T(delta_w * lora.scaling))
                 self.merged = name
