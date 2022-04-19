@@ -4,7 +4,7 @@ from tests.roberta.test_modeling_roberta import *
 from transformers import RobertaAdapterModel
 from transformers.testing_utils import require_torch
 
-from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, PrefixTuningTestMixin
+from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, LoRATestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin
@@ -38,6 +38,7 @@ class RobertaAdapterTestBase(AdapterTestBase):
 class RobertaAdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
+    LoRATestMixin,
     PrefixTuningTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,

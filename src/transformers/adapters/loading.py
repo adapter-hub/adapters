@@ -303,6 +303,7 @@ class AdapterLoader(WeightsLoader):
             lambda x: "_adapters.{}.".format(adapter_name) in x
             or ".adapters.{}.".format(adapter_name) in x
             or ".prefix_tunings.{}.".format(adapter_name) in x
+            or ".loras.{}.".format(adapter_name) in x
         )
 
     # This dict maps the original weight names to the currently used equivalents.
@@ -345,6 +346,7 @@ class AdapterLoader(WeightsLoader):
             lambda k: self._rename_legacy_weights(k)
             .replace("adapters.{}.".format(old_name), "adapters.{}.".format(new_name))
             .replace(".prefix_tunings.{}.".format(old_name), ".prefix_tunings.{}.".format(new_name))
+            .replace(".loras.{}.".format(old_name), ".loras.{}.".format(new_name))
         )
 
     def save(self, save_directory, name, meta_dict=None):

@@ -83,6 +83,8 @@ class AdapterConfigBase(Mapping):
         architecture = config_dict.get("architecture", None)
         if architecture == "prefix_tuning":
             cls_new = PrefixTuningConfig
+        elif architecture == "lora":
+            cls_new = LoRAConfig
         elif architecture == "union":
             cls_new = ConfigUnion
         else:
@@ -375,6 +377,20 @@ class PrefixTuningConfig(AdapterConfigBase):
     dropout: float = 0.0
 
 
+@dataclass(eq=False)
+class LoRAConfig(AdapterConfigBase):
+
+    architecture: Optional[str] = "lora"
+
+    selfattn_lora: bool = True
+    output_lora: bool = False
+
+    r: int = 8
+    alpha: int = 16
+    dropout: float = 0.0
+    init_weights: str = "lora"
+
+
 class ConfigUnion(AdapterConfigBase):
     """
     Composes multiple adaptation method configurations into one. This class can be used to define complex adaptation
@@ -494,6 +510,7 @@ ADAPTER_CONFIG_MAP = {
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
     "parallel": ParallelConfig(),
     "scaled_parallel": ParallelConfig(scaling="learned"),
+    "lora": LoRAConfig(),
     "mam": MAMConfig(),
 }
 
