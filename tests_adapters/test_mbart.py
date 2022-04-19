@@ -31,7 +31,9 @@ class MBartAdapterTestBase(AdapterTestBase):
         decoder_attention_heads=4,
         encoder_ffn_dim=4,
         decoder_ffn_dim=4,
+        vocab_size=250027,
     )
+    tokenizer_name = "facebook/mbart-large-cc25"
 
 
 @require_torch

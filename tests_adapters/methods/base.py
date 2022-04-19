@@ -156,7 +156,7 @@ class AdapterMethodBaseTestMixin:
         output1 = model1(**input_data)
         output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.equal(output1[0], output2[0]))
+        self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
 
     def trainings_run(self, model, tokenizer):
         # setup dataset
