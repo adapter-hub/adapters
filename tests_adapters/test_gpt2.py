@@ -4,16 +4,14 @@ from tests.gpt2.test_modeling_gpt2 import *
 from transformers import GPT2AdapterModel
 from transformers.testing_utils import require_torch
 
+from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
-from .test_adapter_common import AdapterModelTestMixin
-from .test_adapter_compacter import CompacterTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-from .test_adapter_training import AdapterTrainingTestMixin
 from .test_common import AdapterModelTesterMixin
 
 
@@ -39,13 +37,13 @@ class GPT2AdapterTestBase(AdapterTestBase):
 
 @require_torch
 class GPT2AdapterTest(
-    AdapterModelTestMixin,
+    BottleneckAdapterTestMixin,
     CompacterTestMixin,
+    PrefixTuningTestMixin,
     EmbeddingTestMixin,
     CompabilityTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
-    AdapterTrainingTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     GPT2AdapterTestBase,

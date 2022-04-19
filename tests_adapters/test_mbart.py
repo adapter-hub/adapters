@@ -4,9 +4,8 @@ from tests.mbart.test_modeling_mbart import *
 from transformers import MBartAdapterModel
 from transformers.testing_utils import require_torch
 
+from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase, make_config
-from .test_adapter_common import AdapterModelTestMixin
-from .test_adapter_compacter import CompacterTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
@@ -37,7 +36,9 @@ class MBartAdapterTestBase(AdapterTestBase):
 
 @require_torch
 class MBartAdapterTest(
-    AdapterModelTestMixin,
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    PrefixTuningTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,

@@ -2,11 +2,11 @@ import tempfile
 
 import torch
 
-from transformers import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoModelForSequenceClassification, AutoAdapterModel
+from transformers import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel, AutoModelForSequenceClassification
 from transformers.adapters.composition import BatchSplit, Stack
 from transformers.testing_utils import require_torch, torch_device
 
-from .test_adapter_common import create_twin_models
+from .methods import create_twin_models
 
 
 @require_torch

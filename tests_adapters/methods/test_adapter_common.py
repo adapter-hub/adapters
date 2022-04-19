@@ -1,5 +1,4 @@
 import copy
-import os
 import tempfile
 
 import torch
@@ -8,87 +7,43 @@ from transformers import (
     ADAPTER_CONFIG_MAP,
     ADAPTER_MODEL_MAPPING,
     MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-    AdapterSetup,
     AutoAdapterModel,
+    AutoTokenizer,
     HoulsbyConfig,
     HoulsbyInvConfig,
     MAMConfig,
     PfeifferConfig,
     PfeifferInvConfig,
-    PrefixTuningConfig,
 )
-from transformers.adapters.utils import WEIGHTS_NAME
+from transformers.adapters import BatchSplit, Fuse
 from transformers.testing_utils import require_torch, torch_device
 
-
-def create_twin_models(model_class, config_creator=None):
-    if config_creator and model_class.__name__.startswith("Auto"):
-        model_config = config_creator()
-        model1 = model_class.from_config(model_config)
-    elif config_creator:
-        model_config = config_creator()
-        model1 = model_class(model_config)
-    else:
-        model_config = model_class.config_class()
-        model1 = model_class(model_config)
-    model1.eval()
-    # create a twin initialized with the same random weights
-    model2 = copy.deepcopy(model1)
-    model2.eval()
-    return model1, model2
+from .base import AdapterMethodBaseTestMixin, create_twin_models
 
 
 @require_torch
-class AdapterModelTestMixin:
+class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
     adapter_configs_to_test = [
-        PfeifferConfig(),
-        HoulsbyConfig(),
-        PrefixTuningConfig(flat=True),
-        MAMConfig(),
+        (PfeifferConfig(), ["adapters.{name}."]),
+        (MAMConfig(), ["adapters.{name}.", "prefix_tunings.{name}."]),
     ]
 
     def test_add_adapter(self):
         model = self.get_model()
         model.eval()
 
-        for adapter_config in self.adapter_configs_to_test:
+        for adapter_config, filter_keys in self.adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-                name = adapter_config.__class__.__name__
-                model.add_adapter(name, config=adapter_config)
-                model.set_active_adapters([name])
-
-                # adapter is correctly added to config
-                self.assertTrue(name in model.config.adapters)
-                self.assertEqual(adapter_config, model.config.adapters.get(name))
-
-                # check forward pass
-                input_data = self.get_input_samples((1, 128), config=model.config)
-                model.to(torch_device)
-                adapter_output = model(**input_data)
-                model.set_active_adapters(None)
-                base_output = model(**input_data)
-                self.assertEqual(len(adapter_output), len(base_output))
-                self.assertFalse(torch.equal(adapter_output[0], base_output[0]))
+                self.run_add_test(model, adapter_config, filter_keys)
 
     def test_delete_adapter(self):
         model = self.get_model()
         model.eval()
 
-        for adapter_config in self.adapter_configs_to_test:
+        for adapter_config, filter_keys in self.adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-                name = "test_adapter_" + adapter_config.__class__.__name__
-                model.add_adapter(name, config="houlsby")
-                model.set_active_adapters([name])
-
-                # adapter is correctly added to config
-                self.assertTrue(name in model.config.adapters)
-                self.assertGreater(len(model.get_adapter(name)), 0)
-
-                # remove the adapter again
-                model.delete_adapter(name)
-                self.assertFalse(name in model.config.adapters)
-                self.assertEqual(len(model.get_adapter(name)), 0)
+                self.run_delete_test(model, adapter_config, filter_keys)
 
     def test_add_adapter_with_invertible(self):
         model = self.get_model()
@@ -126,26 +81,9 @@ class AdapterModelTestMixin:
         model = self.get_model()
         model.eval()
 
-        for adapter_config in self.adapter_configs_to_test:
+        for adapter_config, _ in self.adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-                model.add_adapter("first", config=adapter_config)
-                model.add_adapter("second", config=adapter_config)
-                model.set_active_adapters(["first"])
-
-                # adapter is correctly added to config
-                name = "first"
-                self.assertTrue(name in model.config.adapters)
-                self.assertEqual(adapter_config, model.config.adapters.get(name))
-
-                first_adapter = model.get_adapter("first")
-                second_adapter = model.get_adapter("second")
-
-                self.assertNotEqual(len(first_adapter), 0)
-                self.assertEqual(len(first_adapter), len(second_adapter))
-                self.assertNotEqual(first_adapter, second_adapter)
-
-                model.delete_adapter("first")
-                model.delete_adapter("second")
+                self.run_get_test(model, adapter_config)
 
     def test_add_adapter_multiple_reduction_factors(self):
         model = self.get_model()
@@ -194,61 +132,12 @@ class AdapterModelTestMixin:
         model = self.get_model()
         model.eval()
 
-        for adapter_config in self.adapter_configs_to_test:
+        for adapter_config, _ in self.adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-                name = adapter_config.__class__.__name__
-                model.add_adapter(name, config=adapter_config)
-                model.to(torch_device)
-
-                input_data = self.get_input_samples((1, 128), config=model.config)
-
-                # set via property
-                model.set_active_adapters([name])
-                output_1 = model(**input_data)
-
-                # unset and make sure it's unset
-                model.set_active_adapters(None)
-                self.assertEqual(None, model.active_adapters)
-
-                # check forward pass
-                with AdapterSetup(name):
-                    output_2 = model(**input_data)
-                self.assertEqual(len(output_1), len(output_2))
-                self.assertTrue(torch.equal(output_1[0], output_2[0]))
-
-    def run_load_test(self, config):
-        model1, model2 = create_twin_models(self.model_class, self.config)
-
-        name = "dummy_adapter"
-        model1.add_adapter(name, config=config)
-        model1.set_active_adapters([name])
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model1.save_adapter(temp_dir, name)
-
-            # Check that there are actually weights saved
-            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu")
-            self.assertTrue(len(weights) > 0)
-
-            # also tests that set_active works
-            model2.load_adapter(temp_dir, set_active=True)
-
-        # check if adapter was correctly loaded
-        self.assertTrue(name in model2.config.adapters)
-
-        # check equal output
-        input_data = self.get_input_samples((1, 128), config=model1.config)
-        model1.to(torch_device)
-        model2.to(torch_device)
-        output1 = model1(**input_data)
-        output2 = model2(**input_data)
-        self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.equal(output1[0], output2[0]))
+                self.run_forward_test(model, adapter_config)
 
     def test_load_adapter(self):
         self.run_load_test(PfeifferConfig())
-
-    def test_load_prefix_tuning(self):
-        self.run_load_test(PrefixTuningConfig())
 
     def test_load_mam_adapter(self):
         self.run_load_test(MAMConfig())
@@ -385,24 +274,117 @@ class AdapterModelTestMixin:
         output_with_head = flex_model(**input_data)
         self.assertTrue(torch.allclose(output_base["logits"], output_with_head["logits"]))
 
-    def test_eject_prefix(self):
-        model = self.get_model()
-        model.eval()
-        model.add_adapter("test_prefix", config="prefix_tuning")
-        model.to(torch_device)
+    def test_train_single_adapter(self):
+        self.run_train_test(PfeifferConfig(), ["adapters.{name}."])
 
-        input_data = self.get_input_samples((2, 128), config=model.config)
+    def test_train_mam_adapter(self):
+        self.run_train_test(MAMConfig(), ["adapters.{name}."])
 
-        # user reparamterized prefix
-        model.set_active_adapters(["test_prefix"])
-        output_1 = model(**input_data)
+    def test_train_adapter_fusion(self):
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
+            self.skipTest("Does not support flex heads.")
+        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        model = AutoAdapterModel.from_config(self.config())
+        self.add_head(model, "head")
 
-        # eject prefix
-        model.eject_prefix_tuning("test_prefix")
-        model.to(torch_device)
-        model.eval()
-        output_2 = model(**input_data)
+        # add the adapters to be fused
+        model.add_adapter("a")
+        model.add_adapter("b")
+        model.add_adapter("c")
 
-        # check forward pass
-        self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-4))
+        self.assertIn("a", model.config.adapters.adapters)
+        self.assertIn("b", model.config.adapters.adapters)
+        self.assertIn("c", model.config.adapters.adapters)
+
+        # setup fusion
+        adapter_setup = Fuse("a", "b", "c")
+        model.add_adapter_fusion(adapter_setup)
+        model.train_adapter_fusion(adapter_setup)
+        model.set_active_adapters(adapter_setup)
+        self.assertEqual(adapter_setup, model.active_adapters)
+
+        # all weights of the adapters should be frozen (test for one)
+        for k, v in self.filter_parameters(model, ["adapters.a."]).items():
+            self.assertFalse(v.requires_grad, k)
+        # all weights of the fusion layer should be activated
+        for k, v in self.filter_parameters(model, ["adapter_fusion_layer"]).items():
+            self.assertTrue(v.requires_grad, k)
+        # weights of the model should be frozen (check on some examples)
+        for k, v in self.filter_parameters(model, ["encoder.layer.0.attention"]).items():
+            self.assertFalse(v.requires_grad, k)
+
+        state_dict_pre = copy.deepcopy(model.state_dict())
+
+        # Since our config has a value matrix, make sure it is regularized.
+        # We do this by patching the fusion regularization function.
+        regularization_called = False
+        orig_fusion_regularization_loss = model.base_model.get_fusion_regularization_loss
+
+        def patched_fusion_reg_loss():
+            nonlocal regularization_called
+            regularization_called = True
+            return orig_fusion_regularization_loss()
+
+        model.base_model.get_fusion_regularization_loss = patched_fusion_reg_loss
+
+        self.trainings_run(model, tokenizer)
+
+        for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
+            if (
+                "adapter_fusion_layer" in k1
+                or "classifier" in k1
+                or "classification_head" in k1
+                or "score" in k1
+                or "heads" in k1
+            ):
+                self.assertFalse(torch.equal(v1, v2), k1)
+            else:
+                self.assertTrue(torch.equal(v1, v2), k1)
+        self.assertTrue(regularization_called)
+
+    def test_batch_split_training(self):
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
+            self.skipTest("Does not support flex heads.")
+        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        model = AutoAdapterModel.from_config(self.config())
+
+        model.add_adapter("mrpc1")
+        model.add_adapter("mrpc2")
+        self.add_head(model, "mrpc1")
+        self.add_head(model, "mrpc2")
+        adapter_setup = BatchSplit("mrpc1", "mrpc2", batch_sizes=[1, 1])
+        model.active_adapters = adapter_setup
+        model.train_adapter(adapter_setup)
+
+        # all weights of the adapter should be activated
+        for k, v in self.filter_parameters(model, ["adapters.mrpc1."]).items():
+            self.assertTrue(v.requires_grad, k)
+        # all weights of the adapter not used for training should be frozen
+        for k, v in self.filter_parameters(model, ["adapters.mrpc2."]).items():
+            self.assertTrue(v.requires_grad, k)
+        # weights of the model should be frozen (check on some examples)
+        for k, v in self.filter_parameters(model, ["encoder.layer.0.attention"]).items():
+            self.assertFalse(v.requires_grad, k)
+
+        state_dict_pre = copy.deepcopy(model.state_dict())
+
+        self.trainings_run(model, tokenizer)
+
+        self.assertFalse(
+            all(
+                torch.equal(v1, v2)
+                for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
+                if "mrpc" in k1
+            )
+        )
+        self.assertTrue(
+            all(
+                torch.equal(v1, v2)
+                for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
+                if "mrpc" not in k1
+            )
+        )
