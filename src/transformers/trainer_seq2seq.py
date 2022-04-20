@@ -172,6 +172,12 @@ class Seq2SeqTrainer(Trainer):
         else:
             generation_inputs = inputs[self.model.main_input_name]
 
+        if self.model.config.use_factors_p:
+            generation_inputs["factors_p"] = inputs["factors_p"]
+
+        if self.model.config.use_factors_e:
+            generation_inputs["factors_e"] = inputs["factors_e"]
+
         generated_tokens = self.model.generate(
             generation_inputs,
             **gen_kwargs,
