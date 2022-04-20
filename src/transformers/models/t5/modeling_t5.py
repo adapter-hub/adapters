@@ -863,6 +863,32 @@ class T5Stack(InvertibleAdaptersMixin, T5PreTrainedModel):
         self.embed_tokens = embed_tokens
         self.is_decoder = config.is_decoder
 
+        if config.use_factors_p:
+            if config.source_factors_combine == "concat":
+                factors_p_embed_dim = config.dim_factors_p
+            else:
+                factors_p_embed_dim = config.d_model
+            if not self.is_decoder:
+                self.embed_factors_p = nn.Embedding(config.factors_vocab_size, factors_p_embed_dim)
+
+        if config.use_factors_e:
+            if config.source_factors_combine == "concat":
+                factors_e_embed_dim =config.dim_factors_e
+            else:
+                factors_e_embed_dim = config.d_model
+            if not self.is_decoder:
+                self.embed_factors_e = nn.Embedding(config.factors_vocab_size, factors_e_embed_dim)
+
+        if not self.is_decoder:
+            if config.source_factors_combine == "concat":
+                concat_dim = config.d_model
+                if config.use_factors_p:
+                    concat_dim += factors_p_embed_dim
+                if config.use_factors_e:
+                    concat_dim += factors_e_embed_dim
+
+                self.reproject_embed_layer = nn.Linear(concat_dim, config.d_model)
+
         self.block = nn.ModuleList(
             [T5Block(config, has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers)]
         )
@@ -913,11 +939,29 @@ class T5Stack(InvertibleAdaptersMixin, T5PreTrainedModel):
         return self.embed_tokens
 
     def set_input_embeddings(self, new_embeddings):
+        for param in new_embeddings.parameters():
+            param.requires_grad = True
         self.embed_tokens = new_embeddings
+
+    def activate_embeddings(self):
+        for param in self.embed_tokens.parameters():
+            param.requires_grad = True
+
+        if not self.is_decoder:
+            for param in self.embed_factors_p.parameters():
+                param.requires_grad = True
+            for param in self.embed_factors_e.parameters():
+                param.requires_grad = True
+
+            if self.config.source_factors_combine == "concat":
+                for param in self.reproject_embed_layer.parameters():
+                    param.requires_grad = True
 
     def forward(
         self,
         input_ids=None,
+        factors_p=None,
+        factors_e=None,
         attention_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
@@ -962,6 +1006,26 @@ class T5Stack(InvertibleAdaptersMixin, T5PreTrainedModel):
         if inputs_embeds is None:
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
             inputs_embeds = self.embed_tokens(input_ids)
+
+            if self.config.use_factors_p:
+                if not self.is_decoder:
+                    factors_embeds_p = self.embed_factors_p(factors_p)
+                    if self.config.source_factors_combine == "sum":
+                        inputs_embeds = inputs_embeds + factors_embeds_p
+                    if self.config.source_factors_combine == "concat":
+                        inputs_embeds = torch.cat((inputs_embeds, factors_embeds_p), dim=2)
+
+            if self.config.use_factors_e:
+                if not self.is_decoder:
+                    factors_embeds_e = self.embed_factors_e(factors_e)
+                    if self.config.source_factors_combine == "sum":
+                        inputs_embeds = inputs_embeds + factors_embeds_e
+                    if self.config.source_factors_combine == "concat":
+                        inputs_embeds = torch.cat((inputs_embeds, factors_embeds_e), dim=2)
+
+            if self.config.source_factors_combine == "concat":
+                if not self.is_decoder:
+                    inputs_embeds = self.reproject_embed_layer(inputs_embeds)
 
         batch_size, seq_length = input_shape
 
@@ -1592,6 +1656,8 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
     def forward(
         self,
         input_ids=None,
+        factors_p=None,
+        factors_e=None,
         attention_mask=None,
         decoder_input_ids=None,
         decoder_attention_mask=None,
@@ -1653,6 +1719,8 @@ class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMix
             # Convert encoder inputs in embeddings if needed
             encoder_outputs = self.encoder(
                 input_ids=input_ids,
+                factors_p=factors_p,
+                factors_e=factors_e,
                 attention_mask=attention_mask,
                 inputs_embeds=inputs_embeds,
                 head_mask=head_mask,
