@@ -491,7 +491,7 @@ class GenerationMixin:
             return torch.ones(inputs.shape[:2], dtype=torch.long, device=self.device)
 
     def _prepare_encoder_decoder_kwargs_for_generation(
-        self, inputs_tensor: torch.Tensor, model_kwargs, model_input_name: Optional[str] = None
+        self, inputs_tensor: torch.Tensor, factors_p, factors_e, model_kwargs, model_input_name: Optional[str] = None
     ) -> Dict[str, Any]:
         # 1. get encoder
         encoder = self.get_encoder()
@@ -508,6 +508,8 @@ class GenerationMixin:
         model_input_name = model_input_name if model_input_name is not None else self.main_input_name
         encoder_kwargs["return_dict"] = True
         encoder_kwargs[model_input_name] = inputs_tensor
+        encoder_kwargs["factors_p"] = factors_p
+        encoder_kwargs["factors_e"] = factors_e
         with ForwardContext(self, **encoder_kwargs):
             model_kwargs["encoder_outputs"]: ModelOutput = encoder(**encoder_kwargs)
 
@@ -809,6 +811,8 @@ class GenerationMixin:
     def generate(
         self,
         inputs: Optional[torch.Tensor] = None,
+        factors_p: Optional[torch.LongTensor] = None,
+        factors_e: Optional[torch.LongTensor] = None,       
         max_length: Optional[int] = None,
         min_length: Optional[int] = None,
         do_sample: Optional[bool] = None,
@@ -1102,7 +1106,7 @@ class GenerationMixin:
             # if model is encoder decoder encoder_outputs are created
             # and added to `model_kwargs`
             model_kwargs = self._prepare_encoder_decoder_kwargs_for_generation(
-                inputs_tensor, model_kwargs, model_input_name
+                inputs_tensor, factors_p, factors_e, model_kwargs, model_input_name
             )
 
         # 4. Prepare `input_ids` which will be used for auto-regressive generation

@@ -723,6 +723,29 @@ class MBartEncoder(InvertibleAdaptersMixin, MBartPreTrainedModel):
         else:
             self.embed_tokens = nn.Embedding(config.vocab_size, embed_dim, self.padding_idx)
 
+        if config.use_factors_p:
+            if config.source_factors_combine == "concat":
+                factors_p_embed_dim = config.dim_factors_p
+            else:
+                factors_p_embed_dim = embed_dim
+            self.embed_factors_p = nn.Embedding(config.factors_vocab_size, factors_p_embed_dim, self.padding_idx)
+
+        if config.use_factors_e:
+            if config.source_factors_combine == "concat":
+                factors_e_embed_dim = config.dim_factors_e
+            else:
+                factors_e_embed_dim = embed_dim
+            self.embed_factors_e = nn.Embedding(config.factors_vocab_size, factors_e_embed_dim, self.padding_idx)
+
+        if config.source_factors_combine == "concat":
+            concat_dim = embed_dim
+            if config.use_factors_p:
+                concat_dim += factors_p_embed_dim
+            if config.use_factors_e:
+                concat_dim += factors_e_embed_dim
+
+            self.reproject_embed_layer = nn.Linear(concat_dim, embed_dim)
+    
         self.embed_positions = MBartLearnedPositionalEmbedding(
             config.max_position_embeddings,
             embed_dim,
@@ -743,6 +766,8 @@ class MBartEncoder(InvertibleAdaptersMixin, MBartPreTrainedModel):
     def forward(
         self,
         input_ids=None,
+        factors_p=None,
+        factors_e=None,
         attention_mask=None,
         head_mask=None,
         inputs_embeds=None,
@@ -805,6 +830,22 @@ class MBartEncoder(InvertibleAdaptersMixin, MBartPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids) * self.embed_scale
+            if self.config.use_factors_p:
+                factors_embeds_p = self.embed_factors_p(factors_p)
+                if self.config.source_factors_combine == "sum":
+                    inputs_embeds = inputs_embeds + factors_embeds_p
+                if self.config.source_factors_combine == "concat":
+                    inputs_embeds = torch.cat((inputs_embeds, factors_embeds_p), dim=2)
+
+            if self.config.use_factors_e:
+                factors_embeds_e = self.embed_factors_e(factors_e)
+                if self.config.source_factors_combine == "sum":
+                    inputs_embeds = inputs_embeds + factors_embeds_e
+                if self.config.source_factors_combine == "concat":
+                    inputs_embeds = torch.cat((inputs_embeds, factors_embeds_e), dim=2)
+
+            if self.config.source_factors_combine == "concat":
+                inputs_embeds = self.reproject_embed_layer(inputs_embeds)
 
         embed_pos = self.embed_positions(input_shape)
 
@@ -1194,6 +1235,8 @@ class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
     def forward(
         self,
         input_ids=None,
+        factors_p=None,
+        factors_e=None,
         attention_mask=None,
         decoder_input_ids=None,
         decoder_attention_mask=None,
@@ -1224,6 +1267,8 @@ class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
         if encoder_outputs is None:
             encoder_outputs = self.encoder(
                 input_ids=input_ids,
+                factors_p=factors_p,
+                factors_e=factors_e,
                 attention_mask=attention_mask,
                 head_mask=head_mask,
                 inputs_embeds=inputs_embeds,
@@ -1327,6 +1372,8 @@ class MBartForConditionalGeneration(ModelWithHeadsAdaptersMixin, MBartPreTrained
     def forward(
         self,
         input_ids=None,
+        factors_p=None,
+        factors_e=None,
         attention_mask=None,
         decoder_input_ids=None,
         decoder_attention_mask=None,
@@ -1363,6 +1410,8 @@ class MBartForConditionalGeneration(ModelWithHeadsAdaptersMixin, MBartPreTrained
 
         outputs = self.model(
             input_ids,
+            factors_p=factors_p,
+            factors_e=factors_e,
             attention_mask=attention_mask,
             decoder_input_ids=decoder_input_ids,
             encoder_outputs=encoder_outputs,

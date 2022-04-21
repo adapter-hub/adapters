@@ -164,6 +164,12 @@ class Seq2SeqTrainer(Trainer):
         if "attention_mask" in inputs:
             gen_kwargs["attention_mask"] = inputs.get("attention_mask", None)
 
+        if "factors_p" in inputs:
+            gen_kwargs["factors_p"] = inputs["factors_p"]
+
+        if "factors_e" in inputs:
+            gen_kwargs["factors_e"] = inputs["factors_e"]
+
         # prepare generation inputs
         # some encoder-decoder models can have varying encder's and thus
         # varying model input names
@@ -171,12 +177,6 @@ class Seq2SeqTrainer(Trainer):
             generation_inputs = inputs[self.model.encoder.main_input_name]
         else:
             generation_inputs = inputs[self.model.main_input_name]
-
-        if self.model.config.use_factors_p:
-            generation_inputs["factors_p"] = inputs["factors_p"]
-
-        if self.model.config.use_factors_e:
-            generation_inputs["factors_e"] = inputs["factors_e"]
 
         generated_tokens = self.model.generate(
             generation_inputs,
