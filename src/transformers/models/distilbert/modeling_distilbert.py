@@ -29,6 +29,7 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from ...activations import gelu
 from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
 from ...adapters.mixins.distilbert import DistilBertModelAdaptersMixin, DistilBertTransfomerBlockAdaptersMixin
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.prefix_tuning import PrefixTuningShim
@@ -151,9 +152,9 @@ class MultiHeadSelfAttention(nn.Module):
 
         assert self.dim % self.n_heads == 0
 
-        self.q_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
+        self.q_lin = LoRALinear(config.dim, config.dim, "selfattn", config)
         self.k_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
-        self.v_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
+        self.v_lin = LoRALinear(config.dim, config.dim, "selfattn", config)
         self.out_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
 
         self.pruned_heads = set()
@@ -237,8 +238,8 @@ class FFN(nn.Module):
         self.dropout = nn.Dropout(p=config.dropout)
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
         self.seq_len_dim = 1
-        self.lin1 = nn.Linear(in_features=config.dim, out_features=config.hidden_dim)
-        self.lin2 = nn.Linear(in_features=config.hidden_dim, out_features=config.dim)
+        self.lin1 = LoRALinear(config.dim, config.hidden_dim, "intermediate", config)
+        self.lin2 = LoRALinear(config.hidden_dim, config.dim, "output", config)
         assert config.activation in ["relu", "gelu"], f"activation ({config.activation}) must be in ['relu', 'gelu']"
         self.activation = gelu if config.activation == "gelu" else nn.ReLU()
 

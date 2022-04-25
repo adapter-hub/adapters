@@ -23,7 +23,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
     def test_forward_lora(self):
         model = self.get_model()
-        self.run_forward_test(model, LoRAConfig(init_weights="bert", output_lora=True))
+        self.run_forward_test(model, LoRAConfig(init_weights="bert", intermediate_lora=True, output_lora=True))
 
     def test_load_lora(self):
         self.run_load_test(LoRAConfig())

@@ -4,7 +4,7 @@ from tests.bart.test_modeling_bart import *
 from transformers import BartAdapterModel
 from transformers.testing_utils import require_torch
 
-from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, PrefixTuningTestMixin
+from .methods import BottleneckAdapterTestMixin, LoRATestMixin, CompacterTestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -41,6 +41,7 @@ class BartAdapterTestBase(AdapterTestBase):
 class BartAdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
+    LoRATestMixin,
     PrefixTuningTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,

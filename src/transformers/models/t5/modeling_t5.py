@@ -29,6 +29,7 @@ from torch.utils.checkpoint import checkpoint
 from ...activations import ACT2FN
 from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
 from ...adapters.mixins.t5 import (
     T5CrossAttentionLayerAdaptersMixin,
     T5FFLayerAdaptersMixin,
@@ -288,8 +289,8 @@ except Exception:
 class T5DenseReluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.wi = nn.Linear(config.d_model, config.d_ff, bias=False)
-        self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
+        self.wi = LoRALinear(config.d_model, config.d_ff, "intermediate", config, bias=False)
+        self.wo = LoRALinear(config.d_ff, config.d_model, "output", config, bias=False)
         self.dropout = nn.Dropout(config.dropout_rate)
 
     def forward(self, hidden_states):
@@ -303,9 +304,9 @@ class T5DenseReluDense(nn.Module):
 class T5DenseGatedGeluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=False)
-        self.wi_1 = nn.Linear(config.d_model, config.d_ff, bias=False)
-        self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
+        self.wi_0 = LoRALinear(config.d_model, config.d_ff, "intermediate", config, bias=False)
+        self.wi_1 = LoRALinear(config.d_model, config.d_ff, "intermediate", config, bias=False)
+        self.wo = LoRALinear(config.d_ff, config.d_model, "output", config, bias=False)
         self.dropout = nn.Dropout(config.dropout_rate)
         self.gelu_act = ACT2FN["gelu_new"]
 
@@ -356,9 +357,9 @@ class T5Attention(nn.Module):
         self.inner_dim = self.n_heads * self.key_value_proj_dim
 
         # Mesh TensorFlow initialization to avoid scaling before softmax
-        self.q = nn.Linear(self.d_model, self.inner_dim, bias=False)
+        self.q = LoRALinear(self.d_model, self.inner_dim, "selfattn", config, bias=False)
         self.k = nn.Linear(self.d_model, self.inner_dim, bias=False)
-        self.v = nn.Linear(self.d_model, self.inner_dim, bias=False)
+        self.v = LoRALinear(self.d_model, self.inner_dim, "selfattn", config, bias=False)
         self.o = nn.Linear(self.inner_dim, self.d_model, bias=False)
 
         if self.has_relative_attention_bias:

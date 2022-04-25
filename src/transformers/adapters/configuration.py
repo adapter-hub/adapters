@@ -383,6 +383,7 @@ class LoRAConfig(AdapterConfigBase):
     architecture: Optional[str] = "lora"
 
     selfattn_lora: bool = True
+    intermediate_lora: bool = False
     output_lora: bool = False
 
     r: int = 8
