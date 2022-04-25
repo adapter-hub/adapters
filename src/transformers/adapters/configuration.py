@@ -387,7 +387,7 @@ class LoRAConfig(AdapterConfigBase):
     output_lora: bool = False
 
     r: int = 8
-    alpha: int = 16
+    alpha: int = 8
     dropout: float = 0.0
     init_weights: str = "lora"
 
