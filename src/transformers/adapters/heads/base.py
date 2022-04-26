@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from ...file_utils import ModelOutput
+from ...utils import ModelOutput
 from ...modeling_outputs import (
     MultipleChoiceModelOutput,
     QuestionAnsweringModelOutput,

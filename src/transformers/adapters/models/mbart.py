@@ -2,7 +2,7 @@ import warnings
 
 import torch
 
-from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from ...utils import add_start_docstrings, add_start_docstrings_to_model_forward
 from ...models.mbart.modeling_mbart import (
     MBART_INPUTS_DOCSTRING,
     MBART_START_DOCSTRING,

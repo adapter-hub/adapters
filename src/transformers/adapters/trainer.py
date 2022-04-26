@@ -17,13 +17,13 @@ from transformers.modeling_utils import unwrap_model
 
 from ..configuration_utils import PretrainedConfig
 from ..data.data_collator import DataCollator
-from ..file_utils import CONFIG_NAME, WEIGHTS_NAME, is_sagemaker_mp_enabled, logger
 from ..optimization import Adafactor, AdamW
 from ..tokenization_utils_base import PreTrainedTokenizerBase
 from ..trainer_callback import TrainerCallback, TrainerControl, TrainerState
 from ..trainer_pt_utils import get_parameter_names
 from ..trainer_utils import EvalPrediction, ShardedDDPOption
 from ..training_args import TrainingArguments
+from ..utils import CONFIG_NAME, WEIGHTS_NAME, is_sagemaker_mp_enabled, logging
 
 
 if is_fairscale_available():
@@ -32,6 +32,9 @@ if is_fairscale_available():
 
 if is_sagemaker_mp_enabled():
     import smdistributed.modelparallel.torch as smp
+
+
+logger = logging.get_logger(__name__)
 
 
 class AdapterTrainer(Trainer):

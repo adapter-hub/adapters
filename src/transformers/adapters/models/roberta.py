@@ -1,6 +1,6 @@
 import warnings
 
-from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from ...utils import add_start_docstrings, add_start_docstrings_to_model_forward
 from ...models.roberta.modeling_roberta import (
     ROBERTA_INPUTS_DOCSTRING,
     ROBERTA_START_DOCSTRING,
