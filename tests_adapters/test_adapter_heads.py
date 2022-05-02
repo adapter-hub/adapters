@@ -1,3 +1,4 @@
+import os
 import tempfile
 
 import torch
@@ -403,3 +404,19 @@ class PredictionHeadModelTestMixin:
 
         self.assertEqual(out[0].shape, (1, 3))
         self.assertEqual(calls, 1)
+
+    def test_save_all_adapters_with_head(self):
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
+            self.skipTest("Does not support flex heads.")
+
+        model = AutoAdapterModel.from_config(self.config())
+        model.eval()
+        model.add_adapter("test")
+        self.add_head(model, "test")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model.save_all_adapters(tmp_dir, with_head=True)
+            self.assertTrue(os.path.isfile(os.path.join(tmp_dir, "test", "head_config.json")))
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model.save_all_adapters(tmp_dir, with_head=False)
+            self.assertFalse(os.path.isfile(os.path.join(tmp_dir, "test", "head_config.json")))
