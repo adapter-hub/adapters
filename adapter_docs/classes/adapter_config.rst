@@ -41,6 +41,13 @@ Prefix Tuning
     :members:
     :inherited-members: Mapping
 
+LoRAConfig
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.LoRAConfig
+    :members:
+    :inherited-members: Mapping
+
 Combined configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -1,4 +1,4 @@
-# Overview: Efficient Fine-Tuning and Adapters
+# Overview: Efficient Fine-Tuning Methods
 
 Large pre-trained Transformer-based language models (LMs) have become the foundation of NLP in recent years.
 While the most prevalent method of using these LMs for transfer learning involves costly *full fine-tuning* of all model parameters, a series of *efficient* and *lightweight* alternatives have been established in recent time.
@@ -157,6 +157,48 @@ This will only retain the necessary parameters and reduces the size of the train
 
 _Papers:_
 - [Prefix-Tuning: Optimizing Continuous Prompts for Generation](https://arxiv.org/pdf/2101.00190.pdf) (Li and Liang, 2021)
+
+## LoRA
+
+_Configuration class_: [`LoRAConfig`](transformers.LoRAConfig)
+
+Low-Rank Adaptation (LoRA) is an efficient fine-tuning technique proposed by [Hu et al. (2021)](https://arxiv.org/pdf/2106.09685.pdf).
+LoRA injects trainable low-rank decomposition matrices into the layers of a pre-trained model.
+For any model layer expressed as a matrix multiplication of the form $h = W_0 x$, it therefore performs a reparameterization, such that:
+
+$$
+h = W_0 x + \frac{\alpha}{r} B A x
+$$
+
+Here, $A \in \mathbb{R}^{r\times k}$ and $B \in \mathbb{R}^{d\times r}$ are the decomposition matrices and $r$, the low-dimensional rank of the decomposition, is the most important hyperparameter.
+
+While, in principle, this reparameterization can be applied to any weights matrix in a model, the original paper only adapts the attention weights of the Transformer self-attention sub-layer with LoRA.
+`adapter-transformers` additionally allows injecting LoRA into the dense feed-forward layers in the intermediate and output components of a Transformer block.
+You can configure the locations where LoRA weights should be injected using the attributes in the [`LoRAConfig`](transformers.LoRAConfig) class.
+
+_Example_:
+```python
+from transformers.adapters import LoRAConfig
+
+config = LoRAConfig(r=8, alpha=16)
+model.add_adapter("lora_adapter", config=config)
+```
+
+In the design of LoRA, Hu et al. (2021) also pay special attention to keeping the inference latency overhead compared to full fine-tuning at a minumum.
+To accomplish this, the LoRA reparameterization can be merged with the original pre-trained weights of a model for inference.
+Thus, the adapted weights are directly used in every forward pass without passing activations through an additional module.
+In `adapter-transformers`, this can be realized using the built-in `merge_lora()` method:
+```python
+model.merge_lora("lora_adapter")
+```
+
+To continue training on this LoRA adapter or to deactivate it entirely, the merged weights first have to be reset again:
+```python
+model.reset_lora("lora_adapter")
+```
+
+_Papers:_
+- [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/pdf/2106.09685.pdf) (Hu et al., 2021)
 
 ## Compacter
 
