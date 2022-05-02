@@ -369,7 +369,8 @@ class GPT2MLP(nn.Module):
     def __init__(self, intermediate_size, config):
         super().__init__()
         embed_dim = config.hidden_size
-        self.c_fc = LoRALinear(intermediate_size, embed_dim, "intermediate", config, fan_in_fan_out=True)
+        # Order of dimension inputs to LORALinear reversed compared to Conv1D
+        self.c_fc = LoRALinear(embed_dim, intermediate_size, "intermediate", config, fan_in_fan_out=True)
         self.c_proj = LoRALinear(intermediate_size, embed_dim, "output", config, fan_in_fan_out=True)
         self.act = ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.resid_pdrop)
