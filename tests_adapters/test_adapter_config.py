@@ -29,6 +29,7 @@ class AdapterConfigTest(unittest.TestCase):
     def test_config_immutable(self):
         def set_attr(config: AdapterConfig):
             config.non_linearity = "dummy"
+            config.r = -1  # for LoRA
 
         for config in ADAPTER_CONFIG_MAP.values():
             if isinstance(config, ConfigUnion):

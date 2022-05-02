@@ -29,7 +29,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
         self.run_load_test(LoRAConfig())
 
     def test_train_lora(self):
-        self.run_train_test(LoRAConfig(), ["loras.{name}."])
+        self.run_train_test(LoRAConfig(init_weights="bert"), ["loras.{name}."])
 
     def test_merge_lora(self):
         model = self.get_model()
