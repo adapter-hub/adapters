@@ -95,6 +95,10 @@ _import_structure = {
         "BertAdapterModel",
         "BertModelWithHeads",
     ],
+    "models.deberta": [
+        "DebertaV2AdapterModel",
+        "DebertaV2ModelWithHeads",
+    ],
     "models.distilbert": [
         "DistilBertAdapterModel",
         "DistilBertModelWithHeads",

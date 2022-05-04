@@ -16,6 +16,7 @@
 
 import math
 from collections.abc import Sequence
+from typing import Optional
 
 import numpy as np
 import torch
@@ -23,6 +24,11 @@ from torch import _softmax_backward_data, nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, LayerNorm, MSELoss
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.mixins.bert import BertModelAdaptersMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import add_code_sample_docstrings, add_start_docstrings, add_start_docstrings_to_model_forward
 from ...modeling_outputs import (
     BaseModelOutput,
@@ -238,25 +244,27 @@ class StableDropout(nn.Module):
 
 
 # Copied from transformers.models.deberta.modeling_deberta.DebertaSelfOutput with DebertaLayerNorm->LayerNorm
-class DebertaV2SelfOutput(nn.Module):
+class DebertaV2SelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = LayerNorm(config.hidden_size, config.layer_norm_eps)
         self.dropout = StableDropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
 # Copied from transformers.models.deberta.modeling_deberta.DebertaAttention with Deberta->DebertaV2
 class DebertaV2Attention(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, location_key: Optional[str] = None):
         super().__init__()
-        self.self = DisentangledSelfAttention(config)
+        self.self = DisentangledSelfAttention(config, location_key=location_key)
         self.output = DebertaV2SelfOutput(config)
         self.config = config
 
@@ -306,18 +314,19 @@ class DebertaV2Intermediate(nn.Module):
 
 
 # Copied from transformers.models.deberta.modeling_deberta.DebertaOutput with DebertaLayerNorm->LayerNorm
-class DebertaV2Output(nn.Module):
+class DebertaV2Output(BertOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
         self.LayerNorm = LayerNorm(config.hidden_size, config.layer_norm_eps)
         self.dropout = StableDropout(config.hidden_dropout_prob)
         self.config = config
+        self._init_adapter_modules()
 
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
@@ -325,7 +334,7 @@ class DebertaV2Output(nn.Module):
 class DebertaV2Layer(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.attention = DebertaV2Attention(config)
+        self.attention = DebertaV2Attention(config, location_key="self")
         self.intermediate = DebertaV2Intermediate(config)
         self.output = DebertaV2Output(config)
 
@@ -503,6 +512,8 @@ class DebertaV2Encoder(nn.Module):
                     output_attentions=output_attentions,
                 )
 
+            (attention_mask,) = adjust_tensors_for_parallel(output_states, attention_mask)
+
             if output_attentions:
                 output_states, att_m = output_states
 
@@ -596,7 +607,7 @@ class DisentangledSelfAttention(nn.Module):
 
     """
 
-    def __init__(self, config):
+    def __init__(self, config, location_key: Optional[str] = None):
         super().__init__()
         if config.hidden_size % config.num_attention_heads != 0:
             raise ValueError(
@@ -633,11 +644,27 @@ class DisentangledSelfAttention(nn.Module):
                     self.pos_query_proj = nn.Linear(config.hidden_size, self.all_head_size)
 
         self.dropout = StableDropout(config.attention_probs_dropout_prob)
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def transpose_for_scores(self, x, attention_heads):
         new_x_shape = x.size()[:-1] + (attention_heads, -1)
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3).contiguous().view(-1, x.size(1), x.size(-1))
+
+    def transpose_for_scores_extended(self, x, attention_heads):
+        new_x_shape = x.size()[:-1] + (attention_heads, -1)
+        x = x.view(new_x_shape)
+        return x.permute(0, 2, 1, 3)
+
+    def get_attention_mask(self, attention_mask):
+        if attention_mask.dim() <= 2:
+            extended_attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
+            attention_mask = extended_attention_mask * extended_attention_mask.squeeze(-2).unsqueeze(-1)
+            attention_mask = attention_mask.byte()
+        elif attention_mask.dim() == 3:
+            attention_mask = attention_mask.unsqueeze(1)
+
+        return attention_mask
 
     def forward(
         self,
@@ -680,8 +707,17 @@ class DisentangledSelfAttention(nn.Module):
         if query_states is None:
             query_states = hidden_states
         query_layer = self.transpose_for_scores(self.query_proj(query_states), self.num_attention_heads)
-        key_layer = self.transpose_for_scores(self.key_proj(hidden_states), self.num_attention_heads)
-        value_layer = self.transpose_for_scores(self.value_proj(hidden_states), self.num_attention_heads)
+        key_layer = self.transpose_for_scores_extended(self.key_proj(hidden_states), self.num_attention_heads)
+        value_layer = self.transpose_for_scores_extended(self.value_proj(hidden_states), self.num_attention_heads)
+
+        key_layer, value_layer, attention_mask = self.prefix_tuning(
+            key_layer, value_layer, attention_mask
+        )  # [:, 0, :, 0])
+
+        # attention_mask = self.get_attention_mask(expanded_attention_mask)
+
+        key_layer = key_layer.contiguous().view(-1, key_layer.size(2), key_layer.size(-1))
+        value_layer = value_layer.contiguous().view(-1, value_layer.size(2), value_layer.size(-1))
 
         rel_att = None
         # Take the dot product between "query" and "key" to get the raw attention scores.
@@ -991,7 +1027,7 @@ DEBERTA_INPUTS_DOCSTRING = r"""
     DEBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.deberta.modeling_deberta.DebertaModel with Deberta->DebertaV2
-class DebertaV2Model(DebertaV2PreTrainedModel):
+class DebertaV2Model(BertModelAdaptersMixin, DebertaV2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -999,6 +1035,7 @@ class DebertaV2Model(DebertaV2PreTrainedModel):
         self.encoder = DebertaV2Encoder(config)
         self.z_steps = 0
         self.config = config
+        self._init_adapter_modules()
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -1022,6 +1059,7 @@ class DebertaV2Model(DebertaV2PreTrainedModel):
         output_type=SequenceClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -1062,6 +1100,7 @@ class DebertaV2Model(DebertaV2PreTrainedModel):
             mask=attention_mask,
             inputs_embeds=inputs_embeds,
         )
+        embedding_output = self.invertible_adapters_forward(embedding_output)
 
         encoder_outputs = self.encoder(
             embedding_output,
@@ -1104,7 +1143,7 @@ class DebertaV2Model(DebertaV2PreTrainedModel):
 
 @add_start_docstrings("""DeBERTa Model with a `language modeling` head on top.""", DEBERTA_START_DOCSTRING)
 # Copied from transformers.models.deberta.modeling_deberta.DebertaForMaskedLM with Deberta->DebertaV2
-class DebertaV2ForMaskedLM(DebertaV2PreTrainedModel):
+class DebertaV2ForMaskedLM(ModelWithHeadsAdaptersMixin, DebertaV2PreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]
 
@@ -1163,7 +1202,11 @@ class DebertaV2ForMaskedLM(DebertaV2PreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+
+        prediction_scores = self.cls(
+            sequence_output,
+            inv_lang_adapter=self.deberta.get_invertible_adapter(),
+        )
 
         masked_lm_loss = None
         if labels is not None:
@@ -1193,10 +1236,16 @@ class DebertaV2PredictionHeadTransform(nn.Module):
             self.transform_act_fn = config.hidden_act
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
-    def forward(self, hidden_states):
+    def forward(
+        self,
+        hidden_states,
+        inv_lang_adapter=None,
+    ):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.transform_act_fn(hidden_states)
         hidden_states = self.LayerNorm(hidden_states)
+        if inv_lang_adapter:
+            hidden_states = inv_lang_adapter(hidden_states, rev=True)
         return hidden_states
 
 
@@ -1215,8 +1264,12 @@ class DebertaV2LMPredictionHead(nn.Module):
         # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
         self.decoder.bias = self.bias
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, **kwargs):
         hidden_states = self.transform(hidden_states)
+        # Now, pass through an invertible adapter if available
+        inv_adapter = kwargs.pop("invertible_adapter", None)
+        if inv_adapter is not None:
+            hidden_states = inv_adapter(hidden_states, rev=True)
         hidden_states = self.decoder(hidden_states)
         return hidden_states
 
@@ -1227,8 +1280,8 @@ class DebertaV2OnlyMLMHead(nn.Module):
         super().__init__()
         self.predictions = DebertaV2LMPredictionHead(config)
 
-    def forward(self, sequence_output):
-        prediction_scores = self.predictions(sequence_output)
+    def forward(self, sequence_output, **kwargs):
+        prediction_scores = self.predictions(sequence_output, **kwargs)
         return prediction_scores
 
 
@@ -1240,7 +1293,7 @@ class DebertaV2OnlyMLMHead(nn.Module):
     DEBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.deberta.modeling_deberta.DebertaForSequenceClassification with Deberta->DebertaV2
-class DebertaV2ForSequenceClassification(DebertaV2PreTrainedModel):
+class DebertaV2ForSequenceClassification(ModelWithHeadsAdaptersMixin, DebertaV2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1360,7 +1413,7 @@ class DebertaV2ForSequenceClassification(DebertaV2PreTrainedModel):
     DEBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.deberta.modeling_deberta.DebertaForTokenClassification with Deberta->DebertaV2
-class DebertaV2ForTokenClassification(DebertaV2PreTrainedModel):
+class DebertaV2ForTokenClassification(ModelWithHeadsAdaptersMixin, DebertaV2PreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
     def __init__(self, config):
@@ -1437,7 +1490,7 @@ class DebertaV2ForTokenClassification(DebertaV2PreTrainedModel):
     DEBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.deberta.modeling_deberta.DebertaForQuestionAnswering with Deberta->DebertaV2
-class DebertaV2ForQuestionAnswering(DebertaV2PreTrainedModel):
+class DebertaV2ForQuestionAnswering(ModelWithHeadsAdaptersMixin, DebertaV2PreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
     def __init__(self, config):

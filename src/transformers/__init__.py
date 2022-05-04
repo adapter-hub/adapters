@@ -1677,6 +1677,8 @@ if is_torch_available():
         "CompacterConfig",
         "CompacterPlusPlusConfig",
         "ConfigUnion",
+        "DebertaV2AdapterModel",
+        "DebertaV2ModelWithHeads",
         "DistilBertAdapterModel",
         "DistilBertModelWithHeads",
         "DynamicAdapterFusionConfig",
