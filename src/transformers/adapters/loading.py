@@ -164,7 +164,8 @@ class WeightsLoaderHelper:
             logger.info(
                 "Some module weights could not be found in loaded weights file: {}".format(", ".join(missing_keys))
             )
-        unexpected_keys = [k for k in unexpected_keys if k not in self.model._keys_to_ignore_on_load_unexpected]
+        if self.model._keys_to_ignore_on_load_unexpected:
+            unexpected_keys = [k for k in unexpected_keys if k not in self.model._keys_to_ignore_on_load_unexpected]
         if len(unexpected_keys) > 0:
             logger.info(
                 "Some weights of the state_dict could not be loaded into model: {}".format(", ".join(unexpected_keys))
