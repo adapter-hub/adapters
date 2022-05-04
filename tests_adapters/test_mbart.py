@@ -4,9 +4,8 @@ from tests.mbart.test_modeling_mbart import *
 from transformers import MBartAdapterModel
 from transformers.testing_utils import require_torch
 
+from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase, make_config
-from .test_adapter_common import AdapterModelTestMixin
-from .test_adapter_compacter import CompacterTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
@@ -32,12 +31,16 @@ class MBartAdapterTestBase(AdapterTestBase):
         decoder_attention_heads=4,
         encoder_ffn_dim=4,
         decoder_ffn_dim=4,
+        vocab_size=250027,
     )
+    tokenizer_name = "facebook/mbart-large-cc25"
 
 
 @require_torch
 class MBartAdapterTest(
-    AdapterModelTestMixin,
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    PrefixTuningTestMixin,
     AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,

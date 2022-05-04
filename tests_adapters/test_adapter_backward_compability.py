@@ -4,7 +4,7 @@ import tempfile
 
 import torch
 
-from tests_adapters.test_adapter_common import create_twin_models
+from tests_adapters.methods import create_twin_models
 from transformers.adapters import PfeifferConfig, __version__
 from transformers.testing_utils import require_torch, torch_device
 

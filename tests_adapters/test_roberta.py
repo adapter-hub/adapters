@@ -4,10 +4,9 @@ from tests.roberta.test_modeling_roberta import *
 from transformers import RobertaAdapterModel
 from transformers.testing_utils import require_torch
 
+from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
-from .test_adapter_common import AdapterModelTestMixin
-from .test_adapter_compacter import CompacterTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
@@ -30,12 +29,16 @@ class RobertaAdapterTestBase(AdapterTestBase):
         num_hidden_layers=4,
         num_attention_heads=4,
         intermediate_size=37,
+        vocab_size=50265,
     )
+    tokenizer_name = "roberta-base"
 
 
 @require_torch
 class RobertaAdapterTest(
-    AdapterModelTestMixin,
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    PrefixTuningTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
     PredictionHeadModelTestMixin,
