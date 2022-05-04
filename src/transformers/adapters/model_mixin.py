@@ -608,15 +608,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             name: param for name, param in self.shared_parameters.items() if name in active_adapters.flatten()
         }
 
-        # Prefix tuning
-        input_tensor = kwargs.get("input_ids", None)
-        if input_tensor is None:
-            input_tensor = kwargs.get("decoder_input_ids", None)
-        if input_tensor is None:
-            input_tensor = kwargs.get("attention_mask", None)
-        if input_tensor is None:
-            input_tensor = args[0]
-        context.prefix_states = self.base_model.prefix_tuning(input_tensor.shape[0])
+        context.prefix_states = self.base_model.prefix_tuning(*args, **kwargs)
 
     def load_embeddings(self, path: str, name: str):
         """

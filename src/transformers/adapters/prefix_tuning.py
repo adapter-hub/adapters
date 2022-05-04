@@ -191,7 +191,7 @@ class PrefixTuningPool(nn.Module):
         else:
             return None
 
-    def forward(self, batch_size):
+    def forward(self, *args, **kwargs):
         context = AdapterSetup.get_context()
         if context is not None:
             adapter_setup = context.adapter_setup
@@ -200,6 +200,20 @@ class PrefixTuningPool(nn.Module):
 
         prefix_states = {}
         if adapter_setup is not None:
+            # Infer batch size
+            input_tensor_names = ["input_ids", "decoder_input_ids", "attention_mask", "inputs_embeds"]
+            batch_size = None
+            for name in input_tensor_names:
+                if kwargs.get(name, None) is not None:
+                    batch_size = kwargs[name].size(0)
+                    break
+            if batch_size is None:
+                if len(args) > 0:
+                    batch_size = args[0].size(0)
+                else:
+                    raise ValueError("Could not infer batch size for prefix tuning from inputs.")
+
+            # Pass to sub-layers
             for name in adapter_setup.flatten():
                 if name in self.prefix_tunings:
                     prefix_states[name] = self.prefix_tunings[name](batch_size)
