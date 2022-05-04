@@ -89,7 +89,7 @@ class AdapterLayer(AdapterLayerBase):
             adapter = adapter_class(
                 adapter_name=adapter_name,
                 input_size=self.config.hidden_size,
-                down_sample=self.config.hidden_size // reduction_factor,
+                down_sample=int(self.config.hidden_size // reduction_factor),
                 config=adapter_config,
             )
             adapter.train(self.training)  # make sure training mode is consistent
