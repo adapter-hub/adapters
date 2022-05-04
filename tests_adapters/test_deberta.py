@@ -35,11 +35,11 @@ class DebertaAdapterTestBase(AdapterTestBase):
 
 @require_torch
 class DebertaAdapterTest(
-    # AdapterModelTestMixin,
-    # AdapterFusionModelTestMixin,
-    # CompabilityTestMixin,
+    AdapterModelTestMixin,
+    AdapterFusionModelTestMixin,
+    CompabilityTestMixin,
     PredictionHeadModelTestMixin,
-    # ParallelAdapterInferenceTestMixin,
+    ParallelAdapterInferenceTestMixin,
     DebertaAdapterTestBase,
     unittest.TestCase,
 ):
