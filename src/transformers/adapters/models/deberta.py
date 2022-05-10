@@ -68,7 +68,7 @@ class DebertaV2AdapterModel(ModelWithFlexibleHeadsAdaptersMixin, DebertaV2PreTra
             head_inputs = (outputs[0],) + outputs[2:]
         else:
             head_inputs = outputs
-        pooled_output = outputs["last_hidden_state"]
+        pooled_output = outputs[0]
 
         if head or AdapterSetup.get_context_head_setup() or self.active_head:
             head_outputs = self.forward_head(

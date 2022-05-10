@@ -512,10 +512,10 @@ class DebertaV2Encoder(nn.Module):
                     output_attentions=output_attentions,
                 )
 
-            (attention_mask,) = adjust_tensors_for_parallel(output_states, attention_mask)
-
             if output_attentions:
                 output_states, att_m = output_states
+
+            (attention_mask,) = adjust_tensors_for_parallel(output_states, attention_mask)
 
             if i == 0 and self.conv is not None:
                 output_states = self.conv(hidden_states, output_states, input_mask)

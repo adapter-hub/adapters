@@ -1,13 +1,12 @@
 import unittest
 
 from tests.deberta_v2.test_modeling_deberta_v2 import *
-# from transformers import DebertaAdapterModel
+from transformers import DebertaV2AdapterModel
 from transformers.testing_utils import require_torch
 
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_common import AdapterModelTestMixin
-from .test_adapter_compacter import CompacterTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
@@ -18,7 +17,7 @@ from .test_common import AdapterModelTesterMixin
 @require_torch
 class DebertaAdapterModelTest(AdapterModelTesterMixin, DebertaV2ModelTest):
     all_model_classes = (
-
+        DebertaV2AdapterModel,
     )
 
 
@@ -34,7 +33,7 @@ class DebertaAdapterTestBase(AdapterTestBase):
 
 
 @require_torch
-class DebertaAdapterTest(
+class DebertaV2AdapterTest(
     AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
@@ -47,7 +46,7 @@ class DebertaAdapterTest(
 
 
 @require_torch
-class RobertaClassConversionTest(
+class DebertaV2ClassConversionTest(
     ModelClassConversionTestMixin,
     DebertaAdapterTestBase,
     unittest.TestCase,
