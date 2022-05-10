@@ -1,7 +1,7 @@
 import warnings
 
 from ...file_utils import add_start_docstrings
-from ...models.deberta import DebertaModel, DebertaPreTrainedModel
+from ...models.deberta_v2 import DebertaV2Model, DebertaV2PreTrainedModel
 from ..context import AdapterSetup
 from ..heads import (
     BertStyleMaskedLMHead,
@@ -14,15 +14,15 @@ from ..heads import (
 
 
 @add_start_docstrings(
-    """Deberta Model transformer with the option to add multiple flexible heads on top.""",
+    """Deberta v2 Model transformer with the option to add multiple flexible heads on top.""",
 )
-class DebertaAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, DebertaPreTrainedModel):
+class DebertaV2AdapterModel(ModelWithFlexibleHeadsAdaptersMixin, DebertaV2PreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"cls.predictions.bias"]
 
     def __init__(self, config):
         super().__init__(config)
 
-        self.deberta = DebertaModel(config)
+        self.deberta = DebertaV2Model(config)
 
         self._init_head_modules()
 
@@ -158,7 +158,7 @@ class DebertaAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, DebertaPreTrained
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
 
 
-class DebertModelWithHeads(DebertaAdapterModel):
+class DebertaV2ModelWithHeads(DebertaV2AdapterModel):
     def __init__(self, *args, **kwargs):
         warnings.warn(
             "This class has been renamed to `{}` in v3. "

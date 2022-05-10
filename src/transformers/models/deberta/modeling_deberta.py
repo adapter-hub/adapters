@@ -16,12 +16,18 @@
 
 import math
 from collections.abc import Sequence
+from typing import Optional
 
 import torch
 from torch import _softmax_backward_data, nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.mixins.bert import BertModelAdaptersMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import add_code_sample_docstrings, add_start_docstrings, add_start_docstrings_to_model_forward
 from ...modeling_outputs import (
     BaseModelOutput,
@@ -252,24 +258,26 @@ class DebertaLayerNorm(nn.Module):
         return y
 
 
-class DebertaSelfOutput(nn.Module):
+class DebertaSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = DebertaLayerNorm(config.hidden_size, config.layer_norm_eps)
         self.dropout = StableDropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
 class DebertaAttention(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, location_key: Optional[str] = None):
         super().__init__()
-        self.self = DisentangledSelfAttention(config)
+        self.self = DisentangledSelfAttention(config, location_key=location_key)
         self.output = DebertaSelfOutput(config)
         self.config = config
 
@@ -318,25 +326,26 @@ class DebertaIntermediate(nn.Module):
         return hidden_states
 
 
-class DebertaOutput(nn.Module):
+class DebertaOutput(BertOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
         self.LayerNorm = DebertaLayerNorm(config.hidden_size, config.layer_norm_eps)
         self.dropout = StableDropout(config.hidden_dropout_prob)
         self.config = config
+        self._init_adapter_modules()
 
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
 class DebertaLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.attention = DebertaAttention(config)
+        self.attention = DebertaAttention(config, location_key="self")
         self.intermediate = DebertaIntermediate(config)
         self.output = DebertaOutput(config)
 
@@ -456,6 +465,8 @@ class DebertaEncoder(nn.Module):
             if output_attentions:
                 hidden_states, att_m = hidden_states
 
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
+
             if query_states is not None:
                 query_states = hidden_states
                 if isinstance(hidden_states, Sequence):
@@ -527,7 +538,7 @@ class DisentangledSelfAttention(nn.Module):
 
     """
 
-    def __init__(self, config):
+    def __init__(self, config, location_key: Optional[str] = None):
         super().__init__()
         if config.hidden_size % config.num_attention_heads != 0:
             raise ValueError(
@@ -561,11 +572,27 @@ class DisentangledSelfAttention(nn.Module):
                 self.pos_q_proj = nn.Linear(config.hidden_size, self.all_head_size)
 
         self.dropout = StableDropout(config.attention_probs_dropout_prob)
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, -1)
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
+
+    def transpose_for_scores_extended(self, x, attention_heads):
+        new_x_shape = x.size()[:-1] + (attention_heads, -1)
+        x = x.view(new_x_shape)
+        return x.permute(0, 2, 1, 3)
+
+    def get_attention_mask(self, attention_mask):
+        if attention_mask.dim() <= 2:
+            extended_attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
+            attention_mask = extended_attention_mask * extended_attention_mask.squeeze(-2).unsqueeze(-1)
+            attention_mask = attention_mask.byte()
+        elif attention_mask.dim() == 3:
+            attention_mask = attention_mask.unsqueeze(1)
+
+        return attention_mask
 
     def forward(
         self,
@@ -608,6 +635,9 @@ class DisentangledSelfAttention(nn.Module):
         if query_states is None:
             qp = self.in_proj(hidden_states)  # .split(self.all_head_size, dim=-1)
             query_layer, key_layer, value_layer = self.transpose_for_scores(qp).chunk(3, dim=-1)
+
+            # ToDo
+            key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask)
         else:
 
             def linear(w, b, x):
@@ -624,6 +654,7 @@ class DisentangledSelfAttention(nn.Module):
             k, v = [linear(qkvw[i], qkvb[i], hidden_states) for i in range(1, 3)]
             query_layer, key_layer, value_layer = [self.transpose_for_scores(x) for x in [q, k, v]]
 
+            key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask)
         query_layer = query_layer + self.transpose_for_scores(self.q_bias[None, None, :])
         value_layer = value_layer + self.transpose_for_scores(self.v_bias[None, None, :])
 
@@ -879,7 +910,7 @@ DEBERTA_INPUTS_DOCSTRING = r"""
     "The bare DeBERTa Model transformer outputting raw hidden-states without any specific head on top.",
     DEBERTA_START_DOCSTRING,
 )
-class DebertaModel(DebertaPreTrainedModel):
+class DebertaModel(BertModelAdaptersMixin, DebertaPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -887,6 +918,7 @@ class DebertaModel(DebertaPreTrainedModel):
         self.encoder = DebertaEncoder(config)
         self.z_steps = 0
         self.config = config
+        self._init_adapter_modules()
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -910,6 +942,7 @@ class DebertaModel(DebertaPreTrainedModel):
         output_type=SequenceClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -950,6 +983,7 @@ class DebertaModel(DebertaPreTrainedModel):
             mask=attention_mask,
             inputs_embeds=inputs_embeds,
         )
+        embedding_output = self.invertible_adapters_forward(embedding_output)
 
         encoder_outputs = self.encoder(
             embedding_output,
@@ -991,7 +1025,7 @@ class DebertaModel(DebertaPreTrainedModel):
 
 
 @add_start_docstrings("""DeBERTa Model with a `language modeling` head on top.""", DEBERTA_START_DOCSTRING)
-class DebertaForMaskedLM(DebertaPreTrainedModel):
+class DebertaForMaskedLM(ModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]
 
@@ -1050,7 +1084,10 @@ class DebertaForMaskedLM(DebertaPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+        prediction_scores = self.cls(
+            sequence_output,
+            inv_lang_adapter=self.deberta.get_invertible_adapter(),
+        )
 
         masked_lm_loss = None
         if labels is not None:
@@ -1080,10 +1117,16 @@ class DebertaPredictionHeadTransform(nn.Module):
             self.transform_act_fn = config.hidden_act
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
-    def forward(self, hidden_states):
+    def forward(
+        self,
+        hidden_states,
+        inv_lang_adapter=None,
+    ):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.transform_act_fn(hidden_states)
         hidden_states = self.LayerNorm(hidden_states)
+        if inv_lang_adapter:
+            hidden_states = inv_lang_adapter(hidden_states, rev=True)
         return hidden_states
 
 
@@ -1102,8 +1145,12 @@ class DebertaLMPredictionHead(nn.Module):
         # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
         self.decoder.bias = self.bias
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, **kwargs):
         hidden_states = self.transform(hidden_states)
+        # Now, pass through an invertible adapter if available
+        inv_adapter = kwargs.pop("invertible_adapter", None)
+        if inv_adapter is not None:
+            hidden_states = inv_adapter(hidden_states, rev=True)
         hidden_states = self.decoder(hidden_states)
         return hidden_states
 
@@ -1114,8 +1161,8 @@ class DebertaOnlyMLMHead(nn.Module):
         super().__init__()
         self.predictions = DebertaLMPredictionHead(config)
 
-    def forward(self, sequence_output):
-        prediction_scores = self.predictions(sequence_output)
+    def forward(self, sequence_output, **kwargs):
+        prediction_scores = self.predictions(sequence_output, **kwargs)
         return prediction_scores
 
 
@@ -1126,7 +1173,7 @@ class DebertaOnlyMLMHead(nn.Module):
     """,
     DEBERTA_START_DOCSTRING,
 )
-class DebertaForSequenceClassification(DebertaPreTrainedModel):
+class DebertaForSequenceClassification(ModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1245,7 +1292,7 @@ class DebertaForSequenceClassification(DebertaPreTrainedModel):
     """,
     DEBERTA_START_DOCSTRING,
 )
-class DebertaForTokenClassification(DebertaPreTrainedModel):
+class DebertaForTokenClassification(ModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
     def __init__(self, config):
@@ -1321,7 +1368,7 @@ class DebertaForTokenClassification(DebertaPreTrainedModel):
     """,
     DEBERTA_START_DOCSTRING,
 )
-class DebertaForQuestionAnswering(DebertaPreTrainedModel):
+class DebertaForQuestionAnswering(ModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
     def __init__(self, config):

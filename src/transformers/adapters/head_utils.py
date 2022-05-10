@@ -328,8 +328,47 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "qa_outputs"],
     },
-    # ToDo Fix
     "DebertaV2ForMaskedLM": {
+        "config": {
+            "head_type": "masked_lm",
+            "layers": 2,
+            "activation_function": "gelu",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": [
+            "cls.predictions.transform.dense",
+            None,
+            "cls.predictions.transform.LayerNorm",
+            "cls.predictions.decoder",
+        ],
+    },
+    "DebertaForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 2,
+            "activation_function": "gelu",
+            "use_pooler": False,
+        },
+        "layers": [None, "pooler.dense", None, None, "classifier"],
+    },
+    "DebertaForTokenClassification": {
+        "config": {
+            "head_type": "tagging",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": ["dropout", "classifier"],
+    },
+    "DebertaForQuestionAnswering": {
+        "config": {
+            "head_type": "question_answering",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "qa_outputs"],
+    },
+    "DebertaForMaskedLM": {
         "config": {
             "head_type": "masked_lm",
             "layers": 2,
