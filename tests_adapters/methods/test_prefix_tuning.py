@@ -53,8 +53,9 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
         self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-4))
 
     def test_prefix_tuning_generate(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head") and not hasattr(
-            ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head"
+        if self.config_class not in ADAPTER_MODEL_MAPPING or (
+            not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head")
+            and not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head")
         ):
             self.skipTest("No seq2seq or causal language model head")
 
