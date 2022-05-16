@@ -53,6 +53,13 @@ class AdapterSetup:
             return None
 
     @classmethod
+    def get_context_adapter_setup(cls):
+        context = cls.get_context()
+        if context:
+            return context.adapter_setup
+        return None
+
+    @classmethod
     def get_context_head_setup(cls):
         context = cls.get_context()
         if context:

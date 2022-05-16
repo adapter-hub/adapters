@@ -6,7 +6,9 @@ import torch
 from transformers import AutoAdapterModel, AutoTokenizer, Trainer, TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
 
-from .test_adapter_training import filter_parameters
+
+def filter_parameters(model, filter_string):
+    return {k: v for (k, v) in model.named_parameters() if filter_string in k}
 
 
 @require_torch

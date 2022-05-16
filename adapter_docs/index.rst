@@ -34,7 +34,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    prediction_heads
    embeddings
    extending
-   v2_transition
+   transitioning
 
 .. toctree::
    :maxdepth: 2

@@ -385,9 +385,9 @@ class BertFusion(nn.Module):
 def get_subnet_constructor(non_linearity, reduction_factor):
     def subnet(dims_in, dims_out):
         return nn.Sequential(
-            nn.Linear(dims_in, dims_in // reduction_factor),
+            nn.Linear(dims_in, int(dims_in // reduction_factor)),
             Activation_Function_Class(non_linearity),
-            nn.Linear(dims_in // reduction_factor, dims_out),
+            nn.Linear(int(dims_in // reduction_factor), dims_out),
         )
 
     return subnet
