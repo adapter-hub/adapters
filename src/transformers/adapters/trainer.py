@@ -161,7 +161,7 @@ class AdapterTrainer(Trainer):
         # Good practice: save your training arguments together with the trained model
         torch.save(self.args, os.path.join(output_dir, "training_args.bin"))
 
-    def _load(self, resume_from_checkpoint):
+    def _load_from_checkpoint(self, resume_from_checkpoint):
         args = self.args
         if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
             logger.info(f"Loading model from {resume_from_checkpoint}).")

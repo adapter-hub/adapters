@@ -1,6 +1,6 @@
 import unittest
 
-from tests.bert.test_modeling_bert import *
+from tests.models.bert.test_modeling_bert import *
 from transformers import BertAdapterModel
 from transformers.testing_utils import require_torch
 

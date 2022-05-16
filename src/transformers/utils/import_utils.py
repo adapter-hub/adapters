@@ -400,6 +400,10 @@ def is_apex_available():
     return importlib.util.find_spec("apex") is not None
 
 
+def is_bitsandbytes_available():
+    return importlib.util.find_spec("bitsandbytes") is not None
+
+
 def is_faiss_available():
     return _faiss_available
 
@@ -422,6 +426,10 @@ def is_protobuf_available():
     if importlib.util.find_spec("google") is None:
         return False
     return importlib.util.find_spec("google.protobuf") is not None
+
+
+def is_accelerate_available():
+    return importlib.util.find_spec("accelerate") is not None
 
 
 def is_tokenizers_available():
@@ -721,6 +729,12 @@ PYCTCDECODE_IMPORT_ERROR = """
 `pip install pyctcdecode`
 """
 
+# docstyle-ignore
+ACCELERATE_IMPORT_ERROR = """
+{0} requires the accelerate library but it was not found in your environment. You can install it with pip:
+`pip install accelerate`
+"""
+
 
 BACKENDS_MAPPING = OrderedDict(
     [
@@ -746,6 +760,7 @@ BACKENDS_MAPPING = OrderedDict(
         ("torch", (is_torch_available, PYTORCH_IMPORT_ERROR)),
         ("vision", (is_vision_available, VISION_IMPORT_ERROR)),
         ("scipy", (is_scipy_available, SCIPY_IMPORT_ERROR)),
+        ("accelerate", (is_accelerate_available, ACCELERATE_IMPORT_ERROR)),
     ]
 )
 
@@ -862,3 +877,7 @@ class _LazyModule(ModuleType):
 
     def __reduce__(self):
         return (self.__class__, (self._name, self.__file__, self._import_structure))
+
+
+class OptionalDependencyNotAvailable(BaseException):
+    """Internally used error class for signalling an optional dependency was not found."""

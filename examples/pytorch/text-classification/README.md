@@ -141,7 +141,7 @@ the mean of the [🤗 `Accelerate`](https://github.com/huggingface/accelerate) l
 after installing it:
 
 ```bash
-pip install accelerate
+pip install git+https://github.com/huggingface/accelerate
 ```
 
 then

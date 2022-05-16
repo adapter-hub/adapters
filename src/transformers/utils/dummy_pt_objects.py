@@ -266,26 +266,11 @@ def top_k_top_p_filtering(*args, **kwargs):
     requires_backends(top_k_top_p_filtering, ["torch"])
 
 
-class Conv1D(metaclass=DummyObject):
-    _backends = ["torch"]
-
-    def __init__(self, *args, **kwargs):
-        requires_backends(self, ["torch"])
-
-
 class PreTrainedModel(metaclass=DummyObject):
     _backends = ["torch"]
 
     def __init__(self, *args, **kwargs):
         requires_backends(self, ["torch"])
-
-
-def apply_chunking_to_forward(*args, **kwargs):
-    requires_backends(apply_chunking_to_forward, ["torch"])
-
-
-def prune_layer(*args, **kwargs):
-    requires_backends(prune_layer, ["torch"])
 
 
 ALBERT_PRETRAINED_MODEL_ARCHIVE_LIST = None
@@ -1237,6 +1222,9 @@ DATA2VEC_AUDIO_PRETRAINED_MODEL_ARCHIVE_LIST = None
 DATA2VEC_TEXT_PRETRAINED_MODEL_ARCHIVE_LIST = None
 
 
+DATA2VEC_VISION_PRETRAINED_MODEL_ARCHIVE_LIST = None
+
+
 class Data2VecAudioForAudioFrameClassification(metaclass=DummyObject):
     _backends = ["torch"]
 
@@ -1335,6 +1323,34 @@ class Data2VecTextPreTrainedModel(metaclass=DummyObject):
         requires_backends(self, ["torch"])
 
 
+class Data2VecVisionForImageClassification(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class Data2VecVisionForSemanticSegmentation(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class Data2VecVisionModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class Data2VecVisionPreTrainedModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
 DEBERTA_PRETRAINED_MODEL_ARCHIVE_LIST = None
 
 
@@ -1384,6 +1400,13 @@ DEBERTA_V2_PRETRAINED_MODEL_ARCHIVE_LIST = None
 
 
 class DebertaV2ForMaskedLM(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class DebertaV2ForMultipleChoice(metaclass=DummyObject):
     _backends = ["torch"]
 
     def __init__(self, *args, **kwargs):
@@ -1758,6 +1781,58 @@ class FlaubertModel(metaclass=DummyObject):
 
 
 class FlaubertWithLMHeadModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+FLAVA_PRETRAINED_MODEL_ARCHIVE_LIST = None
+
+
+class FlavaForPreTraining(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class FlavaImageCodebook(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class FlavaImageModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class FlavaModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class FlavaMultimodalModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class FlavaPreTrainedModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class FlavaTextModel(metaclass=DummyObject):
     _backends = ["torch"]
 
     def __init__(self, *args, **kwargs):
@@ -2922,6 +2997,30 @@ def load_tf_weights_in_openai_gpt(*args, **kwargs):
     requires_backends(load_tf_weights_in_openai_gpt, ["torch"])
 
 
+OPT_PRETRAINED_MODEL_ARCHIVE_LIST = None
+
+
+class OPTForCausalLM(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class OPTModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class OPTPreTrainedModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
 class PegasusForCausalLM(metaclass=DummyObject):
     _backends = ["torch"]
 
@@ -3344,6 +3443,30 @@ class ReformerModelWithLMHead(metaclass=DummyObject):
 
 
 class ReformerPreTrainedModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+REGNET_PRETRAINED_MODEL_ARCHIVE_LIST = None
+
+
+class RegNetForImageClassification(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class RegNetModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class RegNetPreTrainedModel(metaclass=DummyObject):
     _backends = ["torch"]
 
     def __init__(self, *args, **kwargs):
@@ -4657,6 +4780,30 @@ def load_tf_weights_in_xlnet(*args, **kwargs):
     requires_backends(load_tf_weights_in_xlnet, ["torch"])
 
 
+YOLOS_PRETRAINED_MODEL_ARCHIVE_LIST = None
+
+
+class YolosForObjectDetection(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class YolosModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class YolosPreTrainedModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
 YOSO_PRETRAINED_MODEL_ARCHIVE_LIST = None
 
 
@@ -4756,6 +4903,21 @@ def get_polynomial_decay_schedule_with_warmup(*args, **kwargs):
 
 def get_scheduler(*args, **kwargs):
     requires_backends(get_scheduler, ["torch"])
+
+
+class Conv1D(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+def apply_chunking_to_forward(*args, **kwargs):
+    requires_backends(apply_chunking_to_forward, ["torch"])
+
+
+def prune_layer(*args, **kwargs):
+    requires_backends(prune_layer, ["torch"])
 
 
 class Trainer(metaclass=DummyObject):

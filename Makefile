@@ -40,6 +40,8 @@ autogenerate_code: deps_table_update
 repo-consistency:
 	python utils/check_repo.py
 	python utils/check_inits.py
+	python utils/check_config_docstrings.py
+	python utils/tests_fetcher.py --sanity_check
 	python utils/check_adapters.py
 
 # this target runs checks on all files
