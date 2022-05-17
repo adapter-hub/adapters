@@ -1,9 +1,8 @@
 from tests.encoder_decoder.test_modeling_encoder_decoder import *  # Imported to execute model tests
 from transformers import AutoModelForSeq2SeqLM, BertConfig
 
+from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase
-from .test_adapter_common import AdapterModelTestMixin
-from .test_adapter_compacter import CompacterTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 
 
@@ -33,9 +32,10 @@ class EncoderDecoderAdapterTestBase(AdapterTestBase):
 
 @require_torch
 class EncoderDecoderAdapterTest(
-    AdapterModelTestMixin,
-    AdapterFusionModelTestMixin,
+    BottleneckAdapterTestMixin,
     CompacterTestMixin,
+    PrefixTuningTestMixin,
+    AdapterFusionModelTestMixin,
     EncoderDecoderAdapterTestBase,
     unittest.TestCase,
 ):

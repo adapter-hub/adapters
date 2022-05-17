@@ -18,7 +18,9 @@ from transformers import (
 from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from transformers.testing_utils import require_torch, torch_device
 
-from .test_adapter_training import filter_parameters
+
+def filter_parameters(model, filter_string):
+    return {k: v for (k, v) in model.named_parameters() if filter_string in k}
 
 
 class AdapterCompositionParsingTest(unittest.TestCase):

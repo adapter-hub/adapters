@@ -18,7 +18,7 @@ class AdapterArguments:
     adapter_non_linearity: Optional[str] = field(
         default=None, metadata={"help": "Override the non-linearity of the adapter configuration."}
     )
-    adapter_reduction_factor: Optional[int] = field(
+    adapter_reduction_factor: Optional[float] = field(
         default=None, metadata={"help": "Override the reduction factor of the adapter configuration."}
     )
     language: Optional[str] = field(default=None, metadata={"help": "The training language, e.g. 'en' for English."})
