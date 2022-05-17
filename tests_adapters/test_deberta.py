@@ -6,7 +6,7 @@ from transformers.testing_utils import require_torch
 
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
-from .test_adapter_common import AdapterModelTestMixin
+from .test_common import AdapterModelTesterMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
@@ -34,7 +34,7 @@ class DebertaAdapterTestBase(AdapterTestBase):
 
 @require_torch
 class DebertaAdapterTest(
-    AdapterModelTestMixin,
+    AdapterModelTesterMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
     PredictionHeadModelTestMixin,
