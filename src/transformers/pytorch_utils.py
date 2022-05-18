@@ -14,7 +14,7 @@
 
 import torch
 from packaging import version
-from torch import _softmax_backward_data, nn
+from torch import _softmax_backward_data
 
 from .utils import logging
 
