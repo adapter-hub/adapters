@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from typing import Optional
 
 import torch
-from torch import _softmax_backward_data, nn
+from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
@@ -37,6 +37,7 @@ from ...modeling_outputs import (
     TokenClassifierOutput,
 )
 from ...modeling_utils import PreTrainedModel
+from ...pytorch_utils import softmax_backward_data
 from ...utils import logging
 from .configuration_deberta import DebertaConfig
 
@@ -121,7 +122,7 @@ class XSoftmax(torch.autograd.Function):
     @staticmethod
     def backward(self, grad_output):
         (output,) = self.saved_tensors
-        inputGrad = _softmax_backward_data(grad_output, output, self.dim, output)
+        inputGrad = softmax_backward_data(self, grad_output, output, self.dim, output)
         return inputGrad, None, None
 
     @staticmethod
@@ -636,7 +637,6 @@ class DisentangledSelfAttention(nn.Module):
             qp = self.in_proj(hidden_states)  # .split(self.all_head_size, dim=-1)
             query_layer, key_layer, value_layer = self.transpose_for_scores(qp).chunk(3, dim=-1)
 
-            # ToDo
             key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask)
         else:
 
