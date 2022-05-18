@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from ...modeling_outputs import CausalLMOutput, MaskedLMOutput, Seq2SeqLMOutput
+from ...modeling_outputs import CausalLMOutput, CausalLMOutputWithPast, MaskedLMOutput, Seq2SeqLMOutput
 from ..modeling import Activation_Function_Class
 from .base import PredictionHead
 
@@ -64,12 +64,21 @@ class CausalLMHead(PredictionHead):
 
     @staticmethod
     def _create_model_output(loss, logits, base_outputs):
-        return CausalLMOutput(
-            loss=loss,
-            logits=logits,
-            hidden_states=base_outputs.hidden_states,
-            attentions=base_outputs.attentions,
-        )
+        if "past_key_values" in base_outputs:
+            return CausalLMOutputWithPast(
+                loss=loss,
+                logits=logits,
+                hidden_states=base_outputs.hidden_states,
+                attentions=base_outputs.attentions,
+                past_key_values=base_outputs.past_key_values,
+            )
+        else:
+            return CausalLMOutput(
+                loss=loss,
+                logits=logits,
+                hidden_states=base_outputs.hidden_states,
+                attentions=base_outputs.attentions,
+            )
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
         # First, pass through all layers except the last embedding layer
