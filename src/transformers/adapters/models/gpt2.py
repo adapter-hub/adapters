@@ -107,6 +107,7 @@ class GPT2AdapterModel(ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel)
 
         return outputs
 
+    # Copied from GPT2LMHeadModel
     def prepare_inputs_for_generation(self, input_ids, past=None, **kwargs):
         token_type_ids = kwargs.get("token_type_ids", None)
         # only last token for inputs_ids if past is defined in kwargs
