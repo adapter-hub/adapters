@@ -13,6 +13,8 @@ MODELS_WITH_ADAPTERS = [
     "gpt2",
     "encoder_decoder",
     "t5",
+    "deberta",
+    "deberta-v2",
 ]
 
 IGNORE_NOT_IMPLEMENTING_MIXIN = [

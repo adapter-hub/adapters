@@ -580,21 +580,6 @@ class DisentangledSelfAttention(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def transpose_for_scores_extended(self, x, attention_heads):
-        new_x_shape = x.size()[:-1] + (attention_heads, -1)
-        x = x.view(new_x_shape)
-        return x.permute(0, 2, 1, 3)
-
-    def get_attention_mask(self, attention_mask):
-        if attention_mask.dim() <= 2:
-            extended_attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
-            attention_mask = extended_attention_mask * extended_attention_mask.squeeze(-2).unsqueeze(-1)
-            attention_mask = attention_mask.byte()
-        elif attention_mask.dim() == 3:
-            attention_mask = attention_mask.unsqueeze(1)
-
-        return attention_mask
-
     def forward(
         self,
         hidden_states,

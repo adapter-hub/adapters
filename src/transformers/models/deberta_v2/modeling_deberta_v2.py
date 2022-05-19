@@ -657,16 +657,6 @@ class DisentangledSelfAttention(nn.Module):
         x = x.view(new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def get_attention_mask(self, attention_mask):
-        if attention_mask.dim() <= 2:
-            extended_attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
-            attention_mask = extended_attention_mask * extended_attention_mask.squeeze(-2).unsqueeze(-1)
-            attention_mask = attention_mask.byte()
-        elif attention_mask.dim() == 3:
-            attention_mask = attention_mask.unsqueeze(1)
-
-        return attention_mask
-
     def forward(
         self,
         hidden_states,
@@ -714,8 +704,6 @@ class DisentangledSelfAttention(nn.Module):
         key_layer, value_layer, attention_mask = self.prefix_tuning(
             key_layer, value_layer, attention_mask
         )  # [:, 0, :, 0])
-
-        # attention_mask = self.get_attention_mask(expanded_attention_mask)
 
         key_layer = key_layer.contiguous().view(-1, key_layer.size(2), key_layer.size(-1))
         value_layer = value_layer.contiguous().view(-1, value_layer.size(2), value_layer.size(-1))
