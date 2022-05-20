@@ -28,9 +28,10 @@ class DebertaV2AdapterTestBase(AdapterTestBase):
     config = make_config(
         DebertaV2Config,
         hidden_size=32,
-        num_hidden_layers=4,
+        num_hidden_layers=5,
         num_attention_heads=4,
         intermediate_size=37,
+        hidden_act="gelu",
     )
     tokenizer_name = "microsoft/deberta-v3-base"
 

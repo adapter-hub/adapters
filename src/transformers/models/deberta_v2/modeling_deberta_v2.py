@@ -702,7 +702,7 @@ class DisentangledSelfAttention(nn.Module):
         value_layer = self.transpose_for_scores_extended(self.value_proj(hidden_states), self.num_attention_heads)
 
         key_layer, value_layer, attention_mask = self.prefix_tuning(
-            key_layer, value_layer, attention_mask
+            key_layer, value_layer, attention_mask, False
         )  # [:, 0, :, 0])
 
         key_layer = key_layer.contiguous().view(-1, key_layer.size(2), key_layer.size(-1))

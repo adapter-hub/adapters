@@ -96,12 +96,10 @@ _import_structure = {
         "BertModelWithHeads",
     ],
     "models.deberta": [
-        "DebertaAdapterModel",
-        "DebertaModelWithHeads",
+        "DebertaAdapterModel"
     ],
     "models.debertaV2": [
-        "DebertaV2AdapterModel",
-        "DebertaV2ModelWithHeads",
+        "DebertaV2AdapterModel"
     ],
     "models.distilbert": [
         "DistilBertAdapterModel",
@@ -197,14 +195,14 @@ if TYPE_CHECKING:
     from .models.auto import ADAPTER_MODEL_MAPPING, MODEL_WITH_HEADS_MAPPING, AutoAdapterModel, AutoModelWithHeads
     from .models.bart import BartAdapterModel, BartModelWithHeads
     from .models.bert import BertAdapterModel, BertModelWithHeads
+    from .models.deberta import DebertaAdapterModel, DebertModelWithHeads
+    from .models.debertaV2 import DebertaV2AdapterModel
     from .models.distilbert import DistilBertAdapterModel, DistilBertModelWithHeads
     from .models.gpt2 import GPT2AdapterModel, GPT2ModelWithHeads
     from .models.mbart import MBartAdapterModel, MBartModelWithHeads
     from .models.roberta import RobertaAdapterModel, RobertaModelWithHeads
     from .models.t5 import T5AdapterModel, T5ModelWithHeads
     from .models.xlm_roberta import XLMRobertaAdapterModel, XLMRobertaModelWithHeads
-    from .models.deberta import DebertaAdapterModel, DebertModelWithHeads
-    from .models.debertaV2 import DebertaV2AdapterModel, DebertaV2ModelWithHeads
     from .trainer import AdapterTrainer, Seq2SeqAdapterTrainer
     from .training import AdapterArguments, MultiLingAdapterArguments
     from .utils import (

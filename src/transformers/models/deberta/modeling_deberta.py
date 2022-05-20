@@ -622,7 +622,6 @@ class DisentangledSelfAttention(nn.Module):
             qp = self.in_proj(hidden_states)  # .split(self.all_head_size, dim=-1)
             query_layer, key_layer, value_layer = self.transpose_for_scores(qp).chunk(3, dim=-1)
 
-            # key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask)
         else:
 
             def linear(w, b, x):
@@ -639,11 +638,10 @@ class DisentangledSelfAttention(nn.Module):
             k, v = [linear(qkvw[i], qkvb[i], hidden_states) for i in range(1, 3)]
             query_layer, key_layer, value_layer = [self.transpose_for_scores(x) for x in [q, k, v]]
 
-            # key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask)
         query_layer = query_layer + self.transpose_for_scores(self.q_bias[None, None, :])
         value_layer = value_layer + self.transpose_for_scores(self.v_bias[None, None, :])
 
-        key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask)
+        key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask, False)
 
         rel_att = None
         # Take the dot product between "query" and "key" to get the raw attention scores.

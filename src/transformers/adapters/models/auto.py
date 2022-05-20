@@ -26,8 +26,6 @@ MODEL_WITH_HEADS_MAPPING_NAMES = OrderedDict(
         ("roberta", "RobertaModelWithHeads"),
         ("bert", "BertModelWithHeads"),
         ("distilbert", "DistilBertModelWithHeads"),
-        ("deberta-v2", "DebertaV2ModelWithHeads"),
-        ("deberta", "DebertaModelWithHeads"),
         ("bart", "BartModelWithHeads"),
         ("mbart", "MBartModelWithHeads"),
         ("gpt2", "GPT2ModelWithHeads"),
