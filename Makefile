@@ -51,13 +51,13 @@ quality:
 	isort --check-only $(check_dirs)
 	python utils/custom_init_isort.py --check_only
 	flake8 $(check_dirs)
-	doc-builder style src/transformers docs/source --max_len 119 --check_only --path_to_docs docs/source
+	doc-builder style src/transformers adapter_docs --max_len 119 --check_only --path_to_docs adapter_docs
 
 # Format source code automatically and check is there are any problems left that need manual fixing
 
 extra_style_checks:
 	python utils/custom_init_isort.py
-	doc-builder style src/transformers docs/source --max_len 119 --path_to_docs docs/source
+	doc-builder style src/transformers adapter_docs --max_len 119 --path_to_docs adapter_docs
 
 # this target runs checks on all files and potentially modifies some of them
 
