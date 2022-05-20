@@ -203,6 +203,8 @@ if TYPE_CHECKING:
     from .models.roberta import RobertaAdapterModel, RobertaModelWithHeads
     from .models.t5 import T5AdapterModel, T5ModelWithHeads
     from .models.xlm_roberta import XLMRobertaAdapterModel, XLMRobertaModelWithHeads
+    from .models.deberta import DebertaAdapterModel, DebertModelWithHeads
+    from .models.debertaV2 import DebertaV2AdapterModel, DebertaV2ModelWithHeads
     from .trainer import AdapterTrainer, Seq2SeqAdapterTrainer
     from .training import AdapterArguments, MultiLingAdapterArguments
     from .utils import (

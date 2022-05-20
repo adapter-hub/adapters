@@ -36,15 +36,15 @@ class BertAdapterTestBase(AdapterTestBase):
 
 @require_torch
 class BertAdapterTest(
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
+    # BottleneckAdapterTestMixin,
+    # CompacterTestMixin,
     PrefixTuningTestMixin,
-    EmbeddingTestMixin,
-    AdapterFusionModelTestMixin,
-    CompabilityTestMixin,
-    PredictionHeadModelTestMixin,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
+    # EmbeddingTestMixin,
+    # AdapterFusionModelTestMixin,
+    # CompabilityTestMixin,
+    # PredictionHeadModelTestMixin,
+    # ParallelAdapterInferenceTestMixin,
+    # ParallelTrainingMixin,
     BertAdapterTestBase,
     unittest.TestCase,
 ):
