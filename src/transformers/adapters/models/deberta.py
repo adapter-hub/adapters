@@ -1,5 +1,3 @@
-import warnings
-
 from ...file_utils import add_start_docstrings
 from ...models.deberta import DebertaModel, DebertaPreTrainedModel
 from ..context import AdapterSetup
