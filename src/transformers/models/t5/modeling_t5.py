@@ -523,6 +523,8 @@ class T5Attention(nn.Module):
             hidden_states, self.v, key_value_states, past_key_value[1] if past_key_value is not None else None
         )
 
+        present_key_value_state = (key_states, value_states) if (self.is_decoder and use_cache) else None
+
         key_states, value_states, mask = self.prefix_tuning(key_states, value_states, mask)
         key_length = key_states.size(2)
 
@@ -564,7 +566,6 @@ class T5Attention(nn.Module):
         attn_output = unshape(torch.matmul(attn_weights, value_states))  # (batch_size, seq_length, dim)
         attn_output = self.o(attn_output)
 
-        present_key_value_state = (key_states, value_states) if (self.is_decoder and use_cache) else None
         outputs = (attn_output,) + (present_key_value_state,) + (position_bias,)
 
         if output_attentions:

@@ -323,8 +323,6 @@ class GPT2Attention(nn.Module):
         key = self._split_heads(key, self.num_heads, self.head_dim)
         value = self._split_heads(value, self.num_heads, self.head_dim)
 
-        key, value, attention_mask = self.prefix_tuning(key, value, attention_mask)
-
         if layer_past is not None:
             past_key, past_value = layer_past
             key = torch.cat((past_key, key), dim=-2)
@@ -334,6 +332,8 @@ class GPT2Attention(nn.Module):
             present = (key, value)
         else:
             present = None
+
+        key, value, attention_mask = self.prefix_tuning(key, value, attention_mask)
 
         if self.reorder_and_upcast_attn:
             attn_output, attn_weights = self._upcast_and_reordered_attn(query, key, value, attention_mask, head_mask)

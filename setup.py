@@ -410,7 +410,7 @@ install_requires = [
 
 setup(
     name="adapter-transformers",
-    version="3.0.0",
+    version="3.0.1",
     author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, Hannah Sterz, based on work by the HuggingFace team and community",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A friendly fork of HuggingFace's Transformers, adding Adapters to PyTorch language models",

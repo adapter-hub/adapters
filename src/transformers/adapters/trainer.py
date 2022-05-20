@@ -271,11 +271,10 @@ class AdapterTrainerCallback(TrainerCallback):
                     f"Loading best adapter fusion(s) from {state.best_model_checkpoint} (score: {state.best_metric})."
                 )
                 # attempt to re-load all adapter fusions from checkpoint
-                fusion_models = getattr(self.model.config, "adapter_fusion_models", [])
-                for fusion in fusion_models:
+                for fusion in model.config.adapters.fusions:
                     fusion_dir = os.path.join(state.best_model_checkpoint, fusion)
                     if os.path.exists(fusion_dir):
-                        self.model.load_adapter_fusion(fusion_dir)
+                        model.load_adapter_fusion(fusion_dir)
 
     def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         # apply adapter fusion weight regularization on the value matrix
