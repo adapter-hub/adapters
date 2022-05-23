@@ -16,8 +16,7 @@ from transformers import (
     TrainingArguments,
 )
 from transformers.adapters.composition import Fuse, Stack
-from transformers.adapters.trainer import AdapterTrainer
-from transformers.file_utils import logger
+from transformers.adapters.trainer import AdapterTrainer, logger
 from transformers.testing_utils import slow
 
 

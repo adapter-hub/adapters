@@ -20,7 +20,7 @@ __version__ = "3.0.1"
 
 from typing import TYPE_CHECKING
 
-from ..file_utils import _LazyModule
+from ..utils import _LazyModule
 
 
 _import_structure = {

@@ -19,7 +19,8 @@ import requests
 from filelock import FileLock
 from huggingface_hub import HfApi, snapshot_download
 
-from ..file_utils import get_from_cache, is_remote_url, torch_cache_home
+from ..utils import get_from_cache, is_remote_url
+from ..utils.hub import torch_cache_home
 from . import __version__
 
 

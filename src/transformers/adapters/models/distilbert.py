@@ -2,13 +2,13 @@ import warnings
 
 import torch.nn as nn
 
-from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward
 from ...models.distilbert.modeling_distilbert import (
     DISTILBERT_INPUTS_DOCSTRING,
     DISTILBERT_START_DOCSTRING,
     DistilBertModel,
     DistilBertPreTrainedModel,
 )
+from ...utils import add_start_docstrings, add_start_docstrings_to_model_forward
 from ..heads import (
     BertStyleMaskedLMHead,
     BiaffineParsingHead,

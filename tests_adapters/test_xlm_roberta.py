@@ -21,4 +21,3 @@ class XLMRobertaClassConversionTest(
         num_attention_heads=4,
         intermediate_size=37,
     )
-

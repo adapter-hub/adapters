@@ -20,7 +20,7 @@ import unittest
 from unittest.mock import patch
 
 from parameterized import parameterized
-from transformers.file_utils import is_apex_available
+from transformers.utils import is_apex_available
 from transformers.integrations import is_fairscale_available
 from transformers.testing_utils import (
     CaptureStderr,

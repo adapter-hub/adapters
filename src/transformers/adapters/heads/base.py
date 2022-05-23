@@ -6,7 +6,6 @@ import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from ...file_utils import ModelOutput
 from ...modeling_outputs import (
     MultipleChoiceModelOutput,
     QuestionAnsweringModelOutput,
@@ -16,6 +15,7 @@ from ...modeling_outputs import (
     SequenceClassifierOutput,
     TokenClassifierOutput,
 )
+from ...utils import ModelOutput
 from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, parse_heads_from_composition
 from ..context import AdapterSetup
 from ..model_mixin import ModelWithHeadsAdaptersMixin
