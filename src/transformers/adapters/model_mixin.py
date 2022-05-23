@@ -232,6 +232,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                         f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
                     )
 
+        # Make sure LoRA is reset
+        self.reset_lora()
         self.config.adapters.active_setup = adapter_setup
         self.config.adapters.skip_layers = skip_layers
 
