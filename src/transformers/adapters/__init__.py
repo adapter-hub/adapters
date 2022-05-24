@@ -16,11 +16,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "3.0.0"
+__version__ = "3.0.1"
 
 from typing import TYPE_CHECKING
 
-from ..file_utils import _LazyModule
+from ..utils import _LazyModule
 
 
 _import_structure = {

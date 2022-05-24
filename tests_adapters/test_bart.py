@@ -1,6 +1,6 @@
 import unittest
 
-from tests.bart.test_modeling_bart import *
+from tests.models.bart.test_modeling_bart import *
 from transformers import BartAdapterModel
 from transformers.testing_utils import require_torch
 

@@ -24,7 +24,6 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
-from ...file_utils import add_start_docstrings, add_start_docstrings_to_model_forward, replace_return_docstrings
 from ...modeling_outputs import (
     BaseModelOutput,
     BaseModelOutputWithPastAndCrossAttentions,
@@ -32,7 +31,7 @@ from ...modeling_outputs import (
     Seq2SeqModelOutput,
 )
 from ...modeling_utils import PreTrainedModel
-from ...utils import logging
+from ...utils import add_start_docstrings, add_start_docstrings_to_model_forward, logging, replace_return_docstrings
 from .configuration_speech_to_text import Speech2TextConfig
 
 
@@ -601,8 +600,8 @@ SPEECH_TO_TEXT_INPUTS_DOCSTRING = r"""
             Float values of fbank features extracted from the raw speech waveform. Raw speech waveform can be obtained
             by loading a `.flac` or `.wav` audio file into an array of type `List[float]` or a `numpy.ndarray`, *e.g.*
             via the soundfile library (`pip install soundfile`). To prepare the array into `input_features`, the
-            [`Speech2TextTokenizer`] should be used for extracting the fbank features, padding and conversion into a
-            tensor of type `torch.FloatTensor`. See [`~Speech2TextTokenizer.__call__`]
+            [`Speech2TextFeatureExtractor`] should be used for extracting the fbank features, padding and conversion
+            into a tensor of type `torch.FloatTensor`. See [`~Speech2TextFeatureExtractor.__call__`]
         attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
             Mask to avoid performing convolution and attention on padding token indices. Mask values selected in `[0,
             1]`:
@@ -680,7 +679,7 @@ SPEECH_TO_TEXT_INPUTS_DOCSTRING = r"""
             Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors for
             more detail.
         return_dict (`bool`, *optional*):
-            Whether or not to return a [`~file_utils.ModelOutput`] instead of a plain tuple.
+            Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
 """
 
 
@@ -734,9 +733,9 @@ class Speech2TextEncoder(Speech2TextPreTrainedModel):
                 Float values of fbank features extracted from the raw speech waveform. Raw speech waveform can be
                 obtained by loading a `.flac` or `.wav` audio file into an array of type `List[float]` or a
                 `numpy.ndarray`, *e.g.* via the soundfile library (`pip install soundfile`). To prepare the array into
-                `input_features`, the [`Speech2TextTokenizer`] should be used for extracting the fbank features,
+                `input_features`, the [`Speech2TextFeatureExtractor`] should be used for extracting the fbank features,
                 padding and conversion into a tensor of type `torch.FloatTensor`. See
-                [`~Speech2TextTokenizer.__call__`]
+                [`~Speech2TextFeatureExtractor.__call__`]
             attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
                 Mask to avoid performing convolution and attention on padding token indices. Mask values selected in
                 `[0, 1]`:
@@ -758,7 +757,7 @@ class Speech2TextEncoder(Speech2TextPreTrainedModel):
                 Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors
                 for more detail.
             return_dict (`bool`, *optional*):
-                Whether or not to return a [`~file_utils.ModelOutput`] instead of a plain tuple.
+                Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
         """
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
@@ -975,7 +974,7 @@ class Speech2TextDecoder(Speech2TextPreTrainedModel):
                 Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors
                 for more detail.
             return_dict (`bool`, *optional*):
-                Whether or not to return a [`~file_utils.ModelOutput`] instead of a plain tuple.
+                Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
         """
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
@@ -1168,9 +1167,10 @@ class Speech2TextModel(Speech2TextPreTrainedModel):
          >>> model = Speech2TextModel.from_pretrained("facebook/s2t-small-librispeech-asr")
          >>> feature_extractor = Speech2TextFeatureExtractor.from_pretrained("facebook/s2t-small-librispeech-asr")
          >>> ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
-         >>> input_features = feature_extractor(
+         >>> inputs = feature_extractor(
          ...     ds[0]["audio"]["array"], sampling_rate=ds[0]["audio"]["sampling_rate"], return_tensors="pt"
-         >>> ).input_features
+         ... )
+         >>> input_features = inputs.input_features
          >>> decoder_input_ids = torch.tensor([[1, 1]]) * model.config.decoder_start_token_id
          >>> last_hidden_state = model(input_features, decoder_input_ids=decoder_input_ids).last_hidden_state
          >>> list(last_hidden_state.shape)
@@ -1322,9 +1322,10 @@ class Speech2TextForConditionalGeneration(Speech2TextPreTrainedModel):
 
         >>> ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
 
-        >>> input_features = processor(
+        >>> inputs = processor(
         ...     ds[0]["audio"]["array"], sampling_rate=ds[0]["audio"]["sampling_rate"], return_tensors="pt"
-        >>> ).input_features
+        ... )
+        >>> input_features = inputs.input_features
 
         >>> generated_ids = model.generate(inputs=input_features)
 

@@ -163,6 +163,7 @@ tags
 # scripts
 *.ps1
 /x
+/output
 scripts/git-strip-merge
 
 # .lock

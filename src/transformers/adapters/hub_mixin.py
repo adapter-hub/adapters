@@ -1,4 +1,3 @@
-# docstyle-ignore-file
 import logging
 import os
 import shutil
@@ -10,6 +9,7 @@ from typing import List, Optional, Union
 logger = logging.getLogger(__name__)
 
 DEFAULT_TEXT = "<!-- Add some description here -->"
+# docstyle-ignore
 ADAPTER_CARD_TEMPLATE = """
 ---
 tags:
@@ -142,11 +142,13 @@ class PushAdapterToHubMixin:
             adapter_name (str): The name of the adapter to be uploaded.
             organization (str, optional): Organization in which to push the adapter
                 (you must be a member of this organization). Defaults to None.
-            adapterhub_tag (str, optional): Tag of the format `<task>/<subtask>` for categorization on https://adapterhub.ml/explore/.
-                See https://docs.adapterhub.ml/contributing.html#add-a-new-task-or-subtask for more.
-                If not specified, `datasets_tag` must be given in case a new adapter card is generated. Defaults to None.
+            adapterhub_tag (str, optional):
+                Tag of the format `<task>/<subtask>` for categorization on https://adapterhub.ml/explore/. See
+                https://docs.adapterhub.ml/contributing.html#add-a-new-task-or-subtask for more. If not specified,
+                `datasets_tag` must be given in case a new adapter card is generated. Defaults to None.
             datasets_tag (str, optional): Dataset identifier from https://huggingface.co/datasets.
-                If not specified, `adapterhub_tag` must be given in case a new adapter card is generated. Defaults to None.
+                If not specified, `adapterhub_tag` must be given in case a new adapter card is generated. Defaults to
+                None.
             local_path (str, optional): Local path used as clone directory of the adapter repository.
                 If not specified, will create a temporary directory. Defaults to None.
             commit_message (:obj:`str`, `optional`):
@@ -156,7 +158,8 @@ class PushAdapterToHubMixin:
                 Whether or not the repository created should be private (requires a paying subscription).
             use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
                 The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
-                generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`). Defaults to True.
+                generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`). Defaults to
+                True.
             overwrite_adapter_card (bool, optional): Overwrite an existing adapter card with a newly generated one.
                 If set to `False`, will only generate an adapter card, if none exists. Defaults to False.
 
