@@ -1561,7 +1561,7 @@ class DebertaV2ForQuestionAnswering(ModelWithHeadsAdaptersMixin, DebertaV2PreTra
     """,
     DEBERTA_START_DOCSTRING,
 )
-class DebertaV2ForMultipleChoice(DebertaV2PreTrainedModel):
+class DebertaV2ForMultipleChoice(ModelWithHeadsAdaptersMixin, DebertaV2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 

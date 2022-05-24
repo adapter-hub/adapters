@@ -343,6 +343,15 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "cls.predictions.decoder",
         ],
     },
+    "DebertaV2ForMultipleChoice": {
+        "config": {
+            "head_type": "multiple_choice",
+            "layers": 2,
+            "activation_function": "gelu",
+            "use_pooler": False,
+        },
+        "layers": [None, "pooler.dense", None, None, "classifier"],
+    },
     "DebertaForSequenceClassification": {
         "config": {
             "head_type": "classification",
