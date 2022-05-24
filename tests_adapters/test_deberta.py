@@ -1,6 +1,6 @@
 import unittest
 
-from tests.deberta.test_modeling_deberta import *
+from tests.models.deberta.test_modeling_deberta import *
 from transformers import DebertaAdapterModel
 from transformers.testing_utils import require_torch
 from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, PrefixTuningTestMixin
@@ -8,7 +8,6 @@ from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, PrefixTunin
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
-from .test_common import AdapterModelTesterMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
