@@ -95,6 +95,8 @@ _import_structure = {
         "BertAdapterModel",
         "BertModelWithHeads",
     ],
+    "models.deberta": ["DebertaAdapterModel"],
+    "models.debertaV2": ["DebertaV2AdapterModel"],
     "models.distilbert": [
         "DistilBertAdapterModel",
         "DistilBertModelWithHeads",
@@ -189,6 +191,8 @@ if TYPE_CHECKING:
     from .models.auto import ADAPTER_MODEL_MAPPING, MODEL_WITH_HEADS_MAPPING, AutoAdapterModel, AutoModelWithHeads
     from .models.bart import BartAdapterModel, BartModelWithHeads
     from .models.bert import BertAdapterModel, BertModelWithHeads
+    from .models.deberta import DebertaAdapterModel
+    from .models.debertaV2 import DebertaV2AdapterModel
     from .models.distilbert import DistilBertAdapterModel, DistilBertModelWithHeads
     from .models.gpt2 import GPT2AdapterModel, GPT2ModelWithHeads
     from .models.mbart import MBartAdapterModel, MBartModelWithHeads
