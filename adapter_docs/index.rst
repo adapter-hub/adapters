@@ -34,7 +34,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    prediction_heads
    embeddings
    extending
-   v2_transition
+   transitioning
 
 .. toctree::
    :maxdepth: 2
@@ -52,6 +52,8 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/models/auto
    classes/models/bart
    classes/models/bert
+   classes/models/deberta
+   classes/models/debertaV2
    classes/models/distilbert
    classes/models/encoderdecoder
    classes/models/gpt2

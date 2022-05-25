@@ -35,9 +35,9 @@ class MaskFormerConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a [`MaskFormerModel`]. It is used to instantiate a
     MaskFormer model according to the specified arguments, defining the model architecture. Instantiating a
-    configuration with the defaults will yield a similar configuration to that of the
-    "facebook/maskformer-swin-base-ade" architecture trained on
-    [ADE20k-150](https://huggingface.co/datasets/scene_parse_150).
+    configuration with the defaults will yield a similar configuration to that of the MaskFormer
+    [facebook/maskformer-swin-base-ade](https://huggingface.co/facebook/maskformer-swin-base-ade) architecture trained
+    on [ADE20k-150](https://huggingface.co/datasets/scene_parse_150).
 
     Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
     documentation from [`PretrainedConfig`] for more information.
@@ -69,6 +69,8 @@ class MaskFormerConfig(PretrainedConfig):
             The weight for the cross entropy loss.
         mask_weight (`float`, *optional*, defaults to 20.0):
             The weight for the mask loss.
+        output_auxiliary_logits (`bool`, *optional*):
+            Should the model output its `auxiliary_logits` or not.
 
     Raises:
         `ValueError`:
@@ -109,6 +111,7 @@ class MaskFormerConfig(PretrainedConfig):
         dice_weight: float = 1.0,
         cross_entropy_weight: float = 1.0,
         mask_weight: float = 20.0,
+        output_auxiliary_logits: Optional[bool] = None,
         **kwargs,
     ):
         if backbone_config is None:
@@ -156,6 +159,7 @@ class MaskFormerConfig(PretrainedConfig):
         self.mask_weight = mask_weight
         self.use_auxiliary_loss = use_auxiliary_loss
         self.no_object_weight = no_object_weight
+        self.output_auxiliary_logits = output_auxiliary_logits
 
         self.num_attention_heads = self.decoder_config.encoder_attention_heads
         self.num_hidden_layers = self.decoder_config.num_hidden_layers

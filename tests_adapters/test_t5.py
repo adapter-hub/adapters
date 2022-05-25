@@ -2,7 +2,7 @@ import unittest
 
 from datasets import load_dataset
 
-from tests.t5.test_modeling_t5 import *
+from tests.models.t5.test_modeling_t5 import *
 from transformers import T5AdapterModel
 from transformers.testing_utils import require_torch
 

@@ -164,6 +164,8 @@ class WeightsLoaderHelper:
             logger.info(
                 "Some module weights could not be found in loaded weights file: {}".format(", ".join(missing_keys))
             )
+        if self.model._keys_to_ignore_on_load_unexpected:
+            unexpected_keys = [k for k in unexpected_keys if k not in self.model._keys_to_ignore_on_load_unexpected]
         if len(unexpected_keys) > 0:
             logger.info(
                 "Some weights of the state_dict could not be loaded into model: {}".format(", ".join(unexpected_keys))
@@ -539,11 +541,12 @@ class AdapterFusionLoader(WeightsLoader):
         config = self.weights_helper.load_weights_config(save_directory)
 
         adapter_fusion_name = load_as or config["name"]
-        if adapter_fusion_name in self.model.config.adapters.fusions:
+        if adapter_fusion_name not in self.model.config.adapters.fusions:
+            self.model.add_adapter_fusion(
+                adapter_fusion_name, config["config"], overwrite_ok=True, set_active=kwargs.pop("set_active", True)
+            )
+        else:
             logger.warning("Overwriting existing adapter fusion module '{}'".format(adapter_fusion_name))
-        self.model.add_adapter_fusion(
-            adapter_fusion_name, config["config"], overwrite_ok=True, set_active=kwargs.pop("set_active", True)
-        )
 
         # Load AdapterFusion weights
         filter_func = self.filter_func(adapter_fusion_name)

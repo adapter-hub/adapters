@@ -1,6 +1,6 @@
 import unittest
 
-from tests.roberta.test_modeling_roberta import *
+from tests.models.roberta.test_modeling_roberta import *
 from transformers import RobertaAdapterModel
 from transformers.testing_utils import require_torch
 

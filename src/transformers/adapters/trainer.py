@@ -17,13 +17,13 @@ from transformers.modeling_utils import unwrap_model
 
 from ..configuration_utils import PretrainedConfig
 from ..data.data_collator import DataCollator
-from ..file_utils import CONFIG_NAME, WEIGHTS_NAME, is_sagemaker_mp_enabled, logger
 from ..optimization import Adafactor, AdamW
 from ..tokenization_utils_base import PreTrainedTokenizerBase
 from ..trainer_callback import TrainerCallback, TrainerControl, TrainerState
 from ..trainer_pt_utils import get_parameter_names
 from ..trainer_utils import EvalPrediction, ShardedDDPOption
 from ..training_args import TrainingArguments
+from ..utils import CONFIG_NAME, WEIGHTS_NAME, is_sagemaker_mp_enabled, logging
 
 
 if is_fairscale_available():
@@ -32,6 +32,9 @@ if is_fairscale_available():
 
 if is_sagemaker_mp_enabled():
     import smdistributed.modelparallel.torch as smp
+
+
+logger = logging.get_logger(__name__)
 
 
 class AdapterTrainer(Trainer):
@@ -158,7 +161,7 @@ class AdapterTrainer(Trainer):
         # Good practice: save your training arguments together with the trained model
         torch.save(self.args, os.path.join(output_dir, "training_args.bin"))
 
-    def _load(self, resume_from_checkpoint):
+    def _load_from_checkpoint(self, resume_from_checkpoint):
         args = self.args
         if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
             logger.info(f"Loading model from {resume_from_checkpoint}).")
@@ -268,11 +271,10 @@ class AdapterTrainerCallback(TrainerCallback):
                     f"Loading best adapter fusion(s) from {state.best_model_checkpoint} (score: {state.best_metric})."
                 )
                 # attempt to re-load all adapter fusions from checkpoint
-                fusion_models = getattr(self.model.config, "adapter_fusion_models", [])
-                for fusion in fusion_models:
+                for fusion in model.config.adapters.fusions:
                     fusion_dir = os.path.join(state.best_model_checkpoint, fusion)
                     if os.path.exists(fusion_dir):
-                        self.model.load_adapter_fusion(fusion_dir)
+                        model.load_adapter_fusion(fusion_dir)
 
     def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         # apply adapter fusion weight regularization on the value matrix

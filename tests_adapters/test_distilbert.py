@@ -1,6 +1,6 @@
 import unittest
 
-from tests.distilbert.test_modeling_distilbert import *
+from tests.models.distilbert.test_modeling_distilbert import *
 from transformers import DistilBertAdapterModel
 from transformers.testing_utils import require_torch
 
