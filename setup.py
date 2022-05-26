@@ -132,7 +132,7 @@ _deps = [
     "packaging>=20.0",
     "parameterized",
     "phonemizer",
-    "protobuf",
+    "protobuf<=3.20.1",
     "psutil",
     "pyyaml>=5.1",
     "pydantic",
@@ -301,6 +301,7 @@ extras["testing"] = (
         "nltk",
         "GitPython",
         "hf-doc-builder",
+        "protobuf", # Can be removed once we can unpin protobuf
         "sacremoses",
         "rjieba"
     )
