@@ -36,6 +36,8 @@ else:
 from ...activations import ACT2FN
 from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.lora import MergedLinear as LoRAMergedLinear
 from ...adapters.mixins.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.prefix_tuning import PrefixTuningShim
@@ -166,7 +168,14 @@ class GPT2Attention(nn.Module):
             self.c_attn = Conv1D(2 * self.embed_dim, self.embed_dim)
             self.q_attn = Conv1D(self.embed_dim, self.embed_dim)
         else:
-            self.c_attn = Conv1D(3 * self.embed_dim, self.embed_dim)
+            self.c_attn = LoRAMergedLinear(
+                self.embed_dim,
+                3 * self.embed_dim,
+                "selfattn",
+                config,
+                enable_lora=[True, False, True],
+                fan_in_fan_out=True,
+            )
         self.c_proj = Conv1D(self.embed_dim, self.embed_dim)
 
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
@@ -355,8 +364,9 @@ class GPT2MLP(nn.Module):
     def __init__(self, intermediate_size, config):
         super().__init__()
         embed_dim = config.hidden_size
-        self.c_fc = Conv1D(intermediate_size, embed_dim)
-        self.c_proj = Conv1D(embed_dim, intermediate_size)
+        # Order of dimension inputs to LORALinear reversed compared to Conv1D
+        self.c_fc = LoRALinear(embed_dim, intermediate_size, "intermediate", config, fan_in_fan_out=True)
+        self.c_proj = LoRALinear(intermediate_size, embed_dim, "output", config, fan_in_fan_out=True)
         self.act = ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.resid_pdrop)
 

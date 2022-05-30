@@ -164,7 +164,7 @@ class AdapterMethodBaseTestMixin:
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,
-            learning_rate=0.7,
+            learning_rate=1.0,
             max_steps=20,
             no_cuda=True,
             per_device_train_batch_size=2,

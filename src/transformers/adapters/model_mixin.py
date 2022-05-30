@@ -15,6 +15,7 @@ from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .layer import AdapterLayer, AdapterLayerBase
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
+from .lora import LoRALayer
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .prefix_tuning import PrefixTuningPool, PrefixTuningShim
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
@@ -231,6 +232,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                         f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
                     )
 
+        # Make sure LoRA is reset
+        self.reset_lora()
         self.config.adapters.active_setup = adapter_setup
         self.config.adapters.skip_layers = skip_layers
 
@@ -776,6 +779,26 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             if isinstance(module, PrefixTuningPool):
                 if name in module.prefix_tunings:
                     module.prefix_tunings[name].eject()
+
+    def merge_lora(self, name: str):
+        """
+        Merges the weights of the given LoRA module with the Transformer weights as described in the paper.
+
+        Args:
+            name (str): LoRA module to merge.
+        """
+        for module in self.modules():
+            if isinstance(module, LoRALayer):
+                if name in module.loras:
+                    module.merge_lora(name)
+
+    def reset_lora(self):
+        """
+        Resets weights of a LoRA module merged using `model.merge_lora(name)`.
+        """
+        for module in self.modules():
+            if isinstance(module, LoRALayer):
+                module.reset_lora()
 
 
 @inherit_doc

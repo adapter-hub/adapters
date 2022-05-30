@@ -26,6 +26,7 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from ...activations import ACT2FN
 from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
 from ...adapters.mixins.bart import (
     BartDecoderLayerAdaptersMixin,
     BartEncoderLayerAdaptersMixin,
@@ -181,8 +182,8 @@ class MBartAttention(nn.Module):
         self.is_decoder = is_decoder
 
         self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.v_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, bias=bias)
+        self.q_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
         self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
@@ -321,8 +322,8 @@ class MBartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
         self.activation_dropout = config.activation_dropout
-        self.fc1 = nn.Linear(self.embed_dim, config.encoder_ffn_dim)
-        self.fc2 = nn.Linear(config.encoder_ffn_dim, self.embed_dim)
+        self.fc1 = LoRALinear(self.embed_dim, config.encoder_ffn_dim, "intermediate", config)
+        self.fc2 = LoRALinear(config.encoder_ffn_dim, self.embed_dim, "output", config)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
 
         self._init_adapter_modules()

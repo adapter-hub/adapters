@@ -19,4 +19,5 @@
 from .base import create_twin_models
 from .test_adapter_common import BottleneckAdapterTestMixin
 from .test_compacter import CompacterTestMixin
+from .test_lora import LoRATestMixin
 from .test_prefix_tuning import PrefixTuningTestMixin

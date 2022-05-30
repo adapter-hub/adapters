@@ -221,7 +221,7 @@ class PrefixTuningPool(nn.Module):
         return prefix_states
 
 
-class PrefixTuningShim(AdapterLayerBase):
+class PrefixTuningShim(AdapterLayerBase, nn.Module):
     """
     Representation of a Prefix Tuning layer within one Transformer layer. This class implements `AdapterLayerBase` for
     compatibility with adapters. It uses `PrefixTuningPool` in the background and `set_pool()` must be called after
@@ -283,19 +283,8 @@ class PrefixTuningShim(AdapterLayerBase):
         return None
 
     def forward(self, key_states, value_states, attention_mask=None, invert_mask=True):
-        if getattr(self.config, "is_adaptable", False):
-            # First check current context before falling back to defined setup
-            context = AdapterSetup.get_context()
-            if context is not None:
-                adapter_setup = context.adapter_setup
-            else:
-                adapter_setup = self.config.adapters.active_setup
-        else:
-            adapter_setup = None
-        skip_adapters = adapter_setup is None or (
-            self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
-        )
-        if not skip_adapters and (len(set(self.prefixes.keys()) & adapter_setup.flatten()) > 0):
+        adapter_setup = self.get_active_setup(self.prefixes)
+        if adapter_setup is not None:
             if len(adapter_setup) == 1:
                 # we already made sure we only have 1 item
                 prefix_tuning_name = adapter_setup.first()

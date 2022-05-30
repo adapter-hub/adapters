@@ -25,6 +25,8 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from ...activations import ACT2FN
 from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.lora import MergedLinear as LoRAMergedLinear
 from ...adapters.mixins.bert import BertModelAdaptersMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
 from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.prefix_tuning import PrefixTuningShim
@@ -313,7 +315,7 @@ class DebertaAttention(nn.Module):
 class DebertaIntermediate(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.dense = nn.Linear(config.hidden_size, config.intermediate_size)
+        self.dense = LoRALinear(config.hidden_size, config.intermediate_size, "intermediate", config)
         if isinstance(config.hidden_act, str):
             self.intermediate_act_fn = ACT2FN[config.hidden_act]
         else:
@@ -328,7 +330,7 @@ class DebertaIntermediate(nn.Module):
 class DebertaOutput(BertOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
+        self.dense = LoRALinear(config.intermediate_size, config.hidden_size, "output", config)
         self.LayerNorm = DebertaLayerNorm(config.hidden_size, config.layer_norm_eps)
         self.dropout = StableDropout(config.hidden_dropout_prob)
         self.config = config
@@ -547,7 +549,14 @@ class DisentangledSelfAttention(nn.Module):
         self.num_attention_heads = config.num_attention_heads
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
-        self.in_proj = nn.Linear(config.hidden_size, self.all_head_size * 3, bias=False)
+        self.in_proj = LoRAMergedLinear(
+            config.hidden_size,
+            self.all_head_size * 3,
+            "selfattn",
+            config,
+            enable_lora=[True, False, True],
+            fan_in_fan_out=True,
+        )
         self.q_bias = nn.Parameter(torch.zeros((self.all_head_size), dtype=torch.float))
         self.v_bias = nn.Parameter(torch.zeros((self.all_head_size), dtype=torch.float))
         self.pos_att_type = config.pos_att_type if config.pos_att_type is not None else []

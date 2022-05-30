@@ -6,7 +6,7 @@ from tests.models.t5.test_modeling_t5 import *
 from transformers import T5AdapterModel
 from transformers.testing_utils import require_torch
 
-from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, PrefixTuningTestMixin
+from .methods import BottleneckAdapterTestMixin, LoRATestMixin, CompacterTestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -81,6 +81,7 @@ class T5AdapterTestBase(AdapterTestBase):
 class T5AdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
+    LoRATestMixin,
     PrefixTuningTestMixin,
     EmbeddingTestMixin,
     CompabilityTestMixin,

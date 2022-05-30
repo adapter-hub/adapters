@@ -83,6 +83,8 @@ class AdapterConfigBase(Mapping):
         architecture = config_dict.get("architecture", None)
         if architecture == "prefix_tuning":
             cls_new = PrefixTuningConfig
+        elif architecture == "lora":
+            cls_new = LoRAConfig
         elif architecture == "union":
             cls_new = ConfigUnion
         else:
@@ -375,6 +377,39 @@ class PrefixTuningConfig(AdapterConfigBase):
     dropout: float = 0.0
 
 
+@dataclass(eq=False)
+class LoRAConfig(AdapterConfigBase):
+    """
+    The Low-Rank Adaptation (LoRA) architecture proposed by Hu et al. (2021). See https://arxiv.org/pdf/2106.09685.pdf.
+    LoRA adapts a model by reparametrizing the weights of a layer matrix. You can merge the additional weights with the
+    original layer weights using ``model.merge_lora("lora_name")``.
+
+    Args:
+        selfattn_lora (bool, optional): If True, add LoRA to the self-attention weights of a model.
+            Defaults to True.
+        intermediate_lora (bool, optional): If True, add LoRA to the intermediate MLP weights of a model.
+            Defaults to False.
+        output_lora (bool, optional): If True, add LoRA to the output MLP weights of a model.
+            Defaults to False.
+        r (int, optional): The rank of the LoRA layer. Defaults to 8.
+        alpha (int, optional): The hyperparameter used for scaling the LoRA reparametrization. Defaults to 8.
+        dropout (float, optional): The dropout rate used in the LoRA layer. Defaults to 0.0.
+        init_weights (:obj:`str`, optional): Initialization method for the weights of the LoRA modules.
+            Currently, this can be either "lora" (default) or "bert".
+    """
+
+    architecture: Optional[str] = "lora"
+
+    selfattn_lora: bool = True
+    intermediate_lora: bool = False
+    output_lora: bool = False
+
+    r: int = 8
+    alpha: int = 8
+    dropout: float = 0.0
+    init_weights: str = "lora"
+
+
 class ConfigUnion(AdapterConfigBase):
     """
     Composes multiple adaptation method configurations into one. This class can be used to define complex adaptation
@@ -494,6 +529,7 @@ ADAPTER_CONFIG_MAP = {
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
     "parallel": ParallelConfig(),
     "scaled_parallel": ParallelConfig(scaling="learned"),
+    "lora": LoRAConfig(),
     "mam": MAMConfig(),
 }
 

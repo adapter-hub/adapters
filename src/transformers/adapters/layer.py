@@ -10,7 +10,7 @@ from .context import AdapterSetup, ForwardContext
 from .modeling import Adapter, BertFusion, ParallelAdapter
 
 
-class AdapterLayerBase(ABC, nn.Module):
+class AdapterLayerBase(ABC):
     """
     Base class for all adaptation methods that require per-layer modules.
     """
@@ -24,6 +24,24 @@ class AdapterLayerBase(ABC, nn.Module):
         idx = getattr(self, "_layer_idx", layer_idx)
         assert idx == layer_idx
         setattr(self, "_layer_idx", idx)
+
+    def get_active_setup(self, module_dict):
+        if getattr(self.config, "is_adaptable", False):
+            # First check current context before falling back to defined setup
+            context = AdapterSetup.get_context()
+            if context is not None:
+                adapter_setup = context.adapter_setup
+            else:
+                adapter_setup = self.config.adapters.active_setup
+        else:
+            adapter_setup = None
+        skip_adapters = adapter_setup is None or (
+            self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
+        )
+        if not skip_adapters and (len(set(module_dict.keys()) & adapter_setup.flatten()) > 0):
+            return adapter_setup
+        else:
+            return None
 
     @abstractmethod
     def add_adapter(self, adapter_name: str, layer_idx: int):
@@ -50,7 +68,7 @@ class AdapterLayerBase(ABC, nn.Module):
         raise NotImplementedError()
 
 
-class AdapterLayer(AdapterLayerBase):
+class AdapterLayer(AdapterLayerBase, nn.Module):
     def __init__(self, location_key: str, config):
         super().__init__()
         self.location_key = location_key
@@ -439,19 +457,8 @@ class AdapterLayer(AdapterLayerBase):
         """
         Called for each forward pass through adapters.
         """
-        if getattr(self.config, "is_adaptable", False):
-            # First check current context before falling back to defined setup
-            context = AdapterSetup.get_context()
-            if context is not None:
-                adapter_setup = context.adapter_setup
-            else:
-                adapter_setup = self.config.adapters.active_setup
-        else:
-            adapter_setup = None
-        skip_adapters = adapter_setup is None or (
-            self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
-        )
-        if not skip_adapters and (len(set(self.adapters.keys()) & adapter_setup.flatten()) > 0):
+        adapter_setup = self.get_active_setup(self.adapters)
+        if adapter_setup is not None:
             input_hidden_states = hidden_states
 
             if isinstance(adapter_setup, Stack):
