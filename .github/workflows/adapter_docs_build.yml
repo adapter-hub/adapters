@@ -3,7 +3,9 @@ name: Build Adapter Docs
 on:
   push:
     branches: [ master ]
-    paths: [ 'adapter_docs/**' ]
+    paths:
+      - '.github/workflows/**'
+      - 'adapter_docs/**'
   workflow_dispatch:
 
 jobs:
@@ -16,12 +18,14 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v2
         with:
-          python-version: 3.6
+          python-version: 3.8
       - name: Install
         run: |
           pip install setuptools==57.4.0
-          pip install -e .[torch,docs]
+          pip install torch
+          pip install Jinja2<3.1
           pip install recommonmark==0.7.1
+          pip install -e .[docs]
       - name: Build
         run: |
           cd adapter_docs && make html-multi-version && cd ..
