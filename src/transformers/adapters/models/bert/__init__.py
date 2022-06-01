@@ -18,7 +18,7 @@
 
 from typing import TYPE_CHECKING
 
-from ...utils import _LazyModule
+from ....utils import _LazyModule
 
 
 _import_structure = {
