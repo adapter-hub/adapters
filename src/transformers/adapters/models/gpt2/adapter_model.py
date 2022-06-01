@@ -3,10 +3,10 @@ import warnings
 
 import torch
 
-from ...models.gpt2.modeling_gpt2 import GPT2_START_DOCSTRING, GPT2Model, GPT2PreTrainedModel
-from ...utils import add_start_docstrings
-from ..composition import adjust_tensors_for_parallel
-from ..heads import (
+from ....models.gpt2.modeling_gpt2 import GPT2_START_DOCSTRING, GPT2Model, GPT2PreTrainedModel
+from ....utils import add_start_docstrings
+from ...composition import adjust_tensors_for_parallel
+from ...heads import (
     CausalLMHead,
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
