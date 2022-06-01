@@ -22,9 +22,7 @@ from ....utils import _LazyModule
 
 
 _import_structure = {
-    "adapter_model": [
-        "DebertaV2AdapterModel"
-    ],
+    "adapter_model": ["DebertaV2AdapterModel"],
 }
 
 
@@ -38,5 +36,4 @@ else:
         __name__,
         globals()["__file__"],
         _import_structure,
-        extra_objects={"__version__": __version__},
     )

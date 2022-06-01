@@ -41,5 +41,4 @@ else:
         __name__,
         globals()["__file__"],
         _import_structure,
-        extra_objects={"__version__": __version__},
     )
