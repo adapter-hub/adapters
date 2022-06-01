@@ -2,7 +2,7 @@ import warnings
 
 import torch
 
-from ...models.bart.modeling_bart import (
+from ....models.bart.modeling_bart import (
     BART_INPUTS_DOCSTRING,
     BART_START_DOCSTRING,
     BartConfig,
@@ -10,9 +10,9 @@ from ...models.bart.modeling_bart import (
     BartPretrainedModel,
     shift_tokens_right,
 )
-from ...utils import add_start_docstrings, add_start_docstrings_to_model_forward
-from ..composition import adjust_tensors_for_parallel
-from ..heads import (
+from ....utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from ...composition import adjust_tensors_for_parallel
+from ...heads import (
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
     MultiLabelClassificationHead,

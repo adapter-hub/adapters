@@ -1,6 +1,6 @@
-from ...models.xlm_roberta.modeling_xlm_roberta import XLM_ROBERTA_START_DOCSTRING, XLMRobertaConfig
-from ...utils import add_start_docstrings
-from .roberta import RobertaAdapterModel, RobertaModelWithHeads
+from ....models.xlm_roberta.modeling_xlm_roberta import XLM_ROBERTA_START_DOCSTRING, XLMRobertaConfig
+from ....utils import add_start_docstrings
+from ..roberta.adapter_model import RobertaAdapterModel, RobertaModelWithHeads
 
 
 @add_start_docstrings(

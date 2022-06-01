@@ -3,9 +3,9 @@ import warnings
 
 import torch
 
-from ...models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOCSTRING, T5Model, T5PreTrainedModel
-from ...utils import add_start_docstrings, add_start_docstrings_to_model_forward
-from ..heads import ModelWithFlexibleHeadsAdaptersMixin, Seq2SeqLMHead
+from ....models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOCSTRING, T5Model, T5PreTrainedModel
+from ....utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin, Seq2SeqLMHead
 
 
 logger = logging.getLogger(__name__)

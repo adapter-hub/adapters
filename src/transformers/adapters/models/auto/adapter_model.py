@@ -1,8 +1,8 @@
 import warnings
 from collections import OrderedDict
 
-from ...models.auto.auto_factory import _BaseAutoModelClass, _LazyAutoMapping, auto_class_update
-from ...models.auto.configuration_auto import CONFIG_MAPPING_NAMES
+from ....models.auto.auto_factory import _BaseAutoModelClass, _LazyAutoMapping, auto_class_update
+from ....models.auto.configuration_auto import CONFIG_MAPPING_NAMES
 
 
 # Make sure that children are placed before parents!
