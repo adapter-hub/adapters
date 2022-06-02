@@ -24,16 +24,6 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
-from ...adapters.composition import adjust_tensors_for_parallel
-from ...adapters.context import ForwardContext
-from ...adapters.lora import Linear as LoRALinear
-from ...adapters.mixins.bart import (
-    BartDecoderLayerAdaptersMixin,
-    BartEncoderLayerAdaptersMixin,
-    BartModelAdaptersMixin,
-)
-from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
-from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutput,
     BaseModelOutputWithPastAndCrossAttentions,
@@ -159,13 +149,11 @@ class MBartAttention(nn.Module):
 
     def __init__(
         self,
-        config: MBartConfig,
         embed_dim: int,
         num_heads: int,
         dropout: float = 0.0,
         is_decoder: bool = False,
         bias: bool = True,
-        location_key: Optional[str] = None,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -182,11 +170,9 @@ class MBartAttention(nn.Module):
         self.is_decoder = is_decoder
 
         self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.v_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, bias=bias)
-        self.q_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, bias=bias)
+        self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-
-        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
@@ -242,9 +228,6 @@ class MBartAttention(nn.Module):
 
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
         query_states = self._shape(query_states, tgt_len, bsz).view(*proj_shape)
-
-        key_states, value_states, attention_mask = self.prefix_tuning(key_states, value_states, attention_mask)
-
         key_states = key_states.view(*proj_shape)
         value_states = value_states.view(*proj_shape)
 
@@ -253,7 +236,8 @@ class MBartAttention(nn.Module):
 
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
             raise ValueError(
-                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is {attn_weights.size()}"
+                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is"
+                f" {attn_weights.size()}"
             )
 
         if attention_mask is not None:
@@ -269,7 +253,8 @@ class MBartAttention(nn.Module):
         if layer_head_mask is not None:
             if layer_head_mask.size() != (self.num_heads,):
                 raise ValueError(
-                    f"Head mask for a single layer should be of size {(self.num_heads,)}, but is {layer_head_mask.size()}"
+                    f"Head mask for a single layer should be of size {(self.num_heads,)}, but is"
+                    f" {layer_head_mask.size()}"
                 )
             attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
@@ -290,7 +275,8 @@ class MBartAttention(nn.Module):
 
         if attn_output.size() != (bsz * self.num_heads, tgt_len, self.head_dim):
             raise ValueError(
-                f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is {attn_output.size()}"
+                f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is"
+                f" {attn_output.size()}"
             )
 
         attn_output = attn_output.view(bsz, self.num_heads, tgt_len, self.head_dim)
@@ -305,28 +291,22 @@ class MBartAttention(nn.Module):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-class MBartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
+class MBartEncoderLayer(nn.Module):
     def __init__(self, config: MBartConfig):
         super().__init__()
-        self.config = config
-
         self.embed_dim = config.d_model
         self.self_attn = MBartAttention(
-            config,
             embed_dim=self.embed_dim,
             num_heads=config.encoder_attention_heads,
             dropout=config.attention_dropout,
-            location_key="encoder",
         )
         self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
         self.activation_dropout = config.activation_dropout
-        self.fc1 = LoRALinear(self.embed_dim, config.encoder_ffn_dim, "intermediate", config)
-        self.fc2 = LoRALinear(config.encoder_ffn_dim, self.embed_dim, "output", config)
+        self.fc1 = nn.Linear(self.embed_dim, config.encoder_ffn_dim)
+        self.fc2 = nn.Linear(config.encoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
-
-        self._init_adapter_modules()
 
     def forward(
         self,
@@ -355,7 +335,7 @@ class MBartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.attention_adapters(hidden_states, residual, None)
+        hidden_states = residual + hidden_states
 
         residual = hidden_states
         hidden_states = self.final_layer_norm(hidden_states)
@@ -363,7 +343,7 @@ class MBartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.output_adapters(hidden_states, residual, None)
+        hidden_states = residual + hidden_states
 
         if hidden_states.dtype == torch.float16 and (
             torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()
@@ -379,20 +359,16 @@ class MBartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
         return outputs
 
 
-class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
+class MBartDecoderLayer(nn.Module):
     def __init__(self, config: MBartConfig):
         super().__init__()
-        self.config = config
-
         self.embed_dim = config.d_model
 
         self.self_attn = MBartAttention(
-            config,
             embed_dim=self.embed_dim,
             num_heads=config.decoder_attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
-            location_key="self",
         )
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
@@ -400,19 +376,15 @@ class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
 
         self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.encoder_attn = MBartAttention(
-            config,
             self.embed_dim,
             config.decoder_attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
-            location_key="cross",
         )
         self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
         self.fc2 = nn.Linear(config.decoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
-
-        self._init_adapter_modules()
 
     def forward(
         self,
@@ -459,7 +431,7 @@ class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.attention_adapters(hidden_states, residual, None)
+        hidden_states = residual + hidden_states
 
         # Cross-Attention Block
         cross_attn_present_key_value = None
@@ -479,7 +451,7 @@ class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
                 output_attentions=output_attentions,
             )
             hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-            hidden_states = self.cross_attention_adapters(hidden_states, residual, None)
+            hidden_states = residual + hidden_states
 
             # add cross-attn to positions 3,4 of present_key_value tuple
             present_key_value = present_key_value + cross_attn_present_key_value
@@ -491,7 +463,7 @@ class MBartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = self.output_adapters(hidden_states, residual, None)
+        hidden_states = residual + hidden_states
 
         outputs = (hidden_states,)
 
@@ -712,7 +684,7 @@ MBART_INPUTS_DOCSTRING = r"""
 """
 
 
-class MBartEncoder(InvertibleAdaptersMixin, MBartPreTrainedModel):
+class MBartEncoder(MBartPreTrainedModel):
     """
     Transformer encoder consisting of *config.encoder_layers* self attention layers. Each layer is a
     [`MBartEncoderLayer`].
@@ -724,7 +696,6 @@ class MBartEncoder(InvertibleAdaptersMixin, MBartPreTrainedModel):
 
     def __init__(self, config: MBartConfig, embed_tokens: Optional[nn.Embedding] = None):
         super().__init__(config)
-        self.config = config
 
         self.dropout = config.dropout
         self.layerdrop = config.encoder_layerdrop
@@ -828,8 +799,6 @@ class MBartEncoder(InvertibleAdaptersMixin, MBartPreTrainedModel):
         hidden_states = self.layernorm_embedding(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
 
-        hidden_states = self.invertible_adapters_forward(hidden_states)
-
         # expand attention_mask
         if attention_mask is not None:
             # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
@@ -842,7 +811,8 @@ class MBartEncoder(InvertibleAdaptersMixin, MBartPreTrainedModel):
         if head_mask is not None:
             if head_mask.size()[0] != len(self.layers):
                 raise ValueError(
-                    f"The head_mask should be specified for {len(self.layers)} layers, but it is for {head_mask.size()[0]}."
+                    f"The head_mask should be specified for {len(self.layers)} layers, but it is for"
+                    f" {head_mask.size()[0]}."
                 )
         for idx, encoder_layer in enumerate(self.layers):
             if output_hidden_states:
@@ -875,7 +845,6 @@ class MBartEncoder(InvertibleAdaptersMixin, MBartPreTrainedModel):
                     )
 
                 hidden_states = layer_outputs[0]
-                (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
 
             if output_attentions:
                 all_attentions = all_attentions + (layer_outputs[1],)
@@ -1083,7 +1052,8 @@ class MBartDecoder(MBartPreTrainedModel):
             if attn_mask is not None:
                 if attn_mask.size()[0] != len(self.layers):
                     raise ValueError(
-                        f"The `{mask_name}` should be specified for {len(self.layers)} layers, but it is for {head_mask.size()[0]}."
+                        f"The `{mask_name}` should be specified for {len(self.layers)} layers, but it is for"
+                        f" {head_mask.size()[0]}."
                     )
         for idx, decoder_layer in enumerate(self.layers):
             # add LayerDrop (see https://arxiv.org/abs/1909.11556 for description)
@@ -1136,7 +1106,6 @@ class MBartDecoder(MBartPreTrainedModel):
                     use_cache=use_cache,
                 )
             hidden_states = layer_outputs[0]
-            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
 
             if use_cache:
                 next_decoder_cache += (layer_outputs[3 if output_attentions else 1],)
@@ -1173,7 +1142,7 @@ class MBartDecoder(MBartPreTrainedModel):
     "The bare MBART Model outputting raw hidden-states without any specific head on top.",
     MBART_START_DOCSTRING,
 )
-class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
+class MBartModel(MBartPreTrainedModel):
     def __init__(self, config: MBartConfig):
         super().__init__(config)
 
@@ -1183,8 +1152,7 @@ class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
         self.encoder = MBartEncoder(config, self.shared)
         self.decoder = MBartDecoder(config, self.shared)
 
-        self._init_adapter_modules()
-
+        # Initialize weights and apply final processing
         self.post_init()
 
     def get_input_embeddings(self):
@@ -1209,7 +1177,6 @@ class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
         expected_output=_EXPECTED_OUTPUT_SHAPE,
     )
-    @ForwardContext.wrap
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -1258,10 +1225,6 @@ class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
                 attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
             )
 
-        # inflate all decoder inputs according to encoder output
-        decoder_input_ids, decoder_attention_mask, attention_mask = adjust_tensors_for_parallel(
-            encoder_outputs[0], decoder_input_ids, decoder_attention_mask, attention_mask
-        )
         # decoder outputs consists of (dec_features, past_key_value, dec_hidden, dec_attn)
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
@@ -1296,7 +1259,7 @@ class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
 @add_start_docstrings(
     "The MBART Model with a language modeling head. Can be used for summarization.", MBART_START_DOCSTRING
 )
-class MBartForConditionalGeneration(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
+class MBartForConditionalGeneration(MBartPreTrainedModel):
     base_model_prefix = "model"
     _keys_to_ignore_on_load_missing = [
         r"final_logits_bias",
@@ -1397,8 +1360,7 @@ class MBartForConditionalGeneration(ModelWithHeadsAdaptersMixin, MBartPreTrained
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-        lm_logits = self.model.encoder.invertible_adapters_forward(outputs[0], rev=True)
-        lm_logits = self.lm_head(lm_logits) + self.final_logits_bias
+        lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias
 
         masked_lm_loss = None
         if labels is not None:
@@ -1470,7 +1432,7 @@ class MBartForConditionalGeneration(ModelWithHeadsAdaptersMixin, MBartPreTrained
     """,
     MBART_START_DOCSTRING,
 )
-class MBartForSequenceClassification(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
+class MBartForSequenceClassification(MBartPreTrainedModel):
     def __init__(self, config: MBartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = MBartModel(config)
@@ -1544,7 +1506,6 @@ class MBartForSequenceClassification(ModelWithHeadsAdaptersMixin, MBartPreTraine
         hidden_states = outputs[0]  # last hidden state
 
         eos_mask = input_ids.eq(self.config.eos_token_id)
-        (eos_mask,) = adjust_tensors_for_parallel(hidden_states, eos_mask)
 
         if len(torch.unique_consecutive(eos_mask.sum(1))) > 1:
             raise ValueError("All examples must have the same number of <eos> tokens.")
@@ -1599,7 +1560,7 @@ class MBartForSequenceClassification(ModelWithHeadsAdaptersMixin, MBartPreTraine
     """,
     MBART_START_DOCSTRING,
 )
-class MBartForQuestionAnswering(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
+class MBartForQuestionAnswering(MBartPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1717,7 +1678,7 @@ class MBartForQuestionAnswering(ModelWithHeadsAdaptersMixin, MBartPreTrainedMode
 
 
 # Copied from transformers.models.bart.modeling_bart.BartDecoderWrapper with Bart->MBart
-class MBartDecoderWrapper(BartModelAdaptersMixin, MBartPreTrainedModel):
+class MBartDecoderWrapper(MBartPreTrainedModel):
     """
     This wrapper class is a helper class to correctly load pretrained checkpoints when the causal language model is
     used in combination with the [`EncoderDecoderModel`] framework.
@@ -1727,27 +1688,18 @@ class MBartDecoderWrapper(BartModelAdaptersMixin, MBartPreTrainedModel):
         super().__init__(config)
         self.decoder = MBartDecoder(config)
 
-        self._init_adapter_modules()
-
-    @ForwardContext.wrap
     def forward(self, *args, **kwargs):
-
         return self.decoder(*args, **kwargs)
-
-    def get_input_embeddings(self) -> nn.Module:
-        return self.decoder.get_input_embeddings()
 
 
 # Copied from transformers.models.bart.modeling_bart.BartForCausalLM with Bart->MBart, facebook/bart-base->facebook/mbart-large-cc25
-class MBartForCausalLM(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
+class MBartForCausalLM(MBartPreTrainedModel):
     def __init__(self, config):
+        config = copy.deepcopy(config)
+        config.is_decoder = True
+        config.is_encoder_decoder = False
         super().__init__(config)
-        decoder_config = copy.deepcopy(config)
-        # HACK adapter config should reference the same object
-        decoder_config.adapters = config.adapters
-        decoder_config.is_decoder = True
-        decoder_config.is_encoder_decoder = False
-        self.model = MBartDecoderWrapper(decoder_config)
+        self.model = MBartDecoderWrapper(config)
 
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 

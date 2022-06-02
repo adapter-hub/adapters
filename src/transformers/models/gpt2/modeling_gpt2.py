@@ -34,13 +34,6 @@ else:
     is_amp_available = False
 
 from ...activations import ACT2FN
-from ...adapters.composition import adjust_tensors_for_parallel
-from ...adapters.context import ForwardContext
-from ...adapters.lora import Linear as LoRALinear
-from ...adapters.lora import MergedLinear as LoRAMergedLinear
-from ...adapters.mixins.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin
-from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
-from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     CausalLMOutputWithCrossAttentions,
@@ -153,7 +146,8 @@ class GPT2Attention(nn.Module):
         self.split_size = self.embed_dim
         if self.head_dim * self.num_heads != self.embed_dim:
             raise ValueError(
-                f"`embed_dim` must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`: {self.num_heads})."
+                f"`embed_dim` must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`:"
+                f" {self.num_heads})."
             )
 
         self.scale_attn_weights = config.scale_attn_weights
@@ -168,23 +162,13 @@ class GPT2Attention(nn.Module):
             self.c_attn = Conv1D(2 * self.embed_dim, self.embed_dim)
             self.q_attn = Conv1D(self.embed_dim, self.embed_dim)
         else:
-            self.c_attn = LoRAMergedLinear(
-                self.embed_dim,
-                3 * self.embed_dim,
-                "selfattn",
-                config,
-                enable_lora=[True, False, True],
-                fan_in_fan_out=True,
-            )
+            self.c_attn = Conv1D(3 * self.embed_dim, self.embed_dim)
         self.c_proj = Conv1D(self.embed_dim, self.embed_dim)
 
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
 
         self.pruned_heads = set()
-
-        location_key = "cross_prefix" if self.is_cross_attention else "self_prefix"
-        self.prefix_tuning = PrefixTuningShim(location_key, config)
 
     def prune_heads(self, heads):
         if len(heads) == 0:
@@ -214,7 +198,7 @@ class GPT2Attention(nn.Module):
         if not self.is_cross_attention:
             # if only "normal" attention layer implements causal mask
             query_length, key_length = query.size(-2), key.size(-2)
-            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length].bool()
+            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length].to(torch.bool)
             attn_weights = torch.where(causal_mask, attn_weights, self.masked_bias.to(attn_weights.dtype))
 
         if attention_mask is not None:
@@ -342,8 +326,6 @@ class GPT2Attention(nn.Module):
         else:
             present = None
 
-        key, value, attention_mask = self.prefix_tuning(key, value, attention_mask)
-
         if self.reorder_and_upcast_attn:
             attn_output, attn_weights = self._upcast_and_reordered_attn(query, key, value, attention_mask, head_mask)
         else:
@@ -364,9 +346,8 @@ class GPT2MLP(nn.Module):
     def __init__(self, intermediate_size, config):
         super().__init__()
         embed_dim = config.hidden_size
-        # Order of dimension inputs to LORALinear reversed compared to Conv1D
-        self.c_fc = LoRALinear(embed_dim, intermediate_size, "intermediate", config, fan_in_fan_out=True)
-        self.c_proj = LoRALinear(intermediate_size, embed_dim, "output", config, fan_in_fan_out=True)
+        self.c_fc = Conv1D(intermediate_size, embed_dim)
+        self.c_proj = Conv1D(embed_dim, intermediate_size)
         self.act = ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.resid_pdrop)
 
@@ -378,10 +359,9 @@ class GPT2MLP(nn.Module):
         return hidden_states
 
 
-class GPT2Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
+class GPT2Block(nn.Module):
     def __init__(self, config, layer_idx=None):
         super().__init__()
-        self.config = config
         hidden_size = config.hidden_size
         inner_dim = config.n_inner if config.n_inner is not None else 4 * hidden_size
 
@@ -394,7 +374,6 @@ class GPT2Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
             self.ln_cross_attn = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
 
         self.mlp = GPT2MLP(inner_dim, config)
-        self._init_adapter_modules()
 
     def forward(
         self,
@@ -419,7 +398,8 @@ class GPT2Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         )
         attn_output = attn_outputs[0]  # output_attn: a, present, (attentions)
         outputs = attn_outputs[1:]
-        hidden_states = self.attention_adapters(attn_output, residual, None)
+        # residual connection
+        hidden_states = attn_output + residual
 
         if encoder_hidden_states is not None:
             # add one self-attention block for cross-attention
@@ -447,7 +427,7 @@ class GPT2Block(GPT2DecoderBlockAdaptersMixin, nn.Module):
         hidden_states = self.ln_2(hidden_states)
         feed_forward_hidden_states = self.mlp(hidden_states)
         # residual connection
-        hidden_states = self.output_adapters(feed_forward_hidden_states, residual, None)
+        hidden_states = residual + feed_forward_hidden_states
 
         if use_cache:
             outputs = (hidden_states,) + outputs
@@ -468,6 +448,7 @@ class GPT2PreTrainedModel(PreTrainedModel):
     base_model_prefix = "transformer"
     is_parallelizable = True
     supports_gradient_checkpointing = True
+    _no_split_modules = ["GPT2Block"]
 
     def __init__(self, *inputs, **kwargs):
         super().__init__(*inputs, **kwargs)
@@ -685,7 +666,7 @@ DEPARALLELIZE_DOCSTRING = r"""
     "The bare GPT2 Model transformer outputting raw hidden-states without any specific head on top.",
     GPT2_START_DOCSTRING,
 )
-class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
+class GPT2Model(GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = ["attn.masked_bias"]
 
     def __init__(self, config):
@@ -704,8 +685,6 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         self.model_parallel = False
         self.device_map = None
         self.gradient_checkpointing = False
-
-        self._init_adapter_modules()
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -763,7 +742,6 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
         output_type=BaseModelOutputWithPastAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
     )
-    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
@@ -854,7 +832,6 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
-        inputs_embeds = self.invertible_adapters_forward(inputs_embeds)
         position_embeds = self.wpe(position_ids)
         hidden_states = inputs_embeds + position_embeds
 
@@ -923,11 +900,6 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
                 )
 
             hidden_states = outputs[0]
-            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
-            # HACK: if output_shape is identical to hidden states shape except for batch size, update output_shape
-            if output_shape[1:] == hidden_states.size()[1:]:
-                output_shape = hidden_states.size()
-
             if use_cache is True:
                 presents = presents + (outputs[1],)
 
@@ -972,13 +944,11 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2LMHeadModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
+class GPT2LMHeadModel(GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"attn.masked_bias", r"attn.bias", r"lm_head.weight"]
 
     def __init__(self, config):
         super().__init__(config)
-
-        self.num_labels = config.num_labels
         self.transformer = GPT2Model(config)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
@@ -1143,7 +1113,7 @@ input sequence).
 """,
     GPT2_START_DOCSTRING,
 )
-class GPT2DoubleHeadsModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
+class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"attn.masked_bias", r"attn.bias", r"lm_head.weight"]
 
     def __init__(self, config):
@@ -1357,7 +1327,7 @@ class GPT2DoubleHeadsModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2ForSequenceClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
+class GPT2ForSequenceClassification(GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head\.weight"]
 
     def __init__(self, config):
@@ -1438,10 +1408,10 @@ class GPT2ForSequenceClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedM
                 sequence_lengths = -1
                 logger.warning(
                     f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
-                    f"unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                    "unexpected if using padding tokens in conjunction with `inputs_embeds.`"
                 )
 
-        pooled_logits = logits[torch.arange(batch_size, device=self.device), sequence_lengths]
+        pooled_logits = logits[torch.arange(batch_size, device=logits.device), sequence_lengths]
 
         loss = None
         if labels is not None:
@@ -1485,7 +1455,7 @@ class GPT2ForSequenceClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedM
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2ForTokenClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
+class GPT2ForTokenClassification(GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels

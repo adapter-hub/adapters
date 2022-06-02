@@ -17,7 +17,7 @@ from argparse import ArgumentParser
 
 import huggingface_hub
 
-from ..adapters import __version__
+from .. import __version__ as version
 from ..utils import is_flax_available, is_tf_available, is_torch_available
 from . import BaseTransformersCLICommand
 
@@ -69,7 +69,7 @@ class EnvironmentCommand(BaseTransformersCLICommand):
             jax_backend = jax.lib.xla_bridge.get_backend().platform
 
         info = {
-            "`adapter-transformers` version": __version__,
+            "`transformers` version": version,
             "Platform": platform.platform(),
             "Python version": platform.python_version(),
             "Huggingface_hub version": huggingface_hub.__version__,
