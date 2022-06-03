@@ -8,6 +8,7 @@ from .configuration import PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
 from .layer import AdapterLayerBase
 from .modeling import Activation_Function_Class
+from ..modeling_utils import get_parameter_device
 
 
 class PrefixTuning(nn.Module):
@@ -35,7 +36,7 @@ class PrefixTuning(nn.Module):
         self.dropout = nn.Dropout(self.config.dropout)
 
     def eject(self):
-        device = next(self.parameters()).device
+        device = get_parameter_device(self)
         input_tokens = self.input_tokens.unsqueeze(0).expand(1, -1).to(device)
         embs = self.wte(input_tokens)
         key_values = self.control_trans(embs)  # batch_size x prefix_length x n_layers*2*input_size
@@ -46,7 +47,7 @@ class PrefixTuning(nn.Module):
         return key_values
 
     def forward(self, batch_size):
-        device = next(self.parameters()).device
+        device = get_parameter_device(self)
         input_tokens = self.input_tokens.unsqueeze(0).expand(batch_size, -1).to(device)
         embs = self.wte(input_tokens)
         key_values = self.control_trans(embs)  # batch_size x prefix_length x n_layers*2*input_size
@@ -80,7 +81,7 @@ class FlatPrefixTuning(nn.Module):
         self.dropout = nn.Dropout(self.config.dropout)
 
     def forward(self, batch_size):
-        device = next(self.parameters()).device
+        device = get_parameter_device(self)
         key_values = (
             self.control_trans.unsqueeze(0)
             .expand(batch_size, -1)
