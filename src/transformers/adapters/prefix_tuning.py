@@ -8,10 +8,10 @@ from .configuration import PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
 from .layer import AdapterLayerBase
 from .modeling import Activation_Function_Class
-from ..modeling_utils import get_parameter_device
+from ..modeling_utils import get_parameter_device, ModuleUtilsMixin
 
 
-class PrefixTuning(nn.Module):
+class PrefixTuning(nn.Module, ModuleUtilsMixin):
     def __init__(
         self,
         n_layers: int,
