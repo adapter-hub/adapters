@@ -58,7 +58,6 @@ class ViTAdapterTest(
     CompacterTestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
-    EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
     PredictionHeadModelTestMixin,

@@ -4,7 +4,7 @@ from typing import Iterable, Tuple
 import torch.nn as nn
 
 from ..layer import AdapterLayer
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class BertOutputAdaptersMixin(AdapterLayer):
         super().__init__("output_adapter", None)
 
 
-class BertModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
+class BertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
     """Adds adapters to the BertModel module."""
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
