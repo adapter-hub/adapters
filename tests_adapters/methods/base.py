@@ -108,7 +108,7 @@ class AdapterMethodBaseTestMixin:
         model.add_adapter(name, config=adapter_config)
         model.to(torch_device)
 
-        input_data = self.get_input_samples((1, 128), config=model.config)
+        input_data = self.get_input_samples(config=model.config)
 
         # pass 1: set adapter via property
         model.set_active_adapters([name])
@@ -150,7 +150,7 @@ class AdapterMethodBaseTestMixin:
         self.assertTrue(name in model2.config.adapters)
 
         # check equal output
-        input_data = self.get_input_samples((1, 128), config=model1.config)
+        input_data = self.get_input_samples(config=model1.config)
         model1.to(torch_device)
         model2.to(torch_device)
         output1 = model1(**input_data)

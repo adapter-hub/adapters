@@ -13,6 +13,8 @@ def make_config(config_class, **kwargs):
 class AdapterTestBase:
     # If not overriden by subclass, AutoModel should be used.
     model_class = AutoModel
+    # Default shape of inputs to use
+    default_input_samples_shape = (3, 64)
 
     def get_model(self):
         if self.model_class == AutoModel:
@@ -22,7 +24,8 @@ class AdapterTestBase:
         model.to(torch_device)
         return model
 
-    def get_input_samples(self, shape, vocab_size=5000, config=None):
+    def get_input_samples(self, shape=None, vocab_size=5000, config=None):
+        shape = shape or self.default_input_samples_shape
         total_dims = 1
         for dim in shape:
             total_dims *= dim
