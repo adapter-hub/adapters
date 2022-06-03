@@ -8,7 +8,7 @@ from .configuration import PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
 from .layer import AdapterLayerBase
 from .modeling import Activation_Function_Class
-from ..modeling_utils import get_parameter_device, ModuleUtilsMixin
+from ..modeling_utils import ModuleUtilsMixin
 
 
 class PrefixTuning(nn.Module, ModuleUtilsMixin):
@@ -26,7 +26,6 @@ class PrefixTuning(nn.Module, ModuleUtilsMixin):
         self.n_embd_per_head = self.input_size // self.n_heads
         self.config = config
 
-        self.input_tokens = torch.arange(self.config.prefix_length).long()
         self.wte = nn.Embedding(self.config.prefix_length, self.input_size)
         self.control_trans = nn.Sequential(
             nn.Linear(self.input_size, self.config.bottleneck_size),
@@ -36,8 +35,8 @@ class PrefixTuning(nn.Module, ModuleUtilsMixin):
         self.dropout = nn.Dropout(self.config.dropout)
 
     def eject(self):
-        device = get_parameter_device(self)
-        input_tokens = self.input_tokens.unsqueeze(0).expand(1, -1).to(device)
+        input_tokens = torch.arange(self.config.prefix_length).long()
+        input_tokens = input_tokens.unsqueeze(0).expand(1, -1).to(self.device)
         embs = self.wte(input_tokens)
         key_values = self.control_trans(embs)  # batch_size x prefix_length x n_layers*2*input_size
         key_values = key_values.view(
@@ -47,8 +46,8 @@ class PrefixTuning(nn.Module, ModuleUtilsMixin):
         return key_values
 
     def forward(self, batch_size):
-        device = get_parameter_device(self)
-        input_tokens = self.input_tokens.unsqueeze(0).expand(batch_size, -1).to(device)
+        input_tokens = torch.arange(self.config.prefix_length).long()
+        input_tokens = input_tokens.unsqueeze(0).expand(batch_size, -1).to(self.device)
         embs = self.wte(input_tokens)
         key_values = self.control_trans(embs)  # batch_size x prefix_length x n_layers*2*input_size
         key_values = key_values.view(
@@ -81,12 +80,11 @@ class FlatPrefixTuning(nn.Module):
         self.dropout = nn.Dropout(self.config.dropout)
 
     def forward(self, batch_size):
-        device = get_parameter_device(self)
         key_values = (
             self.control_trans.unsqueeze(0)
             .expand(batch_size, -1)
             .view(batch_size, self.config.prefix_length, self.n_layers * 2, self.n_heads, self.n_embd_per_head)
-            .to(device)
+            .to(self.device)
         )  # *2 for key and value
         key_values = self.dropout(key_values)
         # n_layers * (2 x batch_size x n_heads x prefix_length x n_embd_per_head)
