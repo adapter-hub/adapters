@@ -119,9 +119,7 @@ _import_structure = {
         "T5AdapterModel",
         "T5ModelWithHeads",
     ],
-    "models.vit": [
-        "ViTAdapterModel"
-    ],
+    "models.vit": ["ViTAdapterModel"],
     "models.xlm_roberta": [
         "XLMRobertaAdapterModel",
         "XLMRobertaModelWithHeads",

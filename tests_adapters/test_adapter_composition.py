@@ -163,7 +163,7 @@ class ParallelAdapterInferenceTestMixin:
         model.to(torch_device)
 
         inputs = self.get_input_samples(config=model.config)
-        inputs["attention_mask"] = torch.randint(0, 2, size=(2, 128), device=torch_device)
+        inputs["attention_mask"] = torch.randint(0, 2, size=(3, 64), device=torch_device)
 
         # for reference, pass through single adapters
         model.active_adapters = "a"
@@ -180,8 +180,8 @@ class ParallelAdapterInferenceTestMixin:
 
         self.assertEqual(len(outputs), 2)
         if self.config_class in MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING:
-            self.assertEqual(outputs[0][0].shape, (2, 2))
-            self.assertEqual(outputs[1][0].shape, (2, 3))
+            self.assertEqual(outputs[0][0].shape, (3, 2))
+            self.assertEqual(outputs[1][0].shape, (3, 3))
         self.assertTrue(torch.allclose(outputs[0][0], outputs_a[0], atol=1e-5))
         self.assertTrue(torch.allclose(outputs[1][0], outputs_b[0], atol=1e-5))
 

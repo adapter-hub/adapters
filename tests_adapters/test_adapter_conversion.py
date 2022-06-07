@@ -122,7 +122,7 @@ class ModelClassConversionTestMixin:
         model = MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING[self.config_class](self.config())
         label_dict = {}
         label_dict["labels"] = torch.zeros(3, dtype=torch.long, device=torch_device)
-        self.run_test(model, input_shape=(3, 3, 30, 30), label_dict=label_dict)
+        self.run_test(model, input_shape=(3, 3, 224, 224), label_dict=label_dict)
 
     def test_conversion_question_answering_model(self):
         if self.config_class not in MODEL_FOR_QUESTION_ANSWERING_MAPPING:

@@ -50,11 +50,12 @@ class AdapterTestBase:
     def add_head(self, model, name, **kwargs):
         model.add_classification_head(name, **kwargs)
 
-    def dataset(self):
+    def dataset(self, tokenizer=None):
         # setup tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
+        if tokenizer is None:
+            tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
         data_args = GlueDataTrainingArguments(
             task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
         )
@@ -82,8 +83,9 @@ class VisionAdapterTestBase(AdapterTestBase):
             kwargs["num_labels"] = 10
         model.add_image_classification_head(name, **kwargs)
 
-    def dataset(self):
-        feature_extractor = AutoFeatureExtractor.from_pretrained(self.feature_extractor_name)
+    def dataset(self, feature_extractor=None):
+        if feature_extractor is None:
+            feature_extractor = AutoFeatureExtractor.from_pretrained(self.feature_extractor_name)
 
         def transform(example_batch):
             inputs = feature_extractor([x for x in example_batch['img']], return_tensors='pt')
