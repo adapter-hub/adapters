@@ -3,7 +3,7 @@ import unittest
 from datasets import load_dataset
 
 from tests.models.t5.test_modeling_t5 import *
-from transformers import T5AdapterModel
+from transformers import T5AdapterModel, AutoTokenizer
 from transformers.testing_utils import require_torch
 
 from .methods import BottleneckAdapterTestMixin, LoRATestMixin, CompacterTestMixin, PrefixTuningTestMixin
@@ -43,7 +43,12 @@ class T5AdapterTestBase(AdapterTestBase):
     def add_head(self, model, name, **kwargs):
         model.add_seq2seq_lm_head(name)
 
-    def dataset(self, tokenizer):
+    def dataset(self):
+        # setup tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+
         def preprocess_function(examples):
             inputs = examples["document"]
             targets = examples["summary"]

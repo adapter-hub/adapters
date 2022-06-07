@@ -302,9 +302,6 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
     def test_train_adapter_fusion(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
         model = AutoAdapterModel.from_config(self.config())
         self.add_head(model, "head")
 
@@ -348,7 +345,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
         model.base_model.get_fusion_regularization_loss = patched_fusion_reg_loss
 
-        self.trainings_run(model, tokenizer)
+        self.trainings_run(model)
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if (
@@ -366,9 +363,6 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
     def test_batch_split_training(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
         model = AutoAdapterModel.from_config(self.config())
 
         model.add_adapter("mrpc1")
@@ -391,7 +385,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
-        self.trainings_run(model, tokenizer)
+        self.trainings_run(model)
 
         self.assertFalse(
             all(

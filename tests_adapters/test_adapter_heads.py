@@ -72,7 +72,7 @@ class PredictionHeadModelTestMixin:
         model1.add_image_classification_head("dummy")
         label_dict = {}
         label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
-        self.run_prediction_head_test(model1, model2, "dummy", input_shape=(1, 3, 30, 30), label_dict=label_dict)
+        self.run_prediction_head_test(model1, model2, "dummy", input_shape=(1, 3, 224, 224), label_dict=label_dict)
 
     def test_multiple_choice_head(self):
         if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_multiple_choice_head"):
@@ -285,8 +285,8 @@ class PredictionHeadModelTestMixin:
 
     def test_batch_split_head(self):
         model = AutoAdapterModel.from_config(self.config())
-        self.add_head(model, "a")
-        self.add_head(model, "b")
+        self.add_head(model, "a", num_labels=2)
+        self.add_head(model, "b", num_labels=2)
         model.active_head = BatchSplit("a", "b", batch_sizes=[1, 2])
 
         in_data = self.get_input_samples(config=model.config)
