@@ -72,8 +72,8 @@ This class allows flexible adding of and switching between multiple prediction h
 
 **📝 Steps**
 
-- Add `adapter_docs/classes/models/<model_type>.rst` (oriented at the doc file in the HF docs). Make sure to include `<model_type>AdapterModel` autodoc. 
-Finally, list the file in `index.rst`.
+- Add `adapter_docs/classes/models/<model_type>.rst` (oriented at the doc file in the HF docs). Make sure to include `<model_type>AdapterModel` autodoc. Finally, list the file in `index.rst`.
+- Add a new row for the model in the model table of the overview page at `adapter_docs/model_overview.md`, listing all the methods implemented by the new model.
 
 ## Training Example Adapters
 
