@@ -229,7 +229,7 @@ class PredictionHeadModelTestMixin:
 
         name = "dummy"
         model1.add_adapter(name)
-        self.add_head(model1, name, num_labels=3)
+        output_size = self.add_head(model1, name, num_labels=3)
         model1.set_active_adapters(name)
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
@@ -244,14 +244,14 @@ class PredictionHeadModelTestMixin:
         output2 = model2(**in_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
-        self.assertEqual(3, output1[0].size()[1])
+        self.assertEqual(output_size, output1[0].size()[1])
 
     def test_adapter_with_head_load_as(self):
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
 
         name = "dummy"
         model1.add_adapter(name)
-        self.add_head(model1, name, num_labels=3)
+        output_size = self.add_head(model1, name, num_labels=3)
         model1.set_active_adapters(name)
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
@@ -268,7 +268,7 @@ class PredictionHeadModelTestMixin:
         output2 = model2(**in_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
-        self.assertEqual(3, output1[0].size()[1])
+        self.assertEqual(output_size, output1[0].size()[1])
 
     def test_load_full_model(self):
         model = AutoAdapterModel.from_config(self.config())
@@ -285,8 +285,8 @@ class PredictionHeadModelTestMixin:
 
     def test_batch_split_head(self):
         model = AutoAdapterModel.from_config(self.config())
-        self.add_head(model, "a", num_labels=2)
-        self.add_head(model, "b", num_labels=2)
+        output_size_a = self.add_head(model, "a", num_labels=2)
+        output_size_b = self.add_head(model, "b", num_labels=2)
         model.active_head = BatchSplit("a", "b", batch_sizes=[1, 2])
 
         in_data = self.get_input_samples(config=model.config)
@@ -294,8 +294,8 @@ class PredictionHeadModelTestMixin:
         out = model(**in_data)
 
         self.assertEqual(2, len(out))
-        self.assertEqual((1, 2), out[0][0].shape)
-        self.assertEqual((2, 2), out[1][0].shape)
+        self.assertEqual((1, output_size_a), out[0][0].shape[:2])
+        self.assertEqual((2, output_size_b), out[1][0].shape[:2])
 
     def test_batch_split_adapter_head(self):
         model = AutoAdapterModel.from_config(self.config())
@@ -393,7 +393,7 @@ class PredictionHeadModelTestMixin:
     def test_context_simple(self):
         model = AutoAdapterModel.from_config(self.config())
         model.add_adapter("a")
-        self.add_head(model, "a", num_labels=3)
+        output_size = self.add_head(model, "a", num_labels=3)
         # Make sure no adapter is activated
         model.active_adapters = None
         model.active_head = None
@@ -413,7 +413,7 @@ class PredictionHeadModelTestMixin:
         with AdapterSetup("a"):
             out = model(**in_data)
 
-        self.assertEqual(out[0].shape, (3, 3))
+        self.assertEqual(out[0].shape[:2], (3, output_size))
         self.assertEqual(calls, 1)
 
     def test_save_all_adapters_with_head(self):

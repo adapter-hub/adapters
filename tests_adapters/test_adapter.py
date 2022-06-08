@@ -49,6 +49,7 @@ class AdapterTestBase:
 
     def add_head(self, model, name, **kwargs):
         model.add_classification_head(name, **kwargs)
+        return model.heads[name].config["num_labels"]
 
     def dataset(self, tokenizer=None):
         # setup tokenizer
@@ -82,6 +83,7 @@ class VisionAdapterTestBase(AdapterTestBase):
         if "num_labels" not in kwargs:
             kwargs["num_labels"] = 10
         model.add_image_classification_head(name, **kwargs)
+        return model.heads[name].config["num_labels"]
 
     def dataset(self, feature_extractor=None):
         if feature_extractor is None:

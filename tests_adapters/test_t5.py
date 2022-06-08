@@ -42,12 +42,14 @@ class T5AdapterTestBase(AdapterTestBase):
 
     def add_head(self, model, name, **kwargs):
         model.add_seq2seq_lm_head(name)
+        return self.default_input_samples_shape[-1]
 
-    def dataset(self):
+    def dataset(self, tokenizer=None):
         # setup tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
+        if tokenizer is None:
+            tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
 
         def preprocess_function(examples):
             inputs = examples["document"]

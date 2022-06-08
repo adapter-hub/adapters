@@ -341,7 +341,7 @@ class ParallelTrainingMixin:
         for i in range(3):
             input_data = self.get_input_samples(config=model.config)
             if isinstance(model, T5AdapterModel):
-                input_data["labels"] = torch.randint(0, 2, (3, 128))
+                input_data["labels"] = torch.randint(0, 2, (3, 64))
             else:
                 input_data["labels"] = torch.randint(0, 2, (3, 1))
             dataset.append(input_data)
@@ -386,7 +386,7 @@ class ParallelTrainingMixin:
 
         input_data = self.get_input_samples(config=model.config)
         if isinstance(model, T5AdapterModel):
-            input_data["labels"] = torch.randint(0, 2, (3, 128), device=torch_device)
+            input_data["labels"] = torch.randint(0, 2, (3, 64), device=torch_device)
         else:
             input_data["labels"] = torch.randint(0, 2, (3, 1), device=torch_device)
 
