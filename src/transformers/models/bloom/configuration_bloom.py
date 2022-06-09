@@ -50,14 +50,6 @@ class BloomConfig(PretrainedConfig):
             Number of hidden layers in the Transformer encoder.
         n_head (`int`, *optional*, defaults to 12):
             Number of attention heads for each attention layer in the Transformer encoder.
-        n_inner (`int`, *optional*, defaults to None):
-            Dimensionality of the inner feed-forward layers. `None` will set it to 4 times hidden_size
-        activation_function (`str`, *optional*, defaults to `"gelu"`):
-            Activation function, to be selected in the list `["relu", "silu", "gelu", "tanh", "gelu_new"]`.
-        resid_pdrop (`float`, *optional*, defaults to 0.1):
-            The dropout probability for all fully connected layers in the embeddings, encoder, and pooler.
-        embd_pdrop (`int`, *optional*, defaults to 0.1):
-            The dropout ratio for the embeddings.
         attn_pdrop (`float`, *optional*, defaults to 0.1):
             The dropout ratio for the attention.
         layer_norm_epsilon (`float`, *optional*, defaults to 1e-5):
@@ -66,9 +58,6 @@ class BloomConfig(PretrainedConfig):
             The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
         apply_residual_connection_post_layernorm (`bool`, *optional*, defaults to `False`):
             If enabled, use the layer norm of the hidden states as the residual in the transformer blocks
-        bias_dropout_fusion (`bool`, *optional*, defaults to `True`):
-            If enabled, apply dropout when adding the attention output together with the attention bias in the
-            transformer blocks
         skip_bias_add (`bool`, *optional*, defaults to `True`):
             If set to `True`, it will skip bias add for each linear layer in the transformer blocks
         skip_bias_add_qkv (`bool`, *optional*, defaults to `False`):
@@ -77,28 +66,20 @@ class BloomConfig(PretrainedConfig):
             If set to `True` and the `dtype` is set to `float16` it will scale the input of the Softmax function to
             `fp32`
         hidden_dropout (`float`, *optional*, defaults to 0.1):
-            Dropout rate of the dropout function in `bias_dropout_fusion`
+            Dropout rate of the dropout function on the bias dropout.
         attention_dropout (`float`, *optional*, defaults to 0.1):
             Dropout rate applied to the attention probs
-        scale_attn_weights (`bool`, *optional*, defaults to `True`):
-            Scale attention weights by dividing by sqrt(hidden_size)..
         use_cache (`bool`, *optional*, defaults to `True`):
             Whether or not the model should return the last key/values attentions (not used by all models).
         dtype (`str`, *optional*, defaults to `"bfloat16"`):
             Precision that has been used for the model's training in Megatron. Please load the model in the correct
             precision by doing `model = BloomModel.from_pretrained(model_name, torch_dtype="auto")`.`
-        scale_attn_by_inverse_layer_idx (`bool`, *optional*, defaults to `False`):
-            Whether to additionally scale attention weights by `1 / layer_idx + 1`.
-        reorder_and_upcast_attn (`bool`, *optional*, defaults to `False`):
-            Whether to scale keys (K) prior to computing attention (dot-product) and upcast attention
-            dot-product/softmax to float() when training with mixed precision.
         pretraining_tp (`int`, *optional*, defaults to `1`):
-            Tensor parallelism rank used during pretraining with Megatron. Please refer to [this
+            Experimental feature. Tensor parallelism rank used during pretraining with Megatron. Please refer to [this
             document](https://huggingface.co/docs/transformers/parallelism) to understand more about it. This value is
             necessary to ensure exact reproducibility of the pretraining results. Please refer to [this
-            issue](https://github.com/pytorch/pytorch/issues/76232)
-        gradient_checkpointing (`bool`, *optional*, defaults to `True`):
-            Whether to use gradient checkpointing.
+            issue](https://github.com/pytorch/pytorch/issues/76232). Note also that this is enabled only when
+            `slow_but_exact=True`.
         slow_but_exact (`bool`, *optional*, defaults to `False`):
             Experimental feature. Whether to use slow but exact implementation of the attention mechanism. While
             merging the TP rank tensors, due to slicing operations the results may be slightly different between the
@@ -137,7 +118,6 @@ class BloomConfig(PretrainedConfig):
         hidden_size=64,
         n_layer=2,
         n_head=8,
-        n_inner=None,
         masked_softmax_fusion=True,
         layer_norm_epsilon=1e-5,
         initializer_range=0.02,
@@ -145,13 +125,11 @@ class BloomConfig(PretrainedConfig):
         bos_token_id=1,
         eos_token_id=2,
         apply_residual_connection_post_layernorm=False,
-        bias_dropout_fusion=True,
         hidden_dropout=0.0,
         attention_dropout=0.0,
         attention_softmax_in_fp32=True,
         pretraining_tp=1,  # TP rank used when training with megatron
         dtype="bfloat16",
-        gradient_checkpointing=True,
         slow_but_exact=False,
         **kwargs,
     ):
@@ -159,14 +137,12 @@ class BloomConfig(PretrainedConfig):
         self.hidden_size = hidden_size
         self.n_layer = n_layer
         self.n_head = n_head
-        self.n_inner = n_inner
         self.masked_softmax_fusion = masked_softmax_fusion
         self.layer_norm_epsilon = layer_norm_epsilon
         self.initializer_range = initializer_range
         self.use_cache = use_cache
         self.pretraining_tp = pretraining_tp
         self.apply_residual_connection_post_layernorm = apply_residual_connection_post_layernorm
-        self.bias_dropout_fusion = bias_dropout_fusion
         self.hidden_dropout = hidden_dropout
         self.attention_dropout = attention_dropout
         self.attention_softmax_in_fp32 = attention_softmax_in_fp32
@@ -174,7 +150,6 @@ class BloomConfig(PretrainedConfig):
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
         self.dtype = dtype
-        self.gradient_checkpointing = gradient_checkpointing
         self.slow_but_exact = slow_but_exact
 
         super().__init__(bos_token_id=bos_token_id, eos_token_id=eos_token_id, **kwargs)

@@ -19,7 +19,7 @@ from typing import Tuple
 
 import torch
 import torch.utils.checkpoint
-from torch import Tensor, nn
+from torch import nn
 from torch.nn import CrossEntropyLoss, LayerNorm
 
 from ...file_utils import add_code_sample_docstrings, add_start_docstrings, add_start_docstrings_to_model_forward
@@ -27,7 +27,6 @@ from ...modeling_outputs import BaseModelOutputWithPastAndCrossAttentions, Causa
 from ...modeling_utils import PreTrainedModel
 from ...utils import logging
 from .configuration_bloom import BloomConfig
-from .fused_bias_gelu import bias_gelu_impl
 
 
 logger = logging.get_logger(__name__)
@@ -94,8 +93,9 @@ def attention_mask_func(attention_scores, attention_mask, causal_mask):
 
 def build_alibi_tensor(max_seq_len, n_head, dtype=torch.bfloat16):
     """
-    Alibi tensor is not causal as the original paper mentions, it relies on a translation invariance of softmax for
-    quick implementation: with l being a tensor, and a fixed value `softmax(l+a) = softmax(l) Based on
+    Link to paper: https://arxiv.org/abs/2108.12409 Alibi tensor is not causal as the original paper mentions, it
+    relies on a translation invariance of softmax for quick implementation: with l being a tensor, and a fixed value
+    `softmax(l+a) = softmax(l)`. Based on
     https://github.com/ofirpress/attention_with_linear_biases/blob/a35aaca144e0eb6b789dfcb46784c4b8e31b7983/fairseq/models/transformer.py#L742
 
     Args:
@@ -168,30 +168,86 @@ def pre_process_alibi_for_pad(alibi, attention_mask, num_heads):
     return alibi
 
 
-def bias_dropout_add(x, bias, residual, prob, training):
-    # type: (Tensor, Tensor, Tensor, float, bool) -> Tensor
-    out = torch.nn.functional.dropout(x + bias, p=prob, training=training)
+def dropout_add(x, residual, prob, training):
+    """
+    Dropout add function
+
+    Args:
+        x (`torch.tensor`, *required*):
+            input tensor
+        residual (`torch.tensor`, *rquired*):
+            esidual tensor
+        prob (`float`, *required*):
+            dropout probability
+        training (`bool`, *required*):
+            training mode
+    """
+    out = nn.functional.dropout(x, p=prob, training=training)
     out = residual + out
     return out
 
 
-def get_bias_dropout_add(training):
-    def _bias_dropout_add(x, bias, residual, prob):
-        return bias_dropout_add(x, bias, residual, prob, training)
+def bloom_gelu_forward(x):
+    """
+    Custom bias GELU function. Adapted from Megatron-DeepSpeed code. Here we use a simple implementation (inference) to
+    make the model jitable.
 
-    return _bias_dropout_add
+    Args:
+        x (`torch.tensor`, *required*):
+            input hidden states
+    """
+    return x * 0.5 * (1.0 + torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x)))
 
 
-@torch.jit.script
-def bias_dropout_add_fused_train(x, bias, residual, prob):
-    # type: (Tensor, Tensor, Tensor, float) -> Tensor
-    return bias_dropout_add(x, bias, residual, prob, True)
+def bloom_gelu_back(g, x):
+    """
+    gradient of tanh approximation of gelu gradient of actual gelu is: 0.5 * (1. + torch.erf(x * 0.70710678)) +
+    0.3989423 * x * torch.exp(-0.5 * x * x)
+
+    Args:
+        g (`torch.tensor`, *required*):
+            gradient output tensor
+        x (`torch.tensor`, *required*):
+            input tensor
+    """
+    x = x[0]  # x is a tuple of 1 element, needs to unpack it first
+    tanh_out = torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x))
+    # sqrt(2/pi) * 3 * 0.044715 -> 0.1070322243
+    ff = 0.5 * x * ((1 - tanh_out * tanh_out) * (0.79788456 + 0.1070322243 * x * x)) + 0.5 * (1 + tanh_out)
+    return ff * g
 
 
-@torch.jit.script
-def bias_dropout_add_fused_inference(x, bias, residual, prob):
-    # type: (Tensor, Tensor, Tensor, float) -> Tensor
-    return bias_dropout_add(x, bias, residual, prob, False)
+class GeLUFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input):
+        ctx.save_for_backward(input)
+        return bloom_gelu_forward(input)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        input = ctx.saved_tensors
+        tmp = bloom_gelu_back(grad_output, input)
+        return tmp
+
+
+class BloomGelu(nn.Module):
+    """
+    BloomBiasGelu wrapper function that make use of the simple function on inference mode to make the model
+    torchscriptable and use the autograd function in training mode to get the accurate results of the gradients Partly
+    copied from Megatron-DeepSpeed code and adapted for our needs
+
+    See here why autograd functions are not torchscriptable: https://github.com/pytorch/pytorch/issues/22329
+
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        if self.training:
+            return GeLUFunction.apply(x)
+        else:
+            return bloom_gelu_forward(x)
 
 
 class BloomScaledSoftmax(nn.Module):
@@ -262,6 +318,7 @@ class BloomAttention(nn.Module):
         self.split_size = self.hidden_size
         self.attention_softmax_in_fp32 = config.attention_softmax_in_fp32
         self.masked_softmax_fusion = config.masked_softmax_fusion
+        self.hidden_dropout = config.hidden_dropout
 
         if self.head_dim * self.num_heads != self.hidden_size:
             raise ValueError(
@@ -271,24 +328,24 @@ class BloomAttention(nn.Module):
 
         # Layer-wise attention scaling
         self.layer_number = max(1, layer_number)
-        coeff = self.layer_number
-        self.norm_factor = math.sqrt(self.head_dim) * coeff
+        self.norm_factor = math.sqrt(self.head_dim) * self.layer_number
 
         # Scaled Softmax
         self.scale_mask_softmax = BloomScaledSoftmax(
             self.masked_softmax_fusion,
             attention_mask_func,
             self.attention_softmax_in_fp32,
-            coeff,
+            self.layer_number,
         )
 
         self.query_key_value = nn.Linear(self.hidden_size, 3 * self.hidden_size, bias=True)
         self.dense = nn.Linear(self.hidden_size, self.hidden_size)
-        self.attention_dropout = torch.nn.Dropout(config.attention_dropout)
+        self.attention_dropout = nn.Dropout(config.attention_dropout)
 
     def forward(
         self,
         hidden_states,
+        residual,
         layer_past=None,
         attention_mask=None,
         alibi=None,
@@ -304,11 +361,7 @@ class BloomAttention(nn.Module):
         if attention_mask is not None and 0 in attention_mask:
             alibi = pre_process_alibi_for_pad(alibi, attention_mask, self.num_heads)
 
-        bias = self.query_key_value.bias
-
-        output_bias = None
-
-        mixed_x_layer = nn.functional.linear(hidden_states, self.query_key_value.weight, bias)
+        mixed_x_layer = self.query_key_value(hidden_states)
 
         # [batch_size, seq_length, 3 x hidden_size] --> [batch_size, seq_length, num_heads, 3 x head_dim]
         new_tensor_shape = mixed_x_layer.size()[:-1] + (self.num_heads, 3 * self.head_dim)
@@ -336,14 +389,14 @@ class BloomAttention(nn.Module):
         # [batch_size, k_length, num_heads, head_dim] -> [k_length, batch_size * num_heads, head_dim]
         key_layer = key_layer.transpose(1, 0).reshape(output_size[3], output_size[0] * output_size[1], -1)
 
-        # alibi
-        matmul_result = alibi[: output_size[0] * output_size[1], :, : output_size[3]]
+        # slice alibi tensor until the query length
+        sliced_alibi = alibi[: output_size[0] * output_size[1], :, : output_size[3]]
 
         # Raw attention scores. [batch_size * num_heads, q_length, k_length]
         beta = 1.0 / self.layer_number
 
         matmul_result = torch.baddbmm(
-            matmul_result,
+            sliced_alibi,
             query_layer.transpose(1, 0),
             key_layer.transpose(1, 0).transpose(1, 2),
             beta=beta,
@@ -398,17 +451,17 @@ class BloomAttention(nn.Module):
                     self.dense.weight[:, int(i * slices) : int((i + 1) * slices)],
                 )
         else:
-            output_tensor = nn.functional.linear(context_layer, self.dense.weight)
-
-        output_tensor = output_tensor
-        output_bias = self.dense.bias
+            output_tensor = self.dense(context_layer)
 
         output = output_tensor.transpose(1, 0)
+
+        output = dropout_add(output, residual, self.hidden_dropout, self.training)
+
         outputs = (output, present)
         if output_attentions:
             outputs += (attention_probs,)
 
-        return outputs, output_bias
+        return outputs
 
 
 class BloomMLP(nn.Module):
@@ -418,19 +471,16 @@ class BloomMLP(nn.Module):
 
         self.pretraining_tp = config.pretraining_tp
         self.slow_but_exact = config.slow_but_exact
-        self.activation_func = bias_gelu_impl
         self.dense_h_to_4h = nn.Linear(hidden_size, 4 * hidden_size)
         self.dense_4h_to_h = nn.Linear(4 * hidden_size, hidden_size)
+        self.hidden_dropout = config.hidden_dropout
+        self.gelu_impl = BloomGelu()
 
-    def forward(self, hidden_states):
-        input_ = hidden_states
-
-        hidden_states = self.activation_func(
-            nn.functional.linear(hidden_states, self.dense_h_to_4h.weight), self.dense_h_to_4h.bias
-        )
+    def forward(self, hidden_states, residual):
+        hidden_states = self.gelu_impl(self.dense_h_to_4h(hidden_states))
 
         if self.pretraining_tp > 1 and self.slow_but_exact:
-            intermediate_output = torch.zeros_like(input_)
+            intermediate_output = torch.zeros_like(residual)
             slices = self.dense_4h_to_h.weight.shape[-1] / self.pretraining_tp
             for i in range(self.pretraining_tp):
                 intermediate_output = intermediate_output + nn.functional.linear(
@@ -438,12 +488,11 @@ class BloomMLP(nn.Module):
                     self.dense_4h_to_h.weight[:, int(i * slices) : int((i + 1) * slices)],
                 )
         else:
-            intermediate_output = nn.functional.linear(hidden_states, self.dense_4h_to_h.weight)
+            intermediate_output = self.dense_4h_to_h(hidden_states)
 
-        output = intermediate_output
-        output_bias = self.dense_4h_to_h.bias
+        output = dropout_add(intermediate_output, residual, self.hidden_dropout, self.training)
 
-        return output, output_bias
+        return output
 
 
 class BloomBlock(nn.Module):
@@ -459,7 +508,6 @@ class BloomBlock(nn.Module):
         self.mlp = BloomMLP(config)
 
         self.apply_residual_connection_post_layernorm = config.apply_residual_connection_post_layernorm
-        self.bias_dropout_fusion = config.bias_dropout_fusion
         self.hidden_dropout = config.hidden_dropout
 
     def forward(
@@ -477,9 +525,16 @@ class BloomBlock(nn.Module):
         # Layer norm at the beginning of the transformer layer.
         layernorm_output = self.input_layernorm(hidden_states)
 
+        # Layer norm post the self attention.
+        if self.apply_residual_connection_post_layernorm:
+            residual = layernorm_output
+        else:
+            residual = hidden_states
+
         # Self attention.
-        attn_outputs, attention_bias = self.self_attention(
+        attn_outputs = self.self_attention(
             layernorm_output,
+            residual,
             layer_past=layer_past,
             attention_mask=attention_mask,
             alibi=alibi,
@@ -492,39 +547,16 @@ class BloomBlock(nn.Module):
 
         outputs = attn_outputs[1:]
 
-        # Layer norm post the self attention.
+        layernorm_output = self.post_attention_layernorm(attention_output)
+
+        # Get residual
         if self.apply_residual_connection_post_layernorm:
             residual = layernorm_output
         else:
-            residual = hidden_states
-
-        if self.bias_dropout_fusion:
-            if self.training:
-                bias_dropout_add_func = bias_dropout_add_fused_train
-            else:
-                bias_dropout_add_func = bias_dropout_add_fused_inference
-        else:
-            bias_dropout_add_func = get_bias_dropout_add(self.training)
-
-        # re-enable torch grad to enable fused optimization.
-        with torch.enable_grad():
-            layernorm_input = bias_dropout_add_func(
-                attention_output, attention_bias.expand_as(residual), residual, self.hidden_dropout
-            )
-
-        layernorm_output = self.post_attention_layernorm(layernorm_input)
+            residual = attention_output
 
         # MLP.
-
-        mlp_output, mlp_bias = self.mlp(layernorm_output)
-
-        if self.apply_residual_connection_post_layernorm:
-            residual = layernorm_output
-        else:
-            residual = layernorm_input
-
-        with torch.enable_grad():
-            output = bias_dropout_add_func(mlp_output, mlp_bias.expand_as(residual), residual, self.hidden_dropout)
+        output = self.mlp(layernorm_output, residual)
 
         if use_cache:
             outputs = (output,) + outputs
@@ -610,14 +642,6 @@ BLOOM_INPUTS_DOCSTRING = r"""
             - 0 for tokens that are **masked**.
 
             [What are attention masks?](../glossary#attention-mask)
-        token_type_ids (`torch.LongTensor` of shape `(batch_size, input_ids_length)`, *optional*):
-            Segment token indices to indicate first and second portions of the inputs. Indices are selected in `[0,
-            1]`:
-
-            - 0 corresponds to a *sentence A* token,
-            - 1 corresponds to a *sentence B* token.
-
-            [What are token type IDs?](../glossary#token-type-ids)
         position_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
             Indices of positions of each input sequence tokens in the position embeddings. Selected in the range `[0,
             config.max_position_embeddings - 1]`.
@@ -672,7 +696,7 @@ class BloomModel(BloomPreTrainedModel):
         # Final Layer Norm
         self.ln_f = LayerNorm(self.embed_dim, eps=config.layer_norm_epsilon)
 
-        self.gradient_checkpointing = config.gradient_checkpointing
+        self.gradient_checkpointing = False
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -695,7 +719,6 @@ class BloomModel(BloomPreTrainedModel):
         input_ids=None,
         past_key_values=None,
         attention_mask=None,
-        token_type_ids=None,
         position_ids=None,
         head_mask=None,
         inputs_embeds=None,
@@ -721,21 +744,8 @@ class BloomModel(BloomPreTrainedModel):
         else:
             raise ValueError("You have to specify either input_ids or inputs_embeds")
 
-        device = input_ids.device if input_ids is not None else inputs_embeds.device
-
-        if token_type_ids is not None:
-            token_type_ids = token_type_ids.view(-1, input_shape[-1])
-        if position_ids is not None:
-            position_ids = position_ids.view(-1, input_shape[-1])
-
         if past_key_values is None:
-            past_length = 0
             past_key_values = tuple([None] * len(self.h))
-        else:
-            past_length = past_key_values[0][0].size(-2)
-        if position_ids is None:
-            position_ids = torch.arange(past_length, input_shape[-1] + past_length, dtype=torch.long, device=device)
-            position_ids = position_ids.unsqueeze(0).view(-1, input_shape[-1])
 
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head
@@ -747,11 +757,6 @@ class BloomModel(BloomPreTrainedModel):
             inputs_embeds = self.word_embeddings(input_ids)
 
         hidden_states = self.word_embeddings_layernorm(inputs_embeds)
-
-        if token_type_ids is not None:
-            token_type_embeds = self.word_embeddings(token_type_ids)
-            token_type_embeds = token_type_embeds.contiguous()
-            hidden_states = hidden_states + token_type_embeds
 
         output_shape = input_shape + (hidden_states.size(-1),)
 
@@ -854,12 +859,9 @@ class BloomForCausalLM(BloomPreTrainedModel):
         self.lm_head = new_embeddings
 
     def prepare_inputs_for_generation(self, input_ids, past=None, **kwargs):
-        token_type_ids = kwargs.get("token_type_ids", None)
         # only last token for inputs_ids if past is defined in kwargs
         if past:
             input_ids = input_ids[:, -1].unsqueeze(-1)
-            if token_type_ids is not None:
-                token_type_ids = token_type_ids[:, -1].unsqueeze(-1)
 
         attention_mask = kwargs.get("attention_mask", None)
         position_ids = kwargs.get("position_ids", None)
@@ -878,7 +880,6 @@ class BloomForCausalLM(BloomPreTrainedModel):
             "use_cache": kwargs.get("use_cache"),
             "position_ids": position_ids,
             "attention_mask": attention_mask,
-            "token_type_ids": token_type_ids,
         }
 
     @add_start_docstrings_to_model_forward(BLOOM_INPUTS_DOCSTRING)
@@ -893,7 +894,6 @@ class BloomForCausalLM(BloomPreTrainedModel):
         input_ids=None,
         past_key_values=None,
         attention_mask=None,
-        token_type_ids=None,
         position_ids=None,
         head_mask=None,
         inputs_embeds=None,
@@ -915,7 +915,6 @@ class BloomForCausalLM(BloomPreTrainedModel):
             input_ids,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
