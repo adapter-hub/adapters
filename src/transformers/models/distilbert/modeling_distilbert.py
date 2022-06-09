@@ -30,6 +30,12 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from transformers.configuration_utils import PretrainedConfig
 
 from ...activations import get_activation
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.distilbert import DistilBertModelAdaptersMixin, DistilBertTransfomerBlockAdaptersMixin
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...deepspeed import is_deepspeed_zero3_enabled
 from ...modeling_outputs import (
     BaseModelOutput,
@@ -145,12 +151,14 @@ class MultiHeadSelfAttention(nn.Module):
 
         assert self.dim % self.n_heads == 0
 
-        self.q_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
+        self.q_lin = LoRALinear(config.dim, config.dim, "selfattn", config)
         self.k_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
-        self.v_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
+        self.v_lin = LoRALinear(config.dim, config.dim, "selfattn", config)
         self.out_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
 
         self.pruned_heads: Set[int] = set()
+
+        self.prefix_tuning = PrefixTuningShim("self", config)
 
     def prune_heads(self, heads: List[int]):
         attention_head_size = self.dim // self.n_heads
@@ -188,13 +196,10 @@ class MultiHeadSelfAttention(nn.Module):
             seq_length, dim) Contextualized layer. Optional: only if `output_attentions=True`
         """
         bs, q_length, dim = query.size()
-        k_length = key.size(1)
         # assert dim == self.dim, f'Dimensions do not match: {dim} input vs {self.dim} configured'
         # assert key.size() == value.size()
 
         dim_per_head = self.dim // self.n_heads
-
-        mask_reshp = (bs, 1, 1, k_length)
 
         def shape(x: torch.Tensor) -> torch.Tensor:
             """separate heads"""
@@ -208,10 +213,14 @@ class MultiHeadSelfAttention(nn.Module):
         k = shape(self.k_lin(key))  # (bs, n_heads, k_length, dim_per_head)
         v = shape(self.v_lin(value))  # (bs, n_heads, k_length, dim_per_head)
 
+        k, v, mask = self.prefix_tuning(k, v, mask, invert_mask=False)
+
+        mask_reshp = (bs, 1, 1, k.size(2))
+
         q = q / math.sqrt(dim_per_head)  # (bs, n_heads, q_length, dim_per_head)
         scores = torch.matmul(q, k.transpose(2, 3))  # (bs, n_heads, q_length, k_length)
         mask = (mask == 0).view(mask_reshp).expand_as(scores)  # (bs, n_heads, q_length, k_length)
-        scores = scores.masked_fill(mask, torch.tensor(-float("inf")))  # (bs, n_heads, q_length, k_length)
+        scores = scores.masked_fill(mask, -float("inf"))  # (bs, n_heads, q_length, k_length)
 
         weights = nn.functional.softmax(scores, dim=-1)  # (bs, n_heads, q_length, k_length)
         weights = self.dropout(weights)  # (bs, n_heads, q_length, k_length)
@@ -236,8 +245,8 @@ class FFN(nn.Module):
         self.dropout = nn.Dropout(p=config.dropout)
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
         self.seq_len_dim = 1
-        self.lin1 = nn.Linear(in_features=config.dim, out_features=config.hidden_dim)
-        self.lin2 = nn.Linear(in_features=config.hidden_dim, out_features=config.dim)
+        self.lin1 = LoRALinear(config.dim, config.hidden_dim, "intermediate", config)
+        self.lin2 = LoRALinear(config.hidden_dim, config.dim, "output", config)
         self.activation = get_activation(config.activation)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
@@ -251,9 +260,10 @@ class FFN(nn.Module):
         return x
 
 
-class TransformerBlock(nn.Module):
+class TransformerBlock(DistilBertTransfomerBlockAdaptersMixin, nn.Module):
     def __init__(self, config: PretrainedConfig):
         super().__init__()
+        self.config = config
 
         assert config.dim % config.n_heads == 0
 
@@ -262,6 +272,8 @@ class TransformerBlock(nn.Module):
 
         self.ffn = FFN(config)
         self.output_layer_norm = nn.LayerNorm(normalized_shape=config.dim, eps=1e-12)
+
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -293,11 +305,13 @@ class TransformerBlock(nn.Module):
         else:  # To handle these `output_attentions` or `output_hidden_states` cases returning tuples
             assert type(sa_output) == tuple
             sa_output = sa_output[0]
-        sa_output = self.sa_layer_norm(sa_output + x)  # (bs, seq_length, dim)
+        sa_output = self.attention_adapters(sa_output, x, self.sa_layer_norm)  # (bs, seq_length, dim)
 
         # Feed Forward Network
         ffn_output = self.ffn(sa_output)  # (bs, seq_length, dim)
-        ffn_output: torch.Tensor = self.output_layer_norm(ffn_output + sa_output)  # (bs, seq_length, dim)
+        ffn_output: torch.Tensor = self.output_adapters(
+            ffn_output, sa_output, self.output_layer_norm
+        )  # (bs, seq_length, dim)
 
         output = (ffn_output,)
         if output_attentions:
@@ -346,6 +360,7 @@ class Transformer(nn.Module):
                 x=hidden_state, attn_mask=attn_mask, head_mask=head_mask[i], output_attentions=output_attentions
             )
             hidden_state = layer_outputs[-1]
+            (attn_mask,) = adjust_tensors_for_parallel(hidden_state, attn_mask)
 
             if output_attentions:
                 assert len(layer_outputs) == 2
@@ -450,14 +465,15 @@ DISTILBERT_INPUTS_DOCSTRING = r"""
     "The bare DistilBERT encoder/transformer outputting raw hidden-states without any specific head on top.",
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertModel(DistilBertPreTrainedModel):
+class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
 
         self.embeddings = Embeddings(config)  # Embeddings
         self.transformer = Transformer(config)  # Encoder
 
-        # Initialize weights and apply final processing
+        self._init_adapter_modules()
+
         self.post_init()
 
     def get_position_embeddings(self) -> nn.Embedding:
@@ -529,6 +545,7 @@ class DistilBertModel(DistilBertPreTrainedModel):
         output_type=BaseModelOutput,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.Tensor] = None,
@@ -564,6 +581,8 @@ class DistilBertModel(DistilBertPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.embeddings(input_ids)  # (bs, seq_length, dim)
+        inputs_embeds = self.invertible_adapters_forward(inputs_embeds)
+
         return self.transformer(
             x=inputs_embeds,
             attn_mask=attention_mask,
@@ -578,7 +597,7 @@ class DistilBertModel(DistilBertPreTrainedModel):
     """DistilBert Model with a `masked language modeling` head on top.""",
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForMaskedLM(DistilBertPreTrainedModel):
+class DistilBertForMaskedLM(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
 
@@ -659,6 +678,7 @@ class DistilBertForMaskedLM(DistilBertPreTrainedModel):
         prediction_logits = self.vocab_transform(hidden_states)  # (bs, seq_length, dim)
         prediction_logits = self.activation(prediction_logits)  # (bs, seq_length, dim)
         prediction_logits = self.vocab_layer_norm(prediction_logits)  # (bs, seq_length, dim)
+        prediction_logits = self.distilbert.invertible_adapters_forward(prediction_logits, rev=True)
         prediction_logits = self.vocab_projector(prediction_logits)  # (bs, seq_length, vocab_size)
 
         mlm_loss = None
@@ -684,7 +704,7 @@ class DistilBertForMaskedLM(DistilBertPreTrainedModel):
     """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForSequenceClassification(DistilBertPreTrainedModel):
+class DistilBertForSequenceClassification(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -802,7 +822,7 @@ class DistilBertForSequenceClassification(DistilBertPreTrainedModel):
     """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForQuestionAnswering(DistilBertPreTrainedModel):
+class DistilBertForQuestionAnswering(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
 
@@ -919,7 +939,7 @@ class DistilBertForQuestionAnswering(DistilBertPreTrainedModel):
     """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForTokenClassification(DistilBertPreTrainedModel):
+class DistilBertForTokenClassification(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1014,7 +1034,7 @@ class DistilBertForTokenClassification(DistilBertPreTrainedModel):
     """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForMultipleChoice(DistilBertPreTrainedModel):
+class DistilBertForMultipleChoice(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
 

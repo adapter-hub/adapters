@@ -43,10 +43,7 @@ class BenchmarkArguments:
     models: List[str] = list_field(
         default=[],
         metadata={
-            "help": (
-                "Model checkpoints to be provided to the AutoModel classes. Leave blank to benchmark the base version"
-                " of all available models"
-            )
+            "help": "Model checkpoints to be provided to the AutoModel classes. Leave blank to benchmark the base version of all available models"
         },
     )
 
@@ -90,11 +87,7 @@ class BenchmarkArguments:
     multi_process: bool = field(
         default=True,
         metadata={
-            "help": (
-                "Whether to use multiprocessing for memory and speed measurement. It is highly recommended to use"
-                " multiprocessing for accurate CPU and GPU memory measurements. This option should only be disabled"
-                " for debugging / testing and on TPU."
-            )
+            "help": "Whether to use multiprocessing for memory and speed measurement. It is highly recommended to use multiprocessing for accurate CPU and GPU memory measurements. This option should only be disabled for debugging / testing and on TPU."
         },
     )
     inference_time_csv_file: str = field(
@@ -125,10 +118,7 @@ class BenchmarkArguments:
     only_pretrain_model: bool = field(
         default=False,
         metadata={
-            "help": (
-                "Instead of loading the model as defined in `config.architectures` if exists, just load the pretrain"
-                " model weights."
-            )
+            "help": "Instead of loading the model as defined in `config.architectures` if exists, just load the pretrain model weights."
         },
     )
 
@@ -148,10 +138,9 @@ class BenchmarkArguments:
 
     @property
     def model_names(self):
-        assert len(self.models) > 0, (
-            "Please make sure you provide at least one model name / model identifier, *e.g.* `--models"
-            " bert-base-cased` or `args.models = ['bert-base-cased']."
-        )
+        assert (
+            len(self.models) > 0
+        ), "Please make sure you provide at least one model name / model identifier, *e.g.* `--models bert-base-cased` or `args.models = ['bert-base-cased']."
         return self.models
 
     @property

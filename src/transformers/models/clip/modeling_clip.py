@@ -181,8 +181,7 @@ class CLIPAttention(nn.Module):
         self.head_dim = self.embed_dim // self.num_heads
         if self.head_dim * self.num_heads != self.embed_dim:
             raise ValueError(
-                f"embed_dim must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`:"
-                f" {self.num_heads})."
+                f"embed_dim must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`: {self.num_heads})."
             )
         self.scale = self.head_dim**-0.5
         self.dropout = config.attention_dropout
@@ -221,16 +220,14 @@ class CLIPAttention(nn.Module):
 
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
             raise ValueError(
-                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is"
-                f" {attn_weights.size()}"
+                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is {attn_weights.size()}"
             )
 
         # apply the causal_attention_mask first
         if causal_attention_mask is not None:
             if causal_attention_mask.size() != (bsz, 1, tgt_len, src_len):
                 raise ValueError(
-                    f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is"
-                    f" {causal_attention_mask.size()}"
+                    f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is {causal_attention_mask.size()}"
                 )
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len) + causal_attention_mask
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
@@ -261,8 +258,7 @@ class CLIPAttention(nn.Module):
 
         if attn_output.size() != (bsz * self.num_heads, tgt_len, self.head_dim):
             raise ValueError(
-                f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is"
-                f" {attn_output.size()}"
+                f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is {attn_output.size()}"
             )
 
         attn_output = attn_output.view(bsz, self.num_heads, tgt_len, self.head_dim)
@@ -852,14 +848,12 @@ class CLIPModel(CLIPPreTrainedModel):
 
         if not isinstance(config.text_config, CLIPTextConfig):
             raise ValueError(
-                "config.text_config is expected to be of type CLIPTextConfig but is of type"
-                f" {type(config.text_config)}."
+                f"config.text_config is expected to be of type CLIPTextConfig but is of type {type(config.text_config)}."
             )
 
         if not isinstance(config.vision_config, CLIPVisionConfig):
             raise ValueError(
-                "config.vision_config is expected to be of type CLIPVisionConfig but is of type"
-                f" {type(config.vision_config)}."
+                f"config.vision_config is expected to be of type CLIPVisionConfig but is of type {type(config.vision_config)}."
             )
 
         text_config = config.text_config

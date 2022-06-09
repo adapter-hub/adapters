@@ -130,7 +130,6 @@ from .import_utils import (
     is_torch_tf32_available,
     is_torch_tpu_available,
     is_torchaudio_available,
-    is_torchdynamo_available,
     is_training_run_on_sagemaker,
     is_vision_available,
     requires_backends,
@@ -162,16 +161,8 @@ DUMMY_MASK = [[1, 1, 1, 1, 1], [1, 1, 1, 0, 0], [0, 0, 0, 1, 1]]
 
 def check_min_version(min_version):
     if version.parse(__version__) < version.parse(min_version):
-        if "dev" in min_version:
-            error_message = (
-                "This example requires a source install from HuggingFace Transformers (see "
-                "`https://huggingface.co/transformers/installation.html#installing-from-source`),"
-            )
-        else:
-            error_message = f"This example requires a minimum version of {min_version},"
-        error_message += f" but the version found is {__version__}.\n"
-        raise ImportError(
-            error_message
-            + "Check out https://huggingface.co/transformers/examples.html for the examples corresponding to other "
-            "versions of HuggingFace Transformers."
+        error_message = (
+            f"This example requires a minimum underlying HuggingFace Transformers version of {min_version},"
         )
+        error_message += f" but the version found is {__version__}.\n"
+        raise ImportError(error_message)

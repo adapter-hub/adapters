@@ -28,7 +28,10 @@ from ...utils import (
 
 
 _import_structure = {
-    "configuration_speech_to_text": ["SPEECH_TO_TEXT_PRETRAINED_CONFIG_ARCHIVE_MAP", "Speech2TextConfig"],
+    "configuration_speech_to_text": [
+        "SPEECH_TO_TEXT_PRETRAINED_CONFIG_ARCHIVE_MAP",
+        "Speech2TextConfig",
+    ],
 }
 
 try:

@@ -1092,8 +1092,7 @@ class XLNetModel(XLNetPreTrainedModel):
 
         if "use_cache" in kwargs:
             warnings.warn(
-                "The `use_cache` argument is deprecated and will be removed in a future version, use `use_mems`"
-                " instead.",
+                "The `use_cache` argument is deprecated and will be removed in a future version, use `use_mems` instead.",
                 FutureWarning,
             )
             use_mems = kwargs["use_cache"]

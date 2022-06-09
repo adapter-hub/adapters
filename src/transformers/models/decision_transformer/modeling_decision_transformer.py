@@ -135,8 +135,7 @@ class DecisionTransformerGPT2Attention(nn.Module):
         self.split_size = self.embed_dim
         if self.head_dim * self.num_heads != self.embed_dim:
             raise ValueError(
-                f"`embed_dim` must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`:"
-                f" {self.num_heads})."
+                f"`embed_dim` must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`: {self.num_heads})."
             )
 
         self.scale_attn_weights = config.scale_attn_weights
@@ -187,7 +186,7 @@ class DecisionTransformerGPT2Attention(nn.Module):
         if not self.is_cross_attention:
             # if only "normal" attention layer implements causal mask
             query_length, key_length = query.size(-2), key.size(-2)
-            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length].to(torch.bool)
+            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length].bool()
             attn_weights = torch.where(causal_mask, attn_weights, self.masked_bias.to(attn_weights.dtype))
 
         if attention_mask is not None:
@@ -291,8 +290,8 @@ class DecisionTransformerGPT2Attention(nn.Module):
         if encoder_hidden_states is not None:
             if not hasattr(self, "q_attn"):
                 raise ValueError(
-                    "If class is used as cross attention, the weights `q_attn` have to be defined. Please make sure to"
-                    " instantiate class with `DecisionTransformerGPT2Attention(..., is_cross_attention=True)`."
+                    "If class is used as cross attention, the weights `q_attn` have to be defined. "
+                    "Please make sure to instantiate class with `DecisionTransformerGPT2Attention(..., is_cross_attention=True)`."
                 )
 
             query = self.q_attn(hidden_states)

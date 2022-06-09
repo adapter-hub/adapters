@@ -21,6 +21,8 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
 
+from ...adapters.mixins.encoder_decoder import EncoderDecoderModelAdaptersMixin
+from ...adapters.wrappers.configuration import wrap_config
 from ...configuration_utils import PretrainedConfig
 from ...modeling_outputs import BaseModelOutput, Seq2SeqLMOutput
 from ...modeling_utils import PreTrainedModel
@@ -35,10 +37,10 @@ logger = logging.get_logger(__name__)
 _CONFIG_FOR_DOC = "EncoderDecoderConfig"
 
 DEPRECATION_WARNING = (
-    "Version v4.12.0 introduces a better way to train encoder-decoder models by computing the loss inside the"
-    " encoder-decoder framework rather than in the decoder itself. You may observe training discrepancies if"
-    " fine-tuning a model trained with versions anterior to 4.12.0. The decoder_input_ids are now created based on the"
-    " labels, no need to pass them yourself anymore."
+    "Version v4.12.0 introduces a better way to train encoder-decoder models by computing the loss inside the "
+    "encoder-decoder framework rather than in the decoder itself. You may observe training discrepancies if fine-tuning "
+    "a model trained with versions anterior to 4.12.0. The decoder_input_ids are now created based on the labels, no "
+    "need to pass them yourself anymore."
 )
 
 ENCODER_DECODER_START_DOCSTRING = r"""
@@ -162,7 +164,7 @@ def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int, decoder_start
 
 
 @add_start_docstrings(ENCODER_DECODER_START_DOCSTRING)
-class EncoderDecoderModel(PreTrainedModel):
+class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
     r"""
     [`EncoderDecoderModel`] is a generic model class that will be instantiated as a transformer architecture with one
     of the base model classes of the library as encoder and another one as decoder when created with the
@@ -189,10 +191,10 @@ class EncoderDecoderModel(PreTrainedModel):
         if config.decoder.cross_attention_hidden_size is not None:
             if config.decoder.cross_attention_hidden_size != config.encoder.hidden_size:
                 raise ValueError(
-                    "If `cross_attention_hidden_size` is specified in the decoder's configuration, it has to be equal"
-                    f" to the encoder's `hidden_size`. Got {config.decoder.cross_attention_hidden_size} for"
-                    f" `config.decoder.cross_attention_hidden_size` and {config.encoder.hidden_size} for"
-                    " `config.encoder.hidden_size`."
+                    "If `cross_attention_hidden_size` is specified in the decoder's configuration, "
+                    "it has to be equal to the encoder's `hidden_size`. "
+                    f"Got {config.decoder.cross_attention_hidden_size} for `config.decoder.cross_attention_hidden_size` "
+                    f"and {config.encoder.hidden_size} for `config.encoder.hidden_size`."
                 )
 
         # initialize with config
@@ -211,21 +213,28 @@ class EncoderDecoderModel(PreTrainedModel):
         self.encoder = encoder
         self.decoder = decoder
 
+        # ensure that encoder and decoder use the sam shared parameters
+        if hasattr(self.encoder, "set_shared_parameters"):
+            self.encoder.set_shared_parameters(self.shared_parameters)
+        if hasattr(self.decoder, "set_shared_parameters"):
+            self.decoder.set_shared_parameters(self.shared_parameters)
+
         if self.encoder.config.to_dict() != self.config.encoder.to_dict():
             logger.warning(
-                f"Config of the encoder: {self.encoder.__class__} is overwritten by shared encoder config:"
-                f" {self.config.encoder}"
+                f"Config of the encoder: {self.encoder.__class__} is overwritten by shared encoder config: {self.config.encoder}"
             )
         if self.decoder.config.to_dict() != self.config.decoder.to_dict():
             logger.warning(
-                f"Config of the decoder: {self.decoder.__class__} is overwritten by shared decoder config:"
-                f" {self.config.decoder}"
+                f"Config of the decoder: {self.decoder.__class__} is overwritten by shared decoder config: {self.config.decoder}"
             )
 
         # make sure that the individual model's config refers to the shared config
         # so that the updates to the config will be synced
         self.encoder.config = self.config.encoder
         self.decoder.config = self.config.decoder
+        # make sure adapter config is shared
+        if hasattr(self.encoder.config, "adapters"):
+            self.decoder.config.adapters = self.encoder.config.adapters
 
         # encoder outputs might need to be projected to different dimension for decoder
         if (
@@ -238,6 +247,8 @@ class EncoderDecoderModel(PreTrainedModel):
             raise ValueError(
                 f"The encoder {self.encoder} should not have a LM Head. Please use a model without LM Head"
             )
+
+        self._init_adapter_modules()
 
         # tie encoder, decoder weights if config set accordingly
         self.tie_weights()
@@ -403,9 +414,10 @@ class EncoderDecoderModel(PreTrainedModel):
 
                 if decoder_config.is_decoder is False or decoder_config.add_cross_attention is False:
                     logger.info(
-                        f"Initializing {decoder_pretrained_model_name_or_path} as a decoder model. Cross attention"
-                        f" layers are added to {decoder_pretrained_model_name_or_path} and randomly initialized if"
-                        f" {decoder_pretrained_model_name_or_path}'s architecture allows for cross attention layers."
+                        f"Initializing {decoder_pretrained_model_name_or_path} as a decoder model. "
+                        f"Cross attention layers are added to {decoder_pretrained_model_name_or_path} "
+                        f"and randomly initialized if {decoder_pretrained_model_name_or_path}'s architecture allows for "
+                        "cross attention layers."
                     )
                     decoder_config.is_decoder = True
                     decoder_config.add_cross_attention = True
@@ -425,6 +437,13 @@ class EncoderDecoderModel(PreTrainedModel):
 
         # instantiate config with corresponding kwargs
         config = EncoderDecoderConfig.from_encoder_decoder_configs(encoder.config, decoder.config, **kwargs)
+        # HACK: make sure adapter configs are referring to the same objects
+        if hasattr(encoder.config, "adapters"):
+            wrap_config(encoder.config)
+            config.encoder.adapters = encoder.config.adapters
+        if hasattr(decoder.config, "adapters"):
+            wrap_config(decoder.config)
+            config.decoder.adapters = decoder.config.adapters
         return cls(encoder=encoder, decoder=decoder, config=config)
 
     @add_start_docstrings_to_model_forward(ENCODER_DECODER_INPUTS_DOCSTRING)
@@ -573,9 +592,8 @@ class EncoderDecoderModel(PreTrainedModel):
 
     def resize_token_embeddings(self, *args, **kwargs):
         raise NotImplementedError(
-            "Resizing the embedding layers via the EncoderDecoderModel directly is not supported. Please use the"
-            " respective methods of the wrapped objects (model.encoder.resize_token_embeddings(...) or"
-            " model.decoder.resize_token_embeddings(...))"
+            "Resizing the embedding layers via the EncoderDecoderModel directly is not supported. "
+            "Please use the respective methods of the wrapped objects (model.encoder.resize_token_embeddings(...) or model.decoder.resize_token_embeddings(...))"
         )
 
     def _reorder_cache(self, past, beam_idx):

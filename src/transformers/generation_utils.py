@@ -23,6 +23,7 @@ import torch
 import torch.distributed as dist
 from torch import nn
 
+from .adapters.context import ForwardContext
 from .generation_beam_constraints import Constraint, DisjunctiveConstraint, PhrasalConstraint
 from .generation_beam_search import BeamScorer, BeamSearchScorer, ConstrainedBeamSearchScorer
 from .generation_logits_process import (
@@ -217,8 +218,8 @@ class BeamSearchDecoderOnlyOutput(ModelOutput):
             `(max_length-input_ids.shape[-1],)`-shaped tuple of `torch.FloatTensor` with each tensor of shape
             `(batch_size*num_beams*num_return_sequences, config.vocab_size)`).
         beam_indices (`tuple(tuple(torch.LongTensor))`, *optional*, returned when `output_scores=True` is passed or when `config.output_scores=True`):
-            Beam indices of generated token id at each generation step. `torch.LongTensor` of shape
-            `(batch_size*num_return_sequences, input_ids.shape[-1])`.
+            Beam indices of generated token id at each generation step. `(batch_size*num_return_sequences)`-shaped
+            tuple of `(max_length-input_ids.shape[-1],)`-shaped tuples of scalar `torch.LongTensor` tensors.
         attentions (`tuple(tuple(torch.FloatTensor))`, *optional*, returned when `output_attentions=True` is passed or `config.output_attentions=True`):
             Tuple (one element for each generated token) of tuples (one element for each layer of the decoder) of
             `torch.FloatTensor` of shape `(batch_size*num_beams, num_heads, generated_length, sequence_length)`.
@@ -230,7 +231,7 @@ class BeamSearchDecoderOnlyOutput(ModelOutput):
     sequences: torch.LongTensor = None
     sequences_scores: Optional[torch.FloatTensor] = None
     scores: Optional[Tuple[torch.FloatTensor]] = None
-    beam_indices: Optional[torch.LongTensor] = None
+    beam_indices: Optional[Tuple[Tuple[torch.LongTensor]]] = None
     attentions: Optional[Tuple[Tuple[torch.FloatTensor]]] = None
     hidden_states: Optional[Tuple[Tuple[torch.FloatTensor]]] = None
 
@@ -254,8 +255,8 @@ class BeamSearchEncoderDecoderOutput(ModelOutput):
             `(max_length-1,)`-shaped tuple of `torch.FloatTensor` with each tensor of shape `(batch_size*num_beams,
             config.vocab_size)`).
         beam_indices (`tuple(tuple(torch.LongTensor))`, *optional*, returned when `output_scores=True` is passed or when `config.output_scores=True`):
-            Beam indices of generated token id at each generation step. `torch.LongTensor` of shape
-            `(batch_size*num_return_sequences, max_length-1)`.
+            Beam indices of generated token id at each generation step. `(batch_size*num_return_sequences)`-shaped
+            tuple of `(max_length-1,)`-shaped tuples of scalar `torch.LongTensor` tensors.
         attentions (`tuple(tuple(torch.FloatTensor))`, *optional*, returned when `output_attentions=True` is passed or `config.output_attentions=True`):
         encoder_attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or `config.output_attentions=True`):
             Tuple of `torch.FloatTensor` (one for each layer of the decoder) of shape `(batch_size, num_heads,
@@ -278,7 +279,7 @@ class BeamSearchEncoderDecoderOutput(ModelOutput):
     sequences: torch.LongTensor = None
     sequences_scores: Optional[torch.FloatTensor] = None
     scores: Optional[Tuple[torch.FloatTensor]] = None
-    beam_indices: Optional[torch.LongTensor] = None
+    beam_indices: Optional[Tuple[Tuple[torch.LongTensor]]] = None
     encoder_attentions: Optional[Tuple[torch.FloatTensor]] = None
     encoder_hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     decoder_attentions: Optional[Tuple[Tuple[torch.FloatTensor]]] = None
@@ -303,8 +304,8 @@ class BeamSampleDecoderOnlyOutput(ModelOutput):
             `(max_length-input_ids.shape[-1],)`-shaped tuple of `torch.FloatTensor` with each tensor of shape
             `(batch_size*num_beams*num_return_sequences, config.vocab_size)`).
         beam_indices (`tuple(tuple(torch.LongTensor))`, *optional*, returned when `output_scores=True` is passed or when `config.output_scores=True`):
-            Beam indices of generated token id at each generation step. `torch.LongTensor` of shape
-            `(batch_size*num_return_sequences, input_ids.shape[-1])`.
+            Beam indices of generated token id at each generation step. `(batch_size*num_return_sequences)`-shaped
+            tuple of `(max_length-input_ids.shape[-1],)`-shaped tuples of scalar `torch.LongTensor` tensors.
         attentions (`tuple(tuple(torch.FloatTensor))`, *optional*, returned when `output_attentions=True` is passed or `config.output_attentions=True`):
             Tuple (one element for each generated token) of tuples (one element for each layer of the decoder) of
             `torch.FloatTensor` of shape `(batch_size*num_beams, num_heads, generated_length, sequence_length)`.
@@ -316,7 +317,7 @@ class BeamSampleDecoderOnlyOutput(ModelOutput):
     sequences: torch.LongTensor = None
     sequences_scores: Optional[torch.FloatTensor] = None
     scores: Optional[Tuple[torch.FloatTensor]] = None
-    beam_indices: Optional[torch.LongTensor] = None
+    beam_indices: Optional[Tuple[Tuple[torch.LongTensor]]] = None
     attentions: Optional[Tuple[Tuple[torch.FloatTensor]]] = None
     hidden_states: Optional[Tuple[Tuple[torch.FloatTensor]]] = None
 
@@ -339,9 +340,9 @@ class BeamSampleEncoderDecoderOutput(ModelOutput):
             of log probabilities of tokens conditioned on log softmax of previously generated tokens in this beam.
             `(max_length-1,)`-shaped tuple of `torch.FloatTensor` with each tensor of shape `(batch_size*num_beams,
             config.vocab_size)`).
-        beam_indices (`torch.LongTensor`, *optional*, returned when `output_scores=True` is passed or when `config.output_scores=True`):
-            Beam indices of generated token id at each generation step. `torch.LongTensor` of shape
-            `(batch_size*num_return_sequences, max_length-1)`.
+        beam_indices (`tuple(tuple(torch.LongTensor))`, *optional*, returned when `output_scores=True` is passed or when `config.output_scores=True`):
+            Beam indices of generated token id at each generation step. `(batch_size*num_return_sequences)`-shaped
+            tuple of `(max_length-1,)`-shaped tuples of scalar `torch.LongTensor` tensors.
         encoder_attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or `config.output_attentions=True`):
             Tuple of `torch.FloatTensor` (one for each layer of the decoder) of shape `(batch_size, num_heads,
             sequence_length, sequence_length)`.
@@ -362,7 +363,7 @@ class BeamSampleEncoderDecoderOutput(ModelOutput):
     sequences: torch.LongTensor = None
     sequences_scores: Optional[torch.FloatTensor] = None
     scores: Optional[Tuple[torch.FloatTensor]] = None
-    beam_indices: Optional[torch.LongTensor] = None
+    beam_indices: Optional[Tuple[Tuple[torch.LongTensor]]] = None
     encoder_attentions: Optional[Tuple[torch.FloatTensor]] = None
     encoder_hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     decoder_attentions: Optional[Tuple[Tuple[torch.FloatTensor]]] = None
@@ -522,7 +523,8 @@ class GenerationMixin:
         model_input_name = model_input_name if model_input_name is not None else self.main_input_name
         encoder_kwargs["return_dict"] = True
         encoder_kwargs[model_input_name] = inputs_tensor
-        model_kwargs["encoder_outputs"]: ModelOutput = encoder(**encoder_kwargs)
+        with ForwardContext(self, **encoder_kwargs):
+            model_kwargs["encoder_outputs"]: ModelOutput = encoder(**encoder_kwargs)
 
         return model_kwargs
 
@@ -630,8 +632,7 @@ class GenerationMixin:
 
     def _reorder_cache(self, past, beam_idx):
         raise NotImplementedError(
-            f"Make sure that a `_reorder_cache` function is correctly implemented in {self.__class__.__module__} to"
-            f" enable beam search for {self.__class__}"
+            f"Make sure that a `_reorder_cache` function is correctly implemented in {self.__class__.__module__} to enable beam search for {self.__class__}"
         )
 
     def _get_logits_warper(
@@ -792,11 +793,11 @@ class GenerationMixin:
                 if type(custom) is type(default):
                     object_type = "stopping criteria" if isinstance(custom, StoppingCriteria) else "logits processor"
                     raise ValueError(
-                        f"A custom {object_type} of type {type(custom)} with values {custom} has been passed to"
-                        f" `generate`, but it has already been created with the values {default}. {default} has been"
-                        " created by passing the corresponding arguments to generate or by the model's config default"
-                        f" values. If you just want to change the default values of {object_type} consider passing"
-                        f" them as arguments to `generate` instead of using a custom {object_type}."
+                        f"A custom {object_type} of type {type(custom)} with values {custom} has been passed to `generate`, "
+                        f"but it has already been created with the values {default}. {default} has been created by passing the "
+                        "corresponding arguments to generate or by the model's config default values. "
+                        f"If you just want to change the default values of {object_type} consider passing them as arguments "
+                        f"to `generate` instead of using a custom {object_type}."
                     )
         default_list.extend(custom_list)
         return default_list
@@ -811,33 +812,32 @@ class GenerationMixin:
         """compute the transition probabilities of sequences given generation
         scores and beam indices"""
 
-        # 1. reshape scores as [vocab_size * batch_size, # generation steps]
+        # reshape scores as [vocab_size * batch_size, # generation steps]
         # with batch_size being 2 * vocab_size and # generation steps being
         # seq_len - input_length
         scores = torch.stack(scores).reshape(len(scores), -1).transpose(0, 1)
 
-        # 2. cut beam_indices to longest beam length
-        beam_indices_mask = beam_indices < 0
-        max_beam_length = (1 - beam_indices_mask.long()).sum(-1).max()
-        beam_indices = beam_indices[:, :max_beam_length]
-        beam_indices_mask = beam_indices_mask[:, :max_beam_length]
-
-        # 3. Set indices of beams that finished early to 0
-        # such indices will be masked correctly afterwards
-        beam_indices[beam_indices_mask] = 0
-
-        # 4. multiply beam_indices with vocab size to gather correctly from scores
-        beam_sequence_indices = beam_indices * self.config.vocab_size
-
-        # 5. Define which indices contributed to scores
-        cut_idx = sequences.shape[-1] - max_beam_length
+        # start of generated tokens
+        cut_idx = sequences.shape[-1] - scores.shape[-1]
+        # adjust for beam indices
+        beam_sequence_indices = torch.tensor(beam_indices, device=sequences.device) * self.config.vocab_size
+        # compute real indices
         indices = sequences[:, cut_idx:] + beam_sequence_indices
-
-        # 6. Compute scores
+        # gather scores and run
         transition_scores = scores.gather(0, indices)
+        # make sure that if EOS token was used before length of sequence `sequence.shape[-1]`
+        # get first occurence of EOS token
+        eos_token_id = eos_token_id if eos_token_id is not None else self.config.eos_token_id
 
-        # 7. Mask out transition_scores of beams that stopped early
-        transition_scores[beam_indices_mask] = 0
+        if eos_token_id is not None:
+            is_eos_token_id = sequences[:, cut_idx:] == eos_token_id
+            # make sure first eos token still contributes to transition probs
+            is_eos_token_id[:, -1] = False
+            is_eos_token_id = is_eos_token_id.roll(1, -1)
+            # all indices after eos shoud be masked
+            zero_transition_prob_mask = is_eos_token_id.cumsum(-1).bool()
+            # zero out padded probs
+            transition_scores.masked_fill_(zero_transition_prob_mask, 0.0)
 
         return transition_scores
 
@@ -942,9 +942,6 @@ class GenerationMixin:
             top_p (`float`, *optional*, defaults to 1.0):
                 If set to float < 1, only the most probable tokens with probabilities that add up to `top_p` or higher
                 are kept for generation.
-            typical_p (`float`, *optional*, defaults to 1.0):
-                The amount of probability mass from the original distribution to be considered in typical decoding. If
-                set to 1.0 it takes no effect. See [this paper](https://arxiv.org/pdf/2202.00666.pdf) for more details.
             repetition_penalty (`float`, *optional*, defaults to 1.0):
                 The parameter for repetition penalty. 1.0 means no penalty. See [this
                 paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
@@ -1217,9 +1214,8 @@ class GenerationMixin:
         if input_ids_seq_length >= max_length:
             input_ids_string = "decoder_input_ids" if self.config.is_encoder_decoder else "input_ids"
             logger.warning(
-                f"Input length of {input_ids_string} is {input_ids_seq_length}, but ``max_length`` is set to"
-                f" {max_length}. This can lead to unexpected behavior. You should consider increasing"
-                " ``config.max_length`` or ``max_length``."
+                f"Input length of {input_ids_string} is {input_ids_seq_length}, but ``max_length`` is set to {max_length}. "
+                "This can lead to unexpected behavior. You should consider increasing ``config.max_length`` or ``max_length``."
             )
 
         # 6. determine generation mode
@@ -1626,8 +1622,7 @@ class GenerationMixin:
         stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList()
         if max_length is not None:
             warnings.warn(
-                "`max_length` is deprecated in this function, use"
-                " `stopping_criteria=StoppingCriteriaList([MaxLengthCriteria(max_length=max_length)])` instead.",
+                "`max_length` is deprecated in this function, use `stopping_criteria=StoppingCriteriaList([MaxLengthCriteria(max_length=max_length)])` instead.",
                 UserWarning,
             )
             stopping_criteria = validate_stopping_criteria(stopping_criteria, max_length)
@@ -1879,8 +1874,7 @@ class GenerationMixin:
         stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList()
         if max_length is not None:
             warnings.warn(
-                "`max_length` is deprecated in this function, use"
-                " `stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=max_length))` instead.",
+                "`max_length` is deprecated in this function, use `stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=max_length))` instead.",
                 UserWarning,
             )
             stopping_criteria = validate_stopping_criteria(stopping_criteria, max_length)
@@ -2135,8 +2129,7 @@ class GenerationMixin:
         stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList()
         if max_length is not None:
             warnings.warn(
-                "`max_length` is deprecated in this function, use"
-                " `stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=max_length))` instead.",
+                "`max_length` is deprecated in this function, use `stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=max_length))` instead.",
                 UserWarning,
             )
             stopping_criteria = validate_stopping_criteria(stopping_criteria, max_length)
@@ -2257,7 +2250,6 @@ class GenerationMixin:
                 next_indices,
                 pad_token_id=pad_token_id,
                 eos_token_id=eos_token_id,
-                beam_indices=beam_indices,
             )
 
             beam_scores = beam_outputs["next_beam_scores"]
@@ -2292,19 +2284,25 @@ class GenerationMixin:
             pad_token_id=pad_token_id,
             eos_token_id=eos_token_id,
             max_length=stopping_criteria.max_length,
-            beam_indices=beam_indices,
         )
 
         if return_dict_in_generate:
             if not output_scores:
                 sequence_outputs["sequence_scores"] = None
+            else:
+                num_return_sequences = beam_scorer.num_beam_hyps_to_keep
+                # return only as many indices as sequences
+                beam_indices = tuple(
+                    (beam_indices[i * num_beams : i * num_beams + num_return_sequences] for i in range(batch_size))
+                )
+                beam_indices = sum(beam_indices, ())
 
             if self.config.is_encoder_decoder:
                 return BeamSearchEncoderDecoderOutput(
                     sequences=sequence_outputs["sequences"],
                     sequences_scores=sequence_outputs["sequence_scores"],
                     scores=scores,
-                    beam_indices=sequence_outputs["beam_indices"],
+                    beam_indices=beam_indices,
                     encoder_attentions=encoder_attentions,
                     encoder_hidden_states=encoder_hidden_states,
                     decoder_attentions=decoder_attentions,
@@ -2316,7 +2314,7 @@ class GenerationMixin:
                     sequences=sequence_outputs["sequences"],
                     sequences_scores=sequence_outputs["sequence_scores"],
                     scores=scores,
-                    beam_indices=sequence_outputs["beam_indices"],
+                    beam_indices=beam_indices,
                     attentions=decoder_attentions,
                     hidden_states=decoder_hidden_states,
                 )
@@ -2456,8 +2454,7 @@ class GenerationMixin:
         stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList()
         if max_length is not None:
             warnings.warn(
-                "`max_length` is deprecated in this function, use"
-                " `stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=max_length))` instead.",
+                "`max_length` is deprecated in this function, use `stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=max_length))` instead.",
                 UserWarning,
             )
             stopping_criteria = validate_stopping_criteria(stopping_criteria, max_length)
@@ -2576,7 +2573,6 @@ class GenerationMixin:
                 next_indices,
                 pad_token_id=pad_token_id,
                 eos_token_id=eos_token_id,
-                beam_indices=beam_indices,
             )
             beam_scores = beam_outputs["next_beam_scores"]
             beam_next_tokens = beam_outputs["next_beam_tokens"]
@@ -2610,19 +2606,25 @@ class GenerationMixin:
             pad_token_id=pad_token_id,
             eos_token_id=eos_token_id,
             max_length=stopping_criteria.max_length,
-            beam_indices=beam_indices,
         )
 
         if return_dict_in_generate:
             if not output_scores:
                 sequence_outputs["sequence_scores"] = None
+            else:
+                num_return_sequences = beam_scorer.num_beam_hyps_to_keep
+                # return only as many indices as sequences
+                beam_indices = tuple(
+                    (beam_indices[i * num_beams : i * num_beams + num_return_sequences] for i in range(batch_size))
+                )
+                beam_indices = sum(beam_indices, ())
 
             if self.config.is_encoder_decoder:
                 return BeamSampleEncoderDecoderOutput(
                     sequences=sequence_outputs["sequences"],
                     sequences_scores=sequence_outputs["sequence_scores"],
                     scores=scores,
-                    beam_indices=sequence_outputs["beam_indices"],
+                    beam_indices=beam_indices,
                     encoder_attentions=encoder_attentions,
                     encoder_hidden_states=encoder_hidden_states,
                     decoder_attentions=decoder_attentions,
@@ -2634,7 +2636,7 @@ class GenerationMixin:
                     sequences=sequence_outputs["sequences"],
                     sequences_scores=sequence_outputs["sequence_scores"],
                     scores=scores,
-                    beam_indices=sequence_outputs["beam_indices"],
+                    beam_indices=beam_indices,
                     attentions=decoder_attentions,
                     hidden_states=decoder_hidden_states,
                 )
@@ -2767,8 +2769,7 @@ class GenerationMixin:
         stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList()
         if max_length is not None:
             warnings.warn(
-                "`max_length` is deprecated in this function, use"
-                " `stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=max_length))` instead.",
+                "`max_length` is deprecated in this function, use `stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=max_length))` instead.",
                 UserWarning,
             )
             stopping_criteria = validate_stopping_criteria(stopping_criteria, max_length)
@@ -2900,7 +2901,6 @@ class GenerationMixin:
                 next_tokens = next_tokens % vocab_size
 
                 # stateless
-                process_beam_indices = sum(beam_indices, ()) if beam_indices is not None else None
                 beam_outputs = beam_scorer.process(
                     group_input_ids,
                     next_token_scores,
@@ -2908,7 +2908,6 @@ class GenerationMixin:
                     next_indices,
                     pad_token_id=pad_token_id,
                     eos_token_id=eos_token_id,
-                    beam_indices=process_beam_indices,
                 )
                 beam_scores[batch_group_indices] = beam_outputs["next_beam_scores"]
                 beam_next_tokens = beam_outputs["next_beam_tokens"]
@@ -2964,7 +2963,6 @@ class GenerationMixin:
                 else:
                     this_peer_finished = True
 
-        final_beam_indices = sum(beam_indices, ()) if beam_indices is not None else None
         sequence_outputs = beam_scorer.finalize(
             input_ids,
             beam_scores,
@@ -2973,19 +2971,26 @@ class GenerationMixin:
             pad_token_id=pad_token_id,
             eos_token_id=eos_token_id,
             max_length=stopping_criteria.max_length,
-            beam_indices=final_beam_indices,
         )
 
         if return_dict_in_generate:
             if not output_scores:
                 sequence_outputs["sequence_scores"] = None
+            else:
+                beam_indices = sum(beam_indices, ())
+                num_return_sequences = beam_scorer.num_beam_hyps_to_keep
+                # return only as many indices as sequences
+                beam_indices = tuple(
+                    (beam_indices[i * num_beams : i * num_beams + num_return_sequences] for i in range(batch_size))
+                )
+                beam_indices = sum(beam_indices, ())
 
             if self.config.is_encoder_decoder:
                 return BeamSearchEncoderDecoderOutput(
                     sequences=sequence_outputs["sequences"],
                     sequences_scores=sequence_outputs["sequence_scores"],
                     scores=scores,
-                    beam_indices=sequence_outputs["beam_indices"],
+                    beam_indices=beam_indices,
                     encoder_attentions=encoder_attentions,
                     encoder_hidden_states=encoder_hidden_states,
                     decoder_attentions=decoder_attentions,
@@ -2997,7 +3002,6 @@ class GenerationMixin:
                     sequences=sequence_outputs["sequences"],
                     sequences_scores=sequence_outputs["sequence_scores"],
                     scores=scores,
-                    beam_indices=sequence_outputs["beam_indices"],
                     attentions=decoder_attentions,
                     hidden_states=decoder_hidden_states,
                 )
@@ -3135,8 +3139,7 @@ class GenerationMixin:
         stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList()
         if max_length is not None:
             warnings.warn(
-                "`max_length` is deprecated in this function, use"
-                " `stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=max_length))` instead.",
+                "`max_length` is deprecated in this function, use `stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=max_length))` instead.",
                 UserWarning,
             )
             stopping_criteria = validate_stopping_criteria(stopping_criteria, max_length)

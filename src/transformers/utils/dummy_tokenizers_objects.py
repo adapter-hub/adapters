@@ -52,13 +52,6 @@ class BlenderbotSmallTokenizerFast(metaclass=DummyObject):
         requires_backends(self, ["tokenizers"])
 
 
-class BloomTokenizerFast(metaclass=DummyObject):
-    _backends = ["tokenizers"]
-
-    def __init__(self, *args, **kwargs):
-        requires_backends(self, ["tokenizers"])
-
-
 class CamembertTokenizerFast(metaclass=DummyObject):
     _backends = ["tokenizers"]
 
@@ -157,13 +150,6 @@ class GPT2TokenizerFast(metaclass=DummyObject):
         requires_backends(self, ["tokenizers"])
 
 
-class GPTNeoXTokenizerFast(metaclass=DummyObject):
-    _backends = ["tokenizers"]
-
-    def __init__(self, *args, **kwargs):
-        requires_backends(self, ["tokenizers"])
-
-
 class HerbertTokenizerFast(metaclass=DummyObject):
     _backends = ["tokenizers"]
 
@@ -179,13 +165,6 @@ class LayoutLMTokenizerFast(metaclass=DummyObject):
 
 
 class LayoutLMv2TokenizerFast(metaclass=DummyObject):
-    _backends = ["tokenizers"]
-
-    def __init__(self, *args, **kwargs):
-        requires_backends(self, ["tokenizers"])
-
-
-class LayoutLMv3TokenizerFast(metaclass=DummyObject):
     _backends = ["tokenizers"]
 
     def __init__(self, *args, **kwargs):

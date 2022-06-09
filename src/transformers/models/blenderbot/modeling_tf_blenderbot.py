@@ -228,10 +228,7 @@ class TFBlenderbotAttention(tf.keras.layers.Layer):
             tf.debugging.assert_equal(
                 shape_list(attn_weights),
                 [bsz * self.num_heads, tgt_len, src_len],
-                message=(
-                    f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is"
-                    f" {shape_list(attn_weights)}"
-                ),
+                message=f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is {shape_list(attn_weights)}",
             )
 
         if attention_mask is not None:
@@ -241,10 +238,7 @@ class TFBlenderbotAttention(tf.keras.layers.Layer):
                 tf.debugging.assert_equal(
                     shape_list(attention_mask),
                     [bsz, 1, tgt_len, src_len],
-                    message=(
-                        f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is"
-                        f" {shape_list(attention_mask)}"
-                    ),
+                    message=f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is {shape_list(attention_mask)}",
                 )
 
             attention_mask = tf.cast(attention_mask, dtype=attn_weights.dtype)
@@ -260,10 +254,7 @@ class TFBlenderbotAttention(tf.keras.layers.Layer):
                 tf.debugging.assert_equal(
                     shape_list(layer_head_mask),
                     [self.num_heads],
-                    message=(
-                        f"Head mask for a single layer should be of size {(self.num_heads)}, but is"
-                        f" {shape_list(layer_head_mask)}"
-                    ),
+                    message=f"Head mask for a single layer should be of size {(self.num_heads)}, but is {shape_list(layer_head_mask)}",
                 )
 
             attn_weights = tf.reshape(layer_head_mask, (1, -1, 1, 1)) * tf.reshape(
@@ -280,10 +271,7 @@ class TFBlenderbotAttention(tf.keras.layers.Layer):
             tf.debugging.assert_equal(
                 shape_list(attn_output),
                 [bsz * self.num_heads, tgt_len, self.head_dim],
-                message=(
-                    f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is"
-                    f" {shape_list(attn_output)}"
-                ),
+                message=f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is {shape_list(attn_output)}",
             )
 
         attn_output = tf.transpose(
@@ -750,10 +738,7 @@ class TFBlenderbotEncoder(tf.keras.layers.Layer):
             tf.debugging.assert_equal(
                 shape_list(head_mask)[0],
                 len(self.layers),
-                message=(
-                    f"The head_mask should be specified for {len(self.layers)} layers, but it is for"
-                    f" {shape_list(head_mask)[0]}."
-                ),
+                message=f"The head_mask should be specified for {len(self.layers)} layers, but it is for {shape_list(head_mask)[0]}.",
             )
 
         # encoder layers
@@ -955,10 +940,7 @@ class TFBlenderbotDecoder(tf.keras.layers.Layer):
                 tf.debugging.assert_equal(
                     shape_list(attn_mask)[0],
                     len(self.layers),
-                    message=(
-                        f"The {attn_mask_name} should be specified for {len(self.layers)} layers, but it is for"
-                        f" {shape_list(attn_mask)[0]}."
-                    ),
+                    message=f"The {attn_mask_name} should be specified for {len(self.layers)} layers, but it is for {shape_list(attn_mask)[0]}.",
                 )
         for idx, decoder_layer in enumerate(self.layers):
             # add LayerDrop (see https://arxiv.org/abs/1909.11556 for description)
@@ -1142,10 +1124,7 @@ class TFBlenderbotModel(TFBlenderbotPreTrainedModel):
             from ..blenderbot_small import TFBlenderbotSmallModel
 
             warnings.warn(
-                "The checkpoint `facebook/blenderbot-90M` is deprecated. In the future, please use the identical"
-                " checkpoint `facebook/small_blenderbot-90M` with"
-                " `TFBlenderbotSmallForConditionalGeneration.from_pretrained('facebook/small_blenderbot-90M')`"
-                " instead.",
+                "The checkpoint `facebook/blenderbot-90M` is deprecated. In the future, please use the identical checkpoint `facebook/small_blenderbot-90M` with `TFBlenderbotSmallForConditionalGeneration.from_pretrained('facebook/small_blenderbot-90M')` instead.",
                 FutureWarning,
             )
             return TFBlenderbotSmallModel.from_pretrained(pretrained_model_name_or_path)
@@ -1265,10 +1244,7 @@ class TFBlenderbotForConditionalGeneration(TFBlenderbotPreTrainedModel, TFCausal
             from ..blenderbot_small import TFBlenderbotSmallForConditionalGeneration
 
             warnings.warn(
-                "The checkpoint `facebook/blenderbot-90M` is deprecated. In the future, please use the identical"
-                " checkpoint `facebook/small_blenderbot-90M` with"
-                " `TFBlenderbotSmallForConditionalGeneration.from_pretrained('facebook/small_blenderbot-90M')`"
-                " instead.",
+                "The checkpoint `facebook/blenderbot-90M` is deprecated. In the future, please use the identical checkpoint `facebook/small_blenderbot-90M` with `TFBlenderbotSmallForConditionalGeneration.from_pretrained('facebook/small_blenderbot-90M')` instead.",
                 FutureWarning,
             )
             return TFBlenderbotSmallForConditionalGeneration.from_pretrained(pretrained_model_name_or_path)
@@ -1311,7 +1287,7 @@ class TFBlenderbotForConditionalGeneration(TFBlenderbotPreTrainedModel, TFCausal
         if labels is not None:
             labels = tf.where(
                 labels == self.config.pad_token_id,
-                tf.cast(tf.fill(shape_list(labels), -100), labels.dtype),
+                tf.fill(shape_list(labels), -100),
                 labels,
             )
             use_cache = False

@@ -56,14 +56,14 @@ class TableQuestionAnsweringArgumentHandler(ArgumentHandler):
                     tqa_pipeline_inputs = table
                 else:
                     raise ValueError(
-                        "If keyword argument `table` is a list of dictionaries, each dictionary should have a `table`"
-                        f" and `query` key, but only dictionary has keys {table[0].keys()} `table` and `query` keys."
+                        f"If keyword argument `table` is a list of dictionaries, each dictionary should have a `table` "
+                        f"and `query` key, but only dictionary has keys {table[0].keys()} `table` and `query` keys."
                     )
             elif Dataset is not None and isinstance(table, Dataset) or isinstance(table, types.GeneratorType):
                 return table
             else:
                 raise ValueError(
-                    "Invalid input. Keyword argument `table` should be either of type `dict` or `list`, but "
+                    f"Invalid input. Keyword argument `table` should be either of type `dict` or `list`, but "
                     f"is {type(table)})"
                 )
         else:

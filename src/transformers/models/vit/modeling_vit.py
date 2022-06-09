@@ -186,8 +186,7 @@ class PatchEmbeddings(nn.Module):
         if not interpolate_pos_encoding:
             if height != self.image_size[0] or width != self.image_size[1]:
                 raise ValueError(
-                    f"Input image size ({height}*{width}) doesn't match model"
-                    f" ({self.image_size[0]}*{self.image_size[1]})."
+                    f"Input image size ({height}*{width}) doesn't match model ({self.image_size[0]}*{self.image_size[1]})."
                 )
         x = self.projection(pixel_values).flatten(2).transpose(1, 2)
         return x
@@ -613,8 +612,7 @@ class ViTPooler(nn.Module):
 
 
 @add_start_docstrings(
-    "ViT Model with a decoder on top for masked image modeling, as proposed in `SimMIM"
-    " <https://arxiv.org/abs/2111.09886>`__.",
+    "ViT Model with a decoder on top for masked image modeling, as proposed in `SimMIM <https://arxiv.org/abs/2111.09886>`__.",
     VIT_START_DOCSTRING,
 )
 class ViTForMaskedImageModeling(ViTPreTrainedModel):

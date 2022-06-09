@@ -26,7 +26,9 @@ from ...utils import (
 )
 
 
-_import_structure = {"configuration_plbart": ["PLBART_PRETRAINED_CONFIG_ARCHIVE_MAP", "PLBartConfig"]}
+_import_structure = {
+    "configuration_plbart": ["PLBART_PRETRAINED_CONFIG_ARCHIVE_MAP", "PLBartConfig"],
+}
 
 try:
     if not is_sentencepiece_available():

@@ -22,7 +22,9 @@ from ...file_utils import _LazyModule, is_torch_available
 from ...utils import OptionalDependencyNotAvailable
 
 
-_import_structure = {"configuration_regnet": ["REGNET_PRETRAINED_CONFIG_ARCHIVE_MAP", "RegNetConfig"]}
+_import_structure = {
+    "configuration_regnet": ["REGNET_PRETRAINED_CONFIG_ARCHIVE_MAP", "RegNetConfig"],
+}
 
 try:
     if not is_torch_available():

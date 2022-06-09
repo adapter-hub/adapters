@@ -30,9 +30,7 @@ VOCAB_FILES_NAMES = {"vocab_file": "prophetnet.tokenizer"}
 
 PRETRAINED_VOCAB_FILES_MAP = {
     "vocab_file": {
-        "microsoft/xprophetnet-large-wiki100-cased": (
-            "https://huggingface.co/microsoft/xprophetnet-large-wiki100-cased/resolve/main/prophetnet.tokenizer"
-        ),
+        "microsoft/xprophetnet-large-wiki100-cased": "https://huggingface.co/microsoft/xprophetnet-large-wiki100-cased/resolve/main/prophetnet.tokenizer",
     }
 }
 
@@ -161,8 +159,8 @@ class XLMProphetNetTokenizer(PreTrainedTokenizer):
             import sentencepiece as spm
         except ImportError:
             logger.warning(
-                "You need to install SentencePiece to use XLMRobertaTokenizer: https://github.com/google/sentencepiece"
-                " pip install sentencepiece"
+                "You need to install SentencePiece to use XLMRobertaTokenizer: https://github.com/google/sentencepiece "
+                "pip install sentencepiece"
             )
             raise
 
@@ -200,8 +198,8 @@ class XLMProphetNetTokenizer(PreTrainedTokenizer):
             import sentencepiece as spm
         except ImportError:
             logger.warning(
-                "You need to install SentencePiece to use XLMRobertaTokenizer: https://github.com/google/sentencepiece"
-                " pip install sentencepiece"
+                "You need to install SentencePiece to use XLMRobertaTokenizer: https://github.com/google/sentencepiece "
+                "pip install sentencepiece"
             )
             raise
 

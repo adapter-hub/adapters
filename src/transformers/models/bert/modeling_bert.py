@@ -29,6 +29,12 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.bert import BertModelAdaptersMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     BaseModelOutputWithPoolingAndCrossAttentions,
@@ -62,7 +68,7 @@ _TOKENIZER_FOR_DOC = "BertTokenizer"
 # TokenClassification docstring
 _CHECKPOINT_FOR_TOKEN_CLASSIFICATION = "dbmdz/bert-large-cased-finetuned-conll03-english"
 _TOKEN_CLASS_EXPECTED_OUTPUT = (
-    "['O', 'I-ORG', 'I-ORG', 'I-ORG', 'O', 'O', 'O', 'O', 'O', 'I-LOC', 'O', 'I-LOC', 'I-LOC'] "
+    "['O', 'I-ORG', 'I-ORG', 'I-ORG', 'O', 'O', 'O', 'O', 'O', 'I-LOC', 'O', 'I-LOC', " "'I-LOC'] "
 )
 _TOKEN_CLASS_EXPECTED_LOSS = 0.01
 
@@ -245,7 +251,7 @@ class BertEmbeddings(nn.Module):
 
 
 class BertSelfAttention(nn.Module):
-    def __init__(self, config, position_embedding_type=None):
+    def __init__(self, config, position_embedding_type=None, location_key: Optional[str] = None):
         super().__init__()
         if config.hidden_size % config.num_attention_heads != 0 and not hasattr(config, "embedding_size"):
             raise ValueError(
@@ -257,9 +263,9 @@ class BertSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.query = nn.Linear(config.hidden_size, self.all_head_size)
+        self.query = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config)
         self.key = nn.Linear(config.hidden_size, self.all_head_size)
-        self.value = nn.Linear(config.hidden_size, self.all_head_size)
+        self.value = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config)
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.position_embedding_type = position_embedding_type or getattr(
@@ -270,6 +276,8 @@ class BertSelfAttention(nn.Module):
             self.distance_embedding = nn.Embedding(2 * config.max_position_embeddings - 1, self.attention_head_size)
 
         self.is_decoder = config.is_decoder
+
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def transpose_for_scores(self, x: torch.Tensor) -> torch.Tensor:
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
@@ -323,6 +331,8 @@ class BertSelfAttention(nn.Module):
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_layer, value_layer)
 
+        key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask)
+
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
 
@@ -371,24 +381,29 @@ class BertSelfAttention(nn.Module):
         return outputs
 
 
-class BertSelfOutput(nn.Module):
+class BertSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
+
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
 class BertAttention(nn.Module):
-    def __init__(self, config, position_embedding_type=None):
+    def __init__(self, config, position_embedding_type=None, location_key: Optional[str] = None):
         super().__init__()
-        self.self = BertSelfAttention(config, position_embedding_type=position_embedding_type)
+        self.self = BertSelfAttention(
+            config, position_embedding_type=position_embedding_type, location_key=location_key
+        )
         self.output = BertSelfOutput(config)
         self.pruned_heads = set()
 
@@ -437,7 +452,7 @@ class BertAttention(nn.Module):
 class BertIntermediate(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.dense = nn.Linear(config.hidden_size, config.intermediate_size)
+        self.dense = LoRALinear(config.hidden_size, config.intermediate_size, "intermediate", config)
         if isinstance(config.hidden_act, str):
             self.intermediate_act_fn = ACT2FN[config.hidden_act]
         else:
@@ -449,17 +464,20 @@ class BertIntermediate(nn.Module):
         return hidden_states
 
 
-class BertOutput(nn.Module):
+class BertOutput(BertOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
+        self.config = config
+
+        self.dense = LoRALinear(config.intermediate_size, config.hidden_size, "output", config)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
@@ -468,13 +486,13 @@ class BertLayer(nn.Module):
         super().__init__()
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
         self.seq_len_dim = 1
-        self.attention = BertAttention(config)
+        self.attention = BertAttention(config, location_key="self")
         self.is_decoder = config.is_decoder
         self.add_cross_attention = config.add_cross_attention
         if self.add_cross_attention:
             if not self.is_decoder:
                 raise ValueError(f"{self} should be used as a decoder model if cross attention is added")
-            self.crossattention = BertAttention(config, position_embedding_type="absolute")
+            self.crossattention = BertAttention(config, position_embedding_type="absolute", location_key="cross")
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
 
@@ -510,8 +528,7 @@ class BertLayer(nn.Module):
         if self.is_decoder and encoder_hidden_states is not None:
             if not hasattr(self, "crossattention"):
                 raise ValueError(
-                    f"If `encoder_hidden_states` are passed, {self} has to be instantiated with cross-attention layers"
-                    " by setting `config.add_cross_attention=True`"
+                    f"If `encoder_hidden_states` are passed, {self} has to be instantiated with cross-attention layers by setting `config.add_cross_attention=True`"
                 )
 
             # cross_attn cached key/values tuple is at positions 3,4 of past_key_value tuple
@@ -615,6 +632,8 @@ class BertEncoder(nn.Module):
                 )
 
             hidden_states = layer_outputs[0]
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
+
             if use_cache:
                 next_decoder_cache += (layer_outputs[-1],)
             if output_attentions:
@@ -692,8 +711,10 @@ class BertLMPredictionHead(nn.Module):
         # Need a link between the two variables so that the bias is correctly resized with `resize_token_embeddings`
         self.decoder.bias = self.bias
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, inv_lang_adapter=None):
         hidden_states = self.transform(hidden_states)
+        if inv_lang_adapter:
+            hidden_states = inv_lang_adapter(hidden_states, rev=True)
         hidden_states = self.decoder(hidden_states)
         return hidden_states
 
@@ -703,8 +724,8 @@ class BertOnlyMLMHead(nn.Module):
         super().__init__()
         self.predictions = BertLMPredictionHead(config)
 
-    def forward(self, sequence_output: torch.Tensor) -> torch.Tensor:
-        prediction_scores = self.predictions(sequence_output)
+    def forward(self, sequence_output: torch.Tensor, inv_lang_adapter=None) -> torch.Tensor:
+        prediction_scores = self.predictions(sequence_output, inv_lang_adapter)
         return prediction_scores
 
 
@@ -724,8 +745,8 @@ class BertPreTrainingHeads(nn.Module):
         self.predictions = BertLMPredictionHead(config)
         self.seq_relationship = nn.Linear(config.hidden_size, 2)
 
-    def forward(self, sequence_output, pooled_output):
-        prediction_scores = self.predictions(sequence_output)
+    def forward(self, sequence_output, pooled_output, inv_lang_adapter=None):
+        prediction_scores = self.predictions(sequence_output, inv_lang_adapter)
         seq_relationship_score = self.seq_relationship(pooled_output)
         return prediction_scores, seq_relationship_score
 
@@ -867,7 +888,7 @@ BERT_INPUTS_DOCSTRING = r"""
     "The bare Bert Model transformer outputting raw hidden-states without any specific head on top.",
     BERT_START_DOCSTRING,
 )
-class BertModel(BertPreTrainedModel):
+class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
     """
 
     The model can behave as an encoder (with only self-attention) as well as a decoder, in which case a layer of
@@ -888,6 +909,8 @@ class BertModel(BertPreTrainedModel):
         self.encoder = BertEncoder(config)
 
         self.pooler = BertPooler(config) if add_pooling_layer else None
+
+        self._init_adapter_modules()
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -913,6 +936,7 @@ class BertModel(BertPreTrainedModel):
         output_type=BaseModelOutputWithPoolingAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.Tensor] = None,
@@ -1015,6 +1039,8 @@ class BertModel(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             past_key_values_length=past_key_values_length,
         )
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+
         encoder_outputs = self.encoder(
             embedding_output,
             attention_mask=extended_attention_mask,
@@ -1050,7 +1076,7 @@ class BertModel(BertPreTrainedModel):
     """,
     BERT_START_DOCSTRING,
 )
-class BertForPreTraining(BertPreTrainedModel):
+class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1129,7 +1155,11 @@ class BertForPreTraining(BertPreTrainedModel):
         )
 
         sequence_output, pooled_output = outputs[:2]
-        prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
+        prediction_scores, seq_relationship_score = self.cls(
+            sequence_output,
+            pooled_output,
+            inv_lang_adapter=self.bert.get_invertible_adapter(),
+        )
 
         total_loss = None
         if labels is not None and next_sentence_label is not None:
@@ -1154,7 +1184,7 @@ class BertForPreTraining(BertPreTrainedModel):
 @add_start_docstrings(
     """Bert Model with a `language modeling` head on top for CLM fine-tuning.""", BERT_START_DOCSTRING
 )
-class BertLMHeadModel(BertPreTrainedModel):
+class BertLMHeadModel(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]
@@ -1246,7 +1276,10 @@ class BertLMHeadModel(BertPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+        prediction_scores = self.cls(
+            sequence_output,
+            inv_lang_adapter=self.bert.get_invertible_adapter(),
+        )
 
         lm_loss = None
         if labels is not None:
@@ -1289,7 +1322,7 @@ class BertLMHeadModel(BertPreTrainedModel):
 
 
 @add_start_docstrings("""Bert Model with a `language modeling` head on top.""", BERT_START_DOCSTRING)
-class BertForMaskedLM(BertPreTrainedModel):
+class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]
@@ -1363,7 +1396,10 @@ class BertForMaskedLM(BertPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+        prediction_scores = self.cls(
+            sequence_output,
+            inv_lang_adapter=self.bert.get_invertible_adapter(),
+        )
 
         masked_lm_loss = None
         if labels is not None:
@@ -1402,7 +1438,7 @@ class BertForMaskedLM(BertPreTrainedModel):
     """Bert Model with a `next sentence prediction (classification)` head on top.""",
     BERT_START_DOCSTRING,
 )
-class BertForNextSentencePrediction(BertPreTrainedModel):
+class BertForNextSentencePrediction(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1459,8 +1495,7 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
 
         if "next_sentence_label" in kwargs:
             warnings.warn(
-                "The `next_sentence_label` argument is deprecated and will be removed in a future version, use"
-                " `labels` instead.",
+                "The `next_sentence_label` argument is deprecated and will be removed in a future version, use `labels` instead.",
                 FutureWarning,
             )
             labels = kwargs.pop("next_sentence_label")
@@ -1507,7 +1542,7 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
     """,
     BERT_START_DOCSTRING,
 )
-class BertForSequenceClassification(BertPreTrainedModel):
+class BertForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1611,7 +1646,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
     """,
     BERT_START_DOCSTRING,
 )
-class BertForMultipleChoice(BertPreTrainedModel):
+class BertForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1706,7 +1741,7 @@ class BertForMultipleChoice(BertPreTrainedModel):
     """,
     BERT_START_DOCSTRING,
 )
-class BertForTokenClassification(BertPreTrainedModel):
+class BertForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
@@ -1793,7 +1828,7 @@ class BertForTokenClassification(BertPreTrainedModel):
     """,
     BERT_START_DOCSTRING,
 )
-class BertForQuestionAnswering(BertPreTrainedModel):
+class BertForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 

@@ -20,7 +20,11 @@ from typing import TYPE_CHECKING
 from ...utils import _LazyModule
 
 
-_import_structure = {"processing_wav2vec2_with_lm": ["Wav2Vec2ProcessorWithLM"]}
+# fmt: off
+_import_structure = {
+    "processing_wav2vec2_with_lm": ["Wav2Vec2ProcessorWithLM"]
+}
+# fmt: on
 
 
 if TYPE_CHECKING:

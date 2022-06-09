@@ -133,13 +133,11 @@ class TokenClassificationPipeline(Pipeline):
 
             if grouped_entities is not None:
                 warnings.warn(
-                    "`grouped_entities` is deprecated and will be removed in version v5.0.0, defaulted to"
-                    f' `aggregation_strategy="{aggregation_strategy}"` instead.'
+                    f'`grouped_entities` is deprecated and will be removed in version v5.0.0, defaulted to `aggregation_strategy="{aggregation_strategy}"` instead.'
                 )
             if ignore_subwords is not None:
                 warnings.warn(
-                    "`ignore_subwords` is deprecated and will be removed in version v5.0.0, defaulted to"
-                    f' `aggregation_strategy="{aggregation_strategy}"` instead.'
+                    f'`ignore_subwords` is deprecated and will be removed in version v5.0.0, defaulted to `aggregation_strategy="{aggregation_strategy}"` instead.'
                 )
 
         if aggregation_strategy is not None:

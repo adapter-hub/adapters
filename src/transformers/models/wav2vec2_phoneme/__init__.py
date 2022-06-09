@@ -20,7 +20,11 @@ from typing import TYPE_CHECKING
 from ...utils import _LazyModule
 
 
-_import_structure = {"tokenization_wav2vec2_phoneme": ["Wav2Vec2PhonemeCTCTokenizer"]}
+# fmt: off
+_import_structure = {
+    "tokenization_wav2vec2_phoneme": ["Wav2Vec2PhonemeCTCTokenizer"]
+}
+# fmt: on
 
 
 if TYPE_CHECKING:

@@ -266,8 +266,7 @@ class TFCLIPAttention(tf.keras.layers.Layer):
         self.attention_head_size = self.embed_dim // self.num_attention_heads
         if self.attention_head_size * self.num_attention_heads != self.embed_dim:
             raise ValueError(
-                f"embed_dim must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`:"
-                f" {self.num_attention_heads})."
+                f"embed_dim must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`: {self.num_attention_heads})."
             )
 
         factor = config.initializer_factor
@@ -709,14 +708,12 @@ class TFCLIPMainLayer(tf.keras.layers.Layer):
 
         if not isinstance(config.text_config, CLIPTextConfig):
             raise ValueError(
-                "config.text_config is expected to be of type CLIPTextConfig but is of type"
-                f" {type(config.text_config)}."
+                f"config.text_config is expected to be of type CLIPTextConfig but is of type {type(config.text_config)}."
             )
 
         if not isinstance(config.vision_config, CLIPVisionConfig):
             raise ValueError(
-                "config.vision_config is expected to be of type CLIPVisionConfig but is of type"
-                f" {type(config.vision_config)}."
+                f"config.vision_config is expected to be of type CLIPVisionConfig but is of type {type(config.vision_config)}."
             )
 
         self.config = config

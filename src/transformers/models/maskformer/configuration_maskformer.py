@@ -24,9 +24,7 @@ from ..swin import SwinConfig
 
 
 MASKFORMER_PRETRAINED_CONFIG_ARCHIVE_MAP = {
-    "facebook/maskformer-swin-base-ade": (
-        "https://huggingface.co/facebook/maskformer-swin-base-ade/blob/main/config.json"
-    )
+    "facebook/maskformer-swin-base-ade": "https://huggingface.co/facebook/maskformer-swin-base-ade/blob/main/config.json"
     # See all MaskFormer models at https://huggingface.co/models?filter=maskformer
 }
 
@@ -132,8 +130,7 @@ class MaskFormerConfig(PretrainedConfig):
             backbone_model_type = backbone_config.pop("model_type")
             if backbone_model_type not in self.backbones_supported:
                 raise ValueError(
-                    f"Backbone {backbone_model_type} not supported, please use one of"
-                    f" {','.join(self.backbones_supported)}"
+                    f"Backbone {backbone_model_type} not supported, please use one of {','.join(self.backbones_supported)}"
                 )
             backbone_config = AutoConfig.for_model(backbone_model_type, **backbone_config)
 
@@ -144,8 +141,7 @@ class MaskFormerConfig(PretrainedConfig):
             decoder_type = decoder_config.pop("model_type")
             if decoder_type not in self.decoders_supported:
                 raise ValueError(
-                    f"Transformer Decoder {decoder_type} not supported, please use one of"
-                    f" {','.join(self.decoders_supported)}"
+                    f"Transformer Decoder {decoder_type} not supported, please use one of {','.join(self.decoders_supported)}"
                 )
             decoder_config = AutoConfig.for_model(decoder_type, **decoder_config)
 

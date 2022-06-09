@@ -195,7 +195,8 @@ class TFTrainingArguments(TrainingArguments):
 
         # Set to float16 at first
         if self.fp16:
-            tf.keras.mixed_precision.set_global_policy("mixed_float16")
+            policy = tf.keras.mixed_precision.experimental.Policy("mixed_float16")
+            tf.keras.mixed_precision.experimental.set_policy(policy)
 
         if self.no_cuda:
             strategy = tf.distribute.OneDeviceStrategy(device="/cpu:0")
@@ -216,7 +217,8 @@ class TFTrainingArguments(TrainingArguments):
             if tpu:
                 # Set to bfloat16 in case of TPU
                 if self.fp16:
-                    tf.keras.mixed_precision.set_global_policy("mixed_bfloat16")
+                    policy = tf.keras.mixed_precision.experimental.Policy("mixed_bfloat16")
+                    tf.keras.mixed_precision.experimental.set_policy(policy)
 
                 tf.config.experimental_connect_to_cluster(tpu)
                 tf.tpu.experimental.initialize_tpu_system(tpu)
