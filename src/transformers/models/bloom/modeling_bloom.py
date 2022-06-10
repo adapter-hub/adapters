@@ -23,6 +23,15 @@ from torch import nn
 from torch.nn import CrossEntropyLoss, LayerNorm
 
 from ...file_utils import add_code_sample_docstrings, add_start_docstrings, add_start_docstrings_to_model_forward
+
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.lora import MergedLinear as LoRAMergedLinear
+from ...adapters.mixins.bloom import BloomDecoderBlockAdaptersMixin, BloomModelAdapterMixin
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+# from ...adapters.prefix_tuning import PrefixTuningShim
+
 from ...modeling_outputs import BaseModelOutputWithPastAndCrossAttentions, CausalLMOutputWithCrossAttentions
 from ...modeling_utils import PreTrainedModel
 from ...utils import logging
@@ -495,9 +504,10 @@ class BloomMLP(nn.Module):
         return output
 
 
-class BloomBlock(nn.Module):
+class BloomBlock(BloomDecoderBlockAdaptersMixin, nn.Module):
     def __init__(self, config, layer_number=None):
         super().__init__()
+        self.config = config
         hidden_size = config.hidden_size
 
         self.input_layernorm = LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
@@ -506,7 +516,8 @@ class BloomBlock(nn.Module):
         self.post_attention_layernorm = LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
 
         self.mlp = BloomMLP(config)
-
+        self._init_adapter_modules()
+        
         self.apply_residual_connection_post_layernorm = config.apply_residual_connection_post_layernorm
         self.hidden_dropout = config.hidden_dropout
 
@@ -546,6 +557,8 @@ class BloomBlock(nn.Module):
         attention_output = attn_outputs[0]
 
         outputs = attn_outputs[1:]
+        
+        attention_output = self.attention_adapters(attention_output, residual, None)
 
         layernorm_output = self.post_attention_layernorm(attention_output)
 
@@ -557,6 +570,7 @@ class BloomBlock(nn.Module):
 
         # MLP.
         output = self.mlp(layernorm_output, residual)
+        output = self.output_adapters(output, residual, None)
 
         if use_cache:
             outputs = (output,) + outputs
@@ -678,7 +692,7 @@ BLOOM_INPUTS_DOCSTRING = r"""
     "The bare Bloom Model transformer outputting raw hidden-states without any specific head on top.",
     BLOOM_START_DOCSTRING,
 )
-class BloomModel(BloomPreTrainedModel):
+class BloomModel(BloomModelAdapterMixin, BloomPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -698,6 +712,8 @@ class BloomModel(BloomPreTrainedModel):
 
         self.gradient_checkpointing = False
 
+        self._init_adapter_modules()
+
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -714,6 +730,7 @@ class BloomModel(BloomPreTrainedModel):
         output_type=BaseModelOutputWithPastAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -755,6 +772,7 @@ class BloomModel(BloomPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.word_embeddings(input_ids)
+        inputs_embeds = self.invertible_adapters_forward(inputs_embeds)
 
         hidden_states = self.word_embeddings_layernorm(inputs_embeds)
 
@@ -809,6 +827,10 @@ class BloomModel(BloomPreTrainedModel):
                 )
 
             hidden_states = outputs[0]
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
+            # HACK: if output_shape is identical to hidden states shape except for batch size, update output_shape
+            if output_shape[1:] == hidden_states.size()[1:]:
+                output_shape = hidden_states.size()
             if use_cache is True:
                 presents = presents + (outputs[1],)
 
@@ -841,11 +863,12 @@ class BloomModel(BloomPreTrainedModel):
     """,
     BLOOM_START_DOCSTRING,
 )
-class BloomForCausalLM(BloomPreTrainedModel):
+class BloomForCausalLM(ModelWithHeadsAdaptersMixin, BloomPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h.*.self_attention.scale_mask_softmax.causal_mask", r"lm_head.weight"]
 
     def __init__(self, config):
         super().__init__(config)
+        self.num_labels = config.num_labels
         self.transformer = BloomModel(config)
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 
