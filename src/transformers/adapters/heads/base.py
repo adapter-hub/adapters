@@ -91,6 +91,9 @@ class PredictionHead(nn.Sequential):
     def get_output_embeddings(self):
         return None  # override for heads with output embeddings
 
+    def get_label_names(self):
+        return ["labels"]
+
 
 class ClassificationHead(PredictionHead):
     def __init__(
@@ -404,6 +407,9 @@ class QuestionAnsweringHead(PredictionHead):
             if total_loss is not None:
                 outputs = (total_loss,) + outputs
             return outputs
+
+    def get_label_names(self):
+        return ["start_positions", "end_positions"]
 
 
 class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
