@@ -84,7 +84,10 @@ class AdapterTrainer(Trainer):
                 "If you want to fully finetune the model use the Trainer class."
             )
         if (self.label_names is None or len(self.label_names) < 1) and model.active_head is not None:
-            self.label_names = model.heads[model.active_head].get_label_names()
+            all_label_names = set()
+            for head in model._active_heads:
+                all_label_names |= set(model.heads[head].get_label_names())
+            self.label_names = list(all_label_names)
 
     def create_optimizer(self):
         """
