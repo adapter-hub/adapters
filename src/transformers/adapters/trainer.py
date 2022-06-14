@@ -1,11 +1,8 @@
-import inspect
 import os
 import re
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import datasets
 import torch
-from packaging import version
 from torch import nn
 from torch.utils.data.dataset import Dataset
 
@@ -86,7 +83,7 @@ class AdapterTrainer(Trainer):
                 "Expected a model with an active adapter setup."
                 "If you want to fully finetune the model use the Trainer class."
             )
-        if (self.label_names is None or len(self.label_names) < 1) and self.active_head is not None:
+        if (self.label_names is None or len(self.label_names) < 1) and model.active_head is not None:
             self.label_names = model.heads[model.active_head].get_label_names()
 
     def create_optimizer(self):
@@ -250,6 +247,7 @@ class AdapterTrainerCallback(TrainerCallback):
                     fusion_dir = os.path.join(state.best_model_checkpoint, fusion)
                     if os.path.exists(fusion_dir):
                         model.load_adapter_fusion(fusion_dir)
+            model.to(args.device)
 
     def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         # apply adapter fusion weight regularization on the value matrix
