@@ -36,7 +36,8 @@ Currently, scripts for these tasks support adapters:
 
 | Task | Description |
 | --- | --- |
-| [**`language-modeling`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/language-modeling) | Causal & Masked language modeling
+| [**`language-modeling`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/language-modeling) | Causal & Masked language modeling
+| [**`multiple-choice`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/multiple-choice) | SWAG Dataset
 | [**`question-answering`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/question-answering) | SQuAD-style QA
 | [**`summarization`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/seq2seq) | Summarization, e.g. on CNN/Dailymail or XSum
 | [**`text-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/text-classification) | GLUE benchmark
