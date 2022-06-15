@@ -861,6 +861,8 @@ else:
             "BloomForCausalLM",
             "BloomModel",
             "BloomPreTrainedModel",
+            "BloomForSequenceClassification",
+            "BloomForTokenClassification",
         ]
     )
     _import_structure["models.blenderbot"].extend(
@@ -3421,6 +3423,8 @@ if TYPE_CHECKING:
         from .models.bloom import (
             BLOOM_PRETRAINED_MODEL_ARCHIVE_LIST,
             BloomForCausalLM,
+            BloomForSequenceClassification,
+            BloomForTokenClassification,
             BloomModel,
             BloomPreTrainedModel,
         )
