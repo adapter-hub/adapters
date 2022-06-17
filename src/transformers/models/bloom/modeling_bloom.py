@@ -556,19 +556,22 @@ class BloomBlock(BloomDecoderBlockAdaptersMixin, nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions,
         )
-
+        
         attention_output = attn_outputs[0]
 
         outputs = attn_outputs[1:]
 
-        # layernorm_output = self.post_attention_layernorm(attention_output)
-        layernorm_output = self.attention_adapters(attention_output, residual, self.post_attention_layernorm)
+        layernorm_output = self.post_attention_layernorm(attention_output)
+
+        # attention_output = self.attention_adapters(attention_output, residual, None)
 
         # Get residual
         if self.apply_residual_connection_post_layernorm:
             residual = layernorm_output
         else:
             residual = attention_output
+
+        layernorm_output = self.attention_adapters(attention_output, residual, None)
 
         # MLP.
         output = self.mlp(layernorm_output, residual)
