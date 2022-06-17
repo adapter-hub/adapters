@@ -5,9 +5,9 @@ import torch.nn as nn
 from ..layer import AdapterLayer
 from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
 
-
+# Referred to mixins/gpt2.py
 class BloomDecoderBlockAdaptersMixin:
-    """Adds adapters to the TransformerBlock module of DistilBert."""
+    """Adds adapters to the TransformerBlock module of Bloom."""
 
     def _init_adapter_modules(self):
         self.attention_adapters = AdapterLayer("mh_adapter", self.config)
