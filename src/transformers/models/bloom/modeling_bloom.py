@@ -180,7 +180,7 @@ def pre_process_alibi_for_pad(alibi, attention_mask, num_heads):
     return alibi
 
 
-def dropout_add(x, residual, prob, training):
+def dropout_add(x, prob, training):
     """
     Dropout add function
 
@@ -195,7 +195,7 @@ def dropout_add(x, residual, prob, training):
             training mode
     """
     out = nn.functional.dropout(x, p=prob, training=training)
-    out = residual + out
+    # out = residual + out
     return out
 
 
@@ -357,7 +357,6 @@ class BloomAttention(nn.Module):
     def forward(
         self,
         hidden_states,
-        residual,
         layer_past=None,
         attention_mask=None,
         alibi=None,
@@ -467,7 +466,9 @@ class BloomAttention(nn.Module):
 
         output = output_tensor.transpose(1, 0)
 
-        output = dropout_add(output, residual, self.hidden_dropout, self.training)
+        output = dropout_add(output, self.hidden_dropout, self.training)
+
+        output = output
 
         outputs = (output, present)
         if output_attentions:
@@ -488,7 +489,7 @@ class BloomMLP(nn.Module):
         self.hidden_dropout = config.hidden_dropout
         self.gelu_impl = BloomGelu()
 
-    def forward(self, hidden_states, residual):
+    def forward(self, hidden_states):
         hidden_states = self.gelu_impl(self.dense_h_to_4h(hidden_states))
 
         if self.pretraining_tp > 1 and self.slow_but_exact:
@@ -502,7 +503,7 @@ class BloomMLP(nn.Module):
         else:
             intermediate_output = self.dense_4h_to_h(hidden_states)
 
-        output = dropout_add(intermediate_output, residual, self.hidden_dropout, self.training)
+        output = dropout_add(intermediate_output, self.hidden_dropout, self.training)
 
         return output
 
@@ -548,7 +549,6 @@ class BloomBlock(BloomDecoderBlockAdaptersMixin, nn.Module):
         # Self attention.
         attn_outputs = self.self_attention(
             layernorm_output,
-            residual,
             layer_past=layer_past,
             attention_mask=attention_mask,
             alibi=alibi,
@@ -561,9 +561,11 @@ class BloomBlock(BloomDecoderBlockAdaptersMixin, nn.Module):
 
         outputs = attn_outputs[1:]
 
+        attention_output = self.attention_adapters(attention_output, residual, None)
+
         layernorm_output = self.post_attention_layernorm(attention_output)
 
-        # attention_output = self.attention_adapters(attention_output, residual, None)
+        # attention_output = self.attention_adapters(layernorm_output, residual, None)
 
         # Get residual
         if self.apply_residual_connection_post_layernorm:
@@ -571,10 +573,10 @@ class BloomBlock(BloomDecoderBlockAdaptersMixin, nn.Module):
         else:
             residual = attention_output
 
-        layernorm_output = self.attention_adapters(attention_output, residual, None)
+        # layernorm_output = self.attention_adapters(attention_output, residual, None)
 
         # MLP.
-        output = self.mlp(layernorm_output, residual)
+        output = self.mlp(layernorm_output)
         output = self.output_adapters(output, residual, None)
 
         if use_cache:
