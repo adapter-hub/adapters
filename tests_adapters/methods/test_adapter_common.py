@@ -182,6 +182,22 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             # should not raise an exception
             model.config.to_json_string()
 
+    def test_model_adapter_summary(self):
+        # count model parameters before
+        model = self.get_model()
+        model_no_params = sum(p.numel() for p in model.parameters())
+        for k, v in ADAPTER_CONFIG_MAP.items():
+            # HACK: reduce the reduction factor such that
+            # the small test model can have a phm_dim of 4
+            if hasattr(v, "phm_layer") and v.phm_layer:
+                v = v.__class__(reduction_factor=4)
+            model.add_adapter(k, config=v)
+        summary = model.adapter_summary(as_dict=True)
+        self.assertEqual(len(ADAPTER_CONFIG_MAP) + 1, len(summary))
+        for name in ADAPTER_CONFIG_MAP.keys():
+            self.assertTrue(any([row["name"] == name for row in summary]))
+        self.assertEqual(model_no_params, summary[-1]["#param"])
+
     def test_loading_adapter_weights_with_prefix(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
