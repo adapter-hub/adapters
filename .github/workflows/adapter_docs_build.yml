@@ -12,9 +12,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
-          submodules: recursive
+          ref: master
           fetch-depth: 0
       - uses: actions/setup-python@v2
         with:
@@ -23,9 +23,10 @@ jobs:
         run: |
           pip install setuptools==57.4.0
           pip install torch
-          pip install Jinja2<3.1
           pip install recommonmark==0.7.1
           pip install -e .[docs]
+          pip install Jinja2==2.11.3
+          pip install markupsafe==2.0.1
       - name: Build
         run: |
           cd adapter_docs && make html-multi-version && cd ..
