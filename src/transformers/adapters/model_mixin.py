@@ -345,6 +345,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             return
         del self.config.adapters.adapters[adapter_name]
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
+        # PHM Layer
+        if adapter_name in self.shared_parameters:
+            del self.shared_parameters[adapter_name]
         if isinstance(self, InvertibleAdaptersMixin):
             self.delete_invertible_adapter(adapter_name)
         # Reset active adapters if this was the only active adapter
