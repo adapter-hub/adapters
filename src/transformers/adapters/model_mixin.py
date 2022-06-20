@@ -784,8 +784,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     def adapter_summary(self, as_dict=False) -> Union[str, dict]:
         """
-        Returns a string summary of all adapters currently added to the model.
-        Each entry in the summary table has the following attributes:
+        Returns a string summary of all adapters currently added to the model. Each entry in the summary table has the
+        following attributes:
 
             - name: the name of the adapter
             - architecture: the architectural base of the adapter
