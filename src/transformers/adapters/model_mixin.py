@@ -785,6 +785,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def adapter_summary(self, as_dict=False) -> Union[str, dict]:
         """
         Returns a string summary of all adapters currently added to the model.
+        Each entry in the summary table has the following attributes:
+
+            - name: the name of the adapter
+            - architecture: the architectural base of the adapter
+            - #param: the number of parameters of the adapter
+            - %param: the number of parameters of the adapter relative to the full model
+            - active: whether the adapter is active
+            - train: whether the adapter weights are enabled for training
         """
         # table header
         header = ["name", "architecture", "#param", "%param", "active", "train"]
