@@ -47,6 +47,17 @@ Currently, scripts for these tasks support adapters:
 | [**`dependency-parsing`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/dependency-parsing) | Dependency parsing on Universal Dependencies
 | [**`image-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/image-classification) | Image classification, e.g. on CIFAR-10/-100
 
+All scripts listed above which can be used for training provide a new `--train_adapter` option that switches between full fine-tuning and adapter training.
+Loading pre-trained adapters can be done via `--load_adapter`.
+You can find all additional, adapter-specific, command-line options [here](https://github.com/Adapter-Hub/adapter-transformers/blob/master/src/transformers/adapters/training.py).
+
+Fore more information and examples on training adapters, please refer to these locations:
+- The section on adapter training [in the AdapterHub documentation](https://docs.adapterhub.ml/training).
+- Our [collection of Colab notebook tutorials](https://github.com/Adapter-Hub/adapter-transformers/tree/master/notebooks).
+
+---
+
+**NOTE: Below, you find the original, unmodified, documentation by HuggingFace. Check out [their examples folder](https://github.com/huggingface/transformers/tree/master/examples) for more example scripts.**
 
 ---
 
