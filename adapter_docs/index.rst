@@ -78,8 +78,8 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    :caption: Contributing
 
    contributing
-   contributing/adding_adapters_to_a_model
    contributing/adding_adapter_methods
+   contributing/adding_adapters_to_a_model
 
 Citation
 ========

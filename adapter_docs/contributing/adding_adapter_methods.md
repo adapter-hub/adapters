@@ -35,7 +35,7 @@ Thus, each adapter method implementation at least should provide two classes:
     For a reference implementation, have a look at `AdapterLayer` for bottleneck adapters.
 - To actually make use of the newly implemented classes, it's finally necessary to integrate the forward calls to the modules in the actual model implementations.
     - This, again, is highly dependent on how the adapter method interacts with the base model classes Typically, module classes can be integrated either via mixins (see `src/transformers/adapters/mixins`) or directly as submodules of the respective model components.
-    - The model class integration has to be repeated for each supported Transformer model, as they typically don't share a code base.
+    - The model class integration has to be repeated for each supported Transformer model, as they typically don't share a codebase.
     Please try to integrate any new adapter method into every model class when it's reasonable.
     You can find all currently supported model classes at https://docs.adapterhub.ml/model_overview.html.
 
