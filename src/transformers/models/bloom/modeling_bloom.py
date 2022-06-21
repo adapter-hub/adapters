@@ -489,7 +489,7 @@ class BloomMLP(nn.Module):
         self.hidden_dropout = config.hidden_dropout
         self.gelu_impl = BloomGelu()
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, residual):
         hidden_states = self.gelu_impl(self.dense_h_to_4h(hidden_states))
 
         if self.pretraining_tp > 1 and self.slow_but_exact:
@@ -576,7 +576,7 @@ class BloomBlock(BloomDecoderBlockAdaptersMixin, nn.Module):
         # layernorm_output = self.attention_adapters(attention_output, residual, None)
 
         # MLP.
-        output = self.mlp(layernorm_output)
+        output = self.mlp(layernorm_output, residual)
         output = self.output_adapters(output, residual, None)
 
         if use_cache:
