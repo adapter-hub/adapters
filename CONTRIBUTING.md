@@ -23,9 +23,9 @@ This includes code contributions such as:
 - fixing open issues
 
 as well as non-code contributions such as:
-- training and uploading adapters
+- training and uploading adapters to the Hub
 - writing documentation and blog posts
-- helping others
+- helping others with their issues and questions
 
 Whichever way you'd like to contribute, you're very welcome to do so!
 
