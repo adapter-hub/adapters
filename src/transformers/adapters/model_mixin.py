@@ -345,6 +345,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             return
         del self.config.adapters.adapters[adapter_name]
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
+        # PHM Layer
+        if adapter_name in self.shared_parameters:
+            del self.shared_parameters[adapter_name]
         if isinstance(self, InvertibleAdaptersMixin):
             self.delete_invertible_adapter(adapter_name)
         # Reset active adapters if this was the only active adapter
@@ -754,9 +757,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         Returns:
             dict: A nested dictionary containing the weights of the adapter. The dictionary is structured as follow:
-            {<layer id>: {<module location>: <nn.Module>}}.
+            {<layer id>: {<module location>: <nn.Module>}}. <layer id> = -1 indicates global/ shared weights.
         """
         destination = defaultdict(dict)
+
+        # global weights are saved at index -1
+        if name in self.shared_parameters:
+            destination[-1]["shared"] = self.shared_parameters[name]
+        if isinstance(self, InvertibleAdaptersMixin) and name in self.invertible_adapters:
+            destination[-1]["invertible"] = self.invertible_adapters[name]
 
         # use a custom index to ensure numbering is from 0 to N layers
         for i, (_, layer) in enumerate(self.iter_layers()):
@@ -764,9 +773,79 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 if isinstance(module, AdapterLayerBase):
                     adapter_module = module.get_adapter(name)
                     if adapter_module is not None:
-                        destination[i][module.location_key] = adapter_module
+                        # location_key might already be added before -> concat to ModuleList
+                        if module.location_key in destination[i]:
+                            old_module = destination[i][module.location_key]
+                            if isinstance(old_module, nn.ModuleList):
+                                old_module.append(adapter_module)
+                            else:
+                                destination[i][module.location_key] = nn.ModuleList([old_module, adapter_module])
+                        else:
+                            destination[i][module.location_key] = adapter_module
 
         return dict(destination)
+
+    def adapter_summary(self, as_dict=False) -> Union[str, dict]:
+        """
+        Returns a string summary of all adapters currently added to the model. Each entry in the summary table has the
+        following attributes:
+
+            - name: the name of the adapter
+            - architecture: the architectural base of the adapter
+            - #param: the number of parameters of the adapter
+            - %param: the number of parameters of the adapter relative to the full model
+            - active: whether the adapter is active
+            - train: whether the adapter weights are enabled for training
+        """
+        # table header
+        header = ["name", "architecture", "#param", "%param", "active", "train"]
+        # rows containing adapter info
+        rows = []
+        # fill in data for adapters
+        for name, config_name in self.config.adapters.adapters.items():
+            config = self.config.adapters.config_map[config_name]
+            row = {"name": name, "architecture": config.architecture or "bottleneck"}
+            weights = self.get_adapter(name)
+            row["active"] = self.active_adapters is not None and name in self.active_adapters.flatten()
+            # count parameters
+            no_params = 0
+            train = True
+            for _, module_dict in weights.items():
+                for _, module in module_dict.items():
+                    no_params += sum(p.numel() for p in module.parameters())
+                    train &= all(p.requires_grad for p in module.parameters())
+            row["#param"] = no_params
+            row["train"] = train
+            rows.append(row)
+        # count no. of parameters in base network
+        model_no_params = sum(p.numel() for p in self.base_model.parameters())
+        model_no_params -= sum([r["#param"] for r in rows])
+        # add %param info
+        for row in rows:
+            row["%param"] = row["#param"] / model_no_params * 100
+        # add full model info
+        rows.append(
+            {
+                "name": "Full model",
+                "#param": model_no_params,
+                "%param": 100.0,
+                "train": not getattr(self.base_model, "model_frozen", False),
+            }
+        )
+
+        if as_dict:
+            return rows
+        else:
+            # print
+            total_length = 80
+            header_format = "{:<25}{:<15}{:>12}{:>12}{:>8}{:>8}"
+            row_format = "{:<25}{:<15}{:>12}{:>12.3f}{:>8}{:>8}"
+            s = [header_format.format(*map(lambda x: x.title(), header))]
+            s.append("-" * total_length)
+            for row in rows:
+                s.append(row_format.format(*[row.get(h, "") for h in header]))
+            s.insert(len(s) - 1, "-" * total_length)
+            return "\n".join(s)
 
     def eject_prefix_tuning(self, name: str):
         """

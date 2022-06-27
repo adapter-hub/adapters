@@ -278,7 +278,9 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
     def get_adapter(self, adapter_name):
         # Make sure to only return params once
         if adapter_name in self.prefixes and self.prefixes[adapter_name] == 0:
-            return self.pool.get_prefix(adapter_name)
+            prefix_module = self.pool.get_prefix(adapter_name)
+            if prefix_module is not None:
+                return prefix_module[self.location_key]
 
         return None
 
