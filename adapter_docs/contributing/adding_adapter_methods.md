@@ -41,7 +41,7 @@ Thus, each adapter method implementation at least should provide two classes:
 
 **Additional things to consider**
 
-- New adapter methods typically also require some changes in the `AdapterLoader` class in `src/transformers/adapters/loading.py`.
+- New adapter methods typically also require some changes in the `AdapterLoader` class in `src/transformers/adapters/loading.py` (also see [here](https://docs.adapterhub.ml/extending.html#loading-custom-module-weights)).
 - Depending on the method to be integrated, further changes in other classes might be necessary.
 
 ## Testing
