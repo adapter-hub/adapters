@@ -1,7 +1,6 @@
-from typing import List, Union
-
 import torch
 from torch import nn
+from typing import List, Union
 
 from .composition import AdapterCompositionBlock
 from .configuration import PrefixTuningConfig
