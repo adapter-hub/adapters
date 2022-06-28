@@ -1,6 +1,7 @@
+from typing import List, Union
+
 import torch
 from torch import nn
-from typing import List, Union
 
 from .composition import AdapterCompositionBlock
 from .configuration import PrefixTuningConfig
@@ -59,7 +60,7 @@ class PrefixTuning(nn.Module, ModuleUtilsMixin):
         return key_values
 
 
-class FlatPrefixTuning(nn.Module):
+class FlatPrefixTuning(nn.Module, ModuleUtilsMixin):
     def __init__(
         self,
         n_layers: int,
