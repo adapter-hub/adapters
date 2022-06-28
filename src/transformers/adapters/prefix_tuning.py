@@ -3,12 +3,12 @@ from typing import List, Union
 import torch
 from torch import nn
 
+from ..modeling_utils import ModuleUtilsMixin
 from .composition import AdapterCompositionBlock
 from .configuration import PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
 from .layer import AdapterLayerBase
 from .modeling import Activation_Function_Class
-from ..modeling_utils import ModuleUtilsMixin
 
 
 class PrefixTuning(nn.Module, ModuleUtilsMixin):
