@@ -115,7 +115,7 @@ _deps = [
     "fugashi>=1.0",
     "GitPython<3.1.19",
     "hf-doc-builder>=0.3.0",
-    "huggingface-hub>=0.1.0,<1.0",
+    "huggingface-hub>=0.1.0,<0.8.0",
     "importlib_metadata",
     "ipadic>=1.0.0,<2.0",
     "isort>=5.5.4",
@@ -411,7 +411,7 @@ install_requires = [
 
 setup(
     name="adapter-transformers",
-    version="3.0.1",
+    version="3.1.0a0",
     author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, Hannah Sterz, based on work by the HuggingFace team and community",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A friendly fork of HuggingFace's Transformers, adding Adapters to PyTorch language models",

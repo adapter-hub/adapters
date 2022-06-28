@@ -37,14 +37,14 @@ Currently, scripts for these tasks support adapters:
 | Task | Description |
 | --- | --- |
 | [**`language-modeling`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/language-modeling) | Causal & Masked language modeling
-| [**`multiple-choice`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/multiple-choice) | SWAG Dataset
-| [**`question-answering`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/question-answering) | SQuAD-style QA
-| [**`summarization`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/seq2seq) | Summarization, e.g. on CNN/Dailymail or XSum
-| [**`text-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/text-classification) | GLUE benchmark
-| [**`text-generation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/text-generation) | Text generation, e.g. using GPT-2
-| [**`token-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/token-classification) | NER, e.g. on CoNLL2003
-| [**`translation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/seq2seq) | Machine translation, e.g. on WMT tasks
-| [**`dependency-parsing`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/dependency-parsing) | Dependency parsing on Universal Dependencies
+| [**`multiple-choice`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/multiple-choice) | SWAG Dataset
+| [**`question-answering`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/question-answering) | SQuAD-style QA
+| [**`summarization`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/seq2seq) | Summarization, e.g. on CNN/Dailymail or XSum
+| [**`text-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/text-classification) | GLUE benchmark
+| [**`text-generation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/text-generation) | Text generation, e.g. using GPT-2
+| [**`token-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/token-classification) | NER, e.g. on CoNLL2003
+| [**`translation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/seq2seq) | Machine translation, e.g. on WMT tasks
+| [**`dependency-parsing`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/dependency-parsing) | Dependency parsing on Universal Dependencies
 
 All scripts listed above which can be used for training provide a new `--train_adapter` option that switches between full fine-tuning and adapter training.
 Loading pre-trained adapters can be done via `--load_adapter`.

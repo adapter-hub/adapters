@@ -53,7 +53,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/models/bart
    classes/models/bert
    classes/models/deberta
-   classes/models/debertaV2
+   classes/models/deberta_v2
    classes/models/distilbert
    classes/models/encoderdecoder
    classes/models/gpt2

@@ -64,7 +64,7 @@ contributed by `kamalkraj <https://huggingface.co/kamalkraj>`__. The original co
 
 
 DebertaV2AdapterModel
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: transformers.adapters.DebertaV2AdapterModel
     :members:
