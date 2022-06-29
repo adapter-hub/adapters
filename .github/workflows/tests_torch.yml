@@ -55,7 +55,7 @@ jobs:
       - name: Install
         run: |
           pip install torch
-          pip install .[sklearn,testing,sentencepiece]
+          pip install .[sklearn,testing,sentencepiece,vision]
           pip install datasets
       - name: Test
         run: |

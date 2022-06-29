@@ -25,6 +25,11 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.vit import ViTLayerAdaptersMixin, ViTModelAdaptersMixin, ViTOutputAdaptersMixin
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling, ImageClassifierOutput, MaskedLMOutput
 from ...modeling_utils import PreTrainedModel
 from ...pytorch_utils import find_pruneable_heads_and_indices, prune_linear_layer
@@ -193,7 +198,7 @@ class PatchEmbeddings(nn.Module):
 
 
 class ViTSelfAttention(nn.Module):
-    def __init__(self, config: ViTConfig) -> None:
+    def __init__(self, config: ViTConfig, location_key: Optional[str] = None) -> None:
         super().__init__()
         if config.hidden_size % config.num_attention_heads != 0 and not hasattr(config, "embedding_size"):
             raise ValueError(
@@ -205,11 +210,13 @@ class ViTSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.query = nn.Linear(config.hidden_size, self.all_head_size, bias=config.qkv_bias)
+        self.query = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, bias=config.qkv_bias)
         self.key = nn.Linear(config.hidden_size, self.all_head_size, bias=config.qkv_bias)
-        self.value = nn.Linear(config.hidden_size, self.all_head_size, bias=config.qkv_bias)
+        self.value = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, bias=config.qkv_bias)
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
+
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def transpose_for_scores(self, x: torch.Tensor) -> torch.Tensor:
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
@@ -224,6 +231,8 @@ class ViTSelfAttention(nn.Module):
         key_layer = self.transpose_for_scores(self.key(hidden_states))
         value_layer = self.transpose_for_scores(self.value(hidden_states))
         query_layer = self.transpose_for_scores(mixed_query_layer)
+
+        key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
@@ -272,9 +281,9 @@ class ViTSelfOutput(nn.Module):
 
 
 class ViTAttention(nn.Module):
-    def __init__(self, config: ViTConfig) -> None:
+    def __init__(self, config: ViTConfig, location_key: Optional[str] = None) -> None:
         super().__init__()
-        self.attention = ViTSelfAttention(config)
+        self.attention = ViTSelfAttention(config, location_key=location_key)
         self.output = ViTSelfOutput(config)
         self.pruned_heads = set()
 
@@ -313,7 +322,7 @@ class ViTAttention(nn.Module):
 class ViTIntermediate(nn.Module):
     def __init__(self, config: ViTConfig) -> None:
         super().__init__()
-        self.dense = nn.Linear(config.hidden_size, config.intermediate_size)
+        self.dense = LoRALinear(config.hidden_size, config.intermediate_size, "intermediate", config)
         if isinstance(config.hidden_act, str):
             self.intermediate_act_fn = ACT2FN[config.hidden_act]
         else:
@@ -327,33 +336,38 @@ class ViTIntermediate(nn.Module):
         return hidden_states
 
 
-class ViTOutput(nn.Module):
+class ViTOutput(ViTOutputAdaptersMixin, nn.Module):
     def __init__(self, config: ViTConfig) -> None:
         super().__init__()
-        self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
+        self.config = config
+
+        self.dense = LoRALinear(config.intermediate_size, config.hidden_size, "output", config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-
-        hidden_states = hidden_states + input_tensor
+        hidden_states = self.output_adapters.adapter_layer_forward(hidden_states, input_tensor, None)
 
         return hidden_states
 
 
-class ViTLayer(nn.Module):
+class ViTLayer(ViTLayerAdaptersMixin, nn.Module):
     """This corresponds to the Block class in the timm implementation."""
 
     def __init__(self, config: ViTConfig) -> None:
         super().__init__()
+        self.config = config
+
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
         self.seq_len_dim = 1
-        self.attention = ViTAttention(config)
+        self.attention = ViTAttention(config, location_key="self")
         self.intermediate = ViTIntermediate(config)
         self.output = ViTOutput(config)
         self.layernorm_before = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.layernorm_after = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -369,8 +383,7 @@ class ViTLayer(nn.Module):
         attention_output = self_attention_outputs[0]
         outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
 
-        # first residual connection
-        hidden_states = attention_output + hidden_states
+        hidden_states = self.attention_adapters.adapter_layer_forward(attention_output, hidden_states, None)
 
         # in ViT, layernorm is also applied after self-attention
         layer_output = self.layernorm_after(hidden_states)
@@ -509,7 +522,7 @@ VIT_INPUTS_DOCSTRING = r"""
     "The bare ViT Model transformer outputting raw hidden-states without any specific head on top.",
     VIT_START_DOCSTRING,
 )
-class ViTModel(ViTPreTrainedModel):
+class ViTModel(ViTModelAdaptersMixin, ViTPreTrainedModel):
     def __init__(self, config: ViTConfig, add_pooling_layer: bool = True, use_mask_token: bool = False):
         super().__init__(config)
         self.config = config
@@ -519,6 +532,8 @@ class ViTModel(ViTPreTrainedModel):
 
         self.layernorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.pooler = ViTPooler(config) if add_pooling_layer else None
+
+        self._init_adapter_modules()
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -543,6 +558,7 @@ class ViTModel(ViTPreTrainedModel):
         modality="vision",
         expected_output=_EXPECTED_OUTPUT_SHAPE,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         pixel_values: Optional[torch.Tensor] = None,
@@ -615,7 +631,7 @@ class ViTPooler(nn.Module):
     "ViT Model with a decoder on top for masked image modeling, as proposed in `SimMIM <https://arxiv.org/abs/2111.09886>`__.",
     VIT_START_DOCSTRING,
 )
-class ViTForMaskedImageModeling(ViTPreTrainedModel):
+class ViTForMaskedImageModeling(ModelWithHeadsAdaptersMixin, ViTPreTrainedModel):
     def __init__(self, config: ViTConfig) -> None:
         super().__init__(config)
 
@@ -725,7 +741,7 @@ class ViTForMaskedImageModeling(ViTPreTrainedModel):
     """,
     VIT_START_DOCSTRING,
 )
-class ViTForImageClassification(ViTPreTrainedModel):
+class ViTForImageClassification(ModelWithHeadsAdaptersMixin, ViTPreTrainedModel):
     def __init__(self, config: ViTConfig) -> None:
         super().__init__(config)
 

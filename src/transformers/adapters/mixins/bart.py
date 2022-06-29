@@ -3,7 +3,7 @@ from typing import Iterable, Tuple
 import torch.nn as nn
 
 from ..layer import AdapterLayer
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
 class BartEncoderLayerAdaptersMixin:
@@ -25,7 +25,7 @@ class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
         self.cross_attention_adapters._init_adapter_modules()
 
 
-class BartModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
+class BartModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
     """Adds adapters to the BartModel class."""
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:

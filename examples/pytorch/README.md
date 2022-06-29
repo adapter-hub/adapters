@@ -36,7 +36,7 @@ Currently, scripts for these tasks support adapters:
 
 | Task | Description |
 | --- | --- |
-| [**`language-modeling`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/language-modeling) | Causal & Masked language modeling
+| [**`language-modeling`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/language-modeling) | Causal & Masked language modeling
 | [**`multiple-choice`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/multiple-choice) | SWAG Dataset
 | [**`question-answering`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/question-answering) | SQuAD-style QA
 | [**`summarization`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/seq2seq) | Summarization, e.g. on CNN/Dailymail or XSum
@@ -45,6 +45,7 @@ Currently, scripts for these tasks support adapters:
 | [**`token-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/token-classification) | NER, e.g. on CoNLL2003
 | [**`translation`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/seq2seq) | Machine translation, e.g. on WMT tasks
 | [**`dependency-parsing`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/dependency-parsing) | Dependency parsing on Universal Dependencies
+| [**`image-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/master/examples/pytorch/image-classification) | Image classification, e.g. on CIFAR-10/-100
 
 All scripts listed above which can be used for training provide a new `--train_adapter` option that switches between full fine-tuning and adapter training.
 Loading pre-trained adapters can be done via `--load_adapter`.

@@ -2,10 +2,10 @@ from typing import Iterable, Tuple
 
 import torch.nn as nn
 
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin
 
 
-class EncoderDecoderModelAdaptersMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
+class EncoderDecoderModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
     """Adds adapters to the EncoderDecoderModel class."""
 
     def __init__(self, *args, **kwargs):

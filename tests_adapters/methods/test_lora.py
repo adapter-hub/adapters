@@ -37,7 +37,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
         model.add_adapter("test_lora", config=LoRAConfig(init_weights="bert"))
         model.to(torch_device)
 
-        input_data = self.get_input_samples((2, 128), config=model.config)
+        input_data = self.get_input_samples(config=model.config)
 
         # forward in training mode
         model.set_active_adapters(["test_lora"])
@@ -60,7 +60,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
         model.add_adapter("test_lora", config=LoRAConfig(init_weights="bert"))
         model.to(torch_device)
 
-        input_data = self.get_input_samples((2, 128), config=model.config)
+        input_data = self.get_input_samples(config=model.config)
 
         # before merging
         output_1 = model(**input_data)

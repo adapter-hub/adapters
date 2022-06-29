@@ -392,6 +392,15 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "cls.predictions.decoder",
         ],
     },
+    # ViT
+    "ViTForImageClassification": {
+        "config": {
+            "head_type": "image_classification",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": {"classifier"},
+    },
 }
 
 
