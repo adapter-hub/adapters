@@ -682,6 +682,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             save_directory (str): Path to a directory where the adapters should be saved.
         """
+        os.makedirs(save_directory, exist_ok=True)
         for name in self.config.adapters:
             adapter_config = self.config.adapters.get(name)
             h = get_adapter_config_hash(adapter_config)
@@ -705,6 +706,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             save_directory (str): Path to a directory where the AdapterFusion layers should be saved.
         """
+        os.makedirs(save_directory, exist_ok=True)
         for name in self.config.adapters.fusions:
             adapter_fusion_config = self.config.adapters.get_fusion(name)
             h = get_adapter_config_hash(adapter_fusion_config)
@@ -1033,6 +1035,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
+        os.makedirs(save_directory, exist_ok=True)
         for name in self.config.adapters:
             adapter_config = self.config.adapters.get(name)
             h = get_adapter_config_hash(adapter_config)
@@ -1104,6 +1107,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         super().load_adapter_fusion(adapter_fusion_name_or_path, load_as, custom_weights_loaders, set_active)
 
     def save_all_heads(self, save_directory):
+        os.makedirs(save_directory, exist_ok=True)
         for head_name in self.heads:
             save_path = join(save_directory, head_name)
             self.save_head(save_path, head_name)
