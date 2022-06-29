@@ -1831,6 +1831,8 @@ class T5EncoderModel(T5ModelAdaptersMixin, T5PreTrainedModel):
         self.model_parallel = False
         self.device_map = None
 
+        self._init_adapter_modules()
+
     @add_start_docstrings(PARALLELIZE_DOCSTRING)
     def parallelize(self, device_map=None):
         self.device_map = (
@@ -1870,6 +1872,7 @@ class T5EncoderModel(T5ModelAdaptersMixin, T5PreTrainedModel):
 
     @add_start_docstrings_to_model_forward(T5_ENCODER_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=BaseModelOutput, config_class=_CONFIG_FOR_DOC)
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
