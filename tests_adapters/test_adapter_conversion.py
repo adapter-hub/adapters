@@ -6,6 +6,7 @@ import torch
 
 from transformers import (
     MODEL_FOR_CAUSAL_LM_MAPPING,
+    MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,
     MODEL_FOR_MASKED_LM_MAPPING,
     MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
     MODEL_FOR_QUESTION_ANSWERING_MAPPING,
@@ -113,6 +114,15 @@ class ModelClassConversionTestMixin:
         label_dict = {}
         label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
         self.run_test(model, label_dict=label_dict)
+
+    def test_conversion_image_classification_model(self):
+        if self.config_class not in MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING:
+            self.skipTest("No image classification class.")
+
+        model = MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING[self.config_class](self.config())
+        label_dict = {}
+        label_dict["labels"] = torch.zeros(3, dtype=torch.long, device=torch_device)
+        self.run_test(model, input_shape=(3, 3, 224, 224), label_dict=label_dict)
 
     def test_conversion_question_answering_model(self):
         if self.config_class not in MODEL_FOR_QUESTION_ANSWERING_MAPPING:

@@ -42,7 +42,7 @@ class AdapterFusionModelTestMixin:
                 model.add_adapter_fusion([name1, name2], adater_fusion_config_name)
 
                 # check forward pass
-                input_data = self.get_input_samples((1, 128), config=model.config)
+                input_data = self.get_input_samples(config=model.config)
                 model.set_active_adapters([[name1, name2]])
                 model.to(torch_device)
                 adapter_output = model(**input_data)
@@ -113,7 +113,7 @@ class AdapterFusionModelTestMixin:
                 self.assertEqual(model1.config.adapters.fusions.keys(), model2.config.adapters.fusions.keys())
 
                 # check equal output
-                in_data = self.get_input_samples((1, 128), config=model1.config)
+                in_data = self.get_input_samples(config=model1.config)
                 model1.to(torch_device)
                 model2.to(torch_device)
                 output1 = model1(**in_data)
@@ -139,7 +139,7 @@ class AdapterFusionModelTestMixin:
         self.assertTrue(model1.config.adapters.fusions == model2.config.adapters.fusions)
 
         # check equal output
-        input_data = self.get_input_samples((1, 128), config=model1.config)
+        input_data = self.get_input_samples(config=model1.config)
         model1.set_active_adapters([[name1, name2]])
         model2.set_active_adapters([[name1, name2]])
         model1.to(torch_device)
@@ -188,7 +188,7 @@ class AdapterFusionModelTestMixin:
         self.assertEqual(model1.active_adapters, model2.active_adapters)
 
         # assert equal forward pass
-        in_data = self.get_input_samples((1, 128), config=model1.config)
+        in_data = self.get_input_samples(config=model1.config)
         model1.to(torch_device)
         model2.to(torch_device)
         output1 = model1(**in_data)

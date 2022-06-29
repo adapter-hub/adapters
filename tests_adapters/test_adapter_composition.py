@@ -162,8 +162,8 @@ class ParallelAdapterInferenceTestMixin:
         model.eval()
         model.to(torch_device)
 
-        inputs = self.get_input_samples((2, 128), config=model.config)
-        inputs["attention_mask"] = torch.randint(0, 2, size=(2, 128), device=torch_device)
+        inputs = self.get_input_samples(config=model.config)
+        inputs["attention_mask"] = torch.randint(0, 2, size=(3, 64), device=torch_device)
 
         # for reference, pass through single adapters
         model.active_adapters = "a"
@@ -180,8 +180,8 @@ class ParallelAdapterInferenceTestMixin:
 
         self.assertEqual(len(outputs), 2)
         if self.config_class in MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING:
-            self.assertEqual(outputs[0][0].shape, (2, 2))
-            self.assertEqual(outputs[1][0].shape, (2, 3))
+            self.assertEqual(outputs[0][0].shape, (3, 2))
+            self.assertEqual(outputs[1][0].shape, (3, 3))
         self.assertTrue(torch.allclose(outputs[0][0], outputs_a[0], atol=1e-5))
         self.assertTrue(torch.allclose(outputs[1][0], outputs_b[0], atol=1e-5))
 
@@ -194,7 +194,7 @@ class ParallelAdapterInferenceTestMixin:
         self.add_head(model, "a", num_labels=2)
         model.to(torch_device)
 
-        inputs = self.get_input_samples((2, 128), config=model.config)
+        inputs = self.get_input_samples(config=model.config)
 
         model.active_adapters = Parallel("a", "b")
         model.active_head = ["a"]
@@ -214,7 +214,7 @@ class ParallelAdapterInferenceTestMixin:
         model.eval()
         model.to(torch_device)
 
-        inputs = {"input_ids": self.get_input_samples((2, 128), config=model.config)["input_ids"]}
+        inputs = self.get_input_samples(config=model.config)
         if isinstance(model, T5AdapterModel):
             inputs["decoder_input_ids"] = inputs["input_ids"]
 
@@ -226,7 +226,7 @@ class ParallelAdapterInferenceTestMixin:
         model.active_head = "b"
         outputs_b = model(**{k: v[1:] for k, v in inputs.items()})
 
-        model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
+        model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 2]))
         output = model(**inputs)
 
         self.assertEqual(2, len(output))
@@ -284,15 +284,12 @@ class ParallelTrainingMixin:
         return model
 
     def test_parallel_training(self):
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
         model = AutoAdapterModel.from_config(self.config())
 
         model.add_adapter("mrpc1")
         model.add_adapter("mrpc2")
-        self.add_head(model, "mrpc1", num_labels=2)
-        self.add_head(model, "mrpc2", num_labels=3)
+        self.add_head(model, "mrpc1")
+        self.add_head(model, "mrpc2")
         model.active_adapters = Parallel("mrpc1", "mrpc2")
         model.train_adapter(Parallel("mrpc1", "mrpc2"))
         # model.eval()
@@ -309,9 +306,14 @@ class ParallelTrainingMixin:
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
-        train_dataset = self.dataset(tokenizer)
+        train_dataset = self.dataset()
         training_args = TrainingArguments(
-            output_dir="./examples", do_train=True, learning_rate=0.5, max_steps=20, no_cuda=True
+            output_dir="./examples",
+            do_train=True,
+            learning_rate=0.5,
+            max_steps=20,
+            no_cuda=True,
+            remove_unused_columns=False,
         )
 
         # evaluate
@@ -337,9 +339,9 @@ class ParallelTrainingMixin:
 
         dataset = []
         for i in range(3):
-            input_data = self.get_input_samples((3, 128), config=model.config)
+            input_data = self.get_input_samples(config=model.config)
             if isinstance(model, T5AdapterModel):
-                input_data["labels"] = torch.randint(0, 2, (3, 128))
+                input_data["labels"] = torch.randint(0, 2, (3, 64))
             else:
                 input_data["labels"] = torch.randint(0, 2, (3, 1))
             dataset.append(input_data)
@@ -382,9 +384,9 @@ class ParallelTrainingMixin:
             if b1 in k:
                 self.assertTrue(torch.equal(v, state_dict[k.replace(b1, b2)]))
 
-        input_data = self.get_input_samples((3, 128), config=model.config)
+        input_data = self.get_input_samples(config=model.config)
         if isinstance(model, T5AdapterModel):
-            input_data["labels"] = torch.randint(0, 2, (3, 128), device=torch_device)
+            input_data["labels"] = torch.randint(0, 2, (3, 64), device=torch_device)
         else:
             input_data["labels"] = torch.randint(0, 2, (3, 1), device=torch_device)
 

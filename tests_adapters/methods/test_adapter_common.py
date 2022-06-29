@@ -11,6 +11,7 @@ from transformers import (
     AutoTokenizer,
     HoulsbyConfig,
     HoulsbyInvConfig,
+    InvertibleAdaptersMixin,
     MAMConfig,
     PfeifferConfig,
     PfeifferInvConfig,
@@ -48,6 +49,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
     def test_add_adapter_with_invertible(self):
         model = self.get_model()
         model.eval()
+        if not isinstance(model, InvertibleAdaptersMixin):
+            self.skipTest("Model does not support invertible adapters.")
 
         for adapter_config in [PfeifferInvConfig(), HoulsbyInvConfig()]:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
@@ -68,7 +71,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                     self.assertTrue(param.requires_grad)
 
                 # check forward pass
-                input_data = self.get_input_samples((1, 128), config=model.config)
+                input_data = self.get_input_samples(config=model.config)
                 model.to(torch_device)
                 adapter_output = model(**input_data)
                 # make sure the output is different without invertible adapter
@@ -159,7 +162,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         self.assertTrue(name in model2.config.adapters)
 
         # check equal output
-        input_data = self.get_input_samples((1, 128), config=model1.config)
+        input_data = self.get_input_samples(config=model1.config)
         model1.to(torch_device)
         model2.to(torch_device)
         output1 = model1(**input_data)
@@ -219,7 +222,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
         # check equal output
-        input_data = self.get_input_samples((1, 128), config=model_with_head.config)
+        input_data = self.get_input_samples(config=model_with_head.config)
         model_with_head.to(torch_device)
         model_base.to(torch_device)
         output1 = model_with_head(**input_data)
@@ -248,7 +251,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
         # check equal output
-        input_data = self.get_input_samples((1, 128), config=model_with_head.config)
+        input_data = self.get_input_samples(config=model_with_head.config)
         model_with_head.to(torch_device)
         model_base.to(torch_device)
         output1 = model_with_head(**input_data)
@@ -278,7 +281,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             flex_model.load_adapter(temp_dir, loading_info=loading_info)
             flex_model.set_active_adapters("dummy")
 
-        input_data = self.get_input_samples((1, 128), config=static_model.config)
+        input_data = self.get_input_samples(config=static_model.config)
         static_model.eval()
         flex_model.eval()
         static_model.to(torch_device)
@@ -299,9 +302,6 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
     def test_train_adapter_fusion(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
         model = AutoAdapterModel.from_config(self.config())
         self.add_head(model, "head")
 
@@ -345,7 +345,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
         model.base_model.get_fusion_regularization_loss = patched_fusion_reg_loss
 
-        self.trainings_run(model, tokenizer)
+        self.trainings_run(model)
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if (
@@ -363,9 +363,6 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
     def test_batch_split_training(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
         model = AutoAdapterModel.from_config(self.config())
 
         model.add_adapter("mrpc1")
@@ -388,7 +385,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
-        self.trainings_run(model, tokenizer)
+        self.trainings_run(model)
 
         self.assertFalse(
             all(

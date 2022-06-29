@@ -108,7 +108,7 @@ class AdapterMethodBaseTestMixin:
         model.add_adapter(name, config=adapter_config)
         model.to(torch_device)
 
-        input_data = self.get_input_samples((1, 128), config=model.config)
+        input_data = self.get_input_samples(config=model.config)
 
         # pass 1: set adapter via property
         model.set_active_adapters([name])
@@ -150,7 +150,7 @@ class AdapterMethodBaseTestMixin:
         self.assertTrue(name in model2.config.adapters)
 
         # check equal output
-        input_data = self.get_input_samples((1, 128), config=model1.config)
+        input_data = self.get_input_samples(config=model1.config)
         model1.to(torch_device)
         model2.to(torch_device)
         output1 = model1(**input_data)
@@ -158,9 +158,9 @@ class AdapterMethodBaseTestMixin:
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
 
-    def trainings_run(self, model, tokenizer):
+    def trainings_run(self, model):
         # setup dataset
-        train_dataset = self.dataset(tokenizer)
+        train_dataset = self.dataset()
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,
@@ -168,6 +168,7 @@ class AdapterMethodBaseTestMixin:
             max_steps=20,
             no_cuda=True,
             per_device_train_batch_size=2,
+            remove_unused_columns=False,
         )
 
         # evaluate
@@ -181,9 +182,6 @@ class AdapterMethodBaseTestMixin:
     def run_train_test(self, adapter_config, filter_keys):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
         model = AutoAdapterModel.from_config(self.config())
 
         # add two adapters: one will be trained and the other should be frozen
@@ -212,7 +210,7 @@ class AdapterMethodBaseTestMixin:
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
-        self.trainings_run(model, tokenizer)
+        self.trainings_run(model)
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if "mrpc" in k1:

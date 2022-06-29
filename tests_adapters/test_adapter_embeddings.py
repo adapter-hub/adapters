@@ -74,10 +74,6 @@ class EmbeddingTestMixin:
 
     def test_training_embedding(self):
         model = AutoAdapterModel.from_config(self.config())
-        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-        tokenizer = AutoTokenizer.from_pretrained("tests_adapters/fixtures/SiBERT")
         model.add_adapter("test")
         self.add_head(model, "test")
         model.train_adapter("test", train_embeddings=True)
@@ -89,7 +85,7 @@ class EmbeddingTestMixin:
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
-        train_dataset = self.dataset(tokenizer)
+        train_dataset = self.dataset()
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,

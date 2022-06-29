@@ -7,6 +7,7 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...modeling_outputs import (
+    ImageClassifierOutput,
     MultipleChoiceModelOutput,
     QuestionAnsweringModelOutput,
     Seq2SeqModelOutput,
@@ -412,6 +413,67 @@ class QuestionAnsweringHead(PredictionHead):
         return ["start_positions", "end_positions"]
 
 
+class ImageClassificationHead(PredictionHead):
+    def __init__(
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        multilabel=False,
+        id2label=None,
+        use_pooler=False,
+        bias=True,
+    ):
+        super().__init__(head_name)
+        self.config = {
+            "head_type": "image_classification",
+            "num_labels": num_labels,
+            "layers": layers,
+            "activation_function": activation_function,
+            "multilabel": multilabel,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
+            "use_pooler": use_pooler,
+            "bias": bias,
+        }
+        self.build(model)
+
+    def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
+        if cls_output is None:
+            if self.config["use_pooler"]:
+                cls_output = kwargs.pop("pooled_output")
+            else:
+                cls_output = outputs[0][:, 0]
+        logits = super().forward(cls_output)
+        loss = None
+        labels = kwargs.pop("labels", None)
+        if labels is not None:
+            if self.config["num_labels"] == 1:
+                #  We are doing regression
+                loss_fct = MSELoss()
+                loss = loss_fct(logits.view(-1), labels.view(-1))
+            elif self.config["multilabel"]:
+                loss_fct = BCEWithLogitsLoss()
+                loss = loss_fct(logits, labels)
+            else:
+                loss_fct = CrossEntropyLoss()
+                loss = loss_fct(logits.view(-1, self.config["num_labels"]), labels.view(-1))
+
+        if return_dict:
+            return ImageClassifierOutput(
+                loss=loss,
+                logits=logits,
+                hidden_states=outputs.hidden_states,
+                attentions=outputs.attentions,
+            )
+        else:
+            outputs = (logits,) + outputs[1:]
+            if labels is not None:
+                outputs = (loss,) + outputs
+            return outputs
+
+
 class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     """
     Adds flexible prediction heads to a model class. Implemented by the XModelWithHeads classes.
@@ -693,9 +755,10 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             return inputs, cls_input
 
         # Pass invertible adapter if we have one
-        inv_adapter = self.base_model.get_invertible_adapter()
-        if inv_adapter:
-            kwargs["invertible_adapter"] = inv_adapter
+        if hasattr(self.base_model, "get_invertible_adapter"):
+            inv_adapter = self.base_model.get_invertible_adapter()
+            if inv_adapter:
+                kwargs["invertible_adapter"] = inv_adapter
 
         for head in used_heads:
             if head not in self.heads:
