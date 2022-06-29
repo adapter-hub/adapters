@@ -28,6 +28,9 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
     def test_load_lora(self):
         self.run_load_test(LoRAConfig())
 
+    def test_load_full_model_lora(self):
+        self.run_full_model_load_test(LoRAConfig(init_weights="bert"))
+
     def test_train_lora(self):
         self.run_train_test(LoRAConfig(init_weights="bert"), ["loras.{name}."])
 

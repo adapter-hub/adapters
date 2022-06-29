@@ -812,7 +812,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # fill in data for adapters
         for name, config_name in self.config.adapters.adapters.items():
             config = self.config.adapters.config_map[config_name]
-            row = {"name": name, "architecture": config.architecture or "bottleneck"}
+            row = {"name": name, "architecture": config.get("architecture", None) or "bottleneck"}
             weights = self.get_adapter(name)
             row["active"] = self.active_adapters is not None and name in self.active_adapters.flatten()
             # count parameters

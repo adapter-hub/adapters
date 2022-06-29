@@ -600,6 +600,8 @@ class ModelAdaptersConfig(Collection):
         config = self.get(adapter_name)
         if config is None:
             return None
+        elif not isinstance(config, AdapterConfigBase):
+            config = AdapterConfigBase.load(config)
 
         if isinstance(config, config_type):
             leave_out = config.get("leave_out", [])
@@ -646,7 +648,7 @@ class ModelAdaptersConfig(Collection):
         # if it's a dict, compute it's hash and add a new entry to the config map
         elif isinstance(config, Mapping):
             config_name = get_adapter_config_hash(config)
-            self.config_map[config_name] = config
+            self.config_map[config_name] = AdapterConfigBase.load(config)
         else:
             raise ValueError("Invalid adapter config: {}".format(config))
         self.adapters[adapter_name] = config_name

@@ -145,30 +145,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
     def test_load_mam_adapter(self):
         self.run_load_test(MAMConfig())
 
-    def test_load_full_model(self):
-        model1 = self.get_model()
-        model1.eval()
-
-        name = "dummy"
-        model1.add_adapter(name)
-        model1.set_active_adapters([name])
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model1.save_pretrained(temp_dir)
-
-            model2 = self.model_class.from_pretrained(temp_dir)
-            model2.set_active_adapters([name])
-
-        # check if adapter was correctly loaded
-        self.assertTrue(name in model2.config.adapters)
-
-        # check equal output
-        input_data = self.get_input_samples(config=model1.config)
-        model1.to(torch_device)
-        model2.to(torch_device)
-        output1 = model1(**input_data)
-        output2 = model2(**input_data)
-        self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.equal(output1[0], output2[0]))
+    def test_load_full_model_adapter(self):
+        self.run_full_model_load_test(PfeifferConfig())
 
     def test_model_config_serialization(self):
         """PretrainedConfigurations should not raise an Exception when serializing the config dict
