@@ -642,10 +642,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         # use last adapter name as name of prediction head
         if self.active_adapters:
             head_setup = parse_heads_from_composition(self.active_adapters)
-            if head_setup:
+            if isinstance(head_setup, str):
+                head_setup = [head_setup]
+            if head_setup and all(head in self.heads for head in head_setup):
                 self.active_head = head_setup
             else:
-                logger.info("Could not identify a valid prediction head from setup '{}'.".format(self.active_adapters))
+                logger.info("Could not identify valid prediction head(s) from setup '{}'.".format(self.active_adapters))
 
     def add_custom_head(self, head_type, head_name, overwrite_ok=False, set_active=True, **kwargs):
         if head_type in self.config.custom_heads:
