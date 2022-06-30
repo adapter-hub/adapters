@@ -462,6 +462,8 @@ class ConfigUnion(AdapterConfigBase):
     def __getitem__(self, key):
         if isinstance(key, int):
             return self.configs[key]
+        elif hasattr(self, key):
+            return getattr(self, key)
         else:
             i, k = key.split(".")
             return self.configs[int(i)][k]
