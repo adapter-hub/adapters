@@ -25,13 +25,13 @@ class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mode
     """Adds adapters to the T5Model class."""
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
+        global_i = 0
         if hasattr(self, "encoder"):
+            global_i = len(self.encoder.block)
             for i, layer in enumerate(self.encoder.block):
                 yield i, layer
-            for i, layer in enumerate(self.decoder.block, start=len(self.encoder.block)):
-                yield i, layer
-        else:
-            for i, layer in enumerate(self.decoder.block):
+        if hasattr(self, "decoder"):
+            for i, layer in enumerate(self.decoder.block, start=global_i):
                 yield i, layer
 
     def _init_adapter_modules(self):
