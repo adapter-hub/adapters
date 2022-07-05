@@ -27,6 +27,9 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
     def test_load_prefix_tuning(self):
         self.run_load_test(PrefixTuningConfig())
 
+    def test_load_full_model_prefix_tuning(self):
+        self.run_full_model_load_test(PrefixTuningConfig())
+
     def test_train_prefix_tuning(self):
         self.run_train_test(PrefixTuningConfig(), ["prefix_tunings.{name}."])
 

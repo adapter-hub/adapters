@@ -253,7 +253,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         # Initialize adapters from config
         for adapter_name in self.config.adapters:
-            self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
+            self._add_adapter_weights(adapter_name)
         # Initialize fusion from config
         for fusion_name in self.config.adapters.fusions:
             self.apply_to_adapter_layers(lambda i, layer: layer.add_fusion_layer(fusion_name))
@@ -387,26 +387,27 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             self.delete_adapter(adapter_name)
         self.config.adapters.add(adapter_name, config=config)
         try:
-            self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
-            # PHM Layer
-            if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
-                self._add_shared_parameters(adapter_name, config)
-            # Prefix Tuning
-            for module in self.modules():
-                if isinstance(module, PrefixTuningPool):
-                    module.confirm_prefix(adapter_name)
-            if isinstance(self, InvertibleAdaptersMixin):
-                self.add_invertible_adapter(adapter_name)
+            self._add_adapter_weights(adapter_name)
         except ValueError as ex:
             self.delete_adapter(adapter_name)
             raise ex
         if set_active:
             self.set_active_adapters(adapter_name)
 
-    def _add_shared_parameters(self, adapter_name, adapter_config: AdapterConfig):
-        self.shared_parameters[adapter_name] = (
-            list(self.get_adapter(adapter_name)[0].values())[0].adapter_down[0].init_shared_parameters()
-        )
+    def _add_adapter_weights(self, adapter_name: str):
+        """Helper method that performs the actual parameter additions when adding a new adapter."""
+        self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
+        # PHM Layer
+        if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
+            self.shared_parameters[adapter_name] = (
+                list(self.get_adapter(adapter_name)[0].values())[0].adapter_down[0].init_shared_parameters()
+            )
+        # Prefix Tuning
+        for module in self.modules():
+            if isinstance(module, PrefixTuningPool):
+                module.confirm_prefix(adapter_name)
+        if isinstance(self, InvertibleAdaptersMixin):
+            self.add_invertible_adapter(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
         warnings.warn(
@@ -814,7 +815,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # fill in data for adapters
         for name, config_name in self.config.adapters.adapters.items():
             config = self.config.adapters.config_map[config_name]
-            row = {"name": name, "architecture": config.architecture or "bottleneck"}
+            row = {"name": name, "architecture": config.get("architecture", None) or "bottleneck"}
             weights = self.get_adapter(name)
             row["active"] = self.active_adapters is not None and name in self.active_adapters.flatten()
             # count parameters
