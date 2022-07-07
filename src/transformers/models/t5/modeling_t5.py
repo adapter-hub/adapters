@@ -34,9 +34,10 @@ from ...adapters.mixins.t5 import (
     T5CrossAttentionLayerAdaptersMixin,
     T5FFLayerAdaptersMixin,
     T5ModelAdaptersMixin,
+    T5ModelWithHeadsAdaptersMixin,
     T5SelfAttentionLayerAdaptersMixin,
 )
-from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ...adapters.model_mixin import InvertibleAdaptersMixin
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutput,
@@ -1507,7 +1508,7 @@ class T5Model(T5ModelAdaptersMixin, T5PreTrainedModel):
 
 
 @add_start_docstrings("""T5 Model with a `language modeling` head on top.""", T5_START_DOCSTRING)
-class T5ForConditionalGeneration(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin, T5PreTrainedModel):
+class T5ForConditionalGeneration(T5ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin, T5PreTrainedModel):
     _keys_to_ignore_on_load_missing = [
         r"encoder\.embed_tokens\.weight",
         r"decoder\.embed_tokens\.weight",

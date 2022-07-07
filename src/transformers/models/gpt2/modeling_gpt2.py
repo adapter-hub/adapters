@@ -38,8 +38,11 @@ from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
 from ...adapters.lora import MergedLinear as LoRAMergedLinear
-from ...adapters.mixins.gpt2 import GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin
-from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.mixins.gpt2 import (
+    GPT2DecoderBlockAdaptersMixin,
+    GPT2ModelAdapterMixin,
+    GPT2ModelWithHeadsAdaptersMixin,
+)
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
@@ -972,7 +975,7 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2LMHeadModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
+class GPT2LMHeadModel(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"attn.masked_bias", r"attn.bias", r"lm_head.weight"]
 
     def __init__(self, config):
@@ -1143,7 +1146,7 @@ input sequence).
 """,
     GPT2_START_DOCSTRING,
 )
-class GPT2DoubleHeadsModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
+class GPT2DoubleHeadsModel(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"attn.masked_bias", r"attn.bias", r"lm_head.weight"]
 
     def __init__(self, config):
@@ -1357,7 +1360,7 @@ class GPT2DoubleHeadsModel(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2ForSequenceClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
+class GPT2ForSequenceClassification(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head\.weight"]
 
     def __init__(self, config):
@@ -1485,7 +1488,7 @@ class GPT2ForSequenceClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedM
     """,
     GPT2_START_DOCSTRING,
 )
-class GPT2ForTokenClassification(ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
+class GPT2ForTokenClassification(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels

@@ -31,8 +31,9 @@ from ...adapters.mixins.bart import (
     BartDecoderLayerAdaptersMixin,
     BartEncoderLayerAdaptersMixin,
     BartModelAdaptersMixin,
+    BartModelWithHeadsAdaptersMixin,
 )
-from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ...adapters.model_mixin import InvertibleAdaptersMixin
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutput,
@@ -1296,7 +1297,7 @@ class MBartModel(BartModelAdaptersMixin, MBartPreTrainedModel):
 @add_start_docstrings(
     "The MBART Model with a language modeling head. Can be used for summarization.", MBART_START_DOCSTRING
 )
-class MBartForConditionalGeneration(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
+class MBartForConditionalGeneration(BartModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
     base_model_prefix = "model"
     _keys_to_ignore_on_load_missing = [
         r"final_logits_bias",
@@ -1470,7 +1471,7 @@ class MBartForConditionalGeneration(ModelWithHeadsAdaptersMixin, MBartPreTrained
     """,
     MBART_START_DOCSTRING,
 )
-class MBartForSequenceClassification(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
+class MBartForSequenceClassification(BartModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
     def __init__(self, config: MBartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = MBartModel(config)
@@ -1599,7 +1600,7 @@ class MBartForSequenceClassification(ModelWithHeadsAdaptersMixin, MBartPreTraine
     """,
     MBART_START_DOCSTRING,
 )
-class MBartForQuestionAnswering(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
+class MBartForQuestionAnswering(BartModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1739,7 +1740,7 @@ class MBartDecoderWrapper(BartModelAdaptersMixin, MBartPreTrainedModel):
 
 
 # Copied from transformers.models.bart.modeling_bart.BartForCausalLM with Bart->MBart, facebook/bart-base->facebook/mbart-large-cc25
-class MBartForCausalLM(ModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
+class MBartForCausalLM(BartModelWithHeadsAdaptersMixin, MBartPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         decoder_config = copy.deepcopy(config)

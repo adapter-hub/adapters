@@ -13,6 +13,7 @@ from ...heads import (
     MultiLabelClassificationHead,
     TaggingHead,
 )
+from ...model_mixin import EmbeddingAdaptersWrapperMixin
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
 """,
     GPT2_START_DOCSTRING,
 )
-class GPT2AdapterModel(ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel):
+class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.transformer = GPT2Model(config)

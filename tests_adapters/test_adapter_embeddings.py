@@ -160,3 +160,7 @@ class EmbeddingTestMixin:
         test = test_embedding(input_test)
 
         self.assertTrue(torch.equal(default, test))
+
+        # activate for training
+        model.add_adapter("test")
+        model.train_adapter("test", train_embeddings=True)

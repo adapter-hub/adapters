@@ -28,8 +28,12 @@ from ...activations import ACT2FN, gelu
 from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
-from ...adapters.mixins.bert import BertModelAdaptersMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
-from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.mixins.bert import (
+    BertModelAdaptersMixin,
+    BertModelWithHeadsAdaptersMixin,
+    BertOutputAdaptersMixin,
+    BertSelfOutputAdaptersMixin,
+)
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
@@ -900,7 +904,7 @@ class RobertaModel(BertModelAdaptersMixin, RobertaPreTrainedModel):
 @add_start_docstrings(
     """RoBERTa Model with a `language modeling` head on top for CLM fine-tuning.""", ROBERTA_START_DOCSTRING
 )
-class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
+class RobertaForCausalLM(BertModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
     _keys_to_ignore_on_save = [r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
@@ -1055,7 +1059,7 @@ class RobertaForCausalLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
 
 
 @add_start_docstrings("""RoBERTa Model with a `language modeling` head on top.""", ROBERTA_START_DOCSTRING)
-class RobertaForMaskedLM(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
+class RobertaForMaskedLM(BertModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
     _keys_to_ignore_on_save = [r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
@@ -1192,7 +1196,7 @@ class RobertaLMHead(nn.Module):
     """,
     ROBERTA_START_DOCSTRING,
 )
-class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
+class RobertaForSequenceClassification(BertModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config):
@@ -1292,7 +1296,7 @@ class RobertaForSequenceClassification(ModelWithHeadsAdaptersMixin, RobertaPreTr
     """,
     ROBERTA_START_DOCSTRING,
 )
-class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
+class RobertaForMultipleChoice(BertModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config):
@@ -1385,7 +1389,7 @@ class RobertaForMultipleChoice(ModelWithHeadsAdaptersMixin, RobertaPreTrainedMod
     """,
     ROBERTA_START_DOCSTRING,
 )
-class RobertaForTokenClassification(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
+class RobertaForTokenClassification(BertModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
@@ -1494,7 +1498,7 @@ class RobertaClassificationHead(nn.Module):
     """,
     ROBERTA_START_DOCSTRING,
 )
-class RobertaForQuestionAnswering(ModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
+class RobertaForQuestionAnswering(BertModelWithHeadsAdaptersMixin, RobertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 

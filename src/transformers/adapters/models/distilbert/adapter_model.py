@@ -20,13 +20,16 @@ from ...heads import (
     QuestionAnsweringHead,
     TaggingHead,
 )
+from ...model_mixin import EmbeddingAdaptersWrapperMixin
 
 
 @add_start_docstrings(
     """DistilBert Model transformer with the option to add multiple flexible heads on top.""",
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, DistilBertPreTrainedModel):
+class DistilBertAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, DistilBertPreTrainedModel
+):
     def __init__(self, config):
         super().__init__(config)
         self.distilbert = DistilBertModel(config)
