@@ -5,7 +5,6 @@ import torch.nn as nn
 from ..layer import AdapterLayer
 from ..model_mixin import (
     EmbeddingAdaptersMixin,
-    EmbeddingAdaptersWrapperMixin,
     InvertibleAdaptersMixin,
     ModelAdaptersMixin,
     ModelWithHeadsAdaptersMixin,
@@ -53,5 +52,6 @@ class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mode
         super()._init_adapter_modules()
 
 
-class T5ModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
+# EmbeddingAdaptersWrapperMixin not required here as base and heads model are identical
+class T5ModelWithHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     pass
