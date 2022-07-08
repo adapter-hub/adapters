@@ -275,6 +275,23 @@ class PfeifferConfig(AdapterConfig):
     non_linearity: str = "relu"
     reduction_factor: Union[float, Mapping] = 16
 
+@dataclass(eq=False)
+class AAConfig(PfeifferConfig):
+    """
+    The adapter architecture proposed by Pfeiffer et al. (2020). See https://arxiv.org/pdf/2005.00247.pdf.
+    """
+
+    # rational
+    non_linearity: str = "rational"
+    m: int = 5
+    n: int = 4
+
+    # gumble-softmax
+    tau: float = 0.1
+    pi_0: float = 0.5
+    pi_1: float = 0.5
+
+
 
 @dataclass(eq=False)
 class CompacterPlusPlusConfig(PfeifferConfig):
@@ -531,6 +548,7 @@ ADAPTER_CONFIG_MAP = {
     "scaled_parallel": ParallelConfig(scaling="learned"),
     "lora": LoRAConfig(),
     "mam": MAMConfig(),
+    "aa": AAConfig(),
 }
 
 DEFAULT_ADAPTER_CONFIG = "pfeiffer"

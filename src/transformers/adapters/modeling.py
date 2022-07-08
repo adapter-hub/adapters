@@ -5,8 +5,9 @@ from torch import nn
 
 from transformers.activations import get_activation
 
-from .configuration import AdapterConfig, AdapterFusionConfig
+from .configuration import AdapterConfig, AdapterFusionConfig, AAConfig
 from .context import ForwardContext
+from rational.torch import Rational
 
 
 class Activation_Function_Class(nn.Module):
@@ -16,8 +17,12 @@ class Activation_Function_Class(nn.Module):
 
     def __init__(self, hidden_act):
         super().__init__()
+        # add rational activation function
         if hidden_act.lower() == "leakyrelu":
             self.f = nn.functional.leaky_relu
+        elif hidden_act.lower().startswith("rational_"):
+            _, m, n = hidden_act.lower().split("_")
+            self.f = Rational(degrees=(m, n)) # already initialized with degree (5, 4)
         else:
             self.f = get_activation(hidden_act.lower())
 
@@ -52,6 +57,8 @@ class Adapter(nn.Module):
         self.original_ln_before = config["original_ln_before"]
         self.original_ln_after = config["original_ln_after"]
 
+        self.config = config
+
         # list for all modules of the adapter, passed into nn.Sequential()
         seq_list = []
 
@@ -76,7 +83,11 @@ class Adapter(nn.Module):
             seq_list.append(nn.Linear(self.input_size, self.down_sample))
 
         # select non-linearity
-        self.non_linearity = Activation_Function_Class(config["non_linearity"].lower())
+        act_fn = config["non_linearity"].lower()
+        if isinstance(config, AAConfig):
+            # rational activation with specified degrees
+            act_fn = f"{act_fn}_{config.m}_{config.n}"
+        self.non_linearity = Activation_Function_Class(act_fn)
 
         seq_list.append(self.non_linearity)
 
@@ -116,6 +127,10 @@ class Adapter(nn.Module):
                 nn.init.zeros_(self.adapter_up.bias)
         else:
             raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
+
+        # AAConfig (grumbel_softmax logits)
+        if isinstance(config, AAConfig):
+            self.pis = torch.nn.Parameter(torch.Tensor([config.pi_0, config.pi_1]))
 
     def pre_forward(
         self,
@@ -163,10 +178,15 @@ class Adapter(nn.Module):
         up = self.adapter_up(down)
         up = up * self.scaling
         output = up
-
+        
         # apply residual connection before layer norm if configured in this way
         if self.adapter_residual_before_ln:
-            output = output + residual_input
+            if isinstance(self.config, AAConfig):
+                # gumbel switch
+                switch = torch.nn.functional.gumbel_softmax(self.pis, tau=self.config.tau, hard=True)
+                output = switch[0] * output + switch[1] * residual_input
+            else:    
+                output = output + residual_input
 
         # apply layer norm if available
         if self.add_layer_norm_after:
@@ -174,7 +194,12 @@ class Adapter(nn.Module):
 
         # if residual should be applied after layer norm, apply it here
         if not self.adapter_residual_before_ln:
-            output = output + residual_input
+            if isinstance(self.config, AAConfig):
+                # gumbel switch
+                switch = torch.nn.functional.gumbel_softmax(self.pis, tau=self.config.tau, hard=True)
+                output = switch[0] * output + switch[1] * residual_input
+            else:    
+                output = output + residual_input
 
         return output, down, up
 
