@@ -32,8 +32,12 @@ from ...activations import ACT2FN
 from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
-from ...adapters.mixins.bert import BertModelAdaptersMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
-from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.mixins.bert import (
+    BertModelAdaptersMixin,
+    BertModelWithHeadsAdaptersMixin,
+    BertOutputAdaptersMixin,
+    BertSelfOutputAdaptersMixin,
+)
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
@@ -1076,7 +1080,7 @@ class BertModel(BertModelAdaptersMixin, BertPreTrainedModel):
     """,
     BERT_START_DOCSTRING,
 )
-class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
+class BertForPreTraining(BertModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1184,7 +1188,7 @@ class BertForPreTraining(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 @add_start_docstrings(
     """Bert Model with a `language modeling` head on top for CLM fine-tuning.""", BERT_START_DOCSTRING
 )
-class BertLMHeadModel(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
+class BertLMHeadModel(BertModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]
@@ -1322,7 +1326,7 @@ class BertLMHeadModel(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
 
 @add_start_docstrings("""Bert Model with a `language modeling` head on top.""", BERT_START_DOCSTRING)
-class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
+class BertForMaskedLM(BertModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]
@@ -1438,7 +1442,7 @@ class BertForMaskedLM(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     """Bert Model with a `next sentence prediction (classification)` head on top.""",
     BERT_START_DOCSTRING,
 )
-class BertForNextSentencePrediction(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
+class BertForNextSentencePrediction(BertModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1542,7 +1546,7 @@ class BertForNextSentencePrediction(ModelWithHeadsAdaptersMixin, BertPreTrainedM
     """,
     BERT_START_DOCSTRING,
 )
-class BertForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
+class BertForSequenceClassification(BertModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1646,7 +1650,7 @@ class BertForSequenceClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedM
     """,
     BERT_START_DOCSTRING,
 )
-class BertForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
+class BertForMultipleChoice(BertModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1741,7 +1745,7 @@ class BertForMultipleChoice(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
     """,
     BERT_START_DOCSTRING,
 )
-class BertForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
+class BertForTokenClassification(BertModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
@@ -1828,7 +1832,7 @@ class BertForTokenClassification(ModelWithHeadsAdaptersMixin, BertPreTrainedMode
     """,
     BERT_START_DOCSTRING,
 )
-class BertForQuestionAnswering(ModelWithHeadsAdaptersMixin, BertPreTrainedModel):
+class BertForQuestionAnswering(BertModelWithHeadsAdaptersMixin, BertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 

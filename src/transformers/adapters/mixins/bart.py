@@ -3,7 +3,13 @@ from typing import Iterable, Tuple
 import torch.nn as nn
 
 from ..layer import AdapterLayer
-from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..model_mixin import (
+    EmbeddingAdaptersMixin,
+    EmbeddingAdaptersWrapperMixin,
+    InvertibleAdaptersMixin,
+    ModelAdaptersMixin,
+    ModelWithHeadsAdaptersMixin,
+)
 
 
 class BartEncoderLayerAdaptersMixin:
@@ -48,3 +54,7 @@ class BartModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
             self.enable_invertible_adapters = self.encoder.enable_invertible_adapters
             self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
         super()._init_adapter_modules()
+
+
+class BartModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
+    pass

@@ -152,7 +152,7 @@ class EmbeddingAdaptersMixin:
             raise ValueError("An embedding with the name {} already exists".format(name))
         if embedding_dim is None:
             embedding_dim = self.config.hidden_size
-        embedding = nn.Embedding(tokenizer.vocab_size, embedding_dim)
+        embedding = nn.Embedding(len(tokenizer), embedding_dim)
         embedding.requires_grad_(False)
         if (reference_embedding is not None and reference_tokenizer is None) or (
             reference_tokenizer is not None and reference_embedding is None
@@ -167,7 +167,9 @@ class EmbeddingAdaptersMixin:
             for t in tokens:
                 idx_reference = reference_vocab[t]
                 idx = vocab[t]
-                embedding.weight[idx] = self.loaded_embeddings[reference_embedding].weight[idx_reference].clone()
+                embedding.weight[idx] = (
+                    self.loaded_embeddings[reference_embedding].weight[idx_reference].detach().clone()
+                )
         embedding.train(False)
         self.loaded_embeddings[name] = embedding
         self.set_active_embeddings(name)
@@ -222,6 +224,31 @@ class EmbeddingAdaptersMixin:
     @property
     def active_embeddings(self):
         return self._active_embedding
+
+
+class EmbeddingAdaptersWrapperMixin:
+    def load_embeddings(self, path: str, name: str):
+        return self.base_model.load_embeddings(path, name)
+
+    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
+        return self.base_model.add_embeddings(name, tokenizer, reference_embedding, reference_tokenizer, embedding_dim)
+
+    def delete_embeddings(self, name):
+        return self.base_model.delete_embeddings(name)
+
+    def save_embeddings(self, path, name, tokenizer=None):
+        return self.base_model.save_embeddings(path, name, tokenizer)
+
+    def set_active_embeddings(self, name):
+        return self.base_model.set_active_embeddings(name)
+
+    @property
+    def active_embeddings(self):
+        return self.base_model.active_embeddings
+
+    @property
+    def loaded_embeddings(self):
+        return self.base_model.loaded_embeddings
 
 
 class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
@@ -1128,35 +1155,3 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             return super().get_adapter(name)
         else:
             return self.base_model.get_adapter(name)
-
-    def load_embeddings(self, path: str, name: str):
-        if self.base_model is self:
-            return super().load_embeddings(path, name)
-        else:
-            return self.base_model.load_embeddings(path, name)
-
-    def save_embeddings(self, path, name, tokenizer=None):
-        if self.base_model is self:
-            return super().save_embeddings(path, name, tokenizer)
-        else:
-            return self.base_model.save_embeddings(path, name, tokenizer)
-
-    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
-        if self.base_model is None:
-            return super().add_embeddings(name, tokenizer, reference_embedding, reference_tokenizer, embedding_dim)
-        else:
-            return self.base_model.add_embeddings(
-                name, tokenizer, reference_embedding, reference_tokenizer, embedding_dim
-            )
-
-    def set_active_embeddings(self, name):
-        if self.base_model is None:
-            return super().set_active_embeddings(name)
-        else:
-            return self.base_model.set_active_embeddings(name)
-
-    def delete_embeddings(self, name):
-        if self.base_model is None:
-            return super().delete_embeddings(name)
-        else:
-            return self.base_model.delete_embeddings(name)

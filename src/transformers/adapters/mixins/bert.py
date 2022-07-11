@@ -4,7 +4,13 @@ from typing import Iterable, Tuple
 import torch.nn as nn
 
 from ..layer import AdapterLayer
-from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..model_mixin import (
+    EmbeddingAdaptersMixin,
+    EmbeddingAdaptersWrapperMixin,
+    InvertibleAdaptersMixin,
+    ModelAdaptersMixin,
+    ModelWithHeadsAdaptersMixin,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -32,3 +38,7 @@ class BertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.encoder.layer):
             yield i, layer
+
+
+class BertModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
+    pass

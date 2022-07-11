@@ -14,13 +14,14 @@ from ...heads import (
     QuestionAnsweringHead,
     TaggingHead,
 )
+from ...model_mixin import EmbeddingAdaptersWrapperMixin
 
 
 @add_start_docstrings(
     """Bert Model transformer with the option to add multiple flexible heads on top.""",
     BERT_START_DOCSTRING,
 )
-class BertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel):
+class BertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 

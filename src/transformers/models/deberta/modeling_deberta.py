@@ -27,8 +27,12 @@ from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
 from ...adapters.lora import MergedLinear as LoRAMergedLinear
-from ...adapters.mixins.bert import BertModelAdaptersMixin, BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
-from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.mixins.bert import (
+    BertModelAdaptersMixin,
+    BertModelWithHeadsAdaptersMixin,
+    BertOutputAdaptersMixin,
+    BertSelfOutputAdaptersMixin,
+)
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutput,
@@ -1017,7 +1021,7 @@ class DebertaModel(BertModelAdaptersMixin, DebertaPreTrainedModel):
 
 
 @add_start_docstrings("""DeBERTa Model with a `language modeling` head on top.""", DEBERTA_START_DOCSTRING)
-class DebertaForMaskedLM(ModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
+class DebertaForMaskedLM(BertModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]
 
@@ -1165,7 +1169,7 @@ class DebertaOnlyMLMHead(nn.Module):
     """,
     DEBERTA_START_DOCSTRING,
 )
-class DebertaForSequenceClassification(ModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
+class DebertaForSequenceClassification(BertModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1284,7 +1288,7 @@ class DebertaForSequenceClassification(ModelWithHeadsAdaptersMixin, DebertaPreTr
     """,
     DEBERTA_START_DOCSTRING,
 )
-class DebertaForTokenClassification(ModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
+class DebertaForTokenClassification(BertModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
     def __init__(self, config):
@@ -1360,7 +1364,7 @@ class DebertaForTokenClassification(ModelWithHeadsAdaptersMixin, DebertaPreTrain
     """,
     DEBERTA_START_DOCSTRING,
 )
-class DebertaForQuestionAnswering(ModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
+class DebertaForQuestionAnswering(BertModelWithHeadsAdaptersMixin, DebertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
     def __init__(self, config):

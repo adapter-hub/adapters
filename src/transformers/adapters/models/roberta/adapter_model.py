@@ -19,13 +19,14 @@ from ...heads import (
     QuestionAnsweringHead,
     TaggingHead,
 )
+from ...model_mixin import EmbeddingAdaptersWrapperMixin
 
 
 @add_start_docstrings(
     """Roberta Model transformer with the option to add multiple flexible heads on top.""",
     ROBERTA_START_DOCSTRING,
 )
-class RobertaAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, RobertaPreTrainedModel):
+class RobertaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, RobertaPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 

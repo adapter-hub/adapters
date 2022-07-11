@@ -3,7 +3,12 @@ from typing import Iterable, Tuple
 import torch.nn as nn
 
 from ..layer import AdapterLayer
-from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..model_mixin import (
+    EmbeddingAdaptersMixin,
+    InvertibleAdaptersMixin,
+    ModelAdaptersMixin,
+    ModelWithHeadsAdaptersMixin,
+)
 
 
 class T5SelfAttentionLayerAdaptersMixin(AdapterLayer):
@@ -45,3 +50,8 @@ class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mode
             self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
             self.delete_invertible_adapter = self.encoder.delete_invertible_adapter
         super()._init_adapter_modules()
+
+
+# EmbeddingAdaptersWrapperMixin not required here as base and heads model are identical
+class T5ModelWithHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
+    pass

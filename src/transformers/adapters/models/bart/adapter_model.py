@@ -19,12 +19,13 @@ from ...heads import (
     QuestionAnsweringHead,
     Seq2SeqLMHead,
 )
+from ...model_mixin import EmbeddingAdaptersWrapperMixin
 
 
 @add_start_docstrings(
     "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
 )
-class BartAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel):
+class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel):
     def __init__(self, config: BartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = BartModel(config)

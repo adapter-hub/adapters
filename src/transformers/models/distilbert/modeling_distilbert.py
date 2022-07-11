@@ -33,8 +33,11 @@ from ...activations import get_activation
 from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
-from ...adapters.mixins.distilbert import DistilBertModelAdaptersMixin, DistilBertTransfomerBlockAdaptersMixin
-from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
+from ...adapters.mixins.distilbert import (
+    DistilBertModelAdaptersMixin,
+    DistilBertModelWithHeadsAdaptersMixin,
+    DistilBertTransfomerBlockAdaptersMixin,
+)
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...deepspeed import is_deepspeed_zero3_enabled
 from ...modeling_outputs import (
@@ -597,7 +600,7 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
     """DistilBert Model with a `masked language modeling` head on top.""",
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForMaskedLM(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
+class DistilBertForMaskedLM(DistilBertModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
 
@@ -704,7 +707,7 @@ class DistilBertForMaskedLM(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedMod
     """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForSequenceClassification(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
+class DistilBertForSequenceClassification(DistilBertModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -822,7 +825,7 @@ class DistilBertForSequenceClassification(ModelWithHeadsAdaptersMixin, DistilBer
     """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForQuestionAnswering(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
+class DistilBertForQuestionAnswering(DistilBertModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
 
@@ -939,7 +942,7 @@ class DistilBertForQuestionAnswering(ModelWithHeadsAdaptersMixin, DistilBertPreT
     """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForTokenClassification(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
+class DistilBertForTokenClassification(DistilBertModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1034,7 +1037,7 @@ class DistilBertForTokenClassification(ModelWithHeadsAdaptersMixin, DistilBertPr
     """,
     DISTILBERT_START_DOCSTRING,
 )
-class DistilBertForMultipleChoice(ModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
+class DistilBertForMultipleChoice(DistilBertModelWithHeadsAdaptersMixin, DistilBertPreTrainedModel):
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
 

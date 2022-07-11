@@ -32,8 +32,9 @@ from ...adapters.mixins.bart import (
     BartDecoderLayerAdaptersMixin,
     BartEncoderLayerAdaptersMixin,
     BartModelAdaptersMixin,
+    BartModelWithHeadsAdaptersMixin,
 )
-from ...adapters.model_mixin import InvertibleAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ...adapters.model_mixin import InvertibleAdaptersMixin
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutput,
@@ -1302,7 +1303,7 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
 @add_start_docstrings(
     "The BART Model with a language modeling head. Can be used for summarization.", BART_START_DOCSTRING
 )
-class BartForConditionalGeneration(ModelWithHeadsAdaptersMixin, BartPretrainedModel):
+class BartForConditionalGeneration(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
     base_model_prefix = "model"
     _keys_to_ignore_on_load_missing = [r"final_logits_bias", r"lm_head\.weight"]
 
@@ -1472,7 +1473,7 @@ class BartForConditionalGeneration(ModelWithHeadsAdaptersMixin, BartPretrainedMo
     """,
     BART_START_DOCSTRING,
 )
-class BartForSequenceClassification(ModelWithHeadsAdaptersMixin, BartPretrainedModel):
+class BartForSequenceClassification(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
     def __init__(self, config: BartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = BartModel(config)
@@ -1600,7 +1601,7 @@ class BartForSequenceClassification(ModelWithHeadsAdaptersMixin, BartPretrainedM
     """,
     BART_START_DOCSTRING,
 )
-class BartForQuestionAnswering(ModelWithHeadsAdaptersMixin, BartPretrainedModel):
+class BartForQuestionAnswering(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -1737,7 +1738,7 @@ class BartDecoderWrapper(BartModelAdaptersMixin, BartPretrainedModel):
         return self.decoder.get_input_embeddings()
 
 
-class BartForCausalLM(ModelWithHeadsAdaptersMixin, BartPretrainedModel):
+class BartForCausalLM(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
     def __init__(self, config):
         super().__init__(config)
         decoder_config = copy.deepcopy(config)

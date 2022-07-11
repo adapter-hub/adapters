@@ -10,12 +10,15 @@ from ...heads import (
     QuestionAnsweringHead,
     TaggingHead,
 )
+from ...model_mixin import EmbeddingAdaptersWrapperMixin
 
 
 @add_start_docstrings(
     """Deberta v2 Model transformer with the option to add multiple flexible heads on top.""",
 )
-class DebertaV2AdapterModel(ModelWithFlexibleHeadsAdaptersMixin, DebertaV2PreTrainedModel):
+class DebertaV2AdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, DebertaV2PreTrainedModel
+):
     _keys_to_ignore_on_load_unexpected = [r"cls.predictions.bias"]
 
     def __init__(self, config):
