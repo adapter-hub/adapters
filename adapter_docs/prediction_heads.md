@@ -53,7 +53,7 @@ After training has completed, we can save our whole setup (adapter module _and_ 
 model.save_adapter("/path/to/dir", "mrpc", with_head=True)
 ```
 
-Now, you just have to [share your work with the world](./contributing.md#add-your-pre-trained-adapter).
+Now, you just have to [share your work with the world](./hub_contributing.md#add-your-pre-trained-adapter).
 After you published our adapter together with its head in the Hub, anyone else can load both adapter and head by using the same model class.
 
 Alternatively, we can also save and load the prediction head separately from an adapter module:

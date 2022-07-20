@@ -41,7 +41,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    :caption: Loading and Sharing
 
    loading
-   contributing
+   hub_contributing
    huggingface_hub
 
 .. toctree::
@@ -74,6 +74,13 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/model_mixins
    classes/adapter_utils
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Contributing
+
+   contributing
+   contributing/adding_adapter_methods
+   contributing/adding_adapters_to_a_model
 
 Citation
 ========

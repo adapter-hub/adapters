@@ -28,6 +28,6 @@ The table below further shows which model architectures support which adaptation
 (*) If the used encoder and decoder model class are supported.
 
 **Missing a model architecture you'd like to use?**
-adapter-transformers can be easily extended to new model architectures as described in [Adding Adapters to a Model](https://github.com/Adapter-Hub/adapter-transformers/blob/master/adding_adapters_to_a_model.md).
+adapter-transformers can be easily extended to new model architectures as described in [Adding Adapters to a Model](https://docs.adapterhub.ml/contributing/adding_adapters_to_a_model.html).
 Feel free to [open an issue](https://github.com/Adapter-Hub/adapter-transformers/issues) requesting support for a new architecture.
 _We very much welcome pull requests adding new model implementations!_
