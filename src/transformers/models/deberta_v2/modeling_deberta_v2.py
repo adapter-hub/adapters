@@ -624,9 +624,13 @@ class DisentangledSelfAttention(nn.Module):
         _attention_head_size = config.hidden_size // config.num_attention_heads
         self.attention_head_size = getattr(config, "attention_head_size", _attention_head_size)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
-        self.query_proj = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, bias=True)
-        self.key_proj = nn.Linear(config.hidden_size, self.all_head_size, bias=True)
-        self.value_proj = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, bias=True)
+        self.query_proj = LoRALinear(
+            config.hidden_size, self.all_head_size, "selfattn", config, attn_key="q", bias=True
+        )
+        self.key_proj = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="k", bias=True)
+        self.value_proj = LoRALinear(
+            config.hidden_size, self.all_head_size, "selfattn", config, attn_key="v", bias=True
+        )
 
         self.share_att_key = getattr(config, "share_att_key", False)
         self.pos_att_type = config.pos_att_type if config.pos_att_type is not None else []

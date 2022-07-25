@@ -154,9 +154,9 @@ class MultiHeadSelfAttention(nn.Module):
 
         assert self.dim % self.n_heads == 0
 
-        self.q_lin = LoRALinear(config.dim, config.dim, "selfattn", config)
-        self.k_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
-        self.v_lin = LoRALinear(config.dim, config.dim, "selfattn", config)
+        self.q_lin = LoRALinear(config.dim, config.dim, "selfattn", config, attn_key="q")
+        self.k_lin = LoRALinear(config.dim, config.dim, "selfattn", config, attn_key="k")
+        self.v_lin = LoRALinear(config.dim, config.dim, "selfattn", config, attn_key="v")
         self.out_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
 
         self.pruned_heads: Set[int] = set()

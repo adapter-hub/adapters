@@ -176,7 +176,6 @@ class GPT2Attention(nn.Module):
                 3 * self.embed_dim,
                 "selfattn",
                 config,
-                enable_lora=[True, False, True],
                 fan_in_fan_out=True,
             )
         self.c_proj = Conv1D(self.embed_dim, self.embed_dim)
