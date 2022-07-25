@@ -10,10 +10,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from ..configuration_utils import PretrainedConfig
 from .composition import AdapterCompositionBlock
 from .configuration import LoRAConfig
 from .layer import AdapterLayerBase
-from ..configuration_utils import PretrainedConfig
 
 
 class LoRA(nn.Module):

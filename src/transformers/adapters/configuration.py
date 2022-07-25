@@ -396,11 +396,11 @@ class LoRAConfig(AdapterConfigBase):
         dropout (float, optional): The dropout rate used in the LoRA layer. Defaults to 0.0.
         attn_matrices (List[str], optional): Determines which matrices of the self-attention module to adapt.
             A list that may contain the strings "q" (query), "k" (key), "v" (value). Defaults to ["q", "v"].
-        composition_mode (str, optional): Defines how the injected weights are composed with the original model weights.
-            Can be either "add" (addition, as in LoRA) or "scale" (element-wise multiplication, as in IA^3).
-            Defaults to "add".
+        composition_mode (str, optional):
+            Defines how the injected weights are composed with the original model weights. Can be either "add"
+            (addition, as in LoRA) or "scale" (element-wise multiplication, as in (IA)^3). Defaults to "add".
         no_decomposition (bool, optional): Don't decompose added weights into two matrices A and B.
-            This can only be True together when r=1. Used for IA^3. Defaults to False.
+            This can only be True together when r=1. Used for (IA)^3. Defaults to False.
         init_weights (:obj:`str`, optional): Initialization method for the weights of the LoRA modules.
             Currently, this can be either "lora" (default) or "bert".
     """
@@ -423,11 +423,11 @@ class LoRAConfig(AdapterConfigBase):
 @dataclass(eq=False)
 class IA3Config(LoRAConfig):
     """
-    The 'Infused Adapter by Inhibiting and Amplifying Inner Activations' (IA^3) architecture proposed by Liu et al. (2022).
-    See https://arxiv.org/pdf/2205.05638.pdf.
-    IA^3 builds on top of LoRA, however, unlike the additive composition of LoRA,
-    it scales weights of a layer using an injected vector.
+    The 'Infused Adapter by Inhibiting and Amplifying Inner Activations' ((IA)^3) architecture proposed by Liu et al.
+    (2022). See https://arxiv.org/pdf/2205.05638.pdf. (IA)^3 builds on top of LoRA, however, unlike the additive
+    composition of LoRA, it scales weights of a layer using an injected vector.
     """
+
     selfattn_lora: bool = True
     intermediate_lora: bool = False
     output_lora: bool = True
