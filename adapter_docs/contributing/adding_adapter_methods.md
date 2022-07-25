@@ -70,6 +70,8 @@ All test mixins derive from the common `AdapterMethodBaseTestMixin` class and re
 - In `adapter_docs/overview.md`, add a new section for the new adapter method that describes the most important concepts. Please try to follow the general format of the existing methods.
 - Add a new column in the table in `adapter_docs/model_overview.md` and check the models that support the new adapter method.
 
+Finally, please add a row for the new method in the table of supported methods under _Implemented Methods_ in the main `README.md` of this repository.
+
 ## Training Example Adapters
 
 ❓ To make sure the new adapter implementation works properly, it is useful to train some example adapters and compare the training results to full model fine-tuning and/or reference implementations.
