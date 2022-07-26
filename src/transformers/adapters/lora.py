@@ -193,7 +193,7 @@ class Linear(LoRALayer, nn.Linear):
                 self.weight.data = self._compute_adapted_weight(lora)
                 self.merged = name
             elif self.merged != name:
-                raise ValueError("LoRaLayer already has a merged LoRA module. Please reset it first.")
+                raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
 
     def forward(self, x: torch.Tensor):
         def T(w):
@@ -317,7 +317,7 @@ class MergedLinear(LoRALayer, nn.Linear):
                 self.weight.data = self._compute_adapted_weight(lora)
                 self.merged = name
             elif self.merged != name:
-                raise ValueError("LoRaLayer already has a merged LoRA module. Please reset it first.")
+                raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
 
     def forward(self, x: torch.Tensor):
         def T(w):
