@@ -169,22 +169,28 @@ class Linear(LoRALayer, nn.Linear):
                 self.weight.data = lora.com_inv(self.weight.data, delta_w)
             self.merged = None
 
-    def merge_lora(self, name: str):
+    def _compute_adapted_weight(self, lora):
         def T(w):
             return w.T if self.fan_in_fan_out else w
 
+        weight = self.weight
+         # Merge the weights and mark it
+        if lora.r > 0:
+            if lora.no_decomposition:
+                delta_w = lora.lora_A.flatten().expand(*self.weight.data.shape[:-1], -1)
+            else:
+                delta_w = T(lora.lora_B @ lora.lora_A)
+            weight = lora.com(weight, delta_w)
+
+        return weight
+
+    def merge_lora(self, name: str):
         if name in self.loras:
             if self.merged == name:
                 return  # already merged
             elif not self.merged:
                 lora = self.loras[name]
-                # Merge the weights and mark it
-                if lora.r > 0:
-                    if lora.no_decomposition:
-                        delta_w = lora.lora_A.flatten()
-                    else:
-                        delta_w = T(lora.lora_B @ lora.lora_A)
-                    self.weight.data = lora.com(self.weight.data, delta_w)
+                self.weight.data = self._compute_adapted_weight(lora)
                 self.merged = name
             elif self.merged != name:
                 raise ValueError("LoRaLayer already has a merged LoRA module. Please reset it first.")
@@ -197,14 +203,9 @@ class Linear(LoRALayer, nn.Linear):
             adapter_setup = self.get_active_setup(self.loras)
             if adapter_setup is not None:
                 if len(adapter_setup) == 1:
-                    result = F.linear(x, T(self.weight), bias=self.bias)
                     lora = self.loras[adapter_setup[0]]
-                    if lora.r > 0:
-                        if lora.no_decomposition:
-                            delta_w = lora.lora_A.flatten()
-                        else:
-                            delta_w = lora.lora_dropout(x) @ lora.lora_A.T @ lora.lora_B.T
-                        result = lora.com(result, delta_w)
+                    weight = self._compute_adapted_weight(lora)
+                    result = F.linear(x, T(weight), bias=self.bias)
                     return result
                 else:
                     raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with LoRA.")
@@ -287,25 +288,30 @@ class MergedLinear(LoRALayer, nn.Linear):
                 self.weight.data = lora.com_inv(self.weight.data, self.zero_pad(delta_w, lora))
             self.merged = None
 
-    def merge_lora(self, name: str):
+    def _compute_adapted_weight(self, lora):
         def T(w):
             return w.T if self.fan_in_fan_out else w
 
+        weight = self.weight
+        if lora.r > 0:
+            if lora.no_decomposition:
+                delta_w = lora.lora_A.flatten()
+            else:
+                delta_w = F.conv1d(
+                    lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
+                ).squeeze(0)
+                delta_w = T(delta_w)
+            weight = lora.com(weight, self.zero_pad(delta_w, lora))
+
+        return weight
+
+    def merge_lora(self, name: str):
         if name in self.loras:
             if self.merged == name:
                 return  # already merged
             elif not self.merged:
                 lora = self.loras[name]
-                # Merge the weights and mark it
-                if lora.r > 0 and any(lora.enable_lora):
-                    if lora.no_decomposition:
-                        delta_w = lora.lora_A.flatten()
-                    else:
-                        delta_w = F.conv1d(
-                            lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
-                        ).squeeze(0)
-                        delta_w = T(delta_w)
-                    self.weight.data = lora.com(self.weight.data, self.zero_pad(delta_w, lora))
+                self.weight.data = self._compute_adapted_weight(lora)
                 self.merged = name
             elif self.merged != name:
                 raise ValueError("LoRaLayer already has a merged LoRA module. Please reset it first.")
@@ -318,18 +324,9 @@ class MergedLinear(LoRALayer, nn.Linear):
             adapter_setup = self.get_active_setup(self.loras)
             if adapter_setup is not None:
                 if len(adapter_setup) == 1:
-                    result = F.linear(x, T(self.weight), bias=self.bias)
                     lora = self.loras[adapter_setup[0]]
-                    if lora.r > 0:
-                        if lora.no_decomposition:
-                            delta_w = lora.lora_A.flatten()
-                        else:
-                            after_A = F.linear(lora.lora_dropout(x), lora.lora_A)
-                            after_B = F.conv1d(
-                                after_A.transpose(-2, -1), lora.lora_B.unsqueeze(-1), groups=sum(lora.enable_lora)
-                            ).transpose(-2, -1)
-                            delta_w = after_B
-                        result = lora.com(result, self.zero_pad(delta_w, lora))
+                    weight = self._compute_adapted_weight(lora)
+                    result = F.linear(x, T(weight), bias=self.bias)
                     return result
                 else:
                     raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with LoRA.")

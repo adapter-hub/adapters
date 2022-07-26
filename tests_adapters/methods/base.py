@@ -272,7 +272,7 @@ class AdapterMethodBaseTestMixin:
 
         # check forward pass
         self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-2))
+        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))
 
     def run_reset_test(self, adapter_config):
         model = self.get_model()
@@ -294,4 +294,4 @@ class AdapterMethodBaseTestMixin:
 
         # check forward pass
         self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-2))
+        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))
