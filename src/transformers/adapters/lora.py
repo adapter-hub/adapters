@@ -331,7 +331,7 @@ class MergedLinear(LoRALayer, nn.Linear):
                     lora = self.loras[adapter_setup[0]]
                     if lora.r > 0:
                         if lora.no_decomposition:
-                            delta_w = lora.lora_A.flatten().expand(*self.weight.data.shape[:-1], -1)
+                            delta_w = lora.lora_A.flatten()
                         else:
                             after_A = F.linear(lora.lora_dropout(x), lora.lora_A)
                             after_B = F.conv1d(
