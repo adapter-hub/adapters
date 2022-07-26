@@ -205,7 +205,7 @@ class Linear(LoRALayer, nn.Linear):
                 if len(adapter_setup) == 1:
                     lora = self.loras[adapter_setup[0]]
                     weight = self._compute_adapted_weight(lora)
-                    result = F.linear(x, T(weight), bias=self.bias)
+                    result = F.linear(lora.lora_dropout(x), T(weight), bias=self.bias)
                     return result
                 else:
                     raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with LoRA.")
@@ -246,6 +246,9 @@ class MergedLinear(LoRALayer, nn.Linear):
                 layer_idx=self.layer_idx,
                 location_key=self.location_key,
             )
+            # other cases not supported by this module
+            assert lora_config.no_decomposition == (lora_config.composition_mode == "scale")
+
             lora = self.loras[adapter_name]
             lora.enable_lora = [
                 "q" in lora_config.attn_matrices,
@@ -324,9 +327,18 @@ class MergedLinear(LoRALayer, nn.Linear):
             adapter_setup = self.get_active_setup(self.loras)
             if adapter_setup is not None:
                 if len(adapter_setup) == 1:
+                    result = F.linear(x, T(self.weight), bias=self.bias)
                     lora = self.loras[adapter_setup[0]]
-                    weight = self._compute_adapted_weight(lora)
-                    result = F.linear(x, T(weight), bias=self.bias)
+                    if lora.r > 0:
+                        if lora.no_decomposition:
+                            delta_w = lora.lora_A.flatten().expand(*self.weight.data.shape[:-1], -1)
+                        else:
+                            after_A = F.linear(lora.lora_dropout(x), lora.lora_A)
+                            after_B = F.conv1d(
+                                after_A.transpose(-2, -1), lora.lora_B.unsqueeze(-1), groups=sum(lora.enable_lora)
+                            ).transpose(-2, -1)
+                            delta_w = after_B
+                        result = lora.com(result, self.zero_pad(delta_w, lora))
                     return result
                 else:
                     raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with LoRA.")
