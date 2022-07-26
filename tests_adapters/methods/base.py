@@ -251,7 +251,7 @@ class AdapterMethodBaseTestMixin:
             else:
                 self.assertTrue(torch.equal(v1, v2), k1)
 
-    def run_merge_test(self, adapter_config, atol=1e-3):
+    def run_merge_test(self, adapter_config):
         model = self.get_model()
         model.eval()
         model.add_adapter("test_lora", config=adapter_config)
@@ -272,9 +272,9 @@ class AdapterMethodBaseTestMixin:
 
         # check forward pass
         self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=atol))
+        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-2))
 
-    def run_reset_test(self, adapter_config, atol=1e-3):
+    def run_reset_test(self, adapter_config):
         model = self.get_model()
         model.eval()
         model.add_adapter("test_lora", config=adapter_config)
@@ -294,4 +294,4 @@ class AdapterMethodBaseTestMixin:
 
         # check forward pass
         self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=atol))
+        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-2))

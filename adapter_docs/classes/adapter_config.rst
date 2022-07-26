@@ -48,6 +48,13 @@ LoRAConfig
     :members:
     :inherited-members: Mapping
 
+IA3Config
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.IA3Config
+    :members:
+    :inherited-members: Mapping
+
 Combined configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
