@@ -265,7 +265,7 @@ class AdapterMethodBaseTestMixin:
 
         # forward in merged mode
         model.set_active_adapters(None)
-        model.merge_lora("test_lora")
+        model.merge_adapter("test_lora")
         model.to(torch_device)
         model.eval()
         output_2 = model(**input_data)
@@ -286,8 +286,8 @@ class AdapterMethodBaseTestMixin:
         output_1 = model(**input_data)
 
         # merge & reset
-        model.merge_lora("test_lora")
-        model.reset_lora()
+        model.merge_adapter("test_lora")
+        model.reset_adapter()
 
         # after merging
         output_2 = model(**input_data)

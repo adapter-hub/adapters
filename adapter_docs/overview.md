@@ -212,14 +212,14 @@ model.add_adapter("lora_adapter", config=config)
 In the design of LoRA, Hu et al. (2021) also pay special attention to keeping the inference latency overhead compared to full fine-tuning at a minimum.
 To accomplish this, the LoRA reparameterization can be merged with the original pre-trained weights of a model for inference.
 Thus, the adapted weights are directly used in every forward pass without passing activations through an additional module.
-In `adapter-transformers`, this can be realized using the built-in `merge_lora()` method:
+In `adapter-transformers`, this can be realized using the built-in `merge_adapter()` method:
 ```python
-model.merge_lora("lora_adapter")
+model.merge_adapter("lora_adapter")
 ```
 
 To continue training on this LoRA adapter or to deactivate it entirely, the merged weights first have to be reset again:
 ```python
-model.reset_lora("lora_adapter")
+model.reset_adapter("lora_adapter")
 ```
 
 _Papers:_
@@ -260,10 +260,10 @@ Finally, similar to LoRA, (IA)^3 also allows merging the injected parameters wit
 E.g.:
 ```python
 # Merge (IA)^3 adapter
-model.merge_lora("ia3_adapter")
+model.merge_adapter("ia3_adapter")
 
 # Reset merged weights
-model.reset_lora("ia3_adapter")
+model.reset_adapter("ia3_adapter")
 ```
 
 _Papers:_

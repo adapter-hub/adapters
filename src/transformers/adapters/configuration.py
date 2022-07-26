@@ -382,7 +382,7 @@ class LoRAConfig(AdapterConfigBase):
     """
     The Low-Rank Adaptation (LoRA) architecture proposed by Hu et al. (2021). See https://arxiv.org/pdf/2106.09685.pdf.
     LoRA adapts a model by reparametrizing the weights of a layer matrix. You can merge the additional weights with the
-    original layer weights using ``model.merge_lora("lora_name")``.
+    original layer weights using ``model.merge_adapter("lora_name")``.
 
     Args:
         selfattn_lora (bool, optional): If True, add LoRA to the self-attention weights of a model.

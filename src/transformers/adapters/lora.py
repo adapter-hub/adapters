@@ -154,7 +154,7 @@ class Linear(LoRALayer, nn.Linear):
     def _get_lora_shapes(self, config: LoRAConfig):
         return (config.r, self.in_features), (self.out_features, config.r)
 
-    def reset_lora(self):
+    def reset_adapter(self):
         def T(w):
             return w.T if self.fan_in_fan_out else w
 
@@ -184,7 +184,7 @@ class Linear(LoRALayer, nn.Linear):
 
         return weight
 
-    def merge_lora(self, name: str):
+    def merge_adapter(self, name: str):
         if name in self.loras:
             if self.merged == name:
                 return  # already merged
@@ -270,7 +270,7 @@ class MergedLinear(LoRALayer, nn.Linear):
         result[:, lora.lora_ind] = x.reshape(-1, self.out_features // len(lora.enable_lora) * sum(lora.enable_lora))
         return result.view((*x.shape[:-1], self.out_features))
 
-    def reset_lora(self):
+    def reset_adapter(self):
         def T(w):
             return w.T if self.fan_in_fan_out else w
 
@@ -305,7 +305,7 @@ class MergedLinear(LoRALayer, nn.Linear):
 
         return weight
 
-    def merge_lora(self, name: str):
+    def merge_adapter(self, name: str):
         if name in self.loras:
             if self.merged == name:
                 return  # already merged
