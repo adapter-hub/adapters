@@ -174,7 +174,7 @@ class Linear(LoRALayer, nn.Linear):
             return w.T if self.fan_in_fan_out else w
 
         weight = self.weight
-         # Merge the weights and mark it
+        # Merge the weights and mark it
         if lora.r > 0:
             if lora.no_decomposition:
                 delta_w = lora.lora_A.flatten().expand(*self.weight.data.shape[:-1], -1)
