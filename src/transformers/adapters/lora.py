@@ -293,18 +293,18 @@ class MergedLinear(LoRALayer, nn.Linear):
 
     def _compute_adapted_weight(self, lora):
         def T(w):
-            return w.T if self.fan_in_fan_out else w
+            return w if self.fan_in_fan_out else w.T
 
         weight = self.weight
         if lora.r > 0:
             if lora.no_decomposition:
-                delta_w = lora.lora_A.flatten()
+                delta_w = lora.lora_A.flatten().unsqueeze(-1)
             else:
                 delta_w = F.conv1d(
                     lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
                 ).squeeze(0)
-                delta_w = T(delta_w)
-            weight = lora.com(weight, self.zero_pad(delta_w, lora))
+            delta_w = delta_w.transpose(-2, -1)
+            weight = lora.com(weight, T(self.zero_pad(delta_w, lora)))
 
         return weight
 
