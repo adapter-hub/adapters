@@ -103,6 +103,10 @@ _import_structure = {
         "DistilBertAdapterModel",
         "DistilBertModelWithHeads",
     ],
+    "models.electra": [
+        "ElectraAdapterModel",
+        "ElectraModelWithHeads",
+    ],
     "models.gpt2": [
         "GPT2AdapterModel",
         "GPT2ModelWithHeads",
@@ -209,6 +213,7 @@ if TYPE_CHECKING:
     from .models.t5 import T5AdapterModel, T5ModelWithHeads
     from .models.vit import ViTAdapterModel
     from .models.xlm_roberta import XLMRobertaAdapterModel, XLMRobertaModelWithHeads
+    from .models.electra import ElectraAdapterModel, ElectraModelWithHeads
     from .trainer import AdapterTrainer, Seq2SeqAdapterTrainer
     from .training import AdapterArguments, MultiLingAdapterArguments
     from .utils import (

@@ -50,16 +50,17 @@ class InvertibleAdaptersMixin:
             config_type=AdapterConfig,
             location_key="inv_adapter",
         )
+        diff_emb_hid = hasattr(self.config, "embedding_size") and self.config.embedding_size != self.config.hidden_size
         if adapter_config and adapter_config["inv_adapter"]:
             if adapter_config["inv_adapter"] == "nice":
                 inv_adap = NICECouplingBlock(
-                    [[self.config.hidden_size]],
+                    [[self.config.hidden_size if not diff_emb_hid else self.config.embedding_size]],
                     non_linearity=adapter_config["non_linearity"],
                     reduction_factor=adapter_config["inv_adapter_reduction_factor"],
                 )
             elif adapter_config["inv_adapter"] == "glow":
                 inv_adap = GLOWCouplingBlock(
-                    [[self.config.hidden_size]],
+                    [[self.config.hidden_size if not diff_emb_hid else self.config.embedding_size]],
                     non_linearity=adapter_config["non_linearity"],
                     reduction_factor=adapter_config["inv_adapter_reduction_factor"],
                 )
@@ -151,7 +152,10 @@ class EmbeddingAdaptersMixin:
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
         if embedding_dim is None:
-            embedding_dim = self.config.hidden_size
+            if hasattr(self.config, "embedding_size") and self.config.embedding_size != self.config.hidden_size:
+                embedding_dim = self.config.embedding_size
+            else:
+                embedding_dim = self.config.hidden_size
         embedding = nn.Embedding(len(tokenizer), embedding_dim)
         embedding.requires_grad_(False)
         if (reference_embedding is not None and reference_tokenizer is None) or (

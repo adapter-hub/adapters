@@ -401,6 +401,16 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": {"classifier"},
     },
+    # Electra
+    "ElectraForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 2,
+            "activation_function": "gelu",
+            "use_pooler": False,
+        },
+        "layers": [None, "classifier.dense", None, None, "classifier.out_proj"],
+    },
 }
 
 

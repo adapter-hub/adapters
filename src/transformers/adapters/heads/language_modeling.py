@@ -35,20 +35,41 @@ class CausalLMHead(PredictionHead):
         # Additional FC layers
         pred_head = []
         with_layer_norm = self.config.get("layer_norm", False)
+        diff_emb_hid = (
+            hasattr(model_config, "embedding_size") and model_config.embedding_size != model_config.hidden_size
+        )
         for l_id in range(self.config["layers"] - 1):
-            pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
+            # pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
+            hid2emb = diff_emb_hid and l_id == self.config["layers"] - 2
+
+            pred_head.append(
+                nn.Linear(
+                    model_config.hidden_size,
+                    model_config.hidden_size if not diff_emb_hid else model_config.embedding_size,
+                )
+            )
             if self.config["activation_function"]:
                 pred_head.append(Activation_Function_Class(self.config["activation_function"]))
             if with_layer_norm:
                 eps = getattr(model_config, "layer_norm_eps", 1e-12)
-                pred_head.append(nn.LayerNorm(model_config.hidden_size, eps=eps))
+                # pred_head.append(nn.LayerNorm(model_config.hidden_size, eps=eps))
+                pred_head.append(
+                    nn.LayerNorm(
+                        model_config.hidden_size if not diff_emb_hid else model_config.embedding_size, eps=eps
+                    )
+                )
         for i, module in enumerate(pred_head):
             self.add_module(str(i), module)
 
         # Final embedding layer
         self.add_module(
             str(len(pred_head)),
-            nn.Linear(model_config.hidden_size, self.config["vocab_size"], bias=self.config["bias"]),
+            # nn.Linear(model_config.hidden_size, self.config["vocab_size"], bias=self.config["bias"]),
+            nn.Linear(
+                model_config.hidden_size if not diff_emb_hid else model_config.embedding_size,
+                self.config["vocab_size"],
+                bias=self.config["bias"],
+            ),
         )
 
         self.apply(model._init_weights)
