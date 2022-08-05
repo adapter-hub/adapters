@@ -1,6 +1,5 @@
 import warnings
 
-from ....modeling_utils import SequenceSummary
 from ....models.electra.modeling_electra import (
     ELECTRA_INPUTS_DOCSTRING,
     ELECTRA_START_DOCSTRING,
@@ -8,7 +7,6 @@ from ....models.electra.modeling_electra import (
     ElectraPreTrainedModel,
 )
 from ....utils import add_start_docstrings, add_start_docstrings_to_model_forward
-from ...context import AdapterSetup
 from ...heads import (
     BertStyleMaskedLMHead,
     BiaffineParsingHead,

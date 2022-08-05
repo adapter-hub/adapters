@@ -1,6 +1,6 @@
 import unittest
 
-from tests.electra.test_modeling_electra import *
+from tests.models.electra.test_modeling_electra import *
 from transformers import ElectraAdapterModel
 from transformers.testing_utils import require_torch
 

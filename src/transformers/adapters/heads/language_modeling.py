@@ -40,7 +40,6 @@ class CausalLMHead(PredictionHead):
         )
         for l_id in range(self.config["layers"] - 1):
             # pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
-            hid2emb = diff_emb_hid and l_id == self.config["layers"] - 2
 
             pred_head.append(
                 nn.Linear(
