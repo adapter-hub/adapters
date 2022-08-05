@@ -268,7 +268,7 @@ class BertSelfAttention(nn.Module):
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
         self.query = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config)
-        self.key = nn.Linear(config.hidden_size, self.all_head_size)
+        self.key = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config)
         self.value = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config)
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
