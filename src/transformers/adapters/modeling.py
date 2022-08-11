@@ -46,6 +46,7 @@ class Adapter(nn.Module):
         self.add_layer_norm_before = config["ln_before"]
         self.add_layer_norm_after = config["ln_after"]
         self.adapter_residual_before_ln = config["adapter_residual_before_ln"]
+        self.use_gating = config["use_gating"]
 
         # Params related to input & output of adapter
         self.residual_before_ln = config["residual_before_ln"]
@@ -104,16 +105,23 @@ class Adapter(nn.Module):
         if self.add_layer_norm_after:
             self.adapter_norm_after = nn.LayerNorm(self.input_size)
 
+        if self.use_gating:
+            self.gate = nn.Linear(self.input_size, 1)
+
         # if we want to initialize with the bert strategy then this function is called for all the linear layers
         if config["init_weights"] == "bert":
             self.adapter_down.apply(self.init_bert_weights)
             self.adapter_up.apply(self.init_bert_weights)
+            if self.use_gating:
+                self.gate.apply(self.init_bert_weights)
         elif config["init_weights"] == "mam_adapter":
             with torch.no_grad():
                 nn.init.kaiming_uniform_(self.adapter_down[0].weight, a=math.sqrt(5))
                 nn.init.zeros_(self.adapter_up.weight)
                 nn.init.zeros_(self.adapter_down[0].bias)
                 nn.init.zeros_(self.adapter_up.bias)
+                if self.use_gating:
+                    self.gate.apply(self.init_bert_weights)
         else:
             raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
 
@@ -163,6 +171,12 @@ class Adapter(nn.Module):
         up = self.adapter_up(down)
         up = up * self.scaling
         output = up
+
+        if self.use_gating:
+            # x.shape = (batch_size, seq_len, hidden_size)
+            gate = torch.sigmoid(self.gate(x))
+            gate = torch.mean(gate, dim=1).unsqueeze(-1)
+            output = output * gate
 
         # apply residual connection before layer norm if configured in this way
         if self.adapter_residual_before_ln:
@@ -253,6 +267,12 @@ class ParallelAdapter(Adapter):
         up = up * self.scaling
 
         output = up
+
+        if self.use_gating:
+            # x.shape = (batch_size, seq_len, hidden_size)
+            gate = torch.sigmoid(self.gate(x))
+            gate = torch.mean(gate, dim=1).unsqueeze(-1)
+            output = output * gate
 
         # apply layer norm if available
         if self.add_layer_norm_after:
