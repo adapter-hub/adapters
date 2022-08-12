@@ -153,6 +153,10 @@ class EmbeddingAdaptersMixin:
         if embedding_dim is None:
             embedding_dim = self.config.hidden_size
         embedding = nn.Embedding(len(tokenizer), embedding_dim)
+        # Use same initialization as base Transformer model
+        embedding.weight.data.normal_(mean=0.0, std=0.02)
+        if embedding.padding_idx is not None:
+            embedding.weight.data[embedding.padding_idx].zero_()
         embedding.requires_grad_(False)
         if (reference_embedding is not None and reference_tokenizer is None) or (
             reference_tokenizer is not None and reference_embedding is None
