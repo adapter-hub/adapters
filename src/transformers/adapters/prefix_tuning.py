@@ -237,6 +237,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         self.config = config
         self.location_key = location_key
         self.prefixes = {}
+        self.prefix_gates = nn.ModuleDict()
 
     def set_pool(self, pool: PrefixTuningPool):
         self.__setattr__("pool", pool)
@@ -257,6 +258,11 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         if prefix_tuning_config is not None:
             prefix_id = self.pool.indicate_prefix(adapter_name, self.location_key)
             self.prefixes[adapter_name] = prefix_id
+
+            if prefix_tuning_config.use_gating:
+                gate = nn.Linear(self.config.hidden_size, 1)
+                gate.weight.data.normal_(mean=0.0, std=0.02)
+                self.prefix_gates[adapter_name] = gate
 
     def delete_adapter(self, adapter_name: str):
         self.pool.delete_prefix(adapter_name)
@@ -283,7 +289,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
 
         return None
 
-    def forward(self, key_states, value_states, attention_mask=None, invert_mask=True):
+    def forward(self, key_states, value_states, residual_input, attention_mask=None, invert_mask=True):
         adapter_setup = self.get_active_setup(self.prefixes)
         if adapter_setup is not None:
             if len(adapter_setup) == 1:
@@ -295,9 +301,18 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
 
                     # Retrieve pre-computed prefix states from context
                     context = ForwardContext.get_context()
+                    # batch_size x n_heads x prefix_length x n_embd_per_head
                     prefix_keys, prefix_values = context.prefix_states[prefix_tuning_name][self.location_key][
                         prefix_id
                     ]
+
+                    if prefix_tuning_name in self.prefix_gates:
+                        gate = self.prefix_gates[prefix_tuning_name]
+                        gate_output = torch.mean(torch.sigmoid(gate(residual_input)), dim=1)
+                        self._store_gating_score(prefix_tuning_name, gate)
+                        gate_output = gate_output.expand(batch_size, -1, -1, -1)
+                        key_states = key_states * gate_output
+                        value_states = value_states * gate_output
 
                     key_states = torch.cat([prefix_keys, key_states], dim=2)
                     value_states = torch.cat([prefix_values, value_states], dim=2)

@@ -165,7 +165,7 @@ class Adapter(nn.Module):
 
         return hidden_states, query, residual
 
-    def forward(self, x, residual_input):  # , residual_input=None):
+    def forward(self, x, residual_input, output_gating=False):
         down = self.adapter_down(x)
 
         up = self.adapter_up(down)
@@ -190,6 +190,8 @@ class Adapter(nn.Module):
         if not self.adapter_residual_before_ln:
             output = output + residual_input
 
+        if self.use_gating and output_gating:
+            return output, down, up, gate
         return output, down, up
 
     def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
@@ -260,7 +262,7 @@ class ParallelAdapter(Adapter):
             query = input_tensor
         return input_tensor, query, input_tensor
 
-    def forward(self, x, residual_input):
+    def forward(self, x, residual_input, output_gating=False):
         down = self.adapter_down(x)
 
         up = self.adapter_up(down)
@@ -278,6 +280,8 @@ class ParallelAdapter(Adapter):
         if self.add_layer_norm_after:
             output = self.adapter_norm_after(output)
 
+        if self.use_gating and output_gating:
+            return output, down, up, gate
         return output, down, up
 
     def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):

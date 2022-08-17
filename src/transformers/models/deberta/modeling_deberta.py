@@ -651,7 +651,7 @@ class DisentangledSelfAttention(nn.Module):
         query_layer = query_layer + self.transpose_for_scores(self.q_bias[None, None, :])
         value_layer = value_layer + self.transpose_for_scores(self.v_bias[None, None, :])
 
-        key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask, False)
+        key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, hidden_states, attention_mask, False)
 
         rel_att = None
         # Take the dot product between "query" and "key" to get the raw attention scores.

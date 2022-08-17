@@ -237,7 +237,7 @@ class BartAttention(nn.Module):
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
         query_states = self._shape(query_states, tgt_len, bsz).view(*proj_shape)
 
-        key_states, value_states, attention_mask = self.prefix_tuning(key_states, value_states, attention_mask)
+        key_states, value_states, attention_mask = self.prefix_tuning(key_states, value_states, hidden_states, attention_mask)
 
         key_states = key_states.view(*proj_shape)
         value_states = value_states.view(*proj_shape)

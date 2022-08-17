@@ -57,6 +57,7 @@ _import_structure = {
         "PfeifferInvConfig",
         "PrefixTuningConfig",
         "StaticAdapterFusionConfig",
+        "UniPELTConfig",
     ],
     "context": [
         "AdapterSetup",
@@ -175,6 +176,7 @@ if TYPE_CHECKING:
         PfeifferInvConfig,
         PrefixTuningConfig,
         StaticAdapterFusionConfig,
+        UniPELTConfig,
     )
     from .context import AdapterSetup, ForwardContext
     from .heads import (

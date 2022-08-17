@@ -238,7 +238,7 @@ class ViTSelfAttention(nn.Module):
         value_layer = self.transpose_for_scores(self.value(hidden_states))
         query_layer = self.transpose_for_scores(mixed_query_layer)
 
-        key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer)
+        key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer, hidden_states)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))

@@ -776,6 +776,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         }
 
         context.prefix_states = self.base_model.prefix_tuning(*args, **kwargs)
+        # Adapter gating and attention outputs
+        context.output_adapter_gating_scores = kwargs.get("output_adapter_gating_scores", False)
+        context.output_adapter_fusion_attentions = kwargs.get("output_adapter_fusion_attentions", False)
+        context.adapter_gating_scores = defaultdict(lambda: defaultdict(dict))
+        context.adapter_fusion_attentions = {}
 
     def get_fusion_regularization_loss(self):
         reg_loss = 0.0

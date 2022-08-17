@@ -413,6 +413,7 @@ class LoRAConfig(AdapterConfigBase):
         use_gating (:ob:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation.
             This is e.g. used for UniPELT. Defaults to False.
+            Note that modules with use_gating=True cannot be merged using `merge_adapter()`.
     """
 
     architecture: Optional[str] = "lora"
@@ -561,6 +562,26 @@ class MAMConfig(ConfigUnion):
         return self[1]
 
 
+class UniPELTConfig(ConfigUnion):
+    """
+    The UniPELT adapter architecture proposed by Mao et al. (2022). See https://arxiv.org/pdf/2110.07577.pdf.
+    """
+
+    def __init__(
+        self,
+        prefix_tuning: Optional[PrefixTuningConfig] = None,
+        adapter: Optional[AdapterConfig] = None,
+        lora: Optional[LoRAConfig] = None,
+    ):
+        components = [
+            prefix_tuning or PrefixTuningConfig(prefix_length=10),
+            adapter or PfeifferConfig(reduction_factor=16),
+            lora or LoRAConfig(r=8),
+        ]
+
+        super().__init__(*[c.replace(use_gating=True) for c in components])
+
+
 ADAPTER_CONFIG_MAP = {
     "pfeiffer": PfeifferConfig(),
     "houlsby": HoulsbyConfig(),
@@ -575,6 +596,7 @@ ADAPTER_CONFIG_MAP = {
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
     "mam": MAMConfig(),
+    "unipelt": UniPELTConfig(),
 }
 
 DEFAULT_ADAPTER_CONFIG = "pfeiffer"

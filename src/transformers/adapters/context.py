@@ -78,6 +78,8 @@ class ForwardContext:
     # thread-local storage that holds a stack of active contexts
     storage = threading.local()
 
+    output_attributes = ["adapter_gating_scores", "adapter_fusion_attentions"]
+
     def __init__(self, model, *args, **kwargs):
         # If the model has a method ``forward_context()``, use it to create the context.
         if hasattr(model, "forward_context"):
@@ -99,8 +101,18 @@ class ForwardContext:
         @functools.wraps(f)
         def wrapper_func(self, *args, **kwargs):
             if self.config.adapters is not None:
-                with cls(self, *args, **kwargs):
+                with cls(self, *args, **kwargs) as ctx:
                     results = f(self, *args, **kwargs)
+
+                    # append output attributes
+                    if isinstance(results, tuple):
+                        for attr in cls.output_attributes:
+                            if hasattr(ctx, attr):
+                                results = results + (dict(getattr(ctx, attr)),)
+                    else:
+                        for attr in cls.output_attributes:
+                            if hasattr(ctx, attr):
+                                results[attr] = dict(getattr(ctx, attr))
                 return results
             else:
                 return f(self, *args, **kwargs)
