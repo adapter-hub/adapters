@@ -27,7 +27,7 @@ class LoRA(nn.Module):
         self.r = config.r
         self.lora_alpha = config.alpha
         self.composition_mode = config.composition_mode
-        self.no_decomposition = config.no_decomposition
+        self.attn_matrices = config.attn_matrices
         # Optional dropout
         if config.dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=config.dropout)
@@ -35,22 +35,22 @@ class LoRA(nn.Module):
             self.lora_dropout = lambda x: x
 
         # Actual trainable parameters
-        if self.r > 1 and self.no_decomposition:
-            raise ValueError("Can only use 'no_decomposition' when r == 1.")
+        if self.r > 1 and self.composition_mode == "scale":
+            raise ValueError("Can only use composition_mode='scale' when r == 1.")
         if self.r > 0:
             self.lora_A = nn.Parameter(torch.zeros(lora_A_shape))
-            if not self.no_decomposition:
+            if self.composition_mode == "add":
                 self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
             self.scaling = self.lora_alpha / self.r
 
             if config.init_weights == "lora":
                 # initialize A the same way as the default for nn.Linear and B to zero
                 nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-                if not self.no_decomposition:
+                if self.composition_mode == "add":
                     nn.init.zeros_(self.lora_B)
             elif config.init_weights == "bert":
                 nn.init.normal_(self.lora_A, std=0.02)
-                if not self.no_decomposition:
+                if self.composition_mode == "add":
                     nn.init.normal_(self.lora_B, std=0.02)
             else:
                 raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
@@ -82,6 +82,9 @@ class LoRALayer(AdapterLayerBase):
         self.loras = nn.ModuleDict(dict())
 
         self.merged = False
+
+    def get_n_heads(self, lora: Union[LoRA, LoRAConfig]):
+        return 1
 
     def _check_lora_location(self, config: LoRAConfig):
         return True
@@ -162,7 +165,7 @@ class Linear(LoRALayer, nn.Linear):
             lora = self.loras[self.merged]
             # Make sure that the weights are not merged
             if lora.r > 0:
-                if lora.no_decomposition:
+                if lora.composition_mode == "scale":
                     delta_w = lora.lora_A.flatten()
                 else:
                     delta_w = T(lora.lora_B @ lora.lora_A)
@@ -176,8 +179,8 @@ class Linear(LoRALayer, nn.Linear):
         weight = self.weight
         # Merge the weights and mark it
         if lora.r > 0:
-            if lora.no_decomposition:
-                delta_w = lora.lora_A.flatten().expand(*self.weight.data.shape[:-1], -1)
+            if lora.composition_mode == "scale":
+                delta_w = lora.lora_A.flatten()
             else:
                 delta_w = T(lora.lora_B @ lora.lora_A)
             weight = lora.com(weight, delta_w)
@@ -204,8 +207,14 @@ class Linear(LoRALayer, nn.Linear):
             if adapter_setup is not None:
                 if len(adapter_setup) == 1:
                     lora = self.loras[adapter_setup[0]]
-                    weight = self._compute_adapted_weight(lora)
-                    result = F.linear(lora.lora_dropout(x), T(weight), bias=self.bias)
+                    # result shape: <batch_size> x <seq_len> x <head_dim>
+                    result = F.linear(x, T(self.weight), bias=self.bias)
+                    if lora.r > 0:
+                        if lora.composition_mode == "scale":
+                            delta_w = lora.lora_A.flatten()
+                        else:
+                            delta_w = lora.lora_dropout(x) @ lora.lora_A.T @ lora.lora_B.T
+                        result = lora.com(result, delta_w)
                     return result
                 else:
                     raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with LoRA.")
@@ -230,10 +239,13 @@ class MergedLinear(LoRALayer, nn.Linear):
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
 
+    def get_n_heads(self, lora: Union[LoRA, LoRAConfig]):
+        return len(set(lora.attn_matrices))
+
     def _get_lora_shapes(self, config: LoRAConfig):
-        enable_lora = set(config.attn_matrices)
-        return (config.r * len(enable_lora), self.in_features), (
-            self.out_features // 3 * len(enable_lora),
+        n_heads = self.get_n_heads(config)
+        return (config.r * n_heads, self.in_features), (
+            self.out_features // 3 * n_heads,
             config.r,
         )
 
@@ -246,9 +258,6 @@ class MergedLinear(LoRALayer, nn.Linear):
                 layer_idx=self.layer_idx,
                 location_key=self.location_key,
             )
-            # other cases not supported by this module
-            assert lora_config.no_decomposition == (lora_config.composition_mode == "scale")
-
             lora = self.loras[adapter_name]
             lora.enable_lora = [
                 "q" in lora_config.attn_matrices,
@@ -264,13 +273,15 @@ class MergedLinear(LoRALayer, nn.Linear):
                 lora.lora_ind[lora.enable_lora, :] = True
                 lora.lora_ind = lora.lora_ind.view(-1)
 
-    def zero_pad(self, x, lora):
-        if lora.composition_mode == "add":
-            result = x.new_zeros((*x.shape[:-1], self.out_features))
-        else:
-            result = x.new_ones((*x.shape[:-1], self.out_features))
+    def pad(self, x, lora, fill_value=None):
+        if fill_value is None:
+            if lora.composition_mode == "add":
+                fill_value = 0
+            else:
+                fill_value = 1
+        result = x.new_full((*x.shape[:-1], self.out_features), fill_value)
         result = result.view(-1, self.out_features)
-        result[:, lora.lora_ind] = x.reshape(-1, self.out_features // len(lora.enable_lora) * sum(lora.enable_lora))
+        result[:, lora.lora_ind] = x.reshape(-1, self.out_features // 3 * self.get_n_heads(lora))
         return result.view((*x.shape[:-1], self.out_features))
 
     def reset_adapter(self):
@@ -281,14 +292,14 @@ class MergedLinear(LoRALayer, nn.Linear):
             lora = self.loras[self.merged]
             # Make sure that the weights are not merged
             if lora.r > 0 and any(lora.enable_lora):
-                if lora.no_decomposition:
+                if lora.composition_mode == "scale":
                     delta_w = lora.lora_A.flatten()
                 else:
                     delta_w = F.conv1d(
                         lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
                     ).squeeze(0)
                     delta_w = T(delta_w)
-                self.weight.data = lora.com_inv(self.weight.data, self.zero_pad(delta_w, lora))
+                self.weight.data = lora.com_inv(self.weight.data, self.pad(delta_w, lora))
             self.merged = None
 
     def _compute_adapted_weight(self, lora):
@@ -297,14 +308,14 @@ class MergedLinear(LoRALayer, nn.Linear):
 
         weight = self.weight
         if lora.r > 0:
-            if lora.no_decomposition:
+            if lora.composition_mode == "scale":
                 delta_w = lora.lora_A.flatten().unsqueeze(-1)
             else:
                 delta_w = F.conv1d(
                     lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
                 ).squeeze(0)
             delta_w = delta_w.transpose(-2, -1)
-            weight = lora.com(weight, T(self.zero_pad(delta_w, lora)))
+            weight = lora.com(weight, T(self.pad(delta_w, lora)))
 
         return weight
 
@@ -330,7 +341,7 @@ class MergedLinear(LoRALayer, nn.Linear):
                     result = F.linear(x, T(self.weight), bias=self.bias)
                     lora = self.loras[adapter_setup[0]]
                     if lora.r > 0:
-                        if lora.no_decomposition:
+                        if lora.composition_mode == "scale":
                             delta_w = lora.lora_A.flatten()
                         else:
                             after_A = F.linear(lora.lora_dropout(x), lora.lora_A)
@@ -338,7 +349,7 @@ class MergedLinear(LoRALayer, nn.Linear):
                                 after_A.transpose(-2, -1), lora.lora_B.unsqueeze(-1), groups=sum(lora.enable_lora)
                             ).transpose(-2, -1)
                             delta_w = after_B
-                        result = lora.com(result, self.zero_pad(delta_w, lora))
+                        result = lora.com(result, self.pad(delta_w, lora))
                     return result
                 else:
                     raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with LoRA.")

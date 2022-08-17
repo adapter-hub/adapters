@@ -398,9 +398,8 @@ class LoRAConfig(AdapterConfigBase):
             A list that may contain the strings "q" (query), "k" (key), "v" (value). Defaults to ["q", "v"].
         composition_mode (str, optional):
             Defines how the injected weights are composed with the original model weights. Can be either "add"
-            (addition, as in LoRA) or "scale" (element-wise multiplication, as in (IA)^3). Defaults to "add".
-        no_decomposition (bool, optional): Don't decompose added weights into two matrices A and B.
-            This can only be True together when r=1. Used for (IA)^3. Defaults to False.
+            (addition of decomposed matrix, as in LoRA) or "scale" (element-wise multiplication of vector, as in
+            (IA)^3). "scale" can only be used together with r=1. Defaults to "add".
         init_weights (:obj:`str`, optional): Initialization method for the weights of the LoRA modules.
             Currently, this can be either "lora" (default) or "bert".
     """
@@ -416,7 +415,6 @@ class LoRAConfig(AdapterConfigBase):
     dropout: float = 0.0
     attn_matrices: List[str] = field(default_factory=lambda: ["q", "v"])
     composition_mode: str = "add"
-    no_decomposition: bool = False
     init_weights: str = "lora"
 
 
@@ -437,7 +435,6 @@ class IA3Config(LoRAConfig):
     dropout: float = 0.0
     attn_matrices: List[str] = field(default_factory=lambda: ["k", "v"])
     composition_mode: str = "scale"
-    no_decomposition: bool = True
     init_weights: str = "lora"
 
 

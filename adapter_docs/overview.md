@@ -247,9 +247,11 @@ config = IA3Config()
 model.add_adapter("ia3_adapter", config=config)
 ```
 
-The implementation of (IA)^3, as well as the `IA3Config` class, are derived from the implementation of [LoRA](#lora), with two main modifications.
-First, (IA)^3 uses multiplicative scaling (`composition_mode="scale"`) instead of additive scaling as in LoRA.
-Second, the added weights are not decomposed into low-rank matrices (`no_decomposition=True`), but already of rank 1 (`r=1`).
+The implementation of (IA)^3, as well as the `IA3Config` class, are derived from the implementation of [LoRA](#lora), with a few main modifications.
+First, (IA)^3 uses multiplicative composition of weights instead of additive composition as in LoRA.
+Second, the added weights are not further decomposed into low-rank matrices.
+Both of these modifications are controlled via the `composition_mode` configuration attribute by setting `composition_mode="scale"`.
+Additionally, as the added weights are already of rank 1, `r=1` is set.
 
 Beyond that, both methods share the same configuration attributes that allow you to specify in which Transformer components rescaling vectors will be injected.
 Following the original implementation, `IA3Config` adds rescaling vectors to the self-attention weights (`selfattn_lora=True`) and the final feed-forward layer (`output_lora=True`).
