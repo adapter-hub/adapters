@@ -6,6 +6,8 @@ import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
+from transformers.utils.generic import is_tensor
+
 from ...modeling_outputs import (
     ImageClassifierOutput,
     MultipleChoiceModelOutput,
@@ -746,7 +748,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if isinstance(outputs, ModelOutput):
                 inputs = {}
                 for key, base_output in outputs.items():
-                    inputs[key] = base_output[batch[0] : batch[-1] + 1]
+                    if torch.is_tensor(base_output):
+                        inputs[key] = base_output[batch[0] : batch[-1] + 1]
                 inputs = outputs.__class__(**inputs)
             else:
                 inputs = tuple()
