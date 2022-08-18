@@ -435,7 +435,7 @@ class IA3Config(LoRAConfig):
     dropout: float = 0.0
     attn_matrices: List[str] = field(default_factory=lambda: ["k", "v"])
     composition_mode: str = "scale"
-    init_weights: str = "lora"
+    init_weights: str = "ia3"
 
 
 class ConfigUnion(AdapterConfigBase):

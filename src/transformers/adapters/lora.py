@@ -52,6 +52,10 @@ class LoRA(nn.Module):
                 nn.init.normal_(self.lora_A, std=0.02)
                 if self.composition_mode == "add":
                     nn.init.normal_(self.lora_B, std=0.02)
+            elif config.init_weights == "ia3":
+                nn.init.ones_(self.lora_A)
+                if self.composition_mode == "add":
+                    nn.init.ones_(self.lora_B)
             else:
                 raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
 
