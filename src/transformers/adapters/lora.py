@@ -166,7 +166,7 @@ class Linear(LoRALayer, nn.Linear):
             # Make sure that the weights are not merged
             if lora.r > 0:
                 if lora.composition_mode == "scale":
-                    delta_w = lora.lora_A.flatten()
+                    delta_w = lora.lora_A.view(-1, 1)
                 else:
                     delta_w = T(lora.lora_B @ lora.lora_A)
                 self.weight.data = lora.com_inv(self.weight.data, delta_w)
@@ -180,7 +180,7 @@ class Linear(LoRALayer, nn.Linear):
         # Merge the weights and mark it
         if lora.r > 0:
             if lora.composition_mode == "scale":
-                delta_w = lora.lora_A.flatten()
+                delta_w = lora.lora_A.view(-1, 1)
             else:
                 delta_w = T(lora.lora_B @ lora.lora_A)
             weight = lora.com(weight, delta_w)
@@ -211,7 +211,7 @@ class Linear(LoRALayer, nn.Linear):
                     result = F.linear(x, T(self.weight), bias=self.bias)
                     if lora.r > 0:
                         if lora.composition_mode == "scale":
-                            delta_w = lora.lora_A.flatten()
+                            delta_w = lora.lora_A.view(1, 1, -1)
                         else:
                             delta_w = lora.lora_dropout(x) @ lora.lora_A.T @ lora.lora_B.T
                         result = lora.com(result, delta_w)
@@ -286,20 +286,21 @@ class MergedLinear(LoRALayer, nn.Linear):
 
     def reset_adapter(self):
         def T(w):
-            return w.T if self.fan_in_fan_out else w
+            return w if self.fan_in_fan_out else w.T
 
         if self.merged:
             lora = self.loras[self.merged]
             # Make sure that the weights are not merged
             if lora.r > 0 and any(lora.enable_lora):
                 if lora.composition_mode == "scale":
-                    delta_w = lora.lora_A.flatten()
+                    delta_w = lora.lora_A.view(-1, 1)
                 else:
                     delta_w = F.conv1d(
                         lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
                     ).squeeze(0)
-                    delta_w = T(delta_w)
-                self.weight.data = lora.com_inv(self.weight.data, self.pad(delta_w, lora))
+                # shape after transpose: <head_dim> x <head_dim * n_heads>
+                delta_w = delta_w.transpose(-2, -1)
+                self.weight.data = lora.com_inv(self.weight.data, T(self.pad(delta_w, lora)))
             self.merged = None
 
     def _compute_adapted_weight(self, lora):
@@ -309,11 +310,12 @@ class MergedLinear(LoRALayer, nn.Linear):
         weight = self.weight
         if lora.r > 0:
             if lora.composition_mode == "scale":
-                delta_w = lora.lora_A.flatten().unsqueeze(-1)
+                delta_w = lora.lora_A.view(-1, 1)
             else:
                 delta_w = F.conv1d(
                     lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
                 ).squeeze(0)
+            # shape after transpose: <head_dim> x <head_dim * n_heads>
             delta_w = delta_w.transpose(-2, -1)
             weight = lora.com(weight, T(self.pad(delta_w, lora)))
 
@@ -342,13 +344,14 @@ class MergedLinear(LoRALayer, nn.Linear):
                     lora = self.loras[adapter_setup[0]]
                     if lora.r > 0:
                         if lora.composition_mode == "scale":
-                            delta_w = lora.lora_A.flatten()
+                            delta_w = lora.lora_A.view(1, 1, -1)
                         else:
                             after_A = F.linear(lora.lora_dropout(x), lora.lora_A)
                             after_B = F.conv1d(
                                 after_A.transpose(-2, -1), lora.lora_B.unsqueeze(-1), groups=sum(lora.enable_lora)
                             ).transpose(-2, -1)
                             delta_w = after_B
+                        # result shape: <batch_size> x <seq_len> x <head_dim * 3>
                         result = lora.com(result, self.pad(delta_w, lora))
                     return result
                 else:
