@@ -279,6 +279,9 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         if unfreeze_adapters:
             for prefix_tuning_name in adapter_setup.flatten():
                 self.pool.enable_prefix(prefix_tuning_name)
+                if prefix_tuning_name in self.prefix_gates:
+                    for param in self.prefix_gates[prefix_tuning_name].parameters():
+                        param.requires_grad = unfreeze_adapters
 
     def get_adapter(self, adapter_name):
         # Make sure to only return params once
@@ -309,8 +312,8 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                     if prefix_tuning_name in self.prefix_gates:
                         gate = self.prefix_gates[prefix_tuning_name]
                         gate_output = torch.mean(torch.sigmoid(gate(residual_input)), dim=1)
-                        self._store_gating_score(prefix_tuning_name, gate)
-                        gate_output = gate_output.expand(batch_size, -1, -1, -1)
+                        self._store_gating_score(prefix_tuning_name, gate_output)
+                        gate_output = gate_output.view(-1, 1, 1, 1)
                         key_states = key_states * gate_output
                         value_states = value_states * gate_output
 

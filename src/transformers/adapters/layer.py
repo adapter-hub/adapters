@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Mapping, Union
 
+import numpy as np
 import torch
 from torch import nn
 
@@ -47,9 +48,14 @@ class AdapterLayerBase(ABC):
         context = ForwardContext.get_context()
         if context.output_adapter_gating_scores:
             gating_cache = context.adapter_gating_scores
-            gating_cache[adapter_name][self.layer_idx][self.location_key] = (
-                gating_score.detach().squeeze().cpu().numpy()
-            )
+            gating_score = gating_score.detach().squeeze().cpu().numpy()
+            cache_score = gating_cache[adapter_name][self.layer_idx].get(self.location_key, None)
+            if cache_score is not None:
+                gating_cache[adapter_name][self.layer_idx][self.location_key] = np.stack(
+                    (cache_score, gating_score), axis=1
+                )
+            else:
+                gating_cache[adapter_name][self.layer_idx][self.location_key] = gating_score
 
     @abstractmethod
     def add_adapter(self, adapter_name: str, layer_idx: int):

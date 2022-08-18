@@ -819,7 +819,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             return_output = head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
 
         if isinstance(return_output, ModelOutput):
-            for attr in ForwardContext.output_attributes:
+            for attr in ForwardContext.context_attributes:
                 if attr not in return_output:
                     return_output[attr] = all_outputs[attr]
         return return_output
