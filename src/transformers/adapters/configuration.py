@@ -162,7 +162,7 @@ class AdapterConfig(AdapterConfigBase):
             Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021). Can bei either a
             constant factor (float) or the string "learned", in which case the scaling factor is learned. Defaults to
             1.0.
-        use_gating (:ob:`bool`, optional):
+        use_gating (:obj:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation.
             This is e.g. used for UniPELT. Defaults to False.
         residual_before_ln (:obj:`bool`, optional):
@@ -366,7 +366,7 @@ class PrefixTuningConfig(AdapterConfigBase):
         non_linearity (str): If flat=False, the non-linearity used in the bottleneck MLP.
         dropout (float): The dropout rate used in the prefix tuning layer.
         leave_out (List[int]): The IDs of the layers (starting at 0) where NO prefix should be added.
-        use_gating (:ob:`bool`, optional):
+        use_gating (:obj:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation.
             This is e.g. used for UniPELT. Defaults to False.
     """
@@ -410,7 +410,7 @@ class LoRAConfig(AdapterConfigBase):
             (IA)^3). "scale" can only be used together with r=1. Defaults to "add".
         init_weights (:obj:`str`, optional): Initialization method for the weights of the LoRA modules.
             Currently, this can be either "lora" (default) or "bert".
-        use_gating (:ob:`bool`, optional):
+        use_gating (:obj:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation.
             This is e.g. used for UniPELT. Defaults to False.
             Note that modules with use_gating=True cannot be merged using `merge_adapter()`.
