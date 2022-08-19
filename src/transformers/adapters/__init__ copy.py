@@ -89,6 +89,10 @@ _import_structure = {
         "AutoAdapterModel",
         "AutoModelWithHeads",
     ],
+    "models.bigbird":[
+        "BigBirdAdapterModel",
+        "BigBirdModelWithHeads",
+    ],
     "models.bart": [
         "BartAdapterModel",
         "BartModelWithHeads",
@@ -111,13 +115,13 @@ _import_structure = {
         "MBartAdapterModel",
         "MBartModelWithHeads",
     ],
-     "models.big_bird":[
-        "BigBirdAdapterModel",
-        "BigBirdModelWithHeads",
-    ],
     "models.roberta": [
         "RobertaAdapterModel",
         "RobertaModelWithHeads",
+    ],
+    "models.big_bird": [
+        "BigBirdAdapterModel",
+        "BigBirdModelWithHeads",
     ],
     "models.t5": [
         "T5AdapterModel",
@@ -209,8 +213,8 @@ if TYPE_CHECKING:
     from .models.distilbert import DistilBertAdapterModel, DistilBertModelWithHeads
     from .models.gpt2 import GPT2AdapterModel, GPT2ModelWithHeads
     from .models.mbart import MBartAdapterModel, MBartModelWithHeads
-    from .models.big_bird import BigBirdAdapterModel, BigBirdModelWithHeads
     from .models.roberta import RobertaAdapterModel, RobertaModelWithHeads
+    from .models.big_bird import BigBirdAdapterModel, BigBirdModelWithHeads
     from .models.t5 import T5AdapterModel, T5ModelWithHeads
     from .models.vit import ViTAdapterModel
     from .models.xlm_roberta import XLMRobertaAdapterModel, XLMRobertaModelWithHeads
