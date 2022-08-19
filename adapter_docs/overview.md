@@ -271,7 +271,7 @@ model.reset_adapter("ia3_adapter")
 _Papers:_
 - [Few-Shot Parameter-Efficient Fine-Tuning is Better and Cheaper than In-Context Learning](https://arxiv.org/pdf/2205.05638.pdf) (Liu et al., 2022)
 
-## Combinations - Mix-and-Match Adapters
+## Method Combinations
 
 _Configuration class_: [`ConfigUnion`](transformers.ConfigUnion)
 
@@ -289,6 +289,10 @@ config = ConfigUnion(
 )
 model.add_adapter("union_adapter", config=config)
 ```
+
+### Mix-and-Match Adapters
+
+_Configuration class_: [`MAMConfig`](transformers.MAMConfig)
 
 [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) study various variants and combinations of efficient fine-tuning methods.
 Among others, they propose _Mix-and-Match Adapters_ as a combination of Prefix Tuning and parallel bottleneck adapters.
@@ -315,3 +319,47 @@ model.add_adapter("mam_adapter", config=config)
 
 _Papers:_
 - [Towards a Unified View of Parameter-Efficient Transfer Learning](https://arxiv.org/pdf/2110.04366.pdf) (He et al., 2021)
+
+### UniPELT
+
+_Configuration class_: [`UniPELTConfig`](transformers.UniPELTConfig)
+
+An approach similar to the work of [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) is taken by [Mao et al. (2022)](https://arxiv.org/pdf/2110.07577.pdf) in their _UniPELT_ framework.
+They, too, combine multiple efficient fine-tuning methods, namely LoRA, Prefix Tuning and bottleneck adapters, in a single unified setup.
+_UniPELT_ additionally introduces a gating mechanism that controls the activation of the different submodules.
+
+Concretely, for each adapted module $m$, UniPELT adds a trainable gating value $\mathcal{G}_m \in (0, 1)$ that is computed via a feed-forward network ($W_{\mathcal{G}_m}$) and sigmoid activation ($\sigma$) from the Transformer layer input states ($x$):
+
+$$\mathcal{G}_m \leftarrow \sigma(W_{\mathcal{G}_m} \cdot x)$$
+
+These gating values are then used to scale the output activations of the injected adapter modules, e.g. for a LoRA layer:
+
+$$
+h \leftarrow W_0 x + \mathcal{G}_{LoRA} B A x
+$$
+
+In the configuration classes of `adapter-transformers`, these gating mechanisms can be activated via `use_gating=True`.
+The full UniPELT setup can be instantiated using `UniPELTConfig`:
+
+```python
+from transformers.adapters import UniPELTConfig
+
+config = UniPELTConfig()
+model.add_adapter("unipelt", config=config)
+```
+
+which is identical to the following `ConfigUnion`:
+
+```python
+from transformers.adapters import ConfigUnion, LoRAConfig, PrefixTuningConfig, PfeifferConfig
+
+config = ConfigUnion(
+    LoRAConfig(r=8, use_gating=True),
+    PrefixTuningConfig(prefix_length=10, use_gating=True),
+    PfeifferConfig(reduction_factor=16, use_gating=True),
+)
+model.add_adapter("unipelt", config=config)
+```
+
+_Papers:_
+- [UNIPELT: A Unified Framework for Parameter-Efficient Language Model Tuning](https://arxiv.org/pdf/2110.07577.pdf) (Mao et al., 2022)
