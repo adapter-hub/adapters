@@ -1001,7 +1001,14 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
             `nn.Module`: A torch module mapping vocabulary to hidden states.
         """
         base_model = getattr(self, self.base_model_prefix, self)
+
+        print("===========================================================================================")
+        print(base_model)
+        print("====================================================================================================")
+        # print(self)
+        print("=====================================================================================================")
         if base_model is not self:
+            print("here 3")
             return base_model.get_input_embeddings()
         else:
             raise NotImplementedError
