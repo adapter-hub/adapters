@@ -310,7 +310,7 @@ class ParallelTrainingMixin:
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,
-            learning_rate=0.5,
+            learning_rate=1.0,
             max_steps=20,
             no_cuda=True,
             remove_unused_columns=False,
