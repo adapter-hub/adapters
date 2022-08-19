@@ -327,6 +327,7 @@ class T5DenseGatedActDense(nn.Module):
 class T5LayerFF(T5FFLayerAdaptersMixin, nn.Module):
     def __init__(self, config: T5Config):
         super().__init__()
+        self.config = config
         if config.is_gated_act:
             self.DenseReluDense = T5DenseGatedActDense(config)
         else:
