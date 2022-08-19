@@ -311,6 +311,7 @@ class ParallelTrainingMixin:
             output_dir="./examples",
             do_train=True,
             learning_rate=1.0,
+            num_train_epochs=2,
             max_steps=20,
             no_cuda=True,
             remove_unused_columns=False,
