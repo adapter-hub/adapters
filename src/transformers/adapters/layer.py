@@ -330,7 +330,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             # Therefore, we assume the (replicated) input batch to be divisible by the number of parallel channels.
             if hidden_states.shape[0] % adapter_setup.parallel_channels != 0:
                 raise ValueError(
-                    "The total input batch size in a Parallel adapter block must be divisible by the number of parallel channels."
+                    "The total input batch size in a Parallel adapter block must be divisible by the number of"
+                    " parallel channels."
                 )
             orig_batch_size = hidden_states.shape[0] // adapter_setup.parallel_channels
 

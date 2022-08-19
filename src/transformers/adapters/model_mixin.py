@@ -162,7 +162,8 @@ class EmbeddingAdaptersMixin:
             reference_tokenizer is not None and reference_embedding is None
         ):
             raise KeyError(
-                "Reference embedding and reference tokenizer are required to use initialize embeddings from reference embedding"
+                "Reference embedding and reference tokenizer are required to use initialize embeddings from reference"
+                " embedding"
             )
         if reference_embedding is not None and reference_tokenizer is not None:
             tokens = set(tokenizer.get_vocab().keys()) & set(reference_tokenizer.get_vocab().keys())
@@ -387,7 +388,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             for adapter_name in adapter_setup.flatten():
                 if adapter_name not in self.config.adapters.adapters:
                     raise ValueError(
-                        f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
+                        f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters"
+                        " are correctly loaded."
                     )
 
         # Make sure LoRA is reset
