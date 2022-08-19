@@ -311,7 +311,6 @@ class ParallelTrainingMixin:
             output_dir="./examples",
             do_train=True,
             learning_rate=1.0,
-            num_train_epochs=2,
             max_steps=20,
             no_cuda=True,
             remove_unused_columns=False,
@@ -325,11 +324,9 @@ class ParallelTrainingMixin:
         )
         trainer.train()
 
-        for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
-            if "mrpc" in k1:
-                self.assertFalse(torch.equal(v1, v2), k1)
-            else:
-                self.assertTrue(torch.equal(v1, v2))
+        # check that the weights of the adapters have changed
+        self.assertTrue(any([not torch.equal(v, state_dict_pre[k]) for k, v in model.state_dict().items() if "mrpc" in k]))
+        self.assertTrue(all(torch.equal(v, state_dict_pre[k]) for k, v in model.state_dict().items() if "mrpc" not in k))
 
     def test_parallel_training_equivalent_to_single_adapters(self):
         model = AutoAdapterModel.from_config(self.config())
