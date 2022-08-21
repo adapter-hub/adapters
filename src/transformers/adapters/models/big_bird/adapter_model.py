@@ -37,6 +37,8 @@ class BigBirdAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         self.init_weights()
 
     @add_start_docstrings_to_model_forward(BIG_BIRD_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+
+
     def forward(
         self,
         input_ids=None,

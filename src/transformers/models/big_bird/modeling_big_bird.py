@@ -28,6 +28,18 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.bert import (
+    BertModelAdaptersMixin,
+    BertModelWithHeadsAdaptersMixin,
+    BertOutputAdaptersMixin,
+    BertSelfOutputAdaptersMixin,
+)
+from ...adapters.prefix_tuning import PrefixTuningShim
+
 from ...modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     BaseModelOutputWithPoolingAndCrossAttentions,
@@ -1308,17 +1320,19 @@ class BigBirdBlockSparseAttention(nn.Module):
 
 
 # Copied from transformers.models.bert.modeling_bert.BertSelfOutput with Bert->BigBird
-class BigBirdSelfOutput(nn.Module):
+class BigBirdSelfOutput(BertSelfOutputAdaptersMixin,nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
@@ -1429,17 +1443,19 @@ class BigBirdIntermediate(nn.Module):
 
 
 # Copied from transformers.models.bert.modeling_bert.BertOutput with Bert->BigBird
-class BigBirdOutput(nn.Module):
+class BigBirdOutput(BertOutputAdaptersMixin,nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
@@ -1766,7 +1782,7 @@ class BigBirdPreTrainedModel(PreTrainedModel):
 
     config_class = BigBirdConfig
     load_tf_weights = load_tf_weights_in_big_bird
-    base_model_prefix = "bert"
+    base_model_prefix = "bigbird"
     supports_gradient_checkpointing = True
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
@@ -1925,7 +1941,7 @@ class BigBirdForQuestionAnsweringModelOutput(ModelOutput):
     "The bare BigBird Model transformer outputting raw hidden-states without any specific head on top.",
     BIG_BIRD_START_DOCSTRING,
 )
-class BigBirdModel(BigBirdPreTrainedModel):
+class BigBirdModel(BertModelAdaptersMixin, BigBirdPreTrainedModel):
     """
 
     The model can behave as an encoder (with only self-attention) as well as a decoder, in which case a layer of
@@ -1947,6 +1963,7 @@ class BigBirdModel(BigBirdPreTrainedModel):
 
         self.embeddings = BigBirdEmbeddings(config)
         self.encoder = BigBirdEncoder(config)
+        self._init_adapter_modules()
 
         if add_pooling_layer:
             self.pooler = nn.Linear(config.hidden_size, config.hidden_size)
@@ -2143,7 +2160,7 @@ class BigBirdModel(BigBirdPreTrainedModel):
             inputs_embeds=inputs_embeds,
             past_key_values_length=past_key_values_length,
         )
-
+        embedding_output = self.invertible_adapters_forward(embedding_output)
         encoder_outputs = self.encoder(
             embedding_output,
             attention_mask=extended_attention_mask,
@@ -2367,7 +2384,7 @@ class BigBirdForPreTraining(BigBirdPreTrainedModel):
 
 
 @add_start_docstrings("""BigBird Model with a `language modeling` head on top.""", BIG_BIRD_START_DOCSTRING)
-class BigBirdForMaskedLM(BigBirdPreTrainedModel):
+class BigBirdForMaskedLM(BertModelWithHeadsAdaptersMixin,BigBirdPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -2472,7 +2489,10 @@ class BigBirdForMaskedLM(BigBirdPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+        prediction_scores = self.lm_head(
+            sequence_output,
+            inv_lang_adapter=self.roberta.get_invertible_adapter(),
+        )
 
         masked_lm_loss = None
         if labels is not None:
@@ -2509,7 +2529,7 @@ class BigBirdForMaskedLM(BigBirdPreTrainedModel):
 @add_start_docstrings(
     """BigBird Model with a `language modeling` head on top for CLM fine-tuning.""", BIG_BIRD_START_DOCSTRING
 )
-class BigBirdForCausalLM(BigBirdPreTrainedModel):
+class BigBirdForCausalLM(BertModelWithHeadsAdaptersMixin, BigBirdPreTrainedModel):
 
     _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]
 
@@ -2597,7 +2617,11 @@ class BigBirdForCausalLM(BigBirdPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+        prediction_scores = self.lm_head(
+            sequence_output,
+            inv_lang_adapter=self.roberta.get_invertible_adapter(),
+        )
+
 
         lm_loss = None
         if labels is not None:
@@ -2673,7 +2697,7 @@ class BigBirdClassificationHead(nn.Module):
     """,
     BIG_BIRD_START_DOCSTRING,
 )
-class BigBirdForSequenceClassification(BigBirdPreTrainedModel):
+class BigBirdForSequenceClassification(BertModelWithHeadsAdaptersMixin, BigBirdPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -2801,7 +2825,7 @@ class BigBirdForSequenceClassification(BigBirdPreTrainedModel):
     """,
     BIG_BIRD_START_DOCSTRING,
 )
-class BigBirdForMultipleChoice(BigBirdPreTrainedModel):
+class BigBirdForMultipleChoice(BertModelWithHeadsAdaptersMixin, BigBirdPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -2895,7 +2919,7 @@ class BigBirdForMultipleChoice(BigBirdPreTrainedModel):
     """,
     BIG_BIRD_START_DOCSTRING,
 )
-class BigBirdForTokenClassification(BigBirdPreTrainedModel):
+class BigBirdForTokenClassification(BertModelWithHeadsAdaptersMixin, BigBirdPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -2973,7 +2997,7 @@ class BigBirdForTokenClassification(BigBirdPreTrainedModel):
         )
 
 
-class BigBirdForQuestionAnsweringHead(nn.Module):
+class BigBirdForQuestionAnsweringHead(BertModelWithHeadsAdaptersMixin, nn.Module):
     """Head for question answering tasks."""
 
     def __init__(self, config):

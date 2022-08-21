@@ -55,7 +55,7 @@ from src.transformers import (BigBirdTokenizer,
                           BigBirdModelWithHeads,
                           RobertaModelWithHeads,
                           TrainingArguments, 
-                          AdapterTrainer, 
+                          Trainer, 
                           EvalPrediction, 
                           TextClassificationPipeline)
 
@@ -77,51 +77,59 @@ def encode_batch(batch):
 dataset = dataset.map(encode_batch, batched=True)
 dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
 
-# config = BigBirdConfig.from_pretrained(model_ckpt,num_labels=2,)
-# model = BigBirdModelWithHeads.from_pretrained(model_ckpt)
+config = BigBirdConfig.from_pretrained(model_ckpt,num_labels=2,)
 
-model = RobertaModelWithHeads.from_pretrained('roberta-base')
-# model = BigBirdModelWithHeads.from_pretrained(model_ckpt)
+# model = RobertaModelWithHeads.from_pretrained('roberta-base')
+model = BigBirdModelWithHeads.from_pretrained(model_ckpt,config=config)
 
-# # Add a new adapter
-# model.add_adapter("rotten_tomatoes")
-# # Add a matching classification head
-# model.add_classification_head(
-#     "rotten_tomatoes",
-#     num_labels=2,
-#     id2label={ 0: "👎", 1: "👍"}
-#   )
-# # Activate the adapter
-# model.train_adapter("rotten_tomatoes")
+# Add a new adapter
+model.add_adapter("rotten_tomatoes")
 
+#=====================================================================================================
+# Add a matching classification head
+model.add_classification_head(
+    "rotten_tomatoes",
+    num_labels=2,
+    id2label={ 0: "👎", 1: "👍"}
+  )
+# Activate the adapter
+model.train_adapter("rotten_tomatoes")
+
+print("Hey there we are ready with the model!!")
 #==================================================================================================
-# training_args = TrainingArguments(
-#     learning_rate=1e-4,
-#     num_train_epochs=6,
-#     per_device_train_batch_size=32,
-#     per_device_eval_batch_size=32,
-#     logging_steps=200,
-#     output_dir="./training_output",
-#     overwrite_output_dir=True,
-#     # The next line is important to ensure the dataset labels are properly passed to the model
-#     remove_unused_columns=False,
-# )
+training_args = TrainingArguments(
+    learning_rate=1e-4,
+    num_train_epochs=1,
+    per_device_train_batch_size=32,
+    per_device_eval_batch_size=32,
+    logging_steps=200,
+    output_dir="./training_output",
+    overwrite_output_dir=True,
+    # The next line is important to ensure the dataset labels are properly passed to the model
+    remove_unused_columns=False,
+)
 
-# def compute_accuracy(p: EvalPrediction):
-#   preds = np.argmax(p.predictions, axis=1)
-#   return {"acc": (preds == p.label_ids).mean()}
 
-# trainer = AdapterTrainer(
-#     model=model,
-#     args=training_args,
-#     train_dataset=dataset["train"],
-#     eval_dataset=dataset["validation"],
-#     compute_metrics=compute_accuracy,
-# )
+# AdapterTrainer is throwing error : temporarily tested with Trainer
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=dataset["train"],
+    eval_dataset=dataset["validation"],
+)
 #========================================================================================
-# trainer.train()
-# trainer.evaluate()
+trainer.train()
 
-# classifier = TextClassificationPipeline(model=model, tokenizer=tokenizer)
+#========================================================================================
+trainer.evaluate()
 
-# classifier("This is awesome!")
+print("Training Done !!")
+
+#========================================================================================
+#Inference
+sentence = "This is awesome!"
+tokens = tokenizer(sentence)
+input_ids = torch.tensor(tokenizer.convert_tokens_to_ids(tokens))
+outputs = model(input_ids)
+print(outputs.logits)

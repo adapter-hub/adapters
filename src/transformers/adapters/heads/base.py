@@ -521,7 +521,6 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         If the :obj:`torchscript` flag is set in the configuration, can't handle parameter sharing so we are cloning
         the weights instead.
         """
-        print(self.heads.items(),"==================================================================")
         for head_name, head in self.heads.items():
             print("here 1")
             output_embeddings = head.get_output_embeddings()
@@ -533,9 +532,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if hasattr(self, self.base_model_prefix):
                 self = getattr(self, self.base_model_prefix)
             self._tie_encoder_decoder_weights(self.encoder, self.decoder, self.base_model_prefix)
-        print("========================================================================================================")
-        print(self.get_input_embeddings())
-        print("========================================================================================================")
+        
         return self.get_input_embeddings()
 
     def _resize_token_embeddings(self, new_num_tokens):
