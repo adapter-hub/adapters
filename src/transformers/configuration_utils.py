@@ -771,6 +771,16 @@ class PretrainedConfig(PushToHubMixin):
 
         return serializable_config_dict
 
+    def adapters_to_dict(self, output):
+        # Adapter-specific changes
+        if hasattr(self, "adapters") and not isinstance(output["adapters"], dict):
+            output["adapters"] = self.adapters.to_dict()
+        if "custom_heads" in output:
+            del output["custom_heads"]
+        if "is_adaptable" in output:
+            del output["is_adaptable"]
+        return output
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Serializes this instance to a Python dictionary.
@@ -788,6 +798,8 @@ class PretrainedConfig(PushToHubMixin):
         output["transformers_version"] = __version__
 
         self.dict_torch_dtype_to_str(output)
+
+        self.adapters_to_dict(output)
 
         return output
 
