@@ -114,7 +114,7 @@ _deps = [
     "ftfy",
     "fugashi>=1.0",
     "GitPython<3.1.19",
-    "hf-doc-builder>=0.3.0",
+    "hf-doc-builder==0.3.0",
     "huggingface-hub>=0.1.0,<0.8.0",
     "importlib_metadata",
     "ipadic>=1.0.0,<2.0",
