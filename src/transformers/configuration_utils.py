@@ -789,6 +789,14 @@ class PretrainedConfig(PushToHubMixin):
 
         self.dict_torch_dtype_to_str(output)
 
+        # Adapter-specific changes
+        if hasattr(self, "adapters") and not isinstance(output["adapters"], dict):
+            output["adapters"] = self.adapters.to_dict()
+        if "custom_heads" in output:
+            del output["custom_heads"]
+        if "is_adaptable" in output:
+            del output["is_adaptable"]
+
         return output
 
     def to_json_string(self, use_diff: bool = True) -> str:
