@@ -33,6 +33,7 @@ class ViTAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, ViTPreTrainedModel):
         interpolate_pos_encoding: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         head=None,
+        output_adapter_gating_scores=False,
         **kwargs,
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
@@ -44,6 +45,7 @@ class ViTAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, ViTPreTrainedModel):
             output_hidden_states=output_hidden_states,
             interpolate_pos_encoding=interpolate_pos_encoding,
             return_dict=return_dict,
+            output_adapter_gating_scores=output_adapter_gating_scores,
         )
 
         # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads

@@ -48,7 +48,9 @@ class AdapterLayerBase(ABC):
         context = ForwardContext.get_context()
         if context.output_adapter_gating_scores:
             gating_cache = context.adapter_gating_scores
-            gating_score = gating_score.detach().squeeze().cpu().numpy()
+            if self.layer_idx not in gating_cache[adapter_name]:
+                gating_cache[adapter_name][self.layer_idx] = {}
+            gating_score = gating_score.detach().view(-1).cpu().numpy()
             cache_score = gating_cache[adapter_name][self.layer_idx].get(self.location_key, None)
             if cache_score is not None:
                 gating_cache[adapter_name][self.layer_idx][self.location_key] = np.stack(

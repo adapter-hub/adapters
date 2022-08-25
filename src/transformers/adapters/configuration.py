@@ -369,6 +369,8 @@ class PrefixTuningConfig(AdapterConfigBase):
         use_gating (:obj:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation.
             This is e.g. used for UniPELT. Defaults to False.
+        shared_gating (:obj:`bool`, optional): Whether to use a shared gate for the prefixes of all attention matrices.
+            Only applicable if `use_gating=True`. Defaults to True.
     """
 
     architecture: Optional[str] = "prefix_tuning"
@@ -383,6 +385,7 @@ class PrefixTuningConfig(AdapterConfigBase):
     non_linearity: str = "tanh"
     dropout: float = 0.0
     use_gating: bool = False
+    shared_gating: bool = False
 
 
 @dataclass(eq=False)

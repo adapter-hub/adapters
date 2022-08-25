@@ -35,7 +35,7 @@ class UniPELTTestMixin(AdapterMethodBaseTestMixin):
             UniPELTConfig(), ["loras.{name}.", "adapters.{name}.", "prefix_tunings.{name}.", "prefix_gates.{name}."]
         )
 
-    def test_output_adapter_gating_scores(self):
+    def test_output_adapter_gating_scores_unipelt(self):
         model = self.get_model()
         model.eval()
 
@@ -56,4 +56,4 @@ class UniPELTTestMixin(AdapterMethodBaseTestMixin):
         for _, per_layer_scores in gating_scores.items():
             self.assertEqual(3, len(per_layer_scores))
             for k, v in per_layer_scores.items():
-                self.assertEqual(self.default_input_samples_shape[0], v.size, k)
+                self.assertEqual(self.default_input_samples_shape[0], v.shape[0], k)

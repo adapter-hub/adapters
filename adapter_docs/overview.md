@@ -361,5 +361,25 @@ config = ConfigUnion(
 model.add_adapter("unipelt", config=config)
 ```
 
+Finally, as the gating values for each adapter module might provide interesting insights for analysis, `adapter-transformers` comes with an integrated mechanism of returning all gating values computed during a model forward pass via the `output_adapter_gating_scores` parameter:
+
+```python
+outputs = model(**inputs, output_adapter_gating_scores=True)
+gating_scores = outputs.adapter_gating_scores
+```
+In the example, `gating_scores` holds a dictionary of the following form:
+```
+{
+    '<adapter_name>': {
+        <layer_id>: {
+            '<module_location>': np.array([...]),
+            ...
+        },
+        ...
+    },
+    ...
+}
+```
+
 _Papers:_
 - [UNIPELT: A Unified Framework for Parameter-Efficient Language Model Tuning](https://arxiv.org/pdf/2110.07577.pdf) (Mao et al., 2022)

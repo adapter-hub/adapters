@@ -260,7 +260,8 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             self.prefixes[adapter_name] = prefix_id
 
             if prefix_tuning_config.use_gating:
-                gate = nn.Linear(self.config.hidden_size, 1)
+                gate_outputs = 1 if prefix_tuning_config.shared_gating else 2
+                gate = nn.Linear(self.config.hidden_size, gate_outputs)
                 gate.weight.data.normal_(mean=0.0, std=0.02)
                 self.prefix_gates[adapter_name] = gate
 
@@ -313,9 +314,10 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                         gate = self.prefix_gates[prefix_tuning_name]
                         gate_output = torch.mean(torch.sigmoid(gate(residual_input)), dim=1)
                         self._store_gating_score(prefix_tuning_name, gate_output)
-                        gate_output = gate_output.view(-1, 1, 1, 1)
-                        key_states = key_states * gate_output
-                        value_states = value_states * gate_output
+                        gate_output_key = gate_output[:, 0].view(-1, 1, 1, 1)
+                        gate_output_value = gate_output[:, -1].view(-1, 1, 1, 1)
+                        key_states = key_states * gate_output_key
+                        value_states = value_states * gate_output_value
 
                     key_states = torch.cat([prefix_keys, key_states], dim=2)
                     value_states = torch.cat([prefix_values, value_states], dim=2)
