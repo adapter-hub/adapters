@@ -820,7 +820,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
         if isinstance(return_output, ModelOutput):
             for attr in ForwardContext.context_attributes:
-                if attr not in return_output:
+                if attr not in return_output and attr in all_outputs:
                     return_output[attr] = all_outputs[attr]
         return return_output
 
