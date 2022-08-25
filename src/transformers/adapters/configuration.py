@@ -163,8 +163,8 @@ class AdapterConfig(AdapterConfigBase):
             constant factor (float) or the string "learned", in which case the scaling factor is learned. Defaults to
             1.0.
         use_gating (:obj:`bool`, optional):
-            Place a trainable gating module besides the added parameter module to control module activation.
-            This is e.g. used for UniPELT. Defaults to False.
+            Place a trainable gating module besides the added parameter module to control module activation. This is
+            e.g. used for UniPELT. Defaults to False.
         residual_before_ln (:obj:`bool`, optional):
             If True, take the residual connection around the adapter bottleneck before the layer normalization. Only
             applicable if :obj:`original_ln_before` is True.
@@ -367,10 +367,11 @@ class PrefixTuningConfig(AdapterConfigBase):
         dropout (float): The dropout rate used in the prefix tuning layer.
         leave_out (List[int]): The IDs of the layers (starting at 0) where NO prefix should be added.
         use_gating (:obj:`bool`, optional):
-            Place a trainable gating module besides the added parameter module to control module activation.
-            This is e.g. used for UniPELT. Defaults to False.
-        shared_gating (:obj:`bool`, optional): Whether to use a shared gate for the prefixes of all attention matrices.
-            Only applicable if `use_gating=True`. Defaults to True.
+            Place a trainable gating module besides the added parameter module to control module activation. This is
+            e.g. used for UniPELT. Defaults to False.
+        shared_gating (:
+            obj:`bool`, optional): Whether to use a shared gate for the prefixes of all attention matrices. Only
+            applicable if `use_gating=True`. Defaults to True.
     """
 
     architecture: Optional[str] = "prefix_tuning"
@@ -414,9 +415,9 @@ class LoRAConfig(AdapterConfigBase):
         init_weights (:obj:`str`, optional): Initialization method for the weights of the LoRA modules.
             Currently, this can be either "lora" (default) or "bert".
         use_gating (:obj:`bool`, optional):
-            Place a trainable gating module besides the added parameter module to control module activation.
-            This is e.g. used for UniPELT. Defaults to False.
-            Note that modules with use_gating=True cannot be merged using `merge_adapter()`.
+            Place a trainable gating module besides the added parameter module to control module activation. This is
+            e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
+            `merge_adapter()`.
     """
 
     architecture: Optional[str] = "lora"

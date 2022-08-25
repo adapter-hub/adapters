@@ -102,7 +102,9 @@ class ForwardContext:
         def wrapper_func(self, *args, **kwargs):
             if self.config.adapters is not None:
                 with cls(self, *args, **kwargs) as ctx:
-                    kwargs = {k:v for k, v in kwargs.items() if k.replace("output_", "") not in cls.context_attributes}
+                    kwargs = {
+                        k: v for k, v in kwargs.items() if k.replace("output_", "") not in cls.context_attributes
+                    }
                     results = f(self, *args, **kwargs)
 
                     # append output attributes
