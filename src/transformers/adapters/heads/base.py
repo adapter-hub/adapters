@@ -6,8 +6,6 @@ import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from transformers.utils.generic import is_tensor
-
 from ...modeling_outputs import (
     ImageClassifierOutput,
     MultipleChoiceModelOutput,
