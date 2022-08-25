@@ -20,6 +20,7 @@ class DistilBertAdapterModelTest(AdapterModelTesterMixin, DistilBertModelTest):
     all_model_classes = (
         DistilBertAdapterModel,
     )
+    fx_compatible = False
 
 
 class DistilBertAdapterTestBase(AdapterTestBase):

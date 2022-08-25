@@ -20,6 +20,7 @@ class DebertaV2AdapterModelTest(AdapterModelTesterMixin, DebertaV2ModelTest):
     all_model_classes = (
         DebertaV2AdapterModel,
     )
+    fx_compatible = False
 
 
 class DebertaV2AdapterTestBase(AdapterTestBase):
