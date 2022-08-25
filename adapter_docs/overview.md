@@ -369,6 +369,7 @@ Finally, as the gating values for each adapter module might provide interesting 
 outputs = model(**inputs, output_adapter_gating_scores=True)
 gating_scores = outputs.adapter_gating_scores
 ```
+Note that this parameter is only available to base model classes and [AdapterModel classes](prediction_heads.md#adaptermodel-classes).
 In the example, `gating_scores` holds a dictionary of the following form:
 ```
 {
