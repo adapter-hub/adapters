@@ -110,11 +110,11 @@ class ForwardContext:
                     # append output attributes
                     if isinstance(results, tuple):
                         for attr in cls.context_attributes:
-                            if getattr(ctx, "output_" + attr):
+                            if getattr(ctx, "output_" + attr, False):
                                 results = results + (dict(getattr(ctx, attr)),)
                     else:
                         for attr in cls.context_attributes:
-                            if getattr(ctx, "output_" + attr):
+                            if getattr(ctx, "output_" + attr, False):
                                 results[attr] = dict(getattr(ctx, attr))
                 return results
             else:
