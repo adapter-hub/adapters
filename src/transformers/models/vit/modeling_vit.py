@@ -210,9 +210,15 @@ class ViTSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.query = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, bias=config.qkv_bias)
-        self.key = nn.Linear(config.hidden_size, self.all_head_size, bias=config.qkv_bias)
-        self.value = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, bias=config.qkv_bias)
+        self.query = LoRALinear(
+            config.hidden_size, self.all_head_size, "selfattn", config, attn_key="q", bias=config.qkv_bias
+        )
+        self.key = LoRALinear(
+            config.hidden_size, self.all_head_size, "selfattn", config, attn_key="k", bias=config.qkv_bias
+        )
+        self.value = LoRALinear(
+            config.hidden_size, self.all_head_size, "selfattn", config, attn_key="v", bias=config.qkv_bias
+        )
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 

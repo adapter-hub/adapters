@@ -1,7 +1,7 @@
 from tests.models.encoder_decoder.test_modeling_encoder_decoder import *  # Imported to execute model tests
 from transformers import AutoModelForSeq2SeqLM, BertConfig
 
-from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, LoRATestMixin, PrefixTuningTestMixin
+from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, LoRATestMixin, PrefixTuningTestMixin, IA3TestMixin
 from .test_adapter import AdapterTestBase
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 
@@ -34,6 +34,7 @@ class EncoderDecoderAdapterTestBase(AdapterTestBase):
 class EncoderDecoderAdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
+    IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
     AdapterFusionModelTestMixin,

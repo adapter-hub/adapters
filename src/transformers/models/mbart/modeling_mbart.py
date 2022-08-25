@@ -182,9 +182,9 @@ class MBartAttention(nn.Module):
         self.scaling = self.head_dim**-0.5
         self.is_decoder = is_decoder
 
-        self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.v_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, bias=bias)
-        self.q_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, bias=bias)
+        self.k_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, attn_key="k", bias=bias)
+        self.v_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, attn_key="v", bias=bias)
+        self.q_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, attn_key="q", bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
         self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
