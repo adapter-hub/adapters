@@ -50,7 +50,9 @@ class AdapterLayerBase(ABC):
             gating_cache = context.adapter_gating_scores
             if self.layer_idx not in gating_cache[adapter_name]:
                 gating_cache[adapter_name][self.layer_idx] = {}
-            gating_score = gating_score.detach().view(-1).cpu().numpy()
+            gating_score = gating_score.detach().squeeze().cpu().numpy()
+            if len(gating_score.shape) == 0:
+                gating_score = np.expand_dims(gating_score, axis=0)
             cache_score = gating_cache[adapter_name][self.layer_idx].get(self.location_key, None)
             if cache_score is not None:
                 gating_cache[adapter_name][self.layer_idx][self.location_key] = np.stack(

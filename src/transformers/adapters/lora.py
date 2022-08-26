@@ -386,7 +386,9 @@ class MergedLinear(LoRALayer, nn.Linear):
                             gate = torch.sigmoid(lora.gate(x))
                             gate = torch.mean(gate, dim=1)
                             self._store_gating_score(adapter_setup[0], gate)
-                            gate = self.pad(gate.repeat_interleave(self.out_features // 3, dim=-1), lora, fill_value=1)
+                            gate = self.pad(
+                                gate.repeat_interleave(self.out_features // 3, dim=-1), lora, fill_value=1
+                            ).unsqueeze(1)
                         else:
                             gate = None
                         # result = (batch_size, seq_len, head_dim * 3)

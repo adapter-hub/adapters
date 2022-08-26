@@ -269,6 +269,8 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         self.pool.delete_prefix(adapter_name)
         if adapter_name in self.prefixes:
             del self.prefixes[adapter_name]
+        if adapter_name in self.prefix_gates:
+            del self.prefix_gates[adapter_name]
 
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         pass  # not applicable to prefix tuning
@@ -285,11 +287,16 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                         param.requires_grad = unfreeze_adapters
 
     def get_adapter(self, adapter_name):
+        return_dict = nn.ModuleDict()
         # Make sure to only return params once
         if adapter_name in self.prefixes and self.prefixes[adapter_name] == 0:
             prefix_module = self.pool.get_prefix(adapter_name)
             if prefix_module is not None:
-                return prefix_module[self.location_key]
+                return_dict["prefix"] = prefix_module[self.location_key]
+        if adapter_name in self.prefix_gates:
+            return_dict["gate"] = self.prefix_gates[adapter_name]
+        if len(return_dict) > 0:
+            return return_dict
 
         return None
 
