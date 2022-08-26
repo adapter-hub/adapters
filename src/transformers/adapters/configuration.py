@@ -386,7 +386,7 @@ class PrefixTuningConfig(AdapterConfigBase):
     non_linearity: str = "tanh"
     dropout: float = 0.0
     use_gating: bool = False
-    shared_gating: bool = False
+    shared_gating: bool = True
 
 
 @dataclass(eq=False)
