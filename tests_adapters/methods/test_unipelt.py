@@ -53,7 +53,7 @@ class UniPELTTestMixin(AdapterMethodBaseTestMixin):
         self.assertTrue(hasattr(output_1, "adapter_gating_scores"))
         gating_scores = output_1.adapter_gating_scores[name]
         self.assertEqual(len(list(model.iter_layers())), len(gating_scores))
-        for _, per_layer_scores in gating_scores.items():
-            self.assertEqual(3, len(per_layer_scores))
+        for k, per_layer_scores in gating_scores.items():
+            self.assertGreaterEqual(len(per_layer_scores), 3)
             for k, v in per_layer_scores.items():
                 self.assertEqual(self.default_input_samples_shape[0], v.shape[0], k)

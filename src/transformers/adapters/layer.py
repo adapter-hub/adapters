@@ -55,8 +55,8 @@ class AdapterLayerBase(ABC):
                 gating_score = np.expand_dims(gating_score, axis=0)
             cache_score = gating_cache[adapter_name][self.layer_idx].get(self.location_key, None)
             if cache_score is not None:
-                gating_cache[adapter_name][self.layer_idx][self.location_key] = np.stack(
-                    (cache_score, gating_score), axis=1
+                gating_cache[adapter_name][self.layer_idx][self.location_key] = np.column_stack(
+                    (cache_score, gating_score)
                 )
             else:
                 gating_cache[adapter_name][self.layer_idx][self.location_key] = gating_score
