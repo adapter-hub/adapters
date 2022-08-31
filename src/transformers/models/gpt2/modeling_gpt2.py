@@ -938,8 +938,8 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
 
             hidden_states = outputs[0]
             (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
-            # HACK: if output_shape is identical to hidden states shape except for batch size, update output_shape
-            if output_shape[1:] == hidden_states.size()[1:]:
+            # also adjust output shape if necessary
+            if getattr(ForwardContext.get_context(), "adapters_parallelized", False):
                 output_shape = hidden_states.size()
 
             if use_cache is True:
