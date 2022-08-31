@@ -73,3 +73,7 @@ class EncoderDecoderAdapterTest(
 
         self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
+
+    def test_output_adapter_gating_scores_unipelt(self):
+        # TODO currently not supported
+        self.skipTest("Not implemented.")
