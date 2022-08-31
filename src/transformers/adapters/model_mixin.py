@@ -393,7 +393,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     )
 
         # Make sure LoRA is reset
-        self.reset_lora()
+        self.reset_adapter()
         self.config.adapters.active_setup = adapter_setup
         self.config.adapters.skip_layers = skip_layers
 
@@ -904,7 +904,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 if name in module.prefix_tunings:
                     module.prefix_tunings[name].eject()
 
-    def merge_lora(self, name: str):
+    def merge_adapter(self, name: str):
         """
         Merges the weights of the given LoRA module with the Transformer weights as described in the paper.
 
@@ -914,15 +914,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         for module in self.modules():
             if isinstance(module, LoRALayer):
                 if name in module.loras:
-                    module.merge_lora(name)
+                    module.merge_adapter(name)
 
-    def reset_lora(self):
+    def reset_adapter(self):
         """
-        Resets weights of a LoRA module merged using `model.merge_lora(name)`.
+        Resets weights of a LoRA module merged using `model.merge_adapter(name)`.
         """
         for module in self.modules():
             if isinstance(module, LoRALayer):
-                module.reset_lora()
+                module.reset_adapter()
 
 
 @inherit_doc

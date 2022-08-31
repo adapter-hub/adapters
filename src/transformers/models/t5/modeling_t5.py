@@ -358,9 +358,9 @@ class T5Attention(nn.Module):
         self.inner_dim = self.n_heads * self.key_value_proj_dim
 
         # Mesh TensorFlow initialization to avoid scaling before softmax
-        self.q = LoRALinear(self.d_model, self.inner_dim, "selfattn", config, bias=False)
-        self.k = nn.Linear(self.d_model, self.inner_dim, bias=False)
-        self.v = LoRALinear(self.d_model, self.inner_dim, "selfattn", config, bias=False)
+        self.q = LoRALinear(self.d_model, self.inner_dim, "selfattn", config, attn_key="q", bias=False)
+        self.k = LoRALinear(self.d_model, self.inner_dim, "selfattn", config, attn_key="k", bias=False)
+        self.v = LoRALinear(self.d_model, self.inner_dim, "selfattn", config, attn_key="v", bias=False)
         self.o = nn.Linear(self.inner_dim, self.d_model, bias=False)
 
         if self.has_relative_attention_bias:

@@ -158,6 +158,31 @@ This will only retain the necessary parameters and reduces the size of the train
 _Papers:_
 - [Prefix-Tuning: Optimizing Continuous Prompts for Generation](https://arxiv.org/pdf/2101.00190.pdf) (Li and Liang, 2021)
 
+## Compacter
+
+_Configuration class_: [`CompacterConfig`](transformers.CompacterConfig), [`CompacterPlusPlusConfig`](transformers.CompacterPlusPlusConfig)
+
+The Compacter architecture proposed by [Mahabadi et al., 2021](https://arxiv.org/pdf/2106.04647.pdf)
+is similar to the bottleneck adapter architecture. It only exchanges the linear down- and 
+up-projection with a PHM layer. Unlike the linear layer, the PHM layer constructs its weight matrix from two smaller matrices, which reduces the number of parameters.
+ These matrices can be factorized and shared between all adapter layers. You can exchange the down- and up-projection layers from any of the bottleneck adapters described in the previous section
+for a PHM layer by specifying `use_phm=True` in the config.
+
+The PHM layer has the following additional properties: `phm_dim`, `shared_phm_rule`, `factorized_phm_rule`, `learn_phm`, 
+`factorized_phm_W`, `shared_W_phm`, `phm_c_init`, `phm_init_range`, `hypercomplex_nonlinearity`
+
+For more information check out the [`AdapterConfig`](transformers.AdapterConfig) class.
+
+To add a Compacter to your model you can use the predefined configs:
+```python
+from transformers.adapters import CompacterConfig
+
+config = CompacterConfig()
+model.add_adapter("dummy", config=config)
+```
+_Papers:_
+- [COMPACTER: Efficient Low-Rank Hypercomplex Adapter Layers](https://arxiv.org/pdf/2106.04647.pdf) (Mahabadi, Henderson and Ruder, 2021)
+
 ## LoRA
 
 _Configuration class_: [`LoRAConfig`](transformers.LoRAConfig)
@@ -184,46 +209,67 @@ config = LoRAConfig(r=8, alpha=16)
 model.add_adapter("lora_adapter", config=config)
 ```
 
-In the design of LoRA, Hu et al. (2021) also pay special attention to keeping the inference latency overhead compared to full fine-tuning at a minumum.
+In the design of LoRA, Hu et al. (2021) also pay special attention to keeping the inference latency overhead compared to full fine-tuning at a minimum.
 To accomplish this, the LoRA reparameterization can be merged with the original pre-trained weights of a model for inference.
 Thus, the adapted weights are directly used in every forward pass without passing activations through an additional module.
-In `adapter-transformers`, this can be realized using the built-in `merge_lora()` method:
+In `adapter-transformers`, this can be realized using the built-in `merge_adapter()` method:
 ```python
-model.merge_lora("lora_adapter")
+model.merge_adapter("lora_adapter")
 ```
 
 To continue training on this LoRA adapter or to deactivate it entirely, the merged weights first have to be reset again:
 ```python
-model.reset_lora("lora_adapter")
+model.reset_adapter("lora_adapter")
 ```
 
 _Papers:_
 - [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/pdf/2106.09685.pdf) (Hu et al., 2021)
 
-## Compacter
+## (IA)^3
 
-_Configuration class_: [`CompacterConfig`](transformers.CompacterConfig), [`CompacterPlusPlusConfig`](transformers.CompacterPlusPlusConfig)
+_Configuration class_: [`IA3Config`](transformers.IA3Config)
 
-The Compacter architecture proposed by [Mahabadi et al., 2021](https://arxiv.org/pdf/2106.04647.pdf)
-is similar to the bottleneck adapter architecture. It only exchanges the linear down- and 
-up-projection with a PHM layer. Unlike the linear layer, the PHM layer constructs its weight matrix from two smaller matrices, which reduces the number of parameters.
- These matrices can be factorized and shared between all adapter layers. You can exchange the down- and up-projection layers from any of the bottleneck adapters described in the previous section
-for a PHM layer by specifying `use_phm=True` in the config.
+_Infused Adapter by Inhibiting and Amplifying Inner Activations ((IA)^3)_ is an efficient fine-tuning method proposed within the _T-Few_ fine-tuning approach by [Liu et al. (2022)](https://arxiv.org/pdf/2205.05638.pdf).
+(IA)^3 introduces trainable vectors $l_W$ into different components of a Transformer model which perform element-wise rescaling of inner model activations.
+For any model layer expressed as a matrix multiplication of the form $h = W x$, it therefore performs an element-wise multiplication with $l_W$, such that:
 
-The PHM layer has the following additional properties: `phm_dim`, `shared_phm_rule`, `factorized_phm_rule`, `learn_phm`, 
-`factorized_phm_W`, `shared_W_phm`, `phm_c_init`, `phm_init_range`, `hypercomplex_nonlinearity`
+$$
+h = l_W \odot W x
+$$
 
-For more information check out the [`AdapterConfig`](transformers.AdapterConfig) class.
+Here, $\odot$ denotes element-wise multiplication where the entries of $l_W$ are broadcasted to the shape of $W$.
 
-To add a Compacter to your model you can use the predefined configs:
+_Example_:
 ```python
-from transformers.adapters import CompacterConfig
+from transformers.adapters import IA3Config
 
-config = CompacterConfig()
-model.add_adapter("dummy", config=config)
+config = IA3Config()
+model.add_adapter("ia3_adapter", config=config)
 ```
+
+The implementation of (IA)^3, as well as the `IA3Config` class, are derived from the implementation of [LoRA](#lora), with a few main modifications.
+First, (IA)^3 uses multiplicative composition of weights instead of additive composition as in LoRA.
+Second, the added weights are not further decomposed into low-rank matrices.
+Both of these modifications are controlled via the `composition_mode` configuration attribute by setting `composition_mode="scale"`.
+Additionally, as the added weights are already of rank 1, `r=1` is set.
+
+Beyond that, both methods share the same configuration attributes that allow you to specify in which Transformer components rescaling vectors will be injected.
+Following the original implementation, `IA3Config` adds rescaling vectors to the self-attention weights (`selfattn_lora=True`) and the final feed-forward layer (`output_lora=True`).
+Further, you can modify which matrices of the attention mechanism to rescale by leveraging the `attn_matrices` attribute.
+By default, (IA)^3 injects weights into the key ('k') and value ('v') matrices, but not in the query ('q') matrix.
+
+Finally, similar to LoRA, (IA)^3 also allows merging the injected parameters with the original weight matrices of the Transformer model.
+E.g.:
+```python
+# Merge (IA)^3 adapter
+model.merge_adapter("ia3_adapter")
+
+# Reset merged weights
+model.reset_adapter("ia3_adapter")
+```
+
 _Papers:_
-- [COMPACTER: Efficient Low-Rank Hypercomplex Adapter Layers](https://arxiv.org/pdf/2106.04647.pdf) (Mahabadi, Henderson and Ruder, 2021)
+- [Few-Shot Parameter-Efficient Fine-Tuning is Better and Cheaper than In-Context Learning](https://arxiv.org/pdf/2205.05638.pdf) (Liu et al., 2022)
 
 ## Combinations - Mix-and-Match Adapters
 

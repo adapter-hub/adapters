@@ -178,9 +178,9 @@ class RobertaSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.query = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config)
-        self.key = nn.Linear(config.hidden_size, self.all_head_size)
-        self.value = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config)
+        self.query = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="q")
+        self.key = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="k")
+        self.value = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="v")
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.position_embedding_type = position_embedding_type or getattr(

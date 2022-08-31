@@ -561,8 +561,8 @@ class DisentangledSelfAttention(nn.Module):
             self.all_head_size * 3,
             "selfattn",
             config,
-            enable_lora=[True, False, True],
-            fan_in_fan_out=True,
+            fan_in_fan_out=False,
+            bias=False,
         )
         self.q_bias = nn.Parameter(torch.zeros((self.all_head_size), dtype=torch.float))
         self.v_bias = nn.Parameter(torch.zeros((self.all_head_size), dtype=torch.float))
