@@ -402,15 +402,16 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Adds a new adapter module of the specified type to the model.
 
         Args:
-
             adapter_name (str): The name of the adapter module to be added. config (str or dict or AdapterConfigBase,
             optional): The adapter configuration, can be either:
 
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
-            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an
-            exception is thrown. set_active (bool, optional): Set the adapter to be the active one. By default (False),
+            overwrite_ok (bool, optional):
+                Overwrite an adapter with the same name if it exists. By default (False), an
+            exception is thrown. set_active (bool, optional):
+                Set the adapter to be the active one. By default (False),
             the adapter is added but not activated.
         """
         if isinstance(config, dict):
