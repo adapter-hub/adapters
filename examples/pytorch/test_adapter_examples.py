@@ -127,7 +127,7 @@ class AdapterExamplesTests(TestCasePlus):
             --validation_file ./tests/fixtures/tests_samples/SQUAD/sample.json
             --output_dir {tmp_dir}
             --overwrite_output_dir
-            --max_steps=10
+            --max_steps=15
             --warmup_steps=2
             --do_train
             --do_eval

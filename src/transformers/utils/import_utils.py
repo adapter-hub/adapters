@@ -19,6 +19,7 @@ import importlib.util
 import json
 import os
 import sys
+import warnings
 from collections import OrderedDict
 from functools import wraps
 from itertools import chain
@@ -272,7 +273,7 @@ def is_torch_cuda_available():
         return False
 
 
-def is_torch_bf16_available():
+def is_torch_bf16_gpu_available():
     if not is_torch_available():
         return False
 
@@ -282,25 +283,55 @@ def is_torch_bf16_available():
     # some bits come from https://github.com/pytorch/pytorch/blob/2289a12f21c54da93bf5d696e3f9aea83dd9c10d/torch/testing/_internal/common_cuda.py#L51
     # with additional check for torch version
     # to succeed:
-    # 1. the hardware needs to support bf16 (arch >= Ampere)
-    # 2. torch >= 1.10 (1.9 should be enough for AMP API has changed in 1.10, so using 1.10 as minimal)
-    # 3. CUDA >= 11
+    # 1. torch >= 1.10 (1.9 should be enough for AMP API has changed in 1.10, so using 1.10 as minimal)
+    # 2. the hardware needs to support bf16 (GPU arch >= Ampere, or CPU)
+    # 3. if using gpu, CUDA >= 11
     # 4. torch.autocast exists
     # XXX: one problem here is that it may give invalid results on mixed gpus setup, so it's
     # really only correct for the 0th gpu (or currently set default device if different from 0)
-
-    if not torch.cuda.is_available() or torch.version.cuda is None:
-        return False
-    if torch.cuda.get_device_properties(torch.cuda.current_device()).major < 8:
-        return False
-    if int(torch.version.cuda.split(".")[0]) < 11:
-        return False
     if version.parse(torch.__version__) < version.parse("1.10"):
         return False
-    if not hasattr(torch, "autocast"):
+
+    if torch.cuda.is_available() and torch.version.cuda is not None:
+        if torch.cuda.get_device_properties(torch.cuda.current_device()).major < 8:
+            return False
+        if int(torch.version.cuda.split(".")[0]) < 11:
+            return False
+        if not hasattr(torch.cuda.amp, "autocast"):
+            return False
+    else:
         return False
 
     return True
+
+
+def is_torch_bf16_cpu_available():
+    if not is_torch_available():
+        return False
+
+    import torch
+
+    if version.parse(torch.__version__) < version.parse("1.10"):
+        return False
+
+    try:
+        # multiple levels of AttributeError depending on the pytorch version so do them all in one check
+        _ = torch.cpu.amp.autocast
+    except AttributeError:
+        return False
+
+    return True
+
+
+def is_torch_bf16_available():
+    # the original bf16 check was for gpu only, but later a cpu/bf16 combo has emerged so this util
+    # has become ambiguous and therefore deprecated
+    warnings.warn(
+        "The util is_torch_bf16_available is deprecated, please use is_torch_bf16_gpu_available "
+        "or is_torch_bf16_cpu_available instead according to whether it's used with cpu or gpu",
+        FutureWarning,
+    )
+    return is_torch_bf16_gpu_available()
 
 
 def is_torch_tf32_available():
@@ -325,7 +356,7 @@ torch_version = None
 _torch_fx_available = _torch_onnx_dict_inputs_support_available = False
 if _torch_available:
     torch_version = version.parse(importlib_metadata.version("torch"))
-    _torch_fx_available = (torch_version.major, torch_version.minor) == (
+    _torch_fx_available = (torch_version.major, torch_version.minor) >= (
         TORCH_FX_REQUIRED_VERSION.major,
         TORCH_FX_REQUIRED_VERSION.minor,
     )
@@ -365,15 +396,32 @@ def is_ftfy_available():
     return _ftfy_available
 
 
-def is_torch_tpu_available():
+def is_torch_tpu_available(check_device=True):
+    "Checks if `torch_xla` is installed and potentially if a TPU is in the environment"
     if not _torch_available:
         return False
-    # This test is probably enough, but just in case, we unpack a bit.
-    if importlib.util.find_spec("torch_xla") is None:
+    if importlib.util.find_spec("torch_xla") is not None:
+        if check_device:
+            # We need to check if `xla_device` can be found, will raise a RuntimeError if not
+            try:
+                import torch_xla.core.xla_model as xm
+
+                _ = xm.xla_device()
+                return True
+            except RuntimeError:
+                return False
+        return True
+    return False
+
+
+def is_torchdynamo_available():
+    return importlib.util.find_spec("torchdynamo") is not None
+
+
+def is_torch_tensorrt_fx_available():
+    if importlib.util.find_spec("torch_tensorrt") is None:
         return False
-    if importlib.util.find_spec("torch_xla.core") is None:
-        return False
-    return importlib.util.find_spec("torch_xla.core.xla_model") is not None
+    return importlib.util.find_spec("torch_tensorrt.fx") is not None
 
 
 def is_datasets_available():
@@ -396,8 +444,34 @@ def is_py3nvml_available():
     return importlib.util.find_spec("py3nvml") is not None
 
 
+def is_sacremoses_available():
+    return importlib.util.find_spec("sacremoses") is not None
+
+
 def is_apex_available():
     return importlib.util.find_spec("apex") is not None
+
+
+def is_ipex_available():
+    def get_major_and_minor_from_version(full_version):
+        return str(version.parse(full_version).major) + "." + str(version.parse(full_version).minor)
+
+    if not is_torch_available() or importlib.util.find_spec("intel_extension_for_pytorch") is None:
+        return False
+    _ipex_version = "N/A"
+    try:
+        _ipex_version = importlib_metadata.version("intel_extension_for_pytorch")
+    except importlib_metadata.PackageNotFoundError:
+        return False
+    torch_major_and_minor = get_major_and_minor_from_version(_torch_version)
+    ipex_major_and_minor = get_major_and_minor_from_version(_ipex_version)
+    if torch_major_and_minor != ipex_major_and_minor:
+        logger.warning(
+            f"Intel Extension for PyTorch {ipex_major_and_minor} needs to work with PyTorch {ipex_major_and_minor}.*,"
+            f" but PyTorch {_torch_version} is found. Please switch to the matching version and run again."
+        )
+        return False
+    return True
 
 
 def is_bitsandbytes_available():
@@ -448,6 +522,10 @@ def is_spacy_available():
     return importlib.util.find_spec("spacy") is not None
 
 
+def is_tensorflow_text_available():
+    return importlib.util.find_spec("tensorflow_text") is not None
+
+
 def is_in_notebook():
     try:
         # Test adapted from tqdm.autonotebook: https://github.com/tqdm/tqdm/blob/master/tqdm/autonotebook.py
@@ -456,6 +534,10 @@ def is_in_notebook():
             raise ImportError("console")
         if "VSCODE_PID" in os.environ:
             raise ImportError("vscode")
+        if "DATABRICKS_RUNTIME_VERSION" in os.environ and os.environ["DATABRICKS_RUNTIME_VERSION"] < "11.0":
+            # Databricks Runtime 11.0 and above uses IPython kernel by default so it should be compatible with Jupyter notebook
+            # https://docs.microsoft.com/en-us/azure/databricks/notebooks/ipython-kernel
+            raise ImportError("databricks")
 
         return importlib.util.find_spec("IPython") is not None
     except (AttributeError, ImportError, KeyError):
@@ -615,6 +697,30 @@ PYTORCH_IMPORT_ERROR = """
 installation page: https://pytorch.org/get-started/locally/ and follow the ones that match your environment.
 """
 
+# docstyle-ignore
+PYTORCH_IMPORT_ERROR_WITH_TF = """
+{0} requires the PyTorch library but it was not found in your environment.
+However, we were able to find a TensorFlow installation. TensorFlow classes begin
+with "TF", but are otherwise identically named to our PyTorch classes. This
+means that the TF equivalent of the class you tried to import would be "TF{0}".
+If you want to use TensorFlow, please use TF classes instead!
+
+If you really do want to use PyTorch please go to
+https://pytorch.org/get-started/locally/ and follow the instructions that
+match your environment.
+"""
+
+# docstyle-ignore
+TF_IMPORT_ERROR_WITH_PYTORCH = """
+{0} requires the TensorFlow library but it was not found in your environment.
+However, we were able to find a PyTorch installation. PyTorch classes do not begin
+with "TF", but are otherwise identically named to our TF classes.
+If you want to use PyTorch, please use those classes instead!
+
+If you really do want to use TensorFlow, please follow the instructions on the
+installation page https://www.tensorflow.org/install that match your environment.
+"""
+
 
 # docstyle-ignore
 SKLEARN_IMPORT_ERROR = """
@@ -676,6 +782,12 @@ TENSORFLOW_PROBABILITY_IMPORT_ERROR = """
 explained here: https://github.com/tensorflow/probability.
 """
 
+# docstyle-ignore
+TENSORFLOW_TEXT_IMPORT_ERROR = """
+{0} requires the tensorflow_text library but it was not found in your environment. You can install it with pip as
+explained here: https://www.tensorflow.org/text/guide/tf_text_intro.
+"""
+
 
 # docstyle-ignore
 PANDAS_IMPORT_ERROR = """
@@ -688,6 +800,13 @@ explained here: https://pandas.pydata.org/pandas-docs/stable/getting_started/ins
 PHONEMIZER_IMPORT_ERROR = """
 {0} requires the phonemizer library but it was not found in your environment. You can install it with pip:
 `pip install phonemizer`
+"""
+
+
+# docstyle-ignore
+SACREMOSES_IMPORT_ERROR = """
+{0} requires the sacremoses library but it was not found in your environment. You can install it with pip:
+`pip install sacremoses`
 """
 
 
@@ -748,6 +867,7 @@ BACKENDS_MAPPING = OrderedDict(
         ("protobuf", (is_protobuf_available, PROTOBUF_IMPORT_ERROR)),
         ("pyctcdecode", (is_pyctcdecode_available, PYCTCDECODE_IMPORT_ERROR)),
         ("pytesseract", (is_pytesseract_available, PYTESSERACT_IMPORT_ERROR)),
+        ("sacremoses", (is_sacremoses_available, SACREMOSES_IMPORT_ERROR)),
         ("scatter", (is_scatter_available, SCATTER_IMPORT_ERROR)),
         ("pytorch_quantization", (is_pytorch_quantization_available, PYTORCH_QUANTIZATION_IMPORT_ERROR)),
         ("sentencepiece", (is_sentencepiece_available, SENTENCEPIECE_IMPORT_ERROR)),
@@ -755,6 +875,7 @@ BACKENDS_MAPPING = OrderedDict(
         ("speech", (is_speech_available, SPEECH_IMPORT_ERROR)),
         ("tensorflow_probability", (is_tensorflow_probability_available, TENSORFLOW_PROBABILITY_IMPORT_ERROR)),
         ("tf", (is_tf_available, TENSORFLOW_IMPORT_ERROR)),
+        ("tensorflow_text", (is_tensorflow_text_available, TENSORFLOW_TEXT_IMPORT_ERROR)),
         ("timm", (is_timm_available, TIMM_IMPORT_ERROR)),
         ("tokenizers", (is_tokenizers_available, TOKENIZERS_IMPORT_ERROR)),
         ("torch", (is_torch_available, PYTORCH_IMPORT_ERROR)),
@@ -770,6 +891,15 @@ def requires_backends(obj, backends):
         backends = [backends]
 
     name = obj.__name__ if hasattr(obj, "__name__") else obj.__class__.__name__
+
+    # Raise an error for users who might not realize that classes without "TF" are torch-only
+    if "torch" in backends and "tf" not in backends and not is_torch_available() and is_tf_available():
+        raise ImportError(PYTORCH_IMPORT_ERROR_WITH_TF.format(name))
+
+    # Raise the inverse error for PyTorch users trying to load TF classes
+    if "tf" in backends and "torch" not in backends and is_torch_available() and not is_tf_available():
+        raise ImportError(TF_IMPORT_ERROR_WITH_PYTORCH.format(name))
+
     checks = (BACKENDS_MAPPING[backend] for backend in backends)
     failed = [msg.format(name) for available, msg in checks if not available()]
     if failed:
@@ -872,7 +1002,8 @@ class _LazyModule(ModuleType):
             return importlib.import_module("." + module_name, self.__name__)
         except Exception as e:
             raise RuntimeError(
-                f"Failed to import {self.__name__}.{module_name} because of the following error (look up to see its traceback):\n{e}"
+                f"Failed to import {self.__name__}.{module_name} because of the following error (look up to see its"
+                f" traceback):\n{e}"
             ) from e
 
     def __reduce__(self):

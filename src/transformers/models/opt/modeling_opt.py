@@ -17,13 +17,12 @@ import random
 from typing import List, Optional, Tuple, Union
 
 import torch
-import torch.nn.functional as F
 import torch.utils.checkpoint
-from torch import Tensor, nn
-from torch.nn import CrossEntropyLoss
+from torch import nn
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
-from ...modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
+from ...modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast, SequenceClassifierOutputWithPast
 from ...modeling_utils import PreTrainedModel
 from ...utils import (
     add_code_sample_docstrings,
@@ -62,7 +61,7 @@ def _make_causal_mask(input_ids_shape: torch.Size, dtype: torch.dtype, past_key_
     Make causal mask used for bi-directional self-attention.
     """
     bsz, tgt_len = input_ids_shape
-    mask = torch.full((tgt_len, tgt_len), float("-inf"))
+    mask = torch.full((tgt_len, tgt_len), torch.tensor(torch.finfo(dtype).min))
     mask_cond = torch.arange(mask.size(-1))
     mask.masked_fill_(mask_cond < (mask_cond + 1).view(mask.size(-1), 1), 0)
     mask = mask.to(dtype)
@@ -83,58 +82,33 @@ def _expand_mask(mask: torch.Tensor, dtype: torch.dtype, tgt_len: Optional[int] 
 
     inverted_mask = 1.0 - expanded_mask
 
-    return inverted_mask.masked_fill(inverted_mask.bool(), torch.finfo(dtype).min)
-
-
-def make_positions(mask, padding_idx: int):
-    """Replace non-padding symbols with their position numbers.
-
-    Position numbers begin at padding_idx+1. Padding symbols are ignored.
-    """
-    # The series of casts and type-conversions here are carefully
-    # balanced to both work with ONNX export and XLA. In particular XLA
-    # prefers ints, cumsum defaults to output longs, and ONNX doesn't know
-    # how to handle the dtype kwarg in cumsum.
-    positions = (torch.cumsum(mask, dim=1).type_as(mask) * mask).long() + padding_idx
-    return positions
+    return inverted_mask.masked_fill(inverted_mask.to(torch.bool), torch.finfo(dtype).min)
 
 
 class OPTLearnedPositionalEmbedding(nn.Embedding):
     """
-    This module learns positional embeddings up to a fixed maximum size. Padding ids are ignored by either offsetting
-    based on padding_idx or by setting padding_idx to None and ensuring that the appropriate position ids are passed to
-    the forward function.
+    This module learns positional embeddings up to a fixed maximum size.
     """
 
-    def __init__(self, num_embeddings: int, embedding_dim: int, padding_idx: int = 1):
-        super().__init__(num_embeddings, embedding_dim, padding_idx)
-        self.onnx_trace = False
-        if self.padding_idx is not None:
-            self.max_positions = self.num_embeddings - self.padding_idx - 1
-        else:
-            self.max_positions = self.num_embeddings
+    def __init__(self, num_embeddings: int, embedding_dim: int):
+        # OPT is set up so that if padding_idx is specified then offset the embedding ids by 2
+        # and adjust num_embeddings appropriately. Other models don't have this hack
+        self.offset = 2
+        super().__init__(num_embeddings + self.offset, embedding_dim)
 
-    def forward(self, attention_mask: Tensor, positions: Optional[Tensor] = None):
-        # attention_masks is expected to be of size [batch_size x seq_len].
-        if not ((positions is None) or (self.padding_idx is None)):
-            raise ValueError("If positions is pre-computed then padding_idx should not be set.")
+    def forward(self, attention_mask: torch.LongTensor, past_key_values_length: int = 0):
+        """`input_ids_shape` is expected to be [bsz x seqlen]."""
+        attention_mask = attention_mask.long()
 
-        if positions is None:
-            attention_mask = attention_mask.long()
-            positions = make_positions(attention_mask, self.padding_idx)
+        # create positions depending on attention_mask
+        positions = (torch.cumsum(attention_mask, dim=1).type_as(attention_mask) * attention_mask).long() - 1
 
-        return F.embedding(
-            positions,
-            self.weight,
-            self.padding_idx,
-            self.max_norm,
-            self.norm_type,
-            self.scale_grad_by_freq,
-            self.sparse,
-        )
+        # cut positions if `past_key_values_length` is > 0
+        positions = positions[:, past_key_values_length:]
+
+        return super().forward(positions + self.offset)
 
 
-# Copied from transformers.models.bart.modeling_bart.BartAttention with Bart->OPT
 class OPTAttention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
@@ -227,7 +201,8 @@ class OPTAttention(nn.Module):
 
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
             raise ValueError(
-                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is {attn_weights.size()}"
+                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is"
+                f" {attn_weights.size()}"
             )
 
         if attention_mask is not None:
@@ -236,14 +211,21 @@ class OPTAttention(nn.Module):
                     f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is {attention_mask.size()}"
                 )
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len) + attention_mask
+            attn_weights = torch.max(attn_weights, torch.tensor(torch.finfo(attn_weights.dtype).min))
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
+            dtype_attn_weights = attn_weights.dtype
 
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1)
+        # upcast to fp32 if the weights are in fp16. Please see https://github.com/huggingface/transformers/pull/17437
+        if dtype_attn_weights == torch.float16:
+            attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(dtype_attn_weights)
+        else:
+            attn_weights = nn.functional.softmax(attn_weights, dim=-1)
 
         if layer_head_mask is not None:
             if layer_head_mask.size() != (self.num_heads,):
                 raise ValueError(
-                    f"Head mask for a single layer should be of size {(self.num_heads,)}, but is {layer_head_mask.size()}"
+                    f"Head mask for a single layer should be of size {(self.num_heads,)}, but is"
+                    f" {layer_head_mask.size()}"
                 )
             attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
@@ -264,7 +246,8 @@ class OPTAttention(nn.Module):
 
         if attn_output.size() != (bsz * self.num_heads, tgt_len, self.head_dim):
             raise ValueError(
-                f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is {attn_output.size()}"
+                f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is"
+                f" {attn_output.size()}"
             )
 
         attn_output = attn_output.view(bsz, self.num_heads, tgt_len, self.head_dim)
@@ -400,9 +383,11 @@ OPT_START_DOCSTRING = r"""
     OPT_START_DOCSTRING,
 )
 class OPTPreTrainedModel(PreTrainedModel):
+
     config_class = OPTConfig
     base_model_prefix = "model"
     supports_gradient_checkpointing = True
+    _no_split_modules = ["OPTDecoderLayer"]
     _keys_to_ignore_on_load_unexpected = [r"decoder\.version"]
 
     def _init_weights(self, module):
@@ -445,9 +430,9 @@ OPT_INPUTS_DOCSTRING = r"""
             If `past_key_values` is used, optionally only the last `decoder_input_ids` have to be input (see
             `past_key_values`).
 
-            If you want to change padding behavior, you should read [`modeling_opt._prepare_decoder_inputs`] and modify
-            to your needs. See diagram 1 in [the paper](https://arxiv.org/abs/1910.13461) for more information on the
-            default strategy.
+            If you want to change padding behavior, you should read [`modeling_opt._prepare_decoder_attention_mask`]
+            and modify to your needs. See diagram 1 in [the paper](https://arxiv.org/abs/1910.13461) for more
+            information on the default strategy.
         head_mask (`torch.Tensor` of shape `(encoder_layers, encoder_attention_heads)`, *optional*):
             Mask to nullify selected heads of the attention modules in the encoder. Mask values selected in `[0, 1]`:
 
@@ -501,12 +486,7 @@ class OPTDecoder(OPTPreTrainedModel):
         self.vocab_size = config.vocab_size
 
         self.embed_tokens = nn.Embedding(config.vocab_size, config.word_embed_proj_dim, self.padding_idx)
-
-        # OPT is set up so that if padding_idx is specified then offset the embedding ids by 2
-        if self.padding_idx is not None:
-            num_embeddings = config.max_position_embeddings + 2
-
-        self.embed_positions = OPTLearnedPositionalEmbedding(num_embeddings, config.hidden_size, self.padding_idx)
+        self.embed_positions = OPTLearnedPositionalEmbedding(config.max_position_embeddings, config.hidden_size)
 
         if config.word_embed_proj_dim != config.hidden_size:
             self.project_out = nn.Linear(config.hidden_size, config.word_embed_proj_dim, bias=False)
@@ -518,7 +498,14 @@ class OPTDecoder(OPTPreTrainedModel):
         else:
             self.project_in = None
 
-        self.layer_norm = None
+        # Note that the only purpose of `config._remove_final_layer_norm` is to keep backward compatibility
+        # with checkpoints that have been fine-tuned before transformers v4.20.1
+        # see https://github.com/facebookresearch/metaseq/pull/164
+        if config.do_layer_norm_before and not config._remove_final_layer_norm:
+            self.final_layer_norm = nn.LayerNorm(config.hidden_size)
+        else:
+            self.final_layer_norm = None
+
         self.layers = nn.ModuleList([OPTDecoderLayer(config) for _ in range(config.num_hidden_layers)])
 
         self.gradient_checkpointing = False
@@ -539,7 +526,7 @@ class OPTDecoder(OPTPreTrainedModel):
         if input_shape[-1] > 1:
             combined_attention_mask = _make_causal_mask(
                 input_shape, inputs_embeds.dtype, past_key_values_length=past_key_values_length
-            ).to(self.device)
+            ).to(inputs_embeds.device)
 
         if attention_mask is not None:
             # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
@@ -636,8 +623,7 @@ class OPTDecoder(OPTPreTrainedModel):
         # embed positions
         if attention_mask is None:
             attention_mask = torch.ones(inputs_embeds.shape[:2], dtype=torch.bool, device=inputs_embeds.device)
-
-        positions = self.embed_positions(attention_mask)[:, past_key_values_length:, :]
+        pos_embeds = self.embed_positions(attention_mask, past_key_values_length)
 
         attention_mask = self._prepare_decoder_attention_mask(
             attention_mask, input_shape, inputs_embeds, past_key_values_length
@@ -646,8 +632,7 @@ class OPTDecoder(OPTPreTrainedModel):
         if self.project_in is not None:
             inputs_embeds = self.project_in(inputs_embeds)
 
-        hidden_states = inputs_embeds + positions
-
+        hidden_states = inputs_embeds + pos_embeds
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
 
         # decoder layers
@@ -660,13 +645,15 @@ class OPTDecoder(OPTPreTrainedModel):
             if attn_mask is not None:
                 if attn_mask.size()[0] != (len(self.layers)):
                     raise ValueError(
-                        f"The `{mask_name}` should be specified for {len(self.layers)} layers, but it is for {head_mask.size()[0]}."
+                        f"The `{mask_name}` should be specified for {len(self.layers)} layers, but it is for"
+                        f" {head_mask.size()[0]}."
                     )
 
         for idx, decoder_layer in enumerate(self.layers):
             # add LayerDrop (see https://arxiv.org/abs/1909.11556 for description)
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
+
             dropout_probability = random.uniform(0, 1)
             if self.training and (dropout_probability < self.layerdrop):
                 continue
@@ -714,6 +701,9 @@ class OPTDecoder(OPTPreTrainedModel):
             if output_attentions:
                 all_self_attns += (layer_outputs[1],)
 
+        if self.final_layer_norm is not None:
+            hidden_states = self.final_layer_norm(hidden_states)
+
         if self.project_out is not None:
             hidden_states = self.project_out(hidden_states)
 
@@ -740,7 +730,6 @@ class OPTModel(OPTPreTrainedModel):
     def __init__(self, config: OPTConfig):
         super().__init__(config)
         self.decoder = OPTDecoder(config)
-
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -806,14 +795,14 @@ class OPTModel(OPTPreTrainedModel):
 
 
 class OPTForCausalLM(OPTPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"lm_head\.weight"]
+    _keys_to_ignore_on_load_missing = [r"lm_head.weight"]
 
     def __init__(self, config):
         super().__init__(config)
         self.model = OPTModel(config)
 
         # the lm_head weight is automatically tied to the embed tokens weight
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = nn.Linear(config.word_embed_proj_dim, config.vocab_size, bias=False)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -987,3 +976,133 @@ class OPTForCausalLM(OPTPreTrainedModel):
         for layer_past in past:
             reordered_past += (tuple(past_state.index_select(0, beam_idx) for past_state in layer_past),)
         return reordered_past
+
+
+@add_start_docstrings(
+    """
+    The OPT Model transformer with a sequence classification head on top (linear layer).
+
+    [`OPTForSequenceClassification`] uses the last token in order to do the classification, as other causal models
+    (e.g. GPT-2) do.
+
+    Since it does classification on the last token, it requires to know the position of the last token. If a
+    `pad_token_id` is defined in the configuration, it finds the last token that is not a padding token in each row. If
+    no `pad_token_id` is defined, it simply takes the last value in each row of the batch. Since it cannot guess the
+    padding tokens when `inputs_embeds` are passed instead of `input_ids`, it does the same (take the last value in
+    each row of the batch).
+    """,
+    OPT_START_DOCSTRING,
+)
+class OPTForSequenceClassification(OPTPreTrainedModel):
+    _keys_to_ignore_on_load_missing = [r"lm_head.weight"]
+
+    def __init__(self, config: OPTConfig):
+        super().__init__(config)
+        self.num_labels = config.num_labels
+        self.model = OPTModel(config)
+        self.score = nn.Linear(config.word_embed_proj_dim, self.num_labels, bias=False)
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    @add_start_docstrings_to_model_forward(OPT_INPUTS_DOCSTRING)
+    @add_code_sample_docstrings(
+        processor_class=_TOKENIZER_FOR_DOC,
+        output_type=SequenceClassifierOutputWithPast,
+        config_class=_CONFIG_FOR_DOC,
+        expected_output="'LABEL_0'",
+        expected_loss=5.28,
+    )
+    def forward(
+        self,
+        input_ids: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        past_key_values: Optional[Tuple[Tuple[torch.Tensor]]] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[Tuple, SequenceClassifierOutputWithPast]:
+        r"""
+        labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
+            Labels for computing the sequence classification/regression loss. Indices should be in `[0, ...,
+            config.num_labels - 1]`. If `config.num_labels == 1` a regression loss is computed (Mean-Square loss), If
+            `config.num_labels > 1` a classification loss is computed (Cross-Entropy).
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        transformer_outputs = self.model(
+            input_ids,
+            past_key_values=past_key_values,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        hidden_states = transformer_outputs[0]
+        logits = self.score(hidden_states)
+
+        if input_ids is not None:
+            batch_size, sequence_length = input_ids.shape[:2]
+        else:
+            batch_size, sequence_length = inputs_embeds.shape[:2]
+
+        if self.config.pad_token_id is None:
+            sequence_lengths = -1
+        else:
+            if input_ids is not None:
+                sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
+            else:
+                sequence_lengths = -1
+                logger.warning(
+                    f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
+                    "unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                )
+
+        pooled_logits = logits[torch.arange(batch_size, device=logits.device), sequence_lengths]
+
+        loss = None
+        if labels is not None:
+            if self.config.problem_type is None:
+                if self.num_labels == 1:
+                    self.config.problem_type = "regression"
+                elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+                    self.config.problem_type = "single_label_classification"
+                else:
+                    self.config.problem_type = "multi_label_classification"
+
+            if self.config.problem_type == "regression":
+                loss_fct = MSELoss()
+                if self.num_labels == 1:
+                    loss = loss_fct(pooled_logits.squeeze(), labels.squeeze())
+                else:
+                    loss = loss_fct(pooled_logits, labels)
+            elif self.config.problem_type == "single_label_classification":
+                loss_fct = CrossEntropyLoss()
+                loss = loss_fct(pooled_logits.view(-1, self.num_labels), labels.view(-1))
+            elif self.config.problem_type == "multi_label_classification":
+                loss_fct = BCEWithLogitsLoss()
+                loss = loss_fct(pooled_logits, labels)
+        if not return_dict:
+            output = (pooled_logits,) + transformer_outputs[1:]
+            return ((loss,) + output) if loss is not None else output
+
+        return SequenceClassifierOutputWithPast(
+            loss=loss,
+            logits=pooled_logits,
+            past_key_values=transformer_outputs.past_key_values,
+            hidden_states=transformer_outputs.hidden_states,
+            attentions=transformer_outputs.attentions,
+        )
+
+    def get_input_embeddings(self):
+        return self.model.decoder.embed_tokens
+
+    def set_input_embeddings(self, value):
+        self.model.decoder.embed_tokens = value

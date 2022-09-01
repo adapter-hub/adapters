@@ -22,6 +22,7 @@ class T5AdapterModelTest(AdapterModelTesterMixin, T5ModelTest):
     all_model_classes = (
         T5AdapterModel,
     )
+    fx_compatible = False
 
 
 @require_torch

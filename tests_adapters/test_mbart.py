@@ -18,6 +18,7 @@ class MBartAdapterModelTest(AdapterModelTesterMixin, MBartModelTest):
     all_model_classes = (
         MBartAdapterModel,
     )
+    fx_compatible = False
 
 
 class MBartAdapterTestBase(AdapterTestBase):

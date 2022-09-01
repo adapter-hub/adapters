@@ -19,6 +19,7 @@ class RobertaAdapterModelTest(AdapterModelTesterMixin, RobertaModelTest):
     all_model_classes = (
         RobertaAdapterModel,
     )
+    fx_compatible = False
 
 
 class RobertaAdapterTestBase(AdapterTestBase):

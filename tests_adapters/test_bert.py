@@ -20,6 +20,7 @@ class BertAdapterModelTest(AdapterModelTesterMixin, BertModelTest):
     all_model_classes = (
         BertAdapterModel,
     )
+    fx_compatible = False
 
 
 class BertAdapterTestBase(AdapterTestBase):

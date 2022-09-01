@@ -153,7 +153,7 @@ class Linear(LoRALayer, nn.Linear):
         self.attn_key = attn_key
         self.fan_in_fan_out = fan_in_fan_out
         if fan_in_fan_out:
-            self.weight.data = self.weight.data.T
+            self.weight.data = torch.t(self.weight.data)
 
     def _check_lora_location(self, config: LoRAConfig):
         return self.attn_key in config.attn_matrices
@@ -163,7 +163,7 @@ class Linear(LoRALayer, nn.Linear):
 
     def reset_adapter(self):
         def T(w):
-            return w.T if self.fan_in_fan_out else w
+            return torch.t(w) if self.fan_in_fan_out else w
 
         if self.merged:
             lora = self.loras[self.merged]
@@ -178,7 +178,7 @@ class Linear(LoRALayer, nn.Linear):
 
     def _compute_adapted_weight(self, lora):
         def T(w):
-            return w.T if self.fan_in_fan_out else w
+            return torch.t(w) if self.fan_in_fan_out else w
 
         weight = self.weight
         # Merge the weights and mark it
@@ -204,7 +204,7 @@ class Linear(LoRALayer, nn.Linear):
 
     def forward(self, x: torch.Tensor):
         def T(w):
-            return w.T if self.fan_in_fan_out else w
+            return torch.t(w) if self.fan_in_fan_out else w
 
         if not self.merged:
             adapter_setup = self.get_active_setup(self.loras)
@@ -217,7 +217,7 @@ class Linear(LoRALayer, nn.Linear):
                         if lora.composition_mode == "scale":
                             delta_w = lora.lora_A.view(1, 1, -1)
                         else:
-                            delta_w = lora.lora_dropout(x) @ lora.lora_A.T @ lora.lora_B.T
+                            delta_w = lora.lora_dropout(x) @ torch.t(lora.lora_A) @ torch.t(lora.lora_B)
                         result = lora.com(result, delta_w)
                     return result
                 else:
@@ -290,7 +290,7 @@ class MergedLinear(LoRALayer, nn.Linear):
 
     def reset_adapter(self):
         def T(w):
-            return w if self.fan_in_fan_out else w.T
+            return w if self.fan_in_fan_out else torch.t(w)
 
         if self.merged:
             lora = self.loras[self.merged]
@@ -309,7 +309,7 @@ class MergedLinear(LoRALayer, nn.Linear):
 
     def _compute_adapted_weight(self, lora):
         def T(w):
-            return w if self.fan_in_fan_out else w.T
+            return w if self.fan_in_fan_out else torch.t(w)
 
         weight = self.weight
         if lora.r > 0:
@@ -338,7 +338,7 @@ class MergedLinear(LoRALayer, nn.Linear):
 
     def forward(self, x: torch.Tensor):
         def T(w):
-            return w.T if self.fan_in_fan_out else w
+            return torch.t(w) if self.fan_in_fan_out else w
 
         if not self.merged:
             adapter_setup = self.get_active_setup(self.loras)
