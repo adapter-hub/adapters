@@ -688,7 +688,10 @@ class PredictionHeadLoader(WeightsLoader):
             config = self.weights_helper.load_weights_config(save_directory)
             # make sure that the model class of the loaded head matches the current class
             if not self.convert_to_flex_head and self.model.__class__.__name__ != config["model_class"]:
-                error_msg = f"Model class '{config['model_class']}' of found prediction head does not match current model class."
+                error_msg = (
+                    f"Model class '{config['model_class']}' of found prediction head does not match current model"
+                    " class."
+                )
                 if self.error_on_missing:
                     raise ValueError(error_msg)
                 else:
@@ -709,7 +712,8 @@ class PredictionHeadLoader(WeightsLoader):
                         head_config = config["config"]
                     else:
                         raise ValueError(
-                            f"Cannot automatically convert prediction head of model class {config['model_class']} to flex head."
+                            f"Cannot automatically convert prediction head of model class {config['model_class']} to"
+                            " flex head."
                         )
                 # try to convert a static head to a flex head
                 elif self.convert_to_flex_head and config["model_class"] in STATIC_TO_FLEX_HEAD_MAP:
@@ -726,7 +730,8 @@ class PredictionHeadLoader(WeightsLoader):
                     )
                 else:
                     raise ValueError(
-                        f"Cannot automatically convert prediction head of model class {config['model_class']} to flex head."
+                        f"Cannot automatically convert prediction head of model class {config['model_class']} to flex"
+                        " head."
                     )
                 if head_name in self.model.heads:
                     logger.warning("Overwriting existing head '{}'".format(head_name))

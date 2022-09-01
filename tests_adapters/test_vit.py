@@ -27,6 +27,7 @@ class ViTAdapterModelTest(AdapterModelTesterMixin, ViTModelTest):
     all_model_classes = (
         ViTAdapterModel,
     )
+    fx_compatible = False
 
 
 class ViTAdapterTestBase(VisionAdapterTestBase):

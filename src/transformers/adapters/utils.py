@@ -496,9 +496,8 @@ def resolve_adapter_path(
             except Exception as ex:
                 logger.info(ex)
                 raise EnvironmentError(
-                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source.".format(
-                        adapter_name_or_path
-                    )
+                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source."
+                    .format(adapter_name_or_path)
                 )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
@@ -533,7 +532,8 @@ def list_adapters(source: str = None, model_name: str = None) -> List[AdapterInf
             kwargs = {"full": True, "fetch_config": True}
         else:
             logger.warning(
-                "Using old version of huggingface-hub package for fetching. Please upgrade to latest version for accurate results."
+                "Using old version of huggingface-hub package for fetching. Please upgrade to latest version for"
+                " accurate results."
             )
             kwargs = {"full": True}
         all_hf_adapters_data = HfApi().list_models(filter="adapter-transformers", **kwargs)

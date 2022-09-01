@@ -27,6 +27,7 @@ class GPT2AdapterModelTest(AdapterModelTesterMixin, GPT2ModelTest):
     all_model_classes = (
         GPT2AdapterModel,
     )
+    fx_compatible = False
 
 
 class GPT2AdapterTestBase(AdapterTestBase):

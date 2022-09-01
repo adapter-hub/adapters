@@ -162,7 +162,8 @@ class EmbeddingAdaptersMixin:
             reference_tokenizer is not None and reference_embedding is None
         ):
             raise KeyError(
-                "Reference embedding and reference tokenizer are required to use initialize embeddings from reference embedding"
+                "Reference embedding and reference tokenizer are required to use initialize embeddings from reference"
+                " embedding"
             )
         if reference_embedding is not None and reference_tokenizer is not None:
             tokens = set(tokenizer.get_vocab().keys()) & set(reference_tokenizer.get_vocab().keys())
@@ -387,7 +388,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             for adapter_name in adapter_setup.flatten():
                 if adapter_name not in self.config.adapters.adapters:
                     raise ValueError(
-                        f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters are correctly loaded."
+                        f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters"
+                        " are correctly loaded."
                     )
 
         # Make sure LoRA is reset
@@ -400,15 +402,16 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Adds a new adapter module of the specified type to the model.
 
         Args:
-
             adapter_name (str): The name of the adapter module to be added. config (str or dict or AdapterConfigBase,
             optional): The adapter configuration, can be either:
 
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
                 - if not given, the default configuration for this adapter type will be used
-            overwrite_ok (bool, optional): Overwrite an adapter with the same name if it exists. By default (False), an
-            exception is thrown. set_active (bool, optional): Set the adapter to be the active one. By default (False),
+            overwrite_ok (bool, optional):
+                Overwrite an adapter with the same name if it exists. By default (False), an
+            exception is thrown. set_active (bool, optional):
+                Set the adapter to be the active one. By default (False),
             the adapter is added but not activated.
         """
         if isinstance(config, dict):

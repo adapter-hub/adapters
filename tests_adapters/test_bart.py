@@ -27,6 +27,7 @@ class BartAdapterModelTest(AdapterModelTesterMixin, BartModelTest):
     all_model_classes = (
         BartAdapterModel,
     )
+    fx_compatible = False
 
 
 class BartAdapterTestBase(AdapterTestBase):
