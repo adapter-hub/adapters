@@ -10,7 +10,13 @@ import torch
 from torch import nn
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import AdapterConfig, AdapterConfigBase, AdapterFusionConfig, get_adapter_config_hash
+from .configuration import (
+    ADAPTER_CONFIG_MAP,
+    AdapterConfig,
+    AdapterConfigBase,
+    AdapterFusionConfig,
+    get_adapter_config_hash,
+)
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .layer import AdapterLayer, AdapterLayerBase
@@ -848,7 +854,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         rows = []
         # fill in data for adapters
         for name, config_name in self.config.adapters.adapters.items():
-            config = self.config.adapters.config_map[config_name]
+            if config_name in self.config.adapters.config_map:
+                config = self.config.adapters.config_map.get(config_name, None)
+            else:
+                config = ADAPTER_CONFIG_MAP.get(config_name, None)
+            if isinstance(config, str):
+                config = ADAPTER_CONFIG_MAP[config]
             row = {"name": name, "architecture": config.get("architecture", None) or "bottleneck"}
             weights = self.get_adapter(name)
             row["active"] = self.active_adapters is not None and name in self.active_adapters.flatten()
@@ -884,12 +895,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             # print
             total_length = 80
             header_format = "{:<25}{:<15}{:>12}{:>12}{:>8}{:>8}"
-            row_format = "{:<25}{:<15}{:>12}{:>12.3f}{:>8}{:>8}"
-            s = [header_format.format(*map(lambda x: x.title(), header))]
+            row_format = "{:<25}{:<15}{:>12,}{:>12.3f}{:>8}{:>8}"
+            s = ["=" * total_length]
+            s.append(header_format.format(*map(lambda x: x.title(), header)))
             s.append("-" * total_length)
             for row in rows:
                 s.append(row_format.format(*[row.get(h, "") for h in header]))
             s.insert(len(s) - 1, "-" * total_length)
+            s.append("=" * total_length)
             return "\n".join(s)
 
     def eject_prefix_tuning(self, name: str):
