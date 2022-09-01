@@ -10,7 +10,13 @@ import torch
 from torch import nn
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import AdapterConfig, AdapterConfigBase, AdapterFusionConfig, get_adapter_config_hash, ADAPTER_CONFIG_MAP
+from .configuration import (
+    ADAPTER_CONFIG_MAP,
+    AdapterConfig,
+    AdapterConfigBase,
+    AdapterFusionConfig,
+    get_adapter_config_hash,
+)
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .layer import AdapterLayer, AdapterLayerBase
