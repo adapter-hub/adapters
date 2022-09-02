@@ -22,6 +22,9 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.gptj import GPTJDecoderBlockAdaptersMixin, GPTJModelAdapterMixin
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
@@ -116,9 +119,9 @@ class GPTJAttention(nn.Module):
             )
         self.scale_attn = torch.sqrt(torch.tensor(self.head_dim, dtype=torch.float32)).to(torch.get_default_dtype())
 
-        self.k_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
-        self.v_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
-        self.q_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
+        self.k_proj = LoRALinear(self.embed_dim, self.embed_dim, "selfattn", config, attn_key="k", bias=False)
+        self.v_proj = LoRALinear(self.embed_dim, self.embed_dim, "selfattn", config, attn_key="v", bias=False)
+        self.q_proj = LoRALinear(self.embed_dim, self.embed_dim, "selfattn", config, attn_key="q", bias=False)
         self.out_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
         self.rotary_dim = None
         if config.rotary_dim is not None:
@@ -274,8 +277,8 @@ class GPTJMLP(nn.Module):
         super().__init__()
         embed_dim = config.n_embd
 
-        self.fc_in = nn.Linear(embed_dim, intermediate_size)
-        self.fc_out = nn.Linear(intermediate_size, embed_dim)
+        self.fc_in = LoRALinear(embed_dim, intermediate_size, "intermediate", config)
+        self.fc_out = LoRALinear(intermediate_size, embed_dim, "output", config)
 
         self.act = ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.resid_pdrop)
@@ -288,7 +291,7 @@ class GPTJMLP(nn.Module):
         return hidden_states
 
 
-class GPTJBlock(nn.Module):
+class GPTJBlock(GPTJDecoderBlockAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         inner_dim = config.n_inner if config.n_inner is not None else 4 * config.n_embd
@@ -478,7 +481,7 @@ DEPARALLELIZE_DOCSTRING = r"""
     "The bare GPT-J Model transformer outputting raw hidden-states without any specific head on top.",
     GPTJ_START_DOCSTRING,
 )
-class GPTJModel(GPTJPreTrainedModel):
+class GPTJModel(GPTJModelAdapterMixin, GPTJPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -719,7 +722,7 @@ class GPTJModel(GPTJPreTrainedModel):
     """,
     GPTJ_START_DOCSTRING,
 )
-class GPTJForCausalLM(GPTJPreTrainedModel):
+class GPTJForCausalLM(ModelWithHeadsAdaptersMixin, GPTJPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"h\.\d+\.attn\.bias"]
 
     def __init__(self, config):
@@ -894,7 +897,7 @@ class GPTJForCausalLM(GPTJPreTrainedModel):
     """,
     GPTJ_START_DOCSTRING,
 )
-class GPTJForSequenceClassification(GPTJPreTrainedModel):
+class GPTJForSequenceClassification(ModelWithHeadsAdaptersMixin, GPTJPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"h\.\d+\.attn\.bias", r"lm_head.weight"]
 
     def __init__(self, config):
@@ -1021,7 +1024,7 @@ class GPTJForSequenceClassification(GPTJPreTrainedModel):
     """,
     GPTJ_START_DOCSTRING,
 )
-class GPTJForQuestionAnswering(GPTJPreTrainedModel):
+class GPTJForQuestionAnswering(ModelWithHeadsAdaptersMixin, GPTJPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"h\.\d+\.attn\.bias", r"lm_head.weight"]
 
     def __init__(self, config):
