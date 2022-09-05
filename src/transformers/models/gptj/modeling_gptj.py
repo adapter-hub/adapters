@@ -277,8 +277,9 @@ class GPTJMLP(nn.Module):
         super().__init__()
         embed_dim = config.n_embd
 
-        self.fc_in = LoRALinear(embed_dim, intermediate_size, "intermediate", config)
-        self.fc_out = LoRALinear(intermediate_size, embed_dim, "output", config)
+        # self.fc_in = LoRALinear(embed_dim, intermediate_size, "intermediate", config)
+        self.fc_in = LoRALinear(intermediate_size, embed_dim, "intermediate", config)
+        self.fc_out = LoRALinear(embed_dim, intermediate_size, "output", config)
 
         self.act = ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.resid_pdrop)
