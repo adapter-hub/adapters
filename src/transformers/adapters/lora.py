@@ -170,7 +170,7 @@ class Linear(LoRALayer, nn.Linear):
             # Make sure that the weights are not merged
             if lora.r > 0:
                 if lora.composition_mode == "scale":
-                    delta_w = lora.lora_B.view(-1, 1)
+                    delta_w = T(lora.lora_B)
                 else:
                     delta_w = T(lora.lora_B @ lora.lora_A)
                 self.weight.data = lora.com_inv(self.weight.data, delta_w)
@@ -184,7 +184,7 @@ class Linear(LoRALayer, nn.Linear):
         # Merge the weights and mark it
         if lora.r > 0:
             if lora.composition_mode == "scale":
-                delta_w = lora.lora_B.view(-1, 1)
+                delta_w = T(lora.lora_B)
             else:
                 delta_w = T(lora.lora_B @ lora.lora_A)
             weight = lora.com(weight, delta_w)
@@ -297,7 +297,7 @@ class MergedLinear(LoRALayer, nn.Linear):
             # Make sure that the weights are not merged
             if lora.r > 0 and any(lora.enable_lora):
                 if lora.composition_mode == "scale":
-                    delta_w = lora.lora_B.view(-1, 1)
+                    delta_w = lora.lora_B
                 else:
                     delta_w = F.conv1d(
                         lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
@@ -314,7 +314,7 @@ class MergedLinear(LoRALayer, nn.Linear):
         weight = self.weight
         if lora.r > 0:
             if lora.composition_mode == "scale":
-                delta_w = lora.lora_B.view(-1, 1)
+                delta_w = lora.lora_B
             else:
                 delta_w = F.conv1d(
                     lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
