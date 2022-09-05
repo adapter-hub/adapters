@@ -82,13 +82,13 @@ fix-copies:
 
 # Run tests for the library
 
-test:
-	python -m pytest -n auto --dist=loadfile -s -v ./tests/
+#test:
+#	python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
 # Run the adapter tests
 
 test-adapters:
-	python -m pytest -n auto --dist=loadfile -s -v ./tests_adapters/
+	python -m pytest -n auto --dist=loadfile -s -v ./tests_adapters/test_gptj.py
 
 # Run tests for examples
 
