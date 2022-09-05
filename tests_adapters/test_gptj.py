@@ -33,7 +33,7 @@ class GPTJAdapterTestBase(AdapterTestBase):
         # set pad token to eos token
         pad_token_id=50256,
     )
-    tokenizer_name = "gpt2"
+    tokenizer_name = "EleutherAI/gpt-j-6B"
 
 
 @require_torch
