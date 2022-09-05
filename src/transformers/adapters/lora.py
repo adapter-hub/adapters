@@ -156,7 +156,7 @@ class Linear(LoRALayer, nn.Linear):
             self.weight.data = torch.t(self.weight.data)
 
     def _check_lora_location(self, config: LoRAConfig):
-        return self.attn_key in config.attn_matrices
+        return self.attn_key is None or self.attn_key in config.attn_matrices
 
     def _get_lora_shapes(self, config: LoRAConfig):
         return (config.r, self.in_features), (self.out_features, config.r)
