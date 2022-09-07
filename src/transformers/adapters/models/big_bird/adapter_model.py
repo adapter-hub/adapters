@@ -30,7 +30,7 @@ class BigBirdAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
     def __init__(self, config):
         super().__init__(config)
 
-        self.bigbird = BigBirdModel(config)
+        self.bert = BigBirdModel(config)
 
         self._init_head_modules()
 
@@ -65,7 +65,7 @@ class BigBirdAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.bigbird(
+        outputs = self.bert(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
@@ -257,4 +257,5 @@ class BigBirdModelWithHeads(BigBirdAdapterModel):
             ),
             FutureWarning,
         )
+        print("all is well 1")
         return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

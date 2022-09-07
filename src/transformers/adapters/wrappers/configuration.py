@@ -37,6 +37,7 @@ CONFIG_CLASS_KEYS_MAPPING = {
     },
     "vit": {},
     "xlm_roberta": {},
+    "big_bird":{}
 }
 
 

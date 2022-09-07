@@ -1016,6 +1016,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         Args:
             value (`nn.Module`): A module mapping vocabulary to hidden states.
         """
+        
         base_model = getattr(self, self.base_model_prefix, self)
         if base_model is not self:
             base_model.set_input_embeddings(value)
@@ -1849,7 +1850,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                     revision=revision,
                     mirror=mirror,
                 )
-
+            
             try:
                 # Load from URL or cache if already cached
                 resolved_archive_file = cached_path(

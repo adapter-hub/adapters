@@ -18,21 +18,28 @@ from src.transformers import (BigBirdTokenizer,
                           RobertaModelWithHeads,
                           TrainingArguments, 
                           Trainer, 
+                          AdapterTrainer,
                           EvalPrediction, 
-                          TextClassificationPipeline)
+                          TextClassificationPipeline,
+                          RobertaTokenizer,
+                          BigBirdForSequenceClassification
+)
 
 
 
 import src.transformers.adapters.composition as ac
 from src.transformers.adapters.composition import Fuse
-from src.transformers.adapters import AdapterTrainer
+# from src.transformers.adapters import AdapterTrainer
 #=================================================================================================
 
 dataset = load_dataset("rotten_tomatoes")
 
 model_ckpt = "google/bigbird-roberta-base"
+
+# model_ckpt = "roberta-base"
 tokenizer = BigBirdTokenizer.from_pretrained(model_ckpt)
 
+# tokenizer = RobertaTokenizer.from_pretrained(model_ckpt)
 
 def encode_batch(batch):
   """Encodes a batch of input data using the model tokenizer."""
@@ -43,10 +50,13 @@ dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "label"
 
 config = BigBirdConfig.from_pretrained(model_ckpt,num_labels=2,)
 
-# model = RobertaModelWithHeads.from_pretrained('roberta-base')
+# model = RobertaModelWithHeads.from_pretrained(model_ckpt)
 
 # #=====================================================================================================
 model = BigBirdModelWithHeads.from_pretrained(model_ckpt,config=config)
+# model = BigBirdForSequenceClassification.from_pretrained(model_ckpt,config=config)
+
+print("after model initialization")
 
 # Add a new adapter
 model.add_adapter("rotten_tomatoes1")
@@ -59,6 +69,8 @@ model.add_classification_head(
   )
 # Activate the adapter
 model.train_adapter("rotten_tomatoes1")
+
+# model.train()
 
 print("Hey there we are ready with the model!!")
 
@@ -76,11 +88,20 @@ training_args = TrainingArguments(
 
 # # AdapterTrainer is throwing error : temporarily tested with Trainer
 # print("Now error will come=========================")
+
+def compute_accuracy(p: EvalPrediction):
+  print(p.predictions)
+  print(p.label_ids)
+
+  preds = np.argmax(p.predictions, axis=1)
+  return {"acc": (preds == p.label_ids).mean()}
+
 trainer = Trainer(
     model=model,
     args=training_args,
     train_dataset=dataset["train"],
     eval_dataset=dataset["validation"],
+    # compute_metrics=compute_accuracy,
 )
 
 trainer.train()

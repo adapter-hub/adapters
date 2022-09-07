@@ -2732,6 +2732,8 @@ class Trainer:
 
         # Metrics!
         if self.compute_metrics is not None and all_preds is not None and all_labels is not None:
+            print(all_preds,"===================================================================")
+            print(all_labels,"=======================================================================")
             if args.include_inputs_for_metrics:
                 metrics = self.compute_metrics(
                     EvalPrediction(predictions=all_preds, label_ids=all_labels, inputs=all_inputs)
@@ -3226,6 +3228,8 @@ class Trainer:
         inputs_ids = inputs_gatherer.finalize() if not prediction_loss_only else None
 
         if self.compute_metrics is not None and preds is not None and label_ids is not None:
+            print(all_preds,"2222===================================================================")
+            print(all_labels,"222=======================================================================")
             if args.include_inputs_for_metrics:
                 metrics = self.compute_metrics(
                     EvalPrediction(predictions=preds, label_ids=label_ids, inputs=inputs_ids)
