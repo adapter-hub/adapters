@@ -40,9 +40,9 @@ class LoRA(nn.Module):
         if self.r > 1 and self.composition_mode == "scale":
             raise ValueError("Can only use composition_mode='scale' when r == 1.")
         if self.r > 0:
-            self.lora_A = nn.Parameter(torch.zeros(lora_A_shape))
             if self.composition_mode == "add":
-                self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
+                self.lora_A = nn.Parameter(torch.zeros(lora_A_shape))
+            self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
             self.scaling = self.lora_alpha / self.r
 
             if self.use_gating:
@@ -50,21 +50,21 @@ class LoRA(nn.Module):
 
             if config.init_weights == "lora":
                 # initialize A the same way as the default for nn.Linear and B to zero
-                nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
                 if self.composition_mode == "add":
-                    nn.init.zeros_(self.lora_B)
+                    nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+                nn.init.zeros_(self.lora_B)
                 if self.use_gating:
                     nn.init.normal_(self.gate.weight, std=0.02)
             elif config.init_weights == "bert":
-                nn.init.normal_(self.lora_A, std=0.02)
                 if self.composition_mode == "add":
-                    nn.init.normal_(self.lora_B, std=0.02)
+                    nn.init.normal_(self.lora_A, std=0.02)
+                nn.init.normal_(self.lora_B, std=0.02)
                 if self.use_gating:
                     nn.init.normal_(self.gate.weight, std=0.02)
             elif config.init_weights == "ia3":
-                nn.init.ones_(self.lora_A)
                 if self.composition_mode == "add":
-                    nn.init.ones_(self.lora_B)
+                    nn.init.ones_(self.lora_A)
+                nn.init.ones_(self.lora_B)
                 if self.use_gating:
                     nn.init.normal_(self.gate.weight, std=0.02)
             else:
@@ -173,7 +173,7 @@ class Linear(LoRALayer, nn.Linear):
             self.weight.data = torch.t(self.weight.data)
 
     def _check_lora_location(self, config: LoRAConfig):
-        return self.attn_key in config.attn_matrices
+        return self.attn_key is None or self.attn_key in config.attn_matrices
 
     def _get_lora_shapes(self, config: LoRAConfig):
         return (config.r, self.in_features), (self.out_features, config.r)
@@ -187,7 +187,7 @@ class Linear(LoRALayer, nn.Linear):
             # Make sure that the weights are not merged
             if lora.r > 0:
                 if lora.composition_mode == "scale":
-                    delta_w = lora.lora_A.view(-1, 1)
+                    delta_w = T(lora.lora_B)
                 else:
                     delta_w = T(lora.lora_B @ lora.lora_A)
                 self.weight.data = lora.com_inv(self.weight.data, delta_w)
@@ -201,7 +201,7 @@ class Linear(LoRALayer, nn.Linear):
         # Merge the weights and mark it
         if lora.r > 0:
             if lora.composition_mode == "scale":
-                delta_w = lora.lora_A.view(-1, 1)
+                delta_w = T(lora.lora_B)
             else:
                 delta_w = T(lora.lora_B @ lora.lora_A)
             weight = lora.com(weight, delta_w, scaling=scaling)
@@ -234,7 +234,7 @@ class Linear(LoRALayer, nn.Linear):
                     result = F.linear(x, T(self.weight), bias=self.bias)
                     if lora.r > 0:
                         if lora.composition_mode == "scale":
-                            delta_w = lora.lora_A.view(1, 1, -1)
+                            delta_w = lora.lora_B.view(1, 1, -1)
                         else:
                             delta_w = lora.lora_dropout(x) @ torch.t(lora.lora_A) @ torch.t(lora.lora_B)
                         if lora.use_gating:
@@ -322,7 +322,7 @@ class MergedLinear(LoRALayer, nn.Linear):
             # Make sure that the weights are not merged
             if lora.r > 0 and any(lora.enable_lora):
                 if lora.composition_mode == "scale":
-                    delta_w = lora.lora_A.view(-1, 1)
+                    delta_w = lora.lora_B
                 else:
                     delta_w = F.conv1d(
                         lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
@@ -339,7 +339,7 @@ class MergedLinear(LoRALayer, nn.Linear):
         weight = self.weight
         if lora.r > 0:
             if lora.composition_mode == "scale":
-                delta_w = lora.lora_A.view(-1, 1)
+                delta_w = lora.lora_B
             else:
                 delta_w = F.conv1d(
                     lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
@@ -375,7 +375,7 @@ class MergedLinear(LoRALayer, nn.Linear):
                     lora = self.loras[adapter_setup[0]]
                     if lora.r > 0:
                         if lora.composition_mode == "scale":
-                            delta_w = lora.lora_A.view(1, 1, -1)
+                            delta_w = lora.lora_B.view(1, 1, -1)
                         else:
                             after_A = F.linear(lora.lora_dropout(x), lora.lora_A)
                             after_B = F.conv1d(
