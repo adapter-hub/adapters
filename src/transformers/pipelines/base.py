@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from packaging import version
 
-from ..adapters.models.auto import ADAPTER_MODEL_MAPPING
+from ..adapters.models.auto import ADAPTER_MODEL_MAPPING,MODEL_WITH_HEADS_MAPPING
 from ..feature_extraction_utils import PreTrainedFeatureExtractor
 from ..modelcard import ModelCard
 from ..models.auto.configuration_auto import AutoConfig
@@ -750,6 +750,9 @@ class Pipeline(_ScikitCompat):
         self.feature_extractor = feature_extractor
         self.modelcard = modelcard
         self.framework = framework
+
+        if device == None:
+            device = -1
         self.device = device if framework == "tf" else torch.device("cpu" if device < 0 else f"cuda:{device}")
         self.binary_output = binary_output
 
@@ -878,7 +881,7 @@ class Pipeline(_ScikitCompat):
                 else:
                     supported_models_names.append(model.__name__)
             supported_models = supported_models_names
-        for item in ADAPTER_MODEL_MAPPING.values():
+        for item in MODEL_WITH_HEADS_MAPPING.values():
             supported_models.append(item.__name__)
         if self.model.__class__.__name__ not in supported_models:
             logger.error(
