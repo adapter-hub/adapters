@@ -247,7 +247,7 @@ from datasets import load_dataset
 
 dataset = load_dataset("rotten_tomatoes")
 
-from src.transformers import BigBirdTokenizer
+from transformers import BigBirdTokenizer
 
 tokenizer = BigBirdTokenizer.from_pretrained("google/bigbird-roberta-base")
 
@@ -261,7 +261,7 @@ dataset = dataset.map(encode_batch, batched=True)
 # Transform to pytorch tensors and only output the required columns
 dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
 
-from src.transformers import BigBirdConfig, BigBirdModelWithHeads
+from transformers import BigBirdConfig, BigBirdModelWithHeads
 
 config = BigBirdConfig.from_pretrained(
     "google/bigbird-roberta-base",
@@ -314,8 +314,8 @@ trainer.train()
 
 trainer.evaluate()
 
-from src.transformers import TextClassificationPipeline
+from transformers import TextClassificationPipeline
 
-classifier = TextClassificationPipeline(model=model, tokenizer=tokenizer, device=training_args.device.index)
+classifier = TextClassificationPipeline(model=model, tokenizer=tokenizer)
 
 print(classifier("This is awesome!"))

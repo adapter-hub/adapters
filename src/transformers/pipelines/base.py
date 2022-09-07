@@ -751,8 +751,6 @@ class Pipeline(_ScikitCompat):
         self.modelcard = modelcard
         self.framework = framework
 
-        if device == None:
-            device = -1
         self.device = device if framework == "tf" else torch.device("cpu" if device < 0 else f"cuda:{device}")
         self.binary_output = binary_output
 
