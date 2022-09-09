@@ -36,6 +36,6 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
     def test_merge_lora(self):
         self.run_merge_test(LoRAConfig(init_weights="bert"))
-        
+
     def test_reset_lora(self):
         self.run_reset_test(LoRAConfig(init_weights="bert"))

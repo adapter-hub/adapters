@@ -22,12 +22,14 @@ class LoRA(nn.Module):
         lora_A_shape,
         lora_B_shape,
         config: LoRAConfig,
+        gating_heads: int = 1,
     ):
         super().__init__()
         self.r = config.r
         self.lora_alpha = config.alpha
         self.composition_mode = config.composition_mode
         self.attn_matrices = config.attn_matrices
+        self.use_gating = config.use_gating
         # Optional dropout
         if config.dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=config.dropout)
@@ -43,28 +45,39 @@ class LoRA(nn.Module):
             self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
             self.scaling = self.lora_alpha / self.r
 
+            if self.use_gating:
+                self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
+
             if config.init_weights == "lora":
                 # initialize A the same way as the default for nn.Linear and B to zero
                 if self.composition_mode == "add":
                     nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
                 nn.init.zeros_(self.lora_B)
+                if self.use_gating:
+                    nn.init.normal_(self.gate.weight, std=0.02)
             elif config.init_weights == "bert":
                 if self.composition_mode == "add":
                     nn.init.normal_(self.lora_A, std=0.02)
                 nn.init.normal_(self.lora_B, std=0.02)
+                if self.use_gating:
+                    nn.init.normal_(self.gate.weight, std=0.02)
             elif config.init_weights == "ia3":
                 if self.composition_mode == "add":
                     nn.init.ones_(self.lora_A)
                 nn.init.ones_(self.lora_B)
+                if self.use_gating:
+                    nn.init.normal_(self.gate.weight, std=0.02)
             else:
                 raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
 
-    def com(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
+    def com(self, weights: torch.Tensor, added: torch.Tensor, scaling=None) -> torch.Tensor:
         """Performs the composition operation between existing and injected weights."""
+        if scaling is None:
+            scaling = self.scaling
         if self.composition_mode == "add":
-            return weights + added * self.scaling
+            return weights + added * scaling
         elif self.composition_mode == "scale":
-            return weights * (added * self.scaling)
+            return weights * (added * scaling)
         else:
             raise ValueError("Invalid composition mode.")
 
@@ -105,7 +118,11 @@ class LoRALayer(AdapterLayerBase):
             location_key=self.location_key,
         )
         if lora_config is not None and self._check_lora_location(lora_config):
-            lora = LoRA(*self._get_lora_shapes(lora_config), lora_config)
+            lora = LoRA(
+                *self._get_lora_shapes(lora_config),
+                lora_config,
+                gating_heads=self.get_n_heads(lora_config),
+            )
             lora.train(self.training)
             self.loras[adapter_name] = lora
             return True
@@ -176,7 +193,7 @@ class Linear(LoRALayer, nn.Linear):
                 self.weight.data = lora.com_inv(self.weight.data, delta_w)
             self.merged = None
 
-    def _compute_adapted_weight(self, lora):
+    def _compute_adapted_weight(self, lora, scaling=None):
         def T(w):
             return torch.t(w) if self.fan_in_fan_out else w
 
@@ -187,7 +204,7 @@ class Linear(LoRALayer, nn.Linear):
                 delta_w = T(lora.lora_B)
             else:
                 delta_w = T(lora.lora_B @ lora.lora_A)
-            weight = lora.com(weight, delta_w)
+            weight = lora.com(weight, delta_w, scaling=scaling)
 
         return weight
 
@@ -197,6 +214,8 @@ class Linear(LoRALayer, nn.Linear):
                 return  # already merged
             elif not self.merged:
                 lora = self.loras[name]
+                if lora.use_gating:
+                    raise ValueError("Cannot merge LoRA layer with gating.")
                 self.weight.data = self._compute_adapted_weight(lora)
                 self.merged = name
             elif self.merged != name:
@@ -204,7 +223,7 @@ class Linear(LoRALayer, nn.Linear):
 
     def forward(self, x: torch.Tensor):
         def T(w):
-            return torch.t(w) if self.fan_in_fan_out else w
+            return torch.transpose(w, -2, -1) if self.fan_in_fan_out else w
 
         if not self.merged:
             adapter_setup = self.get_active_setup(self.loras)
@@ -218,7 +237,13 @@ class Linear(LoRALayer, nn.Linear):
                             delta_w = lora.lora_B.view(1, 1, -1)
                         else:
                             delta_w = lora.lora_dropout(x) @ torch.t(lora.lora_A) @ torch.t(lora.lora_B)
-                        result = lora.com(result, delta_w)
+                        if lora.use_gating:
+                            gate = torch.sigmoid(lora.gate(x))
+                            gate = torch.mean(gate, dim=1).unsqueeze(-1)
+                            self._store_gating_score(adapter_setup[0], gate)
+                        else:
+                            gate = None
+                        result = lora.com(result, delta_w, scaling=gate)
                     return result
                 else:
                     raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with LoRA.")
@@ -307,7 +332,7 @@ class MergedLinear(LoRALayer, nn.Linear):
                 self.weight.data = lora.com_inv(self.weight.data, T(self.pad(delta_w, lora)))
             self.merged = None
 
-    def _compute_adapted_weight(self, lora):
+    def _compute_adapted_weight(self, name, lora):
         def T(w):
             return w if self.fan_in_fan_out else torch.t(w)
 
@@ -331,7 +356,9 @@ class MergedLinear(LoRALayer, nn.Linear):
                 return  # already merged
             elif not self.merged:
                 lora = self.loras[name]
-                self.weight.data = self._compute_adapted_weight(lora)
+                if lora.use_gating:
+                    raise ValueError("Cannot merge LoRA layer with gating.")
+                self.weight.data = self._compute_adapted_weight(name, lora)
                 self.merged = name
             elif self.merged != name:
                 raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
@@ -355,8 +382,17 @@ class MergedLinear(LoRALayer, nn.Linear):
                                 after_A.transpose(-2, -1), lora.lora_B.unsqueeze(-1), groups=sum(lora.enable_lora)
                             ).transpose(-2, -1)
                             delta_w = after_B
-                        # result shape: <batch_size> x <seq_len> x <head_dim * 3>
-                        result = lora.com(result, self.pad(delta_w, lora))
+                        if lora.use_gating:
+                            gate = torch.sigmoid(lora.gate(x))
+                            gate = torch.mean(gate, dim=1)
+                            self._store_gating_score(adapter_setup[0], gate)
+                            gate = self.pad(
+                                gate.repeat_interleave(self.out_features // 3, dim=-1), lora, fill_value=1
+                            ).unsqueeze(1)
+                        else:
+                            gate = None
+                        # result = (batch_size, seq_len, head_dim * 3)
+                        result = lora.com(result, self.pad(delta_w, lora), scaling=gate)
                     return result
                 else:
                     raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with LoRA.")

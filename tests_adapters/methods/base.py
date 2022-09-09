@@ -127,7 +127,7 @@ class AdapterMethodBaseTestMixin:
 
         self.assertEqual(len(output_1), len(output_2))
         self.assertTrue(torch.equal(output_1[0], output_2[0]))
-        self.assertEqual(len(output_1), len(base_output))
+        self.assertGreaterEqual(len(output_1), len(base_output))
         self.assertFalse(torch.equal(output_1[0], base_output[0]))
 
     def run_load_test(self, adapter_config):
@@ -191,14 +191,14 @@ class AdapterMethodBaseTestMixin:
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
-    def trainings_run(self, model):
+    def trainings_run(self, model, lr=1.0, steps=20):
         # setup dataset
         train_dataset = self.dataset()
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,
-            learning_rate=1.0,
-            max_steps=20,
+            learning_rate=lr,
+            max_steps=steps,
             no_cuda=True,
             per_device_train_batch_size=2,
             remove_unused_columns=False,

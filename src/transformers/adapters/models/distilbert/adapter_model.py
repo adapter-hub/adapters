@@ -70,6 +70,7 @@ class DistilBertAdapterModel(
         output_hidden_states=None,
         return_dict=None,
         head=None,
+        output_adapter_gating_scores=False,
         **kwargs
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
@@ -90,6 +91,7 @@ class DistilBertAdapterModel(
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            output_adapter_gating_scores=output_adapter_gating_scores,
         )
 
         outputs = self.forward_head(

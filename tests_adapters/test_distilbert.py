@@ -4,7 +4,7 @@ from tests.models.distilbert.test_modeling_distilbert import *
 from transformers import DistilBertAdapterModel
 from transformers.testing_utils import require_torch
 
-from .methods import BottleneckAdapterTestMixin, LoRATestMixin, CompacterTestMixin, PrefixTuningTestMixin, IA3TestMixin
+from .methods import BottleneckAdapterTestMixin, UniPELTTestMixin, CompacterTestMixin, IA3TestMixin, LoRATestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -42,6 +42,7 @@ class DistilBertAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    UniPELTTestMixin,
     EmbeddingTestMixin,
     CompabilityTestMixin,
     AdapterFusionModelTestMixin,

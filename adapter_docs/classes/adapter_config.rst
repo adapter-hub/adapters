@@ -65,6 +65,9 @@ Combined configurations
 .. autoclass:: transformers.MAMConfig
     :members:
 
+.. autoclass:: transformers.UniPELTConfig
+    :members:
+
 Adapter Fusion
 ~~~~~~~~~~~~~~~
 

@@ -216,7 +216,7 @@ class MultiHeadSelfAttention(nn.Module):
         k = shape(self.k_lin(key))  # (bs, n_heads, k_length, dim_per_head)
         v = shape(self.v_lin(value))  # (bs, n_heads, k_length, dim_per_head)
 
-        k, v, mask = self.prefix_tuning(k, v, mask, invert_mask=False)
+        k, v, mask = self.prefix_tuning(k, v, value, mask, invert_mask=False)
 
         mask_reshp = (bs, 1, 1, k.size(2))
 
