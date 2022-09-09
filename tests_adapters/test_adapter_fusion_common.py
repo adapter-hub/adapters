@@ -195,3 +195,26 @@ class AdapterFusionModelTestMixin:
         output2 = model2(**in_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
+
+    def test_output_adapter_fusion_attentions(self):
+        model = self.get_model()
+        model.eval()
+
+        model.add_adapter("a")
+        model.add_adapter("b")
+        model.add_adapter_fusion(["a", "b"])
+        model.to(torch_device)
+
+        input_data = self.get_input_samples(config=model.config)
+
+        model.set_active_adapters(Fuse("a", "b"))
+        output_1 = model(**input_data, output_adapter_fusion_attentions=True)
+
+        self.assertEqual(len(output_1[0]), self.default_input_samples_shape[0])
+        self.assertTrue(hasattr(output_1, "adapter_fusion_attentions"))
+        attention_scores = output_1.adapter_fusion_attentions["a,b"]
+        self.assertEqual(len(list(model.iter_layers())), len(attention_scores))
+        for k, per_layer_scores in attention_scores.items():
+            self.assertEqual(len(per_layer_scores), 1)
+            for k, v in per_layer_scores.items():
+                self.assertEqual(self.default_input_samples_shape[0], v.shape[0], k)

@@ -356,7 +356,7 @@ class BertFusion(nn.Module):
             self.T = 1.0
         self.reduction = self.T / 1000.0
 
-    def forward(self, query, key, value, residual):
+    def forward(self, query, key, value, residual, output_attentions: bool = False):
 
         if self.config["residual_before"]:
             value += residual[:, :, None, :].repeat(1, 1, value.size(2), 1)
@@ -386,9 +386,6 @@ class BertFusion(nn.Module):
         attention_probs = nn.Softmax(dim=-1)(attention_scores / self.T)
         self.T = max(self.T - self.reduction, 1.0)
 
-        if not self.training:
-            self.recent_attention = attention_probs.detach().cpu().numpy()
-
         context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value_layer), dim=2)
 
         if self.config["value"] and not self.config["value_before_softmax"]:
@@ -400,7 +397,11 @@ class BertFusion(nn.Module):
         if not self.config["residual_before"]:
             context_layer += residual
 
-        return context_layer
+        if output_attentions:
+            attention_probs = attention_probs.detach().cpu().numpy()
+            return context_layer, attention_probs
+        else:
+            return context_layer
 
 
 # Invertible Adapters
