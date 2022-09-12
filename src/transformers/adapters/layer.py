@@ -248,6 +248,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         """
         Performs adapter fusion with the given adapters for the given input.
         """
+        context = ForwardContext.get_context()
+
         # config of _last_ fused adapter is significant
         fusion_config = self.config.adapters.get_fusion(adapter_setup.name)
         last_adapter = self.adapters[adapter_setup.last()]
@@ -266,7 +268,6 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             # Case 2: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapters:
                 adapter_layer = self.adapters[adapter_block]
-                context = ForwardContext.get_context()
                 layer_output = adapter_layer(
                     hidden_states, residual_input=residual, output_gating=context.output_adapter_gating_scores
                 )

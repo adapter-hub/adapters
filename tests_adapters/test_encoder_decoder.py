@@ -77,3 +77,7 @@ class EncoderDecoderAdapterTest(
     def test_output_adapter_gating_scores_unipelt(self):
         # TODO currently not supported
         self.skipTest("Not implemented.")
+
+    def test_output_adapter_fusion_attentions(self):
+        # TODO currently not supported
+        self.skipTest("Not implemented.")
