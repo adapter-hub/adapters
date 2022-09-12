@@ -309,7 +309,7 @@ class T5DenseActDense(nn.Module):
 class T5DenseGatedActDense(nn.Module):
     def __init__(self, config: T5Config):
         super().__init__()
-        self.wi_0 = LoRALinear(config.d_model, config.d_ff, "intermediate", config, bias=False)
+        self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=False)
         self.wi_1 = LoRALinear(config.d_model, config.d_ff, "intermediate", config, bias=False)
         self.wo = LoRALinear(config.d_ff, config.d_model, "output", config, bias=False)
         self.dropout = nn.Dropout(config.dropout_rate)
