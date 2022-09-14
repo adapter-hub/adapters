@@ -444,8 +444,8 @@ class IA3Config(LoRAConfig):
     """
 
     selfattn_lora: bool = True
-    intermediate_lora: bool = False
-    output_lora: bool = True
+    intermediate_lora: bool = True
+    output_lora: bool = False
 
     r: int = 1
     alpha: int = 1
