@@ -130,6 +130,15 @@ _Papers:_
 
 _Configuration class_: [`PrefixTuningConfig`](transformers.PrefixTuningConfig)
 
+```{eval-rst}
+.. figure:: img/prefix.png
+    :height: 300
+    :align: center
+    :alt: Illustration of Prefix Tuning.
+
+    Illustration of the Prefix Tuning method within one Transformer layer. Trained components are colored in shades of magenta.
+```
+
 Prefix Tuning ([Li and Liang, 2021](https://aclanthology.org/2021.acl-long.353.pdf)) introduces new parameters in the multi-head attention blocks in each Transformer layer.
 More, specifically, it prepends trainable prefix vectors $P^K$ and $P^V$ to the keys and values of the attention head input, each of a configurable prefix length $l$ (`prefix_length` attribute):
 
@@ -162,6 +171,15 @@ _Papers:_
 
 _Configuration class_: [`CompacterConfig`](transformers.CompacterConfig), [`CompacterPlusPlusConfig`](transformers.CompacterPlusPlusConfig)
 
+```{eval-rst}
+.. figure:: img/compacter.png
+    :height: 300
+    :align: center
+    :alt: Illustration of Compacter.
+
+    Illustration of the Compacter method within one Transformer layer. Trained components are colored in shades of magenta.
+```
+
 The Compacter architecture proposed by [Mahabadi et al., 2021](https://arxiv.org/pdf/2106.04647.pdf)
 is similar to the bottleneck adapter architecture. It only exchanges the linear down- and 
 up-projection with a PHM layer. Unlike the linear layer, the PHM layer constructs its weight matrix from two smaller matrices, which reduces the number of parameters.
@@ -186,6 +204,15 @@ _Papers:_
 ## LoRA
 
 _Configuration class_: [`LoRAConfig`](transformers.LoRAConfig)
+
+```{eval-rst}
+.. figure:: img/lora.png
+    :height: 300
+    :align: center
+    :alt: Illustration of LoRA.
+
+    Illustration of the LoRA method within one Transformer layer. Trained components are colored in shades of magenta.
+```
 
 Low-Rank Adaptation (LoRA) is an efficient fine-tuning technique proposed by [Hu et al. (2021)](https://arxiv.org/pdf/2106.09685.pdf).
 LoRA injects trainable low-rank decomposition matrices into the layers of a pre-trained model.
@@ -228,6 +255,15 @@ _Papers:_
 ## (IA)^3
 
 _Configuration class_: [`IA3Config`](transformers.IA3Config)
+
+```{eval-rst}
+.. figure:: img/ia3.png
+    :height: 300
+    :align: center
+    :alt: Illustration of (IA)^3.
+
+    Illustration of the (IA)^3 method within one Transformer layer. Trained components are colored in shades of magenta.
+```
 
 _Infused Adapter by Inhibiting and Amplifying Inner Activations ((IA)^3)_ is an efficient fine-tuning method proposed within the _T-Few_ fine-tuning approach by [Liu et al. (2022)](https://arxiv.org/pdf/2205.05638.pdf).
 (IA)^3 introduces trainable vectors $l_W$ into different components of a Transformer model which perform element-wise rescaling of inner model activations.
@@ -323,6 +359,15 @@ _Papers:_
 ### UniPELT
 
 _Configuration class_: [`UniPELTConfig`](transformers.UniPELTConfig)
+
+```{eval-rst}
+.. figure:: img/unipelt.png
+    :height: 300
+    :align: center
+    :alt: Illustration of UniPELT.
+
+    Illustration of the UniPELT method within one Transformer layer. Trained components are colored in shades of magenta.
+```
 
 An approach similar to the work of [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) is taken by [Mao et al. (2022)](https://arxiv.org/pdf/2110.07577.pdf) in their _UniPELT_ framework.
 They, too, combine multiple efficient fine-tuning methods, namely LoRA, Prefix Tuning and bottleneck adapters, in a single unified setup.
