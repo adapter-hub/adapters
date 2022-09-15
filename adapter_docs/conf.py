@@ -26,7 +26,7 @@ author = "Adapter-Hub Team"
 docs_versions = [
     "adapters1.1.1",
     "adapters2.3.0",
-    "adapters3.0.1",
+    "adapters3.1.0",
 ]
 
 

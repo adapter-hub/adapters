@@ -1,7 +1,7 @@
 # Installation
 
 Our *adapter-transformers* package is a drop-in replacement for Huggingface's *transformers* library.
-It currently supports Python 3.6+ and PyTorch 1.3.1+. You will have to [install PyTorch](https://pytorch.org/get-started/locally/) first. 
+It currently supports Python 3.7+ and PyTorch 1.3.1+. You will have to [install PyTorch](https://pytorch.org/get-started/locally/) first. 
 
 ```{eval-rst}
 .. important::
