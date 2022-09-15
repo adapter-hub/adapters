@@ -109,6 +109,32 @@ To learn how training an _AdapterFusion_ layer works, check out [this Colab note
 In v1.x of `adapter-transformers`, fusing adapters was done using a nested list of adapter names, i.e. the example from above would be defined as `[["d", "e", "f"]]`.
 For backwards compatibility, you can still do this, although it is recommended to use the new syntax.
 
+#### Retrieving AdapterFusion attentions
+
+Finally, it is possible to retrieve the attention scores computed by each fusion layer in a forward pass of the model.
+These scores can be used for analyzing the fused adapter blocks and can serve as the basis for visualizations similar to those in the AdapterFusion paper.
+You can collect the fusion attention scores by passing `output_adapter_fusion_attentions=True` to the model forward call.
+The scores for each layer will then be saved in the `adapter_fusion_attentions` attribute of the output:
+
+```python
+outputs = model(**inputs, output_adapter_fusion_attentions=True)
+attention_scores = outputs.adapter_fusion_attentions
+```
+Note that this parameter is only available to base model classes and [AdapterModel classes](prediction_heads.md#adaptermodel-classes).
+In the example, `attention_scores` holds a dictionary of the following form:
+```
+{
+    '<fusion_name>': {
+        <layer_id>: {
+            '<module_location>': np.array([...]),
+            ...
+        },
+        ...
+    },
+    ...
+}
+```
+
 ## `Split`
 
 ```{eval-rst}

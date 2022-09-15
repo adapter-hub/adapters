@@ -61,6 +61,14 @@ class AdapterLayerBase(ABC):
             else:
                 gating_cache[adapter_name][self.layer_idx][self.location_key] = gating_score
 
+    def _store_fusion_attentions(self, fusion_name, attentions):
+        context = ForwardContext.get_context()
+        if context.output_adapter_fusion_attentions:
+            attention_cache = context.adapter_fusion_attentions
+            if self.layer_idx not in attention_cache[fusion_name]:
+                attention_cache[fusion_name][self.layer_idx] = {}
+            attention_cache[fusion_name][self.layer_idx][self.location_key] = attentions
+
     @abstractmethod
     def add_adapter(self, adapter_name: str, layer_idx: int):
         raise NotImplementedError()
@@ -240,6 +248,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         """
         Performs adapter fusion with the given adapters for the given input.
         """
+        context = ForwardContext.get_context()
+
         # config of _last_ fused adapter is significant
         fusion_config = self.config.adapters.get_fusion(adapter_setup.name)
         last_adapter = self.adapters[adapter_setup.last()]
@@ -258,7 +268,6 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             # Case 2: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapters:
                 adapter_layer = self.adapters[adapter_block]
-                context = ForwardContext.get_context()
                 layer_output = adapter_layer(
                     hidden_states, residual_input=residual, output_gating=context.output_adapter_gating_scores
                 )
@@ -278,12 +287,18 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             up_list = torch.stack(up_list)
             up_list = up_list.permute(1, 2, 0, 3)
 
-            hidden_states = self.adapter_fusion_layer[adapter_setup.name](
+            fusion_output = self.adapter_fusion_layer[adapter_setup.name](
                 query,
                 up_list,
                 up_list,
                 residual,
+                output_attentions=context.output_adapter_fusion_attentions,
             )
+            if context.output_adapter_fusion_attentions:
+                hidden_states = fusion_output[0]
+                self._store_fusion_attentions(adapter_setup.name, fusion_output[-1])
+            else:
+                hidden_states = fusion_output
 
         return hidden_states
 
