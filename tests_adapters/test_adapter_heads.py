@@ -1,12 +1,13 @@
+import os
 import tempfile
 
 import torch
 
-from transformers import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoModelForSequenceClassification, AutoAdapterModel
+from transformers import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel, AutoModelForSequenceClassification
 from transformers.adapters.composition import BatchSplit, Stack
 from transformers.testing_utils import require_torch, torch_device
 
-from .test_adapter_common import create_twin_models
+from .methods import create_twin_models
 
 
 @require_torch
@@ -62,6 +63,17 @@ class PredictionHeadModelTestMixin:
         label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
         self.run_prediction_head_test(model1, model2, "dummy", label_dict=label_dict)
 
+    def test_image_classification_head(self):
+        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_image_classification_head"):
+            self.skipTest("No image classification head")
+
+        model1, model2 = create_twin_models(AutoAdapterModel, self.config)
+
+        model1.add_image_classification_head("dummy")
+        label_dict = {}
+        label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
+        self.run_prediction_head_test(model1, model2, "dummy", input_shape=(1, 3, 224, 224), label_dict=label_dict)
+
     def test_multiple_choice_head(self):
         if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_multiple_choice_head"):
             self.skipTest("No multiple choice head")
@@ -110,6 +122,8 @@ class PredictionHeadModelTestMixin:
         model1.add_causal_lm_head("dummy")
 
         label_dict = {}
+        # Use a different length for the seq2seq output
+        seq_output_length = self.seq_length + 30
         label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
 
         self.run_prediction_head_test(
@@ -120,6 +134,12 @@ class PredictionHeadModelTestMixin:
             label_dict=label_dict,
         )
 
+        # Finally, also check if generation works properly
+        input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
+        input_ids = input_ids.to(torch_device)
+        generated = model1.generate(input_ids, max_length=seq_output_length)
+        self.assertEqual(generated.shape, (1, seq_output_length))
+
     def test_seq2seq_lm_head(self):
         if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head"):
             self.skipTest("No seq2seq language model head")
@@ -129,8 +149,8 @@ class PredictionHeadModelTestMixin:
 
         label_dict = {}
         # Use a different length for the seq2seq output
-        seq_output_length = 32
-        label_dict["labels"] = torch.zeros((self.batch_size, seq_output_length), dtype=torch.long, device=torch_device)
+        seq_output_length = self.seq_length + 30
+        label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
 
         # prepare decoder_input_ids similar to how DataCollatorForSeq2Seq does it
         if hasattr(model1, "prepare_decoder_input_ids_from_labels"):
@@ -141,7 +161,7 @@ class PredictionHeadModelTestMixin:
             model1,
             model2,
             "dummy",
-            output_shape=(self.batch_size, seq_output_length, model1.config.vocab_size),
+            output_shape=(self.batch_size, self.seq_length, model1.config.vocab_size),
             label_dict=label_dict,
         )
 
@@ -205,13 +225,11 @@ class PredictionHeadModelTestMixin:
         self.assertNotEqual(name, model.active_head)
 
     def test_adapter_with_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
-            self.skipTest("No classification head available")
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
 
         name = "dummy"
         model1.add_adapter(name)
-        model1.add_classification_head(name, num_labels=3)
+        output_size = self.add_head(model1, name, num_labels=3)
         model1.set_active_adapters(name)
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
@@ -219,23 +237,21 @@ class PredictionHeadModelTestMixin:
             model2.load_adapter(temp_dir)
             model2.set_active_adapters(name)
         # check equal output
-        in_data = self.get_input_samples((1, 128), config=model1.config)
+        in_data = self.get_input_samples(config=model1.config)
         model1.to(torch_device)
         model2.to(torch_device)
         output1 = model1(**in_data)
         output2 = model2(**in_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
-        self.assertEqual(3, output1[0].size()[1])
+        self.assertEqual(output_size, output1[0].size()[1])
 
     def test_adapter_with_head_load_as(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
-            self.skipTest("No classification head available")
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
 
         name = "dummy"
         model1.add_adapter(name)
-        model1.add_classification_head(name, num_labels=3)
+        output_size = self.add_head(model1, name, num_labels=3)
         model1.set_active_adapters(name)
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
@@ -245,18 +261,18 @@ class PredictionHeadModelTestMixin:
             model2.set_active_adapters("new_name")
 
         # check equal output
-        in_data = self.get_input_samples((1, 128), config=model1.config)
+        in_data = self.get_input_samples(config=model1.config)
         model1.to(torch_device)
         model2.to(torch_device)
         output1 = model1(**in_data)
         output2 = model2(**in_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
-        self.assertEqual(3, output1[0].size()[1])
+        self.assertEqual(output_size, output1[0].size()[1])
 
     def test_load_full_model(self):
         model = AutoAdapterModel.from_config(self.config())
-        model.add_classification_head("dummy", layers=1)
+        self.add_head(model, "dummy", layers=1)
 
         true_config = model.get_prediction_heads_config()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -268,20 +284,18 @@ class PredictionHeadModelTestMixin:
         self.assertDictEqual(true_config, model.get_prediction_heads_config())
 
     def test_batch_split_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
-            self.skipTest("No classification head available")
         model = AutoAdapterModel.from_config(self.config())
-        model.add_classification_head("a")
-        model.add_classification_head("b")
+        output_size_a = self.add_head(model, "a", num_labels=2)
+        output_size_b = self.add_head(model, "b", num_labels=2)
         model.active_head = BatchSplit("a", "b", batch_sizes=[1, 2])
 
-        in_data = self.get_input_samples((3, 128), config=model.config)
+        in_data = self.get_input_samples(config=model.config)
         model.to(torch_device)
         out = model(**in_data)
 
         self.assertEqual(2, len(out))
-        self.assertEqual((1, 2), out[0][0].shape)
-        self.assertEqual((2, 2), out[1][0].shape)
+        self.assertEqual((1, output_size_a), out[0][0].shape[:2])
+        self.assertEqual((2, output_size_b), out[1][0].shape[:2])
 
     def test_batch_split_adapter_head(self):
         model = AutoAdapterModel.from_config(self.config())
@@ -292,7 +306,7 @@ class PredictionHeadModelTestMixin:
         model.add_adapter("c")
         model.set_active_adapters(BatchSplit(Stack("c", "a"), "b", batch_sizes=[2, 1]))
 
-        in_data = self.get_input_samples((3, 128), config=model.config)
+        in_data = self.get_input_samples(config=model.config)
         model.to(torch_device)
         out = model(**in_data)
 
@@ -327,7 +341,7 @@ class PredictionHeadModelTestMixin:
         self.assertIn("test", flex_head_model.heads)
 
         # check equal output
-        in_data = self.get_input_samples((1, 128), config=flex_head_model.config)
+        in_data = self.get_input_samples(config=flex_head_model.config)
         static_head_model.to(torch_device)
         flex_head_model.to(torch_device)
         with AdapterSetup("test"):
@@ -377,16 +391,14 @@ class PredictionHeadModelTestMixin:
         self.assertEqual(2, calls)
 
     def test_context_simple(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
-            self.skipTest("No classification head available")
         model = AutoAdapterModel.from_config(self.config())
         model.add_adapter("a")
-        model.add_classification_head("a", num_labels=3)
+        output_size = self.add_head(model, "a", num_labels=3)
         # Make sure no adapter is activated
         model.active_adapters = None
         model.active_head = None
         model.to(torch_device)
-        in_data = self.get_input_samples((1, 128), config=model.config)
+        in_data = self.get_input_samples(config=model.config)
 
         # Set a hook before the adapter to make sure it's actually called.
         calls = 0
@@ -401,5 +413,21 @@ class PredictionHeadModelTestMixin:
         with AdapterSetup("a"):
             out = model(**in_data)
 
-        self.assertEqual(out[0].shape, (1, 3))
+        self.assertEqual(out[0].shape[:2], (3, output_size))
         self.assertEqual(calls, 1)
+
+    def test_save_all_adapters_with_head(self):
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
+            self.skipTest("Does not support flex heads.")
+
+        model = AutoAdapterModel.from_config(self.config())
+        model.eval()
+        model.add_adapter("test")
+        self.add_head(model, "test")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model.save_all_adapters(tmp_dir, with_head=True)
+            self.assertTrue(os.path.isfile(os.path.join(tmp_dir, "test", "head_config.json")))
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model.save_all_adapters(tmp_dir, with_head=False)
+            self.assertFalse(os.path.isfile(os.path.join(tmp_dir, "test", "head_config.json")))

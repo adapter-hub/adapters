@@ -12,8 +12,8 @@ from tensorflow.keras.callbacks import Callback
 from huggingface_hub import Repository
 
 from . import IntervalStrategy, PreTrainedTokenizerBase
-from .file_utils import get_full_repo_name
 from .modelcard import TrainingSummary
+from .utils import get_full_repo_name
 
 
 logger = logging.getLogger(__name__)
@@ -65,6 +65,15 @@ class KerasMetricCallback(Callback):
             Batch size. Only used when the data is not a pre-batched `tf.data.Dataset`.
         predict_with_generate (`bool`, *optional*, defaults to `False`):
             Whether we should use `model.generate()` to get outputs for the model.
+        use_xla_generation (`bool`, *optional*, defaults to `False`):
+            If we're generating, whether to compile model generation with XLA. This can massively increase the speed of
+            generation (up to 100X speedup) but will require a new XLA compilation for each input shape. When using XLA
+            generation, it's a good idea to pad your inputs to the same size, or to use the `pad_to_multiple_of`
+            argument in your `tokenizer` or `DataCollator`, which will reduce the number of unique input shapes and
+            save a lot of compilation time. This option has no effect is `predict_with_generate` is `False`.
+        generate_kwargs (`dict`, *optional*):
+            Keyword arguments to pass to `model.generate()` when generating. Has no effect if `predict_with_generate`
+            is `False`.
 
     """
 
@@ -75,7 +84,9 @@ class KerasMetricCallback(Callback):
         output_cols: Optional[List[str]] = None,
         label_cols: Optional[List[str]] = None,
         batch_size: Optional[int] = None,
-        predict_with_generate: Optional[bool] = False,
+        predict_with_generate: bool = False,
+        use_xla_generation: bool = False,
+        generate_kwargs: Optional[dict] = None,
     ):
         super().__init__()
         self.metric_fn = metric_fn
@@ -125,6 +136,11 @@ class KerasMetricCallback(Callback):
             raise ValueError("Could not autodetect label_cols for KerasMetricCallback, please specify them!")
         if parse(tf.__version__) < parse("2.7"):
             logging.warning("TF versions less than 2.7 may encounter issues with KerasMetricCallback!")
+
+        self.use_xla_generation = use_xla_generation
+        self.generate_kwargs = {} if generate_kwargs is None else generate_kwargs
+
+        self.generation_function = None
 
     @staticmethod
     def _concatenate_batches(batches, padding_index=-100):
@@ -183,6 +199,13 @@ class KerasMetricCallback(Callback):
             else:
                 main_input_name = getattr(self.model, "main_input_name", "input_ids")
 
+            if self.use_xla_generation and self.generation_function is None:
+
+                def generation_function(inputs, attention_mask):
+                    return self.model.generate(inputs, attention_mask=attention_mask, **self.generate_kwargs)
+
+                self.generation_function = tf.function(generation_function, jit_compile=True)
+
         prediction_list = []
         label_list = []
 
@@ -199,10 +222,12 @@ class KerasMetricCallback(Callback):
                 else:
                     generation_inputs = batch
                     attention_mask = None
-
-                predictions = self.model.generate(generation_inputs, attention_mask=attention_mask)
+                if self.use_xla_generation:
+                    predictions = self.generation_function(generation_inputs, attention_mask=attention_mask)
+                else:
+                    predictions = self.model.generate(generation_inputs, attention_mask=attention_mask)
             else:
-                predictions = self.model.predict(batch)
+                predictions = self.model.predict_on_batch(batch)
                 if isinstance(predictions, dict):
                     # This converts any dict-subclass to a regular dict
                     # Keras REALLY doesn't like it when we pass around a BatchEncoding or other derived class
@@ -264,7 +289,7 @@ class PushToHubCallback(Callback):
         save_strategy (`str` or [`~trainer_utils.IntervalStrategy`], *optional*, defaults to `"epoch"`):
             The checkpoint save strategy to adopt during training. Possible values are:
 
-                - `"no"`: No save is done during training.
+                - `"no"`: Save is done at the end of training.
                 - `"epoch"`: Save is done at the end of each epoch.
                 - `"steps"`: Save is done every `save_steps`
         save_steps (`int`, *optional*):
@@ -277,7 +302,7 @@ class PushToHubCallback(Callback):
             for instance `"user_name/model"`, which allows you to push to an organization you are a member of with
             `"organization_name/model"`.
 
-            Will default to to the name of `output_dir`.
+            Will default to the name of `output_dir`.
         hub_token (`str`, *optional*):
             The token to use to push the model to the Hub. Will default to the token in the cache folder obtained with
             `huggingface-cli login`.
@@ -331,7 +356,7 @@ class PushToHubCallback(Callback):
         self.training_history = []
 
     def on_train_batch_end(self, batch, logs=None):
-        if self.save_strategy == IntervalStrategy.STEPS and batch + 1 % self.save_steps == 0:
+        if self.save_strategy == IntervalStrategy.STEPS and (batch + 1) % self.save_steps == 0:
             if self.last_job is not None and not self.last_job.is_done:
                 return  # The last upload is still running, don't start another
             self.model.save_pretrained(self.output_dir)
@@ -370,7 +395,7 @@ class PushToHubCallback(Callback):
 
     def on_train_end(self, logs=None):
         if self.last_job is not None and not self.last_job.is_done:
-            logger.info("Waiting for existing upload to finish...")
+            self.last_job._process.terminate()  # Gotta go fast
             while not self.last_job.is_done:
                 sleep(1)
         self.model.save_pretrained(self.output_dir)

@@ -3,6 +3,7 @@ from typing import List, Union
 import torch
 from torch import nn
 
+from ..modeling_utils import ModuleUtilsMixin
 from .composition import AdapterCompositionBlock
 from .configuration import PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
@@ -10,7 +11,7 @@ from .layer import AdapterLayerBase
 from .modeling import Activation_Function_Class
 
 
-class PrefixTuning(nn.Module):
+class PrefixTuning(nn.Module, ModuleUtilsMixin):
     def __init__(
         self,
         n_layers: int,
@@ -25,7 +26,6 @@ class PrefixTuning(nn.Module):
         self.n_embd_per_head = self.input_size // self.n_heads
         self.config = config
 
-        self.input_tokens = torch.arange(self.config.prefix_length).long()
         self.wte = nn.Embedding(self.config.prefix_length, self.input_size)
         self.control_trans = nn.Sequential(
             nn.Linear(self.input_size, self.config.bottleneck_size),
@@ -35,8 +35,8 @@ class PrefixTuning(nn.Module):
         self.dropout = nn.Dropout(self.config.dropout)
 
     def eject(self):
-        device = next(self.parameters()).device
-        input_tokens = self.input_tokens.unsqueeze(0).expand(1, -1).to(device)
+        input_tokens = torch.arange(self.config.prefix_length).long()
+        input_tokens = input_tokens.unsqueeze(0).expand(1, -1).to(self.device)
         embs = self.wte(input_tokens)
         key_values = self.control_trans(embs)  # batch_size x prefix_length x n_layers*2*input_size
         key_values = key_values.view(
@@ -46,8 +46,8 @@ class PrefixTuning(nn.Module):
         return key_values
 
     def forward(self, batch_size):
-        device = next(self.parameters()).device
-        input_tokens = self.input_tokens.unsqueeze(0).expand(batch_size, -1).to(device)
+        input_tokens = torch.arange(self.config.prefix_length).long()
+        input_tokens = input_tokens.unsqueeze(0).expand(batch_size, -1).to(self.device)
         embs = self.wte(input_tokens)
         key_values = self.control_trans(embs)  # batch_size x prefix_length x n_layers*2*input_size
         key_values = key_values.view(
@@ -60,7 +60,7 @@ class PrefixTuning(nn.Module):
         return key_values
 
 
-class FlatPrefixTuning(nn.Module):
+class FlatPrefixTuning(nn.Module, ModuleUtilsMixin):
     def __init__(
         self,
         n_layers: int,
@@ -80,12 +80,11 @@ class FlatPrefixTuning(nn.Module):
         self.dropout = nn.Dropout(self.config.dropout)
 
     def forward(self, batch_size):
-        device = next(self.parameters()).device
         key_values = (
             self.control_trans.unsqueeze(0)
             .expand(batch_size, -1)
             .view(batch_size, self.config.prefix_length, self.n_layers * 2, self.n_heads, self.n_embd_per_head)
-            .to(device)
+            .to(self.device)
         )  # *2 for key and value
         key_values = self.dropout(key_values)
         # n_layers * (2 x batch_size x n_heads x prefix_length x n_embd_per_head)
@@ -191,7 +190,7 @@ class PrefixTuningPool(nn.Module):
         else:
             return None
 
-    def forward(self, batch_size):
+    def forward(self, *args, **kwargs):
         context = AdapterSetup.get_context()
         if context is not None:
             adapter_setup = context.adapter_setup
@@ -200,6 +199,20 @@ class PrefixTuningPool(nn.Module):
 
         prefix_states = {}
         if adapter_setup is not None:
+            # Infer batch size
+            input_tensor_names = ["input_ids", "decoder_input_ids", "attention_mask", "inputs_embeds", "pixel_values"]
+            batch_size = None
+            for name in input_tensor_names:
+                if kwargs.get(name, None) is not None:
+                    batch_size = kwargs[name].size(0)
+                    break
+            if batch_size is None:
+                if len(args) > 0:
+                    batch_size = args[0].size(0)
+                else:
+                    raise ValueError("Could not infer batch size for prefix tuning from inputs.")
+
+            # Pass to sub-layers
             for name in adapter_setup.flatten():
                 if name in self.prefix_tunings:
                     prefix_states[name] = self.prefix_tunings[name](batch_size)
@@ -207,7 +220,7 @@ class PrefixTuningPool(nn.Module):
         return prefix_states
 
 
-class PrefixTuningShim(AdapterLayerBase):
+class PrefixTuningShim(AdapterLayerBase, nn.Module):
     """
     Representation of a Prefix Tuning layer within one Transformer layer. This class implements `AdapterLayerBase` for
     compatibility with adapters. It uses `PrefixTuningPool` in the background and `set_pool()` must be called after
@@ -224,6 +237,7 @@ class PrefixTuningShim(AdapterLayerBase):
         self.config = config
         self.location_key = location_key
         self.prefixes = {}
+        self.prefix_gates = nn.ModuleDict()
 
     def set_pool(self, pool: PrefixTuningPool):
         self.__setattr__("pool", pool)
@@ -245,10 +259,18 @@ class PrefixTuningShim(AdapterLayerBase):
             prefix_id = self.pool.indicate_prefix(adapter_name, self.location_key)
             self.prefixes[adapter_name] = prefix_id
 
+            if prefix_tuning_config.use_gating:
+                gate_outputs = 1 if prefix_tuning_config.shared_gating else 2
+                gate = nn.Linear(self.config.hidden_size, gate_outputs)
+                gate.weight.data.normal_(mean=0.0, std=0.02)
+                self.prefix_gates[adapter_name] = gate
+
     def delete_adapter(self, adapter_name: str):
         self.pool.delete_prefix(adapter_name)
         if adapter_name in self.prefixes:
             del self.prefixes[adapter_name]
+        if adapter_name in self.prefix_gates:
+            del self.prefix_gates[adapter_name]
 
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         pass  # not applicable to prefix tuning
@@ -260,28 +282,27 @@ class PrefixTuningShim(AdapterLayerBase):
         if unfreeze_adapters:
             for prefix_tuning_name in adapter_setup.flatten():
                 self.pool.enable_prefix(prefix_tuning_name)
+                if prefix_tuning_name in self.prefix_gates:
+                    for param in self.prefix_gates[prefix_tuning_name].parameters():
+                        param.requires_grad = unfreeze_adapters
 
     def get_adapter(self, adapter_name):
+        return_dict = nn.ModuleDict()
         # Make sure to only return params once
         if adapter_name in self.prefixes and self.prefixes[adapter_name] == 0:
-            return self.pool.get_prefix(adapter_name)
+            prefix_module = self.pool.get_prefix(adapter_name)
+            if prefix_module is not None:
+                return_dict["prefix"] = prefix_module[self.location_key]
+        if adapter_name in self.prefix_gates:
+            return_dict["gate"] = self.prefix_gates[adapter_name]
+        if len(return_dict) > 0:
+            return return_dict
 
         return None
 
-    def forward(self, key_states, value_states, attention_mask=None, invert_mask=True):
-        if getattr(self.config, "is_adaptable", False):
-            # First check current context before falling back to defined setup
-            context = AdapterSetup.get_context()
-            if context is not None:
-                adapter_setup = context.adapter_setup
-            else:
-                adapter_setup = self.config.adapters.active_setup
-        else:
-            adapter_setup = None
-        skip_adapters = adapter_setup is None or (
-            self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
-        )
-        if not skip_adapters and (len(set(self.prefixes.keys()) & adapter_setup.flatten()) > 0):
+    def forward(self, key_states, value_states, residual_input, attention_mask=None, invert_mask=True):
+        adapter_setup = self.get_active_setup(self.prefixes)
+        if adapter_setup is not None:
             if len(adapter_setup) == 1:
                 # we already made sure we only have 1 item
                 prefix_tuning_name = adapter_setup.first()
@@ -291,9 +312,19 @@ class PrefixTuningShim(AdapterLayerBase):
 
                     # Retrieve pre-computed prefix states from context
                     context = ForwardContext.get_context()
+                    # batch_size x n_heads x prefix_length x n_embd_per_head
                     prefix_keys, prefix_values = context.prefix_states[prefix_tuning_name][self.location_key][
                         prefix_id
                     ]
+
+                    if prefix_tuning_name in self.prefix_gates:
+                        gate = self.prefix_gates[prefix_tuning_name]
+                        gate_output = torch.mean(torch.sigmoid(gate(residual_input)), dim=1)
+                        self._store_gating_score(prefix_tuning_name, gate_output)
+                        gate_output_key = gate_output[:, 0].view(-1, 1, 1, 1)
+                        gate_output_value = gate_output[:, -1].view(-1, 1, 1, 1)
+                        key_states = key_states * gate_output_key
+                        value_states = value_states * gate_output_value
 
                     key_states = torch.cat([prefix_keys, key_states], dim=2)
                     value_states = torch.cat([prefix_values, value_states], dim=2)

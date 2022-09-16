@@ -16,11 +16,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "3.0.0"
+__version__ = "3.1.0"
 
 from typing import TYPE_CHECKING
 
-from ..file_utils import _LazyModule
+from ..utils import _LazyModule
 
 
 _import_structure = {
@@ -48,6 +48,8 @@ _import_structure = {
         "DynamicAdapterFusionConfig",
         "HoulsbyConfig",
         "HoulsbyInvConfig",
+        "IA3Config",
+        "LoRAConfig",
         "MAMConfig",
         "ModelAdaptersConfig",
         "ParallelConfig",
@@ -55,6 +57,7 @@ _import_structure = {
         "PfeifferInvConfig",
         "PrefixTuningConfig",
         "StaticAdapterFusionConfig",
+        "UniPELTConfig",
     ],
     "context": [
         "AdapterSetup",
@@ -77,6 +80,7 @@ _import_structure = {
     ],
     "layer": ["AdapterLayer", "AdapterLayerBase"],
     "model_mixin": [
+        "EmbeddingAdaptersMixin",
         "InvertibleAdaptersMixin",
         "ModelAdaptersMixin",
         "ModelWithHeadsAdaptersMixin",
@@ -95,6 +99,8 @@ _import_structure = {
         "BertAdapterModel",
         "BertModelWithHeads",
     ],
+    "models.deberta": ["DebertaAdapterModel"],
+    "models.debertaV2": ["DebertaV2AdapterModel"],
     "models.distilbert": [
         "DistilBertAdapterModel",
         "DistilBertModelWithHeads",
@@ -115,6 +121,7 @@ _import_structure = {
         "T5AdapterModel",
         "T5ModelWithHeads",
     ],
+    "models.vit": ["ViTAdapterModel"],
     "models.xlm_roberta": [
         "XLMRobertaAdapterModel",
         "XLMRobertaModelWithHeads",
@@ -160,6 +167,8 @@ if TYPE_CHECKING:
         DynamicAdapterFusionConfig,
         HoulsbyConfig,
         HoulsbyInvConfig,
+        IA3Config,
+        LoRAConfig,
         MAMConfig,
         ModelAdaptersConfig,
         ParallelConfig,
@@ -167,6 +176,7 @@ if TYPE_CHECKING:
         PfeifferInvConfig,
         PrefixTuningConfig,
         StaticAdapterFusionConfig,
+        UniPELTConfig,
     )
     from .context import AdapterSetup, ForwardContext
     from .heads import (
@@ -185,15 +195,23 @@ if TYPE_CHECKING:
         TaggingHead,
     )
     from .layer import AdapterLayer, AdapterLayerBase
-    from .model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
+    from .model_mixin import (
+        EmbeddingAdaptersMixin,
+        InvertibleAdaptersMixin,
+        ModelAdaptersMixin,
+        ModelWithHeadsAdaptersMixin,
+    )
     from .models.auto import ADAPTER_MODEL_MAPPING, MODEL_WITH_HEADS_MAPPING, AutoAdapterModel, AutoModelWithHeads
     from .models.bart import BartAdapterModel, BartModelWithHeads
     from .models.bert import BertAdapterModel, BertModelWithHeads
+    from .models.deberta import DebertaAdapterModel
+    from .models.debertaV2 import DebertaV2AdapterModel
     from .models.distilbert import DistilBertAdapterModel, DistilBertModelWithHeads
     from .models.gpt2 import GPT2AdapterModel, GPT2ModelWithHeads
     from .models.mbart import MBartAdapterModel, MBartModelWithHeads
     from .models.roberta import RobertaAdapterModel, RobertaModelWithHeads
     from .models.t5 import T5AdapterModel, T5ModelWithHeads
+    from .models.vit import ViTAdapterModel
     from .models.xlm_roberta import XLMRobertaAdapterModel, XLMRobertaModelWithHeads
     from .trainer import AdapterTrainer, Seq2SeqAdapterTrainer
     from .training import AdapterArguments, MultiLingAdapterArguments

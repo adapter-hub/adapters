@@ -24,7 +24,8 @@ import transformers
 
 # Try to import everything from transformers to ensure every object can be loaded.
 from transformers import *  # noqa F406
-from transformers.file_utils import (
+from transformers.testing_utils import DUMMY_UNKNOWN_IDENTIFIER
+from transformers.utils import (
     CONFIG_NAME,
     FLAX_WEIGHTS_NAME,
     TF2_WEIGHTS_NAME,
@@ -34,12 +35,15 @@ from transformers.file_utils import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
     filename_to_url,
+    find_labels,
     get_file_from_repo,
     get_from_cache,
     has_file,
     hf_bucket_url,
+    is_flax_available,
+    is_tf_available,
+    is_torch_available,
 )
-from transformers.testing_utils import DUMMY_UNKNOWN_IDENTIFIER
 
 
 MODEL_ID = DUMMY_UNKNOWN_IDENTIFIER
@@ -95,11 +99,19 @@ class GetFromCacheTests(unittest.TestCase):
         with self.assertRaisesRegex(EntryNotFoundError, "404 Client Error"):
             _ = get_from_cache(url)
 
-    def test_model_not_found(self):
-        # Invalid model file.
+    def test_model_not_found_not_authenticated(self):
+        # Invalid model id.
+        url = hf_bucket_url("bert-base", filename="pytorch_model.bin")
+        with self.assertRaisesRegex(RepositoryNotFoundError, "401 Client Error"):
+            _ = get_from_cache(url)
+
+    @unittest.skip("No authentication when testing against prod")
+    def test_model_not_found_authenticated(self):
+        # Invalid model id.
         url = hf_bucket_url("bert-base", filename="pytorch_model.bin")
         with self.assertRaisesRegex(RepositoryNotFoundError, "404 Client Error"):
-            _ = get_from_cache(url)
+            _ = get_from_cache(url, use_auth_token="hf_sometoken")
+            # ^ TODO - if we decide to unskip this: use a real / functional token
 
     def test_revision_not_found(self):
         # Valid file but missing revision
@@ -158,24 +170,51 @@ class GetFromCacheTests(unittest.TestCase):
             self.assertIsNone(get_file_from_repo(tmp_dir, "b.txt"))
 
 
-class ContextManagerTests(unittest.TestCase):
+class GenericUtilTests(unittest.TestCase):
     @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
-    def test_no_context(self, mock_stdout):
+    def test_context_managers_no_context(self, mock_stdout):
         with ContextManagers([]):
             print("Transformers are awesome!")
         # The print statement adds a new line at the end of the output
         self.assertEqual(mock_stdout.getvalue(), "Transformers are awesome!\n")
 
     @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
-    def test_one_context(self, mock_stdout):
+    def test_context_managers_one_context(self, mock_stdout):
         with ContextManagers([context_en()]):
             print("Transformers are awesome!")
         # The output should be wrapped with an English welcome and goodbye
         self.assertEqual(mock_stdout.getvalue(), "Welcome!\nTransformers are awesome!\nBye!\n")
 
     @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
-    def test_two_context(self, mock_stdout):
+    def test_context_managers_two_context(self, mock_stdout):
         with ContextManagers([context_fr(), context_en()]):
             print("Transformers are awesome!")
         # The output should be wrapped with an English and French welcome and goodbye
         self.assertEqual(mock_stdout.getvalue(), "Bonjour!\nWelcome!\nTransformers are awesome!\nBye!\nAu revoir!\n")
+
+    def test_find_labels(self):
+        if is_torch_available():
+            from transformers import BertForPreTraining, BertForQuestionAnswering, BertForSequenceClassification
+
+            self.assertEqual(find_labels(BertForSequenceClassification), ["labels"])
+            self.assertEqual(find_labels(BertForPreTraining), ["labels", "next_sentence_label"])
+            self.assertEqual(find_labels(BertForQuestionAnswering), ["start_positions", "end_positions"])
+
+        if is_tf_available():
+            from transformers import TFBertForPreTraining, TFBertForQuestionAnswering, TFBertForSequenceClassification
+
+            self.assertEqual(find_labels(TFBertForSequenceClassification), ["labels"])
+            self.assertEqual(find_labels(TFBertForPreTraining), ["labels", "next_sentence_label"])
+            self.assertEqual(find_labels(TFBertForQuestionAnswering), ["start_positions", "end_positions"])
+
+        if is_flax_available():
+            # Flax models don't have labels
+            from transformers import (
+                FlaxBertForPreTraining,
+                FlaxBertForQuestionAnswering,
+                FlaxBertForSequenceClassification,
+            )
+
+            self.assertEqual(find_labels(FlaxBertForSequenceClassification), [])
+            self.assertEqual(find_labels(FlaxBertForPreTraining), [])
+            self.assertEqual(find_labels(FlaxBertForQuestionAnswering), [])

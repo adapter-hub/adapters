@@ -24,8 +24,14 @@ from typing import Dict, Optional, Union
 
 from huggingface_hub import HfFolder, model_info
 
-from .file_utils import HF_MODULES_CACHE, TRANSFORMERS_DYNAMIC_MODULE_NAME, cached_path, hf_bucket_url, is_offline_mode
-from .utils import logging
+from .utils import (
+    HF_MODULES_CACHE,
+    TRANSFORMERS_DYNAMIC_MODULE_NAME,
+    cached_path,
+    hf_bucket_url,
+    is_offline_mode,
+    logging,
+)
 
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
@@ -72,9 +78,9 @@ def get_relative_imports(module_file):
         content = f.read()
 
     # Imports of the form `import .xxx`
-    relative_imports = re.findall("^\s*import\s+\.(\S+)\s*$", content, flags=re.MULTILINE)
+    relative_imports = re.findall(r"^\s*import\s+\.(\S+)\s*$", content, flags=re.MULTILINE)
     # Imports of the form `from .xxx import yyy`
-    relative_imports += re.findall("^\s*from\s+\.(\S+)\s+import", content, flags=re.MULTILINE)
+    relative_imports += re.findall(r"^\s*from\s+\.(\S+)\s+import", content, flags=re.MULTILINE)
     # Unique-ify
     return list(set(relative_imports))
 
@@ -116,9 +122,9 @@ def check_imports(filename):
         content = f.read()
 
     # Imports of the form `import xxx`
-    imports = re.findall("^\s*import\s+(\S+)\s*$", content, flags=re.MULTILINE)
+    imports = re.findall(r"^\s*import\s+(\S+)\s*$", content, flags=re.MULTILINE)
     # Imports of the form `from xxx import yyy`
-    imports += re.findall("^\s*from\s+(\S+)\s+import", content, flags=re.MULTILINE)
+    imports += re.findall(r"^\s*from\s+(\S+)\s+import", content, flags=re.MULTILINE)
     # Only keep the top-level module
     imports = [imp.split(".")[0] for imp in imports if not imp.startswith(".")]
 
@@ -190,7 +196,7 @@ def get_cached_module_file(
         use_auth_token (`str` or *bool*, *optional*):
             The token to use as HTTP bearer authorization for remote files. If `True`, will use the token generated
             when running `transformers-cli login` (stored in `~/.huggingface`).
-        revision(`str`, *optional*, defaults to `"main"`):
+        revision (`str`, *optional*, defaults to `"main"`):
             The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
             git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any
             identifier allowed by git.
@@ -340,7 +346,7 @@ def get_class_from_dynamic_module(
         use_auth_token (`str` or `bool`, *optional*):
             The token to use as HTTP bearer authorization for remote files. If `True`, will use the token generated
             when running `transformers-cli login` (stored in `~/.huggingface`).
-        revision(`str`, *optional*, defaults to `"main"`):
+        revision (`str`, *optional*, defaults to `"main"`):
             The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
             git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any
             identifier allowed by git.

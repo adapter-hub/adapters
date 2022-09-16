@@ -8,7 +8,7 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
 
-from ...file_utils import ModelOutput
+from ...utils import ModelOutput
 from .base import PredictionHead
 
 

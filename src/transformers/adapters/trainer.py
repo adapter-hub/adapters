@@ -1,11 +1,8 @@
-import inspect
 import os
 import re
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import datasets
 import torch
-from packaging import version
 from torch import nn
 from torch.utils.data.dataset import Dataset
 
@@ -17,13 +14,13 @@ from transformers.modeling_utils import unwrap_model
 
 from ..configuration_utils import PretrainedConfig
 from ..data.data_collator import DataCollator
-from ..file_utils import CONFIG_NAME, WEIGHTS_NAME, is_sagemaker_mp_enabled, logger
 from ..optimization import Adafactor, AdamW
 from ..tokenization_utils_base import PreTrainedTokenizerBase
 from ..trainer_callback import TrainerCallback, TrainerControl, TrainerState
 from ..trainer_pt_utils import get_parameter_names
 from ..trainer_utils import EvalPrediction, ShardedDDPOption
 from ..training_args import TrainingArguments
+from ..utils import CONFIG_NAME, WEIGHTS_NAME, is_sagemaker_mp_enabled, logging
 
 
 if is_fairscale_available():
@@ -32,6 +29,9 @@ if is_fairscale_available():
 
 if is_sagemaker_mp_enabled():
     import smdistributed.modelparallel.torch as smp
+
+
+logger = logging.get_logger(__name__)
 
 
 class AdapterTrainer(Trainer):
@@ -48,6 +48,7 @@ class AdapterTrainer(Trainer):
         callbacks: Optional[List[TrainerCallback]] = None,
         adapter_names: Optional[List[List[str]]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
+        preprocess_logits_for_metrics: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] = None,
     ):
         super().__init__(
             model,
@@ -60,6 +61,7 @@ class AdapterTrainer(Trainer):
             compute_metrics=compute_metrics,
             callbacks=[AdapterTrainerCallback(self)] + callbacks if callbacks else [AdapterTrainerCallback(self)],
             optimizers=optimizers,
+            preprocess_logits_for_metrics=preprocess_logits_for_metrics,
         )
 
         if adapter_names is not None:
@@ -81,6 +83,11 @@ class AdapterTrainer(Trainer):
                 "Expected a model with an active adapter setup."
                 "If you want to fully finetune the model use the Trainer class."
             )
+        if (self.label_names is None or len(self.label_names) < 1) and model.active_head is not None:
+            all_label_names = set()
+            for head in model._active_heads:
+                all_label_names |= set(model.heads[head].get_label_names())
+            self.label_names = list(all_label_names)
 
     def create_optimizer(self):
         """
@@ -156,7 +163,7 @@ class AdapterTrainer(Trainer):
         # Good practice: save your training arguments together with the trained model
         torch.save(self.args, os.path.join(output_dir, "training_args.bin"))
 
-    def _load(self, resume_from_checkpoint):
+    def _load_from_checkpoint(self, resume_from_checkpoint):
         args = self.args
         if os.path.isfile(os.path.join(resume_from_checkpoint, WEIGHTS_NAME)):
             logger.info(f"Loading model from {resume_from_checkpoint}).")
@@ -210,33 +217,6 @@ class AdapterTrainer(Trainer):
                 ):
                     self.model.load_head(os.path.join(resume_from_checkpoint, file_name))
 
-    def _remove_unused_columns(self, dataset: "datasets.Dataset", description: Optional[str] = None):
-        if not self.args.remove_unused_columns:
-            return dataset
-        if self._signature_columns is None:
-            # Inspect model forward signature to keep only the arguments it accepts.
-            signature = inspect.signature(self.model.forward)
-            self._signature_columns = list(signature.parameters.keys())
-            # Labels may be named label or label_ids, the default data collator handles that.
-            self._signature_columns += ["label", "label_ids"]
-            self._signature_columns += self.label_names
-        columns = [k for k in self._signature_columns if k in dataset.column_names]
-        ignored_columns = list(set(dataset.column_names) - set(self._signature_columns))
-        if len(ignored_columns) > 0:
-            dset_description = "" if description is None else f"in the {description} set "
-            logger.info(
-                f"The following columns {dset_description} don't have a corresponding argument in "
-                f"`{self.model.__class__.__name__}.forward` and have been ignored: {', '.join(ignored_columns)}."
-            )
-
-        if version.parse(datasets.__version__) < version.parse("1.4.0"):
-            dataset.set_format(
-                type=dataset.format["type"], columns=columns, format_kwargs=dataset.format["format_kwargs"]
-            )
-            return dataset
-        else:
-            return dataset.remove_columns(ignored_columns)
-
 
 class AdapterTrainerCallback(TrainerCallback):
     def __init__(self, trainer):
@@ -248,7 +228,8 @@ class AdapterTrainerCallback(TrainerCallback):
         model_frozen = getattr(model.base_model, "model_frozen", False)
         if not model_frozen:
             raise ValueError(
-                "The pre-trained model weights are not frozen. For training adapters, please call the train_adapter() method"
+                "The pre-trained model weights are not frozen. For training adapters, please call the train_adapter()"
+                " method"
             )
 
     def on_train_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
@@ -266,11 +247,11 @@ class AdapterTrainerCallback(TrainerCallback):
                     f"Loading best adapter fusion(s) from {state.best_model_checkpoint} (score: {state.best_metric})."
                 )
                 # attempt to re-load all adapter fusions from checkpoint
-                fusion_models = getattr(self.model.config, "adapter_fusion_models", [])
-                for fusion in fusion_models:
+                for fusion in model.config.adapters.fusions:
                     fusion_dir = os.path.join(state.best_model_checkpoint, fusion)
                     if os.path.exists(fusion_dir):
-                        self.model.load_adapter_fusion(fusion_dir)
+                        model.load_adapter_fusion(fusion_dir)
+            model.to(args.device)
 
     def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         # apply adapter fusion weight regularization on the value matrix

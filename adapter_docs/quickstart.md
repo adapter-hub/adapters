@@ -35,7 +35,7 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 sentence = "It's also, clearly, great fun."
 
 # Tokenize the input sentence and create a PyTorch input tensor.
-input_data = tokenizer(sentence, return_tensors='pytorch')
+input_data = tokenizer(sentence, return_tensors="pt")
 
 # Load pre-trained BERT model from HuggingFace Hub.
 # The `BertAdapterModel` class is specifically designed for working with adapters.

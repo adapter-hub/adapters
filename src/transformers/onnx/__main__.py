@@ -15,8 +15,8 @@
 from argparse import ArgumentParser
 from pathlib import Path
 
-from transformers.models.auto import AutoTokenizer
-
+from ..models.auto import AutoFeatureExtractor, AutoProcessor, AutoTokenizer
+from ..onnx.utils import get_preprocessor
 from ..utils import logging
 from .convert import export, validate_model_outputs
 from .features import FeaturesManager
@@ -37,7 +37,18 @@ def main():
     parser.add_argument(
         "--atol", type=float, default=None, help="Absolute difference tolerence when validating the model."
     )
+    parser.add_argument(
+        "--framework", type=str, choices=["pt", "tf"], default="pt", help="The framework to use for the ONNX export."
+    )
     parser.add_argument("output", type=Path, help="Path indicating where to store generated ONNX model.")
+    parser.add_argument("--cache_dir", type=str, default=None, help="Path indicating where to store cache.")
+    parser.add_argument(
+        "--preprocessor",
+        type=str,
+        choices=["auto", "tokenizer", "feature_extractor", "processor"],
+        default="auto",
+        help="Which type of preprocessor to use. 'auto' tries to automatically detect it.",
+    )
 
     # Retrieve CLI arguments
     args = parser.parse_args()
@@ -46,9 +57,22 @@ def main():
     if not args.output.parent.exists():
         args.output.parent.mkdir(parents=True)
 
+    # Instantiate the appropriate preprocessor
+    if args.preprocessor == "auto":
+        preprocessor = get_preprocessor(args.model)
+    elif args.preprocessor == "tokenizer":
+        preprocessor = AutoTokenizer.from_pretrained(args.model)
+    elif args.preprocessor == "feature_extractor":
+        preprocessor = AutoFeatureExtractor.from_pretrained(args.model)
+    elif args.preprocessor == "processor":
+        preprocessor = AutoProcessor.from_pretrained(args.model)
+    else:
+        raise ValueError(f"Unknown preprocessor type '{args.preprocessor}'")
+
     # Allocate the model
-    tokenizer = AutoTokenizer.from_pretrained(args.model)
-    model = FeaturesManager.get_model_from_feature(args.feature, args.model)
+    model = FeaturesManager.get_model_from_feature(
+        args.feature, args.model, framework=args.framework, cache_dir=args.cache_dir
+    )
     model_kind, model_onnx_config = FeaturesManager.check_supported_model_or_raise(model, feature=args.feature)
     onnx_config = model_onnx_config(model.config)
 
@@ -62,12 +86,18 @@ def main():
             f"At least  {onnx_config.default_onnx_opset} is required."
         )
 
-    onnx_inputs, onnx_outputs = export(tokenizer, model, onnx_config, args.opset, args.output)
+    onnx_inputs, onnx_outputs = export(
+        preprocessor,
+        model,
+        onnx_config,
+        args.opset,
+        args.output,
+    )
 
     if args.atol is None:
         args.atol = onnx_config.atol_for_validation
 
-    validate_model_outputs(onnx_config, tokenizer, model, args.output, onnx_outputs, args.atol)
+    validate_model_outputs(onnx_config, preprocessor, model, args.output, onnx_outputs, args.atol)
     logger.info(f"All good, model saved at: {args.output.as_posix()}")
 
 

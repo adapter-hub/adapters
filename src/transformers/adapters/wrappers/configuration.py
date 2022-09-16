@@ -1,5 +1,3 @@
-import types
-
 from ...configuration_utils import PretrainedConfig
 from ...models.encoder_decoder.configuration_encoder_decoder import EncoderDecoderConfig
 from ..configuration import ModelAdaptersConfig
@@ -35,23 +33,9 @@ CONFIG_CLASS_KEYS_MAPPING = {
         "hidden_dropout_prob": "dropout_rate",
         "attention_probs_dropout_prob": "dropout_rate",
     },
+    "vit": {},
     "xlm_roberta": {},
 }
-
-
-def _to_dict_new(self):
-    output = self._to_dict_original()
-    if hasattr(self, "adapters") and not isinstance(output["adapters"], dict):
-        output["adapters"] = self.adapters.to_dict()
-    if "custom_heads" in output.keys():
-        del output["custom_heads"]
-
-    # delete handles to overriden methods
-    del output["to_dict"]
-    del output["_to_dict_original"]
-    del output["is_adaptable"]
-
-    return output
 
 
 def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
@@ -84,11 +68,6 @@ def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
         for key, value in CONFIG_CLASS_KEYS_MAPPING[config.model_type].items():
             if key not in config.attribute_map:
                 config.attribute_map[key] = value
-
-    # Override to_dict() to add adapters
-    if not hasattr(config, "_to_dict_original"):
-        config._to_dict_original = config.to_dict
-        config.to_dict = types.MethodType(_to_dict_new, config)
 
     # Ensure custom_heads attribute is present
     if not hasattr(config, "custom_heads"):

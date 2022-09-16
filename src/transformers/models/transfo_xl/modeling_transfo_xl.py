@@ -17,21 +17,22 @@
  PyTorch Transformer XL model. Adapted from https://github.com/kimiyoung/transformer-xl. In particular
  https://github.com/kimiyoung/transformer-xl/blob/master/pytorch/mem_transformer.py
 """
+import warnings
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from ...file_utils import (
+from ...modeling_utils import PreTrainedModel
+from ...utils import (
     ModelOutput,
     add_code_sample_docstrings,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
+    logging,
 )
-from ...modeling_utils import PreTrainedModel
-from ...utils import logging
 from .configuration_transfo_xl import TransfoXLConfig
 from .modeling_transfo_xl_utilities import ProjectedAdaptiveLogSoftmax
 
@@ -326,21 +327,17 @@ class RelPartialLearnableMultiHeadAttn(nn.Module):
         attn_score = AC + BD
         attn_score.mul_(self.scale)
 
+        mask_value = torch.finfo(attn_score.dtype).min
+
         # compute attention probability
         if attn_mask is not None and torch.sum(attn_mask).item():
             attn_mask = attn_mask == 1  # Switch to bool
             if attn_mask.dim() == 2:
-                if next(self.parameters()).dtype == torch.float16:
-                    attn_score = (
-                        attn_score.float().masked_fill(attn_mask[None, :, :, None], -65000).type_as(attn_score)
-                    )
-                else:
-                    attn_score = attn_score.float().masked_fill(attn_mask[None, :, :, None], -1e30).type_as(attn_score)
+                attn_score = (
+                    attn_score.float().masked_fill(attn_mask[None, :, :, None], mask_value).type_as(attn_score)
+                )
             elif attn_mask.dim() == 3:
-                if next(self.parameters()).dtype == torch.float16:
-                    attn_score = attn_score.float().masked_fill(attn_mask[:, :, :, None], -65000).type_as(attn_score)
-                else:
-                    attn_score = attn_score.float().masked_fill(attn_mask[:, :, :, None], -1e30).type_as(attn_score)
+                attn_score = attn_score.float().masked_fill(attn_mask[:, :, :, None], mask_value).type_as(attn_score)
 
         # [qlen x klen x bsz x n_head]
         attn_prob = nn.functional.softmax(attn_score, dim=1)
@@ -526,7 +523,6 @@ class TransfoXLPreTrainedModel(PreTrainedModel):
         weights embeddings afterwards if the model class has a *tie_weights()* method.
 
         Arguments:
-
             new_num_tokens: (*optional*) int:
                 New number of tokens in the embedding matrix. Increasing the size will add newly initialized vectors at
                 the end. Reducing the size will remove vectors from the end. If not provided or None: does nothing and
@@ -692,6 +688,8 @@ class TransfoXLLMHeadModelOutput(ModelOutput):
 
             Attentions weights after the attention softmax, used to compute the weighted average in the self-attention
             heads.
+        loss (`torch.FloatTensor` of shape `()`, *optional*, returned when `labels` is provided)
+            Reduced language modeling loss.
     """
 
     losses: Optional[torch.FloatTensor] = None
@@ -699,6 +697,7 @@ class TransfoXLLMHeadModelOutput(ModelOutput):
     mems: List[torch.FloatTensor] = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
+    loss: Optional[torch.FloatTensor] = None
 
     @property
     def logits(self):
@@ -756,7 +755,7 @@ TRANSFO_XL_INPUTS_DOCSTRING = r"""
             Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors for
             more detail.
         return_dict (`bool`, *optional*):
-            Whether or not to return a [`~file_utils.ModelOutput`] instead of a plain tuple.
+            Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
 """
 
 
@@ -877,14 +876,14 @@ class TransfoXLModel(TransfoXLPreTrainedModel):
     )
     def forward(
         self,
-        input_ids=None,
-        mems=None,
-        head_mask=None,
-        inputs_embeds=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
+        input_ids: Optional[torch.LongTensor] = None,
+        mems: Optional[List[torch.FloatTensor]] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[Tuple, TransfoXLModelOutput]:
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -1011,10 +1010,20 @@ class TransfoXLLMHeadModel(TransfoXLPreTrainedModel):
         super().__init__(config)
         self.transformer = TransfoXLModel(config)
         self.sample_softmax = config.sample_softmax
+        self.trainer_compatible = getattr(config, "trainer_compatible", False)
 
-        assert (
-            self.sample_softmax <= 0
-        ), "Sampling from the softmax is not implemented yet. Please look at issue: #3310: https://github.com/huggingface/transformers/issues/3310"
+        if not self.trainer_compatible:
+            warnings.warn(
+                "The output of TransfoXL will be updated in v5 to support a single loss as first argument. In order"
+                "to use that updated output, please specify `trainer_compatible=True` as your configuration"
+                " attribute.",
+                DeprecationWarning,
+            )
+
+        assert self.sample_softmax <= 0, (
+            "Sampling from the softmax is not implemented yet. Please look at issue: #3310:"
+            " https://github.com/huggingface/transformers/issues/3310"
+        )
 
         self.crit = ProjectedAdaptiveLogSoftmax(
             config.vocab_size, config.d_embed, config.d_model, config.cutoffs, div_val=config.div_val
@@ -1059,15 +1068,15 @@ class TransfoXLLMHeadModel(TransfoXLPreTrainedModel):
     )
     def forward(
         self,
-        input_ids=None,
-        mems=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
+        input_ids: Optional[torch.LongTensor] = None,
+        mems: Optional[List[torch.FloatTensor]] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[Tuple, TransfoXLLMHeadModelOutput]:
         r"""
         labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
             Labels for language modeling. Note that the labels **are shifted** inside the model, i.e. you can set
@@ -1095,17 +1104,38 @@ class TransfoXLLMHeadModel(TransfoXLPreTrainedModel):
         last_hidden = transformer_outputs[0]
         pred_hid = last_hidden[:, -tgt_len:]
 
+        if labels is not None:
+            # Prevents all labels being -100 and throwing an error
+            # when backwarding the loss
+            miss_valid_label = labels[0, 1:].sum() == (labels.size(1) - 1) * -100
+            if miss_valid_label:
+                # Sets an <EOS> token, just to prevent loss from being NaN
+                labels[0, 1] = self.config.eos_token_id
+
         softmax_output = self.crit(pred_hid, labels)
         prediction_scores = softmax_output.view(bsz, tgt_len, -1) if labels is None else ()
-        loss = softmax_output.view(bsz, tgt_len - 1) if labels is not None else None
+
+        if labels is not None:
+            losses = softmax_output.view(bsz, tgt_len - 1)
+            # Avoids from incorporating padding (-100) tokens into loss value
+            loss = losses[losses != 0].mean()
+        else:
+            losses, loss = None, None
 
         if not return_dict:
-            output = (prediction_scores,) + transformer_outputs[1:]
-            return ((loss,) + output) if loss is not None else output
+            if self.trainer_compatible:
+                output = (prediction_scores, losses) if losses is not None else (prediction_scores,)
+                output += transformer_outputs[1:]
+                return ((loss,) + output) if loss is not None else output
+            else:
+                output = (prediction_scores, *transformer_outputs[1:])
+                output = ((losses,) + output) if losses is not None else output
+                return (output + (loss,)) if loss is not None else output
 
         return TransfoXLLMHeadModelOutput(
-            losses=loss,
+            loss=loss,
             prediction_scores=prediction_scores,
+            losses=losses,
             mems=transformer_outputs.mems,
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,
@@ -1163,7 +1193,7 @@ class TransfoXLLMHeadModel(TransfoXLPreTrainedModel):
     TRANSFO_XL_START_DOCSTRING,
 )
 class TransfoXLForSequenceClassification(TransfoXLPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head\.weight"]
+    _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head.weight"]
 
     def __init__(self, config):
         super().__init__(config)
@@ -1182,15 +1212,15 @@ class TransfoXLForSequenceClassification(TransfoXLPreTrainedModel):
     )
     def forward(
         self,
-        input_ids=None,
-        mems=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
+        input_ids: Optional[torch.LongTensor] = None,
+        mems: Optional[List[torch.FloatTensor]] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[Tuple, TransfoXLSequenceClassifierOutputWithPast]:
         r"""
         labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
             Labels for computing the sequence classification/regression loss. Indices should be in `[0, ...,
@@ -1228,7 +1258,7 @@ class TransfoXLForSequenceClassification(TransfoXLPreTrainedModel):
                 sequence_lengths = -1
                 logger.warning(
                     f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
-                    f"unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                    "unexpected if using padding tokens in conjunction with `inputs_embeds.`"
                 )
 
         pooled_logits = logits[range(batch_size), sequence_lengths]

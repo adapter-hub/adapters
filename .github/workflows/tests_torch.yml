@@ -31,8 +31,6 @@ jobs:
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
       - name: Install
         run: |
           pip install torch
@@ -57,7 +55,7 @@ jobs:
       - name: Install
         run: |
           pip install torch
-          pip install .[sklearn,testing,sentencepiece]
+          pip install .[sklearn,testing,sentencepiece,vision]
           pip install datasets
       - name: Test
         run: |

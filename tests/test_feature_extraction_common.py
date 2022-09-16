@@ -19,13 +19,14 @@ import os
 import sys
 import tempfile
 import unittest
+import unittest.mock as mock
 from pathlib import Path
 
-from huggingface_hub import Repository, delete_repo, login
+from huggingface_hub import HfFolder, Repository, delete_repo, set_access_token
 from requests.exceptions import HTTPError
 from transformers import AutoFeatureExtractor, Wav2Vec2FeatureExtractor
-from transformers.file_utils import is_torch_available, is_vision_available
-from transformers.testing_utils import PASS, USER, is_staging_test
+from transformers.testing_utils import TOKEN, USER, check_json_file_has_correct_format, get_tests_dir, is_staging_test
+from transformers.utils import is_torch_available, is_vision_available
 
 
 sys.path.append(str(Path(__file__).parent.parent / "utils"))
@@ -41,7 +42,7 @@ if is_vision_available():
     from PIL import Image
 
 
-SAMPLE_FEATURE_EXTRACTION_CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+SAMPLE_FEATURE_EXTRACTION_CONFIG_DIR = get_tests_dir("fixtures")
 
 
 def prepare_image_inputs(feature_extract_tester, equal_resolution=False, numpify=False, torchify=False):
@@ -67,10 +68,15 @@ def prepare_image_inputs(feature_extract_tester, equal_resolution=False, numpify
             )
     else:
         image_inputs = []
+
+        # To avoid getting image width/height 0
+        min_resolution = feature_extract_tester.min_resolution
+        if getattr(feature_extract_tester, "size_divisor", None):
+            # If `size_divisor` is defined, the image needs to have width/size >= `size_divisor`
+            min_resolution = max(feature_extract_tester.size_divisor, min_resolution)
+
         for i in range(feature_extract_tester.batch_size):
-            width, height = np.random.choice(
-                np.arange(feature_extract_tester.min_resolution, feature_extract_tester.max_resolution), 2
-            )
+            width, height = np.random.choice(np.arange(min_resolution, feature_extract_tester.max_resolution), 2)
             image_inputs.append(
                 np.random.randint(255, size=(feature_extract_tester.num_channels, width, height), dtype=np.uint8)
             )
@@ -106,7 +112,8 @@ class FeatureExtractionSavingTestMixin:
         feat_extract_first = self.feature_extraction_class(**self.feat_extract_dict)
 
         with tempfile.TemporaryDirectory() as tmpdirname:
-            feat_extract_first.save_pretrained(tmpdirname)
+            saved_file = feat_extract_first.save_pretrained(tmpdirname)[0]
+            check_json_file_has_correct_format(saved_file)
             feat_extract_second = self.feature_extraction_class.from_pretrained(tmpdirname)
 
         self.assertEqual(feat_extract_second.to_dict(), feat_extract_first.to_dict())
@@ -116,26 +123,45 @@ class FeatureExtractionSavingTestMixin:
         self.assertIsNotNone(feat_extract)
 
 
+class FeatureExtractorUtilTester(unittest.TestCase):
+    def test_cached_files_are_used_when_internet_is_down(self):
+        # A mock response for an HTTP head request to emulate server down
+        response_mock = mock.Mock()
+        response_mock.status_code = 500
+        response_mock.headers = []
+        response_mock.raise_for_status.side_effect = HTTPError
+
+        # Download this model to make sure it's in the cache.
+        _ = Wav2Vec2FeatureExtractor.from_pretrained("hf-internal-testing/tiny-random-wav2vec2")
+        # Under the mock environment we get a 500 error when trying to reach the model.
+        with mock.patch("transformers.utils.hub.requests.head", return_value=response_mock) as mock_head:
+            _ = Wav2Vec2FeatureExtractor.from_pretrained("hf-internal-testing/tiny-random-wav2vec2")
+            # This check we did call the fake head request
+            mock_head.assert_called()
+
+
 @is_staging_test
 class FeatureExtractorPushToHubTester(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls._token = login(username=USER, password=PASS)
+        cls._token = TOKEN
+        set_access_token(TOKEN)
+        HfFolder.save_token(TOKEN)
 
     @classmethod
     def tearDownClass(cls):
         try:
-            delete_repo(token=cls._token, name="test-feature-extractor")
+            delete_repo(token=cls._token, repo_id="test-feature-extractor")
         except HTTPError:
             pass
 
         try:
-            delete_repo(token=cls._token, name="test-feature-extractor-org", organization="valid_org")
+            delete_repo(token=cls._token, repo_id="valid_org/test-feature-extractor-org")
         except HTTPError:
             pass
 
         try:
-            delete_repo(token=cls._token, name="test-dynamic-feature-extractor")
+            delete_repo(token=cls._token, repo_id="test-dynamic-feature-extractor")
         except HTTPError:
             pass
 

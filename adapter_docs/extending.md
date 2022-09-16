@@ -4,7 +4,7 @@
 
 Currently, not all model types included in HuggingFace's `transformers` support adapters yet.
 However, it is possible to the existing adapter implementation to new models.
-For a detailed guide, refer to [Adding Adapters to a Model](https://github.com/Adapter-Hub/adapter-transformers/blob/master/adding_adapters_to_a_model.md).
+For a detailed guide, refer to [Adding Adapters to a Model](https://docs.adapterhub.ml/contributing/adding_adapters_to_a_model.html).
 
 ## Loading custom module weights
 

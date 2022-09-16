@@ -262,6 +262,12 @@ class TrainerCallback:
         """
         pass
 
+    def on_predict(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, metrics, **kwargs):
+        """
+        Event called after a successful prediction.
+        """
+        pass
+
     def on_save(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         """
         Event called after a checkpoint save.
@@ -372,6 +378,9 @@ class CallbackHandler(TrainerCallback):
         control.should_evaluate = False
         return self.call_event("on_evaluate", args, state, control, metrics=metrics)
 
+    def on_predict(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, metrics):
+        return self.call_event("on_predict", args, state, control, metrics=metrics)
+
     def on_save(self, args: TrainingArguments, state: TrainerState, control: TrainerControl):
         control.should_save = False
         return self.call_event("on_save", args, state, control)
@@ -416,7 +425,11 @@ class DefaultFlowCallback(TrainerCallback):
             control.should_log = True
 
         # Evaluate
-        if args.evaluation_strategy == IntervalStrategy.STEPS and state.global_step % args.eval_steps == 0:
+        if (
+            args.evaluation_strategy == IntervalStrategy.STEPS
+            and state.global_step % args.eval_steps == 0
+            and args.eval_delay <= state.global_step
+        ):
             control.should_evaluate = True
 
         # Save
@@ -439,7 +452,7 @@ class DefaultFlowCallback(TrainerCallback):
             control.should_log = True
 
         # Evaluate
-        if args.evaluation_strategy == IntervalStrategy.EPOCH:
+        if args.evaluation_strategy == IntervalStrategy.EPOCH and args.eval_delay <= state.epoch:
             control.should_evaluate = True
 
         # Save
@@ -469,12 +482,18 @@ class ProgressCallback(TrainerCallback):
             self.current_step = state.global_step
 
     def on_prediction_step(self, args, state, control, eval_dataloader=None, **kwargs):
-        if state.is_local_process_zero and has_length(eval_dataloader.dataset):
+        if state.is_local_process_zero and has_length(eval_dataloader):
             if self.prediction_bar is None:
                 self.prediction_bar = tqdm(total=len(eval_dataloader), leave=self.training_bar is None)
             self.prediction_bar.update(1)
 
     def on_evaluate(self, args, state, control, **kwargs):
+        if state.is_local_process_zero:
+            if self.prediction_bar is not None:
+                self.prediction_bar.close()
+            self.prediction_bar = None
+
+    def on_predict(self, args, state, control, **kwargs):
         if state.is_local_process_zero:
             if self.prediction_bar is not None:
                 self.prediction_bar.close()
@@ -552,7 +571,8 @@ class EarlyStoppingCallback(TrainerCallback):
 
         if metric_value is None:
             logger.warning(
-                f"early stopping required metric_for_best_model, but did not find {metric_to_check} so early stopping is disabled"
+                f"early stopping required metric_for_best_model, but did not find {metric_to_check} so early stopping"
+                " is disabled"
             )
             return
 

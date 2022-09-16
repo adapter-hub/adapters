@@ -29,8 +29,9 @@ from requests import HTTPError
 
 from . import __version__
 from .dynamic_module_utils import custom_object_save
-from .file_utils import (
+from .utils import (
     CONFIG_NAME,
+    HUGGINGFACE_CO_RESOLVE_ENDPOINT,
     EntryNotFoundError,
     PushToHubMixin,
     RepositoryNotFoundError,
@@ -41,8 +42,8 @@ from .file_utils import (
     is_offline_mode,
     is_remote_url,
     is_torch_available,
+    logging,
 )
-from .utils import logging
 
 
 logger = logging.get_logger(__name__)
@@ -93,7 +94,7 @@ class PretrainedConfig(PushToHubMixin):
         output_attentions (`bool`, *optional*, defaults to `False`):
             Whether or not the model should returns all attentions.
         return_dict (`bool`, *optional*, defaults to `True`):
-            Whether or not the model should return a [`~transformers.file_utils.ModelOutput`] instead of a plain tuple.
+            Whether or not the model should return a [`~transformers.utils.ModelOutput`] instead of a plain tuple.
         is_encoder_decoder (`bool`, *optional*, defaults to `False`):
             Whether the model is used as an encoder/decoder or not.
         is_decoder (`bool`, *optional*, defaults to `False`):
@@ -170,7 +171,7 @@ class PretrainedConfig(PushToHubMixin):
         output_scores (`bool`, *optional*, defaults to `False`):
             Whether the model should return the logits when used for generation.
         return_dict_in_generate (`bool`, *optional*, defaults to `False`):
-            Whether the model should return a [`~transformers.file_utils.ModelOutput`] instead of a `torch.LongTensor`.
+            Whether the model should return a [`~transformers.utils.ModelOutput`] instead of a `torch.LongTensor`.
         forced_bos_token_id (`int`, *optional*):
             The id of the token to force as the first generated token after the `decoder_start_token_id`. Useful for
             multilingual models like [mBART](../model_doc/mbart) where the first generated token needs to be the target
@@ -235,6 +236,10 @@ class PretrainedConfig(PushToHubMixin):
 
         use_bfloat16 (`bool`, *optional*, defaults to `False`):
             Whether or not the model should use BFloat16 scalars (only used by some TensorFlow models).
+        tf_legacy_loss (`bool`, *optional*, defaults to `False`):
+            Whether the model should use legacy TensorFlow losses. Legacy losses have variable output shapes and may
+            not be XLA-compatible. This option is here for backward compatibility and will be removed in Transformers
+            v5.
     """
     model_type: str = ""
     is_composition: bool = False
@@ -259,6 +264,7 @@ class PretrainedConfig(PushToHubMixin):
         self.torchscript = kwargs.pop("torchscript", False)  # Only used by PyTorch models
         self.torch_dtype = kwargs.pop("torch_dtype", None)  # Only used by PyTorch models
         self.use_bfloat16 = kwargs.pop("use_bfloat16", False)
+        self.tf_legacy_loss = kwargs.pop("tf_legacy_loss", False)  # Only used by TensorFlow models
         self.pruned_heads = kwargs.pop("pruned_heads", {})
         self.tie_word_embeddings = kwargs.pop(
             "tie_word_embeddings", True
@@ -295,6 +301,7 @@ class PretrainedConfig(PushToHubMixin):
         self.forced_bos_token_id = kwargs.pop("forced_bos_token_id", None)
         self.forced_eos_token_id = kwargs.pop("forced_eos_token_id", None)
         self.remove_invalid_values = kwargs.pop("remove_invalid_values", False)
+        self.exponential_decay_length_penalty = kwargs.pop("exponential_decay_length_penalty", None)
 
         # Fine-tuning task arguments
         self.architectures = kwargs.pop("architectures", None)
@@ -302,7 +309,12 @@ class PretrainedConfig(PushToHubMixin):
         self.id2label = kwargs.pop("id2label", None)
         self.label2id = kwargs.pop("label2id", None)
         if self.id2label is not None:
-            kwargs.pop("num_labels", None)
+            num_labels = kwargs.pop("num_labels", None)
+            if num_labels is not None and len(self.id2label) != num_labels:
+                logger.warning(
+                    f"You passed along `num_labels={num_labels}` with an incompatible id to label map: "
+                    f"{self.id2label}. The number of labels wil be overwritten to {self.num_labels}."
+                )
             self.id2label = dict((int(key), value) for key, value in self.id2label.items())
             # Keys are always strings in JSON so convert ids to int here.
         else:
@@ -378,7 +390,7 @@ class PretrainedConfig(PushToHubMixin):
     @property
     def use_return_dict(self) -> bool:
         """
-        `bool`: Whether or not return [`~file_utils.ModelOutput`] instead of tuples.
+        `bool`: Whether or not return [`~utils.ModelOutput`] instead of tuples.
         """
         # If torchscript is set, force `return_dict=False` to avoid jit errors
         return self.return_dict and not self.torchscript
@@ -416,7 +428,7 @@ class PretrainedConfig(PushToHubMixin):
                 </Tip>
 
             kwargs:
-                Additional key word arguments passed along to the [`~file_utils.PushToHubMixin.push_to_hub`] method.
+                Additional key word arguments passed along to the [`~utils.PushToHubMixin.push_to_hub`] method.
         """
         if os.path.isfile(save_directory):
             raise AssertionError(f"Provided path ({save_directory}) should be a directory, not a file")
@@ -472,7 +484,7 @@ class PretrainedConfig(PushToHubMixin):
             use_auth_token (`str` or *bool*, *optional*):
                 The token to use as HTTP bearer authorization for remote files. If `True`, will use the token generated
                 when running `transformers-cli login` (stored in `~/.huggingface`).
-            revision(`str`, *optional*, defaults to `"main"`):
+            revision (`str`, *optional*, defaults to `"main"`):
                 The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
                 git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any
                 identifier allowed by git.
@@ -482,6 +494,9 @@ class PretrainedConfig(PushToHubMixin):
                 If `True`, then this functions returns a `Tuple(config, unused_kwargs)` where *unused_kwargs* is a
                 dictionary consisting of the key/value pairs whose keys are not configuration attributes: i.e., the
                 part of `kwargs` which has not been used to update `config` and is otherwise ignored.
+            subfolder (`str`, *optional*, defaults to `""`):
+                In case the relevant files are located inside a subfolder of the model repo on huggingface.co, you can
+                specify the folder name here.
             kwargs (`Dict[str, Any]`, *optional*):
                 The values in kwargs of any keys which are configuration attributes will be used to override the loaded
                 values. Behavior concerning key/value pairs whose keys are *not* configuration attributes is controlled
@@ -565,8 +580,16 @@ class PretrainedConfig(PushToHubMixin):
         use_auth_token = kwargs.pop("use_auth_token", None)
         local_files_only = kwargs.pop("local_files_only", False)
         revision = kwargs.pop("revision", None)
+        trust_remote_code = kwargs.pop("trust_remote_code", None)
+        subfolder = kwargs.pop("subfolder", "")
         from_pipeline = kwargs.pop("_from_pipeline", None)
         from_auto_class = kwargs.pop("_from_auto", False)
+
+        if trust_remote_code is True:
+            logger.warning(
+                "The argument `trust_remote_code` is to be used with Auto classes. It has no effect here and is"
+                " ignored."
+            )
 
         user_agent = {"file_type": "config", "from_auto_class": from_auto_class}
         if from_pipeline is not None:
@@ -577,16 +600,22 @@ class PretrainedConfig(PushToHubMixin):
             local_files_only = True
 
         pretrained_model_name_or_path = str(pretrained_model_name_or_path)
-        if os.path.isfile(pretrained_model_name_or_path) or is_remote_url(pretrained_model_name_or_path):
+        if os.path.isfile(os.path.join(subfolder, pretrained_model_name_or_path)) or is_remote_url(
+            pretrained_model_name_or_path
+        ):
             config_file = pretrained_model_name_or_path
         else:
             configuration_file = kwargs.pop("_configuration_file", CONFIG_NAME)
 
-            if os.path.isdir(pretrained_model_name_or_path):
-                config_file = os.path.join(pretrained_model_name_or_path, configuration_file)
+            if os.path.isdir(os.path.join(pretrained_model_name_or_path, subfolder)):
+                config_file = os.path.join(pretrained_model_name_or_path, subfolder, configuration_file)
             else:
                 config_file = hf_bucket_url(
-                    pretrained_model_name_or_path, filename=configuration_file, revision=revision, mirror=None
+                    pretrained_model_name_or_path,
+                    filename=configuration_file,
+                    revision=revision,
+                    subfolder=subfolder if len(subfolder) > 0 else None,
+                    mirror=None,
                 )
 
         try:
@@ -619,12 +648,16 @@ class PretrainedConfig(PushToHubMixin):
             raise EnvironmentError(
                 f"{pretrained_model_name_or_path} does not appear to have a file named {configuration_file}."
             )
-        except HTTPError:
+        except HTTPError as err:
             raise EnvironmentError(
-                "We couldn't connect to 'https://huggingface.co/' to load this model and it looks like "
-                f"{pretrained_model_name_or_path} is not the path to a directory conaining a {configuration_file} "
-                "file.\nCheckout your internet connection or see how to run the library in offline mode at "
-                "'https://huggingface.co/docs/transformers/installation#offline-mode'."
+                f"There was a specific connection error when trying to load {pretrained_model_name_or_path}:\n{err}"
+            )
+        except ValueError:
+            raise EnvironmentError(
+                f"We couldn't connect to '{HUGGINGFACE_CO_RESOLVE_ENDPOINT}' to load this model, couldn't find it in"
+                f" the cached files and it looks like {pretrained_model_name_or_path} is not the path to a directory"
+                f" containing a {configuration_file} file.\nCheckout your internet connection or see how to run the"
+                " library in offline mode at 'https://huggingface.co/docs/transformers/installation#offline-mode'."
             )
         except EnvironmentError:
             raise EnvironmentError(
@@ -665,6 +698,10 @@ class PretrainedConfig(PushToHubMixin):
             [`PretrainedConfig`]: The configuration object instantiated from those parameters.
         """
         return_unused_kwargs = kwargs.pop("return_unused_kwargs", False)
+        # Those arguments may be passed along for our internal telemetry.
+        # We remove them so they don't appear in `return_unused_kwargs`.
+        kwargs.pop("_from_auto", None)
+        kwargs.pop("_from_pipeline", None)
 
         config = cls(**config_dict)
 
@@ -672,6 +709,15 @@ class PretrainedConfig(PushToHubMixin):
             config.pruned_heads = dict((int(key), value) for key, value in config.pruned_heads.items())
 
         # Update config with kwargs if needed
+        if "num_labels" in kwargs and "id2label" in kwargs:
+            num_labels = kwargs["num_labels"]
+            id2label = kwargs["id2label"] if kwargs["id2label"] is not None else []
+            if len(id2label) != num_labels:
+                raise ValueError(
+                    f"You passed along `num_labels={num_labels }` with an incompatible id to label map: "
+                    f"{kwargs['id2label']}. Since those arguments are inconsistent with each other, you should remove "
+                    "one of them."
+                )
         to_remove = []
         for key, value in kwargs.items():
             if hasattr(config, key):
@@ -747,6 +793,16 @@ class PretrainedConfig(PushToHubMixin):
 
         return serializable_config_dict
 
+    def adapters_to_dict(self, output):
+        # Adapter-specific changes
+        if hasattr(self, "adapters") and not isinstance(output["adapters"], dict):
+            output["adapters"] = self.adapters.to_dict()
+        if "custom_heads" in output:
+            del output["custom_heads"]
+        if "is_adaptable" in output:
+            del output["is_adaptable"]
+        return output
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Serializes this instance to a Python dictionary.
@@ -764,6 +820,8 @@ class PretrainedConfig(PushToHubMixin):
         output["transformers_version"] = __version__
 
         self.dict_torch_dtype_to_str(output)
+
+        self.adapters_to_dict(output)
 
         return output
 
@@ -849,12 +907,15 @@ class PretrainedConfig(PushToHubMixin):
 
     def dict_torch_dtype_to_str(self, d: Dict[str, Any]) -> None:
         """
-        Checks whether the passed dictionary has a *torch_dtype* key and if it's not None, converts torch.dtype to a
-        string of just the type. For example, `torch.float32` get converted into *"float32"* string, which can then be
-        stored in the json format.
+        Checks whether the passed dictionary and its nested dicts have a *torch_dtype* key and if it's not None,
+        converts torch.dtype to a string of just the type. For example, `torch.float32` get converted into *"float32"*
+        string, which can then be stored in the json format.
         """
         if d.get("torch_dtype", None) is not None and not isinstance(d["torch_dtype"], str):
             d["torch_dtype"] = str(d["torch_dtype"]).split(".")[1]
+        for value in d.values():
+            if isinstance(value, dict):
+                self.dict_torch_dtype_to_str(value)
 
     @classmethod
     def register_for_auto_class(cls, auto_class="AutoConfig"):

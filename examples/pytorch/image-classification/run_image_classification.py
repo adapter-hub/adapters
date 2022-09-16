@@ -37,9 +37,12 @@ from torchvision.transforms import (
 import transformers
 from transformers import (
     MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,
+    AdapterArguments,
+    AdapterConfig,
+    AdapterTrainer,
+    AutoAdapterModel,
     AutoConfig,
     AutoFeatureExtractor,
-    AutoModelForImageClassification,
     HfArgumentParser,
     Trainer,
     TrainingArguments,
@@ -54,7 +57,7 @@ from transformers.utils.versions import require_version
 logger = logging.getLogger(__name__)
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.17.0")
+check_min_version("4.21.0")
 
 require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/image-classification/requirements.txt")
 
@@ -72,13 +75,15 @@ def pil_loader(path: str):
 class DataTrainingArguments:
     """
     Arguments pertaining to what data we are going to input our model for training and eval.
-    Using `HfArgumentParser` we can turn this class
-    into argparse arguments to be able to specify them on
-    the command line.
+    Using `HfArgumentParser` we can turn this class into argparse arguments to be able to specify
+    them on the command line.
     """
 
     dataset_name: Optional[str] = field(
-        default="nateraw/image-folder", metadata={"help": "Name of a dataset from the datasets package"}
+        default=None,
+        metadata={
+            "help": "Name of a dataset from the hub (could be your own, possibly private dataset hosted on the hub)."
+        },
     )
     dataset_config_name: Optional[str] = field(
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
@@ -91,25 +96,27 @@ class DataTrainingArguments:
     max_train_samples: Optional[int] = field(
         default=None,
         metadata={
-            "help": "For debugging purposes or quicker training, truncate the number of training examples to this "
-            "value if set."
+            "help": (
+                "For debugging purposes or quicker training, truncate the number of training examples to this "
+                "value if set."
+            )
         },
     )
     max_eval_samples: Optional[int] = field(
         default=None,
         metadata={
-            "help": "For debugging purposes or quicker training, truncate the number of evaluation examples to this "
-            "value if set."
+            "help": (
+                "For debugging purposes or quicker training, truncate the number of evaluation examples to this "
+                "value if set."
+            )
         },
     )
 
     def __post_init__(self):
-        data_files = dict()
-        if self.train_dir is not None:
-            data_files["train"] = self.train_dir
-        if self.validation_dir is not None:
-            data_files["val"] = self.validation_dir
-        self.data_files = data_files if data_files else None
+        if self.dataset_name is None and (self.train_dir is None and self.validation_dir is None):
+            raise ValueError(
+                "You must specify either a dataset name from the hub or a train and/or validation directory."
+            )
 
 
 @dataclass
@@ -140,9 +147,15 @@ class ModelArguments:
     use_auth_token: bool = field(
         default=False,
         metadata={
-            "help": "Will use the token generated when running `transformers-cli login` (necessary to use this script "
-            "with private models)."
+            "help": (
+                "Will use the token generated when running `transformers-cli login` (necessary to use this script "
+                "with private models)."
+            )
         },
+    )
+    ignore_mismatched_sizes: bool = field(
+        default=False,
+        metadata={"help": "Will enable to load a pretrained model whose head dimensions are different."},
     )
 
 
@@ -157,13 +170,15 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, adapter_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
-        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+        model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     # Setup logging
     logging.basicConfig(
@@ -201,24 +216,37 @@ def main():
             )
 
     # Initialize our dataset and prepare it for the 'image-classification' task.
-    ds = load_dataset(
-        data_args.dataset_name,
-        data_args.dataset_config_name,
-        data_files=data_args.data_files,
-        cache_dir=model_args.cache_dir,
-        task="image-classification",
-    )
+    if data_args.dataset_name is not None:
+        dataset = load_dataset(
+            data_args.dataset_name,
+            data_args.dataset_config_name,
+            cache_dir=model_args.cache_dir,
+            task="image-classification",
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+    else:
+        data_files = {}
+        if data_args.train_dir is not None:
+            data_files["train"] = os.path.join(data_args.train_dir, "**")
+        if data_args.validation_dir is not None:
+            data_files["validation"] = os.path.join(data_args.validation_dir, "**")
+        dataset = load_dataset(
+            "imagefolder",
+            data_files=data_files,
+            cache_dir=model_args.cache_dir,
+            task="image-classification",
+        )
 
     # If we don't have a validation split, split off a percentage of train as validation.
-    data_args.train_val_split = None if "validation" in ds.keys() else data_args.train_val_split
+    data_args.train_val_split = None if "validation" in dataset.keys() else data_args.train_val_split
     if isinstance(data_args.train_val_split, float) and data_args.train_val_split > 0.0:
-        split = ds["train"].train_test_split(data_args.train_val_split)
-        ds["train"] = split["train"]
-        ds["validation"] = split["test"]
+        split = dataset["train"].train_test_split(data_args.train_val_split)
+        dataset["train"] = split["train"]
+        dataset["validation"] = split["test"]
 
     # Prepare label mappings.
     # We'll include these in the model's config to get human readable labels in the Inference API.
-    labels = ds["train"].features["labels"].names
+    labels = dataset["train"].features["labels"].names
     label2id, id2label = dict(), dict()
     for i, label in enumerate(labels):
         label2id[label] = str(i)
@@ -243,13 +271,19 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    model = AutoModelForImageClassification.from_pretrained(
+    model = AutoAdapterModel.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
+        ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
+    )
+    model.add_image_classification_head(
+        data_args.dataset_name or "img_clf",
+        num_labels=len(labels),
+        id2label=id2label,
     )
     feature_extractor = AutoFeatureExtractor.from_pretrained(
         model_args.feature_extractor_name or model_args.model_name_or_path,
@@ -257,6 +291,38 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
+    # Setup adapters
+    if adapter_args.train_adapter:
+        task_name = data_args.dataset_name or "img_clf"
+        # check if adapter already exists, otherwise add it
+        if task_name not in model.config.adapters:
+            # resolve the adapter config
+            adapter_config = AdapterConfig.load(
+                adapter_args.adapter_config,
+                non_linearity=adapter_args.adapter_non_linearity,
+                reduction_factor=adapter_args.adapter_reduction_factor,
+            )
+            # load a pre-trained from Hub if specified
+            if adapter_args.load_adapter:
+                model.load_adapter(
+                    adapter_args.load_adapter,
+                    config=adapter_config,
+                    load_as=task_name,
+                )
+            # otherwise, add a fresh adapter
+            else:
+                model.add_adapter(task_name, config=adapter_config)
+
+        # Freeze all model weights except of those of this adapter
+        model.train_adapter([task_name])
+        # Set the adapters to be used in every forward pass
+        model.set_active_adapters([task_name])
+    else:
+        if adapter_args.load_adapter:
+            raise ValueError(
+                "Adapters can only be loaded in adapters training mode.Use --train_adapter to enable adapter training"
+            )
 
     # Define torchvision transforms to be applied to each image.
     normalize = Normalize(mean=feature_extractor.image_mean, std=feature_extractor.image_std)
@@ -290,29 +356,32 @@ def main():
         return example_batch
 
     if training_args.do_train:
-        if "train" not in ds:
+        if "train" not in dataset:
             raise ValueError("--do_train requires a train dataset")
         if data_args.max_train_samples is not None:
-            ds["train"] = ds["train"].shuffle(seed=training_args.seed).select(range(data_args.max_train_samples))
+            dataset["train"] = (
+                dataset["train"].shuffle(seed=training_args.seed).select(range(data_args.max_train_samples))
+            )
         # Set the training transforms
-        ds["train"].set_transform(train_transforms)
+        dataset["train"].set_transform(train_transforms)
 
     if training_args.do_eval:
-        if "validation" not in ds:
+        if "validation" not in dataset:
             raise ValueError("--do_eval requires a validation dataset")
         if data_args.max_eval_samples is not None:
-            ds["validation"] = (
-                ds["validation"].shuffle(seed=training_args.seed).select(range(data_args.max_eval_samples))
+            dataset["validation"] = (
+                dataset["validation"].shuffle(seed=training_args.seed).select(range(data_args.max_eval_samples))
             )
         # Set the validation transforms
-        ds["validation"].set_transform(val_transforms)
+        dataset["validation"].set_transform(val_transforms)
 
     # Initalize our trainer
-    trainer = Trainer(
+    trainer_class = AdapterTrainer if adapter_args.train_adapter else Trainer
+    trainer = trainer_class(
         model=model,
         args=training_args,
-        train_dataset=ds["train"] if training_args.do_train else None,
-        eval_dataset=ds["validation"] if training_args.do_eval else None,
+        train_dataset=dataset["train"] if training_args.do_train else None,
+        eval_dataset=dataset["validation"] if training_args.do_eval else None,
         compute_metrics=compute_metrics,
         tokenizer=feature_extractor,
         data_collator=collate_fn,
@@ -342,7 +411,7 @@ def main():
         "finetuned_from": model_args.model_name_or_path,
         "tasks": "image-classification",
         "dataset": data_args.dataset_name,
-        "tags": ["image-classification"],
+        "tags": ["image-classification", "vision"],
     }
     if training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)

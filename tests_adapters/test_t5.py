@@ -2,20 +2,25 @@ import unittest
 
 from datasets import load_dataset
 
-from tests.t5.test_modeling_t5 import *
-from transformers import T5AdapterModel
+from tests.models.t5.test_modeling_t5 import *
+from transformers import AutoTokenizer, T5AdapterModel
 from transformers.testing_utils import require_torch
 
+from .methods import (
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    IA3TestMixin,
+    LoRATestMixin,
+    PrefixTuningTestMixin,
+    UniPELTTestMixin,
+)
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
-from .test_adapter_common import AdapterModelTestMixin
-from .test_adapter_compacter import CompacterTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-from .test_adapter_training import AdapterTrainingTestMixin
 from .test_common import AdapterModelTesterMixin
 
 
@@ -24,6 +29,7 @@ class T5AdapterModelTest(AdapterModelTesterMixin, T5ModelTest):
     all_model_classes = (
         T5AdapterModel,
     )
+    fx_compatible = False
 
 
 @require_torch
@@ -44,8 +50,15 @@ class T5AdapterTestBase(AdapterTestBase):
 
     def add_head(self, model, name, **kwargs):
         model.add_seq2seq_lm_head(name)
+        return self.default_input_samples_shape[-1]
 
-    def dataset(self, tokenizer):
+    def dataset(self, tokenizer=None):
+        # setup tokenizer
+        if tokenizer is None:
+            tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+
         def preprocess_function(examples):
             inputs = examples["document"]
             targets = examples["summary"]
@@ -81,17 +94,19 @@ class T5AdapterTestBase(AdapterTestBase):
 
 @require_torch
 class T5AdapterTest(
-    T5AdapterTestBase,
+    BottleneckAdapterTestMixin,
     CompacterTestMixin,
+    IA3TestMixin,
+    LoRATestMixin,
+    PrefixTuningTestMixin,
+    UniPELTTestMixin,
     EmbeddingTestMixin,
     CompabilityTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
-    AdapterModelTestMixin,
     AdapterFusionModelTestMixin,
-    AdapterTrainingTestMixin,
     PredictionHeadModelTestMixin,
-    AdapterTestBase,
+    T5AdapterTestBase,
     unittest.TestCase,
 ):
     pass

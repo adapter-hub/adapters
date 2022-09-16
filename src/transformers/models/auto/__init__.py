@@ -18,7 +18,13 @@
 
 from typing import TYPE_CHECKING
 
-from ...file_utils import _LazyModule, is_flax_available, is_tf_available, is_torch_available
+from ...utils import (
+    OptionalDependencyNotAvailable,
+    _LazyModule,
+    is_flax_available,
+    is_tf_available,
+    is_torch_available,
+)
 
 
 _import_structure = {
@@ -29,7 +35,12 @@ _import_structure = {
     "tokenization_auto": ["TOKENIZER_MAPPING", "AutoTokenizer"],
 }
 
-if is_torch_available():
+try:
+    if not is_torch_available():
+        raise OptionalDependencyNotAvailable()
+except OptionalDependencyNotAvailable:
+    pass
+else:
     _import_structure["modeling_auto"] = [
         "MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING",
         "MODEL_FOR_AUDIO_XVECTOR_MAPPING",
@@ -38,6 +49,7 @@ if is_torch_available():
         "MODEL_FOR_CTC_MAPPING",
         "MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING",
         "MODEL_FOR_IMAGE_SEGMENTATION_MAPPING",
+        "MODEL_FOR_INSTANCE_SEGMENTATION_MAPPING",
         "MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING",
         "MODEL_FOR_MASKED_LM_MAPPING",
         "MODEL_FOR_MULTIPLE_CHOICE_MAPPING",
@@ -52,6 +64,7 @@ if is_torch_available():
         "MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING",
         "MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING",
         "MODEL_FOR_VISION_2_SEQ_MAPPING",
+        "MODEL_FOR_VISUAL_QUESTION_ANSWERING_MAPPING",
         "MODEL_MAPPING",
         "MODEL_WITH_LM_HEAD_MAPPING",
         "AutoModel",
@@ -62,6 +75,7 @@ if is_torch_available():
         "AutoModelForCTC",
         "AutoModelForImageClassification",
         "AutoModelForImageSegmentation",
+        "AutoModelForInstanceSegmentation",
         "AutoModelForMaskedImageModeling",
         "AutoModelForMaskedLM",
         "AutoModelForMultipleChoice",
@@ -76,13 +90,20 @@ if is_torch_available():
         "AutoModelForTableQuestionAnswering",
         "AutoModelForTokenClassification",
         "AutoModelForVision2Seq",
+        "AutoModelForVisualQuestionAnswering",
         "AutoModelWithLMHead",
     ]
 
-if is_tf_available():
+try:
+    if not is_tf_available():
+        raise OptionalDependencyNotAvailable()
+except OptionalDependencyNotAvailable:
+    pass
+else:
     _import_structure["modeling_tf_auto"] = [
         "TF_MODEL_FOR_CAUSAL_LM_MAPPING",
         "TF_MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING",
+        "TF_MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING",
         "TF_MODEL_FOR_MASKED_LM_MAPPING",
         "TF_MODEL_FOR_MULTIPLE_CHOICE_MAPPING",
         "TF_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING",
@@ -101,6 +122,7 @@ if is_tf_available():
         "TFAutoModelForImageClassification",
         "TFAutoModelForMaskedLM",
         "TFAutoModelForMultipleChoice",
+        "TFAutoModelForNextSentencePrediction",
         "TFAutoModelForPreTraining",
         "TFAutoModelForQuestionAnswering",
         "TFAutoModelForSeq2SeqLM",
@@ -112,7 +134,12 @@ if is_tf_available():
         "TFAutoModelWithLMHead",
     ]
 
-if is_flax_available():
+try:
+    if not is_flax_available():
+        raise OptionalDependencyNotAvailable()
+except OptionalDependencyNotAvailable:
+    pass
+else:
     _import_structure["modeling_flax_auto"] = [
         "FLAX_MODEL_FOR_CAUSAL_LM_MAPPING",
         "FLAX_MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING",
@@ -148,7 +175,12 @@ if TYPE_CHECKING:
     from .processing_auto import PROCESSOR_MAPPING, AutoProcessor
     from .tokenization_auto import TOKENIZER_MAPPING, AutoTokenizer
 
-    if is_torch_available():
+    try:
+        if not is_torch_available():
+            raise OptionalDependencyNotAvailable()
+    except OptionalDependencyNotAvailable:
+        pass
+    else:
         from .modeling_auto import (
             MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING,
             MODEL_FOR_AUDIO_XVECTOR_MAPPING,
@@ -157,6 +189,7 @@ if TYPE_CHECKING:
             MODEL_FOR_CTC_MAPPING,
             MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,
             MODEL_FOR_IMAGE_SEGMENTATION_MAPPING,
+            MODEL_FOR_INSTANCE_SEGMENTATION_MAPPING,
             MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING,
             MODEL_FOR_MASKED_LM_MAPPING,
             MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
@@ -171,6 +204,7 @@ if TYPE_CHECKING:
             MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING,
             MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
             MODEL_FOR_VISION_2_SEQ_MAPPING,
+            MODEL_FOR_VISUAL_QUESTION_ANSWERING_MAPPING,
             MODEL_MAPPING,
             MODEL_WITH_LM_HEAD_MAPPING,
             AutoModel,
@@ -181,6 +215,7 @@ if TYPE_CHECKING:
             AutoModelForCTC,
             AutoModelForImageClassification,
             AutoModelForImageSegmentation,
+            AutoModelForInstanceSegmentation,
             AutoModelForMaskedImageModeling,
             AutoModelForMaskedLM,
             AutoModelForMultipleChoice,
@@ -195,13 +230,20 @@ if TYPE_CHECKING:
             AutoModelForTableQuestionAnswering,
             AutoModelForTokenClassification,
             AutoModelForVision2Seq,
+            AutoModelForVisualQuestionAnswering,
             AutoModelWithLMHead,
         )
 
-    if is_tf_available():
+    try:
+        if not is_tf_available():
+            raise OptionalDependencyNotAvailable()
+    except OptionalDependencyNotAvailable:
+        pass
+    else:
         from .modeling_tf_auto import (
             TF_MODEL_FOR_CAUSAL_LM_MAPPING,
             TF_MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,
+            TF_MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING,
             TF_MODEL_FOR_MASKED_LM_MAPPING,
             TF_MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
             TF_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
@@ -220,6 +262,7 @@ if TYPE_CHECKING:
             TFAutoModelForImageClassification,
             TFAutoModelForMaskedLM,
             TFAutoModelForMultipleChoice,
+            TFAutoModelForNextSentencePrediction,
             TFAutoModelForPreTraining,
             TFAutoModelForQuestionAnswering,
             TFAutoModelForSeq2SeqLM,
@@ -231,7 +274,12 @@ if TYPE_CHECKING:
             TFAutoModelWithLMHead,
         )
 
-    if is_flax_available():
+    try:
+        if not is_flax_available():
+            raise OptionalDependencyNotAvailable()
+    except OptionalDependencyNotAvailable:
+        pass
+    else:
         from .modeling_flax_auto import (
             FLAX_MODEL_FOR_CAUSAL_LM_MAPPING,
             FLAX_MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,

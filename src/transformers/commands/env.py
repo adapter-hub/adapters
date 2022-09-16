@@ -15,8 +15,10 @@
 import platform
 from argparse import ArgumentParser
 
+import huggingface_hub
+
 from ..adapters import __version__
-from ..file_utils import is_flax_available, is_tf_available, is_torch_available
+from ..utils import is_flax_available, is_tf_available, is_torch_available
 from . import BaseTransformersCLICommand
 
 
@@ -70,6 +72,7 @@ class EnvironmentCommand(BaseTransformersCLICommand):
             "`adapter-transformers` version": __version__,
             "Platform": platform.platform(),
             "Python version": platform.python_version(),
+            "Huggingface_hub version": huggingface_hub.__version__,
             "PyTorch version (GPU?)": f"{pt_version} ({pt_cuda_available})",
             "Tensorflow version (GPU?)": f"{tf_version} ({tf_cuda_available})",
             "Flax version (CPU?/GPU?/TPU?)": f"{flax_version} ({jax_backend})",

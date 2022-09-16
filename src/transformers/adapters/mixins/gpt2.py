@@ -3,7 +3,13 @@ from typing import Iterable, Tuple
 import torch.nn as nn
 
 from ..layer import AdapterLayer
-from ..model_mixin import InvertibleAdaptersMixin, ModelAdaptersMixin
+from ..model_mixin import (
+    EmbeddingAdaptersMixin,
+    EmbeddingAdaptersWrapperMixin,
+    InvertibleAdaptersMixin,
+    ModelAdaptersMixin,
+    ModelWithHeadsAdaptersMixin,
+)
 
 
 class GPT2DecoderBlockAdaptersMixin:
@@ -16,7 +22,11 @@ class GPT2DecoderBlockAdaptersMixin:
         self.output_adapters._init_adapter_modules()
 
 
-class GPT2ModelAdapterMixin(InvertibleAdaptersMixin, ModelAdaptersMixin):
+class GPT2ModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.base_model.h):
             yield i, layer
+
+
+class GPT2ModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
+    pass

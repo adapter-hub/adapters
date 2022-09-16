@@ -6,8 +6,8 @@ import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from ...file_utils import ModelOutput
 from ...modeling_outputs import (
+    ImageClassifierOutput,
     MultipleChoiceModelOutput,
     QuestionAnsweringModelOutput,
     Seq2SeqModelOutput,
@@ -16,8 +16,9 @@ from ...modeling_outputs import (
     SequenceClassifierOutput,
     TokenClassifierOutput,
 )
+from ...utils import ModelOutput
 from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, parse_heads_from_composition
-from ..context import AdapterSetup
+from ..context import AdapterSetup, ForwardContext
 from ..model_mixin import ModelWithHeadsAdaptersMixin
 from ..modeling import Activation_Function_Class
 
@@ -90,6 +91,9 @@ class PredictionHead(nn.Sequential):
 
     def get_output_embeddings(self):
         return None  # override for heads with output embeddings
+
+    def get_label_names(self):
+        return ["labels"]
 
 
 class ClassificationHead(PredictionHead):
@@ -405,6 +409,70 @@ class QuestionAnsweringHead(PredictionHead):
                 outputs = (total_loss,) + outputs
             return outputs
 
+    def get_label_names(self):
+        return ["start_positions", "end_positions"]
+
+
+class ImageClassificationHead(PredictionHead):
+    def __init__(
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        multilabel=False,
+        id2label=None,
+        use_pooler=False,
+        bias=True,
+    ):
+        super().__init__(head_name)
+        self.config = {
+            "head_type": "image_classification",
+            "num_labels": num_labels,
+            "layers": layers,
+            "activation_function": activation_function,
+            "multilabel": multilabel,
+            "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
+            "use_pooler": use_pooler,
+            "bias": bias,
+        }
+        self.build(model)
+
+    def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
+        if cls_output is None:
+            if self.config["use_pooler"]:
+                cls_output = kwargs.pop("pooled_output")
+            else:
+                cls_output = outputs[0][:, 0]
+        logits = super().forward(cls_output)
+        loss = None
+        labels = kwargs.pop("labels", None)
+        if labels is not None:
+            if self.config["num_labels"] == 1:
+                #  We are doing regression
+                loss_fct = MSELoss()
+                loss = loss_fct(logits.view(-1), labels.view(-1))
+            elif self.config["multilabel"]:
+                loss_fct = BCEWithLogitsLoss()
+                loss = loss_fct(logits, labels)
+            else:
+                loss_fct = CrossEntropyLoss()
+                loss = loss_fct(logits.view(-1, self.config["num_labels"]), labels.view(-1))
+
+        if return_dict:
+            return ImageClassifierOutput(
+                loss=loss,
+                logits=logits,
+                hidden_states=outputs.hidden_states,
+                attentions=outputs.attentions,
+            )
+        else:
+            outputs = (logits,) + outputs[1:]
+            if labels is not None:
+                outputs = (loss,) + outputs
+            return outputs
+
 
 class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     """
@@ -574,10 +642,14 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         # use last adapter name as name of prediction head
         if self.active_adapters:
             head_setup = parse_heads_from_composition(self.active_adapters)
-            if head_setup:
+            if isinstance(head_setup, str):
+                head_setup = [head_setup]
+            if head_setup and all(head in self.heads for head in head_setup):
                 self.active_head = head_setup
             else:
-                logger.info("Could not identify a valid prediction head from setup '{}'.".format(self.active_adapters))
+                logger.info(
+                    "Could not identify valid prediction head(s) from setup '{}'.".format(self.active_adapters)
+                )
 
     def add_custom_head(self, head_type, head_name, overwrite_ok=False, set_active=True, **kwargs):
         if head_type in self.config.custom_heads:
@@ -674,7 +746,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if isinstance(outputs, ModelOutput):
                 inputs = {}
                 for key, base_output in outputs.items():
-                    inputs[key] = base_output[batch[0] : batch[-1] + 1]
+                    if torch.is_tensor(base_output):
+                        inputs[key] = base_output[batch[0] : batch[-1] + 1]
                 inputs = outputs.__class__(**inputs)
             else:
                 inputs = tuple()
@@ -687,9 +760,10 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             return inputs, cls_input
 
         # Pass invertible adapter if we have one
-        inv_adapter = self.base_model.get_invertible_adapter()
-        if inv_adapter:
-            kwargs["invertible_adapter"] = inv_adapter
+        if hasattr(self.base_model, "get_invertible_adapter"):
+            inv_adapter = self.base_model.get_invertible_adapter()
+            if inv_adapter:
+                kwargs["invertible_adapter"] = inv_adapter
 
         for head in used_heads:
             if head not in self.heads:
@@ -716,7 +790,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 if all("loss" in out and out["loss"] is not None for out in head_outputs)
                 else None
             )
-            return MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
+            return_output = MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
         elif self.has_parallel_adapters or isinstance(self.active_head, Parallel):
             if len(self.active_head) != self.config.adapters.active_setup.parallel_channels:
                 raise ValueError("The number of parallel adapters and the number of active heads must match.")
@@ -733,16 +807,22 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 if all("loss" in out and out["loss"] is not None for out in head_outputs)
                 else None
             )
-            return MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
+            return_output = MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
         elif len(used_heads) > 1:
             head_outputs = []
             for head in used_heads:
                 head_module = self.heads[head]
                 head_outputs.append(head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs))
-            return head_outputs
+            return_output = MultiHeadOutput(head_outputs=head_outputs)
         else:
             head_module = self.heads[used_heads[0]]
-            return head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
+            return_output = head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
+
+        if isinstance(return_output, ModelOutput):
+            for attr in ForwardContext.context_attributes:
+                if attr not in return_output and attr in all_outputs:
+                    return_output[attr] = all_outputs[attr]
+        return return_output
 
     def get_labels_dict(self, head_name=None):
         """

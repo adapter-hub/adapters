@@ -278,7 +278,7 @@ class TokenClassificationPipelineTests(unittest.TestCase, metaclass=PipelineTest
         NER_MODEL = "dbmdz/bert-large-cased-finetuned-conll03-english"
         model = AutoModelForTokenClassification.from_pretrained(NER_MODEL)
         tokenizer = AutoTokenizer.from_pretrained(NER_MODEL, use_fast=True)
-        sentence = """Enzo works at the the UN"""
+        sentence = """Enzo works at the UN"""
         token_classifier = pipeline("ner", model=model, tokenizer=tokenizer)
         output = token_classifier(sentence)
         self.assertEqual(
@@ -646,6 +646,23 @@ class TokenClassificationPipelineTests(unittest.TestCase, metaclass=PipelineTest
             [
                 {"entity": "I-MISC", "score": 0.115, "index": 1, "word": "this", "start": 0, "end": 1},
                 {"entity": "I-MISC", "score": 0.115, "index": 2, "word": "is", "start": 0, "end": 2},
+            ],
+        )
+
+        # Batch size does not affect outputs (attention_mask are required)
+        sentences = ["This is a test !", "Another test this is with longer sentence"]
+        outputs = token_classifier(sentences)
+        outputs_batched = token_classifier(sentences, batch_size=2)
+        # Batching does not make a difference in predictions
+        self.assertEqual(nested_simplify(outputs_batched), nested_simplify(outputs))
+        self.assertEqual(
+            nested_simplify(outputs_batched),
+            [
+                [
+                    {"entity": "I-MISC", "score": 0.115, "index": 1, "word": "this", "start": 0, "end": 4},
+                    {"entity": "I-MISC", "score": 0.115, "index": 2, "word": "is", "start": 5, "end": 7},
+                ],
+                [],
             ],
         )
 

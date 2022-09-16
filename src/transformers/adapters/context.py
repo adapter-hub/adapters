@@ -53,6 +53,13 @@ class AdapterSetup:
             return None
 
     @classmethod
+    def get_context_adapter_setup(cls):
+        context = cls.get_context()
+        if context:
+            return context.adapter_setup
+        return None
+
+    @classmethod
     def get_context_head_setup(cls):
         context = cls.get_context()
         if context:
@@ -70,6 +77,8 @@ class ForwardContext:
 
     # thread-local storage that holds a stack of active contexts
     storage = threading.local()
+
+    context_attributes = ["adapter_gating_scores", "adapter_fusion_attentions"]
 
     def __init__(self, model, *args, **kwargs):
         # If the model has a method ``forward_context()``, use it to create the context.
@@ -92,8 +101,21 @@ class ForwardContext:
         @functools.wraps(f)
         def wrapper_func(self, *args, **kwargs):
             if self.config.adapters is not None:
-                with cls(self, *args, **kwargs):
+                with cls(self, *args, **kwargs) as ctx:
+                    kwargs = {
+                        k: v for k, v in kwargs.items() if k.replace("output_", "") not in cls.context_attributes
+                    }
                     results = f(self, *args, **kwargs)
+
+                    # append output attributes
+                    if isinstance(results, tuple):
+                        for attr in cls.context_attributes:
+                            if getattr(ctx, "output_" + attr, False):
+                                results = results + (dict(getattr(ctx, attr)),)
+                    else:
+                        for attr in cls.context_attributes:
+                            if getattr(ctx, "output_" + attr, False):
+                                results[attr] = dict(getattr(ctx, attr))
                 return results
             else:
                 return f(self, *args, **kwargs)
