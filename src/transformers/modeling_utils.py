@@ -1004,7 +1004,6 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         base_model = getattr(self, self.base_model_prefix, self)
 
         if base_model is not self:
-            print("here 3")
             return base_model.get_input_embeddings()
         else:
             raise NotImplementedError

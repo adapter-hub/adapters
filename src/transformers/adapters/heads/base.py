@@ -522,13 +522,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         the weights instead.
         """
         for head_name, head in self.heads.items():
-            print("here 1")
             output_embeddings = head.get_output_embeddings()
             if output_embeddings is not None and self.config.tie_word_embeddings:
                 self._tie_or_clone_weights(output_embeddings, self.get_input_embeddings())
 
         if self.config.is_encoder_decoder and self.config.tie_encoder_decoder:
-            print("here 2")
             if hasattr(self, self.base_model_prefix):
                 self = getattr(self, self.base_model_prefix)
             self._tie_encoder_decoder_weights(self.encoder, self.decoder, self.base_model_prefix)

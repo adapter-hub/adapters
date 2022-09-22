@@ -257,5 +257,4 @@ class BigBirdModelWithHeads(BigBirdAdapterModel):
             ),
             FutureWarning,
         )
-        print("all is well 1")
         return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)
