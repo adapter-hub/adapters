@@ -93,7 +93,7 @@ def main():
     ):
         raise ValueError(
             f"Output directory ({training_args.output_dir}) already exists and is not empty."
-            f" Use --overwrite_output_dir to overcome."
+            " Use --overwrite_output_dir to overcome."
         )
 
     # Setup logging

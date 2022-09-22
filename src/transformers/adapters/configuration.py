@@ -162,6 +162,9 @@ class AdapterConfig(AdapterConfigBase):
             Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021). Can bei either a
             constant factor (float) or the string "learned", in which case the scaling factor is learned. Defaults to
             1.0.
+        use_gating (:obj:`bool`, optional):
+            Place a trainable gating module besides the added parameter module to control module activation. This is
+            e.g. used for UniPELT. Defaults to False.
         residual_before_ln (:obj:`bool`, optional):
             If True, take the residual connection around the adapter bottleneck before the layer normalization. Only
             applicable if :obj:`original_ln_before` is True.
@@ -224,6 +227,7 @@ class AdapterConfig(AdapterConfigBase):
     init_weights: str = "bert"
     is_parallel: bool = False
     scaling: Union[float, str] = 1.0
+    use_gating: bool = False
     residual_before_ln: bool = True
     adapter_residual_before_ln: bool = False
     inv_adapter: Optional[str] = None
@@ -362,6 +366,12 @@ class PrefixTuningConfig(AdapterConfigBase):
         non_linearity (str): If flat=False, the non-linearity used in the bottleneck MLP.
         dropout (float): The dropout rate used in the prefix tuning layer.
         leave_out (List[int]): The IDs of the layers (starting at 0) where NO prefix should be added.
+        use_gating (:obj:`bool`, optional):
+            Place a trainable gating module besides the added parameter module to control module activation. This is
+            e.g. used for UniPELT. Defaults to False.
+        shared_gating (:
+            obj:`bool`, optional): Whether to use a shared gate for the prefixes of all attention matrices. Only
+            applicable if `use_gating=True`. Defaults to True.
     """
 
     architecture: Optional[str] = "prefix_tuning"
@@ -375,6 +385,8 @@ class PrefixTuningConfig(AdapterConfigBase):
     bottleneck_size: int = 512
     non_linearity: str = "tanh"
     dropout: float = 0.0
+    use_gating: bool = False
+    shared_gating: bool = True
 
 
 @dataclass(eq=False)
@@ -382,7 +394,7 @@ class LoRAConfig(AdapterConfigBase):
     """
     The Low-Rank Adaptation (LoRA) architecture proposed by Hu et al. (2021). See https://arxiv.org/pdf/2106.09685.pdf.
     LoRA adapts a model by reparametrizing the weights of a layer matrix. You can merge the additional weights with the
-    original layer weights using ``model.merge_lora("lora_name")``.
+    original layer weights using ``model.merge_adapter("lora_name")``.
 
     Args:
         selfattn_lora (bool, optional): If True, add LoRA to the self-attention weights of a model.
@@ -394,8 +406,18 @@ class LoRAConfig(AdapterConfigBase):
         r (int, optional): The rank of the LoRA layer. Defaults to 8.
         alpha (int, optional): The hyperparameter used for scaling the LoRA reparametrization. Defaults to 8.
         dropout (float, optional): The dropout rate used in the LoRA layer. Defaults to 0.0.
+        attn_matrices (List[str], optional): Determines which matrices of the self-attention module to adapt.
+            A list that may contain the strings "q" (query), "k" (key), "v" (value). Defaults to ["q", "v"].
+        composition_mode (str, optional):
+            Defines how the injected weights are composed with the original model weights. Can be either "add"
+            (addition of decomposed matrix, as in LoRA) or "scale" (element-wise multiplication of vector, as in
+            (IA)^3). "scale" can only be used together with r=1. Defaults to "add".
         init_weights (:obj:`str`, optional): Initialization method for the weights of the LoRA modules.
             Currently, this can be either "lora" (default) or "bert".
+        use_gating (:obj:`bool`, optional):
+            Place a trainable gating module besides the added parameter module to control module activation. This is
+            e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
+            `merge_adapter()`.
     """
 
     architecture: Optional[str] = "lora"
@@ -407,7 +429,31 @@ class LoRAConfig(AdapterConfigBase):
     r: int = 8
     alpha: int = 8
     dropout: float = 0.0
+    attn_matrices: List[str] = field(default_factory=lambda: ["q", "v"])
+    composition_mode: str = "add"
     init_weights: str = "lora"
+    use_gating: bool = False
+
+
+@dataclass(eq=False)
+class IA3Config(LoRAConfig):
+    """
+    The 'Infused Adapter by Inhibiting and Amplifying Inner Activations' ((IA)^3) architecture proposed by Liu et al.
+    (2022). See https://arxiv.org/pdf/2205.05638.pdf. (IA)^3 builds on top of LoRA, however, unlike the additive
+    composition of LoRA, it scales weights of a layer using an injected vector.
+    """
+
+    selfattn_lora: bool = True
+    intermediate_lora: bool = True
+    output_lora: bool = False
+
+    r: int = 1
+    alpha: int = 1
+    dropout: float = 0.0
+    attn_matrices: List[str] = field(default_factory=lambda: ["k", "v"])
+    composition_mode: str = "scale"
+    init_weights: str = "ia3"
+    use_gating: bool = False
 
 
 class ConfigUnion(AdapterConfigBase):
@@ -520,6 +566,26 @@ class MAMConfig(ConfigUnion):
         return self[1]
 
 
+class UniPELTConfig(ConfigUnion):
+    """
+    The UniPELT adapter architecture proposed by Mao et al. (2022). See https://arxiv.org/pdf/2110.07577.pdf.
+    """
+
+    def __init__(
+        self,
+        prefix_tuning: Optional[PrefixTuningConfig] = None,
+        adapter: Optional[AdapterConfig] = None,
+        lora: Optional[LoRAConfig] = None,
+    ):
+        components = [
+            prefix_tuning or PrefixTuningConfig(prefix_length=10),
+            adapter or PfeifferConfig(reduction_factor=16),
+            lora or LoRAConfig(r=8),
+        ]
+
+        super().__init__(*[c.replace(use_gating=True) for c in components])
+
+
 ADAPTER_CONFIG_MAP = {
     "pfeiffer": PfeifferConfig(),
     "houlsby": HoulsbyConfig(),
@@ -532,7 +598,9 @@ ADAPTER_CONFIG_MAP = {
     "parallel": ParallelConfig(),
     "scaled_parallel": ParallelConfig(scaling="learned"),
     "lora": LoRAConfig(),
+    "ia3": IA3Config(),
     "mam": MAMConfig(),
+    "unipelt": UniPELTConfig(),
 }
 
 DEFAULT_ADAPTER_CONFIG = "pfeiffer"

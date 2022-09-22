@@ -59,6 +59,8 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         output_hidden_states=None,
         return_dict=None,
         head=None,
+        output_adapter_gating_scores=False,
+        output_adapter_fusion_attentions=False,
         **kwargs
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
@@ -77,6 +79,8 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            output_adapter_gating_scores=output_adapter_gating_scores,
+            output_adapter_fusion_attentions=output_adapter_fusion_attentions,
         )
 
         batch_size = outputs[0].shape[0]
@@ -92,7 +96,7 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
                 sequence_lengths = -1
                 logger.warning(
                     f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
-                    f"unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                    "unexpected if using padding tokens in conjunction with `inputs_embeds.`"
                 )
 
         cls_logits = outputs[0][range(batch_size), sequence_lengths]

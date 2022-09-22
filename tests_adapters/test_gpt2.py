@@ -4,7 +4,14 @@ from tests.models.gpt2.test_modeling_gpt2 import *
 from transformers import GPT2AdapterModel
 from transformers.testing_utils import require_torch
 
-from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, LoRATestMixin, PrefixTuningTestMixin
+from .methods import (
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    IA3TestMixin,
+    LoRATestMixin,
+    PrefixTuningTestMixin,
+    UniPELTTestMixin,
+)
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -20,6 +27,7 @@ class GPT2AdapterModelTest(AdapterModelTesterMixin, GPT2ModelTest):
     all_model_classes = (
         GPT2AdapterModel,
     )
+    fx_compatible = False
 
 
 class GPT2AdapterTestBase(AdapterTestBase):
@@ -39,8 +47,10 @@ class GPT2AdapterTestBase(AdapterTestBase):
 class GPT2AdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
+    IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    UniPELTTestMixin,
     EmbeddingTestMixin,
     CompabilityTestMixin,
     AdapterFusionModelTestMixin,

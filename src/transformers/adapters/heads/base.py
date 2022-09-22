@@ -18,7 +18,7 @@ from ...modeling_outputs import (
 )
 from ...utils import ModelOutput
 from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, parse_heads_from_composition
-from ..context import AdapterSetup
+from ..context import AdapterSetup, ForwardContext
 from ..model_mixin import ModelWithHeadsAdaptersMixin
 from ..modeling import Activation_Function_Class
 
@@ -746,7 +746,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if isinstance(outputs, ModelOutput):
                 inputs = {}
                 for key, base_output in outputs.items():
-                    inputs[key] = base_output[batch[0] : batch[-1] + 1]
+                    if torch.is_tensor(base_output):
+                        inputs[key] = base_output[batch[0] : batch[-1] + 1]
                 inputs = outputs.__class__(**inputs)
             else:
                 inputs = tuple()
@@ -789,7 +790,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 if all("loss" in out and out["loss"] is not None for out in head_outputs)
                 else None
             )
-            return MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
+            return_output = MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
         elif self.has_parallel_adapters or isinstance(self.active_head, Parallel):
             if len(self.active_head) != self.config.adapters.active_setup.parallel_channels:
                 raise ValueError("The number of parallel adapters and the number of active heads must match.")
@@ -806,16 +807,22 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 if all("loss" in out and out["loss"] is not None for out in head_outputs)
                 else None
             )
-            return MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
+            return_output = MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
         elif len(used_heads) > 1:
             head_outputs = []
             for head in used_heads:
                 head_module = self.heads[head]
                 head_outputs.append(head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs))
-            return head_outputs
+            return_output = MultiHeadOutput(head_outputs=head_outputs)
         else:
             head_module = self.heads[used_heads[0]]
-            return head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
+            return_output = head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
+
+        if isinstance(return_output, ModelOutput):
+            for attr in ForwardContext.context_attributes:
+                if attr not in return_output and attr in all_outputs:
+                    return_output[attr] = all_outputs[attr]
+        return return_output
 
     def get_labels_dict(self, head_name=None):
         """

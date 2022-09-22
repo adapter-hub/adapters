@@ -154,9 +154,9 @@ class MultiHeadSelfAttention(nn.Module):
 
         assert self.dim % self.n_heads == 0
 
-        self.q_lin = LoRALinear(config.dim, config.dim, "selfattn", config)
-        self.k_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
-        self.v_lin = LoRALinear(config.dim, config.dim, "selfattn", config)
+        self.q_lin = LoRALinear(config.dim, config.dim, "selfattn", config, attn_key="q")
+        self.k_lin = LoRALinear(config.dim, config.dim, "selfattn", config, attn_key="k")
+        self.v_lin = LoRALinear(config.dim, config.dim, "selfattn", config, attn_key="v")
         self.out_lin = nn.Linear(in_features=config.dim, out_features=config.dim)
 
         self.pruned_heads: Set[int] = set()
@@ -216,14 +216,16 @@ class MultiHeadSelfAttention(nn.Module):
         k = shape(self.k_lin(key))  # (bs, n_heads, k_length, dim_per_head)
         v = shape(self.v_lin(value))  # (bs, n_heads, k_length, dim_per_head)
 
-        k, v, mask = self.prefix_tuning(k, v, mask, invert_mask=False)
+        k, v, mask = self.prefix_tuning(k, v, value, mask, invert_mask=False)
 
         mask_reshp = (bs, 1, 1, k.size(2))
 
         q = q / math.sqrt(dim_per_head)  # (bs, n_heads, q_length, dim_per_head)
         scores = torch.matmul(q, k.transpose(2, 3))  # (bs, n_heads, q_length, k_length)
         mask = (mask == 0).view(mask_reshp).expand_as(scores)  # (bs, n_heads, q_length, k_length)
-        scores = scores.masked_fill(mask, -float("inf"))  # (bs, n_heads, q_length, k_length)
+        scores = scores.masked_fill(
+            mask, torch.tensor(torch.finfo(scores.dtype).min)
+        )  # (bs, n_heads, q_length, k_length)
 
         weights = nn.functional.softmax(scores, dim=-1)  # (bs, n_heads, q_length, k_length)
         weights = self.dropout(weights)  # (bs, n_heads, q_length, k_length)

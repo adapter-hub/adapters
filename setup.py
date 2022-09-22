@@ -27,8 +27,8 @@ To create the package for pypi.
 
 3. Unpin specific versions from setup.py that use a git install.
 
-4. Checkout a branch with the version name (v<RELEASE>-release, for example v4.19-release) and commit these changes
-   with the message: "Release: <VERSION>" and push.
+4. Checkout the release branch (v<RELEASE>-release, for example v4.19-release), and commit these changes with the
+   message: "Release: <VERSION>" and push.
 
 5. Wait for the tests on main to be completed and be green (otherwise revert and fix bugs)
 
@@ -63,7 +63,7 @@ To create the package for pypi.
 
 10. Copy the release notes from RELEASE.md to the tag in github once everything is looking hunky-dory.
 
-11. Run `make post-release` (or, for a patch release, `make post-patch`). If you were on a branch for the release,
+11. Run `make post-release` then run `make fix-copies`. If you were on a branch for the release,
     you need to go back to main before executing this.
 """
 
@@ -97,25 +97,26 @@ if stale_egg_info.exists():
 # 2. once modified, run: `make deps_table_update` to update src/transformers/dependency_versions_table.py
 _deps = [
     "Pillow",
-    "accelerate>=0.7.1",
-    "black~=22.0",
+    "accelerate>=0.10.0",
+    "black==22.3",
     "codecarbon==1.2.0",
     "cookiecutter==1.7.3",
     "dataclasses",
     "datasets",
-    "deepspeed>=0.6.4",
+    "deepspeed>=0.6.5",
+    "dill<0.3.5",
     "docutils==0.16.0",
     "fairscale>0.3",
     "faiss-cpu",
     "fastapi",
     "filelock",
     "flake8>=3.8.3",
-    "flax>=0.3.5",
+    "flax>=0.4.1",
     "ftfy",
     "fugashi>=1.0",
     "GitPython<3.1.19",
     "hf-doc-builder>=0.3.0",
-    "huggingface-hub>=0.1.0,<0.8.0",
+    "huggingface-hub>=0.1.0,<1.0",
     "importlib_metadata",
     "ipadic>=1.0.0,<2.0",
     "isort>=5.5.4",
@@ -145,6 +146,7 @@ _deps = [
     "myst-parser",
     "regex!=2019.12.17",
     "requests",
+    "resampy<0.3.1",
     "rjieba",
     "rouge-score",
     "sacrebleu>=1.4.12,<2.0.0",
@@ -164,11 +166,12 @@ _deps = [
     "starlette",
     "tensorflow-cpu>=2.3",
     "tensorflow>=2.3",
+    "tensorflow-text",
     "tf2onnx",
     "timeout-decorator",
     "timm",
     "tokenizers>=0.11.1,!=0.11.3,<0.13",
-    "torch>=1.0",
+    "torch>=1.0,<1.12",
     "torchaudio",
     "pyctcdecode>=0.3.0",
     "tqdm>=4.27",
@@ -247,10 +250,11 @@ extras = {}
 extras["ja"] = deps_list("fugashi", "ipadic", "unidic_lite", "unidic")
 extras["sklearn"] = deps_list("scikit-learn")
 
-extras["tf"] = deps_list("tensorflow", "onnxconverter-common", "tf2onnx")
-extras["tf-cpu"] = deps_list("tensorflow-cpu", "onnxconverter-common", "tf2onnx")
+extras["tf"] = deps_list("tensorflow", "onnxconverter-common", "tf2onnx", "tensorflow-text")
+extras["tf-cpu"] = deps_list("tensorflow-cpu", "onnxconverter-common", "tf2onnx", "tensorflow-text")
 
 extras["torch"] = deps_list("torch")
+extras["accelerate"] = deps_list("accelerate")
 
 if os.name == "nt":  # windows
     extras["retrieval"] = deps_list("datasets")  # faiss is not supported on windows
@@ -266,7 +270,7 @@ extras["onnx"] = deps_list("onnxconverter-common", "tf2onnx") + extras["onnxrunt
 extras["modelcreation"] = deps_list("cookiecutter")
 
 extras["sagemaker"] = deps_list("sagemaker")
-extras["deepspeed"] = deps_list("deepspeed")
+extras["deepspeed"] = deps_list("deepspeed") + extras["accelerate"]
 extras["fairscale"] = deps_list("fairscale")
 extras["optuna"] = deps_list("optuna")
 extras["ray"] = deps_list("ray[tune]")
@@ -275,7 +279,7 @@ extras["sigopt"] = deps_list("sigopt")
 extras["integrations"] = extras["optuna"] + extras["ray"] + extras["sigopt"]
 
 extras["serving"] = deps_list("pydantic", "uvicorn", "fastapi", "starlette")
-extras["audio"] = deps_list("librosa", "pyctcdecode", "phonemizer")
+extras["audio"] = deps_list("librosa", "pyctcdecode", "phonemizer", "resampy")  # resampy can be removed once unpinned.
 # `pip install ".[speech]"` is deprecated and `pip install ".[torch-speech]"` should be used instead
 extras["speech"] = deps_list("torchaudio") + extras["audio"]
 extras["torch-speech"] = deps_list("torchaudio") + extras["audio"]
@@ -294,6 +298,7 @@ extras["testing"] = (
         "parameterized",
         "psutil",
         "datasets",
+        "dill",
         "pytest-timeout",
         "black",
         "sacrebleu",
@@ -301,9 +306,9 @@ extras["testing"] = (
         "nltk",
         "GitPython",
         "hf-doc-builder",
-        "protobuf", # Can be removed once we can unpin protobuf
+        "protobuf",  # Can be removed once we can unpin protobuf
         "sacremoses",
-        "rjieba"
+        "rjieba",
     )
     + extras["retrieval"]
     + extras["modelcreation"]
@@ -324,6 +329,7 @@ extras["all"] = (
     + extras["integrations"]
     + extras["timm"]
     + extras["codecarbon"]
+    + extras["accelerate"]
 )
 
 extras["docs_specific"] = deps_list(
@@ -341,8 +347,8 @@ extras["docs_specific"] = deps_list(
 extras["docs"] = extras["all"] + extras["docs_specific"]
 
 extras["dev-torch"] = (
-    extras['testing']
-    + extras['torch']
+    extras["testing"]
+    + extras["torch"]
     + extras["sentencepiece"]
     + extras["tokenizers"]
     + extras["torch-speech"]
@@ -358,17 +364,17 @@ extras["dev-torch"] = (
     + extras["onnxruntime"]
 )
 extras["dev-tensorflow"] = (
-        extras['testing']
-        + extras['tf']
-        + extras["sentencepiece"]
-        + extras["tokenizers"]
-        + extras["vision"]
-        + extras["quality"]
-        + extras["docs_specific"]
-        + extras["sklearn"]
-        + extras["modelcreation"]
-        + extras["onnx"]
-        + extras["tf-speech"]
+    extras["testing"]
+    + extras["tf"]
+    + extras["sentencepiece"]
+    + extras["tokenizers"]
+    + extras["vision"]
+    + extras["quality"]
+    + extras["docs_specific"]
+    + extras["sklearn"]
+    + extras["modelcreation"]
+    + extras["onnx"]
+    + extras["tf-speech"]
 )
 extras["dev"] = (
     extras["all"]
@@ -411,7 +417,7 @@ install_requires = [
 
 setup(
     name="adapter-transformers",
-    version="3.1.0a0",
+    version="3.1.0",
     author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, Hannah Sterz, based on work by the HuggingFace team and community",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A friendly fork of HuggingFace's Transformers, adding Adapters to PyTorch language models",

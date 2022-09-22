@@ -4,7 +4,7 @@ from tests.models.deberta_v2.test_modeling_deberta_v2 import *
 from transformers import DebertaV2AdapterModel
 from transformers.testing_utils import require_torch
 
-from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, LoRATestMixin, PrefixTuningTestMixin
+from .methods import BottleneckAdapterTestMixin, UniPELTTestMixin, CompacterTestMixin, IA3TestMixin, LoRATestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -20,6 +20,7 @@ class DebertaV2AdapterModelTest(AdapterModelTesterMixin, DebertaV2ModelTest):
     all_model_classes = (
         DebertaV2AdapterModel,
     )
+    fx_compatible = False
 
 
 class DebertaV2AdapterTestBase(AdapterTestBase):
@@ -46,8 +47,10 @@ class DebertaV2AdapterTest(
 
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
+    IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    UniPELTTestMixin,
     EmbeddingTestMixin,
     ParallelTrainingMixin,
 

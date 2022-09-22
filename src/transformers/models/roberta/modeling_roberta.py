@@ -178,9 +178,9 @@ class RobertaSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.query = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config)
-        self.key = nn.Linear(config.hidden_size, self.all_head_size)
-        self.value = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config)
+        self.query = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="q")
+        self.key = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="k")
+        self.value = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="v")
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.position_embedding_type = position_embedding_type or getattr(
@@ -246,7 +246,9 @@ class RobertaSelfAttention(nn.Module):
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_layer, value_layer)
 
-        key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask)
+        key_layer, value_layer, attention_mask = self.prefix_tuning(
+            key_layer, value_layer, hidden_states, attention_mask
+        )
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
@@ -449,7 +451,8 @@ class RobertaLayer(nn.Module):
         if self.is_decoder and encoder_hidden_states is not None:
             if not hasattr(self, "crossattention"):
                 raise ValueError(
-                    f"If `encoder_hidden_states` are passed, {self} has to be instantiated with cross-attention layers by setting `config.add_cross_attention=True`"
+                    f"If `encoder_hidden_states` are passed, {self} has to be instantiated with cross-attention layers"
+                    " by setting `config.add_cross_attention=True`"
                 )
 
             # cross_attn cached key/values tuple is at positions 3,4 of past_key_value tuple

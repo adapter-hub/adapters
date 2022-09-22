@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "3.1.0a0"
+__version__ = "3.1.0"
 
 from typing import TYPE_CHECKING
 
@@ -48,6 +48,7 @@ _import_structure = {
         "DynamicAdapterFusionConfig",
         "HoulsbyConfig",
         "HoulsbyInvConfig",
+        "IA3Config",
         "LoRAConfig",
         "MAMConfig",
         "ModelAdaptersConfig",
@@ -56,6 +57,7 @@ _import_structure = {
         "PfeifferInvConfig",
         "PrefixTuningConfig",
         "StaticAdapterFusionConfig",
+        "UniPELTConfig",
     ],
     "context": [
         "AdapterSetup",
@@ -169,6 +171,7 @@ if TYPE_CHECKING:
         DynamicAdapterFusionConfig,
         HoulsbyConfig,
         HoulsbyInvConfig,
+        IA3Config,
         LoRAConfig,
         MAMConfig,
         ModelAdaptersConfig,
@@ -177,6 +180,7 @@ if TYPE_CHECKING:
         PfeifferInvConfig,
         PrefixTuningConfig,
         StaticAdapterFusionConfig,
+        UniPELTConfig,
     )
     from .context import AdapterSetup, ForwardContext
     from .heads import (

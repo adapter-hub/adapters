@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Mapping, Union
 
+import numpy as np
 import torch
 from torch import nn
 
@@ -42,6 +43,31 @@ class AdapterLayerBase(ABC):
             return adapter_setup
         else:
             return None
+
+    def _store_gating_score(self, adapter_name, gating_score):
+        context = ForwardContext.get_context()
+        if context.output_adapter_gating_scores:
+            gating_cache = context.adapter_gating_scores
+            if self.layer_idx not in gating_cache[adapter_name]:
+                gating_cache[adapter_name][self.layer_idx] = {}
+            gating_score = gating_score.detach().squeeze().cpu().numpy()
+            if len(gating_score.shape) == 0:
+                gating_score = np.expand_dims(gating_score, axis=0)
+            cache_score = gating_cache[adapter_name][self.layer_idx].get(self.location_key, None)
+            if cache_score is not None:
+                gating_cache[adapter_name][self.layer_idx][self.location_key] = np.column_stack(
+                    (cache_score, gating_score)
+                )
+            else:
+                gating_cache[adapter_name][self.layer_idx][self.location_key] = gating_score
+
+    def _store_fusion_attentions(self, fusion_name, attentions):
+        context = ForwardContext.get_context()
+        if context.output_adapter_fusion_attentions:
+            attention_cache = context.adapter_fusion_attentions
+            if self.layer_idx not in attention_cache[fusion_name]:
+                attention_cache[fusion_name][self.layer_idx] = {}
+            attention_cache[fusion_name][self.layer_idx][self.location_key] = attentions
 
     @abstractmethod
     def add_adapter(self, adapter_name: str, layer_idx: int):
@@ -202,7 +228,12 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
                 hidden_states, _, residual = adapter_layer.pre_forward(hidden_states, input_tensor, layer_norm)
-                hidden_states, _, up = adapter_layer(hidden_states, residual_input=residual)
+                context = ForwardContext.get_context()
+                layer_output = adapter_layer(
+                    hidden_states, residual_input=residual, output_gating=context.output_adapter_gating_scores
+                )
+                hidden_states, up = layer_output[0], layer_output[2]
+                self._store_gating_score(adapter_stack_layer, layer_output[-1])
                 # as this stack might be part of a fusion block, return the adapter up-projection output here
                 # together with the final output (with potential residuals & norms) if we reached the last block of the stack
                 if i == len(adapter_setup) - 1:
@@ -217,6 +248,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         """
         Performs adapter fusion with the given adapters for the given input.
         """
+        context = ForwardContext.get_context()
+
         # config of _last_ fused adapter is significant
         fusion_config = self.config.adapters.get_fusion(adapter_setup.name)
         last_adapter = self.adapters[adapter_setup.last()]
@@ -235,7 +268,11 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             # Case 2: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapters:
                 adapter_layer = self.adapters[adapter_block]
-                _, _, up = adapter_layer(hidden_states, residual_input=residual)
+                layer_output = adapter_layer(
+                    hidden_states, residual_input=residual, output_gating=context.output_adapter_gating_scores
+                )
+                up = layer_output[2]
+                self._store_gating_score(adapter_block, layer_output[-1])
                 up_list.append(up)
             # Case 3: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
@@ -250,12 +287,18 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             up_list = torch.stack(up_list)
             up_list = up_list.permute(1, 2, 0, 3)
 
-            hidden_states = self.adapter_fusion_layer[adapter_setup.name](
+            fusion_output = self.adapter_fusion_layer[adapter_setup.name](
                 query,
                 up_list,
                 up_list,
                 residual,
+                output_attentions=context.output_adapter_fusion_attentions,
             )
+            if context.output_adapter_fusion_attentions:
+                hidden_states = fusion_output[0]
+                self._store_fusion_attentions(adapter_setup.name, fusion_output[-1])
+            else:
+                hidden_states = fusion_output
 
         return hidden_states
 
@@ -300,7 +343,14 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             # Case 4: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapters:
                 adapter_layer = self.adapters[adapter_block]
-                split_hidden_states[i], _, _ = adapter_layer(split_hidden_states[i], residual_input=split_residual[i])
+                context = ForwardContext.get_context()
+                layer_output = adapter_layer(
+                    split_hidden_states[i],
+                    residual_input=split_residual[i],
+                    output_gating=context.output_adapter_gating_scores,
+                )
+                split_hidden_states[i] = layer_output[0]
+                self._store_gating_score(adapter_block, layer_output[-1])
             # Case 5: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
                 raise ValueError(
@@ -330,7 +380,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             # Therefore, we assume the (replicated) input batch to be divisible by the number of parallel channels.
             if hidden_states.shape[0] % adapter_setup.parallel_channels != 0:
                 raise ValueError(
-                    "The total input batch size in a Parallel adapter block must be divisible by the number of parallel channels."
+                    "The total input batch size in a Parallel adapter block must be divisible by the number of"
+                    " parallel channels."
                 )
             orig_batch_size = hidden_states.shape[0] // adapter_setup.parallel_channels
 
@@ -364,10 +415,14 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             # Case 3: We have a single adapter which is part of this module -> forward pass
             elif child in self.adapters:
                 adapter_layer = self.adapters[child]
-                child_hidden_states, _, _ = adapter_layer(
+                context = ForwardContext.get_context()
+                layer_output = adapter_layer(
                     hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size],
                     residual_input=residual[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    output_gating=context.output_adapter_gating_scores,
                 )
+                child_hidden_states = layer_output[0]
+                self._store_gating_score(child, layer_output[-1])
                 children_hidden.append(child_hidden_states)
             # Case 4: nesting other composition blocks is invalid
             elif isinstance(child, AdapterCompositionBlock):
@@ -435,10 +490,14 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             elif adapter_block in self.adapters:
 
                 adapter_layer = self.adapters[adapter_block]
-                child, _, _ = adapter_layer(
-                    hidden_states[batch_idx[0] : batch_idx[1]], residual_input=residual[batch_idx[0] : batch_idx[1]]
+                context = ForwardContext.get_context()
+                layer_output = adapter_layer(
+                    hidden_states[batch_idx[0] : batch_idx[1]],
+                    residual_input=residual[batch_idx[0] : batch_idx[1]],
+                    output_gating=context.output_adapter_gating_scores,
                 )
-                children_hidden.append(child)
+                children_hidden.append(layer_output[0])
+                self._store_gating_score(adapter_block, layer_output[-1])
             # Case 5: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
                 raise ValueError(

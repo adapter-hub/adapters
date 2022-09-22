@@ -48,6 +48,13 @@ LoRAConfig
     :members:
     :inherited-members: Mapping
 
+IA3Config
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: transformers.IA3Config
+    :members:
+    :inherited-members: Mapping
+
 Combined configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -56,6 +63,9 @@ Combined configurations
     :inherited-members: Mapping
 
 .. autoclass:: transformers.MAMConfig
+    :members:
+
+.. autoclass:: transformers.UniPELTConfig
     :members:
 
 Adapter Fusion

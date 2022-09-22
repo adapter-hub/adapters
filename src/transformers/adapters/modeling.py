@@ -46,6 +46,7 @@ class Adapter(nn.Module):
         self.add_layer_norm_before = config["ln_before"]
         self.add_layer_norm_after = config["ln_after"]
         self.adapter_residual_before_ln = config["adapter_residual_before_ln"]
+        self.use_gating = config["use_gating"]
 
         # Params related to input & output of adapter
         self.residual_before_ln = config["residual_before_ln"]
@@ -104,16 +105,23 @@ class Adapter(nn.Module):
         if self.add_layer_norm_after:
             self.adapter_norm_after = nn.LayerNorm(self.input_size)
 
+        if self.use_gating:
+            self.gate = nn.Linear(self.input_size, 1)
+
         # if we want to initialize with the bert strategy then this function is called for all the linear layers
         if config["init_weights"] == "bert":
             self.adapter_down.apply(self.init_bert_weights)
             self.adapter_up.apply(self.init_bert_weights)
+            if self.use_gating:
+                self.gate.apply(self.init_bert_weights)
         elif config["init_weights"] == "mam_adapter":
             with torch.no_grad():
                 nn.init.kaiming_uniform_(self.adapter_down[0].weight, a=math.sqrt(5))
                 nn.init.zeros_(self.adapter_up.weight)
                 nn.init.zeros_(self.adapter_down[0].bias)
                 nn.init.zeros_(self.adapter_up.bias)
+                if self.use_gating:
+                    self.gate.apply(self.init_bert_weights)
         else:
             raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
 
@@ -157,12 +165,18 @@ class Adapter(nn.Module):
 
         return hidden_states, query, residual
 
-    def forward(self, x, residual_input):  # , residual_input=None):
+    def forward(self, x, residual_input, output_gating=False):
         down = self.adapter_down(x)
 
         up = self.adapter_up(down)
         up = up * self.scaling
         output = up
+
+        if self.use_gating:
+            # x.shape = (batch_size, seq_len, hidden_size)
+            gate = torch.sigmoid(self.gate(x))
+            gate = torch.mean(gate, dim=1).unsqueeze(-1)
+            output = output * gate
 
         # apply residual connection before layer norm if configured in this way
         if self.adapter_residual_before_ln:
@@ -176,6 +190,8 @@ class Adapter(nn.Module):
         if not self.adapter_residual_before_ln:
             output = output + residual_input
 
+        if self.use_gating and output_gating:
+            return output, down, up, gate
         return output, down, up
 
     def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
@@ -246,7 +262,7 @@ class ParallelAdapter(Adapter):
             query = input_tensor
         return input_tensor, query, input_tensor
 
-    def forward(self, x, residual_input):
+    def forward(self, x, residual_input, output_gating=False):
         down = self.adapter_down(x)
 
         up = self.adapter_up(down)
@@ -254,10 +270,18 @@ class ParallelAdapter(Adapter):
 
         output = up
 
+        if self.use_gating:
+            # x.shape = (batch_size, seq_len, hidden_size)
+            gate = torch.sigmoid(self.gate(x))
+            gate = torch.mean(gate, dim=1).unsqueeze(-1)
+            output = output * gate
+
         # apply layer norm if available
         if self.add_layer_norm_after:
             output = self.adapter_norm_after(output)
 
+        if self.use_gating and output_gating:
+            return output, down, up, gate
         return output, down, up
 
     def post_forward(self, hidden_states, input_hidden_states, input_tensor, layer_norm):
@@ -332,7 +356,7 @@ class BertFusion(nn.Module):
             self.T = 1.0
         self.reduction = self.T / 1000.0
 
-    def forward(self, query, key, value, residual):
+    def forward(self, query, key, value, residual, output_attentions: bool = False):
 
         if self.config["residual_before"]:
             value += residual[:, :, None, :].repeat(1, 1, value.size(2), 1)
@@ -362,9 +386,6 @@ class BertFusion(nn.Module):
         attention_probs = nn.Softmax(dim=-1)(attention_scores / self.T)
         self.T = max(self.T - self.reduction, 1.0)
 
-        if not self.training:
-            self.recent_attention = attention_probs.detach().cpu().numpy()
-
         context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value_layer), dim=2)
 
         if self.config["value"] and not self.config["value_before_softmax"]:
@@ -376,7 +397,11 @@ class BertFusion(nn.Module):
         if not self.config["residual_before"]:
             context_layer += residual
 
-        return context_layer
+        if output_attentions:
+            attention_probs = attention_probs.detach().cpu().numpy()
+            return context_layer, attention_probs
+        else:
+            return context_layer
 
 
 # Invertible Adapters

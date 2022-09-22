@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from typing import Optional, Tuple, Union
 
 import torch
+import torch.utils.checkpoint
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
@@ -115,9 +116,9 @@ class XSoftmax(torch.autograd.Function):
     @staticmethod
     def forward(self, input, mask, dim):
         self.dim = dim
-        rmask = ~(mask.bool())
+        rmask = ~(mask.to(torch.bool))
 
-        output = input.masked_fill(rmask, float("-inf"))
+        output = input.masked_fill(rmask, torch.tensor(torch.finfo(input.dtype).min))
         output = torch.softmax(output, self.dim)
         output.masked_fill_(rmask, 0)
         self.save_for_backward(output)
@@ -140,7 +141,9 @@ class XSoftmax(torch.autograd.Function):
             g.op("Sub", g.op("Constant", value_t=torch.tensor(1, dtype=torch.int64)), mask_cast_value),
             to_i=sym_help.cast_pytorch_to_onnx["Byte"],
         )
-        output = masked_fill(g, self, r_mask, g.op("Constant", value_t=torch.tensor(float("-inf"))))
+        output = masked_fill(
+            g, self, r_mask, g.op("Constant", value_t=torch.tensor(torch.finfo(self.type().dtype()).min))
+        )
         output = softmax(g, output, dim)
         return masked_fill(g, output, r_mask, g.op("Constant", value_t=torch.tensor(0, dtype=torch.uint8)))
 
@@ -163,7 +166,7 @@ def get_mask(input, local_context):
         mask = local_context.mask if local_context.reuse_mask else None
 
     if dropout > 0 and mask is None:
-        mask = (1 - torch.empty_like(input).bernoulli_(1 - dropout)).bool()
+        mask = (1 - torch.empty_like(input).bernoulli_(1 - dropout)).to(torch.bool)
 
     if isinstance(local_context, DropoutContext):
         if local_context.mask is None:
@@ -558,8 +561,8 @@ class DisentangledSelfAttention(nn.Module):
             self.all_head_size * 3,
             "selfattn",
             config,
-            enable_lora=[True, False, True],
-            fan_in_fan_out=True,
+            fan_in_fan_out=False,
+            bias=False,
         )
         self.q_bias = nn.Parameter(torch.zeros((self.all_head_size), dtype=torch.float))
         self.v_bias = nn.Parameter(torch.zeros((self.all_head_size), dtype=torch.float))
@@ -588,7 +591,7 @@ class DisentangledSelfAttention(nn.Module):
 
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, -1)
-        x = x.view(*new_x_shape)
+        x = x.view(new_x_shape)
         return x.permute(0, 2, 1, 3)
 
     def forward(
@@ -652,7 +655,9 @@ class DisentangledSelfAttention(nn.Module):
         query_layer = query_layer + self.transpose_for_scores(self.q_bias[None, None, :])
         value_layer = value_layer + self.transpose_for_scores(self.v_bias[None, None, :])
 
-        key_layer, value_layer, attention_mask = self.prefix_tuning(key_layer, value_layer, attention_mask, False)
+        key_layer, value_layer, attention_mask = self.prefix_tuning(
+            key_layer, value_layer, hidden_states, attention_mask, False
+        )
 
         rel_att = None
         # Take the dot product between "query" and "key" to get the raw attention scores.
@@ -679,7 +684,7 @@ class DisentangledSelfAttention(nn.Module):
         context_layer = torch.matmul(attention_probs, value_layer)
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
         new_context_layer_shape = context_layer.size()[:-2] + (-1,)
-        context_layer = context_layer.view(*new_context_layer_shape)
+        context_layer = context_layer.view(new_context_layer_shape)
         if output_attentions:
             return (context_layer, attention_probs)
         else:

@@ -1,7 +1,14 @@
 from tests.models.encoder_decoder.test_modeling_encoder_decoder import *  # Imported to execute model tests
 from transformers import AutoModelForSeq2SeqLM, BertConfig
 
-from .methods import BottleneckAdapterTestMixin, CompacterTestMixin, LoRATestMixin, PrefixTuningTestMixin
+from .methods import (
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    IA3TestMixin,
+    LoRATestMixin,
+    PrefixTuningTestMixin,
+    UniPELTTestMixin,
+)
 from .test_adapter import AdapterTestBase
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 
@@ -34,8 +41,10 @@ class EncoderDecoderAdapterTestBase(AdapterTestBase):
 class EncoderDecoderAdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
+    IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     EncoderDecoderAdapterTestBase,
     unittest.TestCase,
@@ -64,3 +73,11 @@ class EncoderDecoderAdapterTest(
 
         self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
+
+    def test_output_adapter_gating_scores_unipelt(self):
+        # TODO currently not supported
+        self.skipTest("Not implemented.")
+
+    def test_output_adapter_fusion_attentions(self):
+        # TODO currently not supported
+        self.skipTest("Not implemented.")

@@ -237,6 +237,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         self.config = config
         self.location_key = location_key
         self.prefixes = {}
+        self.prefix_gates = nn.ModuleDict()
 
     def set_pool(self, pool: PrefixTuningPool):
         self.__setattr__("pool", pool)
@@ -258,10 +259,18 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             prefix_id = self.pool.indicate_prefix(adapter_name, self.location_key)
             self.prefixes[adapter_name] = prefix_id
 
+            if prefix_tuning_config.use_gating:
+                gate_outputs = 1 if prefix_tuning_config.shared_gating else 2
+                gate = nn.Linear(self.config.hidden_size, gate_outputs)
+                gate.weight.data.normal_(mean=0.0, std=0.02)
+                self.prefix_gates[adapter_name] = gate
+
     def delete_adapter(self, adapter_name: str):
         self.pool.delete_prefix(adapter_name)
         if adapter_name in self.prefixes:
             del self.prefixes[adapter_name]
+        if adapter_name in self.prefix_gates:
+            del self.prefix_gates[adapter_name]
 
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         pass  # not applicable to prefix tuning
@@ -273,17 +282,25 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         if unfreeze_adapters:
             for prefix_tuning_name in adapter_setup.flatten():
                 self.pool.enable_prefix(prefix_tuning_name)
+                if prefix_tuning_name in self.prefix_gates:
+                    for param in self.prefix_gates[prefix_tuning_name].parameters():
+                        param.requires_grad = unfreeze_adapters
 
     def get_adapter(self, adapter_name):
+        return_dict = nn.ModuleDict()
         # Make sure to only return params once
         if adapter_name in self.prefixes and self.prefixes[adapter_name] == 0:
             prefix_module = self.pool.get_prefix(adapter_name)
             if prefix_module is not None:
-                return prefix_module[self.location_key]
+                return_dict["prefix"] = prefix_module[self.location_key]
+        if adapter_name in self.prefix_gates:
+            return_dict["gate"] = self.prefix_gates[adapter_name]
+        if len(return_dict) > 0:
+            return return_dict
 
         return None
 
-    def forward(self, key_states, value_states, attention_mask=None, invert_mask=True):
+    def forward(self, key_states, value_states, residual_input, attention_mask=None, invert_mask=True):
         adapter_setup = self.get_active_setup(self.prefixes)
         if adapter_setup is not None:
             if len(adapter_setup) == 1:
@@ -295,9 +312,19 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
 
                     # Retrieve pre-computed prefix states from context
                     context = ForwardContext.get_context()
+                    # batch_size x n_heads x prefix_length x n_embd_per_head
                     prefix_keys, prefix_values = context.prefix_states[prefix_tuning_name][self.location_key][
                         prefix_id
                     ]
+
+                    if prefix_tuning_name in self.prefix_gates:
+                        gate = self.prefix_gates[prefix_tuning_name]
+                        gate_output = torch.mean(torch.sigmoid(gate(residual_input)), dim=1)
+                        self._store_gating_score(prefix_tuning_name, gate_output)
+                        gate_output_key = gate_output[:, 0].view(-1, 1, 1, 1)
+                        gate_output_value = gate_output[:, -1].view(-1, 1, 1, 1)
+                        key_states = key_states * gate_output_key
+                        value_states = value_states * gate_output_value
 
                     key_states = torch.cat([prefix_keys, key_states], dim=2)
                     value_states = torch.cat([prefix_values, value_states], dim=2)

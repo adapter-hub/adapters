@@ -228,7 +228,8 @@ class AdapterTrainerCallback(TrainerCallback):
         model_frozen = getattr(model.base_model, "model_frozen", False)
         if not model_frozen:
             raise ValueError(
-                "The pre-trained model weights are not frozen. For training adapters, please call the train_adapter() method"
+                "The pre-trained model weights are not frozen. For training adapters, please call the train_adapter()"
+                " method"
             )
 
     def on_train_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):

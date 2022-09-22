@@ -116,4 +116,7 @@ class EncoderDecoderConfig(PretrainedConfig):
         output["encoder"] = self.encoder.to_dict()
         output["decoder"] = self.decoder.to_dict()
         output["model_type"] = self.__class__.model_type
+
+        self.adapters_to_dict(output)
+
         return output

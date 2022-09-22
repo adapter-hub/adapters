@@ -127,7 +127,7 @@ class AdapterMethodBaseTestMixin:
 
         self.assertEqual(len(output_1), len(output_2))
         self.assertTrue(torch.equal(output_1[0], output_2[0]))
-        self.assertEqual(len(output_1), len(base_output))
+        self.assertGreaterEqual(len(output_1), len(base_output))
         self.assertFalse(torch.equal(output_1[0], base_output[0]))
 
     def run_load_test(self, adapter_config):
@@ -191,14 +191,14 @@ class AdapterMethodBaseTestMixin:
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
-    def trainings_run(self, model):
+    def trainings_run(self, model, lr=1.0, steps=20):
         # setup dataset
         train_dataset = self.dataset()
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,
-            learning_rate=1.0,
-            max_steps=20,
+            learning_rate=lr,
+            max_steps=steps,
             no_cuda=True,
             per_device_train_batch_size=2,
             remove_unused_columns=False,
@@ -250,3 +250,48 @@ class AdapterMethodBaseTestMixin:
                 self.assertFalse(torch.equal(v1, v2), k1)
             else:
                 self.assertTrue(torch.equal(v1, v2), k1)
+
+    def run_merge_test(self, adapter_config):
+        model = self.get_model()
+        model.eval()
+        model.add_adapter("test_lora", config=adapter_config)
+        model.to(torch_device)
+
+        input_data = self.get_input_samples(config=model.config)
+
+        # forward in training mode
+        model.set_active_adapters(["test_lora"])
+        output_1 = model(**input_data)
+
+        # forward in merged mode
+        model.set_active_adapters(None)
+        model.merge_adapter("test_lora")
+        model.to(torch_device)
+        model.eval()
+        output_2 = model(**input_data)
+
+        # check forward pass
+        self.assertEqual(len(output_1), len(output_2))
+        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))
+
+    def run_reset_test(self, adapter_config):
+        model = self.get_model()
+        model.eval()
+        model.add_adapter("test_lora", config=adapter_config)
+        model.to(torch_device)
+
+        input_data = self.get_input_samples(config=model.config)
+
+        # before merging
+        output_1 = model(**input_data)
+
+        # merge & reset
+        model.merge_adapter("test_lora")
+        model.reset_adapter()
+
+        # after merging
+        output_2 = model(**input_data)
+
+        # check forward pass
+        self.assertEqual(len(output_1), len(output_2))
+        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))

@@ -41,6 +41,8 @@ class DebertaV2AdapterModel(
         output_hidden_states=None,
         return_dict=None,
         head=None,
+        output_adapter_gating_scores=False,
+        output_adapter_fusion_attentions=False,
         **kwargs
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
@@ -64,6 +66,8 @@ class DebertaV2AdapterModel(
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            output_adapter_gating_scores=output_adapter_gating_scores,
+            output_adapter_fusion_attentions=output_adapter_fusion_attentions,
         )
         # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
         if not return_dict:

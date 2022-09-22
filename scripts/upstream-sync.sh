@@ -33,6 +33,7 @@ IGNORE_PATHS=(
     "scripts/*"
     "CITATION.cff"
     "README.md"
+    "CONTRIBUTING.md"
 )
 
 git fetch upstream --prune
