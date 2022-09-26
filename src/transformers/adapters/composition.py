@@ -108,6 +108,7 @@ SUPPORTED_MODELS = {
         "bart",
         "mbart",
         "gpt2",
+        "gptj",
         "t5",
         "vit",
         "xlm-roberta",
