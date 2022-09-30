@@ -10,6 +10,7 @@ ADAPTER_MODEL_MAPPING_NAMES = OrderedDict(
     [
         ("xlm-roberta", "XLMRobertaAdapterModel"),
         ("roberta", "RobertaAdapterModel"),
+        ("beit", "BeitAdapterModel"),
         ("bert", "BertAdapterModel"),
         ("distilbert", "DistilBertAdapterModel"),
         ("deberta-v2", "DebertaV2AdapterModel"),

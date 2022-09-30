@@ -10,6 +10,7 @@ CONFIG_CLASS_KEYS_MAPPING = {
         "hidden_dropout_prob": "dropout",
         "attention_probs_dropout_prob": "attention_dropout",
     },
+    "beit": {},
     "bert": {},
     "distilbert": {
         "hidden_dropout_prob": "dropout",
