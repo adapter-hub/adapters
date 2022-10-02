@@ -29,10 +29,10 @@ from ...activations import ACT2FN
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
 from ...adapters.mixins.beit import (
+    BeitLayerAdaptersMixin,
     BeitModelAdaptersMixin,
     BeitModelWithHeadsAdaptersMixin,
     BeitOutputAdaptersMixin,
-    BeitLayerAdaptersMixin,
 )
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
@@ -263,7 +263,7 @@ class BeitSelfAttention(nn.Module):
         value_layer = self.transpose_for_scores(self.value(hidden_states))
         query_layer = self.transpose_for_scores(mixed_query_layer)
 
-        key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer)
+        key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer, hidden_states)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
