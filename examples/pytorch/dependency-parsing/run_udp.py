@@ -86,6 +86,7 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "Overwrite the cached training and evaluation sets."},
     )
+    use_mock_data: bool = field(default=False)
 
 
 def main():
@@ -241,7 +242,16 @@ def main():
             )
 
     # Load and preprocess dataset
-    dataset = load_dataset("universal_dependencies", data_args.task_name)
+    if data_args.use_mock_data:
+        from datasets.commands.dummy_data import MockDownloadManager
+        from datasets import load_dataset_builder, Version
+
+        dataset_builder = load_dataset_builder("universal_dependencies", data_args.task_name)
+        mock_dl_manager = MockDownloadManager("universal_dependencies", dataset_builder.config, Version("2.7.0"))
+        dataset_builder.download_and_prepare(dl_manager=mock_dl_manager, ignore_verifications=True)
+        dataset = dataset_builder.as_dataset()
+    else:
+        dataset = load_dataset("universal_dependencies", data_args.task_name)
     dataset = preprocess_dataset(dataset, tokenizer, labels, data_args, pad_token_id=-1)
 
     # Initialize our Trainer
