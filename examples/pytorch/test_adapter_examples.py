@@ -383,6 +383,7 @@ class AdapterExamplesTests(TestCasePlus):
             --do_eval
             --task_name en_ewt
             --use_mock_data
+            --evaluate_on train
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
             --learning_rate=5e-4
@@ -398,4 +399,4 @@ class AdapterExamplesTests(TestCasePlus):
         with patch.object(sys, "argv", testargs):
             run_udp.main()
             result = get_results(tmp_dir)
-            self.assertGreaterEqual(result["eval_uas"], 0.8)
+            self.assertGreaterEqual(result["eval_uas"], 100.0)

@@ -211,6 +211,7 @@ class DependencyParsingTrainer(Trainer):
         self,
         eval_dataset: Optional[Dataset] = None,
         prediction_loss_only: Optional[bool] = None,
+        metric_key_prefix: str = "eval",
     ) -> Dict[str, float]:
         """
         Run evaluation and return metrics.
@@ -228,7 +229,12 @@ class DependencyParsingTrainer(Trainer):
         """
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
 
-        output = self._prediction_loop(eval_dataloader, description="Evaluation")
+        output = self._prediction_loop(
+            eval_dataloader,
+            description="Evaluation",
+            prediction_loss_only=prediction_loss_only,
+            metric_key_prefix=metric_key_prefix,
+        )
 
         if self.args.store_best_model:
             self.store_best_model(output)
@@ -297,7 +303,11 @@ class DependencyParsingTrainer(Trainer):
                 f.write(str(output.metrics))
 
     def _prediction_loop(
-        self, dataloader: DataLoader, description: str, prediction_loss_only: Optional[bool] = None
+        self,
+        dataloader: DataLoader,
+        description: str,
+        prediction_loss_only: Optional[bool] = None,
+        metric_key_prefix: str = "eval",
     ) -> PredictionOutput:
         """
         Prediction/evaluation loop, shared by :obj:`Trainer.evaluate()` and :obj:`Trainer.predict()`.
@@ -351,7 +361,12 @@ class DependencyParsingTrainer(Trainer):
             metric.add(labels_arcs, labels_rels, predictions_arcs, predictions_rels)
 
         results = metric.get_metric()
-        results[f"{description}_loss"] = np.mean(eval_losses)
+        results[f"{metric_key_prefix}_loss"] = np.mean(eval_losses)
+
+        # Prefix all keys with metric_key_prefix + '_'
+        for key in list(results.keys()):
+            if not key.startswith(f"{metric_key_prefix}_"):
+                results[f"{metric_key_prefix}_{key}"] = results.pop(key)
 
         # Add predictions_rels to output, even though we are only interested in the metrics
         return PredictionOutput(predictions=predictions_rels, label_ids=None, metrics=results)
