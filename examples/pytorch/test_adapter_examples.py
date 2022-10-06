@@ -23,6 +23,7 @@ SRC_DIRS = [
         "question-answering",
         "summarization",
         "translation",
+        "dependency-parsing",
     ]
 ]
 sys.path.extend(SRC_DIRS)
@@ -37,6 +38,7 @@ if SRC_DIRS is not None:
     import run_summarization
     import run_swag
     import run_translation
+    import run_udp
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -368,3 +370,33 @@ class AdapterExamplesTests(TestCasePlus):
             self.assertGreaterEqual(result["eval_accuracy"], 0.75)
             self.assertGreaterEqual(result["eval_precision"], 0.75)
             self.assertLess(result["eval_loss"], 0.5)
+
+    def test_run_udp_adapter(self):
+        stream_handler = logging.StreamHandler(sys.stdout)
+        logger.addHandler(stream_handler)
+
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        testargs = f"""
+            run_udp.py
+            --model_name_or_path bert-base-uncased
+            --do_train
+            --do_eval
+            --task_name en_ewt
+            --use_mock_data
+            --evaluate_on train
+            --per_device_train_batch_size=2
+            --per_device_eval_batch_size=1
+            --learning_rate=5e-4
+            --max_steps=10
+            --output_dir {tmp_dir}
+            --overwrite_output_dir
+            --train_adapter
+        """.split()
+
+        if torch_device != "cuda":
+            testargs.append("--no_cuda")
+
+        with patch.object(sys, "argv", testargs):
+            run_udp.main()
+            result = get_results(tmp_dir)
+            self.assertGreaterEqual(result["eval_uas"], 100.0)
