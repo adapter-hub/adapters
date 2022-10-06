@@ -1,4 +1,4 @@
-name: 'Close stale issues Bot'
+name: 'Stale issues Bot'
 
 on:
   schedule:
