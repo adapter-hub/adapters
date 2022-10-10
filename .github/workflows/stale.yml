@@ -14,6 +14,7 @@ jobs:
     steps:
       - uses: actions/stale@v6
         with:
+          repo-token: "${{ secrets.BOT_TOKEN }}"
           exempt-issue-labels: 'do-not-stale,enhancement'
           stale-issue-message: 'This issue has been automatically marked as stale because it has been without activity for 90 days. This issue will be closed in 14 days unless you comment or remove the stale label.'
           close-issue-message: 'This issue was closed because it was stale for 14 days without any activity.'
