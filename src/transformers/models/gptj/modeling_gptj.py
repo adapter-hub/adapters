@@ -330,10 +330,11 @@ class GPTJBlock(GPTJDecoderBlockAdaptersMixin, nn.Module):
         )
         attn_output = attn_outputs[0]  # output_attn: a, present, (attentions)
         outputs = attn_outputs[1:]
-        hidden_states = self.attention_adapters(attn_output, residual, None)
 
         feed_forward_hidden_states = self.mlp(hidden_states)
-        hidden_states = self.output_adapters(feed_forward_hidden_states, residual, None)
+        hidden_states = self.attention_adapters(attn_output, residual, None)
+
+        hidden_states = self.output_adapters(feed_forward_hidden_states, hidden_states, None)
 
         if use_cache:
             outputs = (hidden_states,) + outputs
