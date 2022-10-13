@@ -9,6 +9,16 @@ logger = logging.getLogger(__name__)
 # The "layers" attributes in the configs below map from static head module names to flex head module names.
 # In this context, "None" refers to a flex-head layer without weights (e.g. dropout, acts).
 STATIC_TO_FLEX_HEAD_MAP = {
+    # BEIT
+    "BeitForImageClassification": {
+        "config": {
+            "head_type": "image_classification",
+            "layers": 1,
+            "activation_function": None,
+            "use_pooler": True,
+        },
+        "layers": {"classifier"},
+    },
     # BERT
     "BertForSequenceClassification": {
         "config": {

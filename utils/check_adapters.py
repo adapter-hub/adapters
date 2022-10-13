@@ -5,6 +5,7 @@ from transformers import ModelAdaptersMixin
 
 MODELS_WITH_ADAPTERS = [
     "bert",
+    "beit",
     "roberta",
     "xlm_roberta",
     "distilbert",
