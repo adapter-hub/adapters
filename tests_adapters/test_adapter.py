@@ -96,9 +96,7 @@ class VisionAdapterTestBase(AdapterTestBase):
             return inputs
 
         dataset_builder = datasets.load_dataset_builder("cifar10")
-
-        mock_dl_manager = MockDownloadManager("cifar10", dataset_builder.config, datasets.Version("1.0.0"))
-        dataset_builder.download_and_prepare(dl_manager=mock_dl_manager, ignore_verifications=True)
+        dataset_builder.base_path = "tests_adapters/fixtures/samples/cifar10"
 
         dataset = dataset_builder.as_dataset(split="train")
         dataset = dataset.with_transform(transform)
