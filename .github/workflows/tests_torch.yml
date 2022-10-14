@@ -8,6 +8,7 @@ on:
       - 'examples/**'
       - 'templates/**'
       - 'tests/**'
+      - 'tests_adapters/**'
       - 'utils/**'
   pull_request:
     branches: [ 'master', 'develop' ]
@@ -16,6 +17,7 @@ on:
       - 'examples/**'
       - 'templates/**'
       - 'tests/**'
+      - 'tests_adapters/**'
       - 'utils/**'
   workflow_dispatch:
 
