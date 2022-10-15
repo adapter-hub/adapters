@@ -1,7 +1,6 @@
 import random
 
 import torch
-from datasets.commands.dummy_data import MockDownloadManager
 import datasets
 
 
@@ -90,17 +89,16 @@ class VisionAdapterTestBase(AdapterTestBase):
             feature_extractor = AutoFeatureExtractor.from_pretrained(self.feature_extractor_name)
 
         def transform(example_batch):
-            inputs = feature_extractor([x for x in example_batch['img']], return_tensors='pt')
+            inputs = feature_extractor([x for x in example_batch["img"]], return_tensors="pt")
 
-            inputs['labels'] = example_batch['label']
+            inputs["labels"] = example_batch["label"]
             return inputs
 
-        dataset_builder = datasets.load_dataset_builder("cifar10")
-
-        mock_dl_manager = MockDownloadManager("cifar10", dataset_builder.config, datasets.Version("1.0.0"))
-        dataset_builder.download_and_prepare(dl_manager=mock_dl_manager, ignore_verifications=True)
-
-        dataset = dataset_builder.as_dataset(split="train")
+        dataset = datasets.load_dataset(
+            "./tests_adapters/fixtures/samples/cifar10",
+            data_dir="./tests_adapters/fixtures/samples/cifar10",
+            split="train",
+        )
         dataset = dataset.with_transform(transform)
 
         return dataset
