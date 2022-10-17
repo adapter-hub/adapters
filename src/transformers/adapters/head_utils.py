@@ -307,6 +307,30 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "classifier"],
     },
+    # GPT-J
+    "GPTJForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 1,
+            "activation_function": None,
+            "bias": False,
+        },
+        "layers": [None, "score"],
+    },
+    "GPTJForCausalLM": {
+        "config": {
+            "head_type": "causal_lm",
+        },
+        "layers": ["lm_head"],
+    },
+    "GPTJForQuestionAnswering": {
+        "config": {
+            "head_type": "question_answering",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "qa_outputs"],
+    },
     "T5ForConditionalGeneration": {
         "config": {
             "head_type": "seq2seq_lm",

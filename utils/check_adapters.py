@@ -12,6 +12,7 @@ MODELS_WITH_ADAPTERS = [
     "bart",
     "mbart",
     "gpt2",
+    "gptj",
     "encoder_decoder",
     "t5",
     "deberta",

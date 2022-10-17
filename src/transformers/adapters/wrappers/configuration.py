@@ -20,6 +20,10 @@ CONFIG_CLASS_KEYS_MAPPING = {
         "hidden_dropout_prob": "resid_pdrop",
         "attention_probs_dropout_prob": "attn_pdrop",
     },
+    "gptj": {
+        "hidden_dropout_prob": "resid_pdrop",
+        "attention_probs_dropout_prob": "attn_pdrop",
+    },
     "mbart": {
         "num_attention_heads": "encoder_attention_heads",
         "hidden_size": "d_model",

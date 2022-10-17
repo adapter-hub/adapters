@@ -22,6 +22,15 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.gptj import (
+    GPTJDecoderBlockAdaptersMixin,
+    GPTJModelAdapterMixin,
+    GPTJModelWithHeadsAdaptersMixin,
+)
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
@@ -116,13 +125,14 @@ class GPTJAttention(nn.Module):
             )
         self.scale_attn = torch.sqrt(torch.tensor(self.head_dim, dtype=torch.float32)).to(torch.get_default_dtype())
 
-        self.k_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
-        self.v_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
-        self.q_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
+        self.k_proj = LoRALinear(self.embed_dim, self.embed_dim, "selfattn", config, attn_key="k", bias=False)
+        self.v_proj = LoRALinear(self.embed_dim, self.embed_dim, "selfattn", config, attn_key="v", bias=False)
+        self.q_proj = LoRALinear(self.embed_dim, self.embed_dim, "selfattn", config, attn_key="q", bias=False)
         self.out_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
         self.rotary_dim = None
         if config.rotary_dim is not None:
             self.rotary_dim = config.rotary_dim
+        self.prefix_tuning = PrefixTuningShim("self_prefix", config)
 
     def _split_heads(self, tensor, num_attention_heads, attn_head_size, rotary):
         """
@@ -255,6 +265,7 @@ class GPTJAttention(nn.Module):
         else:
             present = None
 
+        key, value, attention_mask = self.prefix_tuning(key, value, hidden_states, attention_mask)
         # compute self-attention: V x Softmax(QK^T)
         attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
 
@@ -274,8 +285,8 @@ class GPTJMLP(nn.Module):
         super().__init__()
         embed_dim = config.n_embd
 
-        self.fc_in = nn.Linear(embed_dim, intermediate_size)
-        self.fc_out = nn.Linear(intermediate_size, embed_dim)
+        self.fc_in = LoRALinear(embed_dim, intermediate_size, "intermediate", config)
+        self.fc_out = LoRALinear(intermediate_size, embed_dim, "output", config)
 
         self.act = ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.resid_pdrop)
@@ -288,13 +299,15 @@ class GPTJMLP(nn.Module):
         return hidden_states
 
 
-class GPTJBlock(nn.Module):
+class GPTJBlock(GPTJDecoderBlockAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         inner_dim = config.n_inner if config.n_inner is not None else 4 * config.n_embd
         self.ln_1 = nn.LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
         self.attn = GPTJAttention(config)
         self.mlp = GPTJMLP(inner_dim, config)
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -319,7 +332,9 @@ class GPTJBlock(nn.Module):
         outputs = attn_outputs[1:]
 
         feed_forward_hidden_states = self.mlp(hidden_states)
-        hidden_states = attn_output + feed_forward_hidden_states + residual
+        hidden_states = self.attention_adapters(attn_output, residual, None)
+
+        hidden_states = self.output_adapters(feed_forward_hidden_states, hidden_states, None)
 
         if use_cache:
             outputs = (hidden_states,) + outputs
@@ -478,7 +493,7 @@ DEPARALLELIZE_DOCSTRING = r"""
     "The bare GPT-J Model transformer outputting raw hidden-states without any specific head on top.",
     GPTJ_START_DOCSTRING,
 )
-class GPTJModel(GPTJPreTrainedModel):
+class GPTJModel(GPTJModelAdapterMixin, GPTJPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
@@ -493,6 +508,8 @@ class GPTJModel(GPTJPreTrainedModel):
         self.model_parallel = False
         self.device_map = None
         self.gradient_checkpointing = False
+
+        self._init_adapter_modules()
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -541,6 +558,7 @@ class GPTJModel(GPTJPreTrainedModel):
         output_type=BaseModelOutputWithPast,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
@@ -620,7 +638,7 @@ class GPTJModel(GPTJPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
-
+        inputs_embeds = self.invertible_adapters_forward(inputs_embeds)
         hidden_states = inputs_embeds
 
         if token_type_ids is not None:
@@ -683,6 +701,11 @@ class GPTJModel(GPTJPreTrainedModel):
                 )
 
             hidden_states = outputs[0]
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
+            # also adjust output shape if necessary
+            if getattr(ForwardContext.get_context(), "adapters_parallelized", False):
+                output_shape = hidden_states.size()
+
             if use_cache is True:
                 presents = presents + (outputs[1],)
 
@@ -719,13 +742,13 @@ class GPTJModel(GPTJPreTrainedModel):
     """,
     GPTJ_START_DOCSTRING,
 )
-class GPTJForCausalLM(GPTJPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"h\.\d+\.attn\.bias"]
+class GPTJForCausalLM(GPTJModelWithHeadsAdaptersMixin, GPTJPreTrainedModel):
+    _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"h\.\d+\.attn\.bias", r"lm_head.weight"]
 
     def __init__(self, config):
         super().__init__(config)
         self.transformer = GPTJModel(config)
-        self.lm_head = nn.Linear(config.n_embd, config.vocab_size)
+        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
         # Model parallel
         self.model_parallel = False
@@ -894,7 +917,7 @@ class GPTJForCausalLM(GPTJPreTrainedModel):
     """,
     GPTJ_START_DOCSTRING,
 )
-class GPTJForSequenceClassification(GPTJPreTrainedModel):
+class GPTJForSequenceClassification(GPTJModelWithHeadsAdaptersMixin, GPTJPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"h\.\d+\.attn\.bias", r"lm_head.weight"]
 
     def __init__(self, config):
@@ -1021,7 +1044,7 @@ class GPTJForSequenceClassification(GPTJPreTrainedModel):
     """,
     GPTJ_START_DOCSTRING,
 )
-class GPTJForQuestionAnswering(GPTJPreTrainedModel):
+class GPTJForQuestionAnswering(GPTJModelWithHeadsAdaptersMixin, GPTJPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"h\.\d+\.attn\.bias", r"lm_head.weight"]
 
     def __init__(self, config):
