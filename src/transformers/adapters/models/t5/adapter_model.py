@@ -80,6 +80,7 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
             return_dict=return_dict,
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
+            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
         )
         sequence_output = model_output[0]
         # ToDo move head to device for parallel forward pass
@@ -118,7 +119,6 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
         encoder_outputs=None,
         **kwargs
     ):
-
         # cut decoder_input_ids if past is used
         if past is not None:
             input_ids = input_ids[:, -1:]
@@ -132,6 +132,7 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
             "decoder_head_mask": decoder_head_mask,
             "cross_attn_head_mask": cross_attn_head_mask,
             "use_cache": use_cache,
+            "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
         }
 
     # Copied from T5ForConditionalGeneration

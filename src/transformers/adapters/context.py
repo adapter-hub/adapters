@@ -78,7 +78,7 @@ class ForwardContext:
     # thread-local storage that holds a stack of active contexts
     storage = threading.local()
 
-    context_attributes = ["adapter_gating_scores", "adapter_fusion_attentions"]
+    context_attributes = ["adapter_gating_scores", "adapter_fusion_attentions", "adapter_input_parallelized"]
 
     def __init__(self, model, *args, **kwargs):
         # If the model has a method ``forward_context()``, use it to create the context.

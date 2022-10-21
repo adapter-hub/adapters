@@ -94,6 +94,7 @@ class DistilBertAdapterModel(
             return_dict=return_dict,
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
+            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
         )
 
         outputs = self.forward_head(
