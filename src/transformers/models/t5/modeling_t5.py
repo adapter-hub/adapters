@@ -1822,6 +1822,7 @@ class T5EncoderModel(T5ModelAdaptersMixin, T5PreTrainedModel):
         encoder_config = copy.deepcopy(config)
         encoder_config.use_cache = False
         encoder_config.is_encoder_decoder = False
+        encoder_config.adapters = config.adapters
         self.encoder = T5Stack(encoder_config, self.shared)
 
         # Initialize weights and apply final processing
