@@ -1200,7 +1200,11 @@ class GenerationMixin:
             input_ids = inputs_tensor
 
         # Pre-replicate inputs for parallel adapters to avoid issues within generation code
-        if self.config.adapters.active_setup.parallel_channels > 1:
+        if (
+            hasattr(self.config, "adapters")
+            and self.config.adapters.active_setup
+            and self.config.adapters.active_setup.parallel_channels > 1
+        ):
             input_ids = input_ids.repeat(self.config.adapters.active_setup.parallel_channels, 1)
             model_kwargs["adapter_input_parallelized"] = True
             (attention_mask,) = adjust_tensors_for_parallel(input_ids, model_kwargs["attention_mask"])
