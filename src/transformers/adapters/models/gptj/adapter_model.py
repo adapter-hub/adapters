@@ -77,6 +77,7 @@ class GPTJAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
             return_dict=return_dict,
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
+            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
         )
 
         batch_size = outputs[0].shape[0]
@@ -135,6 +136,7 @@ class GPTJAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
             "position_ids": position_ids,
             "attention_mask": attention_mask,
             "token_type_ids": token_type_ids,
+            "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
         }
 
     head_types = {
