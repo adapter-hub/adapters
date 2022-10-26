@@ -271,7 +271,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             self.model_name = config.name_or_path
         else:
             self.model_name = None
-        self.shared_parameters = nn.ModuleDict()
+        self.base_model.shared_parameters = nn.ModuleDict()
 
         # Make sure config is wrapped
         self.config = wrap_config(self.config)
@@ -326,8 +326,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         adapter_setup = parse_composition(adapter_setup)
         self.apply_to_adapter_layers(lambda i, layer: layer.enable_adapters(adapter_setup, True, False))
         for adapter_name in adapter_setup:
-            if adapter_name in self.shared_parameters:
-                for param in self.shared_parameters[adapter_name].values():
+            if adapter_name in self.base_model.shared_parameters:
+                for param in self.base_model.shared_parameters[adapter_name].values():
                     param.requires_grad = True
 
         if isinstance(self, InvertibleAdaptersMixin):
@@ -376,7 +376,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.set_active_adapters(adapter_setup)
 
     def set_shared_parameters(self, param):
-        self.shared_parameters = param
+        self.base_model.shared_parameters = param
 
     def set_active_adapters(
         self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
@@ -439,7 +439,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
         # PHM Layer
         if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
-            self.shared_parameters[adapter_name] = (
+            self.base_model.shared_parameters[adapter_name] = (
                 list(self.get_adapter(adapter_name)[0].values())[0].adapter_down[0].init_shared_parameters()
             )
         # Prefix Tuning
@@ -514,8 +514,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         del self.config.adapters.adapters[adapter_name]
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
         # PHM Layer
-        if adapter_name in self.shared_parameters:
-            del self.shared_parameters[adapter_name]
+        if adapter_name in self.base_model.shared_parameters:
+            del self.base_model.shared_parameters[adapter_name]
         if isinstance(self, InvertibleAdaptersMixin):
             self.delete_invertible_adapter(adapter_name)
         # Reset active adapters if this was the only active adapter
@@ -781,7 +781,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         context.adapters_parallelized = False
         # Add the shared parameters for the active adapters to the context
         context.shared_parameters = {
-            name: param for name, param in self.shared_parameters.items() if name in active_adapters.flatten()
+            name: param
+            for name, param in self.base_model.shared_parameters.items()
+            if name in active_adapters.flatten()
         }
 
         context.prefix_states = self.base_model.prefix_tuning(*args, **kwargs)
@@ -818,8 +820,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         destination = defaultdict(dict)
 
         # global weights are saved at index -1
-        if name in self.shared_parameters:
-            destination[-1]["shared"] = self.shared_parameters[name]
+        if name in self.base_model.shared_parameters:
+            destination[-1]["shared"] = self.base_model.shared_parameters[name]
         if isinstance(self, InvertibleAdaptersMixin) and name in self.invertible_adapters:
             destination[-1]["invertible"] = self.invertible_adapters[name]
 
@@ -952,11 +954,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self._convert_to_flex_head = False
-
-    def set_shared_parameters(self, param):
-        self.shared_parameters = param
-        if self.base_model is not self:
-            self.base_model.shared_parameters = self.shared_parameters
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         """

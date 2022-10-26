@@ -1,5 +1,5 @@
-from transformers.adapters import CompacterPlusPlusConfig
-from transformers.testing_utils import require_torch
+from transformers.adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, CompacterPlusPlusConfig
+from transformers.testing_utils import require_torch, torch_device
 
 from .base import AdapterMethodBaseTestMixin
 
@@ -38,3 +38,27 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
     def test_train_shared_phm_compacter(self):
         adapter_config = CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8)
         self.run_train_test(adapter_config, ["adapters.{name}."])
+
+    def test_compacter_generate(self):
+        if self.config_class not in ADAPTER_MODEL_MAPPING or (
+            not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head")
+            and not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head")
+        ):
+            self.skipTest("No seq2seq or causal language model head")
+
+        model1 = AutoAdapterModel.from_config(self.config())
+        model1.add_adapter("dummy", config=CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8))
+        if hasattr(model1, "add_seq2seq_lm_head"):
+            model1.add_seq2seq_lm_head("dummy")
+        else:
+            model1.add_causal_lm_head("dummy")
+        model1.set_active_adapters("dummy")
+        model1.to(torch_device)
+
+        seq_output_length = 32
+
+        # Finally, also check if generation works properly
+        input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
+        input_ids = input_ids.to(torch_device)
+        generated = model1.generate(input_ids, max_length=seq_output_length)
+        self.assertLessEqual(generated.shape, (1, seq_output_length))
