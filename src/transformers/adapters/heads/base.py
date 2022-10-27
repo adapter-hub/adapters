@@ -31,6 +31,10 @@ class MultiHeadOutput(ModelOutput):
     head_outputs: List[ModelOutput] = None
     loss: Optional[torch.FloatTensor] = None
 
+    @property
+    def logits(self):
+        return torch.vstack([outputs["logits"] for outputs in self.head_outputs])
+
     def __getitem__(self, k):
         # with number indices the head output at that position is accessed
         # e.g output[1] is equivalent to output.head_outputs[1]

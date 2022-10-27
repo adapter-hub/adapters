@@ -779,6 +779,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             return
 
         context.adapters_parallelized = False
+        # Check if already parallelized in encoder
+        adapter_input_parallelized = kwargs.pop("adapter_input_parallelized", None)
+        if adapter_input_parallelized:
+            if active_adapters.parallel_channels > 1:
+                context.adapters_parallelized = True
         # Add the shared parameters for the active adapters to the context
         context.shared_parameters = {
             name: param

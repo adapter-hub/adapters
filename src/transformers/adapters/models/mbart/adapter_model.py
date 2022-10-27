@@ -89,6 +89,7 @@ class MBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
             past_key_values=past_key_values,
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
+            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
         )
         # sequence classification based on last token in sequence
         x = outputs[0]  # last hidden state
@@ -139,6 +140,7 @@ class MBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
             "decoder_head_mask": decoder_head_mask,
             "cross_attn_head_mask": cross_attn_head_mask,
             "use_cache": use_cache,  # change this to avoid caching (presumably for debugging)
+            "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
         }
 
     # Copied from MBartForConditionalGeneration

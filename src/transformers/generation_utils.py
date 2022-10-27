@@ -23,6 +23,7 @@ import torch
 import torch.distributed as dist
 from torch import nn
 
+from .adapters.composition import adjust_tensors_for_parallel
 from .adapters.context import ForwardContext
 from .generation_beam_constraints import Constraint, DisjunctiveConstraint, PhrasalConstraint
 from .generation_beam_search import BeamScorer, BeamSearchScorer, ConstrainedBeamSearchScorer
@@ -1197,6 +1198,17 @@ class GenerationMixin:
         else:
             # if decoder-only then inputs_tensor has to be `input_ids`
             input_ids = inputs_tensor
+
+        # Pre-replicate inputs for parallel adapters to avoid issues within generation code
+        if (
+            hasattr(self.config, "adapters")
+            and self.config.adapters.active_setup
+            and self.config.adapters.active_setup.parallel_channels > 1
+        ):
+            input_ids = input_ids.repeat(self.config.adapters.active_setup.parallel_channels, 1)
+            model_kwargs["adapter_input_parallelized"] = True
+            (attention_mask,) = adjust_tensors_for_parallel(input_ids, model_kwargs["attention_mask"])
+            model_kwargs["attention_mask"] = attention_mask
 
         # 5. Prepare `max_length` depending on other stopping criteria.
         input_ids_seq_length = input_ids.shape[-1]
