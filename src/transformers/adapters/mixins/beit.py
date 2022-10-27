@@ -17,11 +17,6 @@ class BeitLayerAdaptersMixin:
         self.attention_adapters = AdapterLayer("mh_adapter", self.config)
         self.attention_adapters._init_adapter_modules()
 
-
-class BeitOutputAdaptersMixin:
-    """Adds adapters to the BeitOutput module."""
-
-    def _init_adapter_modules(self):
         self.output_adapters = AdapterLayer("output_adapter", self.config)
         self.output_adapters._init_adapter_modules()
 

@@ -28,12 +28,7 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from ...activations import ACT2FN
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
-from ...adapters.mixins.beit import (
-    BeitLayerAdaptersMixin,
-    BeitModelAdaptersMixin,
-    BeitModelWithHeadsAdaptersMixin,
-    BeitOutputAdaptersMixin,
-)
+from ...adapters.mixins.beit import BeitLayerAdaptersMixin, BeitModelAdaptersMixin, BeitModelWithHeadsAdaptersMixin
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutput,
@@ -374,19 +369,17 @@ class BeitIntermediate(nn.Module):
         return hidden_states
 
 
-class BeitOutput(BeitOutputAdaptersMixin, nn.Module):
+class BeitOutput(nn.Module):
     def __init__(self, config: BeitConfig) -> None:
         super().__init__()
         self.config = config
 
         self.dense = LoRALinear(config.intermediate_size, config.hidden_size, "output", config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self._init_adapter_modules()
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.output_adapters.adapter_layer_forward(hidden_states, input_tensor, None)
         return hidden_states
 
 
@@ -431,14 +424,14 @@ class BeitLayer(BeitLayerAdaptersMixin, nn.Module):
         attention_output = self_attention_outputs[0]
         outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
 
-        hidden_states = self.attention_adapters.adapter_layer_forward(attention_output, hidden_states, None)
-
         # apply lambda_1 if present
         if self.lambda_1 is not None:
             attention_output = self.lambda_1 * attention_output
 
         # first residual connection
-        hidden_states = self.drop_path(attention_output) + hidden_states
+        hidden_states = self.attention_adapters.adapter_layer_forward(
+            self.drop_path(attention_output), hidden_states, None
+        )
 
         # in BEiT, layernorm is also applied after self-attention
         layer_output = self.layernorm_after(hidden_states)
@@ -450,7 +443,7 @@ class BeitLayer(BeitLayerAdaptersMixin, nn.Module):
             layer_output = self.lambda_2 * layer_output
 
         # second residual connection
-        layer_output = self.drop_path(layer_output) + hidden_states
+        layer_output = self.output_adapters.adapter_layer_forward(self.drop_path(layer_output), hidden_states, None)
 
         outputs = (layer_output,) + outputs
 
