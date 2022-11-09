@@ -713,6 +713,9 @@ class DisentangledSelfAttention(nn.Module):
         key_layer = self.transpose_for_scores_extended(self.key_proj(hidden_states), self.num_attention_heads)
         value_layer = self.transpose_for_scores_extended(self.value_proj(hidden_states), self.num_attention_heads)
 
+        orig_key_layer = key_layer.contiguous().view(
+            -1, key_layer.size(2), key_layer.size(-1)
+        )  # save this for relative attention
         key_layer, value_layer, attention_mask = self.prefix_tuning(
             key_layer, value_layer, hidden_states, attention_mask, False
         )  # [:, 0, :, 0])
@@ -732,11 +735,13 @@ class DisentangledSelfAttention(nn.Module):
         if self.relative_attention:
             rel_embeddings = self.pos_dropout(rel_embeddings)
             rel_att = self.disentangled_attention_bias(
-                query_layer, key_layer, relative_pos, rel_embeddings, scale_factor
+                query_layer, orig_key_layer, relative_pos, rel_embeddings, scale_factor
             )
 
         if rel_att is not None:
-            attention_scores = attention_scores + rel_att
+            rel_att_padded = torch.zeros_like(attention_scores)
+            rel_att_padded[:, :, -rel_att.size(2) :] = rel_att
+            attention_scores = attention_scores + rel_att_padded
         attention_scores = attention_scores
         attention_scores = attention_scores.view(
             -1, self.num_attention_heads, attention_scores.size(-2), attention_scores.size(-1)
