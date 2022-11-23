@@ -16,6 +16,7 @@
  Tokenization classes for fast tokenizers (provided by HuggingFace's tokenizers library). For slow (python) tokenizers
  see tokenization_utils.py
 """
+import copy
 import json
 import os
 from collections import defaultdict
@@ -104,7 +105,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
             )
 
         if tokenizer_object is not None:
-            fast_tokenizer = tokenizer_object
+            fast_tokenizer = copy.deepcopy(tokenizer_object)
         elif fast_tokenizer_file is not None and not from_slow:
             # We have a serialization from tokenizers which let us directly build the backend
             fast_tokenizer = TokenizerFast.from_file(fast_tokenizer_file)
@@ -411,8 +412,10 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         verbose: bool = True,
     ) -> BatchEncoding:
 
-        if not isinstance(batch_text_or_text_pairs, list):
-            raise TypeError(f"batch_text_or_text_pairs has to be a list (got {type(batch_text_or_text_pairs)})")
+        if not isinstance(batch_text_or_text_pairs, (tuple, list)):
+            raise TypeError(
+                f"batch_text_or_text_pairs has to be a list or a tuple (got {type(batch_text_or_text_pairs)})"
+            )
 
         # Set the truncation and padding strategy and restore the initial configuration
         self.set_truncation_and_padding(

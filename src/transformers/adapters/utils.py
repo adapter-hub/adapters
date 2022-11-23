@@ -19,7 +19,7 @@ import requests
 from filelock import FileLock
 from huggingface_hub import HfApi, snapshot_download
 
-from ..utils import get_from_cache, is_remote_url
+from ..utils import cached_file, is_remote_url
 from ..utils.hub import torch_cache_home
 from . import __version__
 
@@ -165,7 +165,7 @@ def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, fo
         cache_dir = str(cache_dir)
 
     if is_remote_url(url):
-        output_path = get_from_cache(url, cache_dir=cache_dir, **kwargs)
+        output_path = cached_file(url, cache_dir=cache_dir, **kwargs)
     else:
         raise ValueError("Unable to parse '{}' as a URL".format(url))
 
