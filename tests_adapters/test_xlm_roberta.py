@@ -17,7 +17,7 @@ class XLMRobertaAdapterTestBase(AdapterTestBase):
         num_hidden_layers=4,
         num_attention_heads=4,
         intermediate_size=37,
-        vocab_size=50265,
+        vocab_size=250002,
     )
     tokenizer_name = "xlm-roberta-base"
 
