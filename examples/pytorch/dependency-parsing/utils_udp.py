@@ -210,7 +210,7 @@ class DependencyParsingTrainer(Trainer):
     def evaluate(
         self,
         eval_dataset: Optional[Dataset] = None,
-        prediction_loss_only: Optional[bool] = None,
+        ignore_keys: Optional[List[str]] = None,
         metric_key_prefix: str = "eval",
     ) -> Dict[str, float]:
         """
@@ -232,7 +232,7 @@ class DependencyParsingTrainer(Trainer):
         output = self._prediction_loop(
             eval_dataloader,
             description="Evaluation",
-            prediction_loss_only=prediction_loss_only,
+            prediction_loss_only=True if self.compute_metrics is None else None,
             metric_key_prefix=metric_key_prefix,
         )
 

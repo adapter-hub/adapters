@@ -381,7 +381,7 @@ def main():
     model.add_classification_head(
         data_args.task_name or "glue",
         num_labels=num_labels,
-        id2label={i: v for i, v in enumerate(label_list)} if num_labels > 0 else None,
+        id2label={i: v for i, v in enumerate(label_list)} if not is_regression else None,
     )
 
     # Setup adapters
