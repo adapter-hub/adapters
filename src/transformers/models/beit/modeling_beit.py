@@ -29,6 +29,7 @@ from ...activations import ACT2FN
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
 from ...adapters.mixins.beit import BeitLayerAdaptersMixin, BeitModelAdaptersMixin, BeitModelWithHeadsAdaptersMixin
+from ...adapters.model_mixin import ModelWithHeadsAdaptersMixin
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutput,
@@ -1176,7 +1177,7 @@ class BeitFCNHead(nn.Module):
     """,
     BEIT_START_DOCSTRING,
 )
-class BeitForSemanticSegmentation(BeitPreTrainedModel):
+class BeitForSemanticSegmentation(ModelWithHeadsAdaptersMixin, BeitPreTrainedModel):
     def __init__(self, config: BeitConfig) -> None:
         super().__init__(config)
 

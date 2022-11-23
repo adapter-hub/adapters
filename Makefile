@@ -37,11 +37,11 @@ autogenerate_code: deps_table_update
 # python utils/check_copies.py
 # python utils/check_table.py
 # python utils/check_dummies.py
+# python utils/tests_fetcher.py --sanity_check
 repo-consistency:
 	python utils/check_repo.py
 	python utils/check_inits.py
 	python utils/check_config_docstrings.py
-	python utils/tests_fetcher.py --sanity_check
 	python utils/check_adapters.py
 
 # this target runs checks on all files

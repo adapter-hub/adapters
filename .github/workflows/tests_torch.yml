@@ -37,9 +37,10 @@ jobs:
         run: |
           pip install torch==1.12.1
           pip install .[quality]
-      - name: Check Quality
+      - name: Check Quality and Repo Consistency
         run: |
           make quality
+          make repo-consistency
   run_reduced_tests_torch:
     timeout-minutes: 60
     runs-on: ubuntu-latest

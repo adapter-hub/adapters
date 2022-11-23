@@ -61,7 +61,7 @@ def parse_init(init_file):
     Read an init_file and parse (per backend) the _import_structure objects defined and the TYPE_CHECKING objects
     defined
     """
-    with open(init_file, "r", encoding="utf-8", newline="\n") as f:
+    with open(init_file, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     line_index = 0
@@ -296,4 +296,5 @@ def check_submodules():
 
 if __name__ == "__main__":
     check_all_inits()
-    check_submodules()
+    # For AH: adapter submodules are not all registered in the main init of Transformers.
+    # check_submodules()

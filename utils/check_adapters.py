@@ -16,7 +16,7 @@ MODELS_WITH_ADAPTERS = [
     "encoder_decoder",
     "t5",
     "deberta",
-    "deberta-v2",
+    "deberta_v2",
     "vit",
 ]
 
