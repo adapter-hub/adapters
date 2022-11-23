@@ -24,6 +24,16 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN, gelu
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.bert import (
+    BertModelAdaptersMixin,
+    BertModelWithHeadsAdaptersMixin,
+    BertOutputAdaptersMixin,
+    BertSelfOutputAdaptersMixin,
+)
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     BaseModelOutputWithPoolingAndCrossAttentions,
@@ -153,7 +163,7 @@ class XLMRobertaEmbeddings(nn.Module):
 
 # Copied from transformers.models.roberta.modeling_roberta.RobertaSelfAttention with Roberta->XLMRoberta
 class XLMRobertaSelfAttention(nn.Module):
-    def __init__(self, config, position_embedding_type=None):
+    def __init__(self, config, position_embedding_type=None, location_key: Optional[str] = None):
         super().__init__()
         if config.hidden_size % config.num_attention_heads != 0 and not hasattr(config, "embedding_size"):
             raise ValueError(
@@ -165,9 +175,9 @@ class XLMRobertaSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.query = nn.Linear(config.hidden_size, self.all_head_size)
-        self.key = nn.Linear(config.hidden_size, self.all_head_size)
-        self.value = nn.Linear(config.hidden_size, self.all_head_size)
+        self.query = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="q")
+        self.key = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="k")
+        self.value = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="v")
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.position_embedding_type = position_embedding_type or getattr(
@@ -178,6 +188,8 @@ class XLMRobertaSelfAttention(nn.Module):
             self.distance_embedding = nn.Embedding(2 * config.max_position_embeddings - 1, self.attention_head_size)
 
         self.is_decoder = config.is_decoder
+
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     def transpose_for_scores(self, x: torch.Tensor) -> torch.Tensor:
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
@@ -231,6 +243,10 @@ class XLMRobertaSelfAttention(nn.Module):
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_layer, value_layer)
 
+            key_layer, value_layer, attention_mask = self.prefix_tuning(
+                key_layer, value_layer, hidden_states, attention_mask
+            )
+
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
 
@@ -280,25 +296,30 @@ class XLMRobertaSelfAttention(nn.Module):
 
 
 # Copied from transformers.models.roberta.modeling_roberta.RobertaSelfOutput
-class XLMRobertaSelfOutput(nn.Module):
+class XLMRobertaSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
+
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
 # Copied from transformers.models.roberta.modeling_roberta.RobertaAttention with Roberta->XLMRoberta
 class XLMRobertaAttention(nn.Module):
-    def __init__(self, config, position_embedding_type=None):
+    def __init__(self, config, position_embedding_type=None, location_key: Optional[str] = None):
         super().__init__()
-        self.self = XLMRobertaSelfAttention(config, position_embedding_type=position_embedding_type)
+        self.self = XLMRobertaSelfAttention(
+            config, position_embedding_type=position_embedding_type, location_key=location_key
+        )
         self.output = XLMRobertaSelfOutput(config)
         self.pruned_heads = set()
 
@@ -348,7 +369,7 @@ class XLMRobertaAttention(nn.Module):
 class XLMRobertaIntermediate(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.dense = nn.Linear(config.hidden_size, config.intermediate_size)
+        self.dense = LoRALinear(config.hidden_size, config.intermediate_size, "intermediate", config)
         if isinstance(config.hidden_act, str):
             self.intermediate_act_fn = ACT2FN[config.hidden_act]
         else:
@@ -361,17 +382,20 @@ class XLMRobertaIntermediate(nn.Module):
 
 
 # Copied from transformers.models.roberta.modeling_roberta.RobertaOutput
-class XLMRobertaOutput(nn.Module):
+class XLMRobertaOutput(BertOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
+        self.config = config
+
+        self.dense = LoRALinear(config.intermediate_size, config.hidden_size, "output", config)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self._init_adapter_modules()
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
@@ -381,13 +405,13 @@ class XLMRobertaLayer(nn.Module):
         super().__init__()
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
         self.seq_len_dim = 1
-        self.attention = XLMRobertaAttention(config)
+        self.attention = XLMRobertaAttention(config, location_key="self")
         self.is_decoder = config.is_decoder
         self.add_cross_attention = config.add_cross_attention
         if self.add_cross_attention:
             if not self.is_decoder:
                 raise ValueError(f"{self} should be used as a decoder model if cross attention is added")
-            self.crossattention = XLMRobertaAttention(config, position_embedding_type="absolute")
+            self.crossattention = XLMRobertaAttention(config, position_embedding_type="absolute", location_key="cross")
         self.intermediate = XLMRobertaIntermediate(config)
         self.output = XLMRobertaOutput(config)
 
@@ -529,6 +553,8 @@ class XLMRobertaEncoder(nn.Module):
                 )
 
             hidden_states = layer_outputs[0]
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
+
             if use_cache:
                 next_decoder_cache += (layer_outputs[-1],)
             if output_attentions:
@@ -690,7 +716,7 @@ XLM_ROBERTA_INPUTS_DOCSTRING = r"""
     XLM_ROBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.roberta.modeling_roberta.RobertaModel with Roberta->XLMRoberta, ROBERTA->XLM_ROBERTA
-class XLMRobertaModel(XLMRobertaPreTrainedModel):
+class XLMRobertaModel(BertModelAdaptersMixin, XLMRobertaPreTrainedModel):
     """
 
     The model can behave as an encoder (with only self-attention) as well as a decoder, in which case a layer of
@@ -718,6 +744,8 @@ class XLMRobertaModel(XLMRobertaPreTrainedModel):
 
         self.pooler = XLMRobertaPooler(config) if add_pooling_layer else None
 
+        self._init_adapter_modules()
+
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -742,6 +770,7 @@ class XLMRobertaModel(XLMRobertaPreTrainedModel):
         output_type=BaseModelOutputWithPoolingAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     # Copied from transformers.models.bert.modeling_bert.BertModel.forward
     def forward(
         self,
@@ -845,6 +874,8 @@ class XLMRobertaModel(XLMRobertaPreTrainedModel):
             inputs_embeds=inputs_embeds,
             past_key_values_length=past_key_values_length,
         )
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+
         encoder_outputs = self.encoder(
             embedding_output,
             attention_mask=extended_attention_mask,
@@ -878,7 +909,7 @@ class XLMRobertaModel(XLMRobertaPreTrainedModel):
     XLM_ROBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.roberta.modeling_roberta.RobertaForCausalLM with Roberta->XLMRoberta, ROBERTA->XLM_ROBERTA
-class XLMRobertaForCausalLM(XLMRobertaPreTrainedModel):
+class XLMRobertaForCausalLM(BertModelWithHeadsAdaptersMixin, XLMRobertaPreTrainedModel):
     _keys_to_ignore_on_save = [r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
@@ -987,7 +1018,10 @@ class XLMRobertaForCausalLM(XLMRobertaPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        prediction_scores = self.lm_head(sequence_output)
+        prediction_scores = self.lm_head(
+            sequence_output,
+            inv_lang_adapter=self.roberta.get_invertible_adapter(),
+        )
 
         lm_loss = None
         if labels is not None:
@@ -1034,7 +1068,7 @@ class XLMRobertaForCausalLM(XLMRobertaPreTrainedModel):
     XLM_ROBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.roberta.modeling_roberta.RobertaForMaskedLM with Roberta->XLMRoberta, ROBERTA->XLM_ROBERTA
-class XLMRobertaForMaskedLM(XLMRobertaPreTrainedModel):
+class XLMRobertaForMaskedLM(BertModelWithHeadsAdaptersMixin, XLMRobertaPreTrainedModel):
     _keys_to_ignore_on_save = [r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"lm_head.decoder.weight", r"lm_head.decoder.bias"]
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
@@ -1112,7 +1146,10 @@ class XLMRobertaForMaskedLM(XLMRobertaPreTrainedModel):
             return_dict=return_dict,
         )
         sequence_output = outputs[0]
-        prediction_scores = self.lm_head(sequence_output)
+        prediction_scores = self.lm_head(
+            sequence_output,
+            inv_lang_adapter=self.roberta.get_invertible_adapter(),
+        )
 
         masked_lm_loss = None
         if labels is not None:
@@ -1144,10 +1181,13 @@ class XLMRobertaLMHead(nn.Module):
         self.bias = nn.Parameter(torch.zeros(config.vocab_size))
         self.decoder.bias = self.bias
 
-    def forward(self, features, **kwargs):
+    def forward(self, features, inv_lang_adapter=None, **kwargs):
         x = self.dense(features)
         x = gelu(x)
         x = self.layer_norm(x)
+
+        if inv_lang_adapter:
+            x = inv_lang_adapter(x, rev=True)
 
         # project back to size of vocabulary with bias
         x = self.decoder(x)
@@ -1171,7 +1211,7 @@ class XLMRobertaLMHead(nn.Module):
     XLM_ROBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.roberta.modeling_roberta.RobertaForSequenceClassification with Roberta->XLMRoberta, ROBERTA->XLM_ROBERTA
-class XLMRobertaForSequenceClassification(XLMRobertaPreTrainedModel):
+class XLMRobertaForSequenceClassification(BertModelWithHeadsAdaptersMixin, XLMRobertaPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config):
@@ -1272,7 +1312,7 @@ class XLMRobertaForSequenceClassification(XLMRobertaPreTrainedModel):
     XLM_ROBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.roberta.modeling_roberta.RobertaForMultipleChoice with Roberta->XLMRoberta, ROBERTA->XLM_ROBERTA
-class XLMRobertaForMultipleChoice(XLMRobertaPreTrainedModel):
+class XLMRobertaForMultipleChoice(BertModelWithHeadsAdaptersMixin, XLMRobertaPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config):
@@ -1368,7 +1408,7 @@ class XLMRobertaForMultipleChoice(XLMRobertaPreTrainedModel):
     XLM_ROBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.roberta.modeling_roberta.RobertaForTokenClassification with Roberta->XLMRoberta, ROBERTA->XLM_ROBERTA
-class XLMRobertaForTokenClassification(XLMRobertaPreTrainedModel):
+class XLMRobertaForTokenClassification(BertModelWithHeadsAdaptersMixin, XLMRobertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
@@ -1479,7 +1519,7 @@ class XLMRobertaClassificationHead(nn.Module):
     XLM_ROBERTA_START_DOCSTRING,
 )
 # Copied from transformers.models.roberta.modeling_roberta.RobertaForQuestionAnswering with Roberta->XLMRoberta, ROBERTA->XLM_ROBERTA
-class XLMRobertaForQuestionAnswering(XLMRobertaPreTrainedModel):
+class XLMRobertaForQuestionAnswering(BertModelWithHeadsAdaptersMixin, XLMRobertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
