@@ -25,17 +25,20 @@ from typing import Optional
 
 import datasets
 import numpy as np
-from datasets import load_dataset
+from datasets import load_dataset, load_metric
 
-import evaluate
 import transformers
+import transformers.adapters.composition as ac
 from transformers import (
+    AdapterConfig,
+    AdapterTrainer,
+    AutoAdapterModel,
     AutoConfig,
-    AutoModelForSequenceClassification,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
     HfArgumentParser,
+    MultiLingAdapterArguments,
     PretrainedConfig,
     Trainer,
     TrainingArguments,
@@ -43,12 +46,12 @@ from transformers import (
     set_seed,
 )
 from transformers.trainer_utils import get_last_checkpoint
-from transformers.utils import check_min_version, send_example_telemetry
+from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.24.0")
+check_min_version("4.21.0")
 
 require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/text-classification/requirements.txt")
 
@@ -192,7 +195,7 @@ class ModelArguments:
         default=False,
         metadata={
             "help": (
-                "Will use the token generated when running `huggingface-cli login` (necessary to use this script "
+                "Will use the token generated when running `transformers-cli login` (necessary to use this script "
                 "with private models)."
             )
         },
@@ -208,17 +211,16 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, MultiLingAdapterArguments))
+
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, adapter_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
-        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
-    # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
-    # information sent is the one passed as arguments along with your Python/PyTorch versions.
-    send_example_telemetry("run_glue", model_args, data_args)
+        model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     # Setup logging
     logging.basicConfig(
@@ -366,7 +368,8 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    model = AutoModelForSequenceClassification.from_pretrained(
+    # We use the AutoAdapterModel class here for better adapter support.
+    model = AutoAdapterModel.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
@@ -375,6 +378,61 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
         ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
     )
+    model.add_classification_head(
+        data_args.task_name or "glue",
+        num_labels=num_labels,
+        id2label={i: v for i, v in enumerate(label_list)} if num_labels > 0 else None,
+    )
+
+    # Setup adapters
+    if adapter_args.train_adapter:
+        task_name = data_args.task_name or "glue"
+        # check if adapter already exists, otherwise add it
+        if task_name not in model.config.adapters:
+            # resolve the adapter config
+            adapter_config = AdapterConfig.load(
+                adapter_args.adapter_config,
+                non_linearity=adapter_args.adapter_non_linearity,
+                reduction_factor=adapter_args.adapter_reduction_factor,
+            )
+            # load a pre-trained from Hub if specified
+            if adapter_args.load_adapter:
+                model.load_adapter(
+                    adapter_args.load_adapter,
+                    config=adapter_config,
+                    load_as=task_name,
+                )
+            # otherwise, add a fresh adapter
+            else:
+                model.add_adapter(task_name, config=adapter_config)
+        # optionally load a pre-trained language adapter
+        if adapter_args.load_lang_adapter:
+            # resolve the language adapter config
+            lang_adapter_config = AdapterConfig.load(
+                adapter_args.lang_adapter_config,
+                non_linearity=adapter_args.lang_adapter_non_linearity,
+                reduction_factor=adapter_args.lang_adapter_reduction_factor,
+            )
+            # load the language adapter from Hub
+            lang_adapter_name = model.load_adapter(
+                adapter_args.load_lang_adapter,
+                config=lang_adapter_config,
+                load_as=adapter_args.language,
+            )
+        else:
+            lang_adapter_name = None
+        # Freeze all model weights except of those of this adapter
+        model.train_adapter([task_name])
+        # Set the adapters to be used in every forward pass
+        if lang_adapter_name:
+            model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
+        else:
+            model.set_active_adapters([task_name])
+    else:
+        if adapter_args.load_adapter or adapter_args.load_lang_adapter:
+            raise ValueError(
+                "Adapters can only be loaded in adapters training mode.Use --train_adapter to enable adapter training"
+            )
 
     # Preprocessing the raw_datasets
     if data_args.task_name is not None:
@@ -481,9 +539,9 @@ def main():
 
     # Get the metric function
     if data_args.task_name is not None:
-        metric = evaluate.load("glue", data_args.task_name)
+        metric = load_metric("glue", data_args.task_name)
     else:
-        metric = evaluate.load("accuracy")
+        metric = load_metric("accuracy")
 
     # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
     # predictions and label_ids field) and has to return a dictionary string to float.
@@ -510,7 +568,8 @@ def main():
         data_collator = None
 
     # Initialize our Trainer
-    trainer = Trainer(
+    trainer_class = AdapterTrainer if adapter_args.train_adapter else Trainer
+    trainer = trainer_class(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
@@ -549,11 +608,7 @@ def main():
         eval_datasets = [eval_dataset]
         if data_args.task_name == "mnli":
             tasks.append("mnli-mm")
-            valid_mm_dataset = raw_datasets["validation_mismatched"]
-            if data_args.max_eval_samples is not None:
-                max_eval_samples = min(len(valid_mm_dataset), data_args.max_eval_samples)
-                valid_mm_dataset = valid_mm_dataset.select(range(max_eval_samples))
-            eval_datasets.append(valid_mm_dataset)
+            eval_datasets.append(raw_datasets["validation_mismatched"])
             combined = {}
 
         for eval_dataset, task in zip(eval_datasets, tasks):
