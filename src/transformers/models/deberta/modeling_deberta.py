@@ -655,6 +655,7 @@ class DisentangledSelfAttention(nn.Module):
         query_layer = query_layer + self.transpose_for_scores(self.q_bias[None, None, :])
         value_layer = value_layer + self.transpose_for_scores(self.v_bias[None, None, :])
 
+        orig_key_layer = key_layer  # save this for relative attention
         key_layer, value_layer, attention_mask = self.prefix_tuning(
             key_layer, value_layer, hidden_states, attention_mask, False
         )
@@ -667,10 +668,14 @@ class DisentangledSelfAttention(nn.Module):
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
         if self.relative_attention:
             rel_embeddings = self.pos_dropout(rel_embeddings)
-            rel_att = self.disentangled_att_bias(query_layer, key_layer, relative_pos, rel_embeddings, scale_factor)
+            rel_att = self.disentangled_att_bias(
+                query_layer, orig_key_layer, relative_pos, rel_embeddings, scale_factor
+            )
 
         if rel_att is not None:
-            attention_scores = attention_scores + rel_att
+            rel_att_padded = torch.zeros_like(attention_scores)
+            rel_att_padded[:, :, :, -rel_att.size(-1) :] = rel_att
+            attention_scores = attention_scores + rel_att_padded
 
         # bxhxlxd
         if self.talking_head:
