@@ -43,7 +43,7 @@ _EXPECTED_OUTPUT_SHAPE = [1, 1088, 7, 7]
 
 # Image classification docstring
 _IMAGE_CLASS_CHECKPOINT = "facebook/regnet-y-040"
-_IMAGE_CLASS_EXPECTED_OUTPUT = "'tabby, tabby cat'"
+_IMAGE_CLASS_EXPECTED_OUTPUT = "tabby, tabby cat"
 
 TF_REGNET_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "facebook/regnet-y-040",
@@ -74,7 +74,7 @@ class TFRegNetConvLayer(tf.keras.layers.Layer):
             use_bias=False,
             name="convolution",
         )
-        self.normalization = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=0.1, name="normalization")
+        self.normalization = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=0.9, name="normalization")
         self.activation = ACT2FN[activation] if activation is not None else tf.identity
 
     def call(self, hidden_state):
@@ -126,7 +126,7 @@ class TFRegNetShortCut(tf.keras.layers.Layer):
         self.convolution = tf.keras.layers.Conv2D(
             filters=out_channels, kernel_size=1, strides=stride, use_bias=False, name="convolution"
         )
-        self.normalization = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=0.1, name="normalization")
+        self.normalization = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=0.9, name="normalization")
 
     def call(self, inputs: tf.Tensor, training: bool = False) -> tf.Tensor:
         return self.normalization(self.convolution(inputs), training=training)

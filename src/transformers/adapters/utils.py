@@ -1,25 +1,38 @@
+import fnmatch
 import hashlib
 import inspect
+import io
 import json
 import logging
 import os
 import re
 import shutil
 import tarfile
+import tempfile
 from collections.abc import Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
+from functools import partial
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 
 import requests
 from filelock import FileLock
-from huggingface_hub import HfApi, snapshot_download
+from huggingface_hub import HfApi, HfFolder, snapshot_download
+from huggingface_hub.file_download import http_get, url_to_filename
+from huggingface_hub.utils import (
+    EntryNotFoundError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+    hf_raise_for_status,
+)
+from requests.exceptions import HTTPError
 
-from ..utils import get_from_cache, is_remote_url
+from ..utils import http_user_agent, is_remote_url
 from ..utils.hub import torch_cache_home
 from . import __version__
 
@@ -156,13 +169,175 @@ def remote_file_exists(url):
     return r.status_code == 200
 
 
-def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, force_extract=False, **kwargs):
-    if not cache_dir:
+# Copied from last version of this method in HF codebase:
+# https://github.com/huggingface/transformers/blob/9129fd0377e4d46cb2d0ea28dc1eb91a15f65b77/src/transformers/utils/hub.py#L460
+def get_from_cache(
+    url: str,
+    cache_dir=None,
+    force_download=False,
+    proxies=None,
+    etag_timeout=10,
+    resume_download=False,
+    user_agent: Union[Dict, str, None] = None,
+    use_auth_token: Union[bool, str, None] = None,
+    local_files_only=False,
+) -> Optional[str]:
+    """
+    Given a URL, look for the corresponding file in the local cache. If it's not there, download it. Then return the
+    path to the cached file. Return:
+        Local path (string) of file or if networking is off, last version of file cached on disk.
+    Raises:
+        In case of non-recoverable file (non-existent or inaccessible url + no cache on disk).
+    """
+    if cache_dir is None:
         cache_dir = ADAPTER_CACHE
-    if isinstance(url, Path):
-        url = str(url)
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
+
+    os.makedirs(cache_dir, exist_ok=True)
+
+    headers = {"user-agent": http_user_agent(user_agent)}
+    if isinstance(use_auth_token, str):
+        headers["authorization"] = f"Bearer {use_auth_token}"
+    elif use_auth_token:
+        token = HfFolder.get_token()
+        if token is None:
+            raise EnvironmentError("You specified use_auth_token=True, but a huggingface token was not found.")
+        headers["authorization"] = f"Bearer {token}"
+
+    url_to_download = url
+    etag = None
+    if not local_files_only:
+        try:
+            r = requests.head(url, headers=headers, allow_redirects=False, proxies=proxies, timeout=etag_timeout)
+            hf_raise_for_status(r)
+            etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
+            # We favor a custom header indicating the etag of the linked resource, and
+            # we fallback to the regular etag header.
+            # If we don't have any of those, raise an error.
+            if etag is None:
+                raise OSError(
+                    "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
+                )
+            # In case of a redirect,
+            # save an extra redirect on the request.get call,
+            # and ensure we download the exact atomic version even if it changed
+            # between the HEAD and the GET (unlikely, but hey).
+            if 300 <= r.status_code <= 399:
+                url_to_download = r.headers["Location"]
+        except (
+            requests.exceptions.SSLError,
+            requests.exceptions.ProxyError,
+            RepositoryNotFoundError,
+            EntryNotFoundError,
+            RevisionNotFoundError,
+        ):
+            # Actually raise for those subclasses of ConnectionError
+            # Also raise the custom errors coming from a non existing repo/branch/file as they are caught later on.
+            raise
+        except (HTTPError, requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            # Otherwise, our Internet connection is down.
+            # etag is None
+            pass
+
+    filename = url_to_filename(url, etag)
+
+    # get cache path to put the file
+    cache_path = os.path.join(cache_dir, filename)
+
+    # etag is None == we don't have a connection or we passed local_files_only.
+    # try to get the last downloaded one
+    if etag is None:
+        if os.path.exists(cache_path):
+            return cache_path
+        else:
+            matching_files = [
+                file
+                for file in fnmatch.filter(os.listdir(cache_dir), filename.split(".")[0] + ".*")
+                if not file.endswith(".json") and not file.endswith(".lock")
+            ]
+            if len(matching_files) > 0:
+                return os.path.join(cache_dir, matching_files[-1])
+            else:
+                # If files cannot be found and local_files_only=True,
+                # the models might've been found if local_files_only=False
+                # Notify the user about that
+                if local_files_only:
+                    fname = url.split("/")[-1]
+                    raise EntryNotFoundError(
+                        f"Cannot find the requested file ({fname}) in the cached path and outgoing traffic has been"
+                        " disabled. To enable model look-ups and downloads online, set 'local_files_only'"
+                        " to False."
+                    )
+                else:
+                    raise ValueError(
+                        "Connection error, and we cannot find the requested files in the cached path."
+                        " Please try again or make sure your Internet connection is on."
+                    )
+
+    # From now on, etag is not None.
+    if os.path.exists(cache_path) and not force_download:
+        return cache_path
+
+    # Prevent parallel downloads of the same file with a lock.
+    lock_path = cache_path + ".lock"
+    with FileLock(lock_path):
+
+        # If the download just completed while the lock was activated.
+        if os.path.exists(cache_path) and not force_download:
+            # Even if returning early like here, the lock will be released.
+            return cache_path
+
+        if resume_download:
+            incomplete_path = cache_path + ".incomplete"
+
+            @contextmanager
+            def _resumable_file_manager() -> "io.BufferedWriter":
+                with open(incomplete_path, "ab") as f:
+                    yield f
+
+            temp_file_manager = _resumable_file_manager
+            if os.path.exists(incomplete_path):
+                resume_size = os.stat(incomplete_path).st_size
+            else:
+                resume_size = 0
+        else:
+            temp_file_manager = partial(tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False)
+            resume_size = 0
+
+        # Download to temporary file, then copy to cache dir once finished.
+        # Otherwise you get corrupt cache entries if the download gets interrupted.
+        with temp_file_manager() as temp_file:
+            logger.info(f"{url} not found in cache or force_download set to True, downloading to {temp_file.name}")
+
+            http_get(
+                url_to_download,
+                temp_file,
+                proxies=proxies,
+                resume_size=resume_size,
+                headers=headers,
+            )
+
+        logger.info(f"storing {url} in cache at {cache_path}")
+        os.replace(temp_file.name, cache_path)
+
+        # NamedTemporaryFile creates a file with hardwired 0600 perms (ignoring umask), so fixing it.
+        umask = os.umask(0o666)
+        os.umask(umask)
+        os.chmod(cache_path, 0o666 & ~umask)
+
+        logger.info(f"creating metadata file for {cache_path}")
+        meta = {"url": url, "etag": etag}
+        meta_path = cache_path + ".json"
+        with open(meta_path, "w") as meta_file:
+            json.dump(meta, meta_file)
+
+    return cache_path
+
+
+def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, force_extract=False, **kwargs):
+    if isinstance(url, Path):
+        url = str(url)
 
     if is_remote_url(url):
         output_path = get_from_cache(url, cache_dir=cache_dir, **kwargs)

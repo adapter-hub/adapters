@@ -3,16 +3,13 @@ import unittest
 from transformers import XLMRobertaConfig
 from transformers.testing_utils import require_torch
 
+from .methods import BottleneckAdapterTestMixin, UniPELTTestMixin, CompacterTestMixin, IA3TestMixin, LoRATestMixin, PrefixTuningTestMixin
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_conversion import ModelClassConversionTestMixin
+from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 
 
-@require_torch
-class XLMRobertaClassConversionTest(
-    ModelClassConversionTestMixin,
-    AdapterTestBase,
-    unittest.TestCase,
-):
+class XLMRobertaAdapterTestBase(AdapterTestBase):
     config_class = XLMRobertaConfig
     config = make_config(
         XLMRobertaConfig,
@@ -20,4 +17,30 @@ class XLMRobertaClassConversionTest(
         num_hidden_layers=4,
         num_attention_heads=4,
         intermediate_size=37,
+        vocab_size=250002,
     )
+    tokenizer_name = "xlm-roberta-base"
+
+
+@require_torch
+class XLMRobertaAdapterTest(
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    IA3TestMixin,
+    LoRATestMixin,
+    PrefixTuningTestMixin,
+    UniPELTTestMixin,
+    AdapterFusionModelTestMixin,
+    XLMRobertaAdapterTestBase,
+    unittest.TestCase,
+):
+    pass
+
+
+@require_torch
+class XLMRobertaClassConversionTest(
+    ModelClassConversionTestMixin,
+    XLMRobertaAdapterTestBase,
+    unittest.TestCase,
+):
+    pass
