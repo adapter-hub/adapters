@@ -1,33 +1,38 @@
+import fnmatch
 import hashlib
 import inspect
+import io
 import json
 import logging
 import os
 import re
 import shutil
-import io
-import fnmatch
 import tarfile
+import tempfile
 from collections.abc import Mapping
 from contextlib import contextmanager
-import tempfile
-from functools import partial
 from dataclasses import dataclass
 from enum import Enum
+from functools import partial
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
-from typing import Callable, List, Optional, Union, Dict
+from typing import Callable, Dict, List, Optional, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 
 import requests
 from filelock import FileLock
-from huggingface_hub import HfApi, snapshot_download, HfFolder
-from huggingface_hub.file_download import url_to_filename, http_get
-from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError, hf_raise_for_status
+from huggingface_hub import HfApi, HfFolder, snapshot_download
+from huggingface_hub.file_download import http_get, url_to_filename
+from huggingface_hub.utils import (
+    EntryNotFoundError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+    hf_raise_for_status,
+)
 from requests.exceptions import HTTPError
 
-from ..utils import is_remote_url, http_user_agent
+from ..utils import http_user_agent, is_remote_url
 from ..utils.hub import torch_cache_home
 from . import __version__
 
@@ -179,8 +184,7 @@ def get_from_cache(
 ) -> Optional[str]:
     """
     Given a URL, look for the corresponding file in the local cache. If it's not there, download it. Then return the
-    path to the cached file.
-    Return:
+    path to the cached file. Return:
         Local path (string) of file or if networking is off, last version of file cached on disk.
     Raises:
         In case of non-recoverable file (non-existent or inaccessible url + no cache on disk).

@@ -243,9 +243,9 @@ class XLMRobertaSelfAttention(nn.Module):
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_layer, value_layer)
 
-            key_layer, value_layer, attention_mask = self.prefix_tuning(
-                key_layer, value_layer, hidden_states, attention_mask
-            )
+        key_layer, value_layer, attention_mask = self.prefix_tuning(
+            key_layer, value_layer, hidden_states, attention_mask
+        )
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
