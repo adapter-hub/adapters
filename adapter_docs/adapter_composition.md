@@ -189,15 +189,15 @@ model.active_adapters = ac.BatchSplit("i", "k", "l", batch_sizes=[2, 1, 2])
 .. figure:: img/parallel.png
     :height: 300
     :align: center
-    :alt: Illustration of parallel adapter inference.
+    :alt: Illustration of parallel adapter forward pass.
 
-    Parallel adapter inference as implemented by the 'Parallel' block. The input is replicated at the first layer with parallel adapters.
+    Parallel adapter forward pass as implemented by the 'Parallel' block. The input is replicated at the first layer with parallel adapters.
 ```
 
-The `Parallel` block can be used to enable parallel multi-task inference on different adapters, each with their own prediction head.
+The `Parallel` block can be used to enable parallel multi-task training and inference on different adapters, each with their own prediction head.
 Parallel adapter inference was first used in _AdapterDrop: On the Efficiency of Adapters in Transformers_ [(Rücklé et al., 2020)](https://arxiv.org/pdf/2010.11918.pdf).
 
-In the following example, we load two adapters for semantic textual similarity (sts) from the Hub, one trained on the STS benchmark, the other trained on the MRPC dataset.
+In the following example, we load two adapters for semantic textual similarity (STS) from the Hub, one trained on the STS benchmark, the other trained on the MRPC dataset.
 We activate a parallel setup where the input is passed through both adapters and their respective prediction heads.
 
 ```python
@@ -216,8 +216,6 @@ output1, output2 = model(**input_ids)
 print("STS-B adapter output:", output1[0].item())
 print("MRPC adapter output:", bool(torch.argmax(output2[0]).item()))
 ```
-
-Note that the `Parallel` block is only intended for _inference_, not for _training_ adapters.
 
 ## Nesting composition blocks
 
