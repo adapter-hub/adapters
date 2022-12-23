@@ -416,7 +416,7 @@ def parse_adapter_config_string(config_string: str) -> List[Tuple[str, dict]]:
         # Now evaluate key-value pairs as Python dict
         try:
             config_kwargs = ast.literal_eval("{" + kvs + "}")
-        except:
+        except Exception:
             raise ValueError(f"Invalid adapter configguration '{kvs}' in '{name}'.")
         adapter_configs.append((name, config_kwargs))
 
