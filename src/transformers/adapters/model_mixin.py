@@ -408,8 +408,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Adds a new adapter module of the specified type to the model.
 
         Args:
-            adapter_name (str): The name of the adapter module to be added. config (str or dict or AdapterConfigBase,
-            optional): The adapter configuration, can be either:
+            adapter_name (str): The name of the adapter module to be added.
+            config (str or dict or AdapterConfigBase, optional): The adapter configuration, can be either:
 
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
@@ -420,8 +420,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 Set the adapter to be the active one. By default (False),
             the adapter is added but not activated.
         """
-        if isinstance(config, dict):
-            config = AdapterConfigBase.load(config)  # ensure config is ok and up-to-date
+        config = AdapterConfigBase.load(config)  # ensure config is ok and up-to-date
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
         if overwrite_ok and adapter_name in self.config.adapters:
             self.delete_adapter(adapter_name)
