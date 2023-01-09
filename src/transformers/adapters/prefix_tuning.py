@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from ..modeling_utils import ModuleUtilsMixin
-from .composition import AdapterCompositionBlock
+from .composition import AdapterCompositionBlock, Stack
 from .configuration import PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
 from .layer import AdapterLayerBase
@@ -300,44 +300,62 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
 
         return None
 
+    def adapter_stack(
+        self, adapter_setup: Stack, key_states, value_states, residual_input, attention_mask=None, invert_mask=True
+    ):
+        for prefix_tuning_name in adapter_setup:
+            # We don't support other composition blocks currently
+            if isinstance(prefix_tuning_name, AdapterCompositionBlock):
+                raise ValueError(f"Invalid adapter setup. Cannot nest {adapter_setup} in Stack for prefix tuning.")
+            # We have a single prefix tuning module part of this model -> forward pass
+            elif prefix_tuning_name in self.prefixes:
+                prefix_id = self.prefixes[prefix_tuning_name]
+                batch_size = key_states.size(0)
+
+                # Retrieve pre-computed prefix states from context
+                context = ForwardContext.get_context()
+                # batch_size x n_heads x prefix_length x n_embd_per_head
+                prefix_keys, prefix_values = context.prefix_states[prefix_tuning_name][self.location_key][prefix_id]
+
+                if prefix_tuning_name in self.prefix_gates:
+                    gate = self.prefix_gates[prefix_tuning_name]
+                    gate_output = torch.mean(torch.sigmoid(gate(residual_input)), dim=1)
+                    self._store_gating_score(prefix_tuning_name, gate_output)
+                    gate_output_key = gate_output[:, 0].view(-1, 1, 1, 1)
+                    gate_output_value = gate_output[:, -1].view(-1, 1, 1, 1)
+                    prefix_keys = prefix_keys * gate_output_key
+                    prefix_values = prefix_values * gate_output_value
+
+                key_states = torch.cat([prefix_keys, key_states], dim=2)
+                value_states = torch.cat([prefix_values, value_states], dim=2)
+                if attention_mask is not None:
+                    if attention_mask.dim() == 2:
+                        prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(attention_mask.device)
+                    else:
+                        prefix_mask = torch.ones(batch_size, 1, attention_mask.size(2), prefix_keys.size(2)).to(
+                            attention_mask.device
+                        )
+                    if invert_mask:
+                        prefix_mask = 1.0 - prefix_mask
+                    attention_mask = torch.cat([prefix_mask, attention_mask], dim=-1)
+            # As all prefix tuning modules are centrally stored, fail if not found.
+            else:
+                raise ValueError(f"Unknown prefix tuning name '{prefix_tuning_name}'.")
+
+        return key_states, value_states, attention_mask
+
     def forward(self, key_states, value_states, residual_input, attention_mask=None, invert_mask=True):
         adapter_setup = self.get_active_setup(self.prefixes)
         if adapter_setup is not None:
-            if len(adapter_setup) == 1:
-                # we already made sure we only have 1 item
-                prefix_tuning_name = adapter_setup.first()
-                if prefix_tuning_name in self.prefixes:
-                    prefix_id = self.prefixes[prefix_tuning_name]
-                    batch_size = key_states.size(0)
-
-                    # Retrieve pre-computed prefix states from context
-                    context = ForwardContext.get_context()
-                    # batch_size x n_heads x prefix_length x n_embd_per_head
-                    prefix_keys, prefix_values = context.prefix_states[prefix_tuning_name][self.location_key][
-                        prefix_id
-                    ]
-
-                    if prefix_tuning_name in self.prefix_gates:
-                        gate = self.prefix_gates[prefix_tuning_name]
-                        gate_output = torch.mean(torch.sigmoid(gate(residual_input)), dim=1)
-                        self._store_gating_score(prefix_tuning_name, gate_output)
-                        gate_output_key = gate_output[:, 0].view(-1, 1, 1, 1)
-                        gate_output_value = gate_output[:, -1].view(-1, 1, 1, 1)
-                        key_states = key_states * gate_output_key
-                        value_states = value_states * gate_output_value
-
-                    key_states = torch.cat([prefix_keys, key_states], dim=2)
-                    value_states = torch.cat([prefix_values, value_states], dim=2)
-                    if attention_mask is not None:
-                        if attention_mask.dim() == 2:
-                            prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(attention_mask.device)
-                        else:
-                            prefix_mask = torch.ones(batch_size, 1, attention_mask.size(2), prefix_keys.size(2)).to(
-                                attention_mask.device
-                            )
-                        if invert_mask:
-                            prefix_mask = 1.0 - prefix_mask
-                        attention_mask = torch.cat([prefix_mask, attention_mask], dim=-1)
+            if isinstance(adapter_setup, Stack):
+                key_states, value_states, attention_mask = self.adapter_stack(
+                    adapter_setup,
+                    key_states,
+                    value_states,
+                    residual_input,
+                    attention_mask=attention_mask,
+                    invert_mask=invert_mask,
+                )
             else:
                 raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with prefix tuning.")
 
