@@ -5,6 +5,8 @@ import stat
 import tempfile
 from typing import List, Optional, Union
 
+from transformers.utils.generic import working_or_temp_dir
+
 
 logger = logging.getLogger(__name__)
 
@@ -175,17 +177,14 @@ class PushAdapterToHubMixin:
             repo_id = f"{organization}/{repo_name}"
         else:
             repo_id = repo_name
-            
-        if use_temp_dir is None:
-            use_temp_dir = not os.path.isdir(working_dir)
-            
+
+        use_temp_dir = not os.path.isdir(local_path) if local_path else True
+
         # Create repo or get retrieve an existing repo
-        repo_id, token = self._create_repo(
-            repo_id, private=private, use_auth_token=use_auth_token
-        )
-        
+        repo_id, token = self._create_repo(repo_id, private=private, use_auth_token=use_auth_token)
+
         # Commit and push
-        logger.info('Pushing adapter "%s" to model hub at %s ...', adapter_name, repo_url)
+        logger.info('Pushing adapter "%s" to model hub at %s ...', adapter_name, repo_id)
         with working_or_temp_dir(working_dir=local_path, use_temp_dir=use_temp_dir) as work_dir:
             files_timestamps = self._get_files_timestamps(work_dir)
             # Save adapter and optionally create model card
@@ -200,21 +199,6 @@ class PushAdapterToHubMixin:
                     datasets_tag=datasets_tag,
                     **adapter_card_kwargs,
                 )
-            url = self._upload_modified_files(
+            return self._upload_modified_files(
                 work_dir, repo_id, files_timestamps, commit_message=commit_message, token=token, create_pr=create_pr
             )
-
-        # Clean up if temp dir was used
-        if local_path is None:
-            def on_rm_error(func, path, exc_info):
-                # path contains the path of the file that couldn't be removed
-                # let's just assume that it's read-only and unlink it.
-                try:
-                    os.chmod(path, stat.S_IWRITE)
-                    os.unlink(path)
-                except Exception:
-                    pass
-
-            shutil.rmtree(repo_path, onerror=on_rm_error)
-
-        return url
