@@ -133,6 +133,7 @@ class PushAdapterToHubMixin:
         private: Optional[bool] = None,
         use_auth_token: Union[bool, str] = True,
         overwrite_adapter_card: bool = False,
+        create_pr: bool = False,
         adapter_card_kwargs: Optional[dict] = None,
     ):
         """Upload an adapter to HuggingFace's Model Hub.
@@ -162,45 +163,49 @@ class PushAdapterToHubMixin:
                 True.
             overwrite_adapter_card (bool, optional): Overwrite an existing adapter card with a newly generated one.
                 If set to `False`, will only generate an adapter card, if none exists. Defaults to False.
+            create_pr (bool, optional):
+                Whether or not to create a PR with the uploaded files or directly commit.
 
         Returns:
             str: The url of the adapter repository on the model hub.
         """
-        repo_url = self._get_repo_url_from_name(
-            repo_name, organization=organization, private=private, use_auth_token=use_auth_token
-        )
-        if local_path is not None:
-            repo_path = local_path
+        if not repo_name.startswith(organization):
+            if "/" in repo_name:
+                repo_name = repo_name.split("/")[-1]
+            repo_id = f"{organization}/{repo_name}"
         else:
-            repo_path = tempfile.mkdtemp()
+            repo_id = repo_name
+            
+        if use_temp_dir is None:
+            use_temp_dir = not os.path.isdir(working_dir)
+            
         # Create repo or get retrieve an existing repo
-        repo = self._create_or_get_repo(
-            repo_path_or_name=repo_path,
-            repo_url=repo_url,
-            organization=organization,
-            private=private,
-            use_auth_token=use_auth_token,
+        repo_id, token = self._create_repo(
+            repo_id, private=private, use_auth_token=use_auth_token
         )
-        # Save adapter and optionally create model card
-        self.save_adapter(repo_path, adapter_name)
-        if overwrite_adapter_card or not os.path.exists(os.path.join(repo_path, "README.md")):
-            full_repo_name = "/".join(repo_url.split("/")[-2:])
-            adapter_card_kwargs = adapter_card_kwargs or {}
-            self._save_adapter_card(
-                repo_path,
-                adapter_name,
-                full_repo_name,
-                adapterhub_tag=adapterhub_tag,
-                datasets_tag=datasets_tag,
-                **adapter_card_kwargs,
-            )
+        
         # Commit and push
         logger.info('Pushing adapter "%s" to model hub at %s ...', adapter_name, repo_url)
-        url = self._push_to_hub(repo, commit_message=commit_message)
+        with working_or_temp_dir(working_dir=local_path, use_temp_dir=use_temp_dir) as work_dir:
+            files_timestamps = self._get_files_timestamps(work_dir)
+            # Save adapter and optionally create model card
+            self.save_adapter(work_dir, adapter_name)
+            if overwrite_adapter_card or not os.path.exists(os.path.join(work_dir, "README.md")):
+                adapter_card_kwargs = adapter_card_kwargs or {}
+                self._save_adapter_card(
+                    work_dir,
+                    adapter_name,
+                    repo_id,
+                    adapterhub_tag=adapterhub_tag,
+                    datasets_tag=datasets_tag,
+                    **adapter_card_kwargs,
+                )
+            url = self._upload_modified_files(
+                work_dir, repo_id, files_timestamps, commit_message=commit_message, token=token, create_pr=create_pr
+            )
 
         # Clean up if temp dir was used
         if local_path is None:
-
             def on_rm_error(func, path, exc_info):
                 # path contains the path of the file that couldn't be removed
                 # let's just assume that it's read-only and unlink it.
