@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from ..modeling_utils import ModuleUtilsMixin
-from .composition import AdapterCompositionBlock, Stack
+from .composition import AdapterCompositionBlock, Stack, Parallel, BatchSplit
 from .configuration import PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
 from .layer import AdapterLayerBase
@@ -300,55 +300,312 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
 
         return None
 
-    def adapter_stack(
-        self, adapter_setup: Stack, key_states, value_states, residual_input, attention_mask=None, invert_mask=True
+    def single_forward(
+        self,
+        adapter_name: str,
+        key_states,
+        value_states,
+        residual_input,
+        attention_mask=None,
+        invert_mask=True,
+        idx_range=None,
     ):
-        for prefix_tuning_name in adapter_setup:
-            # We don't support other composition blocks currently
-            if isinstance(prefix_tuning_name, AdapterCompositionBlock):
-                raise ValueError(f"Invalid adapter setup. Cannot nest {adapter_setup} in Stack for prefix tuning.")
+        prefix_id = self.prefixes[adapter_name]
+        batch_size = key_states.size(0)
+
+        # Retrieve pre-computed prefix states from context
+        context = ForwardContext.get_context()
+        # batch_size x n_heads x prefix_length x n_embd_per_head
+        prefix_keys, prefix_values = context.prefix_states[adapter_name][self.location_key][prefix_id]
+
+        # select index range for batch split
+        if idx_range is not None:
+            prefix_keys = prefix_keys[idx_range]
+            prefix_values = prefix_values[idx_range]
+
+        if adapter_name in self.prefix_gates:
+            gate = self.prefix_gates[adapter_name]
+            gate_output = torch.mean(torch.sigmoid(gate(residual_input)), dim=1)
+            self._store_gating_score(adapter_name, gate_output)
+            gate_output_key = gate_output[:, 0].view(-1, 1, 1, 1)
+            gate_output_value = gate_output[:, -1].view(-1, 1, 1, 1)
+            prefix_keys = prefix_keys * gate_output_key
+            prefix_values = prefix_values * gate_output_value
+
+        key_states = torch.cat([prefix_keys, key_states], dim=2)
+        value_states = torch.cat([prefix_values, value_states], dim=2)
+        if attention_mask is not None:
+            if attention_mask.dim() == 2:
+                prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(attention_mask.device)
+            else:
+                prefix_mask = torch.ones(batch_size, 1, attention_mask.size(2), prefix_keys.size(2)).to(
+                    attention_mask.device
+                )
+            if invert_mask:
+                prefix_mask = 1.0 - prefix_mask
+            attention_mask = torch.cat([prefix_mask, attention_mask], dim=-1)
+
+        return key_states, value_states, residual_input, attention_mask
+
+    def adapter_stack(
+        self,
+        adapter_setup: Stack,
+        key_states,
+        value_states,
+        residual_input,
+        attention_mask=None,
+        invert_mask=True,
+        idx_range=None,
+        lvl=0,
+    ):
+        for adapter_stack_layer in adapter_setup:
+            # Break if setup is too deep
+            if isinstance(adapter_stack_layer, AdapterCompositionBlock) and lvl >= 1:
+                raise ValueError(
+                    "Specified adapter setup is too deep. Cannot have {} at level {}".format(
+                        adapter_stack_layer.__class__.__name__, lvl
+                    )
+                )
+            # We have a nested parallel layer -> call parallel method
+            elif isinstance(adapter_stack_layer, Parallel):
+                key_states, value_states, attention_mask = self.adapter_parallel(
+                    adapter_stack_layer,
+                    key_states,
+                    value_states,
+                    attention_mask,
+                    invert_mask=invert_mask,
+                    idx_range=idx_range,
+                    lvl=lvl + 1,
+                )
+            # We have a nested batch split block -> call batchsplit method
+            elif isinstance(adapter_stack_layer, BatchSplit):
+                hidden_states = self.adapter_batchsplit(
+                    adapter_stack_layer,
+                    key_states,
+                    value_states,
+                    attention_mask,
+                    invert_mask=invert_mask,
+                    idx_range=idx_range,
+                    lvl=lvl + 1,
+                )
             # We have a single prefix tuning module part of this model -> forward pass
-            elif prefix_tuning_name in self.prefixes:
-                prefix_id = self.prefixes[prefix_tuning_name]
-                batch_size = key_states.size(0)
-
-                # Retrieve pre-computed prefix states from context
-                context = ForwardContext.get_context()
-                # batch_size x n_heads x prefix_length x n_embd_per_head
-                prefix_keys, prefix_values = context.prefix_states[prefix_tuning_name][self.location_key][prefix_id]
-
-                if prefix_tuning_name in self.prefix_gates:
-                    gate = self.prefix_gates[prefix_tuning_name]
-                    gate_output = torch.mean(torch.sigmoid(gate(residual_input)), dim=1)
-                    self._store_gating_score(prefix_tuning_name, gate_output)
-                    gate_output_key = gate_output[:, 0].view(-1, 1, 1, 1)
-                    gate_output_value = gate_output[:, -1].view(-1, 1, 1, 1)
-                    prefix_keys = prefix_keys * gate_output_key
-                    prefix_values = prefix_values * gate_output_value
-
-                key_states = torch.cat([prefix_keys, key_states], dim=2)
-                value_states = torch.cat([prefix_values, value_states], dim=2)
-                if attention_mask is not None:
-                    if attention_mask.dim() == 2:
-                        prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(attention_mask.device)
-                    else:
-                        prefix_mask = torch.ones(batch_size, 1, attention_mask.size(2), prefix_keys.size(2)).to(
-                            attention_mask.device
-                        )
-                    if invert_mask:
-                        prefix_mask = 1.0 - prefix_mask
-                    attention_mask = torch.cat([prefix_mask, attention_mask], dim=-1)
+            elif adapter_stack_layer in self.prefixes:
+                key_states, value_states, attention_mask = self.single_forward(
+                    adapter_stack_layer,
+                    key_states,
+                    value_states,
+                    residual_input,
+                    attention_mask,
+                    invert_mask,
+                    idx_range=idx_range,
+                )
+            # Nesting other composition blocks is invalid
+            elif isinstance(adapter_stack_layer, AdapterCompositionBlock):
+                raise ValueError(
+                    "Invalid adapter setup. Cannot nest {} in {}".format(
+                        adapter_stack_layer.__class__.__name__, adapter_setup.__class__.__name__
+                    )
+                )
             # As all prefix tuning modules are centrally stored, fail if not found.
             else:
-                raise ValueError(f"Unknown prefix tuning name '{prefix_tuning_name}'.")
+                raise ValueError(f"Unknown prefix tuning name '{adapter_stack_layer}'.")
 
-        return key_states, value_states, attention_mask
+        return key_states, value_states, residual_input, attention_mask
+
+    def adapter_parallel(
+        self,
+        adapter_setup: Parallel,
+        key_states,
+        value_states,
+        residual_input,
+        attention_mask=None,
+        invert_mask=True,
+        idx_range=None,
+        lvl=0,
+    ):
+        """
+        For parallel execution of the adapters on the same input. This means that the input is repeated N times before
+        feeding it to the adapters (where N is the number of adapters).
+        """
+
+        context = ForwardContext.get_context()
+        if not context.adapters_parallelized:
+            orig_batch_size = residual_input.shape[0]
+            residual_input = residual_input.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1)
+            key_states = key_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
+            value_states = value_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
+            if attention_mask is not None:
+                attention_mask = attention_mask.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
+            context.adapters_parallelized = True
+        else:
+            # The base model should handle replication of input.
+            # Therefore, we assume the (replicated) input batch to be divisible by the number of parallel channels.
+            if residual_input.shape[0] % adapter_setup.parallel_channels != 0:
+                raise ValueError(
+                    "The total input batch size in a Parallel adapter block must be divisible by the number of"
+                    " parallel channels."
+                )
+            orig_batch_size = residual_input.shape[0] // adapter_setup.parallel_channels
+
+        # sequentially feed different parts of the blown-up batch into different adapters
+        children_outputs = []
+        for i, child in enumerate(adapter_setup):
+            # construct inputs to child modules
+            inputs = {
+                "key_states": key_states[i * orig_batch_size : (i + 1) * orig_batch_size],
+                "value_states": value_states[i * orig_batch_size : (i + 1) * orig_batch_size],
+                "residual_input": residual_input[i * orig_batch_size : (i + 1) * orig_batch_size],
+                "attention_mask": attention_mask[i * orig_batch_size : (i + 1) * orig_batch_size]
+                if attention_mask is not None
+                else None,
+                "invert_mask": invert_mask,
+                "idx_range": idx_range
+            }
+
+            # Case 1: We have a nested stack -> call stack method
+            if isinstance(child, Stack):
+                child_outputs = self.adapter_stack(
+                    child,
+                    **inputs,
+                    lvl=lvl + 1,
+                )
+                children_outputs.append(child_outputs)
+            # Case 2. We have a nested batchsplit block -> call batchsplit method
+            elif isinstance(child, BatchSplit):
+                child_outputs = self.adapter_batchsplit(
+                    child,
+                    **inputs,
+                    lvl=lvl + 1,
+                )
+                children_outputs.append(child_outputs)
+            # Case 3: We have a single adapter which is part of this module -> forward pass
+            elif child in self.prefixes:
+                child_outputs = self.single_forward(
+                    child,
+                    **inputs,
+                )
+                children_outputs.append(child_outputs)
+            # Case 4: nesting other composition blocks is invalid
+            elif isinstance(child, AdapterCompositionBlock):
+                raise ValueError(
+                    "Invalid adapter setup. Cannot nest {} in {}".format(
+                        child.__class__.__name__, adapter_setup.__class__.__name__
+                    )
+                )
+            # As all prefix tuning modules are centrally stored, fail if not found.
+            else:
+                raise ValueError(f"Unknown prefix tuning name '{child}'.")
+
+        # concatenate all outputs and return
+        key_states = torch.cat([child[0] for child in children_outputs], 0)
+        value_states = torch.cat([child[1] for child in children_outputs], 0)
+        residual_input = torch.cat([child[2] for child in children_outputs], 0)
+        attention_mask = torch.cat([child[3] for child in children_outputs], 0) if attention_mask is not None else None
+        return key_states, value_states, residual_input, attention_mask
+
+    def adapter_batchsplit(
+        self,
+        adapter_setup: BatchSplit,
+        key_states,
+        value_states,
+        residual_input,
+        attention_mask=None,
+        invert_mask=True,
+        idx_range=None,
+        lvl=0,
+    ):
+        if not sum(adapter_setup.batch_sizes) == key_states.shape[0]:
+            raise IndexError(
+                "The given batch has a size of {} which is not compatible with batch_sizes {}".format(
+                    key_states.shape[0], adapter_setup.batch_sizes
+                )
+            )
+
+        children_outputs = []
+        for i, adapter_block in enumerate(adapter_setup):
+            # compute ids of sequences that should be passed to the ith adapter
+            if idx_range is None:
+                split_idx_range = range(
+                    sum(adapter_setup.batch_sizes[:i]),
+                    sum(adapter_setup.batch_sizes[: i + 1]),
+                )
+            else:
+                split_idx_range = range(
+                    idx_range.start + sum(adapter_setup.batch_sizes[:i]),
+                    idx_range.start + sum(adapter_setup.batch_sizes[: i + 1]),
+                )
+            inputs = {
+                "key_states": key_states[split_idx_range],
+                "value_states": value_states[split_idx_range],
+                "residual_input": residual_input[split_idx_range],
+                "attention_mask": attention_mask[split_idx_range] if attention_mask is not None else None,
+                "invert_mask": invert_mask,
+                "idx_range": split_idx_range,
+            }
+            # Case 1: We have a nested stack -> call stack method
+            if isinstance(adapter_block, Stack):
+                child_outputs = self.adapter_stack(
+                    adapter_block,
+                    **inputs,
+                    lvl=lvl + 1,
+                )
+                children_outputs.append(child_outputs)
+            # Case 2: We have a nested batch split block -> call batchsplit method
+            elif isinstance(adapter_block, BatchSplit):
+                child_outputs = self.adapter_batchsplit(
+                    adapter_block,
+                    **inputs,
+                    lvl=lvl + 1,
+                )
+                children_outputs.append(child_outputs)
+            # Case 4: We have a single adapter which is part of this module -> forward pass
+            elif adapter_block in self.prefixes:
+                child_outputs = self.single_forward(
+                    adapter_block,
+                    **inputs,
+                )
+                children_outputs.append(child_outputs)
+            # Case 5: nesting other composition blocks is invalid
+            elif isinstance(adapter_block, AdapterCompositionBlock):
+                raise ValueError(
+                    "Invalid adapter setup. Cannot nest {} in {}".format(
+                        adapter_block.__class__.__name__, adapter_setup.__class__.__name__
+                    )
+                )
+            # As all prefix tuning modules are centrally stored, fail if not found.
+            else:
+                raise ValueError(f"Unknown prefix tuning name '{adapter_block}'.")
+
+        # concatenate all outputs and return
+        key_states = torch.cat([child[0] for child in children_outputs], 0)
+        value_states = torch.cat([child[1] for child in children_outputs], 0)
+        residual_input = torch.cat([child[2] for child in children_outputs], 0)
+        attention_mask = torch.cat([child[3] for child in children_outputs], 0) if attention_mask is not None else None
+        return key_states, value_states, residual_input, attention_mask
 
     def forward(self, key_states, value_states, residual_input, attention_mask=None, invert_mask=True):
         adapter_setup = self.get_active_setup(self.prefixes)
         if adapter_setup is not None:
             if isinstance(adapter_setup, Stack):
-                key_states, value_states, attention_mask = self.adapter_stack(
+                key_states, value_states, _, attention_mask = self.adapter_stack(
+                    adapter_setup,
+                    key_states,
+                    value_states,
+                    residual_input,
+                    attention_mask=attention_mask,
+                    invert_mask=invert_mask,
+                )
+            elif isinstance(adapter_setup, Parallel):
+                key_states, value_states, _, attention_mask = self.adapter_parallel(
+                    adapter_setup,
+                    key_states,
+                    value_states,
+                    residual_input,
+                    attention_mask=attention_mask,
+                    invert_mask=invert_mask,
+                )
+            elif isinstance(adapter_setup, BatchSplit):
+                key_states, value_states, _, attention_mask = self.adapter_batchsplit(
                     adapter_setup,
                     key_states,
                     value_states,
