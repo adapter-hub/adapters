@@ -1,11 +1,11 @@
 from typing import List, Union
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 
 from ..modeling_utils import ModuleUtilsMixin
-from .composition import AdapterCompositionBlock, Stack, Parallel, BatchSplit, adjust_tensors_for_parallel
+from .composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack, adjust_tensors_for_parallel
 from .configuration import PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
 from .layer import AdapterLayerBase

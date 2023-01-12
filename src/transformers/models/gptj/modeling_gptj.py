@@ -266,6 +266,8 @@ class GPTJAttention(nn.Module):
             present = None
 
         key, value, attention_mask = self.prefix_tuning(key, value, hidden_states, attention_mask)
+        (query,) = adjust_tensors_for_parallel(key, query)
+
         # compute self-attention: V x Softmax(QK^T)
         attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
 

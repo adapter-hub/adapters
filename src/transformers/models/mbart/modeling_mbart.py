@@ -249,6 +249,7 @@ class MBartAttention(nn.Module):
         key_states, value_states, attention_mask = self.prefix_tuning(
             key_states, value_states, hidden_states, attention_mask
         )
+        (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
 
         key_states = key_states.view(*proj_shape)
         value_states = value_states.view(*proj_shape)

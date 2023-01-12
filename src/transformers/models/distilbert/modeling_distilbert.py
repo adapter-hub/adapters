@@ -215,6 +215,7 @@ class MultiHeadSelfAttention(nn.Module):
         v = shape(self.v_lin(value))  # (bs, n_heads, k_length, dim_per_head)
 
         k, v, mask = self.prefix_tuning(k, v, value, mask, invert_mask=False)
+        (q,) = adjust_tensors_for_parallel(k, q)
 
         mask_reshp = (bs, 1, 1, k.size(2))
 

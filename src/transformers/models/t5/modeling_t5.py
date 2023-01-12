@@ -524,6 +524,7 @@ class T5Attention(nn.Module):
         present_key_value_state = (key_states, value_states) if (self.is_decoder and use_cache) else None
 
         key_states, value_states, mask = self.prefix_tuning(key_states, value_states, hidden_states, mask)
+        (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
         key_length = key_states.size(2)
 
         # compute scores

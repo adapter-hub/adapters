@@ -765,6 +765,7 @@ class DisentangledSelfAttention(nn.Module):
         key_layer, value_layer, attention_mask = self.prefix_tuning(
             key_layer, value_layer, hidden_states, attention_mask, False
         )  # [:, 0, :, 0])
+        (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
 
         key_layer = key_layer.contiguous().view(-1, key_layer.size(2), key_layer.size(-1))
         value_layer = value_layer.contiguous().view(-1, value_layer.size(2), value_layer.size(-1))

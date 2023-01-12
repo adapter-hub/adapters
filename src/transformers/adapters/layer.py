@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack
+from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack, adjust_tensors_for_parallel
 from .configuration import AdapterConfig
 from .context import AdapterSetup, ForwardContext
 from .modeling import Adapter, BertFusion, ParallelAdapter
@@ -516,6 +516,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         """
         Called for each forward pass through adapters.
         """
+        # Batch sizes might be different due to prefix tuning w. Parallel block
+        (input_tensor,) = adjust_tensors_for_parallel(hidden_states, input_tensor)
         adapter_setup = self.get_active_setup(self.adapters)
         if adapter_setup is not None:
             input_hidden_states = hidden_states

@@ -1,6 +1,5 @@
 import copy
 import random
-import unittest
 
 import torch
 
@@ -11,7 +10,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from transformers.adapters import ADAPTER_MODEL_MAPPING
+from transformers.adapters import ADAPTER_MODEL_MAPPING, PfeifferConfig, PrefixTuningConfig
 from transformers.adapters.composition import BatchSplit, Parallel
 from transformers.testing_utils import require_torch, torch_device
 
@@ -144,13 +143,13 @@ class ParallelAdapterInferenceTestMixin:
 
 
 class ParallelTrainingMixin:
-    def create_twin_adapters(self, model, name):
+    def create_twin_adapters(self, model, name, adapter_config):
         # create adapter
         adapter1, adapter2 = name + "_1", name + "_2"
-        model.add_adapter(adapter1)
+        model.add_adapter(adapter1, config=adapter_config)
         self.add_head(model, adapter1)
         # create a twin initialized with the same random weights
-        model.add_adapter(adapter2)
+        model.add_adapter(adapter2, config=adapter_config)
         self.add_head(model, adapter2)
 
         state_dict = model.state_dict()
@@ -180,11 +179,11 @@ class ParallelTrainingMixin:
                 optimizer.step()
         return model
 
-    def test_parallel_training(self):
+    def run_parallel_training_test(self, adapter_config, filter_key):
         model = AutoAdapterModel.from_config(self.config())
 
-        model.add_adapter("mrpc1")
-        model.add_adapter("mrpc2")
+        model.add_adapter("mrpc1", config=adapter_config)
+        model.add_adapter("mrpc2", config=adapter_config)
         self.add_head(model, "mrpc1")
         self.add_head(model, "mrpc2")
         model.active_adapters = Parallel("mrpc1", "mrpc2")
@@ -192,14 +191,15 @@ class ParallelTrainingMixin:
         # model.eval()
 
         # all weights of the adapter should be activated
-        for k, v in filter_parameters(model, "adapters.mrpc1.").items():
+        for k, v in filter_parameters(model, filter_key.format("mrpc1")).items():
             self.assertTrue(v.requires_grad, k)
         # all weights of the adapter not used for training should be frozen
-        for k, v in filter_parameters(model, "adapters.mrpc2.").items():
+        for k, v in filter_parameters(model, filter_key.format("mrpc1")).items():
             self.assertTrue(v.requires_grad, k)
         # weights of the model should be frozen (check on some examples)
         for k, v in filter_parameters(model, "encoder.layer.0.attention").items():
-            self.assertFalse(v.requires_grad, k)
+            if filter_key.format("mrpc1") not in k and filter_key.format("mrpc2") not in k:
+                self.assertFalse(v.requires_grad, k)
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
@@ -225,12 +225,12 @@ class ParallelTrainingMixin:
         self.assertTrue(any([not torch.equal(v, state_dict_pre[k]) for k, v in model.state_dict().items() if "mrpc" in k]))
         self.assertTrue(all(torch.equal(v, state_dict_pre[k]) for k, v in model.state_dict().items() if "mrpc" not in k))
 
-    def test_parallel_training_equivalent_to_single_adapters(self):
+    def run_parallel_training_equivalent_to_single(self, adapter_config):
         model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
-        a1, a2 = self.create_twin_adapters(model, "a")
-        b1, b2 = self.create_twin_adapters(model, "b")
+        a1, a2 = self.create_twin_adapters(model, "a", adapter_config)
+        b1, b2 = self.create_twin_adapters(model, "b", adapter_config)
 
         dataset = []
         for i in range(3):
@@ -264,6 +264,18 @@ class ParallelTrainingMixin:
                 )
             if b1 in k:
                 self.assertTrue(torch.allclose(v, state_dict[k.replace(b1, b2)], atol=1e-5))
+
+    def test_parallel_training_bottleneck(self):
+        self.run_parallel_training_test(PfeifferConfig(), "adapters.{}")
+
+    def test_parallel_training_prefix_tuning(self):
+        self.run_parallel_training_test(PrefixTuningConfig(), "prefix_tunings.{}")
+
+    def test_parallel_training_equivalent_to_single_bottleneck(self):
+        self.run_parallel_training_equivalent_to_single(PfeifferConfig())
+
+    def test_parallel_training_equivalent_to_single_prefix_tuning(self):
+        self.run_parallel_training_equivalent_to_single(PrefixTuningConfig())
 
     def test_parallel_training_single_forward_pass(self):
         model = AutoAdapterModel.from_config(self.config())
