@@ -4,151 +4,20 @@ import unittest
 
 import torch
 
-from tests.test_modeling_common import ids_tensor
 from transformers import (
     MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
     AutoAdapterModel,
-    AutoTokenizer,
-    BertConfig,
-    BertForSequenceClassification,
     T5AdapterModel,
     Trainer,
     TrainingArguments,
 )
 from transformers.adapters import ADAPTER_MODEL_MAPPING
-from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
+from transformers.adapters.composition import BatchSplit, Parallel
 from transformers.testing_utils import require_torch, torch_device
 
 
 def filter_parameters(model, filter_string):
     return {k: v for (k, v) in model.named_parameters() if filter_string in k}
-
-
-class AdapterCompositionParsingTest(unittest.TestCase):
-    def test_parse_lists(self):
-        self.assertEqual(Stack("a"), parse_composition("a"))
-        self.assertEqual(Stack("a", "b", "c"), parse_composition(["a", "b", "c"]))
-        self.assertEqual(Stack("a", Fuse("b", "c")), parse_composition(["a", ["b", "c"]]))
-
-    def test_to_deep(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Stack("a", Fuse("b", Stack(Fuse("c", "d"), "e")))))
-
-    def test_invalid_nesting_fusion(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Fuse("a", "b"), "c")))
-        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Split("a", "b", 128), "c")))
-
-    def test_invalid_nesting_split(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Split("a", Fuse("b", "c"), 128)))
-
-
-@require_torch
-class AdapterCompositionTest(unittest.TestCase):
-    def setUp(self):
-        self.model = BertForSequenceClassification(BertConfig())
-        self.model.add_adapter("a")
-        self.model.add_adapter("b")
-        self.model.add_adapter("c")
-        self.model.add_adapter("d")
-        self.model.to(torch_device)
-        self.model.train()
-
-    def training_pass(self):
-        inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000).to(torch_device)
-        inputs["labels"] = torch.ones(1, dtype=torch.long).to(torch_device)
-        loss = self.model(**inputs).loss
-        loss.backward()
-
-    def batched_training_pass(self):
-        inputs = {
-            "input_ids": ids_tensor((4, 128), 1000).to(torch_device),
-            "labels": torch.ones(4, dtype=torch.long).to(torch_device),
-        }
-        loss = self.model(**inputs).loss
-        loss.backward()
-
-    def test_simple_split(self):
-        # pass over split setup
-        self.model.set_active_adapters(Split("a", "b", 64))
-
-        self.training_pass()
-
-    def test_stacked_split(self):
-        # split into two stacks
-        self.model.set_active_adapters(Split(Stack("a", "b"), Stack("c", "d"), split_index=64))
-
-        self.training_pass()
-
-    def test_stacked_fusion(self):
-        self.model.add_adapter_fusion(Fuse("b", "d"))
-        self.model.to(torch_device)
-
-        # fuse two stacks
-        self.model.set_active_adapters(Fuse(Stack("a", "b"), Stack("c", "d")))
-
-        self.training_pass()
-
-    def test_mixed_stack(self):
-        self.model.add_adapter_fusion(Fuse("a", "b"))
-        self.model.to(torch_device)
-
-        self.model.set_active_adapters(Stack("a", Split("c", "d", split_index=64), Fuse("a", "b")))
-
-        self.training_pass()
-
-    def test_nested_split(self):
-        # split into two stacks
-        self.model.set_active_adapters(Split(Split("a", "b", split_index=32), "c", split_index=64))
-
-        self.training_pass()
-
-    def test_parallel(self):
-        self.model.set_active_adapters(Parallel("a", "b", "c", "d"))
-
-        inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000)
-        logits = self.model(**inputs).logits
-        self.assertEqual(logits.shape, (4, 2))
-
-    def test_nested_parallel(self):
-        self.model.set_active_adapters(Stack("a", Parallel(Stack("b", "c"), "d")))
-
-        inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000)
-        logits = self.model(**inputs).logits
-        self.assertEqual(logits.shape, (2, 2))
-
-    def test_batch_split(self):
-        self.model.set_active_adapters(BatchSplit("a", "b", "c", batch_sizes=[1, 1, 2]))
-        self.batched_training_pass()
-
-    def test_batch_split_int(self):
-        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=2))
-        self.batched_training_pass()
-
-    def test_nested_batch_split(self):
-        self.model.set_active_adapters(Stack("a", BatchSplit("b", "c", batch_sizes=[2, 2])))
-        self.batched_training_pass()
-
-    def test_batch_split_invalid(self):
-        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[3, 4]))
-        with self.assertRaises(IndexError):
-            self.batched_training_pass()
-
-    def test_batch_split_equivalent(self):
-        self.model.set_active_adapters("a")
-        self.model.eval()
-        input_ids = ids_tensor((2, 128), 1000)
-        output_a = self.model(input_ids[:1])
-
-        self.model.set_active_adapters("b")
-        output_b = self.model(input_ids[1:2])
-
-        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
-        output = self.model(input_ids)
-
-        self.assertTrue(torch.allclose(output_a[0], output[0][0], atol=1e-6))
-        self.assertTrue(torch.allclose(output_b[0], output[0][1], atol=1e-6))
 
 
 @require_torch

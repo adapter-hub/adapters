@@ -2,9 +2,10 @@ from typing import List, Union
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 from ..modeling_utils import ModuleUtilsMixin
-from .composition import AdapterCompositionBlock, Stack, Parallel, BatchSplit
+from .composition import AdapterCompositionBlock, Stack, Parallel, BatchSplit, adjust_tensors_for_parallel
 from .configuration import PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
 from .layer import AdapterLayerBase
@@ -332,6 +333,9 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             prefix_keys = prefix_keys * gate_output_key
             prefix_values = prefix_values * gate_output_value
 
+        # replicate for Parallel block
+        prefix_keys, prefix_values = adjust_tensors_for_parallel(key_states, prefix_keys, prefix_values)
+
         key_states = torch.cat([prefix_keys, key_states], dim=2)
         value_states = torch.cat([prefix_values, value_states], dim=2)
         if attention_mask is not None:
@@ -346,6 +350,42 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             attention_mask = torch.cat([prefix_mask, attention_mask], dim=-1)
 
         return key_states, value_states, residual_input, attention_mask
+
+    def _pad_and_concat(self, max_prefix_length, outputs, invert_mask=True):
+        """Pads all key & value states to the lFongest prefix length in the current batch.
+        This is required e.g. for stacked prefix tunings.
+        """
+        all_key_states, all_value_states, all_residual_input, all_attention_mask = [], [], [], []
+        for key_states, value_states, residual_input, attention_mask in outputs:
+            # pad sizes
+            pad_size = (0, 0, max_prefix_length - key_states.shape[-2], 0)
+            key_states = F.pad(key_states, pad_size, "constant", self.config.pad_token_id)
+            value_states = F.pad(value_states, pad_size, "constant", self.config.pad_token_id)
+
+            # pad attention mask
+            attn_mask_pad_length = max_prefix_length - attention_mask.shape[-1]
+            if attn_mask_pad_length > 0:
+                # Masking the padded tokens only works correctly if attention_mask is set
+                # We assume this to be the case at this point
+                assert attention_mask is not None, "Attention mask must be set for prefix tuning"
+                attention_mask = F.pad(
+                    attention_mask,
+                    (max_prefix_length - attention_mask.shape[-1], 0),
+                    "constant",
+                    1.0 if invert_mask else 0.0,
+                )
+
+            all_key_states.append(key_states)
+            all_value_states.append(value_states)
+            all_residual_input.append(residual_input)
+            all_attention_mask.append(attention_mask)
+
+        all_key_states = torch.cat(all_key_states, dim=0)
+        all_value_states = torch.cat(all_value_states, dim=0)
+        all_residual_input = torch.cat(all_residual_input, dim=0)
+        all_attention_mask = torch.cat(all_attention_mask, dim=0)
+
+        return all_key_states, all_value_states, all_residual_input, all_attention_mask
 
     def adapter_stack(
         self,
@@ -368,10 +408,11 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                 )
             # We have a nested parallel layer -> call parallel method
             elif isinstance(adapter_stack_layer, Parallel):
-                key_states, value_states, attention_mask = self.adapter_parallel(
+                key_states, value_states, residual_input, attention_mask = self.adapter_parallel(
                     adapter_stack_layer,
                     key_states,
                     value_states,
+                    residual_input,
                     attention_mask,
                     invert_mask=invert_mask,
                     idx_range=idx_range,
@@ -379,10 +420,11 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                 )
             # We have a nested batch split block -> call batchsplit method
             elif isinstance(adapter_stack_layer, BatchSplit):
-                hidden_states = self.adapter_batchsplit(
+                key_states, value_states, residual_input, attention_mask = self.adapter_batchsplit(
                     adapter_stack_layer,
                     key_states,
                     value_states,
+                    residual_input,
                     attention_mask,
                     invert_mask=invert_mask,
                     idx_range=idx_range,
@@ -390,7 +432,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                 )
             # We have a single prefix tuning module part of this model -> forward pass
             elif adapter_stack_layer in self.prefixes:
-                key_states, value_states, attention_mask = self.single_forward(
+                key_states, value_states, _, attention_mask = self.single_forward(
                     adapter_stack_layer,
                     key_states,
                     value_states,
@@ -431,7 +473,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         context = ForwardContext.get_context()
         if not context.adapters_parallelized:
             orig_batch_size = residual_input.shape[0]
-            residual_input = residual_input.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1)
+            residual_input = residual_input.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
             key_states = key_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
             value_states = value_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
             if attention_mask is not None:
@@ -449,6 +491,8 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
 
         # sequentially feed different parts of the blown-up batch into different adapters
         children_outputs = []
+        # track which prefix is longest for padding in the end
+        max_prefix_length = 0
         for i, child in enumerate(adapter_setup):
             # construct inputs to child modules
             inputs = {
@@ -459,7 +503,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                 if attention_mask is not None
                 else None,
                 "invert_mask": invert_mask,
-                "idx_range": idx_range
+                "idx_range": idx_range,
             }
 
             # Case 1: We have a nested stack -> call stack method
@@ -496,11 +540,15 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             else:
                 raise ValueError(f"Unknown prefix tuning name '{child}'.")
 
+            # update max prefix length
+            current_prefix_length = child_outputs[0].shape[-2]
+            if current_prefix_length > max_prefix_length:
+                max_prefix_length = current_prefix_length
+
         # concatenate all outputs and return
-        key_states = torch.cat([child[0] for child in children_outputs], 0)
-        value_states = torch.cat([child[1] for child in children_outputs], 0)
-        residual_input = torch.cat([child[2] for child in children_outputs], 0)
-        attention_mask = torch.cat([child[3] for child in children_outputs], 0) if attention_mask is not None else None
+        key_states, value_states, residual_input, attention_mask = self._pad_and_concat(
+            max_prefix_length, children_outputs, invert_mask=invert_mask
+        )
         return key_states, value_states, residual_input, attention_mask
 
     def adapter_batchsplit(
@@ -522,6 +570,8 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             )
 
         children_outputs = []
+        # track which prefix is longest for padding in the end
+        max_prefix_length = 0
         for i, adapter_block in enumerate(adapter_setup):
             # compute ids of sequences that should be passed to the ith adapter
             if idx_range is None:
@@ -576,11 +626,15 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             else:
                 raise ValueError(f"Unknown prefix tuning name '{adapter_block}'.")
 
+            # update max prefix length
+            current_prefix_length = child_outputs[0].shape[-2]
+            if current_prefix_length > max_prefix_length:
+                max_prefix_length = current_prefix_length
+
         # concatenate all outputs and return
-        key_states = torch.cat([child[0] for child in children_outputs], 0)
-        value_states = torch.cat([child[1] for child in children_outputs], 0)
-        residual_input = torch.cat([child[2] for child in children_outputs], 0)
-        attention_mask = torch.cat([child[3] for child in children_outputs], 0) if attention_mask is not None else None
+        key_states, value_states, residual_input, attention_mask = self._pad_and_concat(
+            max_prefix_length, children_outputs, invert_mask=invert_mask
+        )
         return key_states, value_states, residual_input, attention_mask
 
     def forward(self, key_states, value_states, residual_input, attention_mask=None, invert_mask=True):
