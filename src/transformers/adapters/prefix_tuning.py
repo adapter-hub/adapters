@@ -323,8 +323,8 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                         self._store_gating_score(prefix_tuning_name, gate_output)
                         gate_output_key = gate_output[:, 0].view(-1, 1, 1, 1)
                         gate_output_value = gate_output[:, -1].view(-1, 1, 1, 1)
-                        key_states = key_states * gate_output_key
-                        value_states = value_states * gate_output_value
+                        prefix_keys = prefix_keys * gate_output_key
+                        prefix_values = prefix_values * gate_output_value
 
                     key_states = torch.cat([prefix_keys, key_states], dim=2)
                     value_states = torch.cat([prefix_values, value_states], dim=2)
