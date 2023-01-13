@@ -339,7 +339,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         key_states = torch.cat([prefix_keys, key_states], dim=2)
         value_states = torch.cat([prefix_values, value_states], dim=2)
         if attention_mask is not None:
-            if attention_mask.dim() == 2:
+            if attention_mask.dim() == 2:  # e.g. for DistilBERT, attention_mask has shape (batch_size, seq_len)
                 prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(attention_mask.device)
             else:
                 prefix_mask = torch.ones(batch_size, 1, attention_mask.size(2), prefix_keys.size(2)).to(
@@ -347,6 +347,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                 )
             if invert_mask:
                 prefix_mask = 1.0 - prefix_mask
+            (prefix_mask,) = adjust_tensors_for_parallel(attention_mask, prefix_mask)
             attention_mask = torch.cat([prefix_mask, attention_mask], dim=-1)
 
         return key_states, value_states, residual_input, attention_mask
@@ -363,7 +364,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             value_states = F.pad(value_states, pad_size, "constant", self.config.pad_token_id)
 
             # pad attention mask
-            attn_mask_pad_length = max_prefix_length - attention_mask.shape[-1]
+            attn_mask_pad_length = max_prefix_length - key_states.shape[-2]
             if attn_mask_pad_length > 0:
                 # Masking the padded tokens only works correctly if attention_mask is set
                 # We assume this to be the case at this point
@@ -383,7 +384,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         all_key_states = torch.cat(all_key_states, dim=0)
         all_value_states = torch.cat(all_value_states, dim=0)
         all_residual_input = torch.cat(all_residual_input, dim=0)
-        all_attention_mask = torch.cat(all_attention_mask, dim=0)
+        all_attention_mask = torch.cat(all_attention_mask, dim=0) if attention_mask is not None else None
 
         return all_key_states, all_value_states, all_residual_input, all_attention_mask
 
@@ -477,7 +478,10 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             key_states = key_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
             value_states = value_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
             if attention_mask is not None:
-                attention_mask = attention_mask.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
+                if attention_mask.dim() == 2:  # e.g. for DistilBERT, attention_mask has shape (batch_size, seq_len)
+                    attention_mask = attention_mask.repeat(self.config.adapters.active_setup.parallel_channels, 1)
+                else:
+                    attention_mask = attention_mask.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
             context.adapters_parallelized = True
         else:
             # The base model should handle replication of input.

@@ -281,8 +281,8 @@ class ParallelTrainingMixin:
         model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
-        a1, a2 = self.create_twin_adapters(model, "a")
-        b1, b2 = self.create_twin_adapters(model, "b")
+        a1, a2 = self.create_twin_adapters(model, "a", PfeifferConfig())
+        b1, b2 = self.create_twin_adapters(model, "b", PfeifferConfig())
 
         state_dict = model.state_dict()
         for k, v in state_dict.items():
