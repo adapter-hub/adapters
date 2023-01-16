@@ -573,7 +573,7 @@ class BertGenerationEmbeddings(nn.Module):
         return embeddings
 
 
-class BertGenerationPreTrainedModel(PreTrainedModel):
+class BertGenerationPreTrainedModel(PreTrainedModel): # TODOD(Hannah) add adapter mixin?
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.

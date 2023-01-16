@@ -439,8 +439,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
         # PHM Layer
         if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
+            adapter_module =  list(self.get_adapter(adapter_name)[0].values())[0]
+            # if multiple adapters with same location key exist they are returned as a modulelist 
+            if isinstance(adapter_module, nn.ModuleList):
+                adapter_module = adapter_module[0]
             self.base_model.shared_parameters[adapter_name] = (
-                list(self.get_adapter(adapter_name)[0].values())[0].adapter_down[0].init_shared_parameters()
+               adapter_module.adapter_down[0].init_shared_parameters()
             )
         # Prefix Tuning
         for module in self.modules():
@@ -886,7 +890,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             row["train"] = train
             rows.append(row)
         # count no. of parameters in base network
-        model_no_params = sum(p.numel() for p in self.base_model.parameters())
+        model_no_params = self._count_parameters()
         model_no_params -= sum([r["#param"] for r in rows])
         # add %param info
         for row in rows:
@@ -916,6 +920,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             s.insert(len(s) - 1, "-" * total_length)
             s.append("=" * total_length)
             return "\n".join(s)
+
+    def _count_parameters(self):
+        return sum(p.numel() for p in self.base_model.parameters())
 
     def eject_prefix_tuning(self, name: str):
         """

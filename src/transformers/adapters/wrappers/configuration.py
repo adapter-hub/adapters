@@ -78,13 +78,6 @@ def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
     if not hasattr(config, "custom_heads"):
         config.custom_heads = {}
 
-    if isinstance(config, EncoderDecoderConfig):
-        # make sure adapter config is shared
-        wrap_config(config.encoder)
-        wrap_config(config.decoder)
-        config.decoder.adapters = config.encoder.adapters
-        config.adapters = config.encoder.adapters
-
     config.is_adaptable = True
 
     return config
