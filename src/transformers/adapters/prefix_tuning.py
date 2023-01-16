@@ -481,7 +481,9 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                 if attention_mask.dim() == 2:  # e.g. for DistilBERT, attention_mask has shape (batch_size, seq_len)
                     attention_mask = attention_mask.repeat(self.config.adapters.active_setup.parallel_channels, 1)
                 else:
-                    attention_mask = attention_mask.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
+                    attention_mask = attention_mask.repeat(
+                        self.config.adapters.active_setup.parallel_channels, 1, 1, 1
+                    )
             context.adapters_parallelized = True
         else:
             # The base model should handle replication of input.
