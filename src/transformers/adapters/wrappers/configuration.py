@@ -1,5 +1,4 @@
 from ...configuration_utils import PretrainedConfig
-from ...models.encoder_decoder.configuration_encoder_decoder import EncoderDecoderConfig
 from ..configuration import ModelAdaptersConfig
 
 

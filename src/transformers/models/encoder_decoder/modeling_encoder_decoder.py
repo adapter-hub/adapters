@@ -26,7 +26,6 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from ...adapters.mixins.encoder_decoder import EncoderDecoderModelAdaptersMixin
-from ...adapters.wrappers.configuration import wrap_config
 from ...configuration_utils import PretrainedConfig
 from ...modeling_outputs import BaseModelOutput, Seq2SeqLMOutput
 from ...modeling_utils import PreTrainedModel

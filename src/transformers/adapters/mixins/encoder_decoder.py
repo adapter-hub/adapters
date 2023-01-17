@@ -1,4 +1,3 @@
-import copy
 from typing import Iterable, List, Optional, Tuple, Union
 
 import torch.nn as nn
