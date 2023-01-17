@@ -1,5 +1,18 @@
 import regex as re
-from tests.models.encoder_decoder.test_modeling_encoder_decoder import * # Imported to execute model tests
+import unittest
+
+from tests.models.encoder_decoder.test_modeling_encoder_decoder import (
+    EncoderDecoderConfig, 
+    EncoderDecoderModel, 
+    BertEncoderDecoderModelTest, 
+    BartEncoderDecoderModelTest, 
+    BertGenerationEncoderDecoderModelTest, 
+    RoBertaEncoderDecoderModelTest, 
+    GPT2EncoderDecoderModelTest, 
+    torch_device
+)
+from transformers.testing_utils import require_torch
+
 from transformers import AutoModelForSeq2SeqLM, BertConfig, AdapterConfig, AutoAdapterModel
 from transformers.adapters.configuration import CompacterConfig
 
