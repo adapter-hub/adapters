@@ -219,7 +219,7 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
         self.encoder = encoder
         self.decoder = decoder
 
-        # ensure that encoder and decoder use the sam shared parameters
+        # ensure that encoder and decoder use the same shared parameters
         if hasattr(self.encoder, "set_shared_parameters"):
             self.encoder.set_shared_parameters(self.shared_parameters)
         if hasattr(self.decoder, "set_shared_parameters"):

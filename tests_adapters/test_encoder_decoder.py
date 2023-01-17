@@ -1,5 +1,5 @@
 import regex as re
-from tests.models.encoder_decoder.test_modeling_encoder_decoder import *  # Imported to execute model tests
+from tests.models.encoder_decoder.test_modeling_encoder_decoder import * # Imported to execute model tests
 from transformers import AutoModelForSeq2SeqLM, BertConfig, AdapterConfig, AutoAdapterModel
 from transformers.adapters.configuration import CompacterConfig
 
