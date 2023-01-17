@@ -23,6 +23,16 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.bert import (
+    BertModelAdaptersMixin,
+    BertModelWithHeadsAdaptersMixin,
+    BertOutputAdaptersMixin,
+    BertSelfOutputAdaptersMixin,
+)
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import BaseModelOutputWithPastAndCrossAttentions, CausalLMOutputWithCrossAttentions
 from ...modeling_utils import PreTrainedModel
 from ...pytorch_utils import apply_chunking_to_forward, find_pruneable_heads_and_indices, prune_linear_layer
@@ -34,21 +44,6 @@ from ...utils import (
     replace_return_docstrings,
 )
 from .configuration_bert_generation import BertGenerationConfig
-from ...adapters.composition import adjust_tensors_for_parallel
-from ...adapters.context import ForwardContext
-from ...adapters.lora import Linear as LoRALinear
-from ...adapters.mixins.bert import (
-    BertModelWithHeadsAdaptersMixin,
-    BertOutputAdaptersMixin,
-    BertSelfOutputAdaptersMixin,
-)
-from ...adapters.mixins.bert import (
-    BertModelAdaptersMixin,
-    BertModelWithHeadsAdaptersMixin,
-    BertOutputAdaptersMixin,
-    BertSelfOutputAdaptersMixin,
-)
-from ...adapters.prefix_tuning import PrefixTuningShim
 
 
 logger = logging.get_logger(__name__)
@@ -59,7 +54,7 @@ _TOKENIZER_FOR_DOC = "BertGenerationTokenizer"
 
 
 # Copied from transformers.models.bert.modeling_bert.BertSelfOutput with Bert->BertGeneration
-class BertGenerationSelfOutput(BertSelfOutputAdaptersMixin,nn.Module):
+class BertGenerationSelfOutput(BertSelfOutputAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -209,7 +204,7 @@ class BertGenerationSelfAttention(nn.Module):
 
 # Copied from transformers.models.bert.modeling_bert.BertAttention with Bert->BertGeneration
 class BertGenerationAttention(nn.Module):
-    def __init__(self, config, position_embedding_type=None,  location_key: Optional[str] = None):
+    def __init__(self, config, position_embedding_type=None, location_key: Optional[str] = None):
         super().__init__()
         self.self = BertGenerationSelfAttention(
             config, position_embedding_type=position_embedding_type, location_key=location_key
@@ -306,7 +301,9 @@ class BertGenerationLayer(nn.Module):
         if self.add_cross_attention:
             if not self.is_decoder:
                 raise ValueError(f"{self} should be used as a decoder model if cross attention is added")
-            self.crossattention = BertGenerationAttention(config, position_embedding_type="absolute", location_key="cross")
+            self.crossattention = BertGenerationAttention(
+                config, position_embedding_type="absolute", location_key="cross"
+            )
         self.intermediate = BertGenerationIntermediate(config)
         self.output = BertGenerationOutput(config)
 
@@ -602,7 +599,7 @@ class BertGenerationEmbeddings(nn.Module):
         return embeddings
 
 
-class BertGenerationPreTrainedModel(PreTrainedModel): # TODOD(Hannah) add adapter mixin?
+class BertGenerationPreTrainedModel(PreTrainedModel):  # TODOD(Hannah) add adapter mixin?
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.

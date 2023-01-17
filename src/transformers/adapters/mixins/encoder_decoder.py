@@ -1,5 +1,5 @@
 import copy
-from typing import Iterable, Optional, Tuple, Union, List
+from typing import Iterable, List, Optional, Tuple, Union
 
 import torch.nn as nn
 
@@ -45,8 +45,12 @@ class EncoderDecoderModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdapter
     def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False, set_active: bool = False):
         self.encoder.add_adapter(adapter_name, config, overwrite_ok, set_active)
 
-        if hasattr(config, 'leave_out'):
-            decoder_leave_out = [idx - self.encoder.config.num_hidden_layers for idx in config.leave_out if idx >= self.encoder.config.num_hidden_layers]
+        if hasattr(config, "leave_out"):
+            decoder_leave_out = [
+                idx - self.encoder.config.num_hidden_layers
+                for idx in config.leave_out
+                if idx >= self.encoder.config.num_hidden_layers
+            ]
             decoder_config = config.replace(leave_out=decoder_leave_out)
         else:
             decoder_config = config
@@ -57,7 +61,7 @@ class EncoderDecoderModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdapter
         self.decoder.delete_adapter(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
-       self.encoder.add_fusion(adapter_names, adapter_fusion_config, override_kwargs)
+        self.encoder.add_fusion(adapter_names, adapter_fusion_config, override_kwargs)
 
     def add_adapter_fusion(
         self,
@@ -69,7 +73,9 @@ class EncoderDecoderModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdapter
         self.encoder.add_adapter_fusion(adapter_names, config, overwrite_ok, set_active)
         self.decoder.add_adapter_fusion(adapter_names, config, overwrite_ok, set_active)
 
-    def set_active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None):
+    def set_active_adapters(
+        self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
+    ):
         self.encoder.set_active_adapters(adapter_setup, skip_layers)
         self.decoder.set_active_adapters(adapter_setup, skip_layers)
 
