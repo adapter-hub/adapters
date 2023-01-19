@@ -30,33 +30,31 @@ from itertools import chain
 from typing import Optional
 
 import datasets
-from datasets import load_dataset, load_metric
+from datasets import load_dataset
 
+import evaluate
 import transformers
-import transformers.adapters.composition as ac
 from transformers import (
     CONFIG_MAPPING,
     MODEL_FOR_MASKED_LM_MAPPING,
-    AdapterTrainer,
     AutoConfig,
     AutoModelForMaskedLM,
     AutoTokenizer,
     DataCollatorForLanguageModeling,
     HfArgumentParser,
-    MultiLingAdapterArguments,
     Trainer,
     TrainingArguments,
     is_torch_tpu_available,
     set_seed,
 )
-from transformers.adapters.configuration import AdapterConfig
+from transformers.adapters import AdapterTrainer, MultiLingAdapterArguments, setup_adapter_training
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.21.0")
+check_min_version("4.24.0")
 
 require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/language-modeling/requirements.txt")
 
@@ -75,7 +73,7 @@ class ModelArguments:
         default=None,
         metadata={
             "help": (
-                "The model checkpoint for weights initialization.Don't set if you want to train a model from scratch."
+                "The model checkpoint for weights initialization. Don't set if you want to train a model from scratch."
             )
         },
     )
@@ -114,7 +112,7 @@ class ModelArguments:
         default=False,
         metadata={
             "help": (
-                "Will use the token generated when running `transformers-cli login` (necessary to use this script "
+                "Will use the token generated when running `huggingface-cli login` (necessary to use this script "
                 "with private models)."
             )
         },
@@ -392,56 +390,6 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
-    # Setup adapters
-    if adapter_args.train_adapter:
-        task_name = data_args.dataset_name or "mlm"
-        # check if adapter already exists, otherwise add it
-        if task_name not in model.config.adapters:
-            # resolve the adapter config
-            adapter_config = AdapterConfig.load(
-                adapter_args.adapter_config,
-                non_linearity=adapter_args.adapter_non_linearity,
-                reduction_factor=adapter_args.adapter_reduction_factor,
-            )
-            # load a pre-trained from Hub if specified
-            if adapter_args.load_adapter:
-                model.load_adapter(
-                    adapter_args.load_adapter,
-                    config=adapter_config,
-                    load_as=task_name,
-                )
-            # otherwise, add a fresh adapter
-            else:
-                model.add_adapter(task_name, config=adapter_config)
-        # optionally load a pre-trained language adapter
-        if adapter_args.load_lang_adapter:
-            # resolve the language adapter config
-            lang_adapter_config = AdapterConfig.load(
-                adapter_args.lang_adapter_config,
-                non_linearity=adapter_args.lang_adapter_non_linearity,
-                reduction_factor=adapter_args.lang_adapter_reduction_factor,
-            )
-            # load the language adapter from Hub
-            lang_adapter_name = model.load_adapter(
-                adapter_args.load_lang_adapter,
-                config=lang_adapter_config,
-                load_as=adapter_args.language,
-            )
-        else:
-            lang_adapter_name = None
-        # Freeze all model weights except of those of this adapter
-        model.train_adapter([task_name])
-        # Set the adapters to be used in every forward pass
-        if lang_adapter_name:
-            model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
-        else:
-            model.set_active_adapters(task_name)
-    else:
-        if adapter_args.load_adapter or adapter_args.load_lang_adapter:
-            raise ValueError(
-                "Adapters can only be loaded in adapters training mode.Use --train_adapter to enable adapter training"
-            )
-
     # Preprocessing the datasets.
     # First we tokenize all the texts.
     if training_args.do_train:
@@ -567,7 +515,7 @@ def main():
                 logits = logits[0]
             return logits.argmax(dim=-1)
 
-        metric = load_metric("accuracy")
+        metric = evaluate.load("accuracy")
 
         def compute_metrics(eval_preds):
             preds, labels = eval_preds
@@ -589,6 +537,8 @@ def main():
         pad_to_multiple_of=8 if pad_to_multiple_of_8 else None,
     )
 
+    # Setup adapters
+    setup_adapter_training(model, adapter_args, data_args.dataset_name or "mlm")
     # Initialize our Trainer
     trainer_class = AdapterTrainer if adapter_args.train_adapter else Trainer
     trainer = trainer_class(

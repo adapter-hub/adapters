@@ -27,13 +27,12 @@ from typing import Optional
 import datasets
 import nltk  # Here to have a nice missing dependency error message early on
 import numpy as np
-from datasets import load_dataset, load_metric
+from datasets import load_dataset
 
+import evaluate
 import transformers
-import transformers.adapters.composition as ac
 from filelock import FileLock
 from transformers import (
-    AdapterConfig,
     AutoConfig,
     AutoModelForSeq2SeqLM,
     AutoTokenizer,
@@ -44,19 +43,18 @@ from transformers import (
     MBart50TokenizerFast,
     MBartTokenizer,
     MBartTokenizerFast,
-    MultiLingAdapterArguments,
-    Seq2SeqAdapterTrainer,
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
     set_seed,
 )
+from transformers.adapters import MultiLingAdapterArguments, Seq2SeqAdapterTrainer, setup_adapter_training
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, is_offline_mode
 from transformers.utils.versions import require_version
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.21.0")
+check_min_version("4.24.0")
 
 require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/summarization/requirements.txt")
 
@@ -107,7 +105,7 @@ class ModelArguments:
         default=False,
         metadata={
             "help": (
-                "Will use the token generated when running `transformers-cli login` (necessary to use this script "
+                "Will use the token generated when running `huggingface-cli login` (necessary to use this script "
                 "with private models)."
             )
         },
@@ -466,56 +464,6 @@ def main():
                 " model's position encodings by passing `--resize_position_embeddings`."
             )
 
-    # Setup adapters
-    if adapter_args.train_adapter:
-        task_name = data_args.dataset_name or "summarization"
-        # check if adapter already exists, otherwise add it
-        if task_name not in model.config.adapters:
-            # resolve the adapter config
-            adapter_config = AdapterConfig.load(
-                adapter_args.adapter_config,
-                non_linearity=adapter_args.adapter_non_linearity,
-                reduction_factor=adapter_args.adapter_reduction_factor,
-            )
-            # load a pre-trained from Hub if specified
-            if adapter_args.load_adapter:
-                model.load_adapter(
-                    adapter_args.load_adapter,
-                    config=adapter_config,
-                    load_as=task_name,
-                )
-            # otherwise, add a fresh adapter
-            else:
-                model.add_adapter(task_name, config=adapter_config)
-        # optionally load a pre-trained language adapter
-        if adapter_args.load_lang_adapter:
-            # resolve the language adapter config
-            lang_adapter_config = AdapterConfig.load(
-                adapter_args.lang_adapter_config,
-                non_linearity=adapter_args.lang_adapter_non_linearity,
-                reduction_factor=adapter_args.lang_adapter_reduction_factor,
-            )
-            # load the language adapter from Hub
-            lang_adapter_name = model.load_adapter(
-                adapter_args.load_lang_adapter,
-                config=lang_adapter_config,
-                load_as=adapter_args.language,
-            )
-        else:
-            lang_adapter_name = None
-        # Freeze all model weights except of those of this adapter
-        model.train_adapter([task_name])
-        # Set the adapters to be used in every forward pass
-        if lang_adapter_name:
-            model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
-        else:
-            model.set_active_adapters(task_name)
-    else:
-        if adapter_args.load_adapter or adapter_args.load_lang_adapter:
-            raise ValueError(
-                "Adapters can only be loaded in adapters training mode.Use --train_adapter to enable adapter training"
-            )
-
     prefix = data_args.source_prefix if data_args.source_prefix is not None else ""
 
     # Preprocessing the datasets.
@@ -586,9 +534,8 @@ def main():
         inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True)
 
-        # Setup the tokenizer for targets
-        with tokenizer.as_target_tokenizer():
-            labels = tokenizer(targets, max_length=max_target_length, padding=padding, truncation=True)
+        # Tokenize targets with the `text_target` keyword argument
+        labels = tokenizer(text_target=targets, max_length=max_target_length, padding=padding, truncation=True)
 
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
@@ -663,7 +610,7 @@ def main():
     )
 
     # Metric
-    metric = load_metric("rouge")
+    metric = evaluate.load("rouge")
 
     def postprocess_text(preds, labels):
         preds = [pred.strip() for pred in preds]
@@ -689,18 +636,17 @@ def main():
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
 
         result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
-        # Extract a few results from ROUGE
-        result = {key: value.mid.fmeasure * 100 for key, value in result.items()}
-
+        result = {k: round(v * 100, 4) for k, v in result.items()}
         prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
         result["gen_len"] = np.mean(prediction_lens)
-        result = {k: round(v, 4) for k, v in result.items()}
         return result
 
     # Early stopping
     if data_args.patience and data_args.patience > 0:
         training_args.load_best_model_at_end = True
 
+    # Setup adapters
+    setup_adapter_training(model, adapter_args, data_args.dataset_name or "summarization")
     # Initialize our Trainer
     trainer_class = Seq2SeqAdapterTrainer if adapter_args.train_adapter else Seq2SeqTrainer
     trainer = trainer_class(
