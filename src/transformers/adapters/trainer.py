@@ -78,15 +78,15 @@ class AdapterTrainer(Trainer):
                 or isinstance(self.model.active_adapters, AdapterCompositionBlock)
                 and any([isinstance(child, Fuse) for child in self.model.active_adapters.children])
             )
-        if model.active_adapters is None:
+        if self.model.active_adapters is None:
             raise ValueError(
                 "Expected a model with an active adapter setup."
                 "If you want to fully finetune the model use the Trainer class."
             )
-        if (self.label_names is None or len(self.label_names) < 1) and model.active_head is not None:
+        if (self.label_names is None or len(self.label_names) < 1) and self.model.active_head is not None:
             all_label_names = set()
-            for head in model._active_heads:
-                all_label_names |= set(model.heads[head].get_label_names())
+            for head in self.model._active_heads:
+                all_label_names |= set(self.model.heads[head].get_label_names())
             self.label_names = list(all_label_names)
 
     def create_optimizer(self):
