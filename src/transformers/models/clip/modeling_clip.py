@@ -33,6 +33,7 @@ from ...adapters.mixins.clip import (
     CLIPModelAdaptersMixin,
 )
 from ...adapters.model_mixin import InvertibleAdaptersMixin
+from ...adapters.wrappers.configuration import wrap_config
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling
 from ...modeling_utils import PreTrainedModel
@@ -623,7 +624,7 @@ class CLIPEncoder(nn.Module):
 class CLIPTextTransformer(InvertibleAdaptersMixin, nn.Module):
     def __init__(self, config: CLIPTextConfig):
         super().__init__()
-        self.config = config
+        self.config = wrap_config(config)
         embed_dim = config.hidden_size
         self.embeddings = CLIPTextEmbeddings(config)
         self.encoder = CLIPEncoder(config)

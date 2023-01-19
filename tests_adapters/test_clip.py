@@ -28,6 +28,7 @@ from .test_common import AdapterModelTesterMixin
 
 
 class CLIPVisionAdapterTestBase(VisionAdapterTestBase):
+    model_class = CLIPVisionModel
     config_class = CLIPVisionConfig
     config = make_config(
         CLIPVisionConfig,
@@ -60,6 +61,7 @@ class CLIPVisionAdapterTest(
 
 
 class CLIPTextAdapterTestBase(AdapterTestBase):
+    model_class = CLIPTextModel
     config_class = CLIPTextConfig
     config = make_config(
         CLIPTextConfig,

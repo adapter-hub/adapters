@@ -39,7 +39,8 @@ class InvertibleAdaptersMixin:
         self.invertible_adapters = nn.ModuleDict(dict())
 
         # Make sure config is wrapped
-        self.config = wrap_config(self.config)
+        if hasattr(self, "config"):
+            self.config = wrap_config(self.config)
 
     def add_invertible_adapter(self, adapter_name: str):
         """
