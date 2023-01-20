@@ -98,7 +98,7 @@ class EmbeddingTestMixin:
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
-        train_dataset = self.dataset(tokenizer=tokenizer)
+        train_dataset = self.dataset()
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,
@@ -106,6 +106,7 @@ class EmbeddingTestMixin:
             max_steps=15,
             no_cuda=True,
             per_device_train_batch_size=2,
+            label_names=['labels']
         )
 
         # evaluate

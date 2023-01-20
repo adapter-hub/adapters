@@ -230,6 +230,7 @@ class EmbeddingAdaptersMixin:
         """
         self.loaded_embeddings[self.active_embeddings] = self.get_input_embeddings()
         self.set_input_embeddings(self.loaded_embeddings[name])
+        self.config.vocab_size = self.loaded_embeddings[name].num_embeddings
         self._active_embedding = name
 
     @property

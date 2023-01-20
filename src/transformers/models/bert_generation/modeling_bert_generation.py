@@ -209,7 +209,6 @@ class BertGenerationAttention(nn.Module):
         self.self = BertGenerationSelfAttention(
             config, position_embedding_type=position_embedding_type, location_key=location_key
         )
-        self.self = BertGenerationSelfAttention(config, position_embedding_type=position_embedding_type)
         self.output = BertGenerationSelfOutput(config)
         self.pruned_heads = set()
 

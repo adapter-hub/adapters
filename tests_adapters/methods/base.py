@@ -246,7 +246,7 @@ class AdapterMethodBaseTestMixin:
         self.trainings_run(model)
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
-            if "mrpc" in k1:
+            if "mrpc" in k1 and not(hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings and 'heads' in k1):
                 self.assertFalse(torch.equal(v1, v2), k1)
             else:
                 self.assertTrue(torch.equal(v1, v2), k1)

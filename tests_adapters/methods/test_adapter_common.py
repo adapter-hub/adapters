@@ -331,7 +331,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 or "classifier" in k1
                 or "classification_head" in k1
                 or "score" in k1
-                or "heads" in k1
+                or ("heads" in k1 and not model.config.tie_word_embeddings)
+
             ):
                 self.assertFalse(torch.equal(v1, v2), k1)
             else:

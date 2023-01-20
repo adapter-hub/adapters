@@ -12,6 +12,7 @@ ADAPTER_MODEL_MAPPING_NAMES = OrderedDict(
         ("roberta", "RobertaAdapterModel"),
         ("beit", "BeitAdapterModel"),
         ("bert", "BertAdapterModel"),
+        ("bert-generation", "BertGenerationAdapterModel"),
         ("distilbert", "DistilBertAdapterModel"),
         ("deberta-v2", "DebertaV2AdapterModel"),
         ("deberta", "DebertaAdapterModel"),
