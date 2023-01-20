@@ -1,5 +1,6 @@
 from ...configuration_utils import PretrainedConfig
 from ...models.encoder_decoder.configuration_encoder_decoder import EncoderDecoderConfig
+from ...models.clip.configuration_clip import CLIPConfig
 from ..configuration import ModelAdaptersConfig
 
 
@@ -12,6 +13,14 @@ CONFIG_CLASS_KEYS_MAPPING = {
     },
     "beit": {},
     "bert": {},
+    "clip_vision_model": {
+        "hidden_dropout_prob": "dropout",
+        "attention_probs_dropout_prob": "attention_dropout",
+    },
+    "clip_text_model": {
+        "hidden_dropout_prob": "dropout",
+        "attention_probs_dropout_prob": "attention_dropout",
+    },
     "distilbert": {
         "hidden_dropout_prob": "dropout",
         "attention_probs_dropout_prob": "attention_dropout",
@@ -84,7 +93,11 @@ def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
         wrap_config(config.decoder)
         config.decoder.adapters = config.encoder.adapters
         config.adapters = config.encoder.adapters
-
+    elif isinstance(config, CLIPConfig):
+        wrap_config(config.vision_config)
+        wrap_config(config.text_config)
+        config.vision_config.adapters = config.adapters
+        config.text_config.adapters = config.adapters
     config.is_adaptable = True
 
     return config

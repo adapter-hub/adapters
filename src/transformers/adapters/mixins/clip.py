@@ -9,7 +9,6 @@ from ..model_mixin import (
     EmbeddingAdaptersWrapperMixin,
     InvertibleAdaptersMixin,
     ModelAdaptersMixin,
-    ModelWithHeadsAdaptersMixin,
 )
 
 
@@ -26,6 +25,14 @@ class CLIPEncoderLayerAdaptersMixin:
 class CLIPTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
     """Adds adapters to the CLIPTextModel class."""
 
+    def _init_adapter_modules(self):
+        self.invertible_adapters = self.text_model.invertible_adapters
+        self.add_invertible_adapter = self.text_model.add_invertible_adapter
+        self.get_invertible_adapter = self.text_model.get_invertible_adapter
+        self.enable_invertible_adapters = self.text_model.enable_invertible_adapters
+        self.invertible_adapters_forward = self.text_model.invertible_adapters_forward
+        super()._init_adapter_modules()
+
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.text_model.encoder.layers):
             yield i, layer
@@ -39,7 +46,7 @@ class CLIPVisionModelAdaptersMixin(ModelAdaptersMixin):
             yield i, layer
 
 
-class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
+class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelAdaptersMixin):
     """Adds adapters to the CLIPModel class."""
 
     def _init_adapter_modules(self):
@@ -53,5 +60,5 @@ class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdapte
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.text_model.encoder.layers):
             yield i, layer
-        for i, layer in enumerate(self.vision_model.encoder.layers):
+        for i, layer in enumerate(self.vision_model.encoder.layers, start=len(self.text_model.encoder.layers)):
             yield i, layer

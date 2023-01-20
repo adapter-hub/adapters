@@ -1,3 +1,4 @@
+import random
 import unittest
 
 from tests.models.clip.test_modeling_clip import *
@@ -13,9 +14,7 @@ from .methods import (
 )
 from .test_adapter import AdapterTestBase, VisionAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
-from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
-from .test_adapter_heads import PredictionHeadModelTestMixin
 from .test_common import AdapterModelTesterMixin
 
 # TODO
@@ -51,9 +50,6 @@ class CLIPVisionAdapterTest(
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
-    PredictionHeadModelTestMixin,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
     CLIPVisionAdapterTestBase,
     unittest.TestCase,
 ):
@@ -83,9 +79,6 @@ class CLIPTextAdapterTest(
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
-    PredictionHeadModelTestMixin,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
     CLIPTextAdapterTestBase,
     unittest.TestCase,
 ):
@@ -94,7 +87,7 @@ class CLIPTextAdapterTest(
 
 class CLIPAdapterTestBase(AdapterTestBase):
     config_class = CLIPConfig
-    config = CLIPConfig.from_text_vision_configs(
+    config = staticmethod(lambda: CLIPConfig.from_text_vision_configs(
         CLIPTextConfig(
             hidden_size=32,
             num_hidden_layers=4,
@@ -108,8 +101,46 @@ class CLIPAdapterTestBase(AdapterTestBase):
             num_attention_heads=4,
             intermediate_size=37,
         )
-    )
+    ))
     tokenizer_name = 'openai/clip-vit-base-patch32'
+    model_class = CLIPModel
+    # Default shape of inputs to use
+    default_text_input_samples_shape = (3, 64)
+    default_vision_input_samples_shape = (3, 3, 224, 224)
+
+    def get_model(self):
+        model = self.model_class(self.config())
+        model.to(torch_device)
+        return model
+
+    def get_input_samples(self, vocab_size=5000, config=None):
+        # text inputs
+        shape = self.default_text_input_samples_shape
+        total_dims = 1
+        for dim in shape:
+            total_dims *= dim
+        values = []
+        for _ in range(total_dims):
+            values.append(random.randint(0, vocab_size - 1))
+        input_ids = torch.tensor(data=values, dtype=torch.long, device=torch_device).view(shape).contiguous()
+        # this is needed e.g. for BART
+        if config and config.eos_token_id is not None and config.eos_token_id < vocab_size:
+            input_ids[input_ids == config.eos_token_id] = random.randint(0, config.eos_token_id - 1)
+            input_ids[:, -1] = config.eos_token_id
+        in_data = {"input_ids": input_ids}
+
+        # vision inputs
+        shape = self.default_vision_input_samples_shape
+        total_dims = 1
+        for dim in shape:
+            total_dims *= dim
+        values = []
+        for _ in range(total_dims):
+            values.append(random.random())
+        pixel_values = torch.tensor(data=values, dtype=torch.float, device=torch_device).view(shape).contiguous()
+        in_data["pixel_values"] = pixel_values
+
+        return in_data
 
 
 @require_torch
@@ -122,9 +153,6 @@ class CLIPAdapterTest(
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
-    PredictionHeadModelTestMixin,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
     CLIPAdapterTestBase,
     unittest.TestCase,
 ):

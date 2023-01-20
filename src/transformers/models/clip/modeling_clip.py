@@ -204,7 +204,7 @@ class CLIPAttention(nn.Module):
         self.q_proj = LoRALinear(self.embed_dim, self.embed_dim, "selfattn", config, attn_key="q")
         self.out_proj = nn.Linear(self.embed_dim, self.embed_dim)
 
-        self.prefix_tuning = PrefixTuningShim("self_prefix", config)
+        self.prefix_tuning = PrefixTuningShim("self_prefix", config, add_model_type_to_key=True)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
@@ -246,6 +246,10 @@ class CLIPAttention(nn.Module):
 
         # apply the causal_attention_mask first
         if causal_attention_mask is not None:
+            prefix_mask = torch.ones(
+                bsz, 1, causal_attention_mask.size(2), src_len - causal_attention_mask.size(-1)
+            ).to(causal_attention_mask.device)
+            causal_attention_mask = torch.cat([prefix_mask, causal_attention_mask], dim=-1)
             if causal_attention_mask.size() != (bsz, 1, tgt_len, src_len):
                 raise ValueError(
                     f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is"
@@ -915,6 +919,7 @@ class CLIPModel(CLIPModelAdaptersMixin, CLIPPreTrainedModel):
         self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
         self.logit_scale = nn.Parameter(torch.ones([]) * self.config.logit_scale_init_value)
 
+        self._init_adapter_modules()
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -1016,6 +1021,7 @@ class CLIPModel(CLIPModelAdaptersMixin, CLIPPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CLIP_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=CLIPOutput, config_class=CLIPConfig)
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
