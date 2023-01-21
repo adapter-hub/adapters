@@ -131,7 +131,6 @@ _import_structure = {
     "trainer": ["AdapterTrainer", "Seq2SeqAdapterTrainer"],
     "training": [
         "AdapterArguments",
-        "MultiLingAdapterArguments",
         "setup_adapter_training",
     ],
     "utils": [
@@ -219,7 +218,7 @@ if TYPE_CHECKING:
     from .models.vit import ViTAdapterModel
     from .models.xlm_roberta import XLMRobertaAdapterModel, XLMRobertaModelWithHeads
     from .trainer import AdapterTrainer, Seq2SeqAdapterTrainer
-    from .training import AdapterArguments, MultiLingAdapterArguments, setup_adapter_training
+    from .training import AdapterArguments, setup_adapter_training
     from .utils import (
         ADAPTER_CACHE,
         AdapterInfo,

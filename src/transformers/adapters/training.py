@@ -18,14 +18,6 @@ class AdapterArguments:
     adapter_config: Optional[str] = field(
         default="pfeiffer", metadata={"help": "Adapter configuration. Either a config string or a path to a file."}
     )
-
-
-@dataclass
-class MultiLingAdapterArguments(AdapterArguments):
-    """
-    Arguments related to adapter training, extended by arguments for multilingual setups.
-    """
-
     load_lang_adapter: Optional[str] = field(
         default=None, metadata={"help": "Pre-trained language adapter module to be loaded from Hub."}
     )
