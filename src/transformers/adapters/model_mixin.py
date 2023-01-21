@@ -103,6 +103,54 @@ class InvertibleAdaptersMixin:
         return hidden_states
 
 
+class InvertibleAdaptersWrapperMixin:
+    """
+    Mixin for Transformer models supporting invertible adapters in a child module.
+    When applying this mixin, set `invertible_adapters_base_name` to the name of the child module that includes `InvertibleAdaptersMixin`.
+    """
+
+    invertible_adapters_base_name = ""
+
+    @property
+    def invertible_adapters_base(self):
+        return getattr(self, self.invertible_adapters_base_name, None)
+
+    @property
+    def invertible_adapters(self):
+        if self.invertible_adapters_base is not None:
+            return self.invertible_adapters_base.invertible_adapters
+        return None
+
+    def add_invertible_adapter(self, adapter_name: str):
+        """
+        Adds an invertible adapter module for the adapter with the given name. If the given adapter does not specify an
+        invertible adapter config, this method does nothing.
+
+        Args:
+            adapter_name (str): The name of the adapter for which to add an invertible adapter module.
+        """
+        if self.invertible_adapters_base is not None:
+            self.invertible_adapters_base.add_invertible_adapter(adapter_name)
+
+    def delete_invertible_adapter(self, adapter_name: str):
+        if self.invertible_adapters_base is not None:
+            self.invertible_adapters_base.delete_invertible_adapter(adapter_name)
+
+    def get_invertible_adapter(self):
+        if self.invertible_adapters_base is not None:
+            return self.invertible_adapters_base.get_invertible_adapter()
+        return None
+
+    def enable_invertible_adapters(self, adapter_names):
+        if self.invertible_adapters_base is not None:
+            self.invertible_adapters_base.enable_invertible_adapters(adapter_names)
+
+    def invertible_adapters_forward(self, hidden_states, rev=False):
+        if self.invertible_adapters_base is not None:
+            return self.invertible_adapters_base.invertible_adapters_forward(hidden_states, rev=rev)
+        return hidden_states
+
+
 class EmbeddingAdaptersMixin:
     """Mixin for Transformer models adding support for dynamically switching embeddings."""
 
@@ -331,7 +379,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 for param in self.base_model.shared_parameters[adapter_name].values():
                     param.requires_grad = True
 
-        if isinstance(self, InvertibleAdaptersMixin):
+        if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.enable_invertible_adapters(adapter_setup.flatten())
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
@@ -447,7 +495,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         for module in self.modules():
             if isinstance(module, PrefixTuningPool):
                 module.confirm_prefix(adapter_name)
-        if isinstance(self, InvertibleAdaptersMixin):
+        if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.add_invertible_adapter(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
@@ -517,7 +565,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # PHM Layer
         if adapter_name in self.base_model.shared_parameters:
             del self.base_model.shared_parameters[adapter_name]
-        if isinstance(self, InvertibleAdaptersMixin):
+        if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.delete_invertible_adapter(adapter_name)
         # Reset active adapters if this was the only active adapter
         if self.active_adapters == Stack(adapter_name):
@@ -828,7 +876,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # global weights are saved at index -1
         if name in self.base_model.shared_parameters:
             destination[-1]["shared"] = self.base_model.shared_parameters[name]
-        if isinstance(self, InvertibleAdaptersMixin) and name in self.invertible_adapters:
+        if (
+            isinstance(self, InvertibleAdaptersMixin)
+            or isinstance(self, InvertibleAdaptersWrapperMixin)
+            and name in self.invertible_adapters
+        ):
             destination[-1]["invertible"] = self.invertible_adapters[name]
 
         # use a custom index to ensure numbering is from 0 to N layers

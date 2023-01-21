@@ -924,6 +924,7 @@ class CLIPModel(CLIPModelAdaptersMixin, CLIPPreTrainedModel):
         self.post_init()
 
     @add_start_docstrings_to_model_forward(CLIP_TEXT_INPUTS_DOCSTRING)
+    @ForwardContext.wrap
     def get_text_features(
         self,
         input_ids: Optional[torch.Tensor] = None,
@@ -971,6 +972,7 @@ class CLIPModel(CLIPModelAdaptersMixin, CLIPPreTrainedModel):
         return text_features
 
     @add_start_docstrings_to_model_forward(CLIP_VISION_INPUTS_DOCSTRING)
+    @ForwardContext.wrap
     def get_image_features(
         self,
         pixel_values: Optional[torch.FloatTensor] = None,

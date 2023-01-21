@@ -7,7 +7,7 @@ from ..layer import AdapterLayer
 from ..model_mixin import (
     EmbeddingAdaptersMixin,
     EmbeddingAdaptersWrapperMixin,
-    InvertibleAdaptersMixin,
+    InvertibleAdaptersWrapperMixin,
     ModelAdaptersMixin,
 )
 
@@ -22,16 +22,9 @@ class CLIPEncoderLayerAdaptersMixin:
         self.output_adapters._init_adapter_modules()
 
 
-class CLIPTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
+class CLIPTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixin, ModelAdaptersMixin):
     """Adds adapters to the CLIPTextModel class."""
-
-    def _init_adapter_modules(self):
-        self.invertible_adapters = self.text_model.invertible_adapters
-        self.add_invertible_adapter = self.text_model.add_invertible_adapter
-        self.get_invertible_adapter = self.text_model.get_invertible_adapter
-        self.enable_invertible_adapters = self.text_model.enable_invertible_adapters
-        self.invertible_adapters_forward = self.text_model.invertible_adapters_forward
-        super()._init_adapter_modules()
+    invertible_adapters_base_name = "text_model"
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.text_model.encoder.layers):
@@ -46,16 +39,9 @@ class CLIPVisionModelAdaptersMixin(ModelAdaptersMixin):
             yield i, layer
 
 
-class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelAdaptersMixin):
+class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWrapperMixin, ModelAdaptersMixin):
     """Adds adapters to the CLIPModel class."""
-
-    def _init_adapter_modules(self):
-        self.invertible_adapters = self.text_model.invertible_adapters
-        self.add_invertible_adapter = self.text_model.add_invertible_adapter
-        self.get_invertible_adapter = self.text_model.get_invertible_adapter
-        self.enable_invertible_adapters = self.text_model.enable_invertible_adapters
-        self.invertible_adapters_forward = self.text_model.invertible_adapters_forward
-        super()._init_adapter_modules()
+    invertible_adapters_base_name = "text_model"
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.text_model.encoder.layers):
