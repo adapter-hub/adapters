@@ -349,6 +349,11 @@ class CLIPConfig(PretrainedConfig):
         output["model_type"] = self.__class__.model_type
 
         self.adapters_to_dict(output)
+        # Remove adapters config from sub-configs
+        if "adapters" in output["text_config"]:
+            del output["text_config"]["adapters"]
+        if "adapters" in output["vision_config"]:
+            del output["vision_config"]["adapters"]
 
         return output
 
