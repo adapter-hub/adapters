@@ -105,8 +105,8 @@ class InvertibleAdaptersMixin:
 
 class InvertibleAdaptersWrapperMixin:
     """
-    Mixin for Transformer models supporting invertible adapters in a child module.
-    When applying this mixin, set `invertible_adapters_base_name` to the name of the child module that includes `InvertibleAdaptersMixin`.
+    Mixin for Transformer models supporting invertible adapters in a child module. When applying this mixin, set
+    `invertible_adapters_base_name` to the name of the child module that includes `InvertibleAdaptersMixin`.
     """
 
     invertible_adapters_base_name = ""

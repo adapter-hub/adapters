@@ -2,7 +2,6 @@ from typing import Iterable, Tuple
 
 import torch.nn as nn
 
-
 from ..layer import AdapterLayer
 from ..model_mixin import (
     EmbeddingAdaptersMixin,
@@ -24,6 +23,7 @@ class CLIPEncoderLayerAdaptersMixin:
 
 class CLIPTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixin, ModelAdaptersMixin):
     """Adds adapters to the CLIPTextModel class."""
+
     invertible_adapters_base_name = "text_model"
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
@@ -41,6 +41,7 @@ class CLIPVisionModelAdaptersMixin(ModelAdaptersMixin):
 
 class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWrapperMixin, ModelAdaptersMixin):
     """Adds adapters to the CLIPModel class."""
+
     invertible_adapters_base_name = "text_model"
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:

@@ -28,6 +28,7 @@ class T5FFLayerAdaptersMixin(AdapterLayer):
 
 class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixin, ModelAdaptersMixin):
     """Adds adapters to the T5Model class."""
+
     invertible_adapters_base_name = "encoder"
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:

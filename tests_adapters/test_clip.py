@@ -15,15 +15,6 @@ from .methods import (
 from .test_adapter import AdapterTestBase, VisionAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
-from .test_common import AdapterModelTesterMixin
-
-# TODO
-# @require_torch
-# class CLIPAdapterModelTest(CLIPModelTest):
-#     all_model_classes = (
-#         CLIPAdapterModel,
-#     )
-#     fx_compatible = False
 
 
 class CLIPVisionAdapterTestBase(VisionAdapterTestBase):

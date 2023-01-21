@@ -33,6 +33,7 @@ class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
 
 class BartModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixin, ModelAdaptersMixin):
     """Adds adapters to the BartModel class."""
+
     invertible_adapters_base_name = "encoder"
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:

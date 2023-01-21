@@ -28,13 +28,13 @@ from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
 from ...adapters.mixins.clip import (
     CLIPEncoderLayerAdaptersMixin,
+    CLIPModelAdaptersMixin,
     CLIPTextModelAdaptersMixin,
     CLIPVisionModelAdaptersMixin,
-    CLIPModelAdaptersMixin,
 )
 from ...adapters.model_mixin import InvertibleAdaptersMixin
-from ...adapters.wrappers.configuration import wrap_config
 from ...adapters.prefix_tuning import PrefixTuningShim
+from ...adapters.wrappers.configuration import wrap_config
 from ...modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling
 from ...modeling_utils import PreTrainedModel
 from ...utils import (
