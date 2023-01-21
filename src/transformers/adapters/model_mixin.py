@@ -877,10 +877,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if name in self.base_model.shared_parameters:
             destination[-1]["shared"] = self.base_model.shared_parameters[name]
         if (
-            isinstance(self, InvertibleAdaptersMixin)
-            or isinstance(self, InvertibleAdaptersWrapperMixin)
-            and name in self.invertible_adapters
-        ):
+            isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin)
+        ) and name in self.invertible_adapters:
             destination[-1]["invertible"] = self.invertible_adapters[name]
 
         # use a custom index to ensure numbering is from 0 to N layers
