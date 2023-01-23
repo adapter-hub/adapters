@@ -1,3 +1,5 @@
+import copy
+
 from ...configuration_utils import PretrainedConfig
 from ...models.clip.configuration_clip import CLIPConfig
 from ...models.encoder_decoder.configuration_encoder_decoder import EncoderDecoderConfig
@@ -77,6 +79,8 @@ def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
     for fusion_adapter_names in fusion_models:
         config.adapters.add_fusion(fusion_adapter_names, config=fusion_config)
 
+    # Make sure each class has its own attribute_map
+    type(config).attribute_map = copy.deepcopy(type(config).attribute_map)
     # Ensure missing keys are in class
     if config.model_type in CONFIG_CLASS_KEYS_MAPPING:
         for key, value in CONFIG_CLASS_KEYS_MAPPING[config.model_type].items():
