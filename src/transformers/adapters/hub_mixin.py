@@ -168,7 +168,7 @@ class PushAdapterToHubMixin:
         Returns:
             str: The url of the adapter repository on the model hub.
         """
-        if not repo_name.startswith(organization):
+        if organization is not None and not repo_name.startswith(organization):
             if "/" in repo_name:
                 repo_name = repo_name.split("/")[-1]
             repo_id = f"{organization}/{repo_name}"
