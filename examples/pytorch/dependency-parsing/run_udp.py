@@ -14,12 +14,12 @@ from datasets import load_dataset
 import transformers.adapters.composition as ac
 from preprocessing import preprocess_dataset
 from transformers import (
+    AdapterArguments,
     AdapterConfig,
     AutoAdapterModel,
     AutoConfig,
     AutoTokenizer,
     HfArgumentParser,
-    AdapterArguments,
     set_seed,
 )
 from utils_udp import UD_HEAD_LABELS, DependencyParsingAdapterTrainer, DependencyParsingTrainer, UDTrainingArguments

@@ -41,7 +41,7 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
-from transformers.adapters import AdapterTrainer, AutoAdapterModel, AdapterArguments, setup_adapter_training
+from transformers.adapters import AdapterArguments, AdapterTrainer, AutoAdapterModel, setup_adapter_training
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version

@@ -41,7 +41,7 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
-from transformers.adapters import AdapterTrainer, AdapterArguments, setup_adapter_training
+from transformers.adapters import AdapterArguments, AdapterTrainer, setup_adapter_training
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import PaddingStrategy, check_min_version
