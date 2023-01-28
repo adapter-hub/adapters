@@ -219,7 +219,9 @@ class AdapterTrainer(Trainer):
 
     def _load_best_model(self):
         model = self.model_wrapped if is_sagemaker_mp_enabled() else self.model
-        logger.info(f"Loading best adapter(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric}).")
+        logger.info(
+            f"Loading best adapter(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+        )
         # attempt to re-load all adapters from checkpoint
         for adapter in model.config.adapters.adapters:
             adapter_dir = os.path.join(self.state.best_model_checkpoint, adapter)
@@ -227,7 +229,8 @@ class AdapterTrainer(Trainer):
                 model.load_adapter(adapter_dir)
         if self.train_adapter_fusion:
             logger.info(
-                f"Loading best adapter fusion(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
+                f"Loading best adapter fusion(s) from {self.state.best_model_checkpoint} (score:"
+                f" {self.state.best_metric})."
             )
             # attempt to re-load all adapter fusions from checkpoint
             for fusion in model.config.adapters.fusions:
