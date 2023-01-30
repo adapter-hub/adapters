@@ -1,5 +1,3 @@
-import warnings
-
 from ....models.albert.modeling_albert import (
     ALBERT_INPUTS_DOCSTRING,
     ALBERT_START_DOCSTRING,
