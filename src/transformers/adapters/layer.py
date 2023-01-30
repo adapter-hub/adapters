@@ -526,7 +526,7 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             torch.Tensor: Output hidden states of the adapter layer.
         """
         # Batch sizes might be different due to prefix tuning w. Parallel block
-        (input_tensor,) = adjust_tensors_for_parallel(hidden_states, input_tensor)
+        (residual_input,) = adjust_tensors_for_parallel(hidden_states, residual_input)
         adapter_setup = self.get_active_setup(self.adapters)
         if adapter_setup is not None:
             input_hidden_states = hidden_states
