@@ -340,7 +340,9 @@ class T5LayerFF(T5FFLayerAdaptersMixin, nn.Module):
     def forward(self, hidden_states):
         forwarded_states = self.layer_norm(hidden_states)
         forwarded_states = self.DenseReluDense(forwarded_states)
-        hidden_states = self.adapter_layer_forward(hidden_states, self.dropout(forwarded_states), None)
+        hidden_states = self.adapter_layer_forward(
+            hidden_states=self.dropout(forwarded_states), residual_input=hidden_states, layer_norm=None
+        )
         return hidden_states
 
 
@@ -610,7 +612,9 @@ class T5LayerSelfAttention(T5SelfAttentionLayerAdaptersMixin, nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions,
         )
-        hidden_states = self.adapter_layer_forward(hidden_states, self.dropout(attention_output[0]), None)
+        hidden_states = self.adapter_layer_forward(
+            hidden_states=self.dropout(attention_output[0]), residual_input=hidden_states, layer_norm=None
+        )
         outputs = (hidden_states,) + attention_output[1:]  # add attentions if we output them
         return outputs
 
@@ -648,7 +652,9 @@ class T5LayerCrossAttention(T5CrossAttentionLayerAdaptersMixin, nn.Module):
             query_length=query_length,
             output_attentions=output_attentions,
         )
-        layer_output = self.adapter_layer_forward(hidden_states, self.dropout(attention_output[0]), None)
+        layer_output = self.adapter_layer_forward(
+            hidden_states=self.dropout(attention_output[0]), residual_input=hidden_states, layer_norm=None
+        )
         outputs = (layer_output,) + attention_output[1:]  # add attentions if we output them
         return outputs
 
