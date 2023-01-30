@@ -22,9 +22,7 @@ from ....utils import _LazyModule
 
 
 _import_structure = {
-    "adapter_model": [
-        "AlbertAdapterModel"
-    ],
+    "adapter_model": ["AlbertAdapterModel"],
 }
 
 

@@ -74,10 +74,9 @@ class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
             return_dict=return_dict,
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
-            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),  # TODO: das raus?
+            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
         )
 
-        # TODO: braucht es das?
         # BERT & RoBERTa & ALBERT return the pooled output as second item, we don't need that in these heads
         if not return_dict:
             head_inputs = (outputs[0],) + outputs[2:]

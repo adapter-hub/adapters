@@ -20,6 +20,7 @@ from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 from .test_common import AdapterModelTesterMixin
+from math import ceil
 
 
 @require_torch
@@ -34,7 +35,7 @@ class AlbertAdapterTestBase(AdapterTestBase):
         AlbertConfig,
         embedding_size=16,
         hidden_size=256,
-        num_hidden_layers=4,
+        num_hidden_layers=5,
         num_attention_heads=4,
         intermediate_size=37,
         num_hidden_groups=2,
@@ -59,6 +60,10 @@ class AlbertAdapterTest(
     AlbertAdapterTestBase,
     unittest.TestCase,
 ):
+    def test_context_simple(self):
+        expected_number_of_adapter_calls = ceil(self.config().num_hidden_layers / self.config().num_hidden_groups)
+        super().test_context_simple(expected_number_of_adapter_calls=expected_number_of_adapter_calls)
+
     def test_add_embeddings(self):
         super().test_add_embeddings(embedding_dim=self.config().embedding_size)
 
