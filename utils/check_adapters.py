@@ -4,6 +4,7 @@ from transformers import ModelAdaptersMixin
 
 
 MODELS_WITH_ADAPTERS = [
+    "albert",
     "bert",
     "beit",
     "roberta",

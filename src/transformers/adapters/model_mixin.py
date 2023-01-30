@@ -41,16 +41,19 @@ class InvertibleAdaptersMixin:
         # Make sure config is wrapped
         self.config = wrap_config(self.config)
 
-    def add_invertible_adapter(self, adapter_name: str):
+    def add_invertible_adapter(self, adapter_name: str, embedding_dim=None):
         """
         Adds an invertible adapter module for the adapter with the given name. If the given adapter does not specify an
         invertible adapter config, this method does nothing.
 
         Args:
             adapter_name (str): The name of the adapter for which to add an invertible adapter module.
+            embedding_dim: the dimension of the embeddings (if None the hidden_size from the config is used)
         """
         if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
+        if embedding_dim is None:
+            embedding_dim = self.config.hidden_size
         adapter_config = self.config.adapters.match(
             adapter_name,
             config_type=AdapterConfig,
@@ -59,13 +62,13 @@ class InvertibleAdaptersMixin:
         if adapter_config and adapter_config["inv_adapter"]:
             if adapter_config["inv_adapter"] == "nice":
                 inv_adap = NICECouplingBlock(
-                    [[self.config.hidden_size]],
+                    [[embedding_dim]],
                     non_linearity=adapter_config["non_linearity"],
                     reduction_factor=adapter_config["inv_adapter_reduction_factor"],
                 )
             elif adapter_config["inv_adapter"] == "glow":
                 inv_adap = GLOWCouplingBlock(
-                    [[self.config.hidden_size]],
+                    [[embedding_dim]],
                     non_linearity=adapter_config["non_linearity"],
                     reduction_factor=adapter_config["inv_adapter_reduction_factor"],
                 )

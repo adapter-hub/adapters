@@ -9,6 +9,56 @@ logger = logging.getLogger(__name__)
 # The "layers" attributes in the configs below map from static head module names to flex head module names.
 # In this context, "None" refers to a flex-head layer without weights (e.g. dropout, acts).
 STATIC_TO_FLEX_HEAD_MAP = {
+    # ALBERT
+    "AlbertForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 1,
+            "activation_function": None,
+            "use_pooler": True,
+        },
+        "layers": [None, "classifier"],
+    },
+    "AlbertForMultipleChoice": {
+        "config": {
+            "head_type": "multiple_choice",
+            "layers": 1,
+            "activation_function": None,
+            "use_pooler": True,
+        },
+        "layers": [None, "classifier"],
+    },
+    "AlbertForTokenClassification": {
+        "config": {
+            "head_type": "tagging",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "classifier"],
+    },
+    "AlbertForQuestionAnswering": {
+        "config": {
+            "head_type": "question_answering",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "qa_outputs"],
+    },
+    "AlbertForMaskedLM": {
+        "config": {
+            "head_type": "masked_lm",
+            "layers": 2,
+            "activation_function": "gelu",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": [
+            "cls.predictions.transform.dense",
+            None,
+            "cls.predictions.transform.LayerNorm",
+            "cls.predictions.decoder",
+        ],
+    },
     # BEIT
     "BeitForImageClassification": {
         "config": {

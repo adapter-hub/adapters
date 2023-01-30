@@ -4,6 +4,7 @@ from ..configuration import ModelAdaptersConfig
 
 
 CONFIG_CLASS_KEYS_MAPPING = {
+    "albert": {},
     "bart": {
         "num_attention_heads": "encoder_attention_heads",
         "hidden_size": "d_model",

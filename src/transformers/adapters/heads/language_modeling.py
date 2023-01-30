@@ -48,7 +48,11 @@ class CausalLMHead(PredictionHead):
         # Final embedding layer
         self.add_module(
             str(len(pred_head)),
-            nn.Linear(model_config.hidden_size, self.config["vocab_size"], bias=self.config["bias"]),
+            nn.Linear(
+                model_config.hidden_size,
+                self.config["vocab_size"],
+                bias=self.config["bias"],
+            ),
         )
 
         self.apply(model._init_weights)
@@ -187,3 +191,30 @@ class BertStyleMaskedLMHead(CausalLMHead):
             hidden_states=base_outputs.hidden_states,
             attentions=base_outputs.attentions,
         )
+
+
+class AlbertMaskedLMHead(BertStyleMaskedLMHead):
+    def build(self, model):
+        model_config = model.config
+        pred_head = []
+
+        pred_head.append(nn.Linear(model_config.hidden_size, model_config.embedding_size))
+        pred_head.append(Activation_Function_Class(self.config["activation_function"]))
+        eps = getattr(model_config, "layer_norm_eps", 1e-12)
+        pred_head.append(nn.LayerNorm(model_config.embedding_size, eps=eps))
+
+        for i, module in enumerate(pred_head):
+            self.add_module(str(i), module)
+
+        # Final embedding layer
+        self.add_module(
+            str(len(pred_head)),
+            nn.Linear(
+                model_config.embedding_size,
+                self.config["vocab_size"],
+                bias=self.config["bias"],
+            ),
+        )
+
+        self.apply(model._init_weights)
+        self.train(model.training)  # make sure training mode is consistent

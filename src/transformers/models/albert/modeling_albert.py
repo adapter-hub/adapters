@@ -24,6 +24,16 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.albert import (
+    AlbertAttentionAdaptersMixin,
+    AlbertEncoderLayerAdaptersMixin,
+    AlbertModelAdaptersMixin,
+    AlbertModelWithHeadsAdaptersMixin,
+)
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutput,
     BaseModelOutputWithPooling,
@@ -258,8 +268,8 @@ class AlbertEmbeddings(nn.Module):
         return embeddings
 
 
-class AlbertAttention(nn.Module):
-    def __init__(self, config: AlbertConfig):
+class AlbertAttention(AlbertAttentionAdaptersMixin, nn.Module):
+    def __init__(self, config: AlbertConfig, location_key: Optional[str] = None):
         super().__init__()
         if config.hidden_size % config.num_attention_heads != 0 and not hasattr(config, "embedding_size"):
             raise ValueError(
@@ -272,9 +282,9 @@ class AlbertAttention(nn.Module):
         self.attention_head_size = config.hidden_size // config.num_attention_heads
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.query = nn.Linear(config.hidden_size, self.all_head_size)
-        self.key = nn.Linear(config.hidden_size, self.all_head_size)
-        self.value = nn.Linear(config.hidden_size, self.all_head_size)
+        self.query = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="q")
+        self.key = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="k")
+        self.value = LoRALinear(config.hidden_size, self.all_head_size, "selfattn", config, attn_key="v")
 
         self.attention_dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.output_dropout = nn.Dropout(config.hidden_dropout_prob)
@@ -286,6 +296,11 @@ class AlbertAttention(nn.Module):
         if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
             self.max_position_embeddings = config.max_position_embeddings
             self.distance_embedding = nn.Embedding(2 * config.max_position_embeddings - 1, self.attention_head_size)
+
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
+
+        self.config = config
+        self._init_adapter_modules()
 
     # Copied from transformers.models.bert.modeling_bert.BertSelfAttention.transpose_for_scores
     def transpose_for_scores(self, x: torch.Tensor) -> torch.Tensor:
@@ -325,6 +340,10 @@ class AlbertAttention(nn.Module):
         query_layer = self.transpose_for_scores(mixed_query_layer)
         key_layer = self.transpose_for_scores(mixed_key_layer)
         value_layer = self.transpose_for_scores(mixed_value_layer)
+
+        key_layer, value_layer, attention_mask = self.prefix_tuning(
+            key_layer, value_layer, hidden_states, attention_mask
+        )
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
@@ -366,11 +385,15 @@ class AlbertAttention(nn.Module):
 
         projected_context_layer = self.dense(context_layer)
         projected_context_layer_dropout = self.output_dropout(projected_context_layer)
-        layernormed_context_layer = self.LayerNorm(hidden_states + projected_context_layer_dropout)
+
+        layernormed_context_layer = self.attention_adapters(
+            hidden_states, projected_context_layer_dropout, self.LayerNorm
+        )
+
         return (layernormed_context_layer, attention_probs) if output_attentions else (layernormed_context_layer,)
 
 
-class AlbertLayer(nn.Module):
+class AlbertLayer(AlbertEncoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: AlbertConfig):
         super().__init__()
 
@@ -378,11 +401,15 @@ class AlbertLayer(nn.Module):
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
         self.seq_len_dim = 1
         self.full_layer_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
-        self.attention = AlbertAttention(config)
-        self.ffn = nn.Linear(config.hidden_size, config.intermediate_size)
-        self.ffn_output = nn.Linear(config.intermediate_size, config.hidden_size)
+        self.attention = AlbertAttention(config, location_key="self")
+
+        self.ffn = LoRALinear(config.hidden_size, config.intermediate_size, "intermediate", config)
+        self.ffn_output = LoRALinear(config.intermediate_size, config.hidden_size, "output", config)
+
         self.activation = ACT2FN[config.hidden_act]
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -400,7 +427,8 @@ class AlbertLayer(nn.Module):
             self.seq_len_dim,
             attention_output[0],
         )
-        hidden_states = self.full_layer_layer_norm(ffn_output + attention_output[0])
+
+        hidden_states = self.output_adapters(ffn_output, attention_output[0], self.full_layer_layer_norm)
 
         return (hidden_states,) + attention_output[1:]  # add attentions if we output them
 
@@ -485,6 +513,7 @@ class AlbertTransformer(nn.Module):
                 output_hidden_states,
             )
             hidden_states = layer_group_output[0]
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
 
             if output_attentions:
                 all_attentions = all_attentions + layer_group_output[-1]
@@ -631,7 +660,7 @@ ALBERT_INPUTS_DOCSTRING = r"""
     "The bare ALBERT Model transformer outputting raw hidden-states without any specific head on top.",
     ALBERT_START_DOCSTRING,
 )
-class AlbertModel(AlbertPreTrainedModel):
+class AlbertModel(AlbertModelAdaptersMixin, AlbertPreTrainedModel):
 
     config_class = AlbertConfig
     base_model_prefix = "albert"
@@ -648,6 +677,8 @@ class AlbertModel(AlbertPreTrainedModel):
         else:
             self.pooler = None
             self.pooler_activation = None
+
+        self._init_adapter_modules()
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -682,6 +713,7 @@ class AlbertModel(AlbertPreTrainedModel):
         output_type=BaseModelOutputWithPooling,
         config_class=_CONFIG_FOR_DOC,
     )
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
@@ -730,6 +762,9 @@ class AlbertModel(AlbertPreTrainedModel):
         embedding_output = self.embeddings(
             input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds
         )
+
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+
         encoder_outputs = self.encoder(
             embedding_output,
             extended_attention_mask,
@@ -761,7 +796,7 @@ class AlbertModel(AlbertPreTrainedModel):
     """,
     ALBERT_START_DOCSTRING,
 )
-class AlbertForPreTraining(AlbertPreTrainedModel):
+class AlbertForPreTraining(AlbertModelWithHeadsAdaptersMixin, AlbertPreTrainedModel):
     def __init__(self, config: AlbertConfig):
         super().__init__(config)
 
@@ -841,7 +876,8 @@ class AlbertForPreTraining(AlbertPreTrainedModel):
 
         sequence_output, pooled_output = outputs[:2]
 
-        prediction_scores = self.predictions(sequence_output)
+        prediction_scores = self.predictions(sequence_output, inv_lang_adapter=self.albert.get_invertible_adapter())
+
         sop_scores = self.sop_classifier(pooled_output)
 
         total_loss = None
@@ -875,10 +911,14 @@ class AlbertMLMHead(nn.Module):
         self.activation = ACT2FN[config.hidden_act]
         self.decoder.bias = self.bias
 
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+    def forward(self, hidden_states: torch.Tensor, inv_lang_adapter=None) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.activation(hidden_states)
         hidden_states = self.LayerNorm(hidden_states)
+
+        if inv_lang_adapter:
+            hidden_states = inv_lang_adapter(hidden_states, rev=True)
+
         hidden_states = self.decoder(hidden_states)
 
         prediction_scores = hidden_states
@@ -907,7 +947,7 @@ class AlbertSOPHead(nn.Module):
     "Albert Model with a `language modeling` head on top.",
     ALBERT_START_DOCSTRING,
 )
-class AlbertForMaskedLM(AlbertPreTrainedModel):
+class AlbertForMaskedLM(AlbertModelWithHeadsAdaptersMixin, AlbertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
@@ -996,7 +1036,7 @@ class AlbertForMaskedLM(AlbertPreTrainedModel):
         )
         sequence_outputs = outputs[0]
 
-        prediction_scores = self.predictions(sequence_outputs)
+        prediction_scores = self.predictions(sequence_outputs, inv_lang_adapter=self.albert.get_invertible_adapter())
 
         masked_lm_loss = None
         if labels is not None:
@@ -1022,7 +1062,7 @@ class AlbertForMaskedLM(AlbertPreTrainedModel):
     """,
     ALBERT_START_DOCSTRING,
 )
-class AlbertForSequenceClassification(AlbertPreTrainedModel):
+class AlbertForSequenceClassification(AlbertModelWithHeadsAdaptersMixin, AlbertPreTrainedModel):
     def __init__(self, config: AlbertConfig):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1124,7 +1164,7 @@ class AlbertForSequenceClassification(AlbertPreTrainedModel):
     """,
     ALBERT_START_DOCSTRING,
 )
-class AlbertForTokenClassification(AlbertPreTrainedModel):
+class AlbertForTokenClassification(AlbertModelWithHeadsAdaptersMixin, AlbertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
@@ -1216,7 +1256,7 @@ class AlbertForTokenClassification(AlbertPreTrainedModel):
     """,
     ALBERT_START_DOCSTRING,
 )
-class AlbertForQuestionAnswering(AlbertPreTrainedModel):
+class AlbertForQuestionAnswering(AlbertModelWithHeadsAdaptersMixin, AlbertPreTrainedModel):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
@@ -1323,7 +1363,7 @@ class AlbertForQuestionAnswering(AlbertPreTrainedModel):
     """,
     ALBERT_START_DOCSTRING,
 )
-class AlbertForMultipleChoice(AlbertPreTrainedModel):
+class AlbertForMultipleChoice(AlbertModelWithHeadsAdaptersMixin, AlbertPreTrainedModel):
     def __init__(self, config: AlbertConfig):
         super().__init__(config)
 
