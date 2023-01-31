@@ -84,6 +84,18 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "cls.predictions.decoder",
         ],
     },
+    # BertGeneration
+    "BertGenerationDecoder": {
+        "config": {
+            "head_type": "causal_lm",
+            "layers": 1,
+            "activation_function": None,
+            "bias": True,
+        },
+        "layers": [
+            "lm_head.decoder",
+        ],
+    },
     # RoBERTa
     "RobertaForSequenceClassification": {
         "config": {

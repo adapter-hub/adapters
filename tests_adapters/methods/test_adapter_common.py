@@ -17,6 +17,7 @@ from transformers import (
     PfeifferInvConfig,
 )
 from transformers.adapters import BatchSplit, Fuse
+from transformers.adapters.heads.language_modeling import CausalLMHead
 from transformers.testing_utils import require_torch, torch_device
 
 from .base import AdapterMethodBaseTestMixin, create_twin_models
@@ -324,15 +325,19 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.base_model.get_fusion_regularization_loss = patched_fusion_reg_loss
 
         self.trainings_run(model)
+        def has_tied_embeddings(k):
+            tied_embeddings = hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings 
+            is_tied_layer = isinstance(model.heads["head"], CausalLMHead) and 'heads.{}.{}.weight'.format("head", len(model.heads["head"]._modules)-1) in k
+            return tied_embeddings and is_tied_layer
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if (
-                "adapter_fusion_layer" in k1
+                ("adapter_fusion_layer" in k1
                 or "classifier" in k1
                 or "classification_head" in k1
                 or "score" in k1
-                or ("heads" in k1 and not model.config.tie_word_embeddings)
-
+                or "head" in k1)
+                and not has_tied_embeddings(k1)
             ):
                 self.assertFalse(torch.equal(v1, v2), k1)
             else:
