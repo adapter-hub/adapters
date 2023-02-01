@@ -359,13 +359,13 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         all_key_states, all_value_states, all_residual_input, all_attention_mask = [], [], [], []
         for key_states, value_states, residual_input, attention_mask in outputs:
             # pad sizes
-            pad_size = (0, 0, max_prefix_length - key_states.shape[-2], 0)
+            pad_length = max_prefix_length - key_states.shape[-2]
+            pad_size = (0, 0, pad_length, 0)
             key_states = F.pad(key_states, pad_size, "constant", self.config.pad_token_id)
             value_states = F.pad(value_states, pad_size, "constant", self.config.pad_token_id)
 
             # pad attention mask
-            attn_mask_pad_length = max_prefix_length - key_states.shape[-2]
-            if attn_mask_pad_length > 0:
+            if pad_length > 0:
                 # Masking the padded tokens only works correctly if attention_mask is set
                 # We assume this to be the case at this point
                 assert attention_mask is not None, "Attention mask must be set for prefix tuning"

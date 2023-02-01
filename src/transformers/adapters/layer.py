@@ -527,6 +527,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         """
         # Batch sizes might be different due to prefix tuning w. Parallel block
         (residual_input,) = adjust_tensors_for_parallel(hidden_states, residual_input)
+        # Replicate in both directions as residual might be larger (e.g. GPT-J)
+        (hidden_states,) = adjust_tensors_for_parallel(residual_input, hidden_states)
         adapter_setup = self.get_active_setup(self.adapters)
         if adapter_setup is not None:
             input_hidden_states = hidden_states

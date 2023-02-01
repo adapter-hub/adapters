@@ -334,6 +334,7 @@ class GPTJBlock(GPTJDecoderBlockAdaptersMixin, nn.Module):
         outputs = attn_outputs[1:]
 
         feed_forward_hidden_states = self.mlp(hidden_states)
+        # See https://github.com/adapter-hub/adapter-transformers/pull/426#discussion_r994450898
         hidden_states = self.attention_adapters(attn_output, residual, None)
 
         hidden_states = self.output_adapters(feed_forward_hidden_states, hidden_states, None)
