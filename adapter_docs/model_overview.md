@@ -14,6 +14,7 @@ The table below further shows which model architectures support which adaptation
 | --------------------------------------- | -| - | - | - | - | - | - |
 | [BART](classes/models/bart.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [BEIT](classes/models/beit.html)        | ✅ | ✅ | ✅ | ✅ | ✅ |  |  |
+| [BERT-GENERATION](classes/models/bert_generation.rst) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [BERT](classes/models/bert.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [DeBERTa](classes/models/deberta.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [DeBERTa-v2](classes/models/debertaV2.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
