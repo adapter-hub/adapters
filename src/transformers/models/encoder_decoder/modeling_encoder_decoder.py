@@ -26,6 +26,7 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from ...adapters.mixins.encoder_decoder import EncoderDecoderModelAdaptersMixin
+from ...adapters.wrappers.configuration import wrap_config
 from ...configuration_utils import PretrainedConfig
 from ...modeling_outputs import BaseModelOutput, Seq2SeqLMOutput
 from ...modeling_utils import PreTrainedModel
@@ -218,7 +219,7 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
         self.encoder = encoder
         self.decoder = decoder
 
-        # ensure that encoder and decoder use the same shared parameters
+        # ensure that encoder and decoder use the sam shared parameters
         if hasattr(self.encoder, "set_shared_parameters"):
             self.encoder.set_shared_parameters(self.shared_parameters)
         if hasattr(self.decoder, "set_shared_parameters"):
@@ -237,12 +238,11 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
 
         # make sure that the individual model's config refers to the shared config
         # so that the updates to the config will be synced
-        self.config.encoder = self.encoder.config
-        self.config.decoder = self.decoder.config
-        # make sure that the shared parameters are shared between encoder and decoder
-        self.encoder.shared_parameters = self.decoder.shared_parameters
-
-        self.config.adapters = self.encoder.config.adapters
+        self.encoder.config = self.config.encoder
+        self.decoder.config = self.config.decoder
+        # make sure adapter config is shared
+        if hasattr(self.encoder.config, "adapters"):
+            self.decoder.config.adapters = self.encoder.config.adapters
 
         # encoder outputs might need to be projected to different dimension for decoder
         if (
@@ -539,6 +539,13 @@ class EncoderDecoderModel(EncoderDecoderModelAdaptersMixin, PreTrainedModel):
 
         # instantiate config with corresponding kwargs
         config = EncoderDecoderConfig.from_encoder_decoder_configs(encoder.config, decoder.config, **kwargs)
+        # HACK: make sure adapter configs are referring to the same objects
+        if hasattr(encoder.config, "adapters"):
+            wrap_config(encoder.config)
+            config.encoder.adapters = encoder.config.adapters
+        if hasattr(decoder.config, "adapters"):
+            wrap_config(decoder.config)
+            config.decoder.adapters = decoder.config.adapters
         return cls(encoder=encoder, decoder=decoder, config=config)
 
     @add_start_docstrings_to_model_forward(ENCODER_DECODER_INPUTS_DOCSTRING)

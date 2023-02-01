@@ -889,7 +889,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             row["train"] = train
             rows.append(row)
         # count no. of parameters in base network
-        model_no_params = self._count_parameters()
+        model_no_params = sum(p.numel() for p in self.base_model.parameters())
         model_no_params -= sum([r["#param"] for r in rows])
         # add %param info
         for row in rows:
@@ -919,9 +919,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             s.insert(len(s) - 1, "-" * total_length)
             s.append("=" * total_length)
             return "\n".join(s)
-
-    def _count_parameters(self):
-        return sum(p.numel() for p in self.base_model.parameters())
 
     def eject_prefix_tuning(self, name: str):
         """

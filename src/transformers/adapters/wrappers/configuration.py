@@ -1,4 +1,5 @@
 from ...configuration_utils import PretrainedConfig
+from ...models.encoder_decoder.configuration_encoder_decoder import EncoderDecoderConfig
 from ..configuration import ModelAdaptersConfig
 
 
@@ -76,6 +77,13 @@ def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
     # Ensure custom_heads attribute is present
     if not hasattr(config, "custom_heads"):
         config.custom_heads = {}
+
+    if isinstance(config, EncoderDecoderConfig):
+        # make sure adapter config is shared
+        wrap_config(config.encoder)
+        wrap_config(config.decoder)
+        config.decoder.adapters = config.encoder.adapters
+        config.adapters = config.encoder.adapters
 
     config.is_adaptable = True
 
