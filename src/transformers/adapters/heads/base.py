@@ -69,11 +69,15 @@ class PredictionHead(nn.Sequential):
     def build(self, model):
         model_config = model.config
         pred_head = []
-        dropout_prob = self.config.get("dropout_prob", model_config.hidden_dropout_prob)
+        if "dropout_prob" in self.config:
+            dropout_prob = self.config["dropout_prob"]
+        elif hasattr(model_config, "classifier_dropout") and model_config.classifier_dropout is not None:
+            dropout_prob = model_config.classifier_dropout
+        else:
+            dropout_prob = model_config.hidden_dropout_prob
         bias = self.config.get("bias", True)
         for l_id in range(self.config["layers"]):
-            if dropout_prob > 0:
-                pred_head.append(nn.Dropout(dropout_prob))
+            pred_head.append(nn.Dropout(dropout_prob))
             if l_id < self.config["layers"] - 1:
                 pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
                 if self.config["activation_function"]:

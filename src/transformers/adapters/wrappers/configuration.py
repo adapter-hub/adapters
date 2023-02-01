@@ -4,7 +4,9 @@ from ..configuration import ModelAdaptersConfig
 
 
 CONFIG_CLASS_KEYS_MAPPING = {
-    "albert": {},
+    "albert": {
+        "classifier_dropout": "classifier_dropout_prob",
+    },
     "bart": {
         "num_attention_heads": "encoder_attention_heads",
         "hidden_size": "d_model",
@@ -16,6 +18,7 @@ CONFIG_CLASS_KEYS_MAPPING = {
     "distilbert": {
         "hidden_dropout_prob": "dropout",
         "attention_probs_dropout_prob": "attention_dropout",
+        "classifier_dropout": "seq_classif_dropout",
     },
     "gpt2": {
         "hidden_dropout_prob": "resid_pdrop",

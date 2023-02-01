@@ -48,7 +48,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         "config": {
             "head_type": "masked_lm",
             "layers": 2,
-            "activation_function": "gelu",
+            "activation_function": "gelu_new",
             "layer_norm": True,
             "bias": True,
         },
@@ -67,7 +67,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "activation_function": None,
             "use_pooler": True,
         },
-        "layers": {"classifier"},
+        "layers": [None, "classifier"],
     },
     # BERT
     "BertForSequenceClassification": {
@@ -495,7 +495,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
         },
-        "layers": {"classifier"},
+        "layers": [None, "classifier"],
     },
 }
 
