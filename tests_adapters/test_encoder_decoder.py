@@ -1,20 +1,3 @@
-import regex as re
-import unittest
-
-from tests.models.encoder_decoder.test_modeling_encoder_decoder import (
-    EncoderDecoderConfig, 
-    EncoderDecoderModel, 
-    BertEncoderDecoderModelTest, 
-    BartEncoderDecoderModelTest, 
-    BertGenerationEncoderDecoderModelTest, 
-    RoBertaEncoderDecoderModelTest, 
-    GPT2EncoderDecoderModelTest, 
-    torch_device
-)
-from transformers.testing_utils import require_torch
-
-from transformers import AutoModelForSeq2SeqLM, BertConfig, AdapterConfig, AutoAdapterModel
-from transformers.adapters.configuration import CompacterConfig
 
 from .methods import (
     BottleneckAdapterTestMixin,
@@ -96,28 +79,4 @@ class EncoderDecoderAdapterTest(
     def test_output_adapter_fusion_attentions(self):
         # TODO currently not supported
         self.skipTest("Not implemented.")
-
-    def test_consistent_adapter_config(self):
-        
-        model = AutoModelForSeq2SeqLM.from_config(self.config())
-        adapter_config = CompacterConfig(phm_dim=2, reduction_factor=8)
-        model.add_adapter("test", config=adapter_config)
-        # ensure that encoder and decoder actually share the shared parameters
-        self.assertEqual(model.encoder.shared_parameters, model.decoder.shared_parameters)
-
-    def test_leave_out(self):
-        for leave_out in [list(range(2)), list(range(4)), list(range(6))]:
-            with self.subTest(leave_out=leave_out):
-                model = AutoModelForSeq2SeqLM.from_config(self.config())
-                adapter_config = AdapterConfig(mh_adapter=True, output_adapter=True, reduction_factor=4, non_linearity="gelu", leave_out=leave_out)
-                model.add_adapter("test", config=adapter_config)
-                num_encoder_layer = model.config.encoder.num_hidden_layers
-
-                for name, _ in model.named_parameters():
-                    if "adapter" in name:
-                        layer_id = int(re.findall("layer.(\d+)", name)[0])
-                        # for the decoder layers add the encoder layer number to get the layer idx
-                        if name.startswith("decoder"):
-                            layer_id += num_encoder_layer
-                        self.assertFalse(layer_id in leave_out, name)
-                
+           

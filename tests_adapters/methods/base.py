@@ -246,6 +246,7 @@ class AdapterMethodBaseTestMixin:
 
         self.trainings_run(model)
 
+        # check whether the key corresponds to a tied embedding
         def has_tied_embeddings(k):
             tied_embeddings = hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings 
             is_tied_layer = isinstance(model.heads["mrpc"], CausalLMHead) and 'heads.{}.{}.weight'.format("mrpc", len(model.heads["mrpc"]._modules)-1) in k
