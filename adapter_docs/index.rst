@@ -23,8 +23,15 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
 
    installation
    quickstart
-   overview
    training
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Adapter Methods
+
+   overview
+   methods
+   method_combinations
 
 .. toctree::
    :maxdepth: 2
