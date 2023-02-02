@@ -9,6 +9,13 @@ from .configuration import AdapterConfigBase
 class AdapterArguments:
     """
     The subset of arguments related to adapter training.
+
+    Args:
+        train_adapter (bool): Whether to train an adapter instead of the full model.
+        load_adapter (str): Pre-trained adapter module to be loaded from Hub.
+        adapter_config (str): Adapter configuration. Either a config string or a path to a file.
+        load_lang_adapter (str): Pre-trained language adapter module to be loaded from Hub.
+        lang_adapter_config (str): Language adapter configuration. Either an identifier or a path to a file.
     """
 
     train_adapter: bool = field(default=False, metadata={"help": "Train an adapter instead of the full model."})
