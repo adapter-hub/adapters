@@ -11,6 +11,7 @@ class CausalLMHead(PredictionHead):
         model,
         head_name,
         vocab_size=None,
+        embedding_size=None,
         layers=1,
         activation_function=None,
         layer_norm=False,
@@ -21,6 +22,7 @@ class CausalLMHead(PredictionHead):
         self.config = {
             "head_type": "causal_lm",
             "vocab_size": vocab_size or model.config.vocab_size,
+            "embedding_size": embedding_size or getattr(model.config, "embedding_size", model.config.hidden_size),
             "layers": layers,
             "activation_function": activation_function,
             "layer_norm": layer_norm,
@@ -35,13 +37,25 @@ class CausalLMHead(PredictionHead):
         # Additional FC layers
         pred_head = []
         with_layer_norm = self.config.get("layer_norm", False)
-        for l_id in range(self.config["layers"] - 1):
-            pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
+        embedding_size = self.config.get("embedding_size", model_config.hidden_size)
+
+        # First embedding layer
+        pred_head.append(nn.Linear(model_config.hidden_size, embedding_size))
+        if self.config["activation_function"]:
+            pred_head.append(Activation_Function_Class(self.config["activation_function"]))
+        if with_layer_norm:
+            eps = getattr(model_config, "layer_norm_eps", 1e-12)
+            pred_head.append(nn.LayerNorm(embedding_size, eps=eps))
+
+        # Second to second last embedding layer
+        for l_id in range(self.config["layers"] - 2):
+            pred_head.append(nn.Linear(embedding_size, embedding_size))
             if self.config["activation_function"]:
                 pred_head.append(Activation_Function_Class(self.config["activation_function"]))
             if with_layer_norm:
                 eps = getattr(model_config, "layer_norm_eps", 1e-12)
-                pred_head.append(nn.LayerNorm(model_config.hidden_size, eps=eps))
+                pred_head.append(nn.LayerNorm(embedding_size, eps=eps))
+
         for i, module in enumerate(pred_head):
             self.add_module(str(i), module)
 
@@ -49,7 +63,7 @@ class CausalLMHead(PredictionHead):
         self.add_module(
             str(len(pred_head)),
             nn.Linear(
-                model_config.hidden_size,
+                embedding_size,
                 self.config["vocab_size"],
                 bias=self.config["bias"],
             ),
@@ -164,6 +178,7 @@ class BertStyleMaskedLMHead(CausalLMHead):
         model,
         head_name,
         vocab_size=None,
+        embedding_size=None,
         layers=2,
         activation_function="gelu",
         layer_norm=True,
@@ -174,6 +189,7 @@ class BertStyleMaskedLMHead(CausalLMHead):
         self.config = {
             "head_type": "masked_lm",
             "vocab_size": vocab_size or model.config.vocab_size,
+            "embedding_size": embedding_size or getattr(model.config, "embedding_size", model.config.hidden_size),
             "layers": layers,
             "activation_function": activation_function,
             "layer_norm": layer_norm,
@@ -191,30 +207,3 @@ class BertStyleMaskedLMHead(CausalLMHead):
             hidden_states=base_outputs.hidden_states,
             attentions=base_outputs.attentions,
         )
-
-
-class AlbertMaskedLMHead(BertStyleMaskedLMHead):
-    def build(self, model):
-        model_config = model.config
-        pred_head = []
-
-        pred_head.append(nn.Linear(model_config.hidden_size, model_config.embedding_size))
-        pred_head.append(Activation_Function_Class(self.config["activation_function"]))
-        eps = getattr(model_config, "layer_norm_eps", 1e-12)
-        pred_head.append(nn.LayerNorm(model_config.embedding_size, eps=eps))
-
-        for i, module in enumerate(pred_head):
-            self.add_module(str(i), module)
-
-        # Final embedding layer
-        self.add_module(
-            str(len(pred_head)),
-            nn.Linear(
-                model_config.embedding_size,
-                self.config["vocab_size"],
-                bias=self.config["bias"],
-            ),
-        )
-
-        self.apply(model._init_weights)
-        self.train(model.training)  # make sure training mode is consistent

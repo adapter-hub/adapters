@@ -7,7 +7,7 @@ from ....models.albert.modeling_albert import (
 from ....utils import add_start_docstrings, add_start_docstrings_to_model_forward
 from ...context import AdapterSetup
 from ...heads import (
-    AlbertMaskedLMHead,
+    BertStyleMaskedLMHead,
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
     MultipleChoiceHead,
@@ -101,7 +101,7 @@ class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
         "tagging": TaggingHead,
         "multiple_choice": MultipleChoiceHead,
         "question_answering": QuestionAnsweringHead,
-        "masked_lm": AlbertMaskedLMHead,
+        "masked_lm": BertStyleMaskedLMHead,
     }
 
     def add_classification_head(
@@ -182,5 +182,7 @@ class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
             activation_function (str, optional): Activation function. Defaults to 'gelu'.
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
         """
-        head = AlbertMaskedLMHead(self, head_name, activation_function=activation_function)
+        head = BertStyleMaskedLMHead(
+            self, head_name, activation_function=activation_function, embedding_size=self.config.embedding_size
+        )
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
