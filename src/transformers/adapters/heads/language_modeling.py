@@ -39,17 +39,11 @@ class CausalLMHead(PredictionHead):
         with_layer_norm = self.config.get("layer_norm", False)
         embedding_size = self.config.get("embedding_size", model_config.hidden_size)
 
-        # First embedding layer
-        pred_head.append(nn.Linear(model_config.hidden_size, embedding_size))
-        if self.config["activation_function"]:
-            pred_head.append(Activation_Function_Class(self.config["activation_function"]))
-        if with_layer_norm:
-            eps = getattr(model_config, "layer_norm_eps", 1e-12)
-            pred_head.append(nn.LayerNorm(embedding_size, eps=eps))
-
-        # Second to second last embedding layer
-        for l_id in range(self.config["layers"] - 2):
-            pred_head.append(nn.Linear(embedding_size, embedding_size))
+        for l_id in range(self.config["layers"] - 1):
+            if l_id == 0:
+                pred_head.append(nn.Linear(model_config.hidden_size, embedding_size))
+            else:
+                pred_head.append(nn.Linear(embedding_size, embedding_size))
             if self.config["activation_function"]:
                 pred_head.append(Activation_Function_Class(self.config["activation_function"]))
             if with_layer_norm:
