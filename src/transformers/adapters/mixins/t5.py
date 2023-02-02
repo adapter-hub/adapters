@@ -5,7 +5,7 @@ import torch.nn as nn
 from ..layer import AdapterLayer
 from ..model_mixin import (
     EmbeddingAdaptersMixin,
-    InvertibleAdaptersMixin,
+    InvertibleAdaptersWrapperMixin,
     ModelAdaptersMixin,
     ModelWithHeadsAdaptersMixin,
 )
@@ -26,8 +26,10 @@ class T5FFLayerAdaptersMixin(AdapterLayer):
         super().__init__("output_adapter", None)
 
 
-class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
+class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixin, ModelAdaptersMixin):
     """Adds adapters to the T5Model class."""
+
+    invertible_adapters_base_name = "encoder"
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         global_i = 0
@@ -38,18 +40,6 @@ class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mode
         if hasattr(self, "decoder"):
             for i, layer in enumerate(self.decoder.block, start=global_i):
                 yield i, layer
-
-    def _init_adapter_modules(self):
-        if hasattr(self, "encoder"):
-            # In T5, the invertible adapters are implemented by the encoder module.
-            # Therefore, relay mixin calls to the encoder here.
-            self.invertible_adapters = self.encoder.invertible_adapters
-            self.add_invertible_adapter = self.encoder.add_invertible_adapter
-            self.get_invertible_adapter = self.encoder.get_invertible_adapter
-            self.enable_invertible_adapters = self.encoder.enable_invertible_adapters
-            self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
-            self.delete_invertible_adapter = self.encoder.delete_invertible_adapter
-        super()._init_adapter_modules()
 
 
 # EmbeddingAdaptersWrapperMixin not required here as base and heads model are identical
