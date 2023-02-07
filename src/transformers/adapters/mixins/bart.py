@@ -6,7 +6,7 @@ from ..layer import AdapterLayer
 from ..model_mixin import (
     EmbeddingAdaptersMixin,
     EmbeddingAdaptersWrapperMixin,
-    InvertibleAdaptersMixin,
+    InvertibleAdaptersWrapperMixin,
     ModelAdaptersMixin,
     ModelWithHeadsAdaptersMixin,
 )
@@ -31,8 +31,10 @@ class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
         self.cross_attention_adapters._init_adapter_modules()
 
 
-class BartModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
+class BartModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixin, ModelAdaptersMixin):
     """Adds adapters to the BartModel class."""
+
+    invertible_adapters_base_name = "encoder"
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         if hasattr(self, "encoder"):
@@ -43,17 +45,6 @@ class BartModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
         else:
             for i, layer in enumerate(self.decoder.layers):
                 yield i, layer
-
-    def _init_adapter_modules(self):
-        if hasattr(self, "encoder"):
-            # In BART, the invertible adapters are implemented by the encoder module.
-            # Therefore, relay mixin calls to the encoder here.
-            self.invertible_adapters = self.encoder.invertible_adapters
-            self.add_invertible_adapter = self.encoder.add_invertible_adapter
-            self.get_invertible_adapter = self.encoder.get_invertible_adapter
-            self.enable_invertible_adapters = self.encoder.enable_invertible_adapters
-            self.invertible_adapters_forward = self.encoder.invertible_adapters_forward
-        super()._init_adapter_modules()
 
 
 class BartModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):

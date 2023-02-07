@@ -64,13 +64,11 @@ class AdapterMethodBaseTestMixin:
         model.to(torch_device)
 
         # adapter is correctly added to config
-        self.assertTrue(name in model.config.adapters)
-        self.assertGreater(len(model.get_adapter(name)), 0)
+        self.assert_adapter_available(model, name)
 
         # remove the adapter again
         model.delete_adapter(name)
-        self.assertFalse(name in model.config.adapters)
-        self.assertEqual(len(model.get_adapter(name)), 0)
+        self.assert_adapter_unavailable(model, name)
 
         # check that weights are available and active
         has_weights = False
@@ -89,8 +87,7 @@ class AdapterMethodBaseTestMixin:
 
         # adapter is correctly added to config
         name = "first"
-        self.assertTrue(name in model.config.adapters)
-        self.assertEqual(adapter_config, model.config.adapters.get(name))
+        self.assert_adapter_available(model, name)
 
         first_adapter = model.get_adapter("first")
         second_adapter = model.get_adapter("second")
@@ -223,8 +220,8 @@ class AdapterMethodBaseTestMixin:
         model.add_adapter("dummy", config=adapter_config)
         self.add_head(model, "mrpc")
 
-        self.assertIn("mrpc", model.config.adapters.adapters)
-        self.assertIn("dummy", model.config.adapters.adapters)
+        self.assert_adapter_available(model, "mrpc")
+        self.assert_adapter_available(model, "dummy")
 
         # train the mrpc adapter -> should be activated & unfreezed
         model.train_adapter("mrpc")
