@@ -76,6 +76,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 adapter_output = model(**input_data)
                 # make sure the output is different without invertible adapter
                 del model.invertible_adapters[name]
+                self.assertFalse(name in model.invertible_adapters)
                 adapter_output_no_inv = model(**input_data)
                 self.assertEqual(len(adapter_output), len(adapter_output_no_inv))
                 self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))

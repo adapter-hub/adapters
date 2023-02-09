@@ -23,6 +23,18 @@ import torch.utils.checkpoint
 from torch import nn
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.clip import (
+    CLIPEncoderLayerAdaptersMixin,
+    CLIPModelAdaptersMixin,
+    CLIPTextModelAdaptersMixin,
+    CLIPVisionModelAdaptersMixin,
+)
+from ...adapters.model_mixin import InvertibleAdaptersMixin
+from ...adapters.prefix_tuning import PrefixTuningShim
+from ...adapters.wrappers.configuration import wrap_config
 from ...modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling
 from ...modeling_utils import PreTrainedModel
 from ...utils import (
@@ -187,10 +199,12 @@ class CLIPAttention(nn.Module):
         self.scale = self.head_dim**-0.5
         self.dropout = config.attention_dropout
 
-        self.k_proj = nn.Linear(self.embed_dim, self.embed_dim)
-        self.v_proj = nn.Linear(self.embed_dim, self.embed_dim)
-        self.q_proj = nn.Linear(self.embed_dim, self.embed_dim)
+        self.k_proj = LoRALinear(self.embed_dim, self.embed_dim, "selfattn", config, attn_key="k")
+        self.v_proj = LoRALinear(self.embed_dim, self.embed_dim, "selfattn", config, attn_key="v")
+        self.q_proj = LoRALinear(self.embed_dim, self.embed_dim, "selfattn", config, attn_key="q")
         self.out_proj = nn.Linear(self.embed_dim, self.embed_dim)
+
+        self.prefix_tuning = PrefixTuningShim("self_prefix", config, add_model_type_to_key=True)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
@@ -213,6 +227,11 @@ class CLIPAttention(nn.Module):
 
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
         query_states = self._shape(query_states, tgt_len, bsz).view(*proj_shape)
+
+        key_states, value_states, attention_mask = self.prefix_tuning(
+            key_states, value_states, hidden_states, attention_mask
+        )
+
         key_states = key_states.view(*proj_shape)
         value_states = value_states.view(*proj_shape)
 
@@ -227,6 +246,10 @@ class CLIPAttention(nn.Module):
 
         # apply the causal_attention_mask first
         if causal_attention_mask is not None:
+            prefix_mask = torch.ones(
+                bsz, 1, causal_attention_mask.size(2), src_len - causal_attention_mask.size(-1)
+            ).to(causal_attention_mask.device)
+            causal_attention_mask = torch.cat([prefix_mask, causal_attention_mask], dim=-1)
             if causal_attention_mask.size() != (bsz, 1, tgt_len, src_len):
                 raise ValueError(
                     f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is"
@@ -279,8 +302,8 @@ class CLIPMLP(nn.Module):
         super().__init__()
         self.config = config
         self.activation_fn = ACT2FN[config.hidden_act]
-        self.fc1 = nn.Linear(config.hidden_size, config.intermediate_size)
-        self.fc2 = nn.Linear(config.intermediate_size, config.hidden_size)
+        self.fc1 = LoRALinear(config.hidden_size, config.intermediate_size, "intermediate", config)
+        self.fc2 = LoRALinear(config.intermediate_size, config.hidden_size, "output", config)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         hidden_states = self.fc1(hidden_states)
@@ -289,14 +312,18 @@ class CLIPMLP(nn.Module):
         return hidden_states
 
 
-class CLIPEncoderLayer(nn.Module):
+class CLIPEncoderLayer(CLIPEncoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: CLIPConfig):
         super().__init__()
+        self.config = config
+
         self.embed_dim = config.hidden_size
         self.self_attn = CLIPAttention(config)
         self.layer_norm1 = nn.LayerNorm(self.embed_dim)
         self.mlp = CLIPMLP(config)
         self.layer_norm2 = nn.LayerNorm(self.embed_dim)
+
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -324,12 +351,12 @@ class CLIPEncoderLayer(nn.Module):
             causal_attention_mask=causal_attention_mask,
             output_attentions=output_attentions,
         )
-        hidden_states = residual + hidden_states
+        hidden_states = self.attention_adapters(hidden_states, residual, layer_norm=None)
 
         residual = hidden_states
         hidden_states = self.layer_norm2(hidden_states)
         hidden_states = self.mlp(hidden_states)
-        hidden_states = residual + hidden_states
+        hidden_states = self.output_adapters(hidden_states, residual, layer_norm=None)
 
         outputs = (hidden_states,)
 
@@ -583,6 +610,7 @@ class CLIPEncoder(nn.Module):
                 )
 
             hidden_states = layer_outputs[0]
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
 
             if output_attentions:
                 all_attentions = all_attentions + (layer_outputs[1],)
@@ -597,10 +625,10 @@ class CLIPEncoder(nn.Module):
         )
 
 
-class CLIPTextTransformer(nn.Module):
+class CLIPTextTransformer(InvertibleAdaptersMixin, nn.Module):
     def __init__(self, config: CLIPTextConfig):
         super().__init__()
-        self.config = config
+        self.config = wrap_config(config)
         embed_dim = config.hidden_size
         self.embeddings = CLIPTextEmbeddings(config)
         self.encoder = CLIPEncoder(config)
@@ -634,6 +662,8 @@ class CLIPTextTransformer(nn.Module):
         input_ids = input_ids.view(-1, input_shape[-1])
 
         hidden_states = self.embeddings(input_ids=input_ids, position_ids=position_ids)
+
+        hidden_states = self.invertible_adapters_forward(hidden_states)
 
         bsz, seq_len = input_shape
         # CLIP's text model uses causal mask, prepare it here.
@@ -685,7 +715,7 @@ class CLIPTextTransformer(nn.Module):
         return mask
 
 
-class CLIPTextModel(CLIPPreTrainedModel):
+class CLIPTextModel(CLIPTextModelAdaptersMixin, CLIPPreTrainedModel):
     config_class = CLIPTextConfig
 
     _no_split_modules = ["CLIPEncoderLayer"]
@@ -693,6 +723,8 @@ class CLIPTextModel(CLIPPreTrainedModel):
     def __init__(self, config: CLIPTextConfig):
         super().__init__(config)
         self.text_model = CLIPTextTransformer(config)
+
+        self._init_adapter_modules()
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -704,6 +736,7 @@ class CLIPTextModel(CLIPPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CLIP_TEXT_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=BaseModelOutputWithPooling, config_class=CLIPTextConfig)
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.Tensor] = None,
@@ -798,13 +831,15 @@ class CLIPVisionTransformer(nn.Module):
         )
 
 
-class CLIPVisionModel(CLIPPreTrainedModel):
+class CLIPVisionModel(CLIPVisionModelAdaptersMixin, CLIPPreTrainedModel):
     config_class = CLIPVisionConfig
     main_input_name = "pixel_values"
 
     def __init__(self, config: CLIPVisionConfig):
         super().__init__(config)
         self.vision_model = CLIPVisionTransformer(config)
+
+        self._init_adapter_modules()
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -813,6 +848,7 @@ class CLIPVisionModel(CLIPPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CLIP_VISION_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=BaseModelOutputWithPooling, config_class=CLIPVisionConfig)
+    @ForwardContext.wrap
     def forward(
         self,
         pixel_values: Optional[torch.FloatTensor] = None,
@@ -851,7 +887,7 @@ class CLIPVisionModel(CLIPPreTrainedModel):
 
 
 @add_start_docstrings(CLIP_START_DOCSTRING)
-class CLIPModel(CLIPPreTrainedModel):
+class CLIPModel(CLIPModelAdaptersMixin, CLIPPreTrainedModel):
     config_class = CLIPConfig
 
     def __init__(self, config: CLIPConfig):
@@ -883,10 +919,12 @@ class CLIPModel(CLIPPreTrainedModel):
         self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
         self.logit_scale = nn.Parameter(torch.ones([]) * self.config.logit_scale_init_value)
 
+        self._init_adapter_modules()
         # Initialize weights and apply final processing
         self.post_init()
 
     @add_start_docstrings_to_model_forward(CLIP_TEXT_INPUTS_DOCSTRING)
+    @ForwardContext.wrap
     def get_text_features(
         self,
         input_ids: Optional[torch.Tensor] = None,
@@ -934,6 +972,7 @@ class CLIPModel(CLIPPreTrainedModel):
         return text_features
 
     @add_start_docstrings_to_model_forward(CLIP_VISION_INPUTS_DOCSTRING)
+    @ForwardContext.wrap
     def get_image_features(
         self,
         pixel_values: Optional[torch.FloatTensor] = None,
@@ -984,6 +1023,7 @@ class CLIPModel(CLIPPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CLIP_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=CLIPOutput, config_class=CLIPConfig)
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
