@@ -95,7 +95,7 @@ test-adapter-methods:
 	python -m pytest --ignore ./tests_adapters/models -n auto --dist=loadfile -s -v ./tests_adapters/
 
 test-adapter-models:
-	python -m pytest --collect-only -n auto --dist=loadfile -s -v ./tests_adapters/models
+	python -m pytest -n auto --dist=loadfile -s -v ./tests_adapters/models
 
 # Run tests for examples
 
