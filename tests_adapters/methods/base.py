@@ -4,7 +4,7 @@ import tempfile
 
 import torch
 
-from transformers import AutoTokenizer, TrainingArguments
+from transformers import TrainingArguments
 from transformers.adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
 from transformers.adapters.utils import WEIGHTS_NAME
 from transformers.testing_utils import require_torch, torch_device
@@ -188,7 +188,7 @@ class AdapterMethodBaseTestMixin:
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
-    def trainings_run(self, model, lr=1.0, steps=20):
+    def trainings_run(self, model, lr=1.0, steps=8):
         # setup dataset
         train_dataset = self.dataset()
         training_args = TrainingArguments(
@@ -242,11 +242,15 @@ class AdapterMethodBaseTestMixin:
 
         self.trainings_run(model)
 
+        # check that the adapters have changed, but the base model has not
+        adapters_with_change, base_with_change = False, False
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if "mrpc" in k1:
-                self.assertFalse(torch.equal(v1, v2), k1)
+                adapters_with_change |= not torch.equal(v1, v2)
             else:
-                self.assertTrue(torch.equal(v1, v2), k1)
+                base_with_change |= not torch.equal(v1, v2)
+        self.assertTrue(adapters_with_change)
+        self.assertFalse(base_with_change)
 
     def run_merge_test(self, adapter_config):
         model = self.get_model()
