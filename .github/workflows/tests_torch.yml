@@ -2,23 +2,23 @@ name: Tests
 
 on:
   push:
-    branches: [ 'master' ]
+    branches: ["master"]
     paths:
-      - 'src/**'
-      - 'examples/**'
-      - 'templates/**'
-      - 'tests/**'
-      - 'tests_adapters/**'
-      - 'utils/**'
+      - "src/**"
+      - "examples/**"
+      - "templates/**"
+      - "tests/**"
+      - "tests_adapters/**"
+      - "utils/**"
   pull_request:
-    branches: [ 'master', 'develop' ]
+    branches: ["master", "develop"]
     paths:
-      - 'src/**'
-      - 'examples/**'
-      - 'templates/**'
-      - 'tests/**'
-      - 'tests_adapters/**'
-      - 'utils/**'
+      - "src/**"
+      - "examples/**"
+      - "templates/**"
+      - "tests/**"
+      - "tests_adapters/**"
+      - "utils/**"
   workflow_dispatch:
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
         run: |
           make quality
           make repo-consistency
-  run_reduced_tests_torch:
+  test_adapter_methods:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
@@ -62,4 +62,26 @@ jobs:
           pip install datasets
       - name: Test
         run: |
-          make test-adapters
+          make test-adapter-methods
+  test_adapter_models:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install
+        run: |
+          pip install torch==1.12.1
+          pip install .[sklearn,testing,sentencepiece,vision]
+          pip install datasets
+      - name: Test
+        run: |
+          make test-adapter-models
