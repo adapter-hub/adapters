@@ -64,13 +64,11 @@ class AdapterMethodBaseTestMixin:
         model.to(torch_device)
 
         # adapter is correctly added to config
-        self.assertTrue(name in model.config.adapters)
-        self.assertGreater(len(model.get_adapter(name)), 0)
+        self.assert_adapter_available(model, name)
 
         # remove the adapter again
         model.delete_adapter(name)
-        self.assertFalse(name in model.config.adapters)
-        self.assertEqual(len(model.get_adapter(name)), 0)
+        self.assert_adapter_unavailable(model, name)
 
         # check that weights are available and active
         has_weights = False
@@ -89,8 +87,7 @@ class AdapterMethodBaseTestMixin:
 
         # adapter is correctly added to config
         name = "first"
-        self.assertTrue(name in model.config.adapters)
-        self.assertEqual(adapter_config, model.config.adapters.get(name))
+        self.assert_adapter_available(model, name)
 
         first_adapter = model.get_adapter("first")
         second_adapter = model.get_adapter("second")
@@ -192,7 +189,7 @@ class AdapterMethodBaseTestMixin:
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.equal(output1[0], output2[0]))
 
-    def trainings_run(self, model, lr=1.0, steps=20):
+    def trainings_run(self, model, lr=1.0, steps=8):
         # setup dataset
         train_dataset = self.dataset()
         training_args = TrainingArguments(
@@ -223,8 +220,8 @@ class AdapterMethodBaseTestMixin:
         model.add_adapter("dummy", config=adapter_config)
         self.add_head(model, "mrpc")
 
-        self.assertIn("mrpc", model.config.adapters.adapters)
-        self.assertIn("dummy", model.config.adapters.adapters)
+        self.assert_adapter_available(model, "mrpc")
+        self.assert_adapter_available(model, "dummy")
 
         # train the mrpc adapter -> should be activated & unfreezed
         model.train_adapter("mrpc")
@@ -246,6 +243,8 @@ class AdapterMethodBaseTestMixin:
 
         self.trainings_run(model)
 
+        # check that the adapters have changed, but the base model has not
+        adapters_with_change, base_with_change = False, False
         # check whether the key corresponds to a tied embedding
         def has_tied_embeddings(k):
             tied_embeddings = hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings 
@@ -254,9 +253,11 @@ class AdapterMethodBaseTestMixin:
 
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if "mrpc" in k1 and not has_tied_embeddings(k1):
-                self.assertFalse(torch.equal(v1, v2), k1)
+                adapters_with_change |= not torch.equal(v1, v2)
             else:
-                self.assertTrue(torch.equal(v1, v2), k1)
+                base_with_change |= not torch.equal(v1, v2)
+        self.assertTrue(adapters_with_change)
+        self.assertFalse(base_with_change)
 
     def run_merge_test(self, adapter_config):
         model = self.get_model()

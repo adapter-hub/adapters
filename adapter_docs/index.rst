@@ -61,6 +61,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/models/beit
    classes/models/bert
    classes/models/bert-generation
+   classes/models/clip
    classes/models/deberta
    classes/models/deberta_v2
    classes/models/distilbert
