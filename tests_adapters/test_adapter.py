@@ -61,6 +61,14 @@ class AdapterTestBase:
         )
         return GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
+    def assert_adapter_available(self, model, adapter_name):
+        self.assertTrue(adapter_name in model.config.adapters)
+        self.assertGreater(len(model.get_adapter(adapter_name)), 0)
+
+    def assert_adapter_unavailable(self, model, adapter_name):
+        self.assertFalse(adapter_name in model.config.adapters)
+        self.assertEqual(len(model.get_adapter(adapter_name)), 0)
+
 
 class VisionAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (3, 3, 224, 224)

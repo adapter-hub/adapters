@@ -144,15 +144,16 @@ class PrefixTuningPool(nn.Module):
         self.prefix_counts = {}
         self.prefix_tunings = nn.ModuleDict()
 
-    def indicate_prefix(self, prefix_name: str, location_key: str):
+    def indicate_prefix(self, prefix_name: str, location_key: str, **kwargs):
         if prefix_name not in self.prefix_counts:
-            self.prefix_counts[prefix_name] = {location_key: 1}
+            self.prefix_counts[prefix_name] = {location_key: {"count": 1, **kwargs}}
         elif location_key not in self.prefix_counts[prefix_name]:
-            self.prefix_counts[prefix_name][location_key] = 1
+            self.prefix_counts[prefix_name][location_key] = {"count": 1, **kwargs}
         else:
-            self.prefix_counts[prefix_name][location_key] += 1
+            # TODO-AH: Check if kwargs are the same
+            self.prefix_counts[prefix_name][location_key]["count"] += 1
 
-        return self.prefix_counts[prefix_name][location_key] - 1
+        return self.prefix_counts[prefix_name][location_key]["count"] - 1
 
     def confirm_prefix(self, prefix_name: str):
         """Create Prefix Tuning module based on shim layer infications."""
@@ -164,11 +165,11 @@ class PrefixTuningPool(nn.Module):
             raise ValueError(f"Prefix {prefix_name} not found in PrefixTuningPool")
 
         module_configs = {}
-        for location_key, count in self.prefix_counts[prefix_name].items():
+        for location_key, location_config in self.prefix_counts[prefix_name].items():
             module_configs[location_key] = {
-                "n_layers": count,
-                "n_heads": self.config.num_attention_heads,
-                "input_size": self.config.hidden_size,
+                "n_layers": location_config["count"],
+                "n_heads": location_config["n_heads"],
+                "input_size": location_config["input_size"],
             }
         prefix_tuning = PrefixTuningGroup(module_configs, prefix_tuning_config)
         prefix_tuning.train(self.training)  # make sure training mode is consistent
@@ -232,10 +233,12 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         config (:class:`~transformers.PretrainedConfig`): The model config.
     """
 
-    def __init__(self, location_key: str, config):
+    def __init__(self, location_key: str, config, add_model_type_to_key: bool = False):
         super().__init__()
         self.config = config
         self.location_key = location_key
+        if add_model_type_to_key:
+            self.location_key = f"{self.config.model_type}_{self.location_key}"
         self.prefixes = {}
         self.prefix_gates = nn.ModuleDict()
 
@@ -256,7 +259,12 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             location_key=used_location_key,
         )
         if prefix_tuning_config is not None:
-            prefix_id = self.pool.indicate_prefix(adapter_name, self.location_key)
+            prefix_id = self.pool.indicate_prefix(
+                adapter_name,
+                self.location_key,
+                n_heads=self.config.num_attention_heads,
+                input_size=self.config.hidden_size,
+            )
             self.prefixes[adapter_name] = prefix_id
 
             if prefix_tuning_config.use_gating:

@@ -1,3 +1,4 @@
+import ast
 import fnmatch
 import hashlib
 import inspect
@@ -16,7 +17,7 @@ from enum import Enum
 from functools import partial
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 
@@ -82,6 +83,7 @@ ADAPTER_CONFIG_HASH_IGNORE_DEFAULT = {
     "init_weights": "bert",
     "scaling": 1.0,
 }
+ADAPTER_CONFIG_STRING_PATTERN = re.compile(r"^(?P<name>[^\[\]\|\n]+)(?:\[(?P<kvs>.*)\])?$")
 
 
 class AdapterType(str, Enum):
@@ -392,6 +394,35 @@ def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, fo
     return output_path_extracted
 
 
+def parse_adapter_config_string(config_string: str) -> List[Tuple[str, dict]]:
+    """
+    Parses an adapter configuration string into a list of tuples. Each tuple constists of an adapter config identifier
+    and dictionary.
+    """
+    # First split by "|" into individual adapter configs
+    config_string_chunks = config_string.split("|")
+    # Now match each adapter config against the regex
+    adapter_configs = []
+    for config_string_chunk in config_string_chunks:
+        match = re.match(ADAPTER_CONFIG_STRING_PATTERN, config_string_chunk.strip())
+        if not match or not match.group("name"):
+            raise ValueError(f"Invalid adapter config string format: '{config_string_chunk}'.")
+        name = match.group("name")
+        if kvs := match.group("kvs"):
+            # Replace "=" with ":" in key-value pairs for valid Python dict
+            kvs = re.sub(r"(\w+)=", r"'\1':", kvs)
+        else:
+            kvs = ""
+        # Now evaluate key-value pairs as Python dict
+        try:
+            config_kwargs = ast.literal_eval("{" + kvs + "}")
+        except Exception:
+            raise ValueError(f"Invalid adapter configguration '{kvs}' in '{name}'.")
+        adapter_configs.append((name, config_kwargs))
+
+    return adapter_configs
+
+
 def resolve_adapter_config(config: Union[dict, str], local_map=None, try_loading_from_hub=True, **kwargs) -> dict:
     """
     Resolves a given adapter configuration specifier to a full configuration dictionary.
@@ -422,15 +453,36 @@ def resolve_adapter_config(config: Union[dict, str], local_map=None, try_loading
                 return loaded_config["config"]
             else:
                 return loaded_config
-    # now, try to find in hub index
+    # download hub index file
     if try_loading_from_hub:
         index_file = download_cached(ADAPTER_HUB_CONFIG_FILE, **kwargs)
         if not index_file:
             raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
         with open(index_file, "r") as f:
             config_index = json.load(f)
-        if config in config_index:
-            return config_index[config]
+    # parse the config string
+    config_pairs = parse_adapter_config_string(config)
+    if len(config_pairs) > 0:
+        full_configs = []
+        for name, config_kwargs in config_pairs:
+            # first, look in local map
+            if local_map and name in local_map:
+                config_obj = local_map[name]
+                full_configs.append(config_obj.replace(**config_kwargs))
+            # now, try to find in hub index
+            elif try_loading_from_hub and name in config_index:
+                config_obj = config_index[name]
+                config_obj.update(**config_kwargs)
+                full_configs.append(config_obj)
+            else:
+                raise ValueError("Could not identify '{}' as a valid adapter configuration.".format(name))
+        # Case 1: only one config, return it directly
+        if len(full_configs) == 1:
+            return full_configs[0]
+        # Case 2: multiple configs, return a config union
+        elif len(full_configs) > 1:
+            return {"architecture": "union", "configs": full_configs}
+
     raise ValueError("Could not identify '{}' as a valid adapter configuration.".format(config))
 
 
