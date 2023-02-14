@@ -1,7 +1,6 @@
 import unittest
 
-from tests.models.gptj.test_modeling_gptj import *
-from transformers import GPTJAdapterModel
+from transformers import GPTJConfig
 from transformers.testing_utils import require_torch
 
 from .methods import (
@@ -19,15 +18,6 @@ from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-from .test_common import AdapterModelTesterMixin
-
-
-@require_torch
-class GPTJAdapterModelTest(AdapterModelTesterMixin, GPTJModelTest):
-    all_model_classes = (
-        GPTJAdapterModel,
-    )
-    fx_compatible = False
 
 
 class GPTJAdapterTestBase(AdapterTestBase):

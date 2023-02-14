@@ -82,6 +82,7 @@ _import_structure = {
     "model_mixin": [
         "EmbeddingAdaptersMixin",
         "InvertibleAdaptersMixin",
+        "InvertibleAdaptersWrapperMixin",
         "ModelAdaptersMixin",
         "ModelWithHeadsAdaptersMixin",
     ],
@@ -200,6 +201,7 @@ if TYPE_CHECKING:
     from .model_mixin import (
         EmbeddingAdaptersMixin,
         InvertibleAdaptersMixin,
+        InvertibleAdaptersWrapperMixin,
         ModelAdaptersMixin,
         ModelWithHeadsAdaptersMixin,
     )

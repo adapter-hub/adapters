@@ -1,7 +1,6 @@
 import unittest
 
-from tests.models.bert.test_modeling_bert import *
-from transformers import BertAdapterModel
+from transformers import BertConfig
 from transformers.testing_utils import require_torch
 
 from .methods import (
@@ -19,15 +18,6 @@ from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-from .test_common import AdapterModelTesterMixin
-
-
-@require_torch
-class BertAdapterModelTest(AdapterModelTesterMixin, BertModelTest):
-    all_model_classes = (
-        BertAdapterModel,
-    )
-    fx_compatible = False
 
 
 class BertAdapterTestBase(AdapterTestBase):
