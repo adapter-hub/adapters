@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack
+from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack, adjust_tensors_for_parallel
 from .configuration import AdapterConfig
 from .context import AdapterSetup, ForwardContext
 from .modeling import Adapter, BertFusion, ParallelAdapter
@@ -525,6 +525,10 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         Returns:
             torch.Tensor: Output hidden states of the adapter layer.
         """
+        # Batch sizes might be different due to prefix tuning w. Parallel block
+        (residual_input,) = adjust_tensors_for_parallel(hidden_states, residual_input)
+        # Replicate in both directions as residual might be larger (e.g. GPT-J)
+        (hidden_states,) = adjust_tensors_for_parallel(residual_input, hidden_states)
         adapter_setup = self.get_active_setup(self.adapters)
         if adapter_setup is not None:
             input_hidden_states = hidden_states

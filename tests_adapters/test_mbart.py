@@ -12,7 +12,7 @@ from .methods import (
     PrefixTuningTestMixin,
 )
 from .test_adapter import AdapterTestBase, make_config
-from .test_adapter_composition import ParallelAdapterInferenceTestMixin
+from .composition.test_parallel import ParallelAdapterInferenceTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin

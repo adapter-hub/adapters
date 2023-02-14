@@ -4,7 +4,7 @@ One of the great advantages of using adapters is the possibility to combine mult
 To enable such adapter compositions, `adapter-transformers` comes with a modular and flexible concept to define how the input to the model should flow through the available adapters.
 This not only allows stacking ([_MAD-X_](https://arxiv.org/pdf/2005.00052.pdf)) and fusing ([_AdapterFusion_](https://arxiv.org/pdf/2005.00247.pdf)) adapters, but also even more complex adapter setups.
 
-## Adapter activation
+## Adapter Activation
 
 The single location where all the adapter composition magic happens is the `active_adapters` property of the model class.
 In the simplest case, you can set the name of a single adapter here to activate it:
@@ -33,9 +33,21 @@ with AdapterSetup("adapter_name"):
     outputs = model(**inputs)
 ```
 
+## Composition Blocks - Overview
+
 The basic building blocks of the more advanced setups are simple objects derived from `AdapterCompositionBlock`,
 each representing a different possibility to combine single adapters.
-They are presented in more detail in the following.
+The following table gives an overview on the supported composition blocks and their support by different adapter methods.
+
+| Block | (Bottleneck)<br> Adapters | Prefix<br> Tuning | Compacter | LoRA | (IA)³ |
+| --- | --- | --- | --- | --- | --- |
+| [`Stack`](#stack) | ✅ | ✅ | ✅ |  |  |
+| [`Fuse`](#fuse) | ✅ |  | ✅ |  |  |
+| [`Split`](#split) | ✅ |  | ✅ |  |  |
+| [`BatchSplit`](#batchsplit) | ✅ | ✅ | ✅ |  |  |
+| [`Parallel`](#parallel) | ✅ | ✅ | ✅ |  |  |
+
+Next, we present all composition blocks in more detail.
 
 ## `Stack`
 
@@ -65,6 +77,9 @@ model.add_adapter("c")
 
 model.active_adapters = ac.Stack("a", "b", "c")
 ```
+
+Since v3.2.0, stacking is also supported for prefix tuning.
+Stacked prefixes are prepended to the input states from right to left, i.e. `Stack("a", "b", "c")` will first prepend prefix states for "a" to the input vectors, then prepend "b" to the resulting vectors etc.
 
 In v1.x of `adapter-transformers`, stacking adapters was done using a list of adapter names, i.e. the example from above would be defined as `["a", "b", "c"]`.
 For backwards compatibility, you can still do this, although it is recommended to use the new syntax.
