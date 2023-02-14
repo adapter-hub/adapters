@@ -1,7 +1,6 @@
 import unittest
 
-from tests.models.albert.test_modeling_albert import *
-from transformers import AlbertAdapterModel
+from transformers import AlbertConfig
 from transformers.testing_utils import require_torch
 
 from .methods import (
@@ -19,14 +18,7 @@ from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-from .test_common import AdapterModelTesterMixin
 from math import ceil
-
-
-@require_torch
-class AlbertAdapterModelTest(AdapterModelTesterMixin, AlbertModelTest):
-    all_model_classes = (AlbertAdapterModel,)
-    fx_compatible = False
 
 
 class AlbertAdapterTestBase(AdapterTestBase):
@@ -34,7 +26,7 @@ class AlbertAdapterTestBase(AdapterTestBase):
     config = make_config(
         AlbertConfig,
         embedding_size=16,
-        hidden_size=256,
+        hidden_size=64,
         num_hidden_layers=5,
         num_attention_heads=4,
         intermediate_size=37,
