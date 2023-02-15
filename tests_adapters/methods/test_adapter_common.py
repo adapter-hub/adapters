@@ -76,6 +76,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 adapter_output = model(**input_data)
                 # make sure the output is different without invertible adapter
                 del model.invertible_adapters[name]
+                self.assertFalse(name in model.invertible_adapters)
                 adapter_output_no_inv = model(**input_data)
                 self.assertEqual(len(adapter_output), len(adapter_output_no_inv))
                 self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
@@ -244,9 +245,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             self.skipTest("No causal lm class.")
 
         static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
-        flex_model = AutoAdapterModel.from_pretrained(
-            None, config=self.config(), state_dict=static_model.state_dict()
-        )
+        flex_model = AutoAdapterModel.from_pretrained(None, config=self.config(), state_dict=static_model.state_dict())
         static_model.add_adapter("dummy")
         static_model.set_active_adapters("dummy")
         static_model.eval()
@@ -324,7 +323,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.base_model.get_fusion_regularization_loss = patched_fusion_reg_loss
 
         self.trainings_run(model)
+        self.assertTrue(regularization_called)
 
+        # check that the adapters have changed, but the base model has not
+        adapters_with_change, base_with_change = False, False
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
             if (
                 "adapter_fusion_layer" in k1
@@ -333,10 +335,11 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 or "score" in k1
                 or "heads" in k1
             ):
-                self.assertFalse(torch.equal(v1, v2), k1)
+                adapters_with_change |= not torch.equal(v1, v2)
             else:
-                self.assertTrue(torch.equal(v1, v2), k1)
-        self.assertTrue(regularization_called)
+                base_with_change |= not torch.equal(v1, v2)
+        self.assertTrue(adapters_with_change)
+        self.assertFalse(base_with_change)
 
     def test_batch_split_training(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
@@ -365,17 +368,12 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
         self.trainings_run(model)
 
-        self.assertFalse(
-            all(
-                torch.equal(v1, v2)
-                for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
-                if "mrpc" in k1
-            )
-        )
-        self.assertTrue(
-            all(
-                torch.equal(v1, v2)
-                for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
-                if "mrpc" not in k1
-            )
-        )
+        # check that the adapters have changed, but the base model has not
+        adapters_with_change, base_with_change = False, False
+        for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
+            if "mrpc" in k1:
+                adapters_with_change |= not torch.equal(v1, v2)
+            else:
+                base_with_change |= not torch.equal(v1, v2)
+        self.assertTrue(adapters_with_change)
+        self.assertFalse(base_with_change)

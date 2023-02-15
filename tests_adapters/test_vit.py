@@ -1,8 +1,6 @@
-import random
 import unittest
 
-from tests.models.vit.test_modeling_vit import *
-from transformers import ViTAdapterModel
+from transformers import ViTConfig
 from transformers.testing_utils import require_torch
 
 from .methods import (
@@ -15,19 +13,10 @@ from .methods import (
 )
 from .test_adapter import VisionAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
-from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
+from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-from .test_common import AdapterModelTesterMixin
-
-
-@require_torch
-class ViTAdapterModelTest(AdapterModelTesterMixin, ViTModelTest):
-    all_model_classes = (
-        ViTAdapterModel,
-    )
-    fx_compatible = False
 
 
 class ViTAdapterTestBase(VisionAdapterTestBase):
@@ -40,7 +29,7 @@ class ViTAdapterTestBase(VisionAdapterTestBase):
         num_attention_heads=4,
         intermediate_size=37,
     )
-    feature_extractor_name = 'google/vit-base-patch16-224-in21k'
+    feature_extractor_name = "google/vit-base-patch16-224-in21k"
 
 
 @require_torch

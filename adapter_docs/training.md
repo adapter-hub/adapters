@@ -1,22 +1,38 @@
 # Adapter Training
 
-This section describes some examples on training different types of adapter modules in Transformer models.
-The presented training scripts are only slightly modified from the original [examples by Huggingface](https://huggingface.co/transformers/examples.html).
+This section describes some examples of training adapter methods for different scenarios. We focus on integrating adapter methods into existing training scripts for Transformer models.
+All presented scripts are only slightly modified from the original [examples from HuggingFace Transformers](https://huggingface.co/transformers/examples.html).
 To run the scripts, make sure you have the latest version of the repository and have installed some additional requirements:
 
 ```
 git clone https://github.com/adapter-hub/adapter-transformers
-cd transformers
+cd adapter-transformers
 pip install .
-pip install -r ./examples/<your_examples_folder>/requirements.txt
+pip install -r ./examples/pytorch/<your_examples_folder>/requirements.txt
 ```
 
 ## Train a Task Adapter
 
 Training a task adapter module on a dataset only requires minor modifications from training the full model.
-Suppose we have an existing script for training a Transformer model, here we will use HuggingFace's [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue.py) example script for training on the GLUE dataset.
+Suppose we have an existing script for training a Transformer model.
+In the following, we will use HuggingFace's [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/pytorch/text-classification/run_glue.py) example script for training on the GLUE benchmark.
+We go through all required changes step by step:
 
-In our example, we replaced the built-in `AutoModelForSequenceClassification` class with the `AutoAdapterModel` class introduced by `adapter-transformers` (learn more about prediction heads [here](prediction_heads.md)).
+### Step A - Parse `AdapterArguments`
+
+The [`AdapterArguments`](transformers.adapters.training.AdapterArguments) class integrated into adapter-transformers provides a set of command-line options useful for training adapters.
+These include options such as `--train_adapter` for activating adapter training and `--load_adapter` for loading adapters from checkpoints.
+Thus, the first step of integrating adapters is to add these arguments to the line where `HfArgumentParser` is instantiated:
+
+```python
+parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, AdapterArguments))
+# ...
+model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
+```
+
+### Step B - Switch model class (optional)
+
+In our example, we replace the built-in `AutoModelForSequenceClassification` class with the `AutoAdapterModel` class introduced by `adapter-transformers`.
 Therefore, the model instantiation changed to:
 
 ```python
@@ -27,22 +43,25 @@ model = AutoAdapterModel.from_pretrained(
 model.add_classification_head(data_args.task_name, num_labels=num_labels)
 ```
 
-Compared to fine-tuning the full model, there is only one significant adaptation we have to make: adding a new adapter module and activating it.
+Note that this change is entirely optional and training will also work with the original model class.
+Learn more about the benefits of AdapterModel classes [here](prediction_heads.md)
+
+### Step C - Setup adapter methods
+
+```{eval-rst}
+.. tip::
+    In the following, we show how to setup adapters manually. In most cases, you can use the built-in ``setup_adapter_training()`` method to perform this job automatically. Just add a statement similar to this anywhere between model instantiation and training start in your script: ``setup_adapter_training(model, adapter_args, task_name)``
+```
+
+Compared to fine-tuning the full model, there is only this one significant adaptation we have to make: adding an adapter setup and activating it.
 
 ```python
 # task adapter - only add if not existing
 if task_name not in model.config.adapters:
     # resolve the adapter config
-    adapter_config = AdapterConfig.load(
-        adapter_args.adapter_config,
-        non_linearity=adapter_args.adapter_non_linearity,
-        reduction_factor=adapter_args.adapter_reduction_factor,
-    )
+    adapter_config = AdapterConfig.load(adapter_args.adapter_config)
     # add a new adapter
-    model.add_adapter(
-        task_name,
-        config=adapter_config
-    )
+    model.add_adapter(task_name, config=adapter_config)
 # Enable adapter training
 model.train_adapter(task_name)
 ```
@@ -63,10 +82,20 @@ on complex setups checkout the [Composition Blocks](https://docs.adapterhub.ml/a
 model.set_active_adapters(task_name)
 ```
 
+### Step D - Switch to `AdapterTrainer` class
+
+Finally, we switch the `Trainer` class built into Transformers for adapter-transformers' [`AdapterTrainer`](transformers.adapters.AdapterTrainer) class that is optimized for training adapter methods.
+See [below for more information](#adaptertrainer).
+
+Technically, this change is not required as no changes to the training loop are required for training adapters.
+However, `AdapterTrainer` e.g. provides better support for checkpointing and reloading adapter weights.
+
+### Step E - Start training
+
 The rest of the training procedure does not require any further changes in code.
 
-You can find the full version of the modified training script for GLUE at [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/text-classification/run_glue.py) in the `examples` folder of our repository.
-We also adapted [various other example scripts](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples) (e.g. `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
+You can find the full version of the modified training script for GLUE at [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/pytorch/text-classification/run_glue.py) in the `examples` folder of our repository.
+We also adapted [various other example scripts](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/pytorch) (e.g. `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
 
 To start adapter training on a GLUE task, you can run something similar to:
 
@@ -103,7 +132,7 @@ The important flag here is `--train_adapter` which switches from fine-tuning the
 ## Train a Language Adapter
 
 Training a language adapter is equally straightforward as training a task adapter. Similarly to the steps for task adapters
-described above, we add a language adapter module to an existing model training script. Here, we modified HuggingFace's [run_mlm.py](https://github.com/Adapter-Hub/adapter-transformers/blob/v2/examples/language-modeling/run_mlm.py) script for masked language modeling with BERT-based models.
+described above, we add a language adapter module to an existing model training script. Here, we modified HuggingFace's [run_mlm.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/pytorch/language-modeling/run_mlm.py) script for masked language modeling with BERT-based models.
 
 Training a language adapter on BERT using this script may look like the following:
 
@@ -126,7 +155,7 @@ python run_mlm.py \
 
 ## Train AdapterFusion
 
-We provide an example for training _AdapterFusion_ ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00247)) on the GLUE dataset: [run_fusion_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/adapterfusion/run_fusion_glue.py). 
+We provide an example for training _AdapterFusion_ ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00247)) on the GLUE dataset: [run_fusion_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/pytorch/adapterfusion/run_fusion_glue.py). 
 You can adapt this script to train AdapterFusion with different pre-trained adapters on your own dataset.
 
 ```{eval-rst}
@@ -158,7 +187,8 @@ python run_fusion_glue.py \
 
 
 ## AdapterTrainer
-Similar to the `Trainer` class provided by huggingface, adapter-transformers provides an `AdapterTrainer` class. This class is only
+
+Similar to the `Trainer` class provided by HuggingFace, adapter-transformers provides an `AdapterTrainer` class. This class is only
 intended for training adapters. The `Trainer` class should still be used to fully fine-tune models. To train adapters with the `AdapterTrainer`
 class, simply initialize it the same way you would initialize the `Trainer` class e.g.: 
 

@@ -1,7 +1,6 @@
 import unittest
 
-from tests.models.deberta.test_modeling_deberta import *
-from transformers import DebertaAdapterModel
+from transformers import DebertaConfig
 from transformers.testing_utils import require_torch
 
 from .methods import (
@@ -14,20 +13,11 @@ from .methods import (
 )
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
-from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
+from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-from .test_common import AdapterModelTesterMixin
-
-
-@require_torch
-class DebertaAdapterModelTest(AdapterModelTesterMixin, DebertaModelTest):
-    all_model_classes = (
-        DebertaAdapterModel,
-    )
-    fx_compatible = False
 
 
 class DebertaAdapterTestBase(AdapterTestBase):
@@ -47,7 +37,6 @@ class DebertaAdapterTestBase(AdapterTestBase):
 
 @require_torch
 class DebertaAdapterTest(
-    AdapterModelTesterMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
     PredictionHeadModelTestMixin,

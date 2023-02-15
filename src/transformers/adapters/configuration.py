@@ -139,10 +139,10 @@ class AdapterConfig(AdapterConfigBase):
         mh_adapter (:obj:`bool`): If True, add adapter modules after the multi-head attention block of each layer.
         output_adapter (:obj:`bool`): If True, add adapter modules after the output FFN of each layer.
         reduction_factor (:obj:`float` or :obj:`Mapping`):
-            Either a scalar float (> 0) specifying the reduction factor for all layers or a mapping specifying the
-            reduction_factor for individual layers. If not all layers are represented in the mapping a default value
-            should be given e.g. {'1': 8, '6': 32, 'default': 16}. Specifying a reduction factor < 1 will result in an
-            up-projection layer.
+            Either a scalar float (> 0) specifying the reduction factor for all layers or a mapping from layer ID
+            (starting at 0) to values specifying the reduction_factor for individual layers. If not all layers are
+            represented in the mapping a default value should be given e.g. {'1': 8, '6': 32, 'default': 16}.
+            Specifying a reduction factor < 1 will result in an up-projection layer.
         non_linearity (:obj:`str`): The activation function to use in the adapter bottleneck.
         original_ln_before (:obj:`bool`, optional):
             If True, apply layer pre-trained normalization and residual connection before the adapter modules. Defaults
@@ -159,7 +159,7 @@ class AdapterConfig(AdapterConfigBase):
         is_parallel (:obj:`bool`, optional): If True, apply adapter transformations in parallel.
             By default (False), sequential application is used.
         scaling (:obj:`float` or :obj:`str`, optional):
-            Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021). Can bei either a
+            Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021). Can be either a
             constant factor (float) or the string "learned", in which case the scaling factor is learned. Defaults to
             1.0.
         use_gating (:obj:`bool`, optional):
@@ -185,7 +185,7 @@ class AdapterConfig(AdapterConfigBase):
         phm_layer (:obj:`bool`, optional): If True the down and up projection layers are a PHMLayer.
             Defaults to False
         phm_dim (:obj:`int`, optional): The dimension of the phm matrix.
-            Defaults to None.
+            Only applicable if `phm_layer` is set to `True`. Defaults to 4.
         shared_phm_rule (:obj:`bool`, optional): Whether the phm matrix is shared across all layers.
             Defaults to True
         factorized_phm_rule (:obj:`bool`, optional):
@@ -282,6 +282,10 @@ class PfeifferConfig(AdapterConfig):
 
 @dataclass(eq=False)
 class CompacterPlusPlusConfig(PfeifferConfig):
+    """
+    The Compacter++ architecture proposed by Mahabadi et al. (2021). See https://arxiv.org/pdf/2106.04647.pdf.
+    """
+
     phm_layer: bool = True
     reduction_factor: Union[float, Mapping] = 32
     non_linearity: str = "gelu"
@@ -317,6 +321,10 @@ class HoulsbyConfig(AdapterConfig):
 
 @dataclass(eq=False)
 class CompacterConfig(HoulsbyConfig):
+    """
+    The Compacter architecture proposed by Mahabadi et al. (2021). See https://arxiv.org/pdf/2106.04647.pdf.
+    """
+
     phm_layer: bool = True
     reduction_factor: Union[float, Mapping] = 32
     non_linearity: str = "gelu"
@@ -586,17 +594,18 @@ class UniPELTConfig(ConfigUnion):
         super().__init__(*[c.replace(use_gating=True) for c in components])
 
 
+# IMPORTANT: When adding a new config here, also add it to adapter_docs/overview.md!
 ADAPTER_CONFIG_MAP = {
     "pfeiffer": PfeifferConfig(),
     "houlsby": HoulsbyConfig(),
+    "parallel": ParallelConfig(),
+    "scaled_parallel": ParallelConfig(scaling="learned"),
     "pfeiffer+inv": PfeifferInvConfig(),
     "houlsby+inv": HoulsbyInvConfig(),
     "compacter++": CompacterPlusPlusConfig(),
     "compacter": CompacterConfig(),
     "prefix_tuning": PrefixTuningConfig(),
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
-    "parallel": ParallelConfig(),
-    "scaled_parallel": ParallelConfig(scaling="learned"),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
     "mam": MAMConfig(),

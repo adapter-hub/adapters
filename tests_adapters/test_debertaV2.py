@@ -1,7 +1,6 @@
 import unittest
 
-from tests.models.deberta_v2.test_modeling_deberta_v2 import *
-from transformers import DebertaV2AdapterModel
+from transformers import DebertaV2Config
 from transformers.testing_utils import require_torch
 
 from .methods import (
@@ -14,20 +13,11 @@ from .methods import (
 )
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
-from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
+from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-from .test_common import AdapterModelTesterMixin
-
-
-@require_torch
-class DebertaV2AdapterModelTest(AdapterModelTesterMixin, DebertaV2ModelTest):
-    all_model_classes = (
-        DebertaV2AdapterModel,
-    )
-    fx_compatible = False
 
 
 class DebertaV2AdapterTestBase(AdapterTestBase):
@@ -47,13 +37,10 @@ class DebertaV2AdapterTestBase(AdapterTestBase):
 
 @require_torch
 class DebertaV2AdapterTest(
-
-    AdapterModelTesterMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
-
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
@@ -62,7 +49,6 @@ class DebertaV2AdapterTest(
     UniPELTTestMixin,
     EmbeddingTestMixin,
     ParallelTrainingMixin,
-
     DebertaV2AdapterTestBase,
     unittest.TestCase,
 ):

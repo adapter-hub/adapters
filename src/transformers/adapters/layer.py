@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack
+from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack, adjust_tensors_for_parallel
 from .configuration import AdapterConfig
 from .context import AdapterSetup, ForwardContext
 from .modeling import Adapter, BertFusion, ParallelAdapter
@@ -512,42 +512,65 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         hidden_states = torch.cat(children_hidden, 0)
         return hidden_states
 
-    def adapter_layer_forward(self, hidden_states, input_tensor, layer_norm):
+    def adapter_layer_forward(self, hidden_states, residual_input, layer_norm):
+        """Forward pass through the adapter layer.
+        NOTE: This method should only be called if the calling module directly inherits from AdapterLayer. Otherwise,
+        call the regular forward() method.
+
+        Args:
+            hidden_states (torch.Tensor): Input hidden states to the adapter layer.
+            residual_input (torch.Tensor): Residual input to the adapter layer.
+            layer_norm (torch.nn.Module): Transformer layer normalization module to be used by the adapter layer.
+
+        Returns:
+            torch.Tensor: Output hidden states of the adapter layer.
         """
-        Called for each forward pass through adapters.
-        """
+        # Batch sizes might be different due to prefix tuning w. Parallel block
+        (residual_input,) = adjust_tensors_for_parallel(hidden_states, residual_input)
+        # Replicate in both directions as residual might be larger (e.g. GPT-J)
+        (hidden_states,) = adjust_tensors_for_parallel(residual_input, hidden_states)
         adapter_setup = self.get_active_setup(self.adapters)
         if adapter_setup is not None:
             input_hidden_states = hidden_states
 
             if isinstance(adapter_setup, Stack):
-                hidden_states, _, input_tensor = self.adapter_stack(
-                    adapter_setup, hidden_states, input_tensor, layer_norm
+                hidden_states, _, residual_input = self.adapter_stack(
+                    adapter_setup, hidden_states, residual_input, layer_norm
                 )
             elif isinstance(adapter_setup, Fuse):
-                hidden_states = self.adapter_fusion(adapter_setup, hidden_states, input_tensor, layer_norm)
+                hidden_states = self.adapter_fusion(adapter_setup, hidden_states, residual_input, layer_norm)
             elif isinstance(adapter_setup, Split):
-                hidden_states = self.adapter_split(adapter_setup, hidden_states, input_tensor, layer_norm)
+                hidden_states = self.adapter_split(adapter_setup, hidden_states, residual_input, layer_norm)
             elif isinstance(adapter_setup, Parallel):
                 # notice that we are overriding input tensor here to keep the same dim as hidden_states for the residual
                 # in case we were blowing up the batch for parallel processing of multiple adapters for the same input
-                hidden_states, input_tensor = self.adapter_parallel(
-                    adapter_setup, hidden_states, input_tensor, layer_norm
+                hidden_states, residual_input = self.adapter_parallel(
+                    adapter_setup, hidden_states, residual_input, layer_norm
                 )
             elif isinstance(adapter_setup, BatchSplit):
-                hidden_states = self.adapter_batchsplit(adapter_setup, hidden_states, input_tensor, layer_norm)
+                hidden_states = self.adapter_batchsplit(adapter_setup, hidden_states, residual_input, layer_norm)
             else:
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
 
             last_adapter = self.adapters[adapter_setup.last()]
-            hidden_states = last_adapter.post_forward(hidden_states, input_hidden_states, input_tensor, layer_norm)
+            hidden_states = last_adapter.post_forward(hidden_states, input_hidden_states, residual_input, layer_norm)
 
         elif layer_norm:
-            hidden_states = layer_norm(hidden_states + input_tensor)
+            hidden_states = layer_norm(hidden_states + residual_input)
         else:
-            hidden_states = hidden_states + input_tensor
+            hidden_states = hidden_states + residual_input
 
         return hidden_states
 
-    def forward(self, hidden_states, input_tensor, layer_norm):
-        return self.adapter_layer_forward(hidden_states, input_tensor, layer_norm)
+    def forward(self, hidden_states, residual_input, layer_norm):
+        """Forward pass through the adapter layer.
+
+        Args:
+            hidden_states (torch.Tensor): Input hidden states to the adapter layer.
+            residual_input (torch.Tensor): Residual input to the adapter layer.
+            layer_norm (torch.nn.Module): Transformer layer normalization module to be used by the adapter layer.
+
+        Returns:
+            torch.Tensor: Output hidden states of the adapter layer.
+        """
+        return self.adapter_layer_forward(hidden_states, residual_input, layer_norm)

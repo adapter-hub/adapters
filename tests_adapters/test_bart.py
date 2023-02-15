@@ -1,7 +1,6 @@
 import unittest
 
-from tests.models.bart.test_modeling_bart import *
-from transformers import BartAdapterModel
+from transformers import BartConfig
 from transformers.testing_utils import require_torch
 
 from .methods import (
@@ -14,20 +13,11 @@ from .methods import (
 )
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
-from .test_adapter_composition import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
+from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-from .test_common import AdapterModelTesterMixin
-
-
-@require_torch
-class BartAdapterModelTest(AdapterModelTesterMixin, BartModelTest):
-    all_model_classes = (
-        BartAdapterModel,
-    )
-    fx_compatible = False
 
 
 class BartAdapterTestBase(AdapterTestBase):

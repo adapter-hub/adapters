@@ -344,6 +344,7 @@ class GPT2Attention(nn.Module):
             present = None
 
         key, value, attention_mask = self.prefix_tuning(key, value, hidden_states, attention_mask)
+        (query,) = adjust_tensors_for_parallel(key, query)
 
         if self.reorder_and_upcast_attn:
             attn_output, attn_weights = self._upcast_and_reordered_attn(query, key, value, attention_mask, head_mask)

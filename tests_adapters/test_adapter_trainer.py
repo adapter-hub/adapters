@@ -17,7 +17,7 @@ from transformers import (
 )
 from transformers.adapters.composition import Fuse, Stack
 from transformers.adapters.trainer import AdapterTrainer, logger
-from transformers.testing_utils import slow
+from transformers.testing_utils import slow, require_ray
 
 
 class TestAdapterTrainer(unittest.TestCase):
@@ -363,6 +363,55 @@ class TestAdapterTrainer(unittest.TestCase):
             self.assertFalse(trainer.args.remove_unused_columns)
             self.assertEqual("task", model.active_head)
             self.assertEqual(Stack("task"), model.active_adapters)
+
+    @require_ray
+    def test_hyperparameter_search_works_with_AdapterTrainer(self):
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+        )
+        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+        eval_dataset = train_dataset
+
+        def hp_space(params):
+            from ray import tune
+            return {
+                "learning_rate": tune.choice([0.1, 0.2]),
+            }
+
+        def model_init(trail=None):
+            model = AutoAdapterModel.from_pretrained("bert-base-uncased")
+
+            model.add_classification_head("task", num_labels=3)
+
+            # add the adapters to be fused
+            model.add_adapter("task")
+            model.add_adapter("additional_adapter")
+
+            model.train_adapter("task")
+            return model
+
+        with TemporaryDirectory() as tempdir:
+            training_args = TrainingArguments(
+                output_dir=tempdir,
+                do_train=True,
+                learning_rate=0.1,
+                logging_steps=1,
+                max_steps=1,
+                save_steps=1,
+                remove_unused_columns=False,
+            )
+            trainer = AdapterTrainer(
+                model=None,
+                model_init=model_init,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset
+            )
+
+            trainer.hyperparameter_search(
+                direction="minimize", hp_space=hp_space, backend="ray", n_trials=2
+            )
 
 
 if __name__ == "__main__":
