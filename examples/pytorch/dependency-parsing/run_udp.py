@@ -13,15 +13,8 @@ from datasets import load_dataset
 
 import transformers.adapters.composition as ac
 from preprocessing import preprocess_dataset
-from transformers import (
-    AdapterConfig,
-    AutoAdapterModel,
-    AutoConfig,
-    AutoTokenizer,
-    HfArgumentParser,
-    MultiLingAdapterArguments,
-    set_seed,
-)
+from transformers import AutoConfig, AutoTokenizer, HfArgumentParser, set_seed
+from transformers.adapters import AdapterArguments, AdapterConfigBase, AutoAdapterModel, setup_adapter_training
 from utils_udp import UD_HEAD_LABELS, DependencyParsingAdapterTrainer, DependencyParsingTrainer, UDTrainingArguments
 
 
@@ -94,7 +87,7 @@ def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, UDTrainingArguments, MultiLingAdapterArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, UDTrainingArguments, AdapterArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -170,7 +163,6 @@ def main():
 
     # The task name (with prefix)
     task_name = "ud_" + data_args.task_name
-    language = adapter_args.language
 
     model = AutoAdapterModel.from_pretrained(
         model_args.model_name_or_path,
@@ -182,65 +174,6 @@ def main():
         num_labels=num_labels,
         id2label=label_map,
     )
-
-    if model_args.leave_out_twelvth:
-        logger.info("Leaving out 12")
-        leave_out = [11]
-    else:
-        leave_out = []
-
-    # Setup adapters
-    if adapter_args.train_adapter:
-        # check if adapter already exists, otherwise add it
-        if task_name not in model.config.adapters:
-            # resolve the adapter config
-            adapter_config = AdapterConfig.load(
-                adapter_args.adapter_config,
-                non_linearity=adapter_args.adapter_non_linearity,
-                reduction_factor=adapter_args.adapter_reduction_factor,
-                leave_out=leave_out,
-            )
-            # load a pre-trained from Hub if specified
-            if adapter_args.load_adapter:
-                model.load_adapter(
-                    adapter_args.load_adapter,
-                    config=adapter_config,
-                    load_as=task_name,
-                    leave_out=leave_out,
-                )
-            # otherwise, add a fresh adapter
-            else:
-                model.add_adapter(task_name, config=adapter_config)
-        # optionally load a pre-trained language adapter
-        if adapter_args.load_lang_adapter:
-            # resolve the language adapter config
-            lang_adapter_config = AdapterConfig.load(
-                adapter_args.lang_adapter_config,
-                non_linearity=adapter_args.lang_adapter_non_linearity,
-                reduction_factor=adapter_args.lang_adapter_reduction_factor,
-                leave_out=leave_out,
-            )
-            # load the language adapter from Hub
-            lang_adapter_name = model.load_adapter(
-                adapter_args.load_lang_adapter,
-                config=lang_adapter_config,
-                load_as=adapter_args.language,
-                leave_out=leave_out,
-            )
-        else:
-            lang_adapter_name = None
-        # Freeze all model weights except of those of this adapter
-        model.train_adapter([task_name])
-        # Set the adapters to be used in every forward pass
-        if lang_adapter_name:
-            model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
-        else:
-            model.set_active_adapters(task_name)
-    else:
-        if adapter_args.load_adapter or adapter_args.load_lang_adapter:
-            raise ValueError(
-                "Adapters can only be loaded in adapters training mode.Use --train_adapter to enable adapter training"
-            )
 
     # Load and preprocess dataset
     if data_args.use_mock_data:
@@ -255,6 +188,21 @@ def main():
         dataset = load_dataset("universal_dependencies", data_args.task_name)
     dataset = preprocess_dataset(dataset, tokenizer, labels, data_args, pad_token_id=-1)
 
+    # Setup adapters
+    if model_args.leave_out_twelvth:
+        logger.info("Leaving out 12")
+        adapter_config_kwargs = {"leave_out": [11]}
+        adapter_load_kwargs = {"leave_out": [11]}
+    else:
+        adapter_config_kwargs = {}
+        adapter_load_kwargs = {}
+    adapter_name, lang_adapter_name = setup_adapter_training(
+        model,
+        adapter_args,
+        task_name,
+        adapter_config_kwargs=adapter_config_kwargs,
+        adapter_load_kwargs=adapter_load_kwargs,
+    )
     # Initialize our Trainer
     # HACK: Set this attribute to False to prevent label columns from being deleted
     training_args.remove_unused_columns = False
@@ -300,30 +248,30 @@ def main():
             logger.info("Loading best model for predictions.")
 
             if adapter_args.train_adapter:
-                if language:
-                    lang_adapter_config = AdapterConfig.load(
-                        config="pfeiffer", non_linearity="gelu", reduction_factor=2, leave_out=leave_out
-                    )
-                    model.load_adapter(
-                        os.path.join(training_args.output_dir, "best_model", language)
-                        if training_args.do_train
-                        else adapter_args.load_lang_adapter,
-                        config=lang_adapter_config,
-                        load_as=language,
-                        leave_out=leave_out,
-                    )
-                task_adapter_config = AdapterConfig.load(
-                    config="pfeiffer", non_linearity="gelu", reduction_factor=16, leave_out=leave_out
-                )
+                adapter_config = AdapterConfigBase.load(adapter_args.adapter_config, **adapter_config_kwargs)
                 model.load_adapter(
                     os.path.join(training_args.output_dir, "best_model", task_name)
                     if training_args.do_train
                     else adapter_args.load_adapter,
-                    config=task_adapter_config,
+                    config=adapter_config,
                     load_as=task_name,
-                    leave_out=leave_out,
+                    **adapter_load_kwargs,
                 )
-                if language:
+                if adapter_args.load_lang_adapter:
+                    lang_adapter_config = AdapterConfigBase.load(
+                        adapter_args.lang_adapter_config, **adapter_config_kwargs
+                    )
+                    lang_adapter_name = model.load_adapter(
+                        os.path.join(training_args.output_dir, "best_model", lang_adapter_name)
+                        if training_args.do_train
+                        else adapter_args.load_lang_adapter,
+                        config=lang_adapter_config,
+                        load_as=lang_adapter_name,
+                        **adapter_load_kwargs,
+                    )
+                else:
+                    lang_adapter_name = None
+                if lang_adapter_name:
                     model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
                 else:
                     model.set_active_adapters(task_name)
