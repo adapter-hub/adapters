@@ -2,6 +2,7 @@ import unittest
 from datasets import load_dataset
 
 from tests.models.bert_generation.test_modeling_bert_generation import *
+from tests_adapters.models.base import AdapterModelTesterMixin
 from transformers import BertGenerationAdapterModel, AutoTokenizer
 from transformers.testing_utils import require_torch
 
@@ -20,7 +21,6 @@ from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-from .test_common import AdapterModelTesterMixin
 
 
 @require_torch
