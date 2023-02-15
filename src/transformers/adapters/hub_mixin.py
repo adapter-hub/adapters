@@ -170,8 +170,9 @@ class PushAdapterToHubMixin:
         """
         if organization is not None and not repo_name.startswith(organization):
             warnings.warn(
-                "The `organization` argument is deprecated and will be removed in future versions of Adapter-Transformers. "
-                "Set your organization directly in the `repo_id` passed instead (`repo_id={organization}/{model_id}`)."
+                "The `organization` argument is deprecated and will be removed in future versions of"
+                " Adapter-Transformers. Set your organization directly in the `repo_id` passed instead"
+                " (`repo_id={organization}/{model_id}`)."
             )
             if "/" in repo_name:
                 repo_name = repo_name.split("/")[-1]
