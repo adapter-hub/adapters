@@ -153,6 +153,7 @@ class BertGenerationSelfAttention(nn.Module):
         key_layer, value_layer, attention_mask = self.prefix_tuning(
             key_layer, value_layer, hidden_states, attention_mask
         )
+        (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))

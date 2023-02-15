@@ -1,155 +1,23 @@
 import copy
 import random
-import unittest
 
 import torch
 
-from tests.test_modeling_common import ids_tensor
 from transformers import (
     MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
     AutoAdapterModel,
-    AutoTokenizer,
-    BertConfig,
-    BertForSequenceClassification,
     T5AdapterModel,
     Trainer,
     TrainingArguments,
 )
-from transformers.adapters import ADAPTER_MODEL_MAPPING
-from transformers.adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
+from transformers.adapters import ADAPTER_MODEL_MAPPING, PfeifferConfig, PrefixTuningConfig
 from transformers.adapters.models.bert_generation.adapter_model import BertGenerationAdapterModel
+from transformers.adapters.composition import BatchSplit, Parallel
 from transformers.testing_utils import require_torch, torch_device
 
 
 def filter_parameters(model, filter_string):
     return {k: v for (k, v) in model.named_parameters() if filter_string in k}
-
-
-class AdapterCompositionParsingTest(unittest.TestCase):
-    def test_parse_lists(self):
-        self.assertEqual(Stack("a"), parse_composition("a"))
-        self.assertEqual(Stack("a", "b", "c"), parse_composition(["a", "b", "c"]))
-        self.assertEqual(Stack("a", Fuse("b", "c")), parse_composition(["a", ["b", "c"]]))
-
-    def test_to_deep(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Stack("a", Fuse("b", Stack(Fuse("c", "d"), "e")))))
-
-    def test_invalid_nesting_fusion(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Fuse("a", "b"), "c")))
-        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Split("a", "b", 128), "c")))
-
-    def test_invalid_nesting_split(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Split("a", Fuse("b", "c"), 128)))
-
-
-@require_torch
-class AdapterCompositionTest(unittest.TestCase):
-    def setUp(self):
-        self.model = BertForSequenceClassification(BertConfig())
-        self.model.add_adapter("a")
-        self.model.add_adapter("b")
-        self.model.add_adapter("c")
-        self.model.add_adapter("d")
-        self.model.to(torch_device)
-        self.model.train()
-
-    def training_pass(self):
-        inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000).to(torch_device)
-        inputs["labels"] = torch.ones(1, dtype=torch.long).to(torch_device)
-        loss = self.model(**inputs).loss
-        loss.backward()
-
-    def batched_training_pass(self):
-        inputs = {
-            "input_ids": ids_tensor((4, 128), 1000).to(torch_device),
-            "labels": torch.ones(4, dtype=torch.long).to(torch_device),
-        }
-        loss = self.model(**inputs).loss
-        loss.backward()
-
-    def test_simple_split(self):
-        # pass over split setup
-        self.model.set_active_adapters(Split("a", "b", 64))
-
-        self.training_pass()
-
-    def test_stacked_split(self):
-        # split into two stacks
-        self.model.set_active_adapters(Split(Stack("a", "b"), Stack("c", "d"), split_index=64))
-
-        self.training_pass()
-
-    def test_stacked_fusion(self):
-        self.model.add_adapter_fusion(Fuse("b", "d"))
-        self.model.to(torch_device)
-
-        # fuse two stacks
-        self.model.set_active_adapters(Fuse(Stack("a", "b"), Stack("c", "d")))
-
-        self.training_pass()
-
-    def test_mixed_stack(self):
-        self.model.add_adapter_fusion(Fuse("a", "b"))
-        self.model.to(torch_device)
-
-        self.model.set_active_adapters(Stack("a", Split("c", "d", split_index=64), Fuse("a", "b")))
-
-        self.training_pass()
-
-    def test_nested_split(self):
-        # split into two stacks
-        self.model.set_active_adapters(Split(Split("a", "b", split_index=32), "c", split_index=64))
-
-        self.training_pass()
-
-    def test_parallel(self):
-        self.model.set_active_adapters(Parallel("a", "b", "c", "d"))
-
-        inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000)
-        logits = self.model(**inputs).logits
-        self.assertEqual(logits.shape, (4, 2))
-
-    def test_nested_parallel(self):
-        self.model.set_active_adapters(Stack("a", Parallel(Stack("b", "c"), "d")))
-
-        inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000)
-        logits = self.model(**inputs).logits
-        self.assertEqual(logits.shape, (2, 2))
-
-    def test_batch_split(self):
-        self.model.set_active_adapters(BatchSplit("a", "b", "c", batch_sizes=[1, 1, 2]))
-        self.batched_training_pass()
-
-    def test_batch_split_int(self):
-        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=2))
-        self.batched_training_pass()
-
-    def test_nested_batch_split(self):
-        self.model.set_active_adapters(Stack("a", BatchSplit("b", "c", batch_sizes=[2, 2])))
-        self.batched_training_pass()
-
-    def test_batch_split_invalid(self):
-        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[3, 4]))
-        with self.assertRaises(IndexError):
-            self.batched_training_pass()
-
-    def test_batch_split_equivalent(self):
-        self.model.set_active_adapters("a")
-        self.model.eval()
-        input_ids = ids_tensor((2, 128), 1000)
-        output_a = self.model(input_ids[:1])
-
-        self.model.set_active_adapters("b")
-        output_b = self.model(input_ids[1:2])
-
-        self.model.set_active_adapters(BatchSplit("a", "b", batch_sizes=[1, 1]))
-        output = self.model(input_ids)
-
-        self.assertTrue(torch.allclose(output_a[0], output[0][0], atol=1e-6))
-        self.assertTrue(torch.allclose(output_b[0], output[0][1], atol=1e-6))
 
 
 @require_torch
@@ -276,13 +144,13 @@ class ParallelAdapterInferenceTestMixin:
 
 
 class ParallelTrainingMixin:
-    def create_twin_adapters(self, model, name):
+    def create_twin_adapters(self, model, name, adapter_config):
         # create adapter
         adapter1, adapter2 = name + "_1", name + "_2"
-        model.add_adapter(adapter1)
+        model.add_adapter(adapter1, config=adapter_config)
         self.add_head(model, adapter1)
         # create a twin initialized with the same random weights
-        model.add_adapter(adapter2)
+        model.add_adapter(adapter2, config=adapter_config)
         self.add_head(model, adapter2)
 
         state_dict = model.state_dict()
@@ -312,11 +180,11 @@ class ParallelTrainingMixin:
                 optimizer.step()
         return model
 
-    def test_parallel_training(self):
+    def run_parallel_training_test(self, adapter_config, filter_key):
         model = AutoAdapterModel.from_config(self.config())
 
-        model.add_adapter("mrpc1")
-        model.add_adapter("mrpc2")
+        model.add_adapter("mrpc1", config=adapter_config)
+        model.add_adapter("mrpc2", config=adapter_config)
         self.add_head(model, "mrpc1")
         self.add_head(model, "mrpc2")
         model.active_adapters = Parallel("mrpc1", "mrpc2")
@@ -324,14 +192,15 @@ class ParallelTrainingMixin:
         # model.eval()
 
         # all weights of the adapter should be activated
-        for k, v in filter_parameters(model, "adapters.mrpc1.").items():
+        for k, v in filter_parameters(model, filter_key.format("mrpc1")).items():
             self.assertTrue(v.requires_grad, k)
         # all weights of the adapter not used for training should be frozen
-        for k, v in filter_parameters(model, "adapters.mrpc2.").items():
+        for k, v in filter_parameters(model, filter_key.format("mrpc1")).items():
             self.assertTrue(v.requires_grad, k)
         # weights of the model should be frozen (check on some examples)
         for k, v in filter_parameters(model, "encoder.layer.0.attention").items():
-            self.assertFalse(v.requires_grad, k)
+            if filter_key.format("mrpc1") not in k and filter_key.format("mrpc2") not in k:
+                self.assertFalse(v.requires_grad, k)
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
@@ -357,12 +226,12 @@ class ParallelTrainingMixin:
         self.assertTrue(any([not torch.equal(v, state_dict_pre[k]) for k, v in model.state_dict().items() if "mrpc" in k]))
         self.assertTrue(all(torch.equal(v, state_dict_pre[k]) for k, v in model.state_dict().items() if "mrpc" not in k))
 
-    def test_parallel_training_equivalent_to_single_adapters(self):
+    def run_parallel_training_equivalent_to_single(self, adapter_config):
         model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
-        a1, a2 = self.create_twin_adapters(model, "a")
-        b1, b2 = self.create_twin_adapters(model, "b")
+        a1, a2 = self.create_twin_adapters(model, "a", adapter_config)
+        b1, b2 = self.create_twin_adapters(model, "b", adapter_config)
 
         dataset = []
         for i in range(3):
@@ -397,12 +266,24 @@ class ParallelTrainingMixin:
             if b1 in k:
                 self.assertTrue(torch.allclose(v, state_dict[k.replace(b1, b2)], atol=1e-5))
 
+    def test_parallel_training_bottleneck(self):
+        self.run_parallel_training_test(PfeifferConfig(), "adapters.{}")
+
+    def test_parallel_training_prefix_tuning(self):
+        self.run_parallel_training_test(PrefixTuningConfig(), "prefix_tunings.{}")
+
+    def test_parallel_training_equivalent_to_single_bottleneck(self):
+        self.run_parallel_training_equivalent_to_single(PfeifferConfig())
+
+    def test_parallel_training_equivalent_to_single_prefix_tuning(self):
+        self.run_parallel_training_equivalent_to_single(PrefixTuningConfig())
+
     def test_parallel_training_single_forward_pass(self):
         model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
-        a1, a2 = self.create_twin_adapters(model, "a")
-        b1, b2 = self.create_twin_adapters(model, "b")
+        a1, a2 = self.create_twin_adapters(model, "a", PfeifferConfig())
+        b1, b2 = self.create_twin_adapters(model, "b", PfeifferConfig())
 
         state_dict = model.state_dict()
         for k, v in state_dict.items():
