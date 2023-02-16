@@ -6,6 +6,6 @@ from .base import AdapterModelTesterMixin
 
 
 @require_torch
-class BertAdapterModelTest(AdapterModelTesterMixin, AlbertModelTest):
+class AlbertAdapterModelTest(AdapterModelTesterMixin, AlbertModelTest):
     all_model_classes = (AlbertAdapterModel,)
     fx_compatible = False
