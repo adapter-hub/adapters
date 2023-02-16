@@ -42,19 +42,17 @@ class InvertibleAdaptersMixin:
         if hasattr(self, "config"):
             self.config = wrap_config(self.config)
 
-    def add_invertible_adapter(self, adapter_name: str, embedding_dim=None):
+    def add_invertible_adapter(self, adapter_name: str):
         """
         Adds an invertible adapter module for the adapter with the given name. If the given adapter does not specify an
         invertible adapter config, this method does nothing.
 
         Args:
             adapter_name (str): The name of the adapter for which to add an invertible adapter module.
-            embedding_dim: the dimension of the embeddings (if None the hidden_size from the config is used)
         """
         if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
-        if embedding_dim is None:
-            embedding_dim = self.config.hidden_size
+        embedding_size = getattr(self.config, "embedding_size", self.config.hidden_size)
         adapter_config = self.config.adapters.match(
             adapter_name,
             config_type=AdapterConfig,
@@ -63,13 +61,13 @@ class InvertibleAdaptersMixin:
         if adapter_config and adapter_config["inv_adapter"]:
             if adapter_config["inv_adapter"] == "nice":
                 inv_adap = NICECouplingBlock(
-                    [[embedding_dim]],
+                    [[embedding_size]],
                     non_linearity=adapter_config["non_linearity"],
                     reduction_factor=adapter_config["inv_adapter_reduction_factor"],
                 )
             elif adapter_config["inv_adapter"] == "glow":
                 inv_adap = GLOWCouplingBlock(
-                    [[embedding_dim]],
+                    [[embedding_size]],
                     non_linearity=adapter_config["non_linearity"],
                     reduction_factor=adapter_config["inv_adapter_reduction_factor"],
                 )
@@ -162,6 +160,10 @@ class EmbeddingAdaptersMixin:
         self.loaded_embeddings = {}
         self._active_embedding = "default"
 
+        # Make sure config is wrapped
+        if hasattr(self, "config"):
+            self.config = wrap_config(self.config)
+
     def load_embeddings(self, path: str, name: str):
         """
         Load a saved embedding from the given path. If the embedding was saved with a tokenizer it is returned
@@ -191,7 +193,7 @@ class EmbeddingAdaptersMixin:
         self.set_active_embeddings(name)
         return tokenizer
 
-    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
+    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None):
         """
         Add a new embedding to the model. If a reference embedding and reference tokenizer are provided tokens in the
         present in both tokenizers are initialized to the embedding in the reference_embedding.
@@ -208,9 +210,8 @@ class EmbeddingAdaptersMixin:
         """
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
-        if embedding_dim is None:
-            embedding_dim = self.config.hidden_size
-        embedding = nn.Embedding(len(tokenizer), embedding_dim)
+        embedding_size = getattr(self.config, "embedding_size", self.config.hidden_size)
+        embedding = nn.Embedding(len(tokenizer), embedding_size)
         # Use same initialization as base Transformer model
         embedding.weight.data.normal_(mean=0.0, std=0.02)
         if embedding.padding_idx is not None:
@@ -293,8 +294,8 @@ class EmbeddingAdaptersWrapperMixin:
     def load_embeddings(self, path: str, name: str):
         return self.base_model.load_embeddings(path, name)
 
-    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
-        return self.base_model.add_embeddings(name, tokenizer, reference_embedding, reference_tokenizer, embedding_dim)
+    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None):
+        return self.base_model.add_embeddings(name, tokenizer, reference_embedding, reference_tokenizer)
 
     def delete_embeddings(self, name):
         return self.base_model.delete_embeddings(name)

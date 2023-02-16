@@ -36,9 +36,6 @@ class AlbertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, 
             for albertLayer in albertLayerGroup.albert_layers:
                 yield i, albertLayer
 
-    def add_invertible_adapter(self, adapter_name: str):
-        super().add_invertible_adapter(adapter_name, embedding_dim=self.config.embedding_size)
-
 
 class AlbertModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
     pass

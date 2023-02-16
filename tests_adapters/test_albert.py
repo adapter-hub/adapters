@@ -56,24 +56,6 @@ class AlbertAdapterTest(
         expected_number_of_adapter_calls = ceil(self.config().num_hidden_layers / self.config().num_hidden_groups)
         super().test_context_simple(expected_number_of_adapter_calls=expected_number_of_adapter_calls)
 
-    def test_add_embeddings(self):
-        super().test_add_embeddings(embedding_dim=self.config().embedding_size)
-
-    def test_add_embedding_tokens(self):
-        super().test_add_embedding_tokens(embedding_dim=self.config().embedding_size)
-
-    def test_delete_embeddings(self):
-        super().test_delete_embeddings(embedding_dim=self.config().embedding_size)
-
-    def test_save_load_embedding(self):
-        super().test_save_load_embedding(embedding_dim=self.config().embedding_size)
-
-    def test_training_embedding(self):
-        super().test_training_embedding(embedding_dim=self.config().embedding_size)
-
-    def test_reference_embedding(self):
-        super().test_reference_embedding(embedding_dim=self.config().embedding_size)
-
 
 @require_torch
 class AlbertClassConversionTest(
