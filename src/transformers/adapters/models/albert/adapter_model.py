@@ -10,8 +10,8 @@ from ...heads import (
     BertStyleMaskedLMHead,
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
-    MultipleChoiceHead,
     MultiLabelClassificationHead,
+    MultipleChoiceHead,
     QuestionAnsweringHead,
     TaggingHead,
 )
