@@ -11,6 +11,7 @@ from ...heads import (
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
     MultipleChoiceHead,
+    MultiLabelClassificationHead,
     QuestionAnsweringHead,
     TaggingHead,
 )
@@ -111,8 +112,8 @@ class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
         layers=2,
         activation_function="tanh",
         overwrite_ok=False,
+        multilabel=False,
         id2label=None,
-        use_pooler=False,
     ):
         """
         Adds a sequence classification head on top of the model.
@@ -125,7 +126,10 @@ class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
             multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
         """
-        head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label, use_pooler)
+        if multilabel:
+            head = MultiLabelClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
+        else:
+            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
         self.add_prediction_head(head, overwrite_ok)
 
     def add_multiple_choice_head(
