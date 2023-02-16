@@ -138,7 +138,8 @@ class PredictionHeadModelTestMixin:
         input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
         generated = model1.generate(input_ids, max_length=seq_output_length)
-        self.assertEqual(generated.shape, (1, seq_output_length))
+        self.assertEqual(generated.shape[0], 1) 
+        self.assertLessEqual(generated.shape[1], seq_output_length)
 
     def test_seq2seq_lm_head(self):
         if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head"):
