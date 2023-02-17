@@ -755,19 +755,20 @@ class DisentangledSelfAttention(nn.Module):
         """
         if query_states is None:
             query_states = hidden_states
-        query_layer = self.transpose_for_scores(self.query_proj(query_states), self.num_attention_heads)
+        query_layer = self.transpose_for_scores_extended(self.query_proj(query_states), self.num_attention_heads)
         key_layer = self.transpose_for_scores_extended(self.key_proj(hidden_states), self.num_attention_heads)
         value_layer = self.transpose_for_scores_extended(self.value_proj(hidden_states), self.num_attention_heads)
 
-        orig_key_layer = key_layer.contiguous().view(
-            -1, key_layer.size(2), key_layer.size(-1)
-        )  # save this for relative attention
+        orig_key_layer = key_layer.contiguous()  # save this for relative attention
         key_layer, value_layer, attention_mask = self.prefix_tuning(
             key_layer, value_layer, hidden_states, attention_mask, False
         )  # [:, 0, :, 0])
+        query_layer, orig_key_layer = adjust_tensors_for_parallel(key_layer, query_layer, orig_key_layer)
 
+        query_layer = query_layer.contiguous().view(-1, query_layer.size(2), query_layer.size(-1))
         key_layer = key_layer.contiguous().view(-1, key_layer.size(2), key_layer.size(-1))
         value_layer = value_layer.contiguous().view(-1, value_layer.size(2), value_layer.size(-1))
+        orig_key_layer = orig_key_layer.contiguous().view(-1, orig_key_layer.size(2), orig_key_layer.size(-1))
 
         rel_att = None
         # Take the dot product between "query" and "key" to get the raw attention scores.

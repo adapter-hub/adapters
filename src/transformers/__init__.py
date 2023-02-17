@@ -2275,7 +2275,6 @@ if is_torch_available():
         "ModelAdaptersMixin",
         "ModelWithFlexibleHeadsAdaptersMixin",
         "ModelWithHeadsAdaptersMixin",
-        "MultiLingAdapterArguments",
         "ParallelConfig",
         "PfeifferConfig",
         "PfeifferInvConfig",
@@ -2293,6 +2292,7 @@ if is_torch_available():
         "get_adapter_config_hash",
         "get_adapter_info",
         "list_adapters",
+        "setup_adapter_training",
     ]
 
 # TensorFlow-backed objects
@@ -5066,7 +5066,6 @@ if TYPE_CHECKING:
             ModelAdaptersMixin,
             ModelWithFlexibleHeadsAdaptersMixin,
             ModelWithHeadsAdaptersMixin,
-            MultiLingAdapterArguments,
             ParallelConfig,
             PfeifferConfig,
             PfeifferInvConfig,
@@ -5084,6 +5083,7 @@ if TYPE_CHECKING:
             get_adapter_config_hash,
             get_adapter_info,
             list_adapters,
+            setup_adapter_training,
         )
 
     # TensorFlow
