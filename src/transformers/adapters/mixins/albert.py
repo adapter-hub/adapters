@@ -32,9 +32,11 @@ class AlbertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, 
     """Adds adapters to the AlbertModel module."""
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        for i, albertLayerGroup in enumerate(self.encoder.albert_layer_groups):
+        i = 0
+        for albertLayerGroup in self.encoder.albert_layer_groups:
             for albertLayer in albertLayerGroup.albert_layers:
                 yield i, albertLayer
+                i += 1
 
 
 class AlbertModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
