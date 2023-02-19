@@ -193,7 +193,7 @@ class EmbeddingAdaptersMixin:
         self.set_active_embeddings(name)
         return tokenizer
 
-    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None):
+    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
         """
         Add a new embedding to the model. If a reference embedding and reference tokenizer are provided tokens in the
         present in both tokenizers are initialized to the embedding in the reference_embedding.
@@ -205,12 +205,14 @@ class EmbeddingAdaptersMixin:
                 the reference embedding to use for initializing the embeddings of tokens present in the newly created
                 embedding
             reference_tokenizer: the tokenizer providing the vocab for the reference embedding
-            embedding_dim: the dimension of the embeddings (if None the hidden_size from the config is used)
-
+            embedding_dim: the dimension of the embeddings (if None the embedding_size, or if this doesn't exist the hidden_size, from the config is used)
         """
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
-        embedding_size = getattr(self.config, "embedding_size", self.config.hidden_size)
+        if embedding_dim is not None:
+            embedding_size = embedding_dim
+        else:
+            embedding_size = getattr(self.config, "embedding_size", self.config.hidden_size)
         embedding = nn.Embedding(len(tokenizer), embedding_size)
         # Use same initialization as base Transformer model
         embedding.weight.data.normal_(mean=0.0, std=0.02)
