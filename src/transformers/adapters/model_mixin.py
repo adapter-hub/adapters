@@ -205,7 +205,9 @@ class EmbeddingAdaptersMixin:
                 the reference embedding to use for initializing the embeddings of tokens present in the newly created
                 embedding
             reference_tokenizer: the tokenizer providing the vocab for the reference embedding
-            embedding_dim: the dimension of the embeddings (if None the embedding_size, or if this doesn't exist the hidden_size, from the config is used)
+            embedding_dim:
+                the dimension of the embeddings (if None the embedding_size, or if this doesn't exist the hidden_size,
+                from the config is used)
         """
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
