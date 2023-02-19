@@ -11,6 +11,7 @@ class CausalLMHead(PredictionHead):
         model,
         head_name,
         vocab_size=None,
+        embedding_size=None,
         layers=1,
         activation_function=None,
         layer_norm=False,
@@ -21,6 +22,7 @@ class CausalLMHead(PredictionHead):
         self.config = {
             "head_type": "causal_lm",
             "vocab_size": vocab_size or model.config.vocab_size,
+            "embedding_size": embedding_size or getattr(model.config, "embedding_size", model.config.hidden_size),
             "layers": layers,
             "activation_function": activation_function,
             "layer_norm": layer_norm,
@@ -35,20 +37,30 @@ class CausalLMHead(PredictionHead):
         # Additional FC layers
         pred_head = []
         with_layer_norm = self.config.get("layer_norm", False)
+        embedding_size = self.config.get("embedding_size", model_config.hidden_size)
+
         for l_id in range(self.config["layers"] - 1):
-            pred_head.append(nn.Linear(model_config.hidden_size, model_config.hidden_size))
+            if l_id == 0:
+                pred_head.append(nn.Linear(model_config.hidden_size, embedding_size))
+            else:
+                pred_head.append(nn.Linear(embedding_size, embedding_size))
             if self.config["activation_function"]:
                 pred_head.append(Activation_Function_Class(self.config["activation_function"]))
             if with_layer_norm:
                 eps = getattr(model_config, "layer_norm_eps", 1e-12)
-                pred_head.append(nn.LayerNorm(model_config.hidden_size, eps=eps))
+                pred_head.append(nn.LayerNorm(embedding_size, eps=eps))
+
         for i, module in enumerate(pred_head):
             self.add_module(str(i), module)
 
         # Final embedding layer
         self.add_module(
             str(len(pred_head)),
-            nn.Linear(model_config.hidden_size, self.config["vocab_size"], bias=self.config["bias"]),
+            nn.Linear(
+                embedding_size,
+                self.config["vocab_size"],
+                bias=self.config["bias"],
+            ),
         )
 
         self.apply(model._init_weights)
@@ -160,6 +172,7 @@ class BertStyleMaskedLMHead(CausalLMHead):
         model,
         head_name,
         vocab_size=None,
+        embedding_size=None,
         layers=2,
         activation_function="gelu",
         layer_norm=True,
@@ -170,6 +183,7 @@ class BertStyleMaskedLMHead(CausalLMHead):
         self.config = {
             "head_type": "masked_lm",
             "vocab_size": vocab_size or model.config.vocab_size,
+            "embedding_size": embedding_size or getattr(model.config, "embedding_size", model.config.hidden_size),
             "layers": layers,
             "activation_function": activation_function,
             "layer_norm": layer_norm,

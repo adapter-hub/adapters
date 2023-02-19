@@ -390,7 +390,7 @@ class PredictionHeadModelTestMixin:
         self.assertEqual((self.batch_size, self.seq_length, model.config.vocab_size), out[0].shape)
         self.assertEqual(2, calls)
 
-    def test_context_simple(self):
+    def test_context_simple(self, expected_number_of_adapter_calls=1):
         model = AutoAdapterModel.from_config(self.config())
         model.add_adapter("a")
         output_size = self.add_head(model, "a", num_labels=3)
@@ -414,7 +414,7 @@ class PredictionHeadModelTestMixin:
             out = model(**in_data)
 
         self.assertEqual(out[0].shape[:2], (3, output_size))
-        self.assertEqual(calls, 1)
+        self.assertEqual(calls, expected_number_of_adapter_calls)
 
     def test_save_all_adapters_with_head(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING:

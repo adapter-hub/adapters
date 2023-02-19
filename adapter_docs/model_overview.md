@@ -12,6 +12,7 @@ The table below further shows which model architectures support which adaptation
 
 | Model                                   | (Bottleneck)<br> Adapters | Prefix<br> Tuning | LoRA | Compacter | Adapter<br> Fusion | Invertible<br> Adapters | Parallel<br> block |
 | --------------------------------------- | -| - | - | - | - | - | - |
+| [ALBERT](classes/models/albert.html)    | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [BART](classes/models/bart.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [BEIT](classes/models/beit.html)        | ✅ | ✅ | ✅ | ✅ | ✅ |  |  |
 | [BERT](classes/models/bert.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
