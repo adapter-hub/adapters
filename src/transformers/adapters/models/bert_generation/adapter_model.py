@@ -6,11 +6,7 @@ from ....models.bert_generation.modeling_bert_generation import (
 )
 from ....utils import add_start_docstrings, add_start_docstrings_to_model_forward
 from ...context import AdapterSetup
-from ...heads import (
-    BertStyleMaskedLMHead,
-    CausalLMHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-)
+from ...heads import BertStyleMaskedLMHead, CausalLMHead, ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 
 
