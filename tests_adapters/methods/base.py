@@ -4,7 +4,8 @@ import tempfile
 
 import torch
 
-from transformers import TrainingArguments
+from transformers import AutoTokenizer, TrainingArguments
+from transformers.adapters.heads import CausalLMHead
 from transformers.adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
 from transformers.adapters.utils import WEIGHTS_NAME
 from transformers.testing_utils import require_torch, torch_device
@@ -244,8 +245,14 @@ class AdapterMethodBaseTestMixin:
 
         # check that the adapters have changed, but the base model has not
         adapters_with_change, base_with_change = False, False
+        # check whether the key corresponds to a tied embedding
+        def has_tied_embeddings(k):
+            tied_embeddings = hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings 
+            is_tied_layer = isinstance(model.heads["mrpc"], CausalLMHead) and 'heads.{}.{}.weight'.format("mrpc", len(model.heads["mrpc"]._modules)-1) in k
+            return tied_embeddings and is_tied_layer
+
         for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items()):
-            if "mrpc" in k1:
+            if "mrpc" in k1 and not has_tied_embeddings(k1):
                 adapters_with_change |= not torch.equal(v1, v2)
             else:
                 base_with_change |= not torch.equal(v1, v2)

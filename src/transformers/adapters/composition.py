@@ -113,6 +113,7 @@ SUPPORTED_MODELS = {
         "t5",
         "vit",
         "xlm-roberta",
+        "bert-generation",
     ],
 }
 

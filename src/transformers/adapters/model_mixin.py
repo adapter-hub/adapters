@@ -287,6 +287,7 @@ class EmbeddingAdaptersMixin:
         """
         self.loaded_embeddings[self.active_embeddings] = self.get_input_embeddings()
         self.set_input_embeddings(self.loaded_embeddings[name])
+        self.config.vocab_size = self.loaded_embeddings[name].num_embeddings
         self._active_embedding = name
 
     @property
@@ -495,9 +496,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
         # PHM Layer
         if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
-            self.base_model.shared_parameters[adapter_name] = (
-                list(self.get_adapter(adapter_name)[0].values())[0].adapter_down[0].init_shared_parameters()
-            )
+            adapter_module = list(self.get_adapter(adapter_name)[0].values())[0]
+            # if multiple adapters with same location key exist they are returned as a modulelist
+            if isinstance(adapter_module, nn.ModuleList):
+                adapter_module = adapter_module[0]
+            self.base_model.shared_parameters[adapter_name] = adapter_module.adapter_down[0].init_shared_parameters()
         # Prefix Tuning
         for module in self.modules():
             if isinstance(module, PrefixTuningPool):

@@ -11,6 +11,7 @@ from transformers import (
     TrainingArguments,
 )
 from transformers.adapters import ADAPTER_MODEL_MAPPING, PfeifferConfig, PrefixTuningConfig
+from transformers.adapters.models.bert_generation.adapter_model import BertGenerationAdapterModel
 from transformers.adapters.composition import BatchSplit, Parallel
 from transformers.testing_utils import require_torch, torch_device
 
@@ -235,7 +236,7 @@ class ParallelTrainingMixin:
         dataset = []
         for i in range(3):
             input_data = self.get_input_samples(config=model.config)
-            if isinstance(model, T5AdapterModel):
+            if isinstance(model, T5AdapterModel) or isinstance(model, BertGenerationAdapterModel):
                 input_data["labels"] = torch.randint(0, 2, (3, 64))
             else:
                 input_data["labels"] = torch.randint(0, 2, (3, 1))
@@ -292,7 +293,7 @@ class ParallelTrainingMixin:
                 self.assertTrue(torch.equal(v, state_dict[k.replace(b1, b2)]))
 
         input_data = self.get_input_samples(config=model.config)
-        if isinstance(model, T5AdapterModel):
+        if isinstance(model, T5AdapterModel) or isinstance(model, BertGenerationAdapterModel):
             input_data["labels"] = torch.randint(0, 2, (3, 64), device=torch_device)
         else:
             input_data["labels"] = torch.randint(0, 2, (3, 1), device=torch_device)
