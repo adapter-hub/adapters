@@ -894,6 +894,8 @@ class BertGenerationDecoder(BertModelWithHeadsAdaptersMixin, BertGenerationPreTr
 
         self.bert = BertGenerationEncoder(config)
         self.lm_head = BertGenerationOnlyLMHead(config)
+        # necessairy to enable adapter methods
+        self.config = self.bert.config
 
         # Initialize weights and apply final processing
         self.post_init()
