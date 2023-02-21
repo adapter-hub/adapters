@@ -8,14 +8,8 @@ from ....utils import add_start_docstrings, add_start_docstrings_to_model_forwar
 from ...context import AdapterSetup
 from ...heads import (
     BertStyleMaskedLMHead,
-    BiaffineParsingHead,
     CausalLMHead,
-    ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    MultipleChoiceHead,
-    QuestionAnsweringHead,
-    TaggingHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 
