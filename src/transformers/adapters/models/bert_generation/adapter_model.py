@@ -124,12 +124,6 @@ class BertGenerationAdapterModel(
         }
 
     head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "tagging": TaggingHead,
-        "multiple_choice": MultipleChoiceHead,
-        "question_answering": QuestionAnsweringHead,
-        "dependency_parsing": BiaffineParsingHead,
         "masked_lm": BertStyleMaskedLMHead,
         "causal_lm": CausalLMHead,
     }
