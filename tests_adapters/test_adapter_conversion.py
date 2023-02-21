@@ -13,6 +13,7 @@ from transformers import (
     MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
     MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
     MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
+    AlbertPreTrainedModel,
     AutoAdapterModel,
     BertPreTrainedModel,
     RobertaPreTrainedModel,
@@ -27,9 +28,7 @@ class ModelClassConversionTestMixin:
     seq_length = 128
 
     def run_test(self, static_model, input_shape=None, label_dict=None):
-        flex_model = AutoAdapterModel.from_pretrained(
-            None, config=self.config(), state_dict=static_model.state_dict()
-        )
+        flex_model = AutoAdapterModel.from_pretrained(None, config=self.config(), state_dict=static_model.state_dict())
         static_model.eval()
         flex_model.eval()
         if (
@@ -57,6 +56,8 @@ class ModelClassConversionTestMixin:
             unexpected_keys = [k for k in unexpected_keys if "cls.predictions.bias" not in k]
         elif isinstance(static_model, RobertaPreTrainedModel):
             unexpected_keys = [k for k in unexpected_keys if "lm_head.bias" not in k]
+        elif isinstance(static_model, AlbertPreTrainedModel):
+            unexpected_keys = [k for k in unexpected_keys if "predictions.bias" not in k]
         self.assertEqual(0, len(unexpected_keys), "Unexpected keys: {}".format(", ".join(unexpected_keys)))
 
         # adapter and head were loaded
@@ -157,9 +158,7 @@ class ModelClassConversionTestMixin:
             self.skipTest("no causal lm class.")
 
         static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
-        flex_model = AutoAdapterModel.from_pretrained(
-            None, config=self.config(), state_dict=static_model.state_dict()
-        )
+        flex_model = AutoAdapterModel.from_pretrained(None, config=self.config(), state_dict=static_model.state_dict())
         static_model.add_adapter("dummy")
         static_model.set_active_adapters("dummy")
         static_model.eval()

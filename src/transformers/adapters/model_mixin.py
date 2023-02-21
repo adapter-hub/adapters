@@ -52,6 +52,7 @@ class InvertibleAdaptersMixin:
         """
         if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
+        embedding_size = getattr(self.config, "embedding_size", self.config.hidden_size)
         adapter_config = self.config.adapters.match(
             adapter_name,
             config_type=AdapterConfig,
@@ -60,13 +61,13 @@ class InvertibleAdaptersMixin:
         if adapter_config and adapter_config["inv_adapter"]:
             if adapter_config["inv_adapter"] == "nice":
                 inv_adap = NICECouplingBlock(
-                    [[self.config.hidden_size]],
+                    [[embedding_size]],
                     non_linearity=adapter_config["non_linearity"],
                     reduction_factor=adapter_config["inv_adapter_reduction_factor"],
                 )
             elif adapter_config["inv_adapter"] == "glow":
                 inv_adap = GLOWCouplingBlock(
-                    [[self.config.hidden_size]],
+                    [[embedding_size]],
                     non_linearity=adapter_config["non_linearity"],
                     reduction_factor=adapter_config["inv_adapter_reduction_factor"],
                 )
@@ -159,6 +160,10 @@ class EmbeddingAdaptersMixin:
         self.loaded_embeddings = {}
         self._active_embedding = "default"
 
+        # Make sure config is wrapped
+        if hasattr(self, "config"):
+            self.config = wrap_config(self.config)
+
     def load_embeddings(self, path: str, name: str):
         """
         Load a saved embedding from the given path. If the embedding was saved with a tokenizer it is returned
@@ -200,14 +205,17 @@ class EmbeddingAdaptersMixin:
                 the reference embedding to use for initializing the embeddings of tokens present in the newly created
                 embedding
             reference_tokenizer: the tokenizer providing the vocab for the reference embedding
-            embedding_dim: the dimension of the embeddings (if None the hidden_size from the config is used)
-
+            embedding_dim:
+                the dimension of the embeddings (if None the embedding_size, or if this doesn't exist the hidden_size,
+                from the config is used)
         """
         if name in self.loaded_embeddings:
             raise ValueError("An embedding with the name {} already exists".format(name))
-        if embedding_dim is None:
-            embedding_dim = self.config.hidden_size
-        embedding = nn.Embedding(len(tokenizer), embedding_dim)
+        if embedding_dim is not None:
+            embedding_size = embedding_dim
+        else:
+            embedding_size = getattr(self.config, "embedding_size", self.config.hidden_size)
+        embedding = nn.Embedding(len(tokenizer), embedding_size)
         # Use same initialization as base Transformer model
         embedding.weight.data.normal_(mean=0.0, std=0.02)
         if embedding.padding_idx is not None:
@@ -291,8 +299,8 @@ class EmbeddingAdaptersWrapperMixin:
     def load_embeddings(self, path: str, name: str):
         return self.base_model.load_embeddings(path, name)
 
-    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None, embedding_dim=None):
-        return self.base_model.add_embeddings(name, tokenizer, reference_embedding, reference_tokenizer, embedding_dim)
+    def add_embeddings(self, name, tokenizer, reference_embedding=None, reference_tokenizer=None):
+        return self.base_model.add_embeddings(name, tokenizer, reference_embedding, reference_tokenizer)
 
     def delete_embeddings(self, name):
         return self.base_model.delete_embeddings(name)

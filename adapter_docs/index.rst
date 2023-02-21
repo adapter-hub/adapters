@@ -56,6 +56,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    :caption: Supported Models
 
    model_overview
+   classes/models/albert
    classes/models/auto
    classes/models/bart
    classes/models/beit

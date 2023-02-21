@@ -100,6 +100,7 @@ ALLOWED_NESTINGS = {
 # Add a whitelist of models for those here.
 SUPPORTED_MODELS = {
     Parallel: [
+        "albert",
         "bert",
         "roberta",
         "distilbert",
