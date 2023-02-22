@@ -22,17 +22,17 @@ limitations under the License.
 </h1>
 
 <h3 align="center">
-A friendly fork of HuggingFace's <i>Transformers</i>, adding Adapters to PyTorch language models
+A friendly fork of Hugging Face's <i>Transformers</i>, adding Adapters to PyTorch language models
 </h3>
 
 ![Tests](https://github.com/Adapter-Hub/adapter-transformers/workflows/Tests/badge.svg)
 [![GitHub](https://img.shields.io/github/license/adapter-hub/adapter-transformers.svg?color=blue)](https://github.com/adapter-hub/adapter-transformers/blob/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/adapter-transformers)](https://pypi.org/project/adapter-transformers/)
 
-`adapter-transformers` is an extension of [HuggingFace's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
+`adapter-transformers` is an extension of [Hugging Face's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
 
-_💡 Important: This library can be used as a drop-in replacement for HuggingFace Transformers and regularly synchronizes new upstream changes.
-Thus, most files in this repository are direct copies from the HuggingFace Transformers source, modified only with changes required for the adapter implementations._
+_💡 Important: This library can be used as a drop-in replacement for Hugging Face Transformers and regularly synchronizes new upstream changes.
+Thus, most files in this repository are direct copies from the Hugging Face Transformers source, modified only with changes required for the adapter implementations._
 
 ## Installation
 
@@ -53,14 +53,14 @@ pip install .
 
 ## Getting Started
 
-HuggingFace's great documentation on getting started with _Transformers_ can be found [here](https://huggingface.co/transformers/index.html). `adapter-transformers` is fully compatible with _Transformers_.
+Hugging Face's great documentation on getting started with _Transformers_ can be found [here](https://huggingface.co/transformers/index.html). `adapter-transformers` is fully compatible with _Transformers_.
 
 To get started with adapters, refer to these locations:
 
 - **[Colab notebook tutorials](https://github.com/Adapter-Hub/adapter-transformers/tree/master/notebooks)**, a series notebooks providing an introduction to all the main concepts of (adapter-)transformers and AdapterHub
 - **https://docs.adapterhub.ml**, our documentation on training and using adapters with _adapter-transformers_
 - **https://adapterhub.ml** to explore available pre-trained adapter modules and share your own adapters
-- **[Examples folder](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/pytorch)** of this repository containing HuggingFace's example training scripts, many adapted for training adapters
+- **[Examples folder](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/pytorch)** of this repository containing Hugging Face's example training scripts, many adapted for training adapters
 
 ## Implemented Methods
 
