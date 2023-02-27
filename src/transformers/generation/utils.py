@@ -24,6 +24,9 @@ import torch
 import torch.distributed as dist
 from torch import nn
 
+from transformers.adapters.composition import adjust_tensors_for_parallel
+
+from ..adapters.context import ForwardContext
 from ..modeling_outputs import CausalLMOutputWithPast, Seq2SeqLMOutput
 from ..models.auto import (
     MODEL_FOR_CAUSAL_IMAGE_MODELING_MAPPING,
@@ -614,7 +617,8 @@ class GenerationMixin:
         model_input_name = model_input_name if model_input_name is not None else self.main_input_name
         encoder_kwargs["return_dict"] = True
         encoder_kwargs[model_input_name] = inputs_tensor
-        model_kwargs["encoder_outputs"]: ModelOutput = encoder(**encoder_kwargs)
+        with ForwardContext(self, **encoder_kwargs):
+            model_kwargs["encoder_outputs"]: ModelOutput = encoder(**encoder_kwargs)
 
         return model_kwargs
 
@@ -1265,6 +1269,17 @@ class GenerationMixin:
         else:
             # if decoder-only then inputs_tensor has to be `input_ids`
             input_ids = inputs_tensor
+
+        # Pre-replicate inputs for parallel adapters to avoid issues within generation code
+        if (
+            hasattr(self.config, "adapters")
+            and self.config.adapters.active_setup
+            and self.config.adapters.active_setup.parallel_channels > 1
+        ):
+            input_ids = input_ids.repeat(self.config.adapters.active_setup.parallel_channels, 1)
+            model_kwargs["adapter_input_parallelized"] = True
+            (attention_mask,) = adjust_tensors_for_parallel(input_ids, model_kwargs["attention_mask"])
+            model_kwargs["attention_mask"] = attention_mask
 
         # 6. Prepare `max_length` depending on other stopping criteria.
         input_ids_seq_length = input_ids.shape[-1]

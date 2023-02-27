@@ -2518,7 +2518,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                     _from_pipeline=from_pipeline,
                     **kwargs,
                 )
-            except OSError:
+            except (OSError, TypeError):
                 logger.info(
                     "Generation config file not found, using a generation config created from the model config."
                 )
@@ -2715,7 +2715,10 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                         del state_dict[checkpoint_key]
             return mismatched_keys
 
-        folder = os.path.sep.join(resolved_archive_file[0].split(os.path.sep)[:-1])
+        if resolved_archive_file is not None:
+            folder = os.path.sep.join(resolved_archive_file[0].split(os.path.sep)[:-1])
+        else:
+            folder = None
         if device_map is not None and is_safetensors:
             param_device_map = expand_device_map(device_map, original_loaded_keys)
 
