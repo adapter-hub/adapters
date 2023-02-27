@@ -103,6 +103,7 @@ _deps = [
     "cookiecutter==1.7.3",
     "dataclasses",
     "datasets!=2.5.0",
+    "decord==0.6.0",
     "deepspeed>=0.6.5",
     "dill<0.3.5",
     "docutils==0.16.0",
@@ -117,7 +118,7 @@ _deps = [
     "fugashi>=1.0",
     "GitPython<3.1.19",
     "hf-doc-builder>=0.3.0",
-    "huggingface-hub>=0.10.0,<1.0",
+    "huggingface-hub>=0.11.0,<1.0",
     "importlib_metadata",
     "ipadic>=1.0.0,<2.0",
     "isort>=5.5.4",
@@ -125,7 +126,9 @@ _deps = [
     "jaxlib>=0.1.65,<=0.3.6",
     "jieba",
     "kenlm",
+    "keras-nlp>=0.3.1",
     "nltk",
+    "natten>=0.14.4",
     "numpy>=1.17",
     "onnxconverter-common",
     "onnxruntime-tools>=1.4.2",
@@ -166,8 +169,8 @@ _deps = [
     "sphinx-intl",
     "sphinx-multiversion",
     "starlette",
-    "tensorflow-cpu>=2.3",
-    "tensorflow>=2.4",
+    "tensorflow-cpu>=2.4,<2.12",
+    "tensorflow>=2.4,<2.12",
     "tensorflow-text",
     "tf2onnx",
     "timeout-decorator",
@@ -183,7 +186,7 @@ _deps = [
     "beautifulsoup4",
     "sudachipy>=0.6.6",
     "sudachidict_core>=20220729",
-    "pyknp>=0.6.1",
+    "rhoknp>=1.1.0",
 ]
 
 
@@ -250,14 +253,13 @@ class DepsTableUpdateCommand(Command):
         with open(target, "w", encoding="utf-8", newline="\n") as f:
             f.write("\n".join(content))
 
-
 extras = {}
 
-extras["ja"] = deps_list("fugashi", "ipadic", "unidic_lite", "unidic", "sudachipy", "sudachidict_core", "pyknp")
+extras["ja"] = deps_list("fugashi", "ipadic", "unidic_lite", "unidic", "sudachipy", "sudachidict_core", "rhoknp")
 extras["sklearn"] = deps_list("scikit-learn")
 
-extras["tf"] = deps_list("tensorflow", "onnxconverter-common", "tf2onnx", "tensorflow-text")
-extras["tf-cpu"] = deps_list("tensorflow-cpu", "onnxconverter-common", "tf2onnx", "tensorflow-text")
+extras["tf"] = deps_list("tensorflow", "onnxconverter-common", "tf2onnx", "tensorflow-text", "keras-nlp")
+extras["tf-cpu"] = deps_list("tensorflow-cpu", "onnxconverter-common", "tf2onnx", "tensorflow-text", "keras-nlp")
 
 extras["torch"] = deps_list("torch")
 extras["accelerate"] = deps_list("accelerate")
@@ -293,8 +295,9 @@ extras["tf-speech"] = extras["audio"]
 extras["flax-speech"] = extras["audio"]
 extras["vision"] = deps_list("Pillow")
 extras["timm"] = deps_list("timm")
+extras["natten"] = deps_list("natten")
 extras["codecarbon"] = deps_list("codecarbon")
-
+extras["video"] = deps_list("decord")
 
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = (
@@ -324,7 +327,7 @@ extras["testing"] = (
     + extras["modelcreation"]
 )
 
-extras["deepspeed-testing"] = extras["deepspeed"] + extras["testing"] + extras["optuna"]
+extras["deepspeed-testing"] = extras["deepspeed"] + extras["testing"] + extras["optuna"] + extras["sentencepiece"]
 
 extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython", "hf-doc-builder")
 
@@ -340,6 +343,7 @@ extras["all"] = (
     + extras["timm"]
     + extras["codecarbon"]
     + extras["accelerate"]
+    + extras["video"]
 )
 
 extras["docs_specific"] = deps_list(
@@ -428,7 +432,7 @@ install_requires = [
 setup(
     name="adapter-transformers",
     version="3.2.0a0",
-    author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, Hannah Sterz, based on work by the HuggingFace team and community",
+    author="Jonas Pfeiffer, Andreas Rücklé, Clifton Poth, Hannah Sterz, Leon Engländer, based on work by the HuggingFace team and community",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A friendly fork of HuggingFace's Transformers, adding Adapters to PyTorch language models",
     long_description=open("README.md", "r", encoding="utf-8").read(),
@@ -438,7 +442,8 @@ setup(
     url="https://github.com/adapter-hub/adapter-transformers",
     package_dir={"": "src"},
     packages=find_packages("src"),
-    package_data={"transformers": ["py.typed", "*.cu", "*.cpp", "*.cuh", "*.h"]},
+    include_package_data=True,
+    package_data={"transformers": ["*.cu", "*.cpp", "*.cuh", "*.h", "*.pyx"]},
     zip_safe=False,
     extras_require=extras,
     entry_points={"console_scripts": ["transformers-cli=transformers.commands.transformers_cli:main"]},

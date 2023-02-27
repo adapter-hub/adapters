@@ -43,7 +43,6 @@ logger = logging.get_logger(__name__)
 
 
 _CONFIG_FOR_DOC = "XLMProphetNetConfig"
-_TOKENIZER_FOR_DOC = "XLMProphetNetTokenizer"
 
 XLM_PROPHETNET_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "microsoft/xprophetnet-large-wiki100-cased",
@@ -77,7 +76,7 @@ XLM_PROPHETNET_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
 
-            Indices can be obtained using [`XLMProphetNetTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -91,7 +90,7 @@ XLM_PROPHETNET_INPUTS_DOCSTRING = r"""
         decoder_input_ids (`torch.LongTensor` of shape `(batch_size, target_sequence_length)`, *optional*):
             Indices of decoder input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`XLMProphetNetTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are decoder input IDs?](../glossary#decoder-input-ids)
@@ -152,7 +151,7 @@ XLM_PROPHETNET_STANDALONE_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
 
-            Indices can be obtained using [`XLMProphetNetTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -876,11 +875,7 @@ class XLMProphetNetNgramSelfAttention(nn.Module):
     ):
         batch_size, ngram_sequence_length, hidden_size = hidden_states.size()
 
-        assert list(hidden_states.size()) == [
-            batch_size,
-            ngram_sequence_length,
-            hidden_size,
-        ], (
+        assert list(hidden_states.size()) == [batch_size, ngram_sequence_length, hidden_size], (
             f"`hidden_states` should be of shape {batch_size, ngram_sequence_length, hidden_size}, but is of shape"
             f" {hidden_states.shape}"
         )
@@ -1330,10 +1325,10 @@ class XLMProphetNetEncoder(XLMProphetNetPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import XLMProphetNetTokenizer, XLMProphetNetEncoder
+        >>> from transformers import AutoTokenizer, XLMProphetNetEncoder
         >>> import torch
 
-        >>> tokenizer = XLMProphetNetTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
+        >>> tokenizer = AutoTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
         >>> model = XLMProphetNetEncoder.from_pretrained("patrickvonplaten/prophetnet-large-uncased-standalone")
         >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
         >>> outputs = model(**inputs)
@@ -1508,10 +1503,10 @@ class XLMProphetNetDecoder(XLMProphetNetPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import XLMProphetNetTokenizer, XLMProphetNetDecoder
+        >>> from transformers import AutoTokenizer, XLMProphetNetDecoder
         >>> import torch
 
-        >>> tokenizer = XLMProphetNetTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
+        >>> tokenizer = AutoTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
         >>> model = XLMProphetNetDecoder.from_pretrained(
         ...     "patrickvonplaten/xprophetnet-large-uncased-standalone", add_cross_attention=False
         ... )
@@ -1798,6 +1793,8 @@ class XLMProphetNetDecoder(XLMProphetNetPreTrainedModel):
 )
 # Copied from transformers.models.prophetnet.modeling_prophetnet.ProphetNetModel with microsoft/prophetnet-large-uncased->patrickvonplaten/xprophetnet-large-uncased-standalone, ProphetNet->XLMProphetNet, PROPHETNET->XLM_PROPHETNET
 class XLMProphetNetModel(XLMProphetNetPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["decoder.word_embeddings.weight", "encoder.word_embeddings.weight"]
+
     def __init__(self, config: XLMProphetNetConfig):
         super().__init__(config)
         self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
@@ -1855,9 +1852,9 @@ class XLMProphetNetModel(XLMProphetNetPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import XLMProphetNetTokenizer, XLMProphetNetModel
+        >>> from transformers import AutoTokenizer, XLMProphetNetModel
 
-        >>> tokenizer = XLMProphetNetTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
+        >>> tokenizer = AutoTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
         >>> model = XLMProphetNetModel.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
 
         >>> input_ids = tokenizer(
@@ -1926,6 +1923,12 @@ class XLMProphetNetModel(XLMProphetNetPreTrainedModel):
 )
 # Copied from transformers.models.prophetnet.modeling_prophetnet.ProphetNetForConditionalGeneration with microsoft/prophetnet-large-uncased->patrickvonplaten/xprophetnet-large-uncased-standalone, ProphetNet->XLMProphetNet, PROPHETNET->XLM_PROPHETNET
 class XLMProphetNetForConditionalGeneration(XLMProphetNetPreTrainedModel):
+    _keys_to_ignore_on_load_missing = [
+        "decoder.word_embeddings.weight",
+        "encoder.word_embeddings.weight",
+        "lm_head.weight",
+    ]
+
     def __init__(self, config: XLMProphetNetConfig):
         super().__init__(config)
         self.prophetnet = XLMProphetNetModel(config)
@@ -1978,9 +1981,9 @@ class XLMProphetNetForConditionalGeneration(XLMProphetNetPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import XLMProphetNetTokenizer, XLMProphetNetForConditionalGeneration
+        >>> from transformers import AutoTokenizer, XLMProphetNetForConditionalGeneration
 
-        >>> tokenizer = XLMProphetNetTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
+        >>> tokenizer = AutoTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
         >>> model = XLMProphetNetForConditionalGeneration.from_pretrained(
         ...     "patrickvonplaten/xprophetnet-large-uncased-standalone"
         ... )
@@ -2085,7 +2088,7 @@ class XLMProphetNetForConditionalGeneration(XLMProphetNetPreTrainedModel):
     def prepare_inputs_for_generation(
         self,
         decoder_input_ids,
-        past=None,
+        past_key_values=None,
         attention_mask=None,
         head_mask=None,
         decoder_head_mask=None,
@@ -2096,13 +2099,13 @@ class XLMProphetNetForConditionalGeneration(XLMProphetNetPreTrainedModel):
     ):
         assert encoder_outputs is not None, "`encoder_outputs` have to be passed for generation."
 
-        if past:
+        if past_key_values:
             decoder_input_ids = decoder_input_ids[:, -1:]
         # first step, decoder_cached_states are empty
         return {
             "input_ids": None,  # encoder_outputs is defined. input_ids not needed
             "encoder_outputs": encoder_outputs,
-            "past_key_values": past,
+            "past_key_values": past_key_values,
             "decoder_input_ids": decoder_input_ids,
             "attention_mask": attention_mask,
             "head_mask": head_mask,
@@ -2139,6 +2142,8 @@ class XLMProphetNetForConditionalGeneration(XLMProphetNetPreTrainedModel):
 )
 # Copied from transformers.models.prophetnet.modeling_prophetnet.ProphetNetForCausalLM with microsoft/prophetnet-large-uncased->patrickvonplaten/xprophetnet-large-uncased-standalone, ProphetNet->XLMProphetNet, PROPHETNET->XLM_PROPHETNET
 class XLMProphetNetForCausalLM(XLMProphetNetPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["lm_head.weight"]
+
     def __init__(self, config: XLMProphetNetConfig):
         # set config for CLM
         config = copy.deepcopy(config)
@@ -2227,10 +2232,10 @@ class XLMProphetNetForCausalLM(XLMProphetNetPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import XLMProphetNetTokenizer, XLMProphetNetForCausalLM
+        >>> from transformers import AutoTokenizer, XLMProphetNetForCausalLM
         >>> import torch
 
-        >>> tokenizer = XLMProphetNetTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
+        >>> tokenizer = AutoTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
         >>> model = XLMProphetNetForCausalLM.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
         >>> assert model.config.is_decoder, f"{model.__class__} has to be configured as a decoder."
         >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
@@ -2239,13 +2244,11 @@ class XLMProphetNetForCausalLM(XLMProphetNetPreTrainedModel):
         >>> logits = outputs.logits
 
         >>> # Model can also be used with EncoderDecoder framework
-        >>> from transformers import BertTokenizer, EncoderDecoderModel, XLMProphetNetTokenizer
+        >>> from transformers import BertTokenizer, EncoderDecoderModel, AutoTokenizer
         >>> import torch
 
         >>> tokenizer_enc = BertTokenizer.from_pretrained("bert-large-uncased")
-        >>> tokenizer_dec = XLMProphetNetTokenizer.from_pretrained(
-        ...     "patrickvonplaten/xprophetnet-large-uncased-standalone"
-        ... )
+        >>> tokenizer_dec = AutoTokenizer.from_pretrained("patrickvonplaten/xprophetnet-large-uncased-standalone")
         >>> model = EncoderDecoderModel.from_encoder_decoder_pretrained(
         ...     "bert-large-uncased", "patrickvonplaten/xprophetnet-large-uncased-standalone"
         ... )
@@ -2340,7 +2343,7 @@ class XLMProphetNetForCausalLM(XLMProphetNetPreTrainedModel):
     def prepare_inputs_for_generation(
         self,
         input_ids,
-        past=None,
+        past_key_values=None,
         attention_mask=None,
         head_mask=None,
         use_cache=None,
@@ -2350,14 +2353,14 @@ class XLMProphetNetForCausalLM(XLMProphetNetPreTrainedModel):
         if attention_mask is None:
             attention_mask = input_ids.new_ones(input_ids.shape)
 
-        if past:
+        if past_key_values:
             input_ids = input_ids[:, -1:]
         # first step, decoder_cached_states are empty
         return {
             "input_ids": input_ids,  # encoder_outputs is defined. input_ids not needed
             "attention_mask": attention_mask,
             "head_mask": head_mask,
-            "past_key_values": past,
+            "past_key_values": past_key_values,
             "use_cache": use_cache,
         }
 

@@ -156,10 +156,10 @@ class Wav2Vec2ProcessorWithLM(ProcessorMixin):
             # make sure that only relevant filenames are downloaded
             language_model_filenames = os.path.join(BeamSearchDecoderCTC._LANGUAGE_MODEL_SERIALIZED_DIRECTORY, "*")
             alphabet_filename = BeamSearchDecoderCTC._ALPHABET_SERIALIZED_FILENAME
-            allow_regex = [language_model_filenames, alphabet_filename]
+            allow_patterns = [language_model_filenames, alphabet_filename]
 
             decoder = BeamSearchDecoderCTC.load_from_hf_hub(
-                pretrained_model_name_or_path, allow_regex=allow_regex, **kwargs
+                pretrained_model_name_or_path, allow_patterns=allow_patterns, **kwargs
             )
 
         # set language model attributes
@@ -228,6 +228,7 @@ class Wav2Vec2ProcessorWithLM(ProcessorMixin):
             audio = kwargs.pop("raw_speech")
         else:
             audio = kwargs.pop("audio", None)
+        sampling_rate = kwargs.pop("sampling_rate", None)
         text = kwargs.pop("text", None)
         if len(args) > 0:
             audio = args[0]
@@ -237,7 +238,7 @@ class Wav2Vec2ProcessorWithLM(ProcessorMixin):
             raise ValueError("You need to specify either an `audio` or `text` input to process.")
 
         if audio is not None:
-            inputs = self.feature_extractor(audio, *args, **kwargs)
+            inputs = self.feature_extractor(audio, *args, sampling_rate=sampling_rate, **kwargs)
         if text is not None:
             encodings = self.tokenizer(text, **kwargs)
 

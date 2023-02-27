@@ -44,7 +44,6 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "YituTech/conv-bert-base"
 _CONFIG_FOR_DOC = "ConvBertConfig"
-_TOKENIZER_FOR_DOC = "ConvBertTokenizer"
 
 CONVBERT_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "YituTech/conv-bert-base",
@@ -246,8 +245,8 @@ class ConvBertPreTrainedModel(PreTrainedModel):
     load_tf_weights = load_tf_weights_in_convbert
     base_model_prefix = "convbert"
     supports_gradient_checkpointing = True
-    authorized_missing_keys = [r"position_ids"]
-    authorized_unexpected_keys = [r"convbert.embeddings_project.weight", r"convbert.embeddings_project.bias"]
+    _keys_to_ignore_on_load_missing = [r"position_ids"]
+    _keys_to_ignore_on_load_unexpected = [r"convbert.embeddings_project.weight", r"convbert.embeddings_project.bias"]
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -710,7 +709,7 @@ CONVBERT_INPUTS_DOCSTRING = r"""
         input_ids (`torch.LongTensor` of shape `({0})`):
             Indices of input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`ConvBertTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -763,6 +762,8 @@ CONVBERT_INPUTS_DOCSTRING = r"""
     CONVBERT_START_DOCSTRING,
 )
 class ConvBertModel(ConvBertPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["embeddings.position_ids"]
+
     def __init__(self, config):
         super().__init__(config)
         self.embeddings = ConvBertEmbeddings(config)
@@ -791,7 +792,6 @@ class ConvBertModel(ConvBertPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CONVBERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=BaseModelOutputWithCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
@@ -877,6 +877,8 @@ class ConvBertGeneratorPredictions(nn.Module):
 
 @add_start_docstrings("""ConvBERT Model with a `language modeling` head on top.""", CONVBERT_START_DOCSTRING)
 class ConvBertForMaskedLM(ConvBertPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["embeddings.position_ids", "generator.lm_head.weight"]
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -895,7 +897,6 @@ class ConvBertForMaskedLM(ConvBertPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CONVBERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=MaskedLMOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -987,6 +988,8 @@ class ConvBertClassificationHead(nn.Module):
     CONVBERT_START_DOCSTRING,
 )
 class ConvBertForSequenceClassification(ConvBertPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["embeddings.position_ids"]
+
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -999,7 +1002,6 @@ class ConvBertForSequenceClassification(ConvBertPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CONVBERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=SequenceClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1083,6 +1085,8 @@ class ConvBertForSequenceClassification(ConvBertPreTrainedModel):
     CONVBERT_START_DOCSTRING,
 )
 class ConvBertForMultipleChoice(ConvBertPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["embeddings.position_ids"]
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -1097,7 +1101,6 @@ class ConvBertForMultipleChoice(ConvBertPreTrainedModel):
         CONVBERT_INPUTS_DOCSTRING.format("batch_size, num_choices, sequence_length")
     )
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=MultipleChoiceModelOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1177,6 +1180,8 @@ class ConvBertForMultipleChoice(ConvBertPreTrainedModel):
     CONVBERT_START_DOCSTRING,
 )
 class ConvBertForTokenClassification(ConvBertPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["embeddings.position_ids"]
+
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1193,7 +1198,6 @@ class ConvBertForTokenClassification(ConvBertPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CONVBERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=TokenClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1259,6 +1263,8 @@ class ConvBertForTokenClassification(ConvBertPreTrainedModel):
     CONVBERT_START_DOCSTRING,
 )
 class ConvBertForQuestionAnswering(ConvBertPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["embeddings.position_ids"]
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -1271,7 +1277,6 @@ class ConvBertForQuestionAnswering(ConvBertPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CONVBERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=QuestionAnsweringModelOutput,
         config_class=_CONFIG_FOR_DOC,

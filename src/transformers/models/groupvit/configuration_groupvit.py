@@ -221,7 +221,6 @@ class GroupViTVisionConfig(PretrainedConfig):
         initializer_factor=1.0,
         assign_eps=1.0,
         assign_mlp_ratio=[0.5, 4],
-        qkv_bias=True,
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -249,7 +248,6 @@ class GroupViTVisionConfig(PretrainedConfig):
         self.initializer_factor = initializer_factor
         self.assign_eps = assign_eps
         self.assign_mlp_ratio = assign_mlp_ratio
-        self.qkv_bias = qkv_bias
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs) -> "PretrainedConfig":
@@ -280,9 +278,9 @@ class GroupViTConfig(PretrainedConfig):
     documentation from [`PretrainedConfig`] for more information.
 
     Args:
-        text_config_dict (`dict`, *optional*):
+        text_config (`dict`, *optional*):
             Dictionary of configuration options used to initialize [`GroupViTTextConfig`].
-        vision_config_dict (`dict`, *optional*):
+        vision_config (`dict`, *optional*):
             Dictionary of configuration options used to initialize [`GroupViTVisionConfig`].
         projection_dim (`int`, *optional*, defaults to 256):
             Dimentionality of text and vision projection layers.
@@ -300,25 +298,33 @@ class GroupViTConfig(PretrainedConfig):
 
     def __init__(
         self,
-        text_config_dict=None,
-        vision_config_dict=None,
+        text_config=None,
+        vision_config=None,
         projection_dim=256,
         projection_intermediate_dim=4096,
         logit_scale_init_value=2.6592,
         **kwargs
     ):
-        super().__init__(text_config_dict=text_config_dict, vision_config_dict=vision_config_dict, **kwargs)
+        super().__init__(**kwargs)
 
-        if text_config_dict is None:
-            text_config_dict = {}
-            logger.info("text_config_dict is None. Initializing the GroupViTTextConfig with default values.")
+        # If `_config_dict` exist, we use them for the backward compatibility.
+        text_config_dict = kwargs.pop("text_config_dict", None)
+        vision_config_dict = kwargs.pop("vision_config_dict", None)
+        if text_config_dict is not None:
+            text_config = text_config_dict
+        if vision_config_dict is not None:
+            vision_config = vision_config_dict
 
-        if vision_config_dict is None:
-            vision_config_dict = {}
-            logger.info("vision_config_dict is None. initializing the GroupViTVisionConfig with default values.")
+        if text_config is None:
+            text_config = {}
+            logger.info("text_config is None. Initializing the GroupViTTextConfig with default values.")
 
-        self.text_config = GroupViTTextConfig(**text_config_dict)
-        self.vision_config = GroupViTVisionConfig(**vision_config_dict)
+        if vision_config is None:
+            vision_config = {}
+            logger.info("vision_config is None. initializing the GroupViTVisionConfig with default values.")
+
+        self.text_config = GroupViTTextConfig(**text_config)
+        self.vision_config = GroupViTVisionConfig(**vision_config)
 
         self.projection_dim = projection_dim
         self.projection_intermediate_dim = projection_intermediate_dim
@@ -337,7 +343,7 @@ class GroupViTConfig(PretrainedConfig):
             [`GroupViTConfig`]: An instance of a configuration object
         """
 
-        return cls(text_config_dict=text_config.to_dict(), vision_config_dict=vision_config.to_dict(), **kwargs)
+        return cls(text_config=text_config.to_dict(), vision_config=vision_config.to_dict(), **kwargs)
 
     def to_dict(self):
         """

@@ -26,9 +26,10 @@ from functools import lru_cache
 from pathlib import Path
 from unittest import skipIf
 
+import datasets
 import numpy as np
 
-from huggingface_hub import HfFolder, Repository, delete_repo, set_access_token
+from huggingface_hub import HfFolder, Repository, create_repo, delete_repo, set_access_token
 from requests.exceptions import HTTPError
 from transformers import (
     FEATURE_EXTRACTOR_MAPPING,
@@ -50,7 +51,6 @@ from transformers.testing_utils import (
     RequestCounter,
     is_staging_test,
     nested_simplify,
-    require_scatter,
     require_tensorflow_probability,
     require_tf,
     require_torch,
@@ -75,6 +75,7 @@ ROBERTA_EMBEDDING_ADJUSMENT_CONFIGS = [
     "LongformerConfig",
     "MarkupLMConfig",
     "RobertaConfig",
+    "RobertaPreLayerNormConfig",
     "XLMRobertaConfig",
 ]
 
@@ -155,6 +156,12 @@ def get_tiny_feature_extractor_from_checkpoint(checkpoint, tiny_config, feature_
             feature_extractor = None
     if hasattr(tiny_config, "image_size") and feature_extractor:
         feature_extractor = feature_extractor.__class__(size=tiny_config.image_size, crop_size=tiny_config.image_size)
+
+    # Audio Spectogram Transformer specific.
+    if feature_extractor.__class__.__name__ == "ASTFeatureExtractor":
+        feature_extractor = feature_extractor.__class__(
+            max_length=tiny_config.max_length, num_mel_bins=tiny_config.num_mel_bins
+        )
 
     # Speech2TextModel specific.
     if hasattr(tiny_config, "input_feat_per_channel") and feature_extractor:
@@ -355,6 +362,15 @@ class CommonPipelineTest(unittest.TestCase):
         pipe = pipeline(model="hf-internal-testing/tiny-random-distilbert", batch_size=2, num_workers=1)
         self.assertEqual(pipe._batch_size, 2)
         self.assertEqual(pipe._num_workers, 1)
+
+    @require_torch
+    def test_pipeline_pathlike(self):
+        pipe = pipeline(model="hf-internal-testing/tiny-random-distilbert")
+        with tempfile.TemporaryDirectory() as d:
+            pipe.save_pretrained(d)
+            path = Path(d)
+            newpipe = pipeline(task="text-classification", model=path)
+        self.assertIsInstance(newpipe, TextClassificationPipeline)
 
     @require_torch
     def test_pipeline_override(self):
@@ -740,7 +756,6 @@ class PipelineUtilsTest(unittest.TestCase):
 
     @slow
     @require_torch
-    @require_scatter
     def test_load_default_pipelines_pt_table_qa(self):
         import torch
 
@@ -951,6 +966,29 @@ class CustomPipelineTest(unittest.TestCase):
             self.assertEqual(counter.head_request_count, 1)
             self.assertEqual(counter.other_request_count, 0)
 
+    @require_torch
+    def test_chunk_pipeline_batching_single_file(self):
+        # Make sure we have cached the pipeline.
+        pipe = pipeline(model="hf-internal-testing/tiny-random-Wav2Vec2ForCTC")
+        ds = datasets.load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation").sort("id")
+        audio = ds[40]["audio"]["array"]
+
+        pipe = pipeline(model="hf-internal-testing/tiny-random-Wav2Vec2ForCTC")
+        # For some reason scoping doesn't work if not using `self.`
+        self.COUNT = 0
+        forward = pipe.model.forward
+
+        def new_forward(*args, **kwargs):
+            self.COUNT += 1
+            return forward(*args, **kwargs)
+
+        pipe.model.forward = new_forward
+
+        for out in pipe(audio, return_timestamps="char", chunk_length_s=3, stride_length_s=[1, 1], batch_size=1024):
+            pass
+
+        self.assertEqual(self.COUNT, 1)
+
 
 @require_torch
 @is_staging_test
@@ -985,7 +1023,8 @@ class DynamicPipelineTester(unittest.TestCase):
         model = BertForSequenceClassification(config).eval()
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            repo = Repository(tmp_dir, clone_from=f"{USER}/test-dynamic-pipeline", use_auth_token=self._token)
+            create_repo(f"{USER}/test-dynamic-pipeline", token=self._token)
+            repo = Repository(tmp_dir, clone_from=f"{USER}/test-dynamic-pipeline", token=self._token)
 
             vocab_file = os.path.join(tmp_dir, "vocab.txt")
             with open(vocab_file, "w", encoding="utf-8") as vocab_writer:
