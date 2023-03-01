@@ -52,7 +52,6 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "xlm-mlm-en-2048"
 _CONFIG_FOR_DOC = "XLMConfig"
-_TOKENIZER_FOR_DOC = "XLMTokenizer"
 
 XLM_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "xlm-mlm-en-2048",
@@ -324,7 +323,7 @@ XLM_INPUTS_DOCSTRING = r"""
         input_ids (`torch.LongTensor` of shape `({0})`):
             Indices of input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`XLMTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -481,7 +480,6 @@ class XLMModel(XLMPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(XLM_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=BaseModelOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -673,6 +671,8 @@ class XLMPredLayer(nn.Module):
     XLM_START_DOCSTRING,
 )
 class XLMWithLMHeadModel(XLMPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["pred_layer.proj.weight"]
+
     def __init__(self, config):
         super().__init__(config)
         self.transformer = XLMModel(config)
@@ -702,7 +702,6 @@ class XLMWithLMHeadModel(XLMPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(XLM_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=MaskedLMOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -782,7 +781,6 @@ class XLMForSequenceClassification(XLMPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(XLM_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=SequenceClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -883,7 +881,6 @@ class XLMForQuestionAnsweringSimple(XLMPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(XLM_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=QuestionAnsweringModelOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1031,10 +1028,10 @@ class XLMForQuestionAnswering(XLMPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import XLMTokenizer, XLMForQuestionAnswering
+        >>> from transformers import AutoTokenizer, XLMForQuestionAnswering
         >>> import torch
 
-        >>> tokenizer = XLMTokenizer.from_pretrained("xlm-mlm-en-2048")
+        >>> tokenizer = AutoTokenizer.from_pretrained("xlm-mlm-en-2048")
         >>> model = XLMForQuestionAnswering.from_pretrained("xlm-mlm-en-2048")
 
         >>> input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute", add_special_tokens=True)).unsqueeze(
@@ -1111,7 +1108,6 @@ class XLMForTokenClassification(XLMPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(XLM_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=TokenClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1195,7 +1191,6 @@ class XLMForMultipleChoice(XLMPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(XLM_INPUTS_DOCSTRING.format("batch_size, num_choices, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=MultipleChoiceModelOutput,
         config_class=_CONFIG_FOR_DOC,

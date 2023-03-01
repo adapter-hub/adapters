@@ -61,7 +61,6 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "facebook/bart-base"
 _CONFIG_FOR_DOC = "BartConfig"
-_TOKENIZER_FOR_DOC = "BartTokenizer"
 
 # Base model docstring
 _EXPECTED_OUTPUT_SHAPE = [1, 8, 768]
@@ -207,7 +206,14 @@ class BartAttention(nn.Module):
         # get query proj
         query_states = self.q_proj(hidden_states) * self.scaling
         # get key, value proj
-        if is_cross_attention and past_key_value is not None:
+        # `past_key_value[0].shape[2] == key_value_states.shape[1]`
+        # is checking that the `sequence_length` of the `past_key_value` is the same as
+        # the provided `key_value_states` to support prefix tuning
+        if (
+            is_cross_attention
+            and past_key_value is not None
+            and past_key_value[0].shape[2] == key_value_states.shape[1]
+        ):
             # reuse k,v, cross_attentions
             key_states = past_key_value[0]
             value_states = past_key_value[1]
@@ -587,10 +593,10 @@ BART_GENERATION_EXAMPLE = r"""
     Summarization example:
 
     ```python
-    >>> from transformers import BartTokenizer, BartForConditionalGeneration
+    >>> from transformers import AutoTokenizer, BartForConditionalGeneration
 
     >>> model = BartForConditionalGeneration.from_pretrained("facebook/bart-large-cnn")
-    >>> tokenizer = BartTokenizer.from_pretrained("facebook/bart-large-cnn")
+    >>> tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")
 
     >>> ARTICLE_TO_SUMMARIZE = (
     ...     "PG&E stated it scheduled the blackouts in response to forecasts for high winds "
@@ -608,9 +614,9 @@ BART_GENERATION_EXAMPLE = r"""
     Mask filling example:
 
     ```python
-    >>> from transformers import BartTokenizer, BartForConditionalGeneration
+    >>> from transformers import AutoTokenizer, BartForConditionalGeneration
 
-    >>> tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
+    >>> tokenizer = AutoTokenizer.from_pretrained("facebook/bart-base")
     >>> model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
 
     >>> TXT = "My friends are <mask> but they eat too many carbs."
@@ -632,7 +638,7 @@ BART_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
 
-            Indices can be obtained using [`BartTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -646,7 +652,7 @@ BART_INPUTS_DOCSTRING = r"""
         decoder_input_ids (`torch.LongTensor` of shape `(batch_size, target_sequence_length)`, *optional*):
             Indices of decoder input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`BartTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are decoder input IDs?](../glossary#decoder-input-ids)
@@ -783,7 +789,7 @@ class BartEncoder(InvertibleAdaptersMixin, BartPretrainedModel):
                 Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you
                 provide it.
 
-                Indices can be obtained using [`BartTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+                Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
                 [`PreTrainedTokenizer.__call__`] for details.
 
                 [What are input IDs?](../glossary#input-ids)
@@ -984,7 +990,7 @@ class BartDecoder(BartPretrainedModel):
                 Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you
                 provide it.
 
-                Indices can be obtained using [`BartTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+                Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
                 [`PreTrainedTokenizer.__call__`] for details.
 
                 [What are input IDs?](../glossary#input-ids)
@@ -1189,6 +1195,8 @@ class BartDecoder(BartPretrainedModel):
     BART_START_DOCSTRING,
 )
 class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
+    _keys_to_ignore_on_load_missing = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
+
     def __init__(self, config: BartConfig):
         super().__init__(config)
 
@@ -1218,7 +1226,6 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
 
     @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=Seq2SeqModelOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1323,7 +1330,12 @@ class BartModel(BartModelAdaptersMixin, BartPretrainedModel):
 )
 class BartForConditionalGeneration(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
     base_model_prefix = "model"
-    _keys_to_ignore_on_load_missing = [r"final_logits_bias", r"lm_head.weight"]
+    _keys_to_ignore_on_load_missing = [
+        r"final_logits_bias",
+        r"lm_head.weight",
+        "encoder.embed_tokens.weight",
+        "decoder.embed_tokens.weight",
+    ]
 
     def __init__(self, config: BartConfig):
         super().__init__(config)
@@ -1446,8 +1458,9 @@ class BartForConditionalGeneration(BartModelWithHeadsAdaptersMixin, BartPretrain
     def prepare_inputs_for_generation(
         self,
         decoder_input_ids,
-        past=None,
+        past_key_values=None,
         attention_mask=None,
+        decoder_attention_mask=None,
         head_mask=None,
         decoder_head_mask=None,
         cross_attn_head_mask=None,
@@ -1455,16 +1468,17 @@ class BartForConditionalGeneration(BartModelWithHeadsAdaptersMixin, BartPretrain
         encoder_outputs=None,
         **kwargs
     ):
-        # cut decoder_input_ids if past is used
-        if past is not None:
+        # cut decoder_input_ids if past_key_values is used
+        if past_key_values is not None:
             decoder_input_ids = decoder_input_ids[:, -1:]
 
         return {
             "input_ids": None,  # encoder_outputs is defined. input_ids not needed
             "encoder_outputs": encoder_outputs,
-            "past_key_values": past,
+            "past_key_values": past_key_values,
             "decoder_input_ids": decoder_input_ids,
             "attention_mask": attention_mask,
+            "decoder_attention_mask": decoder_attention_mask,
             "head_mask": head_mask,
             "decoder_head_mask": decoder_head_mask,
             "cross_attn_head_mask": cross_attn_head_mask,
@@ -1493,6 +1507,8 @@ class BartForConditionalGeneration(BartModelWithHeadsAdaptersMixin, BartPretrain
     BART_START_DOCSTRING,
 )
 class BartForSequenceClassification(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
+    _keys_to_ignore_on_load_missing = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
+
     def __init__(self, config: BartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = BartModel(config)
@@ -1507,7 +1523,6 @@ class BartForSequenceClassification(BartModelWithHeadsAdaptersMixin, BartPretrai
 
     @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_SEQUENCE_CLASSIFICATION,
         output_type=Seq2SeqSequenceClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1564,7 +1579,7 @@ class BartForSequenceClassification(BartModelWithHeadsAdaptersMixin, BartPretrai
         )
         hidden_states = outputs[0]  # last hidden state
 
-        eos_mask = input_ids.eq(self.config.eos_token_id)
+        eos_mask = input_ids.eq(self.config.eos_token_id).to(hidden_states.device)
         (eos_mask,) = adjust_tensors_for_parallel(hidden_states, eos_mask)
 
         if len(torch.unique_consecutive(eos_mask.sum(1))) > 1:
@@ -1621,6 +1636,8 @@ class BartForSequenceClassification(BartModelWithHeadsAdaptersMixin, BartPretrai
     BART_START_DOCSTRING,
 )
 class BartForQuestionAnswering(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
+    _keys_to_ignore_on_load_missing = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -1634,7 +1651,6 @@ class BartForQuestionAnswering(BartModelWithHeadsAdaptersMixin, BartPretrainedMo
 
     @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_QA,
         output_type=Seq2SeqQuestionAnsweringModelOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1764,6 +1780,8 @@ class BartDecoderWrapper(BartModelAdaptersMixin, BartPretrainedModel):
     BART_START_DOCSTRING,
 )
 class BartForCausalLM(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
+    _keys_to_ignore_on_load_missing = ["lm_head.weight"]
+
     def __init__(self, config):
         super().__init__(config)
         decoder_config = copy.deepcopy(config)
@@ -1819,7 +1837,7 @@ class BartForCausalLM(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
                 Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you
                 provide it.
 
-                Indices can be obtained using [`BartTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+                Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
                 [`PreTrainedTokenizer.__call__`] for details.
 
                 [What are input IDs?](../glossary#input-ids)
@@ -1884,9 +1902,9 @@ class BartForCausalLM(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
         Example:
 
         ```python
-        >>> from transformers import BartTokenizer, BartForCausalLM
+        >>> from transformers import AutoTokenizer, BartForCausalLM
 
-        >>> tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
+        >>> tokenizer = AutoTokenizer.from_pretrained("facebook/bart-base")
         >>> model = BartForCausalLM.from_pretrained("facebook/bart-base", add_cross_attention=False)
         >>> assert model.config.is_decoder, f"{model.__class__} has to be configured as a decoder."
         >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
@@ -1940,18 +1958,20 @@ class BartForCausalLM(BartModelWithHeadsAdaptersMixin, BartPretrainedModel):
             cross_attentions=outputs.cross_attentions,
         )
 
-    def prepare_inputs_for_generation(self, input_ids, past=None, attention_mask=None, use_cache=None, **kwargs):
+    def prepare_inputs_for_generation(
+        self, input_ids, past_key_values=None, attention_mask=None, use_cache=None, **kwargs
+    ):
         # if model is used as a decoder in encoder-decoder model, the decoder attention mask is created on the fly
         if attention_mask is None:
             attention_mask = input_ids.new_ones(input_ids.shape)
 
-        if past:
+        if past_key_values:
             input_ids = input_ids[:, -1:]
         # first step, decoder_cached_states are empty
         return {
             "input_ids": input_ids,  # encoder_outputs is defined. input_ids not needed
             "attention_mask": attention_mask,
-            "past_key_values": past,
+            "past_key_values": past_key_values,
             "use_cache": use_cache,
         }
 

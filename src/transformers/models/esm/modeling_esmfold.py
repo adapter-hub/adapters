@@ -52,9 +52,8 @@ from .openfold_utils import (
 
 
 logger = logging.get_logger(__name__)
-_CHECKPOINT_FOR_DOC = "Rocketknight1/esmfold_v1"
+_CHECKPOINT_FOR_DOC = "facebook/esmfold_v1"
 _CONFIG_FOR_DOC = "EsmConfig"
-_TOKENIZER_FOR_DOC = "EsmTokenizer"
 
 
 @dataclass
@@ -143,7 +142,7 @@ ESMFOLD_INPUTS_DOCSTRING = r"""
         input_ids (`torch.LongTensor` of shape `({0})`):
             Indices of input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`EsmTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -1956,9 +1955,9 @@ class EsmFoldingTrunk(nn.Module):
         for recycle_idx in range(no_recycles):
             with ContextManagers([] if recycle_idx == no_recycles - 1 else [torch.no_grad()]):
                 # === Recycling ===
-                recycle_s = self.recycle_s_norm(recycle_s.detach())
-                recycle_z = self.recycle_z_norm(recycle_z.detach())
-                recycle_z += self.recycle_disto(recycle_bins.detach())
+                recycle_s = self.recycle_s_norm(recycle_s.detach()).to(device)
+                recycle_z = self.recycle_z_norm(recycle_z.detach()).to(device)
+                recycle_z += self.recycle_disto(recycle_bins.detach()).to(device)
 
                 s_s, s_z = trunk_iter(s_s_0 + recycle_s, s_z_0 + recycle_z, residx, mask)
 
@@ -2100,7 +2099,7 @@ class EsmForProteinFolding(EsmPreTrainedModel):
 
         >>> model = EsmForProteinFolding.from_pretrained("facebook/esmfold_v1")
         >>> tokenizer = AutoTokenizer.from_pretrained("facebook/esmfold_v1")
-        >>> inputs = tokenizer(["MLKNVQVQLV"], return_tensors="pt")  # A tiny random peptide
+        >>> inputs = tokenizer(["MLKNVQVQLV"], return_tensors="pt", add_special_tokens=False)  # A tiny random peptide
         >>> outputs = model(**inputs)
         >>> folded_positions = outputs.positions
         ```
@@ -2207,6 +2206,9 @@ class EsmForProteinFolding(EsmPreTrainedModel):
         return EsmForProteinFoldingOutput(**structure)
 
     def af2_idx_to_esm_idx(self, aa, mask):
+        # avoid indexing on different devices
+        if self.af2_to_esm.device != aa.device:
+            self.af2_to_esm = self.af2_to_esm.to(aa.device)
         aa = (aa + 1).masked_fill(mask != 1, 0)
         return self.af2_to_esm[aa]
 
@@ -2248,8 +2250,7 @@ class EsmForProteinFolding(EsmPreTrainedModel):
     def infer(
         self,
         seqs: Union[str, List[str]],
-        residx=None,
-        with_mask: Optional[torch.Tensor] = None,
+        position_ids=None,
     ):
         if type(seqs) is str:
             lst = [seqs]
@@ -2272,17 +2273,17 @@ class EsmForProteinFolding(EsmPreTrainedModel):
             ]
         )  # B=1 x L
         mask = collate_dense_tensors([aatype.new_ones(len(seq)) for seq in lst])
-        residx = (
-            torch.arange(aatype.shape[1], device=device).expand(len(lst), -1) if residx is None else residx.to(device)
+        position_ids = (
+            torch.arange(aatype.shape[1], device=device).expand(len(lst), -1)
+            if position_ids is None
+            else position_ids.to(device)
         )
-        if residx.ndim == 1:
-            residx = residx.unsqueeze(0)
+        if position_ids.ndim == 1:
+            position_ids = position_ids.unsqueeze(0)
         return self.forward(
             aatype,
             mask,
-            mask_aa=with_mask is not None,
-            masking_pattern=with_mask,
-            residx=residx,
+            position_ids=position_ids,
         )
 
     @staticmethod
