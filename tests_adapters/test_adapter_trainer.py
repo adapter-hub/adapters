@@ -21,6 +21,14 @@ from transformers.testing_utils import slow, require_ray
 
 
 class TestAdapterTrainer(unittest.TestCase):
+    def get_model_config(self):
+        return BertConfig(
+            hidden_size=32,
+            num_hidden_layers=4,
+            num_attention_heads=4,
+            intermediate_size=37,
+        )
+
     def test_resume_training(self):
 
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -29,7 +37,7 @@ class TestAdapterTrainer(unittest.TestCase):
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
-        model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
+        model = AutoModelForSequenceClassification.from_config(self.get_model_config())
         model.add_adapter("adapter")
         model.add_adapter("additional_adapter")
         model.set_active_adapters("adapter")
@@ -52,7 +60,7 @@ class TestAdapterTrainer(unittest.TestCase):
 
         trainer.train()
         # create second model that should resume the training of the first
-        model_resume = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
+        model_resume = AutoModelForSequenceClassification.from_config(self.get_model_config())
         model_resume.add_adapter("adapter")
         model_resume.add_adapter("additional_adapter")
         model_resume.set_active_adapters("adapter")
@@ -78,7 +86,7 @@ class TestAdapterTrainer(unittest.TestCase):
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
-        model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
+        model = AutoModelForSequenceClassification.from_config(self.get_model_config())
         model.add_adapter("adapter")
         model.add_adapter("additional_adapter")
         model.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
@@ -101,7 +109,7 @@ class TestAdapterTrainer(unittest.TestCase):
         )
 
         trainer.train()
-        model_resume = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
+        model_resume = AutoModelForSequenceClassification.from_config(self.get_model_config())
         model_resume.add_adapter("adapter")
         model_resume.add_adapter("additional_adapter")
         model_resume.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
@@ -155,7 +163,7 @@ class TestAdapterTrainer(unittest.TestCase):
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
         eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev")
 
-        model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
+        model = AutoModelForSequenceClassification.from_config(self.get_model_config())
         model.add_adapter("adapter")
         model.train_adapter("adapter")
 
@@ -189,7 +197,7 @@ class TestAdapterTrainer(unittest.TestCase):
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
         eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev")
 
-        model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
+        model = AutoModelForSequenceClassification.from_config(self.get_model_config())
         model.add_adapter("adapter")
         model.train_adapter("adapter")
 
@@ -221,7 +229,7 @@ class TestAdapterTrainer(unittest.TestCase):
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
         eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev")
 
-        model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
+        model = AutoModelForSequenceClassification.from_config(self.get_model_config())
         model.add_adapter("fuse_adapter_1")
         model.add_adapter("fuse_adapter_2")
         model.add_adapter_fusion(Fuse("fuse_adapter_1", "fuse_adapter_2"))
@@ -254,7 +262,7 @@ class TestAdapterTrainer(unittest.TestCase):
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
-        model = AutoAdapterModel.from_pretrained("bert-base-uncased")
+        model = AutoAdapterModel.from_config(self.get_model_config())
 
         model.add_classification_head("adapter", num_labels=3)
         model.add_classification_head("dummy", num_labels=2)
@@ -288,7 +296,7 @@ class TestAdapterTrainer(unittest.TestCase):
 
             trainer.train()
             # create second model that should resume the training of the first
-            model_resume = AutoAdapterModel.from_pretrained("bert-base-uncased")
+            model_resume = AutoAdapterModel.from_config(self.get_model_config())
 
             model_resume.add_classification_head("adapter", num_labels=3)
             model_resume.add_classification_head("dummy", num_labels=2)
@@ -323,7 +331,7 @@ class TestAdapterTrainer(unittest.TestCase):
         )
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
-        model = AutoAdapterModel.from_pretrained("bert-base-uncased")
+        model = AutoAdapterModel.from_config(self.get_model_config())
 
         model.add_classification_head("task", num_labels=3)
 
@@ -364,6 +372,61 @@ class TestAdapterTrainer(unittest.TestCase):
             self.assertEqual("task", model.active_head)
             self.assertEqual(Stack("task"), model.active_adapters)
 
+    def test_train_with_frozen_adapter_fusion(self):
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+        )
+        train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+
+        model = AutoAdapterModel.from_config(self.get_model_config())
+
+        model.add_adapter("a")
+        model.add_adapter("b")
+
+        adapter_setup = Fuse("a", "b")
+
+        model.add_adapter_fusion(adapter_setup, set_active=True)
+
+        model.add_adapter("c")
+        model.add_classification_head("c")
+
+        model.train_adapter("c")
+
+        model.active_adapters = Stack(Fuse("a", "b"), "c")
+
+        # Since our config has a value matrix, make sure it is regularized.
+        # We do this by patching the fusion regularization function.
+        regularization_called = False
+        orig_fusion_regularization_loss = model.base_model.get_fusion_regularization_loss
+
+        def patched_fusion_reg_loss():
+            nonlocal regularization_called
+            regularization_called = True
+            return orig_fusion_regularization_loss()
+
+        model.base_model.get_fusion_regularization_loss = patched_fusion_reg_loss
+
+        with TemporaryDirectory() as tempdir:
+            training_args = TrainingArguments(
+                output_dir=tempdir,
+                do_train=True,
+                learning_rate=0.1,
+                logging_steps=1,
+                max_steps=1,
+                save_steps=1,
+                remove_unused_columns=False,
+            )
+            trainer = AdapterTrainer(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+            )
+
+            trainer.train()
+
+        self.assertTrue(regularization_called)
+
     @require_ray
     def test_hyperparameter_search_works_with_AdapterTrainer(self):
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -375,12 +438,13 @@ class TestAdapterTrainer(unittest.TestCase):
 
         def hp_space(params):
             from ray import tune
+
             return {
                 "learning_rate": tune.choice([0.1, 0.2]),
             }
 
         def model_init(trail=None):
-            model = AutoAdapterModel.from_pretrained("bert-base-uncased")
+            model = AutoAdapterModel.from_config(self.get_model_config())
 
             model.add_classification_head("task", num_labels=3)
 
@@ -406,12 +470,10 @@ class TestAdapterTrainer(unittest.TestCase):
                 model_init=model_init,
                 args=training_args,
                 train_dataset=train_dataset,
-                eval_dataset=eval_dataset
+                eval_dataset=eval_dataset,
             )
 
-            trainer.hyperparameter_search(
-                direction="minimize", hp_space=hp_space, backend="ray", n_trials=2
-            )
+            trainer.hyperparameter_search(direction="minimize", hp_space=hp_space, backend="ray", n_trials=2)
 
 
 if __name__ == "__main__":
