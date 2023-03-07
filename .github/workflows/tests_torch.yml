@@ -25,17 +25,17 @@ jobs:
   check_code_quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: 3.7 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
       - name: Install
         run: |
-          pip install torch==1.6.0
+          pip install torch==1.7.0
           pip install .[quality]
       - name: Check Quality and Repo Consistency
         run: |
@@ -45,11 +45,11 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: 3.7
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
@@ -57,7 +57,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==1.6.0
+          pip install torch==1.7.0
           pip install .[sklearn,testing,sentencepiece,vision]
           pip install datasets
       - name: Test
@@ -67,11 +67,11 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: 3.7
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
@@ -79,7 +79,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==1.6.0
+          pip install torch==1.7.0
           pip install .[sklearn,testing,sentencepiece,vision]
           pip install datasets
       - name: Test

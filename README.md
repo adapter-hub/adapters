@@ -36,7 +36,7 @@ Thus, most files in this repository are direct copies from the HuggingFace Trans
 
 ## Installation
 
-`adapter-transformers` currently supports **Python 3.7+** and **PyTorch 1.6.0+**.
+`adapter-transformers` currently supports **Python 3.7+** and **PyTorch 1.7.0+**.
 After [installing PyTorch](https://pytorch.org/get-started/locally/), you can install `adapter-transformers` from PyPI ...
 
 ```
