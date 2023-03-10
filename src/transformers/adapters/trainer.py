@@ -182,6 +182,7 @@ class AdapterTrainer(Trainer):
             # will be resumed in deepspeed_init
             pass
         else:
+            adapter_loaded = None
             if os.path.isdir(resume_from_checkpoint):
                 adapter_loaded = self._load_adapters(resume_from_checkpoint)
                 self._load_adapter_fusions(resume_from_checkpoint)
