@@ -182,7 +182,6 @@ class AdapterTrainer(Trainer):
             # will be resumed in deepspeed_init
             pass
         else:
-            adapter_loaded = None
             if os.path.isdir(resume_from_checkpoint):
                 adapter_loaded = self._load_adapters(resume_from_checkpoint)
                 self._load_adapter_fusions(resume_from_checkpoint)
@@ -190,8 +189,8 @@ class AdapterTrainer(Trainer):
                 if hasattr(self.model, "heads"):
                     self._load_heads(resume_from_checkpoint)
 
-            if not adapter_loaded:
-                raise Exception("Can't find a valid checkpoint at {}".format(resume_from_checkpoint))
+                if not adapter_loaded:
+                    raise Exception("Can't find a valid checkpoint at {}".format(resume_from_checkpoint))
 
     def _load_adapters(self, resume_from_checkpoint):
         adapter_loaded = False
