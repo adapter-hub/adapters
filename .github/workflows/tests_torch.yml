@@ -28,14 +28,14 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.7 
+          python-version: 3.8
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
       - name: Install
         run: |
-          pip install torch==1.12.0
+          pip install torch==1.12.1
           pip install .[quality]
       - name: Check Quality and Repo Consistency
         run: |
@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.7
+          python-version: 3.8
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
@@ -57,7 +57,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==1.12.0
+          pip install torch==1.12.1
           pip install .[sklearn,testing,sentencepiece,vision]
           pip install datasets
       - name: Test
@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.7
+          python-version: 3.8
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
@@ -79,7 +79,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==1.12.0
+          pip install torch==1.12.1
           pip install .[sklearn,testing,sentencepiece,vision]
           pip install datasets
       - name: Test
