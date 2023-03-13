@@ -1,4 +1,5 @@
 import unittest
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
 
 from transformers import GPTJConfig
 from transformers.testing_utils import require_torch
@@ -48,6 +49,7 @@ class GPTJAdapterTest(
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
+    ConfigUnionAdapterTest,
     GPTJAdapterTestBase,
     unittest.TestCase,
 ):
