@@ -19,7 +19,8 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
     def test_get_lora(self):
         model = self.get_model()
-        self.run_get_test(model, LoRAConfig())
+        n_layers = len(list(model.iter_layers()))
+        self.run_get_test(model, LoRAConfig(intermediate_lora=True, output_lora=True), n_layers * 3)
 
     def test_forward_lora(self):
         model = self.get_model()
