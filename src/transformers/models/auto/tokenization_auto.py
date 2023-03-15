@@ -141,7 +141,7 @@ else:
             ("gpt-sw3", ("GPTSw3Tokenizer" if is_sentencepiece_available() else None, None)),
             ("gpt2", ("GPT2Tokenizer", "GPT2TokenizerFast" if is_tokenizers_available() else None)),
             ("gpt_neo", ("GPT2Tokenizer", "GPT2TokenizerFast" if is_tokenizers_available() else None)),
-            ("gpt_neox", (GPT2Tokenizer, "GPTNeoXTokenizerFast" if is_tokenizers_available() else None)),
+            ("gpt_neox", (None, "GPTNeoXTokenizerFast" if is_tokenizers_available() else None)),
             ("gpt_neox_japanese", ("GPTNeoXJapaneseTokenizer", None)),
             ("gptj", ("GPT2Tokenizer", "GPT2TokenizerFast" if is_tokenizers_available() else None)),
             ("groupvit", ("CLIPTokenizer", "CLIPTokenizerFast" if is_tokenizers_available() else None)),
