@@ -314,6 +314,7 @@ class GPTNeoXMLP(nn.Module):
 class GPTNeoXLayer(GPTNeoXDecoderBlockAdaptersMixin, nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.use_parallel_residual = config.use_parallel_residual
         self.input_layernorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.post_attention_layernorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
