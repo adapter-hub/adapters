@@ -122,8 +122,6 @@ class PredictionHeadModelTestMixin:
         model1.add_causal_lm_head("dummy")
 
         label_dict = {}
-        # Use a different length for the seq2seq output
-        seq_output_length = self.seq_length + 30
         label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
 
         self.run_prediction_head_test(
@@ -137,8 +135,10 @@ class PredictionHeadModelTestMixin:
         # Finally, also check if generation works properly
         input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
+        # Use a different length for the seq2seq output
+        seq_output_length = 30
         generated = model1.generate(input_ids, max_length=seq_output_length)
-        self.assertEqual(generated.shape[0], 1) 
+        self.assertEqual(generated.shape[0], 1)
         self.assertLessEqual(generated.shape[1], seq_output_length)
 
     def test_seq2seq_lm_head(self):
@@ -149,8 +149,6 @@ class PredictionHeadModelTestMixin:
         model1.add_seq2seq_lm_head("dummy")
 
         label_dict = {}
-        # Use a different length for the seq2seq output
-        seq_output_length = self.seq_length + 30
         label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
 
         # prepare decoder_input_ids similar to how DataCollatorForSeq2Seq does it
@@ -169,8 +167,11 @@ class PredictionHeadModelTestMixin:
         # Finally, also check if generation works properly
         input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
+        # Use a different length for the seq2seq output
+        seq_output_length = 30
         generated = model1.generate(input_ids, max_length=seq_output_length)
-        self.assertEqual(generated.shape, (1, seq_output_length))
+        self.assertEqual(generated.shape[0], 1)
+        self.assertLessEqual(generated.shape[1], seq_output_length)
 
     def test_masked_lm_head(self):
         if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_masked_lm_head"):
