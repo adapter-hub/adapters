@@ -26,10 +26,10 @@ from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
 from ...adapters.lora import MergedLinear as LoRAMergedLinear
-from ...adapters.mixins.gpt2 import (
-    GPT2DecoderBlockAdaptersMixin,
-    GPT2ModelAdapterMixin,
-    GPT2ModelWithHeadsAdaptersMixin,
+from ...adapters.mixins.gpt_neox import (
+    GPTNeoXDecoderBlockAdaptersMixin,
+    GPTNeoXModelAdapterMixin,
+    GPTNeoXModelWithHeadsAdaptersMixin,
 )
 from ...adapters.prefix_tuning import PrefixTuningShim
 from ...file_utils import (
