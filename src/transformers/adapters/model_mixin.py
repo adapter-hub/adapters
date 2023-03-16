@@ -24,7 +24,7 @@ from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, W
 from .lora import LoRALayer
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .prefix_tuning import PrefixTuningPool, PrefixTuningShim
-from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
+from .utils import EMBEDDING_FILE, TOKENIZER_PATH, SUBMODEL_NAMES, inherit_doc
 from .wrappers.configuration import wrap_config
 
 
@@ -501,9 +501,24 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             # if multiple adapters with same location key exist they are returned as a modulelist
             if isinstance(adapter_module, nn.ModuleList):
                 adapter_module = adapter_module[0]
-            self.base_model.shared_parameters[adapter_name] = init_shared_parameters(
-                adapter_config, self.config.hidden_size, self.device
-            )
+            if adapter_config["shared_phm_rule"] or adapter_config["shared_W_phm"]:
+                if self.config.model_type in SUBMODEL_NAMES:
+                    hidden_sizes = [
+                        getattr(self.config, key).hidden_size for key in SUBMODEL_NAMES[self.config.model_type]
+                    ]
+                    if all(hidden_sizes[0] == h for h in hidden_sizes):
+                        self.base_model.shared_parameters[adapter_name] = init_shared_parameters(
+                            adapter_config, hidden_sizes[0], self.device
+                        )
+                    else:
+                        raise ValueError(
+                            "The model has different hidden sizes {}. Sharing comapcter weights is only possible if"
+                            " the hidden_sizes match.".format(hidden_sizes)
+                        )
+                else:
+                    self.base_model.shared_parameters[adapter_name] = init_shared_parameters(
+                        adapter_config, self.config.hidden_size, self.device
+                    )
         # Prefix Tuning
         for module in self.modules():
             if isinstance(module, PrefixTuningPool):

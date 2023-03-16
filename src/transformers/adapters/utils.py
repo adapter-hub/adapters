@@ -84,6 +84,7 @@ ADAPTER_CONFIG_HASH_IGNORE_DEFAULT = {
     "scaling": 1.0,
 }
 ADAPTER_CONFIG_STRING_PATTERN = re.compile(r"^(?P<name>[^\[\]\|\n]+)(?:\[(?P<kvs>.*)\])?$")
+SUBMODEL_NAMES = {"clip": ["vision_config", "text_config"], "encoder-decoder": ["encoder", "decoder"]}
 
 
 class AdapterType(str, Enum):
