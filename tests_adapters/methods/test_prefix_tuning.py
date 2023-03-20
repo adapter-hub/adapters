@@ -18,7 +18,14 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
 
     def test_get_prefix_tuning(self):
         model = self.get_model()
-        self.run_get_test(model, PrefixTuningConfig(flat=True))
+        if model.config.is_encoder_decoder:
+            n_prefix_layers = 3
+        elif model.config.is_composition:
+            n_prefix_layers = 2
+        else:
+            n_prefix_layers = 1
+
+        self.run_get_test(model, PrefixTuningConfig(flat=True), n_prefix_layers)
 
     def test_forward_prefix_tuning(self):
         model = self.get_model()

@@ -77,27 +77,23 @@ class AdapterMethodBaseTestMixin:
             has_weights = True
         self.assertFalse(has_weights)
 
-    def run_get_test(self, model, adapter_config):
+    def run_get_test(self, model, adapter_config, num_expected_modules):
         model.eval()
 
         model.add_adapter("first", config=adapter_config)
-        model.add_adapter("second", config=adapter_config)
         model.set_active_adapters(["first"])
-        model.to(torch_device)
 
         # adapter is correctly added to config
         name = "first"
         self.assert_adapter_available(model, name)
 
-        first_adapter = model.get_adapter("first")
-        second_adapter = model.get_adapter("second")
+        adapter = model.get_adapter("first")
 
-        self.assertNotEqual(len(first_adapter), 0)
-        self.assertEqual(len(first_adapter), len(second_adapter))
-        self.assertNotEqual(first_adapter, second_adapter)
+        self.assertNotEqual(len(adapter), 0)
+        num_found_modules = sum([len(layer_modules) for layer_modules in adapter.values()])
+        self.assertEqual(num_expected_modules, num_found_modules)
 
         model.delete_adapter("first")
-        model.delete_adapter("second")
 
     def run_forward_test(self, model, adapter_config):
         model.eval()

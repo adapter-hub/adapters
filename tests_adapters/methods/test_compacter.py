@@ -16,7 +16,8 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
 
     def test_get_compacter(self):
         model = self.get_model()
-        self.run_get_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8))
+        n_layers = len(list(model.iter_layers()))
+        self.run_get_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8), n_layers + 1)
 
     def test_forward_compacter(self):
         model = self.get_model()
