@@ -25,7 +25,6 @@ from ...activations import ACT2FN
 from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
-from ...adapters.lora import MergedLinear as LoRAMergedLinear
 from ...adapters.mixins.gpt_neox import (
     GPTNeoXDecoderBlockAdaptersMixin,
     GPTNeoXModelAdapterMixin,
