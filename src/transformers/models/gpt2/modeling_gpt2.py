@@ -170,6 +170,7 @@ class GPT2Attention(nn.Module):
                 "selfattn",
                 config,
                 fan_in_fan_out=True,
+                no_init_bias=True,
             )
         self.c_proj = Conv1D(self.embed_dim, self.embed_dim)
 
@@ -366,8 +367,12 @@ class GPT2MLP(nn.Module):
         super().__init__()
         embed_dim = config.hidden_size
         # Order of dimension inputs to LORALinear reversed compared to Conv1D
-        self.c_fc = LoRALinear(embed_dim, intermediate_size, "intermediate", config, fan_in_fan_out=True)
-        self.c_proj = LoRALinear(intermediate_size, embed_dim, "output", config, fan_in_fan_out=True)
+        self.c_fc = LoRALinear(
+            embed_dim, intermediate_size, "intermediate", config, fan_in_fan_out=True, no_init_bias=True
+        )
+        self.c_proj = LoRALinear(
+            intermediate_size, embed_dim, "output", config, fan_in_fan_out=True, no_init_bias=True
+        )
         self.act = ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.resid_pdrop)
 

@@ -163,14 +163,19 @@ class Linear(LoRALayer, nn.Linear):
         config: PretrainedConfig,
         attn_key: str = None,
         fan_in_fan_out: bool = False,  # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
+        no_init_bias: bool = False,  # Use this to add a bias that is not initialized by PyTorch
         **kwargs
     ):
+        if no_init_bias and "bias" not in kwargs:
+            kwargs["bias"] = False
         LoRALayer.__init__(self, location_key, config, in_features, out_features, **kwargs)
 
         self.attn_key = attn_key
         self.fan_in_fan_out = fan_in_fan_out
         if fan_in_fan_out:
             self.weight.data = torch.t(self.weight.data)
+        if no_init_bias:
+            self.bias = nn.Parameter(torch.empty(out_features))
 
     def _check_lora_location(self, config: LoRAConfig):
         return self.attn_key is None or self.attn_key in config.attn_matrices
@@ -259,14 +264,19 @@ class MergedLinear(LoRALayer, nn.Linear):
         out_features: int,
         location_key: str,
         config: PretrainedConfig,
-        fan_in_fan_out: bool = False,
+        fan_in_fan_out: bool = False,  # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
+        no_init_bias: bool = False,  # Use this to add a bias that is not initialized by PyTorch
         **kwargs
     ):
+        if no_init_bias and "bias" not in kwargs:
+            kwargs["bias"] = False
         LoRALayer.__init__(self, location_key, config, in_features, out_features, **kwargs)
 
         self.fan_in_fan_out = fan_in_fan_out
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
+        if no_init_bias:
+            self.bias = nn.Parameter(torch.empty(out_features))
 
     def get_n_heads(self, lora: Union[LoRA, LoRAConfig]):
         return len(set(lora.attn_matrices))
