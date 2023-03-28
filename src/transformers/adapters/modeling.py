@@ -702,6 +702,9 @@ class PHMLayer(nn.Module):
 
 
 def init_shared_parameters(config, in_features, device):
+    """
+    Create and initialize the parameters shared by all compacter modules
+    """
     parameters = nn.ParameterDict()
     if config["shared_W_phm"]:
         if config["factorized_phm_W"]:
@@ -761,6 +764,9 @@ def init_shared_parameters(config, in_features, device):
 
 
 def init_W(config, W_left=None, W_right=None, W=None):
+    """
+    Initialize the weights for the compacter module or the shared parameters
+    """
     if config["factorized_phm_W"]:
         W_left = W_left
         W_right = W_right

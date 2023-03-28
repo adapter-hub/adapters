@@ -24,8 +24,8 @@ from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, W
 from .lora import LoRALayer
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .prefix_tuning import PrefixTuningPool, PrefixTuningShim
-from .utils import EMBEDDING_FILE, SUBMODEL_NAMES, TOKENIZER_PATH, inherit_doc
-from .wrappers.configuration import wrap_config
+from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
+from .wrappers.configuration import SUBMODEL_NAMES, wrap_config
 
 
 logger = logging.getLogger(__name__)

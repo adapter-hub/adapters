@@ -56,6 +56,8 @@ CONFIG_CLASS_KEYS_MAPPING = {
     "vit": {},
     "xlm_roberta": {},
 }
+SUBMODEL_NAMES = {"clip": ["vision_config", "text_config"], "encoder-decoder": ["encoder", "decoder"]}
+
 
 
 def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
