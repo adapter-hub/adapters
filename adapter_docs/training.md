@@ -13,7 +13,7 @@ pip install -r ./examples/pytorch/<your_examples_folder>/requirements.txt
 
 ## Train a Task Adapter
 
-Training a task adapter module on a dataset only requires minor modifications from training the full model.
+Training a task adapter module on a dataset only requires minor modifications from training the whole model.
 Suppose we have an existing script for training a Transformer model.
 In the following, we will use HuggingFace's [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/pytorch/text-classification/run_glue.py) example script for training on the GLUE benchmark.
 We go through all required changes step by step:
@@ -43,17 +43,17 @@ model = AutoAdapterModel.from_pretrained(
 model.add_classification_head(data_args.task_name, num_labels=num_labels)
 ```
 
-Note that this change is entirely optional and training will also work with the original model class.
-Learn more about the benefits of AdapterModel classes [here](prediction_heads.md)
+Note that this change is optional and training will also work with the original model class.
+Learn more about the benefits of AdapterModel classes [here](prediction_heads.md).
 
 ### Step C - Setup adapter methods
 
 ```{eval-rst}
 .. tip::
-    In the following, we show how to setup adapters manually. In most cases, you can use the built-in ``setup_adapter_training()`` method to perform this job automatically. Just add a statement similar to this anywhere between model instantiation and training start in your script: ``setup_adapter_training(model, adapter_args, task_name)``
+    In the following, we show how to set up adapters manually. In most cases, you can use the built-in ``setup_adapter_training()`` method to perform this job automatically. Just add a statement similar to this anywhere between model instantiation and training start in your script: ``setup_adapter_training(model, adapter_args, task_name)``
 ```
 
-Compared to fine-tuning the full model, there is only this one significant adaptation we have to make: adding an adapter setup and activating it.
+Compared to fine-tuning the entire model, we have to make only one significant adaptation: adding an adapter setup and activating it.
 
 ```python
 # task adapter - only add if not existing
@@ -69,14 +69,14 @@ model.train_adapter(task_name)
 ```{eval-rst}
 .. important::
     The most crucial step when training an adapter module is to freeze all weights in the model except for those of the
-    adapter. In the previous snippet, this is achieved by calling the ``train_adapter()`` method which disables training
+    adapter. In the previous snippet, this is achieved by calling the ``train_adapter()`` method, which disables training
     of all weights outside the task adapter. In case you want to unfreeze all model weights later on, you can use
     ``freeze_model(False)``.
 ```
 
 Besides this, we only have to make sure that the task adapter and prediction head are activated so that they are used in every forward pass. To specify the adapter modules to use, we can use the `model.set_active_adapters()` 
 method and pass the adapter setup. If you only use a single adapter, you can simply pass the name of the adapter. For more information
-on complex setups checkout the [Composition Blocks](https://docs.adapterhub.ml/adapter_composition.html).
+on complex setups, checkout the [Composition Blocks](https://docs.adapterhub.ml/adapter_composition.html).
 
 ```python
 model.set_active_adapters(task_name)
@@ -88,14 +88,14 @@ Finally, we switch the `Trainer` class built into Transformers for adapter-trans
 See [below for more information](#adaptertrainer).
 
 Technically, this change is not required as no changes to the training loop are required for training adapters.
-However, `AdapterTrainer` e.g. provides better support for checkpointing and reloading adapter weights.
+However, `AdapterTrainer` e.g., provides better support for checkpointing and reloading adapter weights.
 
 ### Step E - Start training
 
 The rest of the training procedure does not require any further changes in code.
 
 You can find the full version of the modified training script for GLUE at [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/pytorch/text-classification/run_glue.py) in the `examples` folder of our repository.
-We also adapted [various other example scripts](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/pytorch) (e.g. `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
+We also adapted [various other example scripts](https://github.com/Adapter-Hub/adapter-transformers/tree/master/examples/pytorch) (e.g., `run_glue.py`, `run_multiple_choice.py`, `run_squad.py`, ...) to support adapter training.
 
 To start adapter training on a GLUE task, you can run something similar to:
 
@@ -117,7 +117,7 @@ python run_glue.py \
   --adapter_config pfeiffer
 ```
 
-The important flag here is `--train_adapter` which switches from fine-tuning the full model to training an adapter module for the given GLUE task.
+The important flag here is `--train_adapter`, which switches from fine-tuning the entire model to training an adapter module for the given GLUE task.
 
 ```{eval-rst}
 .. tip::
@@ -126,7 +126,7 @@ The important flag here is `--train_adapter` which switches from fine-tuning the
 
 ```{eval-rst}
 .. tip::
-    Depending on your data set size you might also need to train longer than usual. To avoid overfitting you can evaluating the adapters after each epoch on the development set and only save the best model.
+    Depending on your data set size, you might also need to train longer than usual. To avoid overfitting, you can evaluate the adapters after each epoch on the development set and only save the best model.
 ```
 
 ## Train a Language Adapter
@@ -160,12 +160,12 @@ You can adapt this script to train AdapterFusion with different pre-trained adap
 
 ```{eval-rst}
 .. important::
-    AdapterFusion on a target task is trained in a second training stage, after independently training adapters on individual tasks.
+    AdapterFusion on a target task is trained in a second training stage after independently training adapters on individual tasks.
     When setting up a fusion architecture on your model, make sure to load the pre-trained adapter modules to be fused using ``model.load_adapter()`` before adding a fusion layer.
     For more on AdapterFusion, also refer to `Pfeiffer et al., 2020 <https://arxiv.org/pdf/2005.00247>`_.
 ```
 
-To start fusion training on SST-2 as target task, you can run something like the following:
+To start fusion training on SST-2 as the target task, you can run something like the following:
 
 ```
 export GLUE_DIR=/path/to/glue
