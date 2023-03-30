@@ -24,9 +24,11 @@ We use BERT in this example, so we first load a pre-trained `BertTokenizer` to e
 `bert-base-uncased` checkpoint from HuggingFace's Model Hub using the [`BertAdapterModel`](transformers.adapters.BertAdapterModel) class:
 
 ```python
+import os
+
 import torch
 from transformers import BertTokenizer
-from transformers.adapters import BertAdapterModel
+from transformers.adapters import BertAdapterModel, AutoAdapterModel
 
 # Load pre-trained BERT tokenizer from Huggingface.
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -44,16 +46,21 @@ model = BertAdapterModel.from_pretrained('bert-base-uncased')
 ```
 
 Having loaded the model, we now add a pre-trained task adapter that is useful to our task from AdapterHub.
-As we're doing sentiment classification, we use [an adapter trained on the SST-2 dataset](https://adapterhub.ml/adapters/ukp/bert-base-uncased_sentiment_sst-2_pfeiffer/) in this case.
+In this case, for sentiment classification, we thus use [an adapter trained on the SST-2 dataset](https://adapterhub.ml/adapters/ukp/bert-base-uncased_sentiment_sst-2_pfeiffer/).
 The task prediction head loaded together with the adapter gives us a class label for our sentence:
 
 ```python
 # load pre-trained task adapter from Adapter Hub
 # this method call will also load a pre-trained classification head for the adapter task
-adapter_name = model.load_adapter('sst-2@ukp', config='pfeiffer')
+# adapter_name = model.load_adapter('sst-2@ukp', config='pfeiffer')
+adapter_name = model.load_adapter("AdapterHub/bert-base-uncased-pf-sst2", source="hf")
+
 
 # activate the adapter we just loaded, so that it is used in every forward pass
 model.set_active_adapters(adapter_name)
+# TODO: remove! But I only found out the name of the adapter like that, shouldn't this be also on the website on how to 
+#  use the model? how should we include how to save the adapters? because you need to give the correct name as argument
+print(f"model_config_adapters: {model.config.adapters.adapters}")  
 
 # predict output tensor
 outputs = model(**input_data)
@@ -66,25 +73,28 @@ assert predicted == 1
 To save our pre-trained model and adapters, we can easily store and reload them as follows:
 
 ```python
+# for the sake of this example an example path for loading and storing is given below
+example_path = os.path.join(os.getcwd(), "adapter-quickstart")
+
 # save model
-model.save_pretrained('./path/to/model/directory/')
+model.save_pretrained(example_path)
 # save adapter
-model.save_adapter('./path/to/adapter/directory/', 'sst-2')
+model.save_adapter(example_path, 'glue_sst2')
 
 # load model
-model = AutoAdapterModel.from_pretrained('./path/to/model/directory/')
-model.load_adapter('./path/to/adapter/directory/')
+model = AutoAdapterModel.from_pretrained(example_path)
+model.load_adapter(example_path)
 ```
 
 Similar to how the weights of the full model are saved, the `save_adapter()` will create a file for saving the adapter weights and a file for saving the adapter configuration in the specified directory.
 
-Finally, if we have finished working with adapters, we can restore the base Transformer in its original form by deactivating and deleting the adapter:
+Finally, if we have finished working with adapters, we can restore the base Transformer to its original form by deactivating and deleting the adapter:
 
 ```python
 # deactivate all adapters
 model.set_active_adapters(None)
 # delete the added adapter
-model.delete_adapter('sst-2')
+model.delete_adapter('glue_sst2')
 ```
 
 ## Quick Tour: Adapter training
