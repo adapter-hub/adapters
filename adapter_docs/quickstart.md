@@ -27,22 +27,22 @@ We use BERT in this example, so we first load a pre-trained `BertTokenizer` to e
 import os
 
 import torch
-from transformers import BertTokenizer
-from transformers.adapters import BertAdapterModel, AutoAdapterModel
+from transformers import AutoTokenizer  # TODO: discuss: I find it more convenient to use the Auto class
+from transformers.adapters import AutoAdapterModel
 
-# Load pre-trained BERT tokenizer from Huggingface.
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+# Load pre-trained BERT tokenizer from Huggingface
+tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 
 # An input sentence.
 sentence = "It's also, clearly, great fun."
 
-# Tokenize the input sentence and create a PyTorch input tensor.
+# Tokenize the input sentence and create a PyTorch input tensor
 input_data = tokenizer(sentence, return_tensors="pt")
 
-# Load pre-trained BERT model from HuggingFace Hub.
-# The `BertAdapterModel` class is specifically designed for working with adapters.
-# It can be used with different prediction heads.
-model = BertAdapterModel.from_pretrained('bert-base-uncased')
+# Load pre-trained BERT model from HuggingFace Hub
+# The `BertAdapterModel` class is specifically designed for working with adapters
+# It can be used with different prediction heads
+model = AutoAdapterModel.from_pretrained('bert-base-uncased')
 ```
 
 Having loaded the model, we now add a pre-trained task adapter that is useful to our task from AdapterHub.
@@ -52,15 +52,12 @@ The task prediction head loaded together with the adapter gives us a class label
 ```python
 # load pre-trained task adapter from Adapter Hub
 # this method call will also load a pre-trained classification head for the adapter task
-# adapter_name = model.load_adapter('sst-2@ukp', config='pfeiffer')
-adapter_name = model.load_adapter("AdapterHub/bert-base-uncased-pf-sst2", source="hf")
-
+# TODO: discuss: When looking for this adapter on the webiste the name is "sentiment/..." I think we should keep names 
+#  consistent because for new people (at least for me) more possibilities for loading the same thing is confusing
+adapter_name = model.load_adapter("sentiment/sst-2@ukp", config='pfeiffer')
 
 # activate the adapter we just loaded, so that it is used in every forward pass
 model.set_active_adapters(adapter_name)
-# TODO: remove! But I only found out the name of the adapter like that, shouldn't this be also on the website on how to 
-#  use the model? how should we include how to save the adapters? because you need to give the correct name as argument
-print(f"model_config_adapters: {model.config.adapters.adapters}")  
 
 # predict output tensor
 outputs = model(**input_data)
@@ -73,13 +70,13 @@ assert predicted == 1
 To save our pre-trained model and adapters, we can easily store and reload them as follows:
 
 ```python
-# for the sake of this example an example path for loading and storing is given below
+# for the sake of this demonstration an example path for loading and storing is given below
 example_path = os.path.join(os.getcwd(), "adapter-quickstart")
 
 # save model
 model.save_pretrained(example_path)
 # save adapter
-model.save_adapter(example_path, 'glue_sst2')
+model.save_adapter(example_path, adapter_name)  # TODO: discuss: nobody knows where the 'sst-2' comes from
 
 # load model
 model = AutoAdapterModel.from_pretrained(example_path)
@@ -94,7 +91,7 @@ Finally, if we have finished working with adapters, we can restore the base Tran
 # deactivate all adapters
 model.set_active_adapters(None)
 # delete the added adapter
-model.delete_adapter('glue_sst2')
+model.delete_adapter(adapter_name)
 ```
 
 ## Quick Tour: Adapter training
