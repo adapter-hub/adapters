@@ -13,14 +13,14 @@ pip install -r ./examples/pytorch/<your_examples_folder>/requirements.txt
 
 ## Train a Task Adapter
 
-Training a task adapter module on a dataset only requires minor modifications from training the whole model.
+Training a task adapter module on a dataset only requires minor modifications from training a whole model.
 Suppose we have an existing script for training a Transformer model.
 In the following, we will use HuggingFace's [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/pytorch/text-classification/run_glue.py) example script for training on the GLUE benchmark.
 We go through all required changes step by step:
 
 ### Step A - Parse `AdapterArguments`
 
-The [`AdapterArguments`](transformers.adapters.training.AdapterArguments) class integrated into adapter-transformers provides a set of command-line options useful for training adapters.
+The [`AdapterArguments`](transformers.adapters.training.AdapterArguments) class integrated into `adapter-transformers` provides a set of command-line options useful for training adapters.
 These include options such as `--train_adapter` for activating adapter training and `--load_adapter` for loading adapters from checkpoints.
 Thus, the first step of integrating adapters is to add these arguments to the line where `HfArgumentParser` is instantiated:
 
@@ -84,7 +84,7 @@ model.set_active_adapters(task_name)
 
 ### Step D - Switch to `AdapterTrainer` class
 
-Finally, we switch the `Trainer` class built into Transformers for adapter-transformers' [`AdapterTrainer`](transformers.adapters.AdapterTrainer) class that is optimized for training adapter methods.
+Finally, we exchange the `Trainer` class built into Transformers for `adapter-transformers`' [`AdapterTrainer`](transformers.adapters.AdapterTrainer) class that is optimized for training adapter methods.
 See [below for more information](#adaptertrainer).
 
 Technically, this change is not required as no changes to the training loop are required for training adapters.
@@ -121,7 +121,7 @@ The important flag here is `--train_adapter`, which switches from fine-tuning th
 
 ```{eval-rst}
 .. tip::
-    Adapter weights are usually initialized randomly. That is why we require a higher learning rate. We have found that a default adapter learning rate of ``1e-4`` works well for most settings.
+    Adapter weights are usually initialized randomly, which is why we require a higher learning rate. We have found that a default adapter learning rate of ``1e-4`` works well for most settings.
 ```
 
 ```{eval-rst}
@@ -188,7 +188,7 @@ python run_fusion_glue.py \
 
 ## AdapterTrainer
 
-Similar to the `Trainer` class provided by HuggingFace, adapter-transformers provides an `AdapterTrainer` class. This class is only
+Similar to the `Trainer` class provided by HuggingFace, `adapter-transformers` provides an `AdapterTrainer` class. This class is only
 intended for training adapters. The `Trainer` class should still be used to fully fine-tune models. To train adapters with the `AdapterTrainer`
 class, simply initialize it the same way you would initialize the `Trainer` class,e.g.: 
 
