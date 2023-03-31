@@ -19,7 +19,8 @@ class IA3TestMixin(AdapterMethodBaseTestMixin):
 
     def test_get_ia3(self):
         model = self.get_model()
-        self.run_get_test(model, IA3Config())
+        n_layers = len(list(model.iter_layers()))
+        self.run_get_test(model, IA3Config(intermediate_lora=True, output_lora=True), n_layers * 3)
 
     def test_forward_ia3(self):
         model = self.get_model()

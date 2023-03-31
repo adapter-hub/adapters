@@ -146,7 +146,7 @@ _deps = [
     "pytest-subtests",
     "pytest-timeout",
     "pytest-xdist",
-    "python>=3.7.0",
+    "python>=3.8.0",
     "ray[tune]",
     "myst-parser",
     "regex!=2019.12.17",
@@ -176,7 +176,7 @@ _deps = [
     "timeout-decorator",
     "timm",
     "tokenizers>=0.11.1,!=0.11.3,<0.14",
-    "torch>=1.7,!=1.12.0",
+    "torch>=1.12.1",
     "torchaudio",
     "pyctcdecode>=0.4.0",
     "tqdm>=4.27",
@@ -252,6 +252,7 @@ class DepsTableUpdateCommand(Command):
         print(f"updating {target}")
         with open(target, "w", encoding="utf-8", newline="\n") as f:
             f.write("\n".join(content))
+
 
 extras = {}
 
@@ -447,7 +448,7 @@ setup(
     zip_safe=False,
     extras_require=extras,
     entry_points={"console_scripts": ["transformers-cli=transformers.commands.transformers_cli:main"]},
-    python_requires=">=3.7.0",
+    python_requires=">=3.8.0",
     install_requires=install_requires,
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -457,9 +458,9 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     cmdclass={"deps_table_update": DepsTableUpdateCommand},

@@ -18,7 +18,10 @@ class UniPELTTestMixin(AdapterMethodBaseTestMixin):
 
     def test_get_unipelt(self):
         model = self.get_model()
-        self.run_get_test(model, UniPELTConfig())
+        n_layers = len(list(model.iter_layers()))
+        # In UniPELT, prefix tuning has gates in every layer
+        n_prefix_layers = 1.5 * n_layers if model.config.is_encoder_decoder else n_layers
+        self.run_get_test(model, UniPELTConfig(), n_layers * 2 + n_prefix_layers)
 
     def test_forward_unipelt(self):
         model = self.get_model()
