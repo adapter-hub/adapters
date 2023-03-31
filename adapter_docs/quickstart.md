@@ -52,8 +52,6 @@ The task prediction head loaded together with the adapter gives us a class label
 ```python
 # Load pre-trained task adapter from Adapter Hub
 # This method call will also load a pre-trained classification head for the adapter task
-# TODO: discuss: When looking for this adapter on the webiste the name is "sentiment/..." I think we should keep names 
-#  consistent because for new people (at least for me) more possibilities for loading the same thing is confusing
 adapter_name = model.load_adapter("sentiment/sst-2@ukp", config='pfeiffer')
 
 # Activate the adapter we just loaded, so that it is used in every forward pass
@@ -76,7 +74,7 @@ example_path = os.path.join(os.getcwd(), "adapter-quickstart")
 # Save model
 model.save_pretrained(example_path)
 # Save adapter
-model.save_adapter(example_path, adapter_name)  # TODO: discuss: nobody knows where the 'sst-2' comes from
+model.save_adapter(example_path, adapter_name)
 
 # Load model, similar to HuggingFace's AutoModel class, 
 # you can also use AutoAdapterModel instead of BertAdapterModel
