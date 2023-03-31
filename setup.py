@@ -98,7 +98,9 @@ if stale_egg_info.exists():
 _deps = [
     "Pillow",
     "accelerate>=0.10.0",
-    "black==22.3",  # after updating to black 2023, also update Python version in pyproject.toml to 3.7
+    "av==9.2.0",  # Latest version of PyAV (10.0.0) has issues with audio stream.
+    "beautifulsoup4",
+    "black~=23.1",
     "codecarbon==1.2.0",
     "cookiecutter==1.7.3",
     "dataclasses",
@@ -112,7 +114,6 @@ _deps = [
     "faiss-cpu",
     "fastapi",
     "filelock",
-    "flake8>=3.8.3",
     "flax>=0.4.1",
     "ftfy",
     "fugashi>=1.0",
@@ -127,6 +128,7 @@ _deps = [
     "jieba",
     "kenlm",
     "keras-nlp>=0.3.1",
+    "librosa",
     "nltk",
     "natten>=0.14.4",
     "numpy>=1.17",
@@ -151,8 +153,10 @@ _deps = [
     "myst-parser",
     "regex!=2019.12.17",
     "requests",
+    "rhoknp>=1.1.0",
     "rjieba",
     "rouge-score!=0.0.7,!=0.0.8,!=0.1,!=0.1.1",
+    "ruff>=0.0.241",
     "sacrebleu>=1.4.12,<2.0.0",
     "sacremoses",
     "safetensors>=0.2.1",
@@ -169,6 +173,8 @@ _deps = [
     "sphinx-intl",
     "sphinx-multiversion",
     "starlette",
+    "sudachipy>=0.6.6",
+    "sudachidict_core>=20220729",
     "tensorflow-cpu>=2.4,<2.12",
     "tensorflow>=2.4,<2.12",
     "tensorflow-text",
@@ -178,15 +184,12 @@ _deps = [
     "tokenizers>=0.11.1,!=0.11.3,<0.14",
     "torch>=1.12.1",
     "torchaudio",
+    "torchvision",
     "pyctcdecode>=0.4.0",
     "tqdm>=4.27",
     "unidic>=1.0.2",
     "unidic_lite>=1.0.7",
     "uvicorn",
-    "beautifulsoup4",
-    "sudachipy>=0.6.6",
-    "sudachidict_core>=20220729",
-    "rhoknp>=1.1.0",
 ]
 
 
@@ -211,7 +214,7 @@ deps = {b: a for a, b in (re.findall(r"^(([^!=<>~ ]+)(?:[!=<>~ ].*)?$)", x)[0] f
 # You can then feed this for example to `pip`:
 #
 # pip install -U $(python -c 'import sys; from transformers.dependency_versions_table import deps; \
-# print(" ".join([ deps[x] for x in sys.argv[1:]]))' tokenizers datasets)
+# print(" ".join([deps[x] for x in sys.argv[1:]]))' tokenizers datasets)
 #
 
 
@@ -296,9 +299,10 @@ extras["tf-speech"] = extras["audio"]
 extras["flax-speech"] = extras["audio"]
 extras["vision"] = deps_list("Pillow")
 extras["timm"] = deps_list("timm")
+extras["torch-vision"] = deps_list("torchvision") + extras["vision"]
 extras["natten"] = deps_list("natten")
 extras["codecarbon"] = deps_list("codecarbon")
-extras["video"] = deps_list("decord")
+extras["video"] = deps_list("decord", "av")
 
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = (
@@ -330,7 +334,7 @@ extras["testing"] = (
 
 extras["deepspeed-testing"] = extras["deepspeed"] + extras["testing"] + extras["optuna"] + extras["sentencepiece"]
 
-extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython", "hf-doc-builder")
+extras["quality"] = deps_list("black", "datasets", "isort", "ruff", "GitPython", "hf-doc-builder")
 
 extras["all"] = (
     extras["tf"]
@@ -342,6 +346,7 @@ extras["all"] = (
     + extras["vision"]
     + extras["integrations"]
     + extras["timm"]
+    + extras["torch-vision"]
     + extras["codecarbon"]
     + extras["accelerate"]
     + extras["video"]
@@ -370,6 +375,7 @@ extras["dev-torch"] = (
     + extras["vision"]
     + extras["integrations"]
     + extras["timm"]
+    + extras["torch-vision"]
     + extras["codecarbon"]
     + extras["quality"]
     + extras["ja"]
