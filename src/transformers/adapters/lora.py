@@ -173,8 +173,6 @@ class Linear(LoRALayer, nn.Linear):
         no_init_bias: bool = False,
         **kwargs
     ):
-        """
-        
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
         LoRALayer.__init__(self, location_key, config, in_features, out_features, **kwargs)
