@@ -85,6 +85,7 @@ ADAPTER_CONFIG_HASH_IGNORE_DEFAULT = {
 }
 ADAPTER_CONFIG_STRING_PATTERN = re.compile(r"^(?P<name>[^\[\]\|\n]+)(?:\[(?P<kvs>.*)\])?$")
 
+
 class AdapterType(str, Enum):
     """Models all currently available model adapter types."""
 

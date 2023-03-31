@@ -59,7 +59,6 @@ CONFIG_CLASS_KEYS_MAPPING = {
 SUBMODEL_NAMES = {"clip": ["vision_config", "text_config"], "encoder-decoder": ["encoder", "decoder"]}
 
 
-
 def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
     """
     Makes required changes to a model config class to allow usage with adapters.
