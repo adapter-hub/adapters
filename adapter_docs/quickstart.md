@@ -27,11 +27,11 @@ We use BERT in this example, so we first load a pre-trained `BertTokenizer` to e
 import os
 
 import torch
-from transformers import AutoTokenizer  # TODO: discuss: I find it more convenient to use the Auto class
-from transformers.adapters import AutoAdapterModel
+from transformers import BertTokenizer
+from transformers.adapters import BertAdapterModel, AutoAdapterModel
 
 # Load pre-trained BERT tokenizer from Huggingface
-tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 # An input sentence.
 sentence = "It's also, clearly, great fun."
@@ -42,7 +42,7 @@ input_data = tokenizer(sentence, return_tensors="pt")
 # Load pre-trained BERT model from HuggingFace Hub
 # The `BertAdapterModel` class is specifically designed for working with adapters
 # It can be used with different prediction heads
-model = AutoAdapterModel.from_pretrained('bert-base-uncased')
+model = BertAdapterModel.from_pretrained('bert-base-uncased')
 ```
 
 Having loaded the model, we now add a pre-trained task adapter that is useful to our task from AdapterHub.
@@ -79,6 +79,7 @@ model.save_pretrained(example_path)
 model.save_adapter(example_path, adapter_name)  # TODO: discuss: nobody knows where the 'sst-2' comes from
 
 # load model
+# similar to HuggingFace's AutoModel class, you can also use AutoAdapterModel instead of BertAdapterModel
 model = AutoAdapterModel.from_pretrained(example_path)
 model.load_adapter(example_path)
 ```
