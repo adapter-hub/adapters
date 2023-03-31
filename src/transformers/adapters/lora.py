@@ -154,7 +154,16 @@ class LoRALayer(AdapterLayerBase):
 
 
 class Linear(LoRALayer, nn.Linear):
-    # LoRA implemented in a dense layer
+    """
+    LoRA implementation for Linear layer.
+
+    Args:
+        fan_in_fan_out (bool, optional):
+            Set this to True if the layer to replace stores weight like (fan_in, fan_out). Defaults to False.
+        no_init_bias (bool, optional): Use this to add a bias that is not initialized by PyTorch. Defaults to False.
+
+    """
+
     def __init__(
         self,
         in_features: int,
@@ -162,15 +171,20 @@ class Linear(LoRALayer, nn.Linear):
         location_key: str,
         config: PretrainedConfig,
         attn_key: str = None,
-        fan_in_fan_out: bool = False,  # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
+        fan_in_fan_out: bool = False,
+        no_init_bias: bool = False,
         **kwargs
     ):
+        if no_init_bias and "bias" not in kwargs:
+            kwargs["bias"] = False
         LoRALayer.__init__(self, location_key, config, in_features, out_features, **kwargs)
 
         self.attn_key = attn_key
         self.fan_in_fan_out = fan_in_fan_out
         if fan_in_fan_out:
             self.weight.data = torch.t(self.weight.data)
+        if no_init_bias:
+            self.bias = nn.Parameter(torch.empty(out_features))
 
     def _check_lora_location(self, config: LoRAConfig):
         return self.attn_key is None or self.attn_key in config.attn_matrices
@@ -252,7 +266,16 @@ class Linear(LoRALayer, nn.Linear):
 
 
 class MergedLinear(LoRALayer, nn.Linear):
-    # LoRA implemented in a dense layer
+    """
+    LoRA implementation for merged attention layer layer.
+
+    Args:
+        fan_in_fan_out (bool, optional):
+            Set this to True if the layer to replace stores weight like (fan_in, fan_out). Defaults to False.
+        no_init_bias (bool, optional): Use this to add a bias that is not initialized by PyTorch. Defaults to False.
+
+    """
+
     def __init__(
         self,
         in_features: int,
@@ -260,13 +283,18 @@ class MergedLinear(LoRALayer, nn.Linear):
         location_key: str,
         config: PretrainedConfig,
         fan_in_fan_out: bool = False,
+        no_init_bias: bool = False,
         **kwargs
     ):
+        if no_init_bias and "bias" not in kwargs:
+            kwargs["bias"] = False
         LoRALayer.__init__(self, location_key, config, in_features, out_features, **kwargs)
 
         self.fan_in_fan_out = fan_in_fan_out
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
+        if no_init_bias:
+            self.bias = nn.Parameter(torch.empty(out_features))
 
     def get_n_heads(self, lora: Union[LoRA, LoRAConfig]):
         return len(set(lora.attn_matrices))
