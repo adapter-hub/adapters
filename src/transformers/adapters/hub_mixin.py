@@ -69,7 +69,7 @@ class PushAdapterToHubMixin:
         language: Optional[str] = None,
         license: Optional[str] = None,
         metrics: Optional[List[str]] = None,
-        **kwargs
+        **kwargs,
     ):
         all_tags = {"adapter-transformers"}
         datasets = set()

@@ -399,7 +399,7 @@ class AdapterLoader(WeightsLoader):
         loading_info=None,
         leave_out=None,
         set_active=False,
-        **kwargs
+        **kwargs,
     ):
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.

@@ -603,7 +603,6 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
         embeddings = self.embeddings(input_ids, inputs_embeds)  # (bs, seq_length, dim)
         inputs_embeds = self.invertible_adapters_forward(inputs_embeds)
 
-
         return self.transformer(
             x=embeddings,
             attn_mask=attention_mask,

@@ -173,7 +173,7 @@ class Linear(LoRALayer, nn.Linear):
         attn_key: str = None,
         fan_in_fan_out: bool = False,
         no_init_bias: bool = False,
-        **kwargs
+        **kwargs,
     ):
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
@@ -284,7 +284,7 @@ class MergedLinear(LoRALayer, nn.Linear):
         config: PretrainedConfig,
         fan_in_fan_out: bool = False,
         no_init_bias: bool = False,
-        **kwargs
+        **kwargs,
     ):
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
