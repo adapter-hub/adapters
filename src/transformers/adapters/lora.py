@@ -154,7 +154,14 @@ class LoRALayer(AdapterLayerBase):
 
 
 class Linear(LoRALayer, nn.Linear):
-    # LoRA implemented in a dense layer
+    """
+    LoRA implementation for Linear layer.
+    
+    Args:
+        fan_in_fan_out (bool, optional): Set this to True if the layer to replace stores weight like (fan_in, fan_out). Defaults to False.
+        no_init_bias (bool, optional): Use this to add a bias that is not initialized by PyTorch. Defaults to False.
+    
+    """
     def __init__(
         self,
         in_features: int,
@@ -162,10 +169,12 @@ class Linear(LoRALayer, nn.Linear):
         location_key: str,
         config: PretrainedConfig,
         attn_key: str = None,
-        fan_in_fan_out: bool = False,  # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
-        no_init_bias: bool = False,  # Use this to add a bias that is not initialized by PyTorch
+        fan_in_fan_out: bool = False,
+        no_init_bias: bool = False,
         **kwargs
     ):
+        """
+        
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
         LoRALayer.__init__(self, location_key, config, in_features, out_features, **kwargs)
@@ -257,15 +266,22 @@ class Linear(LoRALayer, nn.Linear):
 
 
 class MergedLinear(LoRALayer, nn.Linear):
-    # LoRA implemented in a dense layer
+    """
+    LoRA implementation for merged attention layer layer.
+    
+    Args:
+        fan_in_fan_out (bool, optional): Set this to True if the layer to replace stores weight like (fan_in, fan_out). Defaults to False.
+        no_init_bias (bool, optional): Use this to add a bias that is not initialized by PyTorch. Defaults to False.
+    
+    """
     def __init__(
         self,
         in_features: int,
         out_features: int,
         location_key: str,
         config: PretrainedConfig,
-        fan_in_fan_out: bool = False,  # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
-        no_init_bias: bool = False,  # Use this to add a bias that is not initialized by PyTorch
+        fan_in_fan_out: bool = False,
+        no_init_bias: bool = False,
         **kwargs
     ):
         if no_init_bias and "bias" not in kwargs:
