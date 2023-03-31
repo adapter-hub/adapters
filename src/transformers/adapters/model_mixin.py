@@ -22,10 +22,10 @@ from .hub_mixin import PushAdapterToHubMixin
 from .layer import AdapterLayer, AdapterLayerBase
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .lora import LoRALayer
-from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
+from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .prefix_tuning import PrefixTuningPool, PrefixTuningShim
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
-from .wrappers.configuration import wrap_config
+from .wrappers.configuration import SUBMODEL_NAMES, wrap_config
 
 
 logger = logging.getLogger(__name__)
@@ -495,12 +495,30 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """Helper method that performs the actual parameter additions when adding a new adapter."""
         self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
         # PHM Layer
-        if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
+        adapter_config = self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer")
+        if adapter_config:
             adapter_module = list(self.get_adapter(adapter_name)[0].values())[0]
             # if multiple adapters with same location key exist they are returned as a modulelist
             if isinstance(adapter_module, nn.ModuleList):
                 adapter_module = adapter_module[0]
-            self.base_model.shared_parameters[adapter_name] = adapter_module.adapter_down[0].init_shared_parameters()
+            if adapter_config["shared_phm_rule"] or adapter_config["shared_W_phm"]:
+                if self.config.model_type in SUBMODEL_NAMES:
+                    hidden_sizes = [
+                        getattr(self.config, key).hidden_size for key in SUBMODEL_NAMES[self.config.model_type]
+                    ]
+                    if all(hidden_sizes[0] == h for h in hidden_sizes):
+                        self.base_model.shared_parameters[adapter_name] = init_shared_parameters(
+                            adapter_config, hidden_sizes[0], self.device
+                        )
+                    else:
+                        raise ValueError(
+                            "The model has different hidden sizes {}. Sharing comapcter weights is only possible if"
+                            " the hidden_sizes match.".format(hidden_sizes)
+                        )
+                else:
+                    self.base_model.shared_parameters[adapter_name] = init_shared_parameters(
+                        adapter_config, self.config.hidden_size, self.device
+                    )
         # Prefix Tuning
         for module in self.modules():
             if isinstance(module, PrefixTuningPool):
