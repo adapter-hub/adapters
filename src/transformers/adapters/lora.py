@@ -156,12 +156,14 @@ class LoRALayer(AdapterLayerBase):
 class Linear(LoRALayer, nn.Linear):
     """
     LoRA implementation for Linear layer.
-    
+
     Args:
-        fan_in_fan_out (bool, optional): Set this to True if the layer to replace stores weight like (fan_in, fan_out). Defaults to False.
+        fan_in_fan_out (bool, optional):
+            Set this to True if the layer to replace stores weight like (fan_in, fan_out). Defaults to False.
         no_init_bias (bool, optional): Use this to add a bias that is not initialized by PyTorch. Defaults to False.
-    
+
     """
+
     def __init__(
         self,
         in_features: int,
@@ -266,12 +268,14 @@ class Linear(LoRALayer, nn.Linear):
 class MergedLinear(LoRALayer, nn.Linear):
     """
     LoRA implementation for merged attention layer layer.
-    
+
     Args:
-        fan_in_fan_out (bool, optional): Set this to True if the layer to replace stores weight like (fan_in, fan_out). Defaults to False.
+        fan_in_fan_out (bool, optional):
+            Set this to True if the layer to replace stores weight like (fan_in, fan_out). Defaults to False.
         no_init_bias (bool, optional): Use this to add a bias that is not initialized by PyTorch. Defaults to False.
-    
+
     """
+
     def __init__(
         self,
         in_features: int,
