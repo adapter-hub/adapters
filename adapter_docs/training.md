@@ -13,7 +13,7 @@ pip install -r ./examples/pytorch/<your_examples_folder>/requirements.txt
 
 ## Train a Task Adapter
 
-Training a task adapter module on a dataset only requires minor modifications from training a whole model.
+Training a task adapter module on a dataset only requires minor modifications compared to training the entire model.
 Suppose we have an existing script for training a Transformer model.
 In the following, we will use HuggingFace's [run_glue.py](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/pytorch/text-classification/run_glue.py) example script for training on the GLUE benchmark.
 We go through all required changes step by step:
