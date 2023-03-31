@@ -1,7 +1,7 @@
 # Adapter Training
 
 This section describes some examples of training adapter methods for different scenarios. We focus on integrating adapter methods into existing training scripts for Transformer models.
-All presented scripts are only slightly modified from the original [examples from HuggingFace Transformers](https://huggingface.co/transformers/examples.html).
+All presented scripts are only slightly modified from the original [examples from HuggingFace Transformers](https://github.com/huggingface/transformers/tree/main/examples/pytorch#examples).
 To run the scripts, make sure you have the latest version of the repository and have installed some additional requirements:
 
 ```
@@ -84,7 +84,7 @@ model.set_active_adapters(task_name)
 
 ### Step D - Switch to `AdapterTrainer` class
 
-Finally, we exchange the `Trainer` class built into Transformers for `adapter-transformers`' [`AdapterTrainer`](transformers.adapters.AdapterTrainer) class that is optimized for training adapter methods.
+Finally, we exchange the `Trainer` class built into Transformers for adapter-transformers' [`AdapterTrainer`](transformers.adapters.AdapterTrainer) class that is optimized for training adapter methods.
 See [below for more information](#adaptertrainer).
 
 Technically, this change is not required as no changes to the training loop are required for training adapters.
