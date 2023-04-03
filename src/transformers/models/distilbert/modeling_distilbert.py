@@ -601,7 +601,7 @@ class DistilBertModel(DistilBertModelAdaptersMixin, DistilBertPreTrainedModel):
         head_mask = self.get_head_mask(head_mask, self.config.num_hidden_layers)
 
         embeddings = self.embeddings(input_ids, inputs_embeds)  # (bs, seq_length, dim)
-        inputs_embeds = self.invertible_adapters_forward(inputs_embeds)
+        embeddings = self.invertible_adapters_forward(embeddings)
 
         return self.transformer(
             x=embeddings,
