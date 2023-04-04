@@ -355,10 +355,11 @@ class GPTNeoXLayer(GPTNeoXDecoderBlockAdaptersMixin, nn.Module):
             # pseudocode:
             # x = x + attn(ln1(x))
             # x = x + mlp(ln2(x))
-            attn_output = attn_output + hidden_states
-            mlp_output = self.mlp(self.post_attention_layernorm(attn_output))
+            hidden_states = self.attention_adapters(attn_output, hidden_states, None) #attn_output = attn_output + hidden_states
+            residual = hidden_states
+            mlp_output = self.mlp(self.post_attention_layernorm(hidden_states))
             # residual connection
-            hidden_states = self.output_adapters(mlp_output, attn_output, None)
+            hidden_states = self.output_adapters(mlp_output, residual, None)
             #hidden_states = mlp_output + attn_output
 
         if use_cache:
