@@ -2,8 +2,8 @@
 
 _Configuration class_: [`ConfigUnion`](transformers.ConfigUnion)
 
-While different efficient fine-tuning methods and configurations have often been proposed as standalone, it might be beneficial to combine them for joint training.
-To make this process easier, adapter-transformers provides the possibility to group multiple configuration instances together using the `ConfigUnion` class.
+While different efficient fine-tuning methods and configurations have often been proposed as standalone, combining them for joint training might be beneficial. 
+To make this process easier, `adapter-transformers` provides the possibility to group multiple configuration instances using the `ConfigUnion` class.
 
 For example, this could be used to define different reduction factors for the adapter modules placed after the multi-head attention and the feed-forward blocks:
 
@@ -22,8 +22,8 @@ model.add_adapter("union_adapter", config=config)
 _Configuration class_: [`MAMConfig`](transformers.MAMConfig)
 
 [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) study various variants and combinations of efficient fine-tuning methods.
-Among others, they propose _Mix-and-Match Adapters_ as a combination of Prefix Tuning and parallel bottleneck adapters.
-This configuration is supported by adapter-transformers out-of-the-box:
+They propose _Mix-and-Match Adapters_ as a combination of Prefix Tuning and parallel bottleneck adapters.
+This configuration is supported by `adapter-transformers` out-of-the-box:
 
 ```python
 from transformers.adapters import MAMConfig
@@ -68,7 +68,7 @@ Concretely, for each adapted module $m$, UniPELT adds a trainable gating value $
 
 $$\mathcal{G}_m \leftarrow \sigma(W_{\mathcal{G}_m} \cdot x)$$
 
-These gating values are then used to scale the output activations of the injected adapter modules, e.g. for a LoRA layer:
+These gating values are then used to scale the output activations of the injected adapter modules, e.g., for a LoRA layer:
 
 $$
 h \leftarrow W_0 x + \mathcal{G}_{LoRA} B A x
@@ -77,7 +77,7 @@ $$
 In the configuration classes of `adapter-transformers`, these gating mechanisms can be activated via `use_gating=True`.
 The full UniPELT setup can be instantiated using `UniPELTConfig`[^unipelt]:
 
-[^unipelt]: Note that the implementation of UniPELT in `adapter-transformers` follows the implementation in the original code, which is slighlty different from the description in the paper. See [here](https://github.com/morningmoni/UniPELT/issues/1) for more.
+[^unipelt]: Note that the implementation of UniPELT in `adapter-transformers` follows the implementation in the original code, which is slightlty different from the description in the paper. See [here](https://github.com/morningmoni/UniPELT/issues/1) for more.
 
 ```python
 from transformers.adapters import UniPELTConfig
