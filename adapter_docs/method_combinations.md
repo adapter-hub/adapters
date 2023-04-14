@@ -3,7 +3,7 @@
 _Configuration class_: [`ConfigUnion`](transformers.ConfigUnion)
 
 While different efficient fine-tuning methods and configurations have often been proposed as standalone, combining them for joint training might be beneficial. 
-To make this process easier, `adapter-transformers` provides the possibility to group multiple configuration instances using the `ConfigUnion` class.
+To make this process easier, `adapter-transformers` provides the possibility to group multiple configuration instances using the [`ConfigUnion`](transformers.ConfigUnion) class.
 
 For example, this could be used to define different reduction factors for the adapter modules placed after the multi-head attention and the feed-forward blocks:
 

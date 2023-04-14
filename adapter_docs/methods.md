@@ -68,7 +68,7 @@ To perform zero-shot cross-lingual transfer, one language adapter can simply be 
 
 In terms of architecture, language adapters are largely similar to regular bottleneck adapters, except for an additional _invertible adapter_ layer after the LM embedding layer.
 Embedding outputs are passed through this invertible adapter in the forward direction before entering the first Transformer layer and in the inverse direction after leaving the last Transformer layer.
-Invertible adapter architectures are further detailed in [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) and can be configured via the `inv_adapter` attribute of the `AdapterConfig` class.
+Invertible adapter architectures are further detailed in [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) and can be configured via the `inv_adapter` attribute of the [`AdapterConfig`](transformers.AdapterConfig) class.
 
 _Example_:
 ```python
@@ -200,7 +200,7 @@ model.add_adapter("lora_adapter", config=config)
 In the design of LoRA, Hu et al. (2021) also pay special attention to keeping the inference latency overhead compared to full fine-tuning at a minimum.
 To accomplish this, the LoRA reparameterization can be merged with the original pre-trained weights of a model for inference.
 Thus, the adapted weights are directly used in every forward pass without passing activations through an additional module.
-In `adapter-transformers`, this can be realized using the built-in `merge_adapter()` method:
+In `adapter-transformers`, this can be realized using the built-in [`merge_adapter()`](transformers.ModelAdaptersMixin.merge_adapter) method:
 ```python
 model.merge_adapter("lora_adapter")
 ```
@@ -244,14 +244,14 @@ config = IA3Config()
 model.add_adapter("ia3_adapter", config=config)
 ```
 
-The implementation of (IA)^3, as well as the `IA3Config` class, are derived from the implementation of [LoRA](#lora), with a few main modifications.
+The implementation of (IA)^3, as well as the [`IA3Config`](transformers.IA3Config) class, are derived from the implementation of [LoRA](#lora), with a few main modifications.
 First, (IA)^3 uses multiplicative compositions of weights instead of additive compositions, as in LoRA.
 Second, the added weights are not further decomposed into low-rank matrices.
 These modifications are controlled via the `composition_mode` configuration attribute by setting `composition_mode="scale"`.
 Additionally, as the added weights are already of rank 1, `r=1` is set.
 
 Beyond that, both methods share the same configuration attributes that allow you to specify which Transformer components rescaling vectors will be injected.
-Following the original implementation, `IA3Config` adds rescaling vectors to the self-attention weights (`selfattn_lora=True`) and the final feed-forward layer (`output_lora=True`).
+Following the original implementation, [`IA3Config`](transformers.IA3Config) adds rescaling vectors to the self-attention weights (`selfattn_lora=True`) and the final feed-forward layer (`output_lora=True`).
 Further, you can modify which matrices of the attention mechanism to rescale by leveraging the `attn_matrices` attribute.
 By default, (IA)^3 injects weights into the key ('k') and value ('v') matrices but not in the query ('q') matrix.
 
