@@ -10,7 +10,7 @@ storing (`save_adapter()`) and deletion (`delete_adapter()`) are added to the mo
 .. note::
     This document focuses on the adapter-related functionalities added by *adapter-transformers*.
     For a more general overview of the *transformers* library, visit
-    `the 'Usage' section in Huggingface's documentation <https://huggingface.co/transformers/usage.html>`_.
+    `the 'Usage' section in HuggingFace's documentation <https://huggingface.co/transformers/usage.html>`_.
 ```
 
 ## Quick Tour: Using a pre-trained adapter for inference
@@ -24,41 +24,43 @@ We use BERT in this example, so we first load a pre-trained `BertTokenizer` to e
 `bert-base-uncased` checkpoint from HuggingFace's Model Hub using the [`BertAdapterModel`](transformers.adapters.BertAdapterModel) class:
 
 ```python
+import os
+
 import torch
 from transformers import BertTokenizer
-from transformers.adapters import BertAdapterModel
+from transformers.adapters import BertAdapterModel, AutoAdapterModel
 
-# Load pre-trained BERT tokenizer from Huggingface.
+# Load pre-trained BERT tokenizer from HuggingFace
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-# An input sentence.
+# An input sentence
 sentence = "It's also, clearly, great fun."
 
-# Tokenize the input sentence and create a PyTorch input tensor.
+# Tokenize the input sentence and create a PyTorch input tensor
 input_data = tokenizer(sentence, return_tensors="pt")
 
-# Load pre-trained BERT model from HuggingFace Hub.
-# The `BertAdapterModel` class is specifically designed for working with adapters.
-# It can be used with different prediction heads.
+# Load pre-trained BERT model from HuggingFace Hub
+# The `BertAdapterModel` class is specifically designed for working with adapters
+# It can be used with different prediction heads
 model = BertAdapterModel.from_pretrained('bert-base-uncased')
 ```
 
 Having loaded the model, we now add a pre-trained task adapter that is useful to our task from AdapterHub.
-As we're doing sentiment classification, we use [an adapter trained on the SST-2 dataset](https://adapterhub.ml/adapters/ukp/bert-base-uncased_sentiment_sst-2_pfeiffer/) in this case.
+In this case, for sentiment classification, we thus use [an adapter trained on the SST-2 dataset](https://adapterhub.ml/adapters/ukp/bert-base-uncased_sentiment_sst-2_pfeiffer/).
 The task prediction head loaded together with the adapter gives us a class label for our sentence:
 
 ```python
-# load pre-trained task adapter from Adapter Hub
-# this method call will also load a pre-trained classification head for the adapter task
-adapter_name = model.load_adapter('sst-2@ukp', config='pfeiffer')
+# Load pre-trained task adapter from Adapter Hub
+# This method call will also load a pre-trained classification head for the adapter task
+adapter_name = model.load_adapter("sentiment/sst-2@ukp", config='pfeiffer')
 
-# activate the adapter we just loaded, so that it is used in every forward pass
+# Activate the adapter we just loaded, so that it is used in every forward pass
 model.set_active_adapters(adapter_name)
 
-# predict output tensor
+# Predict output tensor
 outputs = model(**input_data)
 
-# retrieve the predicted class label
+# Retrieve the predicted class label
 predicted = torch.argmax(outputs[0]).item()
 assert predicted == 1
 ```
@@ -66,25 +68,29 @@ assert predicted == 1
 To save our pre-trained model and adapters, we can easily store and reload them as follows:
 
 ```python
-# save model
-model.save_pretrained('./path/to/model/directory/')
-# save adapter
-model.save_adapter('./path/to/adapter/directory/', 'sst-2')
+# For the sake of this demonstration an example path for loading and storing is given below
+example_path = os.path.join(os.getcwd(), "adapter-quickstart")
 
-# load model
-model = AutoAdapterModel.from_pretrained('./path/to/model/directory/')
-model.load_adapter('./path/to/adapter/directory/')
+# Save model
+model.save_pretrained(example_path)
+# Save adapter
+model.save_adapter(example_path, adapter_name)
+
+# Load model, similar to HuggingFace's AutoModel class, 
+# you can also use AutoAdapterModel instead of BertAdapterModel
+model = AutoAdapterModel.from_pretrained(example_path)
+model.load_adapter(example_path)
 ```
 
 Similar to how the weights of the full model are saved, the `save_adapter()` will create a file for saving the adapter weights and a file for saving the adapter configuration in the specified directory.
 
-Finally, if we have finished working with adapters, we can restore the base Transformer in its original form by deactivating and deleting the adapter:
+Finally, if we have finished working with adapters, we can restore the base Transformer to its original form by deactivating and deleting the adapter:
 
 ```python
-# deactivate all adapters
+# Deactivate all adapters
 model.set_active_adapters(None)
-# delete the added adapter
-model.delete_adapter('sst-2')
+# Delete the added adapter
+model.delete_adapter(adapter_name)
 ```
 
 ## Quick Tour: Adapter training
