@@ -525,17 +525,25 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     def get_output_embeddings(self):
         # Only gets the output embeddings for the currently active head
-        if self.active_head in self.heads:
-            head = self.heads[self.active_head]
-            return head.get_output_embeddings()
-        else:
+        embeddings = []
+        for head_name in self._active_heads:
+            if head_name in self.heads:
+                head = self.heads[head_name]
+                output_embeddings = head.get_output_embeddings()
+                embeddings.append(output_embeddings)
+
+        if len(embeddings) == 1:
+            return embeddings[0]
+        elif len(embeddings) == 0 or all([e is None for e in embeddings]):
             return None
+        else:
+            return embeddings
 
     def set_output_embeddings(self, new_embeddings):
         # Only sets the output embeddings for the currently active head
-        if self.active_head in self.heads:
-            head = self.heads[self.active_head]
-            if head.get_output_embeddings() is not None:
+        for head_name in self._active_heads:
+            if head_name in self.heads:
+                head = self.heads[head_name]
                 head.set_output_embeddings(new_embeddings)
 
     def tie_weights(self):
