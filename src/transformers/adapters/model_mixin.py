@@ -1271,5 +1271,11 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def freeze_embeddings(self, freeze=True):
         # If model has prediction head with embeddings, ensure these are frozen
         if self.get_output_embeddings() is not None:
-            for p in self.get_output_embeddings().parameters():
-                p.requires_grad = not freeze
+            output_embeddings = self.get_output_embeddings()
+            if isinstance(output_embeddings, list):
+                for output_embedding in output_embeddings:
+                    for p in output_embedding.parameters():
+                        p.requires_grad = not freeze
+            else:
+                for p in self.get_output_embeddings().parameters():
+                    p.requires_grad = not freeze
