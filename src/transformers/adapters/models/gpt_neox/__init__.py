@@ -22,15 +22,12 @@ from ....utils import _LazyModule
 
 
 _import_structure = {
-    "adapter_model": [
-        "GPTNeoXAdapterModel",
-        "GPTNeoXModelWithHeads"
-        ],
+    "adapter_model": ["GPTNeoXAdapterModel"],
 }
 
 
 if TYPE_CHECKING:
-    from .adapter_model import GPTNeoXAdapterModel, GPTNeoXModelWithHeads
+    from .adapter_model import GPTNeoXAdapterModel
 
 else:
     import sys

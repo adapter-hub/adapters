@@ -2597,7 +2597,6 @@ if is_torch_available():
         "GPT2ModelWithHeads",
         "GPTJAdapterModel",
         "GPTNeoXAdapterModel",
-        "GPTNeoXModelWithHeads",
         "HoulsbyConfig",
         "HoulsbyInvConfig",
         "IA3Config",
@@ -2942,15 +2941,6 @@ else:
             "TFGPTJForSequenceClassification",
             "TFGPTJModel",
             "TFGPTJPreTrainedModel",
-        ]
-    )
-    _import_structure["models.gpt_neox"].extend(
-        [
-            "TFGPTNeoXForCausalLM",
-            "TFGPTNeoXForQuestionAnswering",
-            "TFGPTNeoXForSequenceClassification",
-            "TFGPTNeoXModel",
-            "TFGPTNeoXPreTrainedModel",
         ]
     )
     _import_structure["models.groupvit"].extend(
@@ -5713,7 +5703,6 @@ if TYPE_CHECKING:
             GPT2AdapterModel,
             GPT2ModelWithHeads,
             GPTNeoXAdapterModel,
-            GPTNeoXModelWithHeads,
             GPTJAdapterModel,
             HoulsbyConfig,
             HoulsbyInvConfig,
