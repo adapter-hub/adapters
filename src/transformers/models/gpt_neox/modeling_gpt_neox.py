@@ -19,7 +19,7 @@ from typing import Optional, Tuple, Union
 import torch
 import torch.utils.checkpoint
 from torch import nn
-from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
+from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
 from ...adapters.composition import adjust_tensors_for_parallel
@@ -587,9 +587,6 @@ class GPTNeoXModel(GPTNeoXModelAdapterMixin, GPTNeoXPreTrainedModel):
                 )
             hidden_states = outputs[0]
             (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
-            # also adjust output shape if necessary
-            if getattr(ForwardContext.get_context(), "adapters_parallelized", False):
-                output_shape = hidden_states.size()
 
             if use_cache is True:
                 presents = presents + (outputs[1],)
