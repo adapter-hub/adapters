@@ -114,8 +114,8 @@ _import_structure = {
         "GPT2ModelWithHeads",
     ],
     "models.gpt_neox": [
-            "GPTNeoXAdapterModel",
-            "GPTNeoXModelWithHeads",
+        "GPTNeoXAdapterModel",
+        "GPTNeoXModelWithHeads",
     ],
     "models.gptj": ["GPTJAdapterModel"],
     "models.mbart": [

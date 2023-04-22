@@ -381,7 +381,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "classifier"],
     },
-    #GPT-NeoX
+    # GPT-NeoX
     "GPTNeoXForCausalLM": {
         "config": {
             "head_type": "causal_lm",

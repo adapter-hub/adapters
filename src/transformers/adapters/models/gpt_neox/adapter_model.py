@@ -102,7 +102,7 @@ class GPTNeoXAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         )
 
         return outputs
-    
+
     # Copied from GPTNeoXForCausalLM
     def prepare_inputs_for_generation(self, input_ids, past_key_values=None, attention_mask=None, **model_kwargs):
         input_shape = input_ids.shape
@@ -120,11 +120,8 @@ class GPTNeoXAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
             "attention_mask": attention_mask,
             "past_key_values": past_key_values,
         }
-    
 
-    head_types = {
-        "causal_lm": CausalLMHead
-    }
+    head_types = {"causal_lm": CausalLMHead}
 
     def add_causal_lm_head(self, head_name, overwrite_ok=False):
         """

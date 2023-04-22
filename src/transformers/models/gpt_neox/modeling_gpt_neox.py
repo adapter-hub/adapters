@@ -106,7 +106,13 @@ class GPTNeoXAttention(nn.Module):
             self.rotary_ndims, config.max_position_embeddings, base=config.rotary_emb_base
         )
         self.norm_factor = torch.sqrt(torch.tensor(self.head_size, dtype=torch.float32)).to(torch.get_default_dtype())
-        self.query_key_value = LoRAMergedLinear(config.hidden_size, 3 * config.hidden_size, "selfattn", config, fan_in_fan_out=False,)
+        self.query_key_value = LoRAMergedLinear(
+            config.hidden_size,
+            3 * config.hidden_size,
+            "selfattn",
+            config,
+            fan_in_fan_out=False,
+        )
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
 
     def forward(
@@ -350,18 +356,20 @@ class GPTNeoXLayer(GPTNeoXDecoderBlockAdaptersMixin, nn.Module):
             # See https://github.com/adapter-hub/adapter-transformers/pull/426#discussion_r994450898
             hidden_states = self.attention_adapters(attn_output, hidden_states, None)
             hidden_states = self.output_adapters(mlp_output, hidden_states, None)
-            #hidden_states = mlp_output + attn_output + hidden_states
+            # hidden_states = mlp_output + attn_output + hidden_states
 
         else:
             # pseudocode:
             # x = x + attn(ln1(x))
             # x = x + mlp(ln2(x))
-            hidden_states = self.attention_adapters(attn_output, hidden_states, None) #attn_output = attn_output + hidden_states
+            hidden_states = self.attention_adapters(
+                attn_output, hidden_states, None
+            )  # attn_output = attn_output + hidden_states
             residual = hidden_states
             mlp_output = self.mlp(self.post_attention_layernorm(hidden_states))
             # residual connection
             hidden_states = self.output_adapters(mlp_output, residual, None)
-            #hidden_states = mlp_output + attn_output
+            # hidden_states = mlp_output + attn_output
 
         if use_cache:
             outputs = (hidden_states,) + outputs  # hidden_states, present, (attn_weights)
