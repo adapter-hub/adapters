@@ -106,7 +106,7 @@ class GPTNeoXAttention(nn.Module):
             self.rotary_ndims, config.max_position_embeddings, base=config.rotary_emb_base
         )
         self.norm_factor = torch.sqrt(torch.tensor(self.head_size, dtype=torch.float32)).to(torch.get_default_dtype())
-        self.query_key_value = LoRAMergedLinear(config.hidden_size, 3 * config.hidden_size, "selfattn", config, fan_in_fan_out=True,)
+        self.query_key_value = LoRAMergedLinear(config.hidden_size, 3 * config.hidden_size, "selfattn", config, fan_in_fan_out=False,)
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
 
     def forward(
