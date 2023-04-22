@@ -5704,8 +5704,8 @@ if TYPE_CHECKING:
             ForwardContext,
             GPT2AdapterModel,
             GPT2ModelWithHeads,
-            GPTNeoXAdapterModel,
             GPTJAdapterModel,
+            GPTNeoXAdapterModel,
             HoulsbyConfig,
             HoulsbyInvConfig,
             IA3Config,
@@ -6009,19 +6009,19 @@ if TYPE_CHECKING:
             TFGPT2Model,
             TFGPT2PreTrainedModel,
         )
-        from .models.gptj import (
-            TFGPTJForCausalLM,
-            TFGPTJForQuestionAnswering,
-            TFGPTJForSequenceClassification,
-            TFGPTJModel,
-            TFGPTJPreTrainedModel,
-        )
         from .models.gpt_neox import (
             TFGPTNeoXForCausalLM,
             TFGPTNeoXForQuestionAnswering,
             TFGPTNeoXForSequenceClassification,
             TFGPTNeoXModel,
             TFGPTNeoXPreTrainedModel,
+        )
+        from .models.gptj import (
+            TFGPTJForCausalLM,
+            TFGPTJForQuestionAnswering,
+            TFGPTJForSequenceClassification,
+            TFGPTJModel,
+            TFGPTJPreTrainedModel,
         )
         from .models.groupvit import (
             TF_GROUPVIT_PRETRAINED_MODEL_ARCHIVE_LIST,

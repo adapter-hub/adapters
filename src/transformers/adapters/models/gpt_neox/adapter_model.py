@@ -5,10 +5,7 @@ import torch
 from ....models.gpt_neox.modeling_gpt_neox import GPT_NEOX_START_DOCSTRING, GPTNeoXModel, GPTNeoXPreTrainedModel
 from ....utils import add_start_docstrings
 from ...composition import adjust_tensors_for_parallel
-from ...heads import (
-    CausalLMHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-)
+from ...heads import CausalLMHead, ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 
 
