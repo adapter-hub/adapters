@@ -6009,13 +6009,6 @@ if TYPE_CHECKING:
             TFGPT2Model,
             TFGPT2PreTrainedModel,
         )
-        from .models.gpt_neox import (
-            TFGPTNeoXForCausalLM,
-            TFGPTNeoXForQuestionAnswering,
-            TFGPTNeoXForSequenceClassification,
-            TFGPTNeoXModel,
-            TFGPTNeoXPreTrainedModel,
-        )
         from .models.gptj import (
             TFGPTJForCausalLM,
             TFGPTJForQuestionAnswering,
