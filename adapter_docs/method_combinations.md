@@ -77,7 +77,7 @@ $$
 In the configuration classes of `adapter-transformers`, these gating mechanisms can be activated via `use_gating=True`.
 The full UniPELT setup can be instantiated using `UniPELTConfig`[^unipelt]:
 
-[^unipelt]: Note that the implementation of UniPELT in `adapter-transformers` follows the implementation in the original code, which is slightlty different from the description in the paper. See [here](https://github.com/morningmoni/UniPELT/issues/1) for more.
+[^unipelt]: Note that the implementation of UniPELT in `adapter-transformers` follows the implementation in the original code, which is slightly different from the description in the paper. See [here](https://github.com/morningmoni/UniPELT/issues/1) for more.
 
 ```python
 from transformers.adapters import UniPELTConfig
