@@ -245,7 +245,7 @@ model.add_adapter("ia3_adapter", config=config)
 ```
 
 The implementation of (IA)^3, as well as the [`IA3Config`](transformers.IA3Config) class, are derived from the implementation of [LoRA](#lora), with a few main modifications.
-First, (IA)^3 uses multiplicative compositions of weights instead of additive compositions, as in LoRA.
+First, (IA)^3 uses multiplicative composition of weights instead of additive composition, as in LoRA.
 Second, the added weights are not further decomposed into low-rank matrices.
 These modifications are controlled via the `composition_mode` configuration attribute by setting `composition_mode="scale"`.
 Additionally, as the added weights are already of rank 1, `r=1` is set.
