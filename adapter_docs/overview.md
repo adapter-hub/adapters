@@ -41,7 +41,6 @@ The following two pages will offer the methodological details of all currently s
 
 The following table gives an overview of all adapter methods supported by `adapter-transformers`.
 Identifiers and configuration classes are explained in more detail in the [next section](#configuration).
-TODO: update links
 
 | Identifier | Configuration class | More information
 | --- | --- | --- |
