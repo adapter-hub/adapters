@@ -3,11 +3,12 @@ import warnings
 
 import torch
 
+from transformers.models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOCSTRING, T5Model, T5PreTrainedModel
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin, Seq2SeqLMHead
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from .modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOCSTRING, T5Model, T5PreTrainedModel
+from ...wrappers import wrap_model
 
 
 logger = logging.getLogger(__name__)
@@ -26,10 +27,10 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
     def __init__(self, config):
         super().__init__(config)
 
-        self.transformer = T5Model(config)
+        self.transformer = wrap_model(T5Model(config))
 
         self._init_head_modules()
-        self._init_adapter_modules()
+
         self.init_weights()
 
         # Model parallel
@@ -187,37 +188,3 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
         """
         head = Seq2SeqLMHead(self, head_name)
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
-
-
-class T5ModelWithHeads(T5AdapterModel):
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                self.__class__.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        super().__init__(*args, **kwargs)
-
-    @classmethod
-    def from_config(cls, config):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                cls.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        return super().from_config(config)
-
-    @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                cls.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

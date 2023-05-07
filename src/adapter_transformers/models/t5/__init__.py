@@ -24,29 +24,12 @@ from transformers.utils import _LazyModule
 _import_structure = {
     "adapter_model": [
         "T5AdapterModel",
-        "T5ModelWithHeads",
-    ],
-    "modeling_t5": [
-        "T5_PRETRAINED_MODEL_ARCHIVE_LIST",
-        "T5EncoderModel",
-        "T5ForConditionalGeneration",
-        "T5Model",
-        "T5PreTrainedModel",
-        "load_tf_weights_in_t5",
     ],
 }
 
 
 if TYPE_CHECKING:
-    from .adapter_model import T5AdapterModel, T5ModelWithHeads
-    from .modeling_t5 import (
-        T5_PRETRAINED_MODEL_ARCHIVE_LIST,
-        T5EncoderModel,
-        T5ForConditionalGeneration,
-        T5Model,
-        T5PreTrainedModel,
-        load_tf_weights_in_t5,
-    )
+    from .adapter_model import T5AdapterModel
 
 else:
     import sys

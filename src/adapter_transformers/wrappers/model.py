@@ -27,7 +27,9 @@ def wrap_model(model: PreTrainedModel) -> PreTrainedModel:
             module.__class__ = model_class
         elif module.__class__.__module__.startswith("transformers.models"):
             try:
-                module_class = getattribute_from_module(modules_with_adapters, module.__class__.__name__)
+                module_class = getattribute_from_module(
+                    modules_with_adapters, module.__class__.__name__ + "WithAdapters"
+                )
                 module.__class__ = module_class
             except ValueError:
                 # Silently fail and keep original module class

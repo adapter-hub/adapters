@@ -70,7 +70,7 @@ class T5AdapterTestBase(AdapterTestBase):
 
         data_args = {
             "task_name": "xsum",
-            "path": "./tests/fixtures/tests_samples/xsum/sample.json",
+            "path": "./hf_transformers/tests/fixtures/tests_samples/xsum/sample.json",
         }
         dataset = load_dataset("json", data_files=data_args["path"])
         train_dataset = dataset["train"]

@@ -1,7 +1,7 @@
 import logging
 import os
 import warnings
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from os.path import join
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
@@ -33,17 +33,17 @@ from .wrappers.configuration import wrap_config
 logger = logging.getLogger(__name__)
 
 
-class InvertibleAdaptersMixin(metaclass=ABCMeta):
+class InvertibleAdaptersMixin:
     """Mixin for Transformer models adding invertible adapters."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, config, **kwargs):
         self.invertible_adapters = nn.ModuleDict(dict())
 
         # Make sure config is wrapped
         self.config = wrap_config(config)
 
         if hasattr(super(), "init_adapters"):
-            super().init_adapters(config)
+            super().init_adapters(config, **kwargs)
 
         self.hook_after_embeddings(self._hook_fn)
 
@@ -51,15 +51,15 @@ class InvertibleAdaptersMixin(metaclass=ABCMeta):
         new_output = self.invertible_adapters_forward(output)
         return new_output
 
-    @abstractmethod
     def hook_after_embeddings(self, hook_fn: Callable):
         """
         Hook a function to be called after the embeddings have been computed.
+        The default implementation does nothing. Override this method to add a hook.
 
         Args:
             hook_fn (Callable): The function to be called after the embeddings have been computed.
         """
-        raise NotImplementedError
+        pass
 
     def add_invertible_adapter(self, adapter_name: str):
         """
@@ -174,14 +174,14 @@ class InvertibleAdaptersWrapperMixin:
 class EmbeddingAdaptersMixin:
     """Mixin for Transformer models adding support for dynamically switching embeddings."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, config, **kwargs):
         self.loaded_embeddings = {}
         self._active_embedding = "default"
 
         # Make sure config is wrapped
         self.config = wrap_config(config)
 
-        super().init_adapters(config)
+        super().init_adapters(config, **kwargs)
 
     def load_embeddings(self, path: str, name: str):
         """
@@ -1100,7 +1100,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         super().__init__(config, *args, **kwargs)
 
     def init_adapters(self, config, add_prefix_tuning_pool=True):
-        super().init_adapters(config, add_prefix_tuning_pool)
+        super().init_adapters(config, add_prefix_tuning_pool=add_prefix_tuning_pool)
         self._convert_to_flex_head = False
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
