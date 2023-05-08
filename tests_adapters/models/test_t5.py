@@ -1,3 +1,4 @@
+# flake8: noqa: F403,F405
 from adapter_transformers import T5AdapterModel
 from tests.models.t5.test_modeling_t5 import *
 from transformers.testing_utils import require_torch

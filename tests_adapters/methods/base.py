@@ -248,6 +248,7 @@ class AdapterMethodBaseTestMixin:
         # check that the adapters have changed, but the base model has not
         adapters_with_change, base_with_change = False, False
         # check whether the key corresponds to a tied embedding
+
         def has_tied_embeddings(k):
             tied_embeddings = hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings
             is_tied_layer = (

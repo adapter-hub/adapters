@@ -10,33 +10,33 @@ from .auto_factory import _LazyAdapterModelAutoMapping
 # Make sure that children are placed before parents!
 ADAPTER_MODEL_MAPPING_NAMES = OrderedDict(
     [
-        ("xlm-roberta", "XLMRobertaAdapterModel"),
-        ("roberta", "RobertaAdapterModel"),
         ("albert", "AlbertAdapterModel"),
+        ("bart", "BartAdapterModel"),
         ("beit", "BeitAdapterModel"),
         ("bert", "BertAdapterModel"),
         ("bert-generation", "BertGenerationAdapterModel"),
-        ("distilbert", "DistilBertAdapterModel"),
-        ("deberta-v2", "DebertaV2AdapterModel"),
         ("deberta", "DebertaAdapterModel"),
-        ("bart", "BartAdapterModel"),
-        ("mbart", "MBartAdapterModel"),
+        ("deberta-v2", "DebertaV2AdapterModel"),
+        ("distilbert", "DistilBertAdapterModel"),
         ("gpt2", "GPT2AdapterModel"),
         ("gptj", "GPTJAdapterModel"),
+        ("mbart", "MBartAdapterModel"),
+        ("roberta", "RobertaAdapterModel"),
         ("t5", "T5AdapterModel"),
         ("vit", "ViTAdapterModel"),
+        ("xlm-roberta", "XLMRobertaAdapterModel"),
     ]
 )
 MODEL_WITH_HEADS_MAPPING_NAMES = OrderedDict(
     [
-        ("xlm-roberta", "XLMRobertaModelWithHeads"),
-        ("roberta", "RobertaModelWithHeads"),
+        ("bart", "BartModelWithHeads"),
         ("bert", "BertModelWithHeads"),
         ("distilbert", "DistilBertModelWithHeads"),
-        ("bart", "BartModelWithHeads"),
-        ("mbart", "MBartModelWithHeads"),
         ("gpt2", "GPT2ModelWithHeads"),
+        ("mbart", "MBartModelWithHeads"),
+        ("roberta", "RobertaModelWithHeads"),
         ("t5", "T5ModelWithHeads"),
+        ("xlm-roberta", "XLMRobertaModelWithHeads"),
     ]
 )
 

@@ -1,3 +1,4 @@
+# flake8: noqa: F403,F405
 from adapter_transformers import ViTAdapterModel
 from tests.models.vit.test_modeling_vit import *
 from transformers.testing_utils import require_torch

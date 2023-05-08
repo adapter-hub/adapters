@@ -1,3 +1,4 @@
+# flake8: noqa: F403,F405
 from adapter_transformers import DistilBertAdapterModel
 from tests.models.distilbert.test_modeling_distilbert import *
 from transformers.testing_utils import require_torch

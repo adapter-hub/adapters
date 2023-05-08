@@ -22,12 +22,8 @@ from transformers.utils import _LazyModule
 
 
 _import_structure = {
-    "configuration": [
-        "wrap_config",
-    ],
-    "model": [
-        "wrap_model",
-    ],
+    "configuration": ["wrap_config"],
+    "model": ["wrap_model"],
 }
 
 

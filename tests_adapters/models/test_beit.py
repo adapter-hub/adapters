@@ -1,3 +1,4 @@
+# flake8: noqa: F403,F405
 from adapter_transformers import BeitAdapterModel
 from tests.models.beit.test_modeling_beit import *
 from transformers.testing_utils import require_torch

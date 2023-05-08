@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 
 from ..composition import adjust_tensors_for_parallel
-from ..context import ForwardContext
 from ..layer import AdapterLayer
 from ..lora import Linear as LoRALinear
 from ..model_mixin import (
