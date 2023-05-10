@@ -1,17 +1,17 @@
 # Overview and Configuration
 
 Large pre-trained Transformer-based language models (LMs) have become the foundation of NLP in recent years.
-While the most prevalent method of using these LMs for transfer learning involves costly *full fine-tuning* of all model parameters, a series of *efficient* and *lightweight* alternatives have been established in recent time.
-Instead of updating all parameters of the pre-trained LM towards a downstream target task, these methods commonly introduce a small amount of new parameters and only update these while keeping the pre-trained model weights fixed.
+While the most prevalent method of using these LMs for transfer learning involves costly *full fine-tuning* of all model parameters, a series of *efficient* and *lightweight* alternatives have recently been established.
+Instead of updating all parameters of the pre-trained LM towards a downstream target task, these methods commonly introduce a small number of new parameters and only update these while keeping the pre-trained model weights fixed.
 
 ```{admonition} Why use Efficient Fine-Tuning?
-Efficient fine-tuning methods offer multiple benefits over full fine-tuning of LMs:
+Efficient fine-tuning methods offer multiple benefits over the full fine-tuning of LMs:
 
-- They are **parameter-efficient**, i.e. they only update a very small subset (often under 1%) of a model's parameters.
-- They often are **modular**, i.e. the updated parameters can be extracted and shared independently of the base model parameters.
-- They are easy to share and easy to deploy due to their **small file sizes**, e.g. having only ~3MB per task instead of ~440MB for sharing a full model.
-- They **speed up training**, i.e. efficient fine-tuning often needs less time for training compared fully fine-tuning LMs.
-- They are **composable**, e.g. multiple adapters trained on different tasks can be stacked, fused or mixed to leverage their combined knowledge.
+- They are **parameter-efficient**, i.e., they only update a tiny subset (often under 1%) of a model's parameters.
+- They often are **modular**, i.e., the updated parameters can be extracted and shared independently of the base model parameters.
+- They are easy to share and deploy due to their **small file sizes**, e.g., having only ~3MB per task instead of ~440MB for sharing a full model.
+- They **speed up training**, i.e., efficient fine-tuning often requires less training time than fully fine-tuning LMs.
+- They are **composable**, e.g., multiple adapters trained on different tasks can be stacked, fused, or mixed to leverage their combined knowledge.
 - They often provide **on-par performance** with full fine-tuning.
 ```
 
@@ -30,12 +30,12 @@ While these adapters have laid the foundation of the adapter-transformers librar
 .. important::
     In literature, different terms are used to refer to efficient fine-tuning methods.
     The term "adapter" is usually only applied to bottleneck adapter modules.
-    However, most efficient fine-tuning methods follow the same general idea of inserting a small set of new parameters and by this "adapting" the pre-trained LM to a new task.
+    However, most efficient fine-tuning methods follow the same general idea of inserting a small set of new parameters and, by this, "adapting" the pre-trained LM to a new task.
     In adapter-transformers, the term "adapter" thus may refer to any efficient fine-tuning method if not specified otherwise.
 ```
 
 In the remaining sections, we will present how adapter methods can be configured in `adapter-transformers`.
-The next two pages will then present the methodological details of all currently supported adapter methods.
+The following two pages will offer the methodological details of all currently supported adapter methods.
 
 ## Table of Adapter Methods
 
@@ -48,14 +48,14 @@ Identifiers and configuration classes are explained in more detail in the [next 
 | `houlsby` | `HoulsbyConfig()` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
 | `parallel` | `ParallelConfig()` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
 | `scaled_parallel` | `ParallelConfig(scaling="learned")` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
-| `pfeiffer+inv` | `PfeifferInvConfig()` | [Invertible Adapters](methods.html#language-adapters---invertible-adapters) |
-| `houlsby+inv` | `HoulsbyInvConfig()` | [Invertible Adapters](methods.html#language-adapters---invertible-adapters) |
+| `pfeiffer+inv` | `PfeifferInvConfig()` | [Invertible Adapters](methods.html#language-adapters-invertible-adapters) |
+| `houlsby+inv` | `HoulsbyInvConfig()` | [Invertible Adapters](methods.html#language-adapters-invertible-adapters) |
 | `compacter` | `CompacterConfig()` | [Compacter](methods.html#compacter) |
 | `compacter++` | `CompacterPlusPlusConfig()` | [Compacter](methods.html#compacter) |
 | `prefix_tuning` | `PrefixTuningConfig()` | [Prefix Tuning](methods.html#prefix-tuning) |
 | `prefix_tuning_flat` | `PrefixTuningConfig(flat=True)` | [Prefix Tuning](methods.html#prefix-tuning) |
 | `lora` | `LoRAConfig()` | [LoRA](methods.html#lora) |
-| `ia3` | `IA3Config()` | [IA³](methods.html#ia3) |
+| `ia3` | `IA3Config()` | [IA³](methods.html#ia-3) |
 | `mam` | `MAMConfig()` | [Mix-and-Match Adapters](method_combinations.html#mix-and-match-adapters) |
 | `unipelt` | `UniPELTConfig()` | [UniPELT](method_combinations.html#unipelt) |
 
@@ -83,11 +83,15 @@ Here, `<identifier>` refers to one of the identifiers listed in [the table above
 In square brackets after the identifier, you can set specific configuration attributes from the respective configuration class, e.g. `parallel[reduction_factor=2]`.
 If all attributes remain at their default values, this can be omitted.
 
-Finally, it is also possible to specify a [method combination](method_combinations.md) as a configuration string by joining multiple configuration strings with `|`.
-E.g., `prefix_tuning[bottleneck_size=800]|parallel` is identical to the following configuration class instance:
+Finally, it is also possible to specify a [method combination](method_combinations.md) as a configuration string by joining multiple configuration strings with `|`, e.g.:
+```python
+config = "prefix_tuning[bottleneck_size=800]|parallel"
+```
+
+is identical to the following `ConfigUnion`:
 
 ```python
-ConfigUnion(
+config = ConfigUnion(
     PrefixTuningConfig(bottleneck_size=800),
     ParallelConfig(),
 )
