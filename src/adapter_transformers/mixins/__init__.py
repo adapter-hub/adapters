@@ -1,3 +1,4 @@
+from .albert import AlbertModelAdaptersMixin
 from .bart import BartDecoderAdaptersMixin, BartEncoderAdaptersMixin, BartModelAdaptersMixin
 from .bert import BertLayerAdaptersMixin, BertModelAdaptersMixin
 from .t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
@@ -5,6 +6,7 @@ from .t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithH
 
 # IMPORTANT: Only add classes to this mapping that are not copied into the adapter-transformers package
 MODEL_MIXIN_MAPPING = {
+    "AlbertModel": AlbertModelAdaptersMixin,
     "BartEncoder": BartEncoderAdaptersMixin,
     "BartDecoder": BartDecoderAdaptersMixin,
     "BartModel": BartModelAdaptersMixin,

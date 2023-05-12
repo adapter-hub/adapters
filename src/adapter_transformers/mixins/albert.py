@@ -1,35 +1,60 @@
-from typing import Iterable, Tuple
+from typing import Callable, Iterable, Tuple
 
 import torch.nn as nn
 
+from ..composition import adjust_tensors_for_parallel_
 from ..layer import AdapterLayer
-from ..model_mixin import (
-    EmbeddingAdaptersMixin,
-    EmbeddingAdaptersWrapperMixin,
-    InvertibleAdaptersMixin,
-    ModelAdaptersMixin,
-    ModelWithHeadsAdaptersMixin,
-)
+from ..lora import Linear as LoRALinear
+from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ..prefix_tuning import PrefixTuningShim
 
 
 class AlbertAttentionAdaptersMixin:
     """Adds adapters to the AlbertAttention module of ALBERT."""
 
-    def _init_adapter_modules(self):
-        self.attention_adapters = AdapterLayer("mh_adapter", self.config)
-        self.attention_adapters._init_adapter_modules()
+    def init_adapters(self, config):
+        # Wrap layers for LoRA
+        self.query = LoRALinear.wrap(self.query, "selfattn", config, attn_key="q")
+        self.key = LoRALinear.wrap(self.key, "selfattn", config, attn_key="k")
+        self.value = LoRALinear.wrap(self.value, "selfattn", config, attn_key="v")
+
+        self.attention_adapters = AdapterLayer("mh_adapter")
+
+        self.prefix_tuning = PrefixTuningShim(self.location_key + "_prefix" if self.location_key else None, config)
 
 
 class AlbertEncoderLayerAdaptersMixin:
     """Adds adapters to the AlbertLayer module."""
 
-    def _init_adapter_modules(self):
-        self.output_adapters = AdapterLayer("output_adapter", self.config)
-        self.output_adapters._init_adapter_modules()
+    def init_adapters(self, config):
+        # Wrap layers for LoRA
+        self.ffn = LoRALinear.wrap(self.ffn, "intermediate", config)
+        self.ffn_output = LoRALinear.wrap(self.ffn_output, "output", config)
+
+        # Set location keys for prefix tuning
+        self.location_key = "output_adapter"
+
+        self.output_adapters = AdapterLayer("output_adapter")
+
+        self.attention.location_key = "self"
 
 
-class AlbertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
+class AlbertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the AlbertModel module."""
+
+    def init_adapters(self, config):
+        super().init_adapters(config)
+
+        # Set hook for parallel composition
+        for _, layer in self.iter_layers():
+            self._set_layer_hook_for_parallel(layer)
+
+    def _set_layer_hook_for_parallel(self, layer: nn.Module):
+        def hook(module, input):
+            adjust_tensors_for_parallel_(input[0], input[1])
+            return input
+
+        layer.register_forward_pre_hook(hook)
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         i = 0
@@ -38,6 +63,5 @@ class AlbertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, 
                 yield i, albertLayer
                 i += 1
 
-
-class AlbertModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
-    pass
+    def hook_after_embeddings(self, hook_fn: Callable):
+        return self.embeddings.register_forward_hook(hook_fn)

@@ -23,35 +23,11 @@ from transformers.utils import _LazyModule
 
 _import_structure = {
     "adapter_model": ["AlbertAdapterModel"],
-    "modeling_albert": [
-        "ALBERT_PRETRAINED_MODEL_ARCHIVE_LIST",
-        "AlbertForMaskedLM",
-        "AlbertForMultipleChoice",
-        "AlbertForPreTraining",
-        "AlbertForQuestionAnswering",
-        "AlbertForSequenceClassification",
-        "AlbertForTokenClassification",
-        "AlbertModel",
-        "AlbertPreTrainedModel",
-        "load_tf_weights_in_albert",
-    ],
 }
 
 
 if TYPE_CHECKING:
     from .adapter_model import AlbertAdapterModel
-    from .modeling_albert import (
-        ALBERT_PRETRAINED_MODEL_ARCHIVE_LIST,
-        AlbertForMaskedLM,
-        AlbertForMultipleChoice,
-        AlbertForPreTraining,
-        AlbertForQuestionAnswering,
-        AlbertForSequenceClassification,
-        AlbertForTokenClassification,
-        AlbertModel,
-        AlbertPreTrainedModel,
-        load_tf_weights_in_albert,
-    )
 
 else:
     import sys
