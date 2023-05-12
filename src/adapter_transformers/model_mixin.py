@@ -53,8 +53,8 @@ class InvertibleAdaptersMixin:
 
     def hook_after_embeddings(self, hook_fn: Callable):
         """
-        Hook a function to be called after the embeddings have been computed.
-        The default implementation does nothing. Override this method to add a hook.
+        Hook a function to be called after the embeddings have been computed. The default implementation does nothing.
+        Override this method to add a hook.
 
         Args:
             hook_fn (Callable): The function to be called after the embeddings have been computed.

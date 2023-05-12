@@ -19,45 +19,14 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 
-from transformers import BartConfig
-from transformers.activations import ACT2FN
+from transformers.models.bart.modeling_bart import BartAttention, BartDecoderLayer, BartEncoderLayer
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
 from ...mixins.bart import BartAttentionAdaptersMixin, BartDecoderLayerAdaptersMixin, BartEncoderLayerAdaptersMixin
 
 
-class BartAttention(BartAttentionAdaptersMixin, nn.Module):
+class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
-
-    def __init__(
-        self,
-        embed_dim: int,
-        num_heads: int,
-        dropout: float = 0.0,
-        is_decoder: bool = False,
-        bias: bool = True,
-    ):
-        super().__init__()
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.dropout = dropout
-        self.head_dim = embed_dim // num_heads
-
-        if (self.head_dim * num_heads) != self.embed_dim:
-            raise ValueError(
-                f"embed_dim must be divisible by num_heads (got `embed_dim`: {self.embed_dim}"
-                f" and `num_heads`: {num_heads})."
-            )
-        self.scaling = self.head_dim**-0.5
-        self.is_decoder = is_decoder
-
-        self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-
-    def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
-        return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
 
     def forward(
         self,
@@ -187,23 +156,7 @@ class BartAttention(BartAttentionAdaptersMixin, nn.Module):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-class BartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
-    def __init__(self, config: BartConfig):
-        super().__init__()
-        self.embed_dim = config.d_model
-        self.self_attn = BartAttention(
-            embed_dim=self.embed_dim,
-            num_heads=config.encoder_attention_heads,
-            dropout=config.attention_dropout,
-        )
-        self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
-        self.dropout = config.dropout
-        self.activation_fn = ACT2FN[config.activation_function]
-        self.activation_dropout = config.activation_dropout
-        self.fc1 = nn.Linear(self.embed_dim, config.encoder_ffn_dim)
-        self.fc2 = nn.Linear(config.encoder_ffn_dim, self.embed_dim)
-        self.final_layer_norm = nn.LayerNorm(self.embed_dim)
-
+class BartEncoderLayerWithAdapters(BartEncoderLayerAdaptersMixin, BartEncoderLayer):
     def forward(
         self,
         hidden_states: torch.FloatTensor,
@@ -255,33 +208,7 @@ class BartEncoderLayer(BartEncoderLayerAdaptersMixin, nn.Module):
         return outputs
 
 
-class BartDecoderLayer(BartDecoderLayerAdaptersMixin, nn.Module):
-    def __init__(self, config: BartConfig):
-        super().__init__()
-        self.embed_dim = config.d_model
-
-        self.self_attn = BartAttention(
-            embed_dim=self.embed_dim,
-            num_heads=config.decoder_attention_heads,
-            dropout=config.attention_dropout,
-            is_decoder=True,
-        )
-        self.dropout = config.dropout
-        self.activation_fn = ACT2FN[config.activation_function]
-        self.activation_dropout = config.activation_dropout
-
-        self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
-        self.encoder_attn = BartAttention(
-            self.embed_dim,
-            config.decoder_attention_heads,
-            dropout=config.attention_dropout,
-            is_decoder=True,
-        )
-        self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
-        self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
-        self.fc2 = nn.Linear(config.decoder_ffn_dim, self.embed_dim)
-        self.final_layer_norm = nn.LayerNorm(self.embed_dim)
-
+class BartDecoderLayerWithAdapters(BartDecoderLayerAdaptersMixin, BartDecoderLayer):
     def forward(
         self,
         hidden_states: torch.Tensor,
