@@ -1,34 +1,58 @@
-from typing import Iterable, Tuple
+from typing import Callable, Iterable, Tuple
 
 import torch.nn as nn
 
 from ..layer import AdapterLayer
-from ..model_mixin import (
-    EmbeddingAdaptersMixin,
-    EmbeddingAdaptersWrapperMixin,
-    InvertibleAdaptersMixin,
-    ModelAdaptersMixin,
-    ModelWithHeadsAdaptersMixin,
-)
+from ..lora import Linear as LoRALinear
+from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ..prefix_tuning import PrefixTuningShim
+
+
+class DistilBertMultiHeadSelfAttentionMixin:
+    """Adds adapters to the MultiHeadSelfAttention module of DistilBert."""
+
+    def init_adapters(self, config):
+        # Wrap layers for LoRA
+        self.q_lin = LoRALinear.wrap(self.q_lin, "selfattn", config, attn_key="q")
+        self.k_lin = LoRALinear.wrap(self.k_lin, "selfattn", config, attn_key="k")
+        self.v_lin = LoRALinear.wrap(self.v_lin, "selfattn", config, attn_key="v")
+
+        self.prefix_tuning = PrefixTuningShim("self", config)
 
 
 class DistilBertTransfomerBlockAdaptersMixin:
     """Adds adapters to the TransformerBlock module of DistilBert."""
 
-    def _init_adapter_modules(self):
-        self.attention_adapters = AdapterLayer("mh_adapter", self.config)
-        self.output_adapters = AdapterLayer("output_adapter", self.config)
-        self.attention_adapters._init_adapter_modules()
-        self.output_adapters._init_adapter_modules()
+    def init_adapters(self, config):
+        # Wrap layers for LoRA
+        self.ffn.lin1 = LoRALinear.wrap(self.ffn.lin1, "intermediate", config)
+        self.ffn.lin2 = LoRALinear.wrap(self.ffn.lin2, "output", config)
+
+        self.attention_adapters = AdapterLayer("mh_adapter")
+        self.output_adapters = AdapterLayer("output_adapter")
 
 
-class DistilBertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
+class DistilBertTransformerAdaptersMixin:
+    """Adds adapters to the Transformer module of DistilBert."""
+
+    def forward(self, *args, **kwargs):
+        if hasattr(self, "pre_forward_fn"):
+            kwargs["x"] = self.pre_forward_fn(self, kwargs["x"])
+        return super().forward(*args, **kwargs)
+
+
+class DistilBertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the DistilBert module."""
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.transformer.layer):
             yield i, layer
 
+    def _hook_fn(self, module, input):
+        new_input = self.invertible_adapters_forward(input)
+        return new_input
 
-class DistilBertModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
-    pass
+    def hook_after_embeddings(self, hook_fn: Callable):
+        # PyTorch's built-in pre-forward hook does not pass the input ids.
+        # Therefore, we need to use a custom hook.
+        self.transformer.pre_forward_fn = hook_fn

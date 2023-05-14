@@ -22,35 +22,12 @@ from transformers.utils import _LazyModule
 
 
 _import_structure = {
-    "adapter_model": [
-        "DistilBertAdapterModel",
-        "DistilBertModelWithHeads",
-    ],
-    "modeling_distilbert": [
-        "DISTILBERT_PRETRAINED_MODEL_ARCHIVE_LIST",
-        "DistilBertForMaskedLM",
-        "DistilBertForMultipleChoice",
-        "DistilBertForQuestionAnswering",
-        "DistilBertForSequenceClassification",
-        "DistilBertForTokenClassification",
-        "DistilBertModel",
-        "DistilBertPreTrainedModel",
-    ],
+    "adapter_model": ["DistilBertAdapterModel"],
 }
 
 
 if TYPE_CHECKING:
-    from .adapter_model import DistilBertAdapterModel, DistilBertModelWithHeads
-    from .modeling_distilbert import (
-        DISTILBERT_PRETRAINED_MODEL_ARCHIVE_LIST,
-        DistilBertForMaskedLM,
-        DistilBertForMultipleChoice,
-        DistilBertForQuestionAnswering,
-        DistilBertForSequenceClassification,
-        DistilBertForTokenClassification,
-        DistilBertModel,
-        DistilBertPreTrainedModel,
-    )
+    from .adapter_model import DistilBertAdapterModel
 
 else:
     import sys

@@ -1,7 +1,11 @@
-import warnings
-
 import torch.nn as nn
 
+from transformers.models.distilbert.modeling_distilbert import (
+    DISTILBERT_INPUTS_DOCSTRING,
+    DISTILBERT_START_DOCSTRING,
+    DistilBertModel,
+    DistilBertPreTrainedModel,
+)
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...heads import (
@@ -16,12 +20,7 @@ from ...heads import (
     TaggingHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from .modeling_distilbert import (
-    DISTILBERT_INPUTS_DOCSTRING,
-    DISTILBERT_START_DOCSTRING,
-    DistilBertModel,
-    DistilBertPreTrainedModel,
-)
+from ...wrappers import wrap_model
 
 
 @add_start_docstrings(
@@ -33,7 +32,7 @@ class DistilBertAdapterModel(
 ):
     def __init__(self, config):
         super().__init__(config)
-        self.distilbert = DistilBertModel(config)
+        self.distilbert = wrap_model(DistilBertModel(config))
 
         self._init_head_modules()
 
@@ -249,37 +248,3 @@ class DistilBertAdapterModel(
             self, head_name, layers=2, activation_function=activation_function, layer_norm=True, bias=True
         )
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
-
-
-class DistilBertModelWithHeads(DistilBertAdapterModel):
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                self.__class__.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        super().__init__(*args, **kwargs)
-
-    @classmethod
-    def from_config(cls, config):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                cls.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        return super().from_config(config)
-
-    @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                cls.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

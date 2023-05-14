@@ -1,6 +1,7 @@
 from .albert import AlbertModelAdaptersMixin
 from .bart import BartDecoderAdaptersMixin, BartEncoderAdaptersMixin, BartModelAdaptersMixin
 from .bert import BertLayerAdaptersMixin, BertModelAdaptersMixin
+from .distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
 
 
@@ -12,6 +13,8 @@ MODEL_MIXIN_MAPPING = {
     "BartModel": BartModelAdaptersMixin,
     "BertLayer": BertLayerAdaptersMixin,
     "BertModel": BertModelAdaptersMixin,
+    "Transformer": DistilBertTransformerAdaptersMixin,
+    "DistilBertModel": DistilBertModelAdaptersMixin,
     "RobertaLayer": BertLayerAdaptersMixin,
     "RobertaModel": BertModelAdaptersMixin,
     "T5Block": T5BlockAdaptersMixin,
