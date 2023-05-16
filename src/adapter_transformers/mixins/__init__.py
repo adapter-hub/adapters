@@ -4,7 +4,7 @@ from .beit import BeitIntermediateAdaptersMixin, BeitModelAdaptersMixin, BeitOut
 from .bert import BertLayerAdaptersMixin, BertModelAdaptersMixin
 from .distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
-
+from .vit import ViTModelAdaptersMixin, ViTIntermediateAdaptersMixin
 
 # IMPORTANT: Only add classes to this mapping that are not copied into the adapter-transformers package
 MODEL_MIXIN_MAPPING = {
@@ -25,6 +25,8 @@ MODEL_MIXIN_MAPPING = {
     "T5Model": T5ModelAdaptersMixin,
     "T5ForConditionalGeneration": T5ModelAdaptersWithHeadsMixin,
     "T5EncoderModel": T5ModelAdaptersMixin,
+    "ViTIntermediate": ViTIntermediateAdaptersMixin,
+    "ViTModel": ViTModelAdaptersMixin,
     "XLMRobertaLayer": BertLayerAdaptersMixin,
     "XLMRobertaModel": BertModelAdaptersMixin,
 }

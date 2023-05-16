@@ -6,18 +6,24 @@ from transformers.utils import add_start_docstrings, add_start_docstrings_to_mod
 
 from ...context import AdapterSetup
 from ...heads import ImageClassificationHead, ModelWithFlexibleHeadsAdaptersMixin
-from .modeling_vit import VIT_INPUTS_DOCSTRING, VIT_START_DOCSTRING, ViTModel, ViTPreTrainedModel
+from transformers.models.vit.modeling_vit import (
+    VIT_INPUTS_DOCSTRING,
+    VIT_START_DOCSTRING,
+    ViTModel,
+    ViTPreTrainedModel,
+)
+from ...wrappers import wrap_model
 
 
 @add_start_docstrings(
-    """Bert Model transformer with the option to add multiple flexible heads on top.""",
+    """ViT Model transformer with the option to add multiple flexible heads on top.""",
     VIT_START_DOCSTRING,
 )
 class ViTAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, ViTPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
-        self.vit = ViTModel(config)
+        self.vit = wrap_model(ViTModel(config))
 
         self._init_head_modules()
 

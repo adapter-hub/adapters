@@ -23,25 +23,11 @@ from transformers.utils import _LazyModule
 
 _import_structure = {
     "adapter_model": ["ViTAdapterModel"],
-    "modeling_vit": [
-        "VIT_PRETRAINED_MODEL_ARCHIVE_LIST",
-        "ViTForImageClassification",
-        "ViTForMaskedImageModeling",
-        "ViTModel",
-        "ViTPreTrainedModel",
-    ],
 }
 
 
 if TYPE_CHECKING:
     from .adapter_model import ViTAdapterModel
-    from .modeling_vit import (
-        VIT_PRETRAINED_MODEL_ARCHIVE_LIST,
-        ViTForImageClassification,
-        ViTForMaskedImageModeling,
-        ViTModel,
-        ViTPreTrainedModel,
-    )
 
 else:
     import sys
