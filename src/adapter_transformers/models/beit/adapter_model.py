@@ -2,11 +2,17 @@ from typing import Optional
 
 import torch
 
+from transformers.models.beit.modeling_beit import (
+    BEIT_INPUTS_DOCSTRING,
+    BEIT_START_DOCSTRING,
+    BeitModel,
+    BeitPreTrainedModel,
+)
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import AdapterSetup
 from ...heads import ImageClassificationHead, ModelWithFlexibleHeadsAdaptersMixin
-from .modeling_beit import BEIT_INPUTS_DOCSTRING, BEIT_START_DOCSTRING, BeitModel, BeitPreTrainedModel
+from ...wrappers import wrap_model
 
 
 @add_start_docstrings(
@@ -17,7 +23,7 @@ class BeitAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BeitPreTrainedModel)
     def __init__(self, config):
         super().__init__(config)
 
-        self.beit = BeitModel(config)
+        self.beit = wrap_model(BeitModel(config))
 
         self._init_head_modules()
 
