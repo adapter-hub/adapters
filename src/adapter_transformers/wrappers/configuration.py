@@ -98,9 +98,8 @@ def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
     if getattr(config, "is_adaptable", False):
         return config
 
-    # Make sure PretrainedConfigAdaptersMixin is in the bases
-    if PretrainedConfigAdaptersMixin not in config.__class__.__bases__:
-        config.__class__.__bases__ = (PretrainedConfigAdaptersMixin,) + config.__class__.__bases__
+    # Create new config class that inherits original one & adds PretrainedConfigAdaptersMixin
+    config.__class__ = type(config.__class__.__name__, (PretrainedConfigAdaptersMixin, config.__class__), {})
 
     # Init ModelAdaptersConfig
     if not hasattr(config, "adapters"):

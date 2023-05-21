@@ -213,6 +213,8 @@ class AdapterMethodBaseTestMixin:
         trainer.train()
 
     def run_train_test(self, adapter_config, filter_keys):
+        if not self.do_run_train_tests:
+            self.skipTest("Skipping training tests. Set `do_run_train_tests=True` to run them.")
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
         model = AutoAdapterModel.from_config(self.config())

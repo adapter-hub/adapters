@@ -8,12 +8,24 @@ from ..mixins import MODEL_MIXIN_MAPPING
 from ..model_mixin import EmbeddingAdaptersWrapperMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 
 
+SPECIAL_MODEL_TYPE_TO_MODULE_NAME = {
+    "clip_vision_model": "clip",
+    "clip_text_model": "clip",
+}
+
+
+def get_module_name(model_type: str) -> str:
+    if model_type in SPECIAL_MODEL_TYPE_TO_MODULE_NAME:
+        return SPECIAL_MODEL_TYPE_TO_MODULE_NAME[model_type]
+    return model_type_to_module_name(model_type)
+
+
 def wrap_model(model: PreTrainedModel) -> PreTrainedModel:
     if isinstance(model, ModelAdaptersMixin):
         return model
 
     # First, replace original module classes with their adapter-transformers counterparts
-    model_name = model_type_to_module_name(model.config.model_type)
+    model_name = get_module_name(model.config.model_type)
     modules_with_adapters = importlib.import_module(
         f".{model_name}.modeling_{model_name}", "adapter_transformers.models"
     )

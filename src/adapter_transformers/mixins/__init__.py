@@ -2,6 +2,13 @@ from .albert import AlbertModelAdaptersMixin
 from .bart import BartDecoderAdaptersMixin, BartEncoderAdaptersMixin, BartModelAdaptersMixin
 from .beit import BeitIntermediateAdaptersMixin, BeitModelAdaptersMixin, BeitOutputAdaptersMixin
 from .bert import BertLayerAdaptersMixin, BertModelAdaptersMixin
+from .clip import (
+    CLIPEncoderAdaptersMixin,
+    CLIPModelAdaptersMixin,
+    CLIPTextModelAdaptersMixin,
+    CLIPTextTransformerAdaptersMixin,
+    CLIPVisionModelAdaptersMixin,
+)
 from .distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
 from .vit import ViTModelAdaptersMixin, ViTIntermediateAdaptersMixin
@@ -19,6 +26,13 @@ MODEL_MIXIN_MAPPING = {
     "BertModel": BertModelAdaptersMixin,
     "Transformer": DistilBertTransformerAdaptersMixin,
     "DistilBertModel": DistilBertModelAdaptersMixin,
+    "CLIPEncoder": CLIPEncoderAdaptersMixin,
+    "CLIPTextTransformer": CLIPTextTransformerAdaptersMixin,
+    "CLIPTextModel": CLIPTextModelAdaptersMixin,
+    "CLIPVisionModel": CLIPVisionModelAdaptersMixin,
+    "CLIPModel": CLIPModelAdaptersMixin,
+    "CLIPTextModelWithProjection": CLIPTextModelAdaptersMixin,
+    "CLIPVisionModelWithProjection": CLIPVisionModelAdaptersMixin,
     "RobertaLayer": BertLayerAdaptersMixin,
     "RobertaModel": BertModelAdaptersMixin,
     "T5Block": T5BlockAdaptersMixin,

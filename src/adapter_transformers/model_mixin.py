@@ -353,6 +353,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def model_name(self):
         return self.config.name_or_path
 
+    def _init_adapters_submodules(self, config):
+        # Initialize adapters in all submodules
+        for module in self.modules():
+            # skip calling module
+            if module == self:
+                continue
+            if hasattr(module, "init_adapters"):
+                module.init_adapters(config)
+
     def init_adapters(self, config, add_prefix_tuning_pool=True):
         """
         This method initializes adapter modules and fusion modules from the model config.
@@ -363,12 +372,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.config = wrap_config(config)
 
         # Initialize adapters in all submodules
-        for module in self.modules():
-            # skip calling module
-            if module == self:
-                continue
-            if hasattr(module, "init_adapters"):
-                module.init_adapters(self.config)
+        self._init_adapters_submodules(self.config)
 
         # Link all prefix tunings
         if add_prefix_tuning_pool:

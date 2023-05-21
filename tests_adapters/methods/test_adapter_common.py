@@ -289,6 +289,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         self.run_train_test(MAMConfig(), ["adapters.{name}."])
 
     def test_train_adapter_fusion(self):
+        if not self.do_run_train_tests:
+            self.skipTest("Skipping training tests. Set `do_run_train_tests=True` to run them.")
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
         model = AutoAdapterModel.from_config(self.config())
@@ -362,6 +364,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         self.assertFalse(base_with_change)
 
     def test_batch_split_training(self):
+        if not self.do_run_train_tests:
+            self.skipTest("Skipping training tests. Set `do_run_train_tests=True` to run them.")
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
         model = AutoAdapterModel.from_config(self.config())

@@ -103,6 +103,7 @@ _import_structure = {
         "BertModelWithHeads",
     ],
     "models.bert_generation": ["BertGenerationAdapterModel"],
+    "models.clip": ["CLIPAdapterModel"],
     "models.deberta": ["DebertaAdapterModel"],
     "models.deberta_v2": ["DebertaV2AdapterModel"],
     "models.distilbert": [
@@ -217,6 +218,7 @@ if TYPE_CHECKING:
     from .models.beit import BeitAdapterModel
     from .models.bert import BertAdapterModel, BertModelWithHeads
     from .models.bert_generation import BertGenerationAdapterModel
+    from .models.clip import CLIPAdapterModel
     from .models.deberta import DebertaAdapterModel
     from .models.deberta_v2 import DebertaV2AdapterModel
     from .models.distilbert import DistilBertAdapterModel, DistilBertModelWithHeads

@@ -18,6 +18,7 @@ class AdapterTestBase:
     model_class = AutoAdapterModel
     # Default shape of inputs to use
     default_input_samples_shape = (3, 64)
+    do_run_train_tests = True
 
     def get_model(self):
         if self.model_class == AutoAdapterModel:

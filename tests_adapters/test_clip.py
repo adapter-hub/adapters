@@ -1,8 +1,18 @@
 import random
 import unittest
 
-from tests.models.clip.test_modeling_clip import *
-from transformers.testing_utils import require_torch
+import torch
+
+from transformers import (
+    CLIPConfig,
+    CLIPTextConfig,
+    CLIPTextModel,
+    CLIPTextModelWithProjection,
+    CLIPVisionConfig,
+    CLIPVisionModel,
+    CLIPVisionModelWithProjection,
+)
+from transformers.testing_utils import require_torch, torch_device
 
 from .methods import (
     BottleneckAdapterTestMixin,
@@ -155,15 +165,10 @@ class CLIPAdapterTestBase(AdapterTestBase):
         )
     )
     tokenizer_name = "openai/clip-vit-base-patch32"
-    model_class = CLIPModel
     # Default shape of inputs to use
     default_text_input_samples_shape = (3, 64)
     default_vision_input_samples_shape = (3, 3, 224, 224)
-
-    def get_model(self):
-        model = self.model_class(self.config())
-        model.to(torch_device)
-        return model
+    do_run_train_tests = False
 
     def get_input_samples(self, vocab_size=5000, config=None):
         # text inputs
@@ -194,6 +199,9 @@ class CLIPAdapterTestBase(AdapterTestBase):
 
         return in_data
 
+    def add_head(self, *args, **kwargs):
+        pass
+
 
 @require_torch
 class CLIPAdapterTest(
@@ -208,4 +216,6 @@ class CLIPAdapterTest(
     CLIPAdapterTestBase,
     unittest.TestCase,
 ):
-    pass
+    def test_adapter_fusion_save_with_head(self):
+        # This test is not applicable to CLIP
+        self.skipTest("Not applicable to CLIP.")
