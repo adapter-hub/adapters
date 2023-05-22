@@ -1,7 +1,7 @@
 # Adapter Methods
 
 On this page, we present all adapter methods currently integrated into the `adapter-transformers` library.
-A tabular overview of adapter methods is provided [here](overview.html#table-of-adapter-methods). 
+A tabular overview of adapter methods is provided [here](overview.html#table-of-adapter-methods).
 Additionally, options to combine multiple adapter methods in a single setup are presented [on the next page](method_combinations.md).
 
 ## Bottleneck Adapters
@@ -142,12 +142,12 @@ _Configuration class_: [`CompacterConfig`](transformers.CompacterConfig), [`Comp
 ```
 
 The Compacter architecture proposed by [Mahabadi et al., 2021](https://arxiv.org/pdf/2106.04647.pdf)
-is similar to the bottleneck adapter architecture. It only exchanges the linear down- and 
+is similar to the bottleneck adapter architecture. It only exchanges the linear down- and
 up-projection with a PHM layer. Unlike the linear layer, the PHM layer constructs its weight matrix from two smaller matrices, which reduces the number of parameters.
  These matrices can be factorized and shared between all adapter layers. You can exchange the down- and up-projection layers from any of the bottleneck adapters described in the previous section
 for a PHM layer by specifying `use_phm=True` in the config.
 
-The PHM layer has the following additional properties: `phm_dim`, `shared_phm_rule`, `factorized_phm_rule`, `learn_phm`, 
+The PHM layer has the following additional properties: `phm_dim`, `shared_phm_rule`, `factorized_phm_rule`, `learn_phm`,
 `factorized_phm_W`, `shared_W_phm`, `phm_c_init`, `phm_init_range`, `hypercomplex_nonlinearity`
 
 For more information, check out the [`AdapterConfig`](transformers.AdapterConfig) class.
@@ -194,7 +194,7 @@ _Example_:
 from transformers.adapters import LoRAConfig
 
 config = LoRAConfig(r=8, alpha=16)
-model.add_adapter("lora_adapter", config=config)
+model.add_adapter("lora", config=config)
 ```
 
 In the design of LoRA, Hu et al. (2021) also pay special attention to keeping the inference latency overhead compared to full fine-tuning at a minimum.
@@ -202,7 +202,7 @@ To accomplish this, the LoRA reparameterization can be merged with the original 
 Thus, the adapted weights are directly used in every forward pass without passing activations through an additional module.
 In `adapter-transformers`, this can be realized using the built-in [`merge_adapter()`](transformers.ModelAdaptersMixin.merge_adapter) method:
 ```python
-model.merge_adapter("lora_adapter")
+model.merge_adapter("lora")
 ```
 
 To continue training on this LoRA adapter or to deactivate it entirely, the merged weights first have to be reset again:
