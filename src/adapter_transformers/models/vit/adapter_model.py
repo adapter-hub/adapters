@@ -2,16 +2,16 @@ from typing import Optional
 
 import torch
 
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
-
-from ...context import AdapterSetup
-from ...heads import ImageClassificationHead, ModelWithFlexibleHeadsAdaptersMixin
 from transformers.models.vit.modeling_vit import (
     VIT_INPUTS_DOCSTRING,
     VIT_START_DOCSTRING,
     ViTModel,
     ViTPreTrainedModel,
 )
+from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+
+from ...context import AdapterSetup
+from ...heads import ImageClassificationHead, ModelWithFlexibleHeadsAdaptersMixin
 from ...wrappers import wrap_model
 
 

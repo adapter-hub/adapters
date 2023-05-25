@@ -1,14 +1,9 @@
-.PHONY: extra_style_checks quality style fixup test test-adapter-methods test-adapter-models test-examples
+.PHONY: extra_style_checks quality style test test-adapter-methods test-adapter-models test-examples
 
 # make sure to test the local checkout in scripts and not the pre-installed one (don't use quotes!)
 export PYTHONPATH = src
 
 check_dirs := examples tests_adapters src utils
-
-# Check that the repo is in a good state
-
-repo-consistency:
-	python utils/check_inits.py
 
 # this target runs checks on all files
 
@@ -19,6 +14,7 @@ quality:
 	python utils/sort_auto_mappings.py --check_only
 	flake8 $(check_dirs)
 	doc-builder style src/adapter_transformers adapter_docs --max_len 119 --check_only --path_to_docs adapter_docs
+	python utils/check_inits.py
 
 # Format source code automatically and check is there are any problems left that need manual fixing
 

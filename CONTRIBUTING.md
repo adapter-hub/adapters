@@ -15,25 +15,33 @@ Whichever way you'd like to contribute, you're very welcome to do so!
 
 ## Contributing to the `adapter-transformers` codebase
 
-To get started with writing code for `adapter-transformers`, you'd want to set up the project on a local/ development environment.
+### Setting up your dev environment
+
+To get started with writing code for `adapter-transformers`, you'd want to set up the project on a local development environment.
+
 `adapter-transformers` closely follows the original HuggingFace Transformers repository in many aspects.
-As they already provide a great guide on setting up the project and the general contribution process, we refer to [their contributing guide](https://github.com/huggingface/transformers/blob/main/CONTRIBUTING.md) here.
-Some additional notes are given below.
+This guide assumes that you want to set up your dev environment on a local machine and that you have basic knowledge of `git`.
+Additionally, you require **Python 3.8** or above pre-installed to get started.
 
-`adapter-transformers` uses the same code quality checks as HuggingFace Transformers.
-Therefore, make sure to pass all the tests run using
-```bash
-$ make quality
-```
-to pass our CI pipeline.
+In the following, we go through the setup procedure step by step:
 
-Besides the commands for formatting, style checking and testing mentioned in the HuggingFace contributing guide, you can run all tests specific to `adapter-transformers` as follows:
-```bash
-$ make test-adapters
-```
-This corresponds to the tests run in our CI pipeline.
-
-Below we refer to more detailed explanations of some typical contribution scenarios.
+1. Fork [the `adapter-transformers` repository](https://github.com/adapter-hub/adapter-transformers) to get a local copy of the code under your user account.
+2. Clone your fork to your local machine:
+    ```
+    git clone --recursive git@github.com:<YOUR_USERNAME>/adapter-transformers.git
+    cd adapter-transformers
+    ```
+    **Note:** The `--recursive` flag is important to initialize git submodules.
+3. Create a virtual environment, e.g. via `virtualenv` or `conda`.
+4. Install PyTorch, following the installation command for your environment [on their website](https://pytorch.org/get-started/locally/).
+5. Install HuggingFace Transformers from the local git submodule:
+    ```
+    pip install ./hf_transformers
+    ```
+6. Install `adapter-transformers` and required dev dependencies:
+    ```
+    pip install -e ".[dev]"
+    ```
 
 ### Adding Adapter Methods
 
@@ -42,6 +50,28 @@ How to integrate new efficient fine-tuning/ adapter methods to `adapter-transfor
 ### Adding Adapters to a Model
 
 How to add adapter support to a model type already supported by HuggingFace Transformers is described at [https://docs.adapterhub.ml/contributing/adding_adapters_to_a_model.html](https://docs.adapterhub.ml/contributing/adding_adapters_to_a_model.html).
+
+### Testing your changes to the codebase
+
+`adapter-transformers` provides multiple Makefile targets for easily running tests and repo checks.
+Make sure these checks run without errors to pass the CI pipeline tasks when you open a pull request.
+
+To **run all tests** in the repository:
+```
+make test
+```
+
+To **auto format code and imports** in the whole codebase:
+```
+make style
+```
+This will run `black` and `isort`.
+
+To **run all quality checks** ensuring code style and repo consistency:
+```
+make quality
+```
+This will run checks with `black`, `isort` and `flake8` as well as additional custom checks.
 
 ## Contributing Adapters to the Hub
 

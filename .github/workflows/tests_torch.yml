@@ -40,7 +40,6 @@ jobs:
       - name: Check Quality and Repo Consistency
         run: |
           make quality
-          make repo-consistency
   test_adapter_methods:
     timeout-minutes: 60
     runs-on: ubuntu-latest

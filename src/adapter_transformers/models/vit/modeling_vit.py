@@ -22,11 +22,10 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 
-from transformers.models.vit.modeling_vit import ViTSelfAttention, ViTOutput, ViTLayer
-
 from adapter_transformers.composition import adjust_tensors_for_parallel
+from transformers.models.vit.modeling_vit import ViTLayer, ViTOutput, ViTSelfAttention
 
-from ...mixins.vit import ViTLayerAdaptersMixin, ViTSelfAttentionAdaptersMixin, ViTOutputAdaptersMixin
+from ...mixins.vit import ViTLayerAdaptersMixin, ViTOutputAdaptersMixin, ViTSelfAttentionAdaptersMixin
 
 
 class ViTSelfAttentionWithAdapters(ViTSelfAttentionAdaptersMixin, ViTSelfAttention):

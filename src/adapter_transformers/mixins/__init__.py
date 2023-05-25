@@ -11,7 +11,8 @@ from .clip import (
 )
 from .distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
-from .vit import ViTModelAdaptersMixin, ViTIntermediateAdaptersMixin
+from .vit import ViTIntermediateAdaptersMixin, ViTModelAdaptersMixin
+
 
 # IMPORTANT: Only add classes to this mapping that are not copied into the adapter-transformers package
 MODEL_MIXIN_MAPPING = {
