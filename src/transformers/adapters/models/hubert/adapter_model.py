@@ -21,9 +21,7 @@ from ...heads import (
     """Hubert Model with the option to add multiple flexible heads on top.""",
     HUBERT_START_DOCSTRING,
 )
-class HubertAdapterModel(
-    ModelWithFlexibleHeadsAdaptersMixin, HubertPreTrainedModel
-):
+class HubertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, HubertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.hubert = HubertModel(config)

@@ -3,10 +3,7 @@ from typing import Iterable, Tuple
 import torch.nn as nn
 
 from ..layer import AdapterLayer
-from ..model_mixin import (
-    ModelAdaptersMixin,
-    ModelWithHeadsAdaptersMixin,
-)
+from ..model_mixin import ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 
 
 class HubertEncoderLayerAdaptersMixin:
