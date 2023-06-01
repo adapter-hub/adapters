@@ -26,6 +26,7 @@ from torch.nn import CrossEntropyLoss
 from transformers.deepspeed import is_deepspeed_zero3_enabled
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
 from ...adapters.context import ForwardContext
 from ...adapters.lora import Linear as LoRALinear
 from ...adapters.mixins.hubert import (
@@ -34,6 +35,7 @@ from ...adapters.mixins.hubert import (
     HubertModelAdaptersMixin,
     HubertModelWithHeadsAdaptersMixin,
 )
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import BaseModelOutput, CausalLMOutput, SequenceClassifierOutput
 from ...modeling_utils import PreTrainedModel
 from ...pytorch_utils import torch_int_div
@@ -430,6 +432,8 @@ class HubertAttention(nn.Module):
         self.q_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, attn_key="q", bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
+        self.prefix_tuning = PrefixTuningShim(None, config)
+
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
 
@@ -488,6 +492,12 @@ class HubertAttention(nn.Module):
             # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_states, value_states)
+
+        key_states, value_states, attention_mask = self.prefix_tuning(
+            key_states, value_states, hidden_states, attention_mask
+        )
+        (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
+        bsz = query_states.size(0)
 
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
         query_states = self._shape(query_states, tgt_len, bsz).view(*proj_shape)
