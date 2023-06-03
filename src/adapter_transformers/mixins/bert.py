@@ -65,7 +65,7 @@ class BertLayerAdaptersMixin:
 
         # Set location keys for prefix tuning
         self.attention.self.location_key = "self"
-        if self.add_cross_attention:
+        if hasattr(self, "add_cross_attention") and self.add_cross_attention:
             self.crossattention.self.location_key = "cross"
 
 

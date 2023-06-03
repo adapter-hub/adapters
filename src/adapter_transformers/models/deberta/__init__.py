@@ -23,29 +23,11 @@ from transformers.utils import _LazyModule
 
 _import_structure = {
     "adapter_model": ["DebertaAdapterModel"],
-    "modeling_deberta": [
-        "DEBERTA_PRETRAINED_MODEL_ARCHIVE_LIST",
-        "DebertaForMaskedLM",
-        "DebertaForQuestionAnswering",
-        "DebertaForSequenceClassification",
-        "DebertaForTokenClassification",
-        "DebertaModel",
-        "DebertaPreTrainedModel",
-    ],
 }
 
 
 if TYPE_CHECKING:
     from .adapter_model import DebertaAdapterModel
-    from .modeling_deberta import (
-        DEBERTA_PRETRAINED_MODEL_ARCHIVE_LIST,
-        DebertaForMaskedLM,
-        DebertaForQuestionAnswering,
-        DebertaForSequenceClassification,
-        DebertaForTokenClassification,
-        DebertaModel,
-        DebertaPreTrainedModel,
-    )
 
 else:
     import sys

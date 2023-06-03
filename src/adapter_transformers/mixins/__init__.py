@@ -44,4 +44,8 @@ MODEL_MIXIN_MAPPING = {
     "ViTModel": ViTModelAdaptersMixin,
     "XLMRobertaLayer": BertLayerAdaptersMixin,
     "XLMRobertaModel": BertModelAdaptersMixin,
+    "DebertaModel": BertModelAdaptersMixin,
+    "DebertaLayer": BertLayerAdaptersMixin,
+    "DebertaV2Model": BertModelAdaptersMixin,
+    "DebertaV2Layer": BertLayerAdaptersMixin,
 }

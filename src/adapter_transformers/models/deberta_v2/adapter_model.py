@@ -1,4 +1,5 @@
 from transformers.file_utils import add_start_docstrings
+from transformers.models.deberta_v2.modeling_deberta_v2 import DebertaV2Model, DebertaV2PreTrainedModel
 
 from ...context import AdapterSetup
 from ...heads import (
@@ -11,7 +12,7 @@ from ...heads import (
     TaggingHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from .modeling_deberta_v2 import DebertaV2Model, DebertaV2PreTrainedModel
+from ...wrappers import wrap_model
 
 
 @add_start_docstrings(
@@ -25,7 +26,7 @@ class DebertaV2AdapterModel(
     def __init__(self, config):
         super().__init__(config)
 
-        self.deberta = DebertaV2Model(config)
+        self.deberta = wrap_model(DebertaV2Model(config))
 
         self._init_head_modules()
 
