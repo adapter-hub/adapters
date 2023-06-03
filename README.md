@@ -36,22 +36,22 @@ This branch disentangles `adapter-transformers` from HF Transformers and adds Tr
 
 ### Model support
 
-- [ ] Albert
+- [x] Albert
 - [x] Bart
-- [ ] BEiT
+- [x] BEiT
 - [x] Bert
 - [ ] Bert Generation
-- [ ] CLIP
-- [ ] Deberta
-- [ ] Deberta V2
-- [ ] DistilBert
+- [x] CLIP
+- [x] Deberta
+- [x] Deberta V2
+- [x] DistilBert
 - [ ] Encoder-Decoder
 - [x] GPT-2
-- [ ] GPT-J
+- [x] GPT-J
 - [ ] MBart
 - [x] Roberta
-- [ ] T5
-- [ ] ViT
+- [x] T5
+- [x] ViT
 - [x] XLM-R
 
 ### TODO
@@ -66,7 +66,7 @@ Features not (yet) working:
 
 Tasks to do for first usable version:
 
-- Remove utils folder and use utils of HF
+- ~~Remove utils folder and use utils of HF~~
 - Make all tests passing
 - Update example scripts w. breaking changes
 - Update docs w. breaking changes
