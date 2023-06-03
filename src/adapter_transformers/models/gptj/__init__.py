@@ -23,27 +23,11 @@ from transformers.utils import _LazyModule
 
 _import_structure = {
     "adapter_model": ["GPTJAdapterModel"],
-    "modeling_gptj": [
-        "GPTJ_PRETRAINED_MODEL_ARCHIVE_LIST",
-        "GPTJForCausalLM",
-        "GPTJForQuestionAnswering",
-        "GPTJForSequenceClassification",
-        "GPTJModel",
-        "GPTJPreTrainedModel",
-    ],
 }
 
 
 if TYPE_CHECKING:
     from .adapter_model import GPTJAdapterModel
-    from .modeling_gptj import (
-        GPTJ_PRETRAINED_MODEL_ARCHIVE_LIST,
-        GPTJForCausalLM,
-        GPTJForQuestionAnswering,
-        GPTJForSequenceClassification,
-        GPTJModel,
-        GPTJPreTrainedModel,
-    )
 
 else:
     import sys

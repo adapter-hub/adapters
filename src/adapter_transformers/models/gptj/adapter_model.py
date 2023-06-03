@@ -2,6 +2,7 @@ import logging
 
 import torch
 
+from transformers.models.gptj.modeling_gptj import GPTJ_START_DOCSTRING, GPTJModel, GPTJPreTrainedModel
 from transformers.utils import add_start_docstrings
 
 from ...composition import adjust_tensors_for_parallel
@@ -14,7 +15,7 @@ from ...heads import (
     TaggingHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from .modeling_gptj import GPTJ_START_DOCSTRING, GPTJModel, GPTJPreTrainedModel
+from ...wrappers import wrap_model
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
 class GPTJAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPTJPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
-        self.transformer = GPTJModel(config)
+        self.transformer = wrap_model(GPTJModel(config))
 
         self._init_head_modules()
 

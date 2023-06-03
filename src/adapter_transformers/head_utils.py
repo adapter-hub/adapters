@@ -394,6 +394,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
     "GPTJForCausalLM": {
         "config": {
             "head_type": "causal_lm",
+            "bias": True,
         },
         "layers": ["lm_head"],
     },
