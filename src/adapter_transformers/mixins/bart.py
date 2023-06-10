@@ -87,6 +87,17 @@ class BartModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMi
                 yield i, layer
 
 
+class BartDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBaseAdaptersMixin):
+    """Adds adapters to the BartDecoderWrapper class."""
+
+    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
+        for i, layer in enumerate(self.decoder.layers):
+            yield i, layer
+
+    def get_input_embeddings(self):
+        return self.decoder.get_input_embeddings()
+
+
 # TODO remove this class
 class BartModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
     pass

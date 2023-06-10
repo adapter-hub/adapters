@@ -1,5 +1,10 @@
 from .albert import AlbertModelAdaptersMixin
-from .bart import BartDecoderAdaptersMixin, BartEncoderAdaptersMixin, BartModelAdaptersMixin
+from .bart import (
+    BartDecoderAdaptersMixin,
+    BartDecoderWrapperAdaptersMixin,
+    BartEncoderAdaptersMixin,
+    BartModelAdaptersMixin,
+)
 from .beit import BeitIntermediateAdaptersMixin, BeitModelAdaptersMixin, BeitOutputAdaptersMixin
 from .bert import BertLayerAdaptersMixin, BertModelAdaptersMixin
 from .clip import (
@@ -21,6 +26,7 @@ MODEL_MIXIN_MAPPING = {
     "BartEncoder": BartEncoderAdaptersMixin,
     "BartDecoder": BartDecoderAdaptersMixin,
     "BartModel": BartModelAdaptersMixin,
+    "BartDecoderWrapper": BartDecoderWrapperAdaptersMixin,
     "BeitIntermediate": BeitIntermediateAdaptersMixin,
     "BeitOutput": BeitOutputAdaptersMixin,
     "BeitModel": BeitModelAdaptersMixin,
