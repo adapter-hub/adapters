@@ -98,10 +98,10 @@ class DisentangledSelfAttentionWithAdapters(DebertaV2SelfAttentionAdaptersMixin,
         value_layer = self.transpose_for_scores_extended(self.value_proj(hidden_states), self.num_attention_heads)
 
         orig_key_layer = key_layer.contiguous()  # save this for relative attention
-        key_layer, value_layer, attention_mask = self.prefix_tuning(
-            key_layer, value_layer, hidden_states, attention_mask, False
+        key_layer, value_layer, query_layer, hidden_states, attention_mask = self.prefix_tuning(
+            key_layer, value_layer, query_layer, hidden_states, attention_mask, False
         )  # [:, 0, :, 0])
-        query_layer, orig_key_layer = adjust_tensors_for_parallel(key_layer, query_layer, orig_key_layer)
+        (orig_key_layer,) = adjust_tensors_for_parallel(key_layer, orig_key_layer)
 
         query_layer = query_layer.contiguous().view(-1, query_layer.size(2), query_layer.size(-1))
         key_layer = key_layer.contiguous().view(-1, key_layer.size(2), key_layer.size(-1))

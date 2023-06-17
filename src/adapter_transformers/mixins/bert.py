@@ -28,7 +28,7 @@ class BertSelfAttentionAdaptersMixin:
         self.key = LoRALinear.wrap(self.key, "selfattn", config, attn_key="k")
         self.value = LoRALinear.wrap(self.value, "selfattn", config, attn_key="v")
 
-        self.prefix_tuning = PrefixTuningShim(self.location_key + "_prefix" if self.location_key else None, config)
+        PrefixTuningShim.wrap(self, self.location_key + "_prefix" if self.location_key else None, config)
 
 
 # For backwards compatibility, BertSelfOutput inherits directly from AdapterLayer

@@ -23,7 +23,6 @@ from torch import nn
 from transformers.models.albert.modeling_albert import AlbertAttention, AlbertLayer
 from transformers.pytorch_utils import apply_chunking_to_forward
 
-from ...composition import adjust_tensors_for_parallel
 from ...mixins.albert import AlbertAttentionAdaptersMixin, AlbertEncoderLayerAdaptersMixin
 
 
@@ -43,10 +42,9 @@ class AlbertAttentionWithAdapters(AlbertAttentionAdaptersMixin, AlbertAttention)
         key_layer = self.transpose_for_scores(mixed_key_layer)
         value_layer = self.transpose_for_scores(mixed_value_layer)
 
-        key_layer, value_layer, attention_mask = self.prefix_tuning(
-            key_layer, value_layer, hidden_states, attention_mask
+        key_layer, value_layer, query_layer, hidden_states, attention_mask = self.prefix_tuning(
+            key_layer, value_layer, query_layer, hidden_states, attention_mask
         )
-        (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))

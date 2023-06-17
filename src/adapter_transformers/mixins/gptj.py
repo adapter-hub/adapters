@@ -17,7 +17,9 @@ class GPTJAttentionAdaptersMixin:
         self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", config, attn_key="k")
         self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", config, attn_key="v")
 
-        self.prefix_tuning = PrefixTuningShim(self.location_key + "_prefix" if self.location_key else None, config)
+        PrefixTuningShim.wrap(
+            self, self.location_key + "_prefix" if self.location_key else None, config, past_kv_name="layer_past"
+        )
 
 
 class GPTJMLPAdaptersMixin:
