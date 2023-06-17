@@ -32,7 +32,7 @@ from ...mixins.bert import BertOutputAdaptersMixin, BertSelfAttentionAdaptersMix
 
 
 # Copied from transformers.models.bert.modeling_bert.BertSelfOutput with Bert->BertGeneration
-class BertGenerationSelfOutput(BertSelfOutputAdaptersMixin, BertGenerationSelfOutput):
+class BertGenerationSelfOutputWithAdapters(BertSelfOutputAdaptersMixin, BertGenerationSelfOutput):
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
@@ -41,7 +41,7 @@ class BertGenerationSelfOutput(BertSelfOutputAdaptersMixin, BertGenerationSelfOu
 
 
 # Copied from transformers.models.bert.modeling_bert.BertSelfAttention with Bert->BertGeneration
-class BertGenerationSelfAttention(BertSelfAttentionAdaptersMixin, BertGenerationSelfAttention):
+class BertGenerationSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, BertGenerationSelfAttention):
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -149,7 +149,7 @@ class BertGenerationSelfAttention(BertSelfAttentionAdaptersMixin, BertGeneration
 
 
 # Copied from transformers.models.bert.modeling_bert.BertOutput with Bert->BertGeneration
-class BertGenerationOutput(BertOutputAdaptersMixin, BertGenerationOutput):
+class BertGenerationOutputWithAdapters(BertOutputAdaptersMixin, BertGenerationOutput):
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
