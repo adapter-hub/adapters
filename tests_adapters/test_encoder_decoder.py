@@ -1,3 +1,4 @@
+# flake8: noqa: F403,F405
 from tests.models.encoder_decoder.test_modeling_encoder_decoder import *  # Imported to execute model tests
 from transformers import AutoModelForSeq2SeqLM, BertConfig
 

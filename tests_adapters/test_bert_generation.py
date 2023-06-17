@@ -2,10 +2,7 @@ import unittest
 
 from datasets import load_dataset
 
-from adapter_transformers import BertGenerationAdapterModel
-from tests.models.bert_generation.test_modeling_bert_generation import *
-from tests_adapters.models.base import AdapterModelTesterMixin
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, BertGenerationConfig
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -23,12 +20,6 @@ from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
-
-
-@require_torch
-class BertGenerationAdapterModelTest(AdapterModelTesterMixin, BertGenerationEncoder):
-    all_model_classes = (BertGenerationAdapterModel,)
-    fx_compatible = False
 
 
 class BertGenerationAdapterTestBase(AdapterTestBase):
@@ -74,7 +65,7 @@ class BertGenerationAdapterTestBase(AdapterTestBase):
 
         data_args = {
             "task_name": "xsum",
-            "path": "./tests/fixtures/tests_samples/xsum/sample.json",
+            "path": "./tests_adapters/fixtures/samples/xsum/sample.json",
         }
         dataset = load_dataset("json", data_files=data_args["path"])
         train_dataset = dataset["train"]

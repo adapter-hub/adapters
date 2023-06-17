@@ -1,14 +1,15 @@
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
-
-from ...context import AdapterSetup
-from ...heads import BertStyleMaskedLMHead, CausalLMHead, ModelWithFlexibleHeadsAdaptersMixin
-from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from .modeling_bert_generation import (
+from transformers.models.bert_generation.modeling_bert_generation import (
     BERT_GENERATION_INPUTS_DOCSTRING,
     BERT_GENERATION_START_DOCSTRING,
     BertGenerationEncoder,
     BertGenerationPreTrainedModel,
 )
+from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+
+from ...context import AdapterSetup
+from ...heads import BertStyleMaskedLMHead, CausalLMHead, ModelWithFlexibleHeadsAdaptersMixin
+from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...wrappers import wrap_model
 
 
 @add_start_docstrings(
@@ -23,7 +24,7 @@ class BertGenerationAdapterModel(
     def __init__(self, config):
         super().__init__(config)
 
-        self.bert = BertGenerationEncoder(config)
+        self.bert = wrap_model(BertGenerationEncoder(config))
 
         self._init_head_modules()
 

@@ -66,4 +66,6 @@ MODEL_MIXIN_MAPPING = {
     "DebertaLayer": BertLayerAdaptersMixin,
     "DebertaV2Model": BertModelAdaptersMixin,
     "DebertaV2Layer": BertLayerAdaptersMixin,
+    "BertGenerationEncoder": BertModelAdaptersMixin,
+    "BertGenerationLayer": BertLayerAdaptersMixin,
 }
