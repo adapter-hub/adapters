@@ -6,7 +6,7 @@ from .bart import (
     BartModelAdaptersMixin,
 )
 from .beit import BeitIntermediateAdaptersMixin, BeitModelAdaptersMixin, BeitOutputAdaptersMixin
-from .bert import BertLayerAdaptersMixin, BertModelAdaptersMixin, BertSelfAttentionAdaptersMixin
+from .bert import BertLayerAdaptersMixin, BertModelAdaptersMixin
 from .clip import (
     CLIPEncoderAdaptersMixin,
     CLIPModelAdaptersMixin,
@@ -15,8 +15,13 @@ from .clip import (
     CLIPVisionModelAdaptersMixin,
 )
 from .distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
-from .gpt2 import GPT2AttentionAdaptersMixin
-from .gptj import GPTJAttentionAdaptersMixin, GPTJMLPAdaptersMixin
+from .gptj import GPTJMLPAdaptersMixin
+from .mbart import (
+    MBartDecoderAdaptersMixin,
+    MBartDecoderWrapperAdaptersMixin,
+    MBartEncoderAdaptersMixin,
+    MBartModelAdaptersMixin,
+)
 from .t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
 from .vit import ViTIntermediateAdaptersMixin, ViTModelAdaptersMixin
 
@@ -31,7 +36,6 @@ MODEL_MIXIN_MAPPING = {
     "BeitIntermediate": BeitIntermediateAdaptersMixin,
     "BeitOutput": BeitOutputAdaptersMixin,
     "BeitModel": BeitModelAdaptersMixin,
-    "BertSelfAttention": BertSelfAttentionAdaptersMixin,
     "BertLayer": BertLayerAdaptersMixin,
     "BertModel": BertModelAdaptersMixin,
     "Transformer": DistilBertTransformerAdaptersMixin,
@@ -43,14 +47,11 @@ MODEL_MIXIN_MAPPING = {
     "CLIPModel": CLIPModelAdaptersMixin,
     "CLIPTextModelWithProjection": CLIPTextModelAdaptersMixin,
     "CLIPVisionModelWithProjection": CLIPVisionModelAdaptersMixin,
-    "GPT2Attention": GPT2AttentionAdaptersMixin,
-    "GPTJAttention": GPTJAttentionAdaptersMixin,
+    "MBartEncoder": MBartEncoderAdaptersMixin,
+    "MBartDecoder": MBartDecoderAdaptersMixin,
+    "MBartDecoderWrapper": MBartDecoderWrapperAdaptersMixin,
+    "MBartModel": MBartModelAdaptersMixin,
     "GPTJMLP": GPTJMLPAdaptersMixin,
-    "MBartEncoder": BartEncoderAdaptersMixin,
-    "MBartDecoder": BartDecoderAdaptersMixin,
-    "MBartDecoderWrapper": BartDecoderWrapperAdaptersMixin,
-    "MBartModel": BartModelAdaptersMixin,
-    "RobertaSelfAttention": BertSelfAttentionAdaptersMixin,
     "RobertaLayer": BertLayerAdaptersMixin,
     "RobertaModel": BertModelAdaptersMixin,
     "T5Block": T5BlockAdaptersMixin,
@@ -59,14 +60,12 @@ MODEL_MIXIN_MAPPING = {
     "T5EncoderModel": T5ModelAdaptersMixin,
     "ViTIntermediate": ViTIntermediateAdaptersMixin,
     "ViTModel": ViTModelAdaptersMixin,
-    "XLMRobertaSelfAttention": BertSelfAttentionAdaptersMixin,
     "XLMRobertaLayer": BertLayerAdaptersMixin,
     "XLMRobertaModel": BertModelAdaptersMixin,
     "DebertaModel": BertModelAdaptersMixin,
     "DebertaLayer": BertLayerAdaptersMixin,
     "DebertaV2Model": BertModelAdaptersMixin,
     "DebertaV2Layer": BertLayerAdaptersMixin,
-    "BertGenerationSelfAttention": BertSelfAttentionAdaptersMixin,
     "BertGenerationEncoder": BertModelAdaptersMixin,
     "BertGenerationLayer": BertLayerAdaptersMixin,
 }

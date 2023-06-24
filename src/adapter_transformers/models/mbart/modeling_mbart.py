@@ -21,11 +21,11 @@ from torch import nn
 
 from transformers.models.mbart.modeling_mbart import MBartAttention, MBartDecoderLayer, MBartEncoderLayer
 
-from ...composition import adjust_tensors_for_parallel_
-from ...mixins.bart import BartAttentionAdaptersMixin, BartDecoderLayerAdaptersMixin, BartEncoderLayerAdaptersMixin
+from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
+from ...mixins.mbart import MBartAttentionAdaptersMixin, MBartDecoderLayerAdaptersMixin, MBartEncoderLayerAdaptersMixin
 
 
-class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):
+class MBartAttentionWithAdapters(MBartAttentionAdaptersMixin, MBartAttention):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
     def forward(
@@ -84,9 +84,10 @@ class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_states, value_states)
 
-        key_states, value_states, query_states, hidden_states, attention_mask = self.prefix_tuning(
-            key_states, value_states, query_states, hidden_states, attention_mask
+        key_states, value_states, attention_mask = self.prefix_tuning(
+            key_states, value_states, hidden_states, attention_mask
         )
+        (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
         bsz = query_states.size(0)
 
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
@@ -155,7 +156,7 @@ class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-class MBartEncoderLayerWithAdapters(BartEncoderLayerAdaptersMixin, MBartEncoderLayer):
+class MBartEncoderLayerWithAdapters(MBartEncoderLayerAdaptersMixin, MBartEncoderLayer):
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -209,7 +210,7 @@ class MBartEncoderLayerWithAdapters(BartEncoderLayerAdaptersMixin, MBartEncoderL
         return outputs
 
 
-class MBartDecoderLayerWithAdapters(BartDecoderLayerAdaptersMixin, MBartDecoderLayer):
+class MBartDecoderLayerWithAdapters(MBartDecoderLayerAdaptersMixin, MBartDecoderLayer):
     def forward(
         self,
         hidden_states: torch.Tensor,

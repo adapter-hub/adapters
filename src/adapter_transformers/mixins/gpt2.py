@@ -18,7 +18,7 @@ class GPT2AttentionAdaptersMixin:
             self.c_attn = LoRAMergedLinear.wrap(self.c_attn, "selfattn", config, fan_in_fan_out=True)
 
         location_key = "cross_prefix" if self.is_cross_attention else "self_prefix"
-        PrefixTuningShim.wrap(self, location_key, config, past_kv_name="layer_past")
+        self.prefix_tuning = PrefixTuningShim(location_key, config)
 
 
 class GPT2DecoderBlockAdaptersMixin:

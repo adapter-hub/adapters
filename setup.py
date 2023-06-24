@@ -30,7 +30,6 @@ _deps = [
     "GitPython<3.1.19",
     "hf-doc-builder>=0.3.0",
     "isort>=5.5.4",
-    "Jinja2==2.11.3",
     "nltk",
     "onnxruntime-tools>=1.4.2",
     "onnxruntime>=1.4.0",
@@ -41,7 +40,6 @@ _deps = [
     "pytest-subtests",
     "pytest-timeout",
     "pytest-xdist",
-    "markupsafe==2.0.1",
     "myst-parser",
     "rjieba",
     "rouge-score!=0.0.7,!=0.0.8,!=0.1,!=0.1.1",
@@ -113,8 +111,6 @@ extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython
 
 extras["docs"] = deps_list(
     "docutils",
-    "Jinja2",
-    "markupsafe",
     "myst-parser",
     "sphinx",
     "sphinx-markdown-tables",

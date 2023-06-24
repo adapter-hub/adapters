@@ -162,24 +162,6 @@ def inherit_doc(cls):
     return cls
 
 
-def get_func_args_dict(func, args, kwargs):
-    """
-    Returns a dictionary of function arguments and their values.
-    """
-    args_dict = {}
-    signature = inspect.signature(func)
-
-    for arg in signature.parameters:
-        if arg not in kwargs:
-            args_dict[arg] = args[0]
-            args = args[1:]
-        else:
-            break
-
-    args_dict.update(kwargs)
-    return args_dict
-
-
 def urljoin(*args):
     return "/".join([s.strip("/") for s in args])
 

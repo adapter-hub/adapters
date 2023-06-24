@@ -20,11 +20,94 @@ import torch
 import torch.utils.checkpoint
 
 from transformers.modeling_outputs import BaseModelOutputWithPast
-from transformers.models.gptj.modeling_gptj import GPTJBlock, GPTJModel
+from transformers.models.gptj.modeling_gptj import (
+    GPTJAttention,
+    GPTJBlock,
+    GPTJModel,
+    apply_rotary_pos_emb,
+    fixed_pos_embedding,
+)
 
-from ...composition import adjust_tensors_for_parallel_
+from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
 from ...context import ForwardContext
-from ...mixins.gptj import GPTJDecoderBlockAdaptersMixin, GPTJModelAdapterMixin
+from ...mixins.gptj import GPTJAttentionAdaptersMixin, GPTJDecoderBlockAdaptersMixin, GPTJModelAdapterMixin
+
+
+class GPTJAttentionWithAdapters(GPTJAttentionAdaptersMixin, GPTJAttention):
+    def forward(
+        self,
+        hidden_states: Optional[torch.FloatTensor],
+        attention_mask: Optional[torch.FloatTensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor]] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        use_cache: Optional[bool] = False,
+        output_attentions: Optional[bool] = False,
+    ) -> Union[
+        Tuple[torch.Tensor, Tuple[torch.Tensor]],
+        Optional[Tuple[torch.Tensor, Tuple[torch.Tensor], Tuple[torch.Tensor, ...]]],
+    ]:
+        query = self.q_proj(hidden_states)
+        key = self.k_proj(hidden_states)
+        value = self.v_proj(hidden_states)
+
+        query = self._split_heads(query, self.num_attention_heads, self.head_dim, True)
+        key = self._split_heads(key, self.num_attention_heads, self.head_dim, True)
+        value = self._split_heads(value, self.num_attention_heads, self.head_dim, False)
+
+        seq_len = key.shape[1]
+        offset = 0
+
+        if layer_past is not None:
+            offset = layer_past[0].shape[-2]
+            seq_len += offset
+
+        if self.rotary_dim is not None:
+            k_rot = key[:, :, :, : self.rotary_dim]
+            k_pass = key[:, :, :, self.rotary_dim :]
+
+            q_rot = query[:, :, :, : self.rotary_dim]
+            q_pass = query[:, :, :, self.rotary_dim :]
+
+            sincos = fixed_pos_embedding(k_rot, 1, seq_len=seq_len)
+            k_rot = apply_rotary_pos_emb(k_rot, sincos, offset=offset)
+            q_rot = apply_rotary_pos_emb(q_rot, sincos, offset=offset)
+
+            key = torch.cat([k_rot, k_pass], dim=-1)
+            query = torch.cat([q_rot, q_pass], dim=-1)
+        else:
+            sincos = fixed_pos_embedding(key, 1, seq_len=seq_len)
+            key = apply_rotary_pos_emb(key, sincos, offset=offset)
+            query = apply_rotary_pos_emb(query, sincos, offset=offset)
+
+        key = key.permute(0, 2, 1, 3)
+        query = query.permute(0, 2, 1, 3)
+
+        if layer_past is not None:
+            past_key = layer_past[0]
+            past_value = layer_past[1]
+            key = torch.cat((past_key, key), dim=-2)
+            value = torch.cat((past_value, value), dim=-2)
+
+        if use_cache is True:
+            present = (key, value)
+        else:
+            present = None
+
+        key, value, attention_mask = self.prefix_tuning(key, value, hidden_states, attention_mask)
+        (query,) = adjust_tensors_for_parallel(key, query)
+
+        # compute self-attention: V x Softmax(QK^T)
+        attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
+
+        attn_output = self._merge_heads(attn_output, self.num_attention_heads, self.head_dim)
+        attn_output = self.out_proj(attn_output)
+        attn_output = self.resid_dropout(attn_output)
+
+        outputs = (attn_output, present)
+        if output_attentions:
+            outputs += (attn_weights,)
+
+        return outputs  # a, present, (attentions)
 
 
 class GPTJBlockWithAdapters(GPTJDecoderBlockAdaptersMixin, GPTJBlock):

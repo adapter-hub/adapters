@@ -22,6 +22,7 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 
+from adapter_transformers.composition import adjust_tensors_for_parallel
 from transformers.models.vit.modeling_vit import ViTLayer, ViTOutput, ViTSelfAttention
 
 from ...mixins.vit import ViTLayerAdaptersMixin, ViTOutputAdaptersMixin, ViTSelfAttentionAdaptersMixin
@@ -37,9 +38,8 @@ class ViTSelfAttentionWithAdapters(ViTSelfAttentionAdaptersMixin, ViTSelfAttenti
         value_layer = self.transpose_for_scores(self.value(hidden_states))
         query_layer = self.transpose_for_scores(mixed_query_layer)
 
-        key_layer, value_layer, query_layer, hidden_states, _ = self.prefix_tuning(
-            key_layer, value_layer, query_layer, hidden_states
-        )
+        key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer, hidden_states)
+        (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
