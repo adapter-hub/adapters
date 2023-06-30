@@ -6,13 +6,7 @@ import torch.nn as nn
 from ..composition import adjust_tensors_for_parallel_
 from ..layer import AdapterLayer
 from ..lora import Linear as LoRALinear
-from ..model_mixin import (
-    EmbeddingAdaptersMixin,
-    EmbeddingAdaptersWrapperMixin,
-    InvertibleAdaptersMixin,
-    ModelBaseAdaptersMixin,
-    ModelWithHeadsAdaptersMixin,
-)
+from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
 from ..prefix_tuning import PrefixTuningShim
 
 
@@ -92,8 +86,3 @@ class BertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
 
     def hook_after_embeddings(self, hook_fn: Callable):
         return self.embeddings.register_forward_hook(hook_fn)
-
-
-# TODO remove this class
-class BertModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
-    pass

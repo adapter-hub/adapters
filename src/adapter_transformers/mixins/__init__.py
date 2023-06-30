@@ -16,12 +16,6 @@ from .clip import (
 )
 from .distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .gptj import GPTJMLPAdaptersMixin
-from .mbart import (
-    MBartDecoderAdaptersMixin,
-    MBartDecoderWrapperAdaptersMixin,
-    MBartEncoderAdaptersMixin,
-    MBartModelAdaptersMixin,
-)
 from .t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
 from .vit import ViTIntermediateAdaptersMixin, ViTModelAdaptersMixin
 
@@ -47,10 +41,10 @@ MODEL_MIXIN_MAPPING = {
     "CLIPModel": CLIPModelAdaptersMixin,
     "CLIPTextModelWithProjection": CLIPTextModelAdaptersMixin,
     "CLIPVisionModelWithProjection": CLIPVisionModelAdaptersMixin,
-    "MBartEncoder": MBartEncoderAdaptersMixin,
-    "MBartDecoder": MBartDecoderAdaptersMixin,
-    "MBartDecoderWrapper": MBartDecoderWrapperAdaptersMixin,
-    "MBartModel": MBartModelAdaptersMixin,
+    "MBartEncoder": BartEncoderAdaptersMixin,
+    "MBartDecoder": BartDecoderAdaptersMixin,
+    "MBartDecoderWrapper": BartDecoderWrapperAdaptersMixin,
+    "MBartModel": BartModelAdaptersMixin,
     "GPTJMLP": GPTJMLPAdaptersMixin,
     "RobertaLayer": BertLayerAdaptersMixin,
     "RobertaModel": BertModelAdaptersMixin,

@@ -12,7 +12,6 @@ from ..model_mixin import (
     InvertibleAdaptersMixin,
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
-    ModelWithHeadsAdaptersMixin,
 )
 from ..prefix_tuning import PrefixTuningShim
 
@@ -96,8 +95,3 @@ class BartDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBaseAd
 
     def get_input_embeddings(self):
         return self.decoder.get_input_embeddings()
-
-
-# TODO remove this class
-class BartModelWithHeadsAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin):
-    pass

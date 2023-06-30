@@ -22,10 +22,10 @@ from torch import nn
 from transformers.models.mbart.modeling_mbart import MBartAttention, MBartDecoderLayer, MBartEncoderLayer
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
-from ...mixins.mbart import MBartAttentionAdaptersMixin, MBartDecoderLayerAdaptersMixin, MBartEncoderLayerAdaptersMixin
+from ...mixins.bart import BartAttentionAdaptersMixin, BartDecoderLayerAdaptersMixin, BartEncoderLayerAdaptersMixin
 
 
-class MBartAttentionWithAdapters(MBartAttentionAdaptersMixin, MBartAttention):
+class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
     def forward(
@@ -156,7 +156,7 @@ class MBartAttentionWithAdapters(MBartAttentionAdaptersMixin, MBartAttention):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-class MBartEncoderLayerWithAdapters(MBartEncoderLayerAdaptersMixin, MBartEncoderLayer):
+class MBartEncoderLayerWithAdapters(BartEncoderLayerAdaptersMixin, MBartEncoderLayer):
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -210,7 +210,7 @@ class MBartEncoderLayerWithAdapters(MBartEncoderLayerAdaptersMixin, MBartEncoder
         return outputs
 
 
-class MBartDecoderLayerWithAdapters(MBartDecoderLayerAdaptersMixin, MBartDecoderLayer):
+class MBartDecoderLayerWithAdapters(BartDecoderLayerAdaptersMixin, MBartDecoderLayer):
     def forward(
         self,
         hidden_states: torch.Tensor,
