@@ -18,7 +18,7 @@ A subclass of `Trainer` specific to Question-Answering tasks
 import math
 import time
 
-from adapter_transformers.trainer import AdapterTrainer
+from adapters.trainer import AdapterTrainer
 from transformers import Trainer, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput, speed_metrics
 

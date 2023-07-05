@@ -20,9 +20,9 @@ This folder contains a subset of [the example scripts provided by HuggingFace fo
 Most of the scripts here have been modified to support training adapters instead of full model fine-tuning.
 
 Before getting started with an example script, make sure to have everything set up.
-It is best to install the latest `adapter-transformers` version from the repository:
+It is best to install the latest `adapters` version from the repository:
 ```
-git clone https://github.com/adapter-hub/adapter-transformers
+git clone https://github.com/adapter-hub/adapters
 cd transformers
 pip install .
 ```
@@ -36,24 +36,24 @@ Currently, scripts for these tasks support adapters:
 
 | Task | Description |
 | --- | --- |
-| [**`language-modeling`**](https://github.com/adapter-hub/adapter-transformers/tree/main/examples/pytorch/language-modeling) | Causal & Masked language modeling
-| [**`multiple-choice`**](https://github.com/adapter-hub/adapter-transformers/tree/main/examples/pytorch/multiple-choice) | SWAG Dataset
-| [**`question-answering`**](https://github.com/adapter-hub/adapter-transformers/tree/main/examples/pytorch/question-answering) | SQuAD-style QA
-| [**`summarization`**](https://github.com/adapter-hub/adapter-transformers/tree/main/examples/pytorch/seq2seq) | Summarization, e.g. on CNN/Dailymail or XSum
-| [**`text-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/main/examples/pytorch/text-classification) | GLUE benchmark
-| [**`text-generation`**](https://github.com/adapter-hub/adapter-transformers/tree/main/examples/pytorch/text-generation) | Text generation, e.g. using GPT-2
-| [**`token-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/main/examples/pytorch/token-classification) | NER, e.g. on CoNLL2003
-| [**`translation`**](https://github.com/adapter-hub/adapter-transformers/tree/main/examples/pytorch/seq2seq) | Machine translation, e.g. on WMT tasks
-| [**`dependency-parsing`**](https://github.com/adapter-hub/adapter-transformers/tree/main/examples/pytorch/dependency-parsing) | Dependency parsing on Universal Dependencies
-| [**`image-classification`**](https://github.com/adapter-hub/adapter-transformers/tree/main/examples/pytorch/image-classification) | Image classification, e.g. on CIFAR-10/-100
+| [**`language-modeling`**](https://github.com/adapter-hub/adapters/tree/main/examples/pytorch/language-modeling) | Causal & Masked language modeling
+| [**`multiple-choice`**](https://github.com/adapter-hub/adapters/tree/main/examples/pytorch/multiple-choice) | SWAG Dataset
+| [**`question-answering`**](https://github.com/adapter-hub/adapters/tree/main/examples/pytorch/question-answering) | SQuAD-style QA
+| [**`summarization`**](https://github.com/adapter-hub/adapters/tree/main/examples/pytorch/seq2seq) | Summarization, e.g. on CNN/Dailymail or XSum
+| [**`text-classification`**](https://github.com/adapter-hub/adapters/tree/main/examples/pytorch/text-classification) | GLUE benchmark
+| [**`text-generation`**](https://github.com/adapter-hub/adapters/tree/main/examples/pytorch/text-generation) | Text generation, e.g. using GPT-2
+| [**`token-classification`**](https://github.com/adapter-hub/adapters/tree/main/examples/pytorch/token-classification) | NER, e.g. on CoNLL2003
+| [**`translation`**](https://github.com/adapter-hub/adapters/tree/main/examples/pytorch/seq2seq) | Machine translation, e.g. on WMT tasks
+| [**`dependency-parsing`**](https://github.com/adapter-hub/adapters/tree/main/examples/pytorch/dependency-parsing) | Dependency parsing on Universal Dependencies
+| [**`image-classification`**](https://github.com/adapter-hub/adapters/tree/main/examples/pytorch/image-classification) | Image classification, e.g. on CIFAR-10/-100
 
 All scripts listed above which can be used for training provide a new `--train_adapter` option that switches between full fine-tuning and adapter training.
 Loading pre-trained adapters can be done via `--load_adapter`.
-You can find all additional, adapter-specific, command-line options [here](https://github.com/Adapter-Hub/adapter-transformers/blob/main/src/transformers/adapters/training.py).
+You can find all additional, adapter-specific, command-line options [here](https://github.com/Adapter-Hub/adapters/blob/main/src/transformers/adapters/training.py).
 
 Fore more information and examples on training adapters, please refer to these locations:
 - The section on adapter training [in the AdapterHub documentation](https://docs.adapterhub.ml/training).
-- Our [collection of Colab notebook tutorials](https://github.com/Adapter-Hub/adapter-transformers/tree/main/notebooks).
+- Our [collection of Colab notebook tutorials](https://github.com/Adapter-Hub/adapters/tree/main/notebooks).
 
 ---
 

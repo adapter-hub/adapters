@@ -11,8 +11,8 @@ from typing import Dict, Optional
 
 from datasets import load_dataset
 
-import adapter_transformers.composition as ac
-from adapter_transformers import AdapterArguments, AdapterConfigBase, AutoAdapterModel, setup_adapter_training
+import adapters.composition as ac
+from adapters import AdapterArguments, AdapterConfigBase, AutoAdapterModel, setup_adapter_training
 from preprocessing import preprocess_dataset
 from transformers import AutoConfig, AutoTokenizer, HfArgumentParser, set_seed
 from utils_udp import UD_HEAD_LABELS, DependencyParsingAdapterTrainer, DependencyParsingTrainer, UDTrainingArguments

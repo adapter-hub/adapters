@@ -20,7 +20,7 @@ from .t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithH
 from .vit import ViTIntermediateAdaptersMixin, ViTModelAdaptersMixin
 
 
-# IMPORTANT: Only add classes to this mapping that are not copied into the adapter-transformers package
+# IMPORTANT: Only add classes to this mapping that are not copied into the adapters package
 MODEL_MIXIN_MAPPING = {
     "AlbertModel": AlbertModelAdaptersMixin,
     "BartEncoder": BartEncoderAdaptersMixin,

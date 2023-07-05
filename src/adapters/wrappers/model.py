@@ -24,11 +24,9 @@ def wrap_model(model: PreTrainedModel) -> PreTrainedModel:
     if isinstance(model, ModelAdaptersMixin):
         return model
 
-    # First, replace original module classes with their adapter-transformers counterparts
+    # First, replace original module classes with their adapters counterparts
     model_name = get_module_name(model.config.model_type)
-    modules_with_adapters = importlib.import_module(
-        f".{model_name}.modeling_{model_name}", "adapter_transformers.models"
-    )
+    modules_with_adapters = importlib.import_module(f".{model_name}.modeling_{model_name}", "adapters.models")
     for module in model.modules():
         # Check if module is a base model class
         if module.__class__.__name__ in MODEL_MIXIN_MAPPING:

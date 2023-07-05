@@ -3,8 +3,8 @@ import random
 import datasets
 import torch
 
-from adapter_transformers import AutoAdapterModel
-from adapter_transformers.wrappers import wrap_model
+from adapters import AutoAdapterModel
+from adapters.wrappers import wrap_model
 from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
 from transformers.testing_utils import torch_device
 

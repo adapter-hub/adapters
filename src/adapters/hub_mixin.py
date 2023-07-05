@@ -20,16 +20,16 @@ tags:
 
 An [adapter](https://adapterhub.ml) for the `{model_name}` model that was trained on the {dataset_name} dataset{head_info}.
 
-This adapter was created for usage with the **[adapter-transformers](https://github.com/Adapter-Hub/adapter-transformers)** library.
+This adapter was created for usage with the **[adapters](https://github.com/Adapter-Hub/adapters)** library.
 
 ## Usage
 
-First, install `adapter-transformers`:
+First, install `adapters`:
 
 ```
-pip install -U adapter-transformers
+pip install -U adapters
 ```
-_Note: adapter-transformers is a fork of transformers that acts as a drop-in replacement with adapter support. [More](https://docs.adapterhub.ml/installation.html)_
+_Note: adapters is a fork of transformers that acts as a drop-in replacement with adapter support. [More](https://docs.adapterhub.ml/installation.html)_
 
 Now, the adapter can be loaded and activated like this:
 
@@ -71,7 +71,7 @@ class PushAdapterToHubMixin:
         metrics: Optional[List[str]] = None,
         **kwargs
     ):
-        all_tags = {"adapter-transformers"}
+        all_tags = {"adapters"}
         datasets = set()
         # Dataset/ Task info
         dataset_name = None
@@ -172,7 +172,7 @@ class PushAdapterToHubMixin:
         if organization is not None and not repo_name.startswith(organization):
             warnings.warn(
                 "The `organization` argument is deprecated and will be removed in future versions of"
-                " Adapter-Transformers. Set your organization directly in the `repo_id` passed instead"
+                " adapters. Set your organization directly in the `repo_id` passed instead"
                 " (`repo_id={organization}/{model_id}`)."
             )
             if "/" in repo_name:

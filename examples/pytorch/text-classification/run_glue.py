@@ -29,7 +29,7 @@ from datasets import load_dataset
 
 import evaluate
 import transformers
-from adapter_transformers import AdapterArguments, AdapterTrainer, AutoAdapterModel, setup_adapter_training
+from adapters import AdapterArguments, AdapterTrainer, AutoAdapterModel, setup_adapter_training
 from transformers import (
     AutoConfig,
     AutoTokenizer,

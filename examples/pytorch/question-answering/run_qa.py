@@ -29,7 +29,7 @@ from datasets import load_dataset
 
 import evaluate
 import transformers
-from adapter_transformers import AdapterArguments, setup_adapter_training
+from adapters import AdapterArguments, setup_adapter_training
 from trainer_qa import QuestionAnsweringAdapterTrainer, QuestionAnsweringTrainer
 from transformers import (
     AutoConfig,

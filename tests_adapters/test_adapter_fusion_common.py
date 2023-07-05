@@ -5,15 +5,9 @@ from dataclasses import asdict
 
 import torch
 
-from adapter_transformers import (
-    ADAPTER_MODEL_MAPPING,
-    ADAPTERFUSION_CONFIG_MAP,
-    AdapterConfig,
-    AutoAdapterModel,
-    PfeifferConfig,
-)
-from adapter_transformers.composition import Fuse
-from adapter_transformers.utils import ADAPTERFUSION_WEIGHTS_NAME
+from adapters import ADAPTER_MODEL_MAPPING, ADAPTERFUSION_CONFIG_MAP, AdapterConfig, AutoAdapterModel, PfeifferConfig
+from adapters.composition import Fuse
+from adapters.utils import ADAPTERFUSION_WEIGHTS_NAME
 from transformers.testing_utils import require_torch, torch_device
 
 

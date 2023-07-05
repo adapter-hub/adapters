@@ -1,4 +1,4 @@
-from adapter_transformers import IA3Config
+from adapters import IA3Config
 from transformers.testing_utils import require_torch
 
 from .base import AdapterMethodBaseTestMixin

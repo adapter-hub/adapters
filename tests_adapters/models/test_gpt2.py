@@ -1,5 +1,5 @@
 # flake8: noqa: F403,F405
-from adapter_transformers import GPT2AdapterModel
+from adapters import GPT2AdapterModel
 from tests.models.gpt2.test_modeling_gpt2 import *
 from transformers.testing_utils import require_torch
 

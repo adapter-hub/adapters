@@ -3,15 +3,9 @@ import random
 
 import torch
 
-from adapter_transformers import (
-    ADAPTER_MODEL_MAPPING,
-    AutoAdapterModel,
-    PfeifferConfig,
-    PrefixTuningConfig,
-    T5AdapterModel,
-)
-from adapter_transformers.composition import BatchSplit, Parallel
-from adapter_transformers.models.bert_generation.adapter_model import BertGenerationAdapterModel
+from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PfeifferConfig, PrefixTuningConfig, T5AdapterModel
+from adapters.composition import BatchSplit, Parallel
+from adapters.models.bert_generation.adapter_model import BertGenerationAdapterModel
 from transformers import MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, Trainer, TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
 

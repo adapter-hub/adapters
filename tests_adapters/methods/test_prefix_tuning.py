@@ -1,6 +1,6 @@
 import torch
 
-from adapter_transformers import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig
+from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig
 from transformers.testing_utils import require_torch, torch_device
 
 from .base import AdapterMethodBaseTestMixin

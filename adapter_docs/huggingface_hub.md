@@ -6,13 +6,13 @@
     :alt: HuggingFace Hub logo.
 ```
 
-Starting with v2.1 of `adapter-transformers`, you can download adapters from and upload them to [HuggingFace's Model Hub](https://huggingface.co/models).
+Starting with v2.1 of `adapters`, you can download adapters from and upload them to [HuggingFace's Model Hub](https://huggingface.co/models).
 This document describes how to interact with the Model Hub when working with adapters.
 
 ## Downloading from the Hub
 
 The HuggingFace Model Hub already provides a few pre-trained adapters available for download.
-To search for available adapters, use the _Adapter Transformers_ library filter on the Model Hub website or use this link: [https://huggingface.co/models?filter=adapter-transformers](https://huggingface.co/models?filter=adapter-transformers).
+To search for available adapters, use the _Adapter Transformers_ library filter on the Model Hub website or use this link: [https://huggingface.co/models?filter=adapters](https://huggingface.co/models?filter=adapters).
 Alternatively, all adapters on the HuggingFace Model Hub are also listed on [https://adapterhub.ml/explore](https://adapterhub.ml/explore) together with all adapters directly uploaded to AdapterHub.
 
 After you have found an adapter you would like to use, loading it into a Transformer model is very similar to [loading adapters from AdapterHub](loading.md).
@@ -30,7 +30,7 @@ Note that `source="hf"` is the only change from loading an adapter from AdapterH
 
 HuggingFace's Model Hub provides a convenient way for everyone to upload their pre-trained models and share them with the world.
 Of course, this is also possible with adapters now!
-In the following, we'll go through the fastest way of uploading an adapter directly via Python in the `adapter-transformers` library.
+In the following, we'll go through the fastest way of uploading an adapter directly via Python in the `adapters` library.
 For more options and information, e.g. for managing models via the CLI and Git, refer to [HugginFace's documentation](https://huggingface.co/transformers/model_sharing.html).
 
 1. **Prepare access credentials**: Before being able to push to the HuggingFace Model Hub for the first time, we have to store our access token in the cache.

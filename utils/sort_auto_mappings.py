@@ -10,7 +10,7 @@ import utils
 from utils.sort_auto_mappings import sort_all_auto_mappings
 
 
-utils.sort_auto_mappings.PATH_TO_AUTO_MODULE = "src/adapter_transformers/models/auto"
+utils.sort_auto_mappings.PATH_TO_AUTO_MODULE = "src/adapters/models/auto"
 
 
 if __name__ == "__main__":

@@ -104,7 +104,7 @@ Besides the default value `ah`, referring to AdapterHub, it's also possible to p
 
 As described in the previous section, the methods for loading adapters are able to resolve the correct adapter weights
 based on the given identifier string, the model name and the adapter configuration.
-Using this information, the `adapter-transformers` library searches for a matching entry in the index of the [Hub GitHub repo](https://github.com/adapter-hub/hub).
+Using this information, the `adapters` library searches for a matching entry in the index of the [Hub GitHub repo](https://github.com/adapter-hub/hub).
 
 The identifier string used to find a matching adapter follows a format consisting of three components:
 ```

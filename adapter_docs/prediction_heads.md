@@ -1,7 +1,7 @@
 # Prediction Heads
 
 This section gives an overview how different prediction heads can be used together with adapter modules and how pre-trained adapters can be distributed side-by-side with matching prediction heads in AdapterHub.
-We will take a look at the `AdapterModel` classes (e.g. `BertAdapterModel`) introduced by adapter-transformers, which provide **flexible** support for prediction heads, as well as models with **static** heads provided out-of-the-box by HuggingFace Transformers (e.g. `BertForSequenceClassification`).
+We will take a look at the `AdapterModel` classes (e.g. `BertAdapterModel`) introduced by adapters, which provide **flexible** support for prediction heads, as well as models with **static** heads provided out-of-the-box by HuggingFace Transformers (e.g. `BertForSequenceClassification`).
 
 ```{eval-rst}
 .. tip::
@@ -11,7 +11,7 @@ We will take a look at the `AdapterModel` classes (e.g. `BertAdapterModel`) intr
 
 ## AdapterModel classes
 
-The AdapterModel classes provided by `adapter-transformers` allow a flexible configuration of prediction heads on top of a pre-trained language model.
+The AdapterModel classes provided by `adapters` allow a flexible configuration of prediction heads on top of a pre-trained language model.
 
 First, we load pre-trained model from the HuggingFace Hub via the [`AutoAdapterModel`](transformers.adapters.AutoAdapterModel) class:
 ```python
@@ -93,7 +93,7 @@ In case the classes match, our prediction head weights will be automatically loa
     There is however an automatic conversion to model classes with flexible heads.
 ```
 
-Beginning with v2.1 of `adapter-transformers`, it is possible to load static heads, e.g. created with `AutoModelForSequenceClassification`, into model classes with flexible heads, e.g. `AutoAdapterModel`.
+Beginning with v2.1 of `adapters`, it is possible to load static heads, e.g. created with `AutoModelForSequenceClassification`, into model classes with flexible heads, e.g. `AutoAdapterModel`.
 The conversion of weights happens automatically during the call of `load_adapter()`, so no additional steps are needed:
 ```python
 static_head_model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")

@@ -31,7 +31,7 @@ import torch
 from datasets import load_dataset
 
 import transformers
-from adapter_transformers import AdapterArguments, AdapterTrainer, setup_adapter_training
+from adapters import AdapterArguments, AdapterTrainer, setup_adapter_training
 from transformers import (
     AutoConfig,
     AutoModelForMultipleChoice,

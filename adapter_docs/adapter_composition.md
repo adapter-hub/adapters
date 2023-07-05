@@ -1,7 +1,7 @@
 # Adapter Activation and Composition
 
 One of the great advantages of using adapters is the possibility to combine multiple adapters trained on different tasks in various ways.
-To enable such adapter compositions, `adapter-transformers` comes with a modular and flexible concept to define how the input to the model should flow through the available adapters.
+To enable such adapter compositions, `adapters` comes with a modular and flexible concept to define how the input to the model should flow through the available adapters.
 This not only allows stacking ([_MAD-X_](https://arxiv.org/pdf/2005.00052.pdf)) and fusing ([_AdapterFusion_](https://arxiv.org/pdf/2005.00247.pdf)) adapters, but also even more complex adapter setups.
 
 ## Adapter Activation
@@ -62,7 +62,7 @@ Next, we present all composition blocks in more detail.
 
 The `Stack` block can be used to stack multiple adapters on top of each other.
 This kind of adapter composition is used e.g. in the _MAD-X_ framework for cross-lingual transfer [(Pfeiffer et al., 2020)](https://arxiv.org/pdf/2005.00052.pdf), where language and task adapters are stacked on top of each other.
-For more, check out [this Colab notebook](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/main/notebooks/04_Cross_Lingual_Transfer.ipynb) on cross-lingual transfer.
+For more, check out [this Colab notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/04_Cross_Lingual_Transfer.ipynb) on cross-lingual transfer.
 
 In the following example, we stack the adapters `a`, `b` and `c` so that in each layer, the input is first passed through `a`, the output of `a` is then inputted to `b` and the output of `b` is finally inputted to `c`.
 
@@ -81,7 +81,7 @@ model.active_adapters = ac.Stack("a", "b", "c")
 Since v3.2.0, stacking is also supported for prefix tuning.
 Stacked prefixes are prepended to the input states from right to left, i.e. `Stack("a", "b", "c")` will first prepend prefix states for "a" to the input vectors, then prepend "b" to the resulting vectors etc.
 
-In v1.x of `adapter-transformers`, stacking adapters was done using a list of adapter names, i.e. the example from above would be defined as `["a", "b", "c"]`.
+In v1.x of `adapters`, stacking adapters was done using a list of adapter names, i.e. the example from above would be defined as `["a", "b", "c"]`.
 For backwards compatibility, you can still do this, although it is recommended to use the new syntax.
 
 ## `Fuse`
@@ -119,9 +119,9 @@ model.active_adapters = ac.Fuse("d", "e", "f")
     This can be done either using ``add_adapter_fusion()`` or ``load_adapter_fusion()``.
 ```
 
-To learn how training an _AdapterFusion_ layer works, check out [this Colab notebook](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/main/notebooks/03_Adapter_Fusion.ipynb) from the `adapter-transformers` repo.
+To learn how training an _AdapterFusion_ layer works, check out [this Colab notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/03_Adapter_Fusion.ipynb) from the `adapters` repo.
 
-In v1.x of `adapter-transformers`, fusing adapters was done using a nested list of adapter names, i.e. the example from above would be defined as `[["d", "e", "f"]]`.
+In v1.x of `adapters`, fusing adapters was done using a nested list of adapter names, i.e. the example from above would be defined as `[["d", "e", "f"]]`.
 For backwards compatibility, you can still do this, although it is recommended to use the new syntax.
 
 #### Retrieving AdapterFusion attentions

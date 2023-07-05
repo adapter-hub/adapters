@@ -4,8 +4,8 @@ import tempfile
 
 import torch
 
-from adapter_transformers import AutoAdapterModel
-from adapter_transformers.wrappers import wrap_model
+from adapters import AutoAdapterModel
+from adapters.wrappers import wrap_model
 from transformers import (
     MODEL_FOR_CAUSAL_LM_MAPPING,
     MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,

@@ -2,20 +2,20 @@
 
 ## Introduction
 
-Currently, *adapter-transformers* adds adapter components to the PyTorch implementations of all transformer models listed in the *Supported Models* section.
+Currently, *adapters* adds adapter components to the PyTorch implementations of all transformer models listed in the *Supported Models* section.
 For working with adapters, a couple of methods for creation (`add_adapter()`), loading (`load_adapter()`), 
 storing (`save_adapter()`) and deletion (`delete_adapter()`) are added to the model classes. In the following, we will briefly go through some examples.
 
 ```{eval-rst}
 .. note::
-    This document focuses on the adapter-related functionalities added by *adapter-transformers*.
+    This document focuses on the adapter-related functionalities added by *adapters*.
     For a more general overview of the *transformers* library, visit
     `the 'Usage' section in Huggingface's documentation <https://huggingface.co/transformers/usage.html>`_.
 ```
 
 ## Quick Tour: Using a pre-trained adapter for inference
 
-_We also have a Quickstart Colab notebook for adapter inference:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/main/notebooks/02_Adapter_Inference.ipynb)
+_We also have a Quickstart Colab notebook for adapter inference:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/02_Adapter_Inference.ipynb)
 
 The following example shows the usage of a basic pre-trained transformer model with adapters.
 Our goal here is to predict the sentiment of a given sentence.
@@ -89,5 +89,5 @@ model.delete_adapter('sst-2')
 
 ## Quick Tour: Adapter training
 
-_We also have a Quickstart Colab notebook for adapter training:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapter-transformers/blob/main/notebooks/01_Adapter_Training.ipynb)
+_We also have a Quickstart Colab notebook for adapter training:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/01_Adapter_Training.ipynb)
 For more examples on training different adapter setups, refer to the section on [Adapter Training](training.md).

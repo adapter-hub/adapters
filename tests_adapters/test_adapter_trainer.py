@@ -4,9 +4,9 @@ from tempfile import TemporaryDirectory
 
 import torch
 
-from adapter_transformers import AutoAdapterModel, wrap_model
-from adapter_transformers.composition import Fuse, Stack
-from adapter_transformers.trainer import AdapterTrainer, logger
+from adapters import AutoAdapterModel, wrap_model
+from adapters.composition import Fuse, Stack
+from adapters.trainer import AdapterTrainer, logger
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,

@@ -141,7 +141,7 @@ install_requires = [
 ]
 
 setup(
-    name="adapter-transformers",
+    name="adapters",
     version="4.0.0a0",
     author="The AdapterHub team and community contributors",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
@@ -150,7 +150,7 @@ setup(
     long_description_content_type="text/markdown",
     keywords="NLP deep learning transformer pytorch BERT adapters",
     license="Apache",
-    url="https://github.com/adapter-hub/adapter-transformers",
+    url="https://github.com/adapter-hub/adapters",
     package_dir={"": "src"},
     packages=find_packages("src"),
     include_package_data=True,

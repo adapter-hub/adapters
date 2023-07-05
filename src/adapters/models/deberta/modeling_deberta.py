@@ -17,7 +17,7 @@
 import torch
 import torch.utils.checkpoint
 
-from adapter_transformers.mixins.deberta import DebertaSelfAttentionAdaptersMixin
+from adapters.mixins.deberta import DebertaSelfAttentionAdaptersMixin
 from transformers.models.deberta.modeling_deberta import (
     DebertaOutput,
     DebertaSelfOutput,

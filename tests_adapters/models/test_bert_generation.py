@@ -1,5 +1,5 @@
 # flake8: noqa: F403,F405
-from adapter_transformers import BertGenerationAdapterModel
+from adapters import BertGenerationAdapterModel
 from tests.models.bert_generation.test_modeling_bert_generation import *
 from transformers.testing_utils import require_torch
 

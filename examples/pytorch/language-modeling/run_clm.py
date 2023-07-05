@@ -35,7 +35,7 @@ from datasets import load_dataset
 
 import evaluate
 import transformers
-from adapter_transformers import AdapterArguments, AdapterTrainer, setup_adapter_training
+from adapters import AdapterArguments, AdapterTrainer, setup_adapter_training
 from transformers import (
     CONFIG_MAPPING,
     MODEL_FOR_CAUSAL_LM_MAPPING,

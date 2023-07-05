@@ -3,7 +3,7 @@ import tempfile
 
 import torch
 
-from adapter_transformers import (
+from adapters import (
     ADAPTER_CONFIG_MAP,
     ADAPTER_MODEL_MAPPING,
     AutoAdapterModel,
@@ -17,8 +17,8 @@ from adapter_transformers import (
     PfeifferConfig,
     PfeifferInvConfig,
 )
-from adapter_transformers.heads.language_modeling import CausalLMHead
-from adapter_transformers.wrappers import wrap_model
+from adapters.heads.language_modeling import CausalLMHead
+from adapters.wrappers import wrap_model
 from transformers import MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING
 from transformers.testing_utils import require_torch, torch_device
 

@@ -1,4 +1,4 @@
-# The adapter-transformers documentation
+# The adapters documentation
 
 This is the documentation of the adapter-related parts of the transformers library and the Adapter-Hub. Huggingface's documentation of the base library is located in the `/docs` folder.
 

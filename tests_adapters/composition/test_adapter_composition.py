@@ -2,8 +2,8 @@ import unittest
 
 import torch
 
-from adapter_transformers import PfeifferConfig, PrefixTuningConfig, wrap_model
-from adapter_transformers.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
+from adapters import PfeifferConfig, PrefixTuningConfig, wrap_model
+from adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from tests.test_modeling_common import ids_tensor
 from transformers import BertConfig, BertForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device

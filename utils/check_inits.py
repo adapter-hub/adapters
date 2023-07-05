@@ -9,5 +9,5 @@ import utils
 from utils.check_inits import check_all_inits
 
 
-utils.check_inits.PATH_TO_TRANSFORMERS = "src/adapter_transformers"
+utils.check_inits.PATH_TO_TRANSFORMERS = "src/adapters"
 check_all_inits()

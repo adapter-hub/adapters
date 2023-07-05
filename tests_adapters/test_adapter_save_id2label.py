@@ -2,7 +2,7 @@ import unittest
 from tempfile import TemporaryDirectory
 from typing import Dict
 
-from adapter_transformers import BertAdapterModel, wrap_model
+from adapters import BertAdapterModel, wrap_model
 from transformers import BertConfig, BertForSequenceClassification
 
 

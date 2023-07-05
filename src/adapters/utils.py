@@ -649,7 +649,7 @@ def pull_from_hf_model_hub(specifier: str, version: str = None, **kwargs) -> str
         specifier,
         revision=version,
         cache_dir=kwargs.pop("cache_dir", None),
-        library_name="adapter-transformers",
+        library_name="adapters",
         library_version=__version__,
     )
     return download_path
@@ -763,14 +763,12 @@ def list_adapters(source: str = None, model_name: str = None) -> List[AdapterInf
                 " accurate results."
             )
             kwargs = {"full": True}
-        all_hf_adapters_data = HfApi().list_models(filter="adapter-transformers", **kwargs)
+        all_hf_adapters_data = HfApi().list_models(filter="adapters", **kwargs)
         for model_info in all_hf_adapters_data:
             adapter_info = AdapterInfo(
                 source="hf",
                 adapter_id=model_info.modelId,
-                model_name=model_info.config.get("adapter_transformers", {}).get("model_name")
-                if model_info.config
-                else None,
+                model_name=model_info.config.get("adapters", {}).get("model_name") if model_info.config else None,
                 username=model_info.modelId.split("/")[0],
                 sha1_checksum=model_info.sha,
             )
@@ -809,9 +807,7 @@ def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInf
             return AdapterInfo(
                 source="hf",
                 adapter_id=model_info.modelId,
-                model_name=model_info.config.get("adapter_transformers", {}).get("model_name")
-                if model_info.config
-                else None,
+                model_name=model_info.config.get("adapters", {}).get("model_name") if model_info.config else None,
                 username=model_info.modelId.split("/")[0],
                 sha1_checksum=model_info.sha,
             )

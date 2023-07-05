@@ -24,22 +24,22 @@ $$
 
 Efficient fine-tuning might insert parameters $\Phi$ at different locations of a Transformer-based LM.
 One early and successful method, (bottleneck) adapters, introduces bottleneck feed-forward layers in each layer of a Transformer model.
-While these adapters have laid the foundation of the adapter-transformers library, multiple alternative methods have been introduced and integrated since.
+While these adapters have laid the foundation of the adapters library, multiple alternative methods have been introduced and integrated since.
 
 ```{eval-rst}
 .. important::
     In literature, different terms are used to refer to efficient fine-tuning methods.
     The term "adapter" is usually only applied to bottleneck adapter modules.
     However, most efficient fine-tuning methods follow the same general idea of inserting a small set of new parameters and by this "adapting" the pre-trained LM to a new task.
-    In adapter-transformers, the term "adapter" thus may refer to any efficient fine-tuning method if not specified otherwise.
+    In adapters, the term "adapter" thus may refer to any efficient fine-tuning method if not specified otherwise.
 ```
 
-In the remaining sections, we will present how adapter methods can be configured in `adapter-transformers`.
+In the remaining sections, we will present how adapter methods can be configured in `adapters`.
 The next two pages will then present the methodological details of all currently supported adapter methods.
 
 ## Table of Adapter Methods
 
-The following table gives an overview of all adapter methods supported by `adapter-transformers`.
+The following table gives an overview of all adapter methods supported by `adapters`.
 Identifiers and configuration classes are explained in more detail in the [next section](#configuration).
 
 | Identifier | Configuration class | More information

@@ -3,8 +3,8 @@ import unittest
 
 import torch
 
-from adapter_transformers import AutoAdapterModel
-from adapter_transformers.heads import ClassificationHead, PredictionHead
+from adapters import AutoAdapterModel
+from adapters.heads import ClassificationHead, PredictionHead
 from tests.test_modeling_common import ids_tensor
 from transformers import AutoConfig
 from transformers.testing_utils import require_torch, torch_device

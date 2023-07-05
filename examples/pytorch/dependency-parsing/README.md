@@ -1,7 +1,7 @@
 # Dependency parsing on Universal Dependencies
 
 These example scripts are based on the fine-tuning code from the repository of ["How Good is Your Tokenizer? On the Monolingual Performance of Multilingual Language Models"](https://github.com/Adapter-Hub/hgiyt).
-The scripts were upgraded to `adapter-transformers` v2.x and modified to use [flex heads](https://docs.adapterhub.ml/prediction_heads.html#models-with-flexible-heads) and HuggingFace Datasets.
+The scripts were upgraded to `adapters` v2.x and modified to use [flex heads](https://docs.adapterhub.ml/prediction_heads.html#models-with-flexible-heads) and HuggingFace Datasets.
 
 The used biaffine dependency parsing prediction head is described in ["Is Supervised Syntactic Parsing Beneficial for Language Understanding Tasks? An Empirical Investigation" (Glavaš & Vulić, 2021)](https://arxiv.org/pdf/2008.06788.pdf).
 
@@ -17,7 +17,7 @@ model.add_dependency_parsing_head(
 
 ## Training on Universal Dependencies
 
-Script: [`run_udp.py`](https://github.com/Adapter-Hub/adapter-transformers/blob/master/examples/dependency-parsing/run_udp.py).
+Script: [`run_udp.py`](https://github.com/Adapter-Hub/adapters/blob/master/examples/dependency-parsing/run_udp.py).
 
 Fine-tuning on the treebanks of [Universal Dependencies](https://universaldependencies.org/).
 The datasets are loaded from [HuggingFace Datasets](https://huggingface.co/datasets/universal_dependencies) and which dataset to use can be specified via the `--task_name` option.

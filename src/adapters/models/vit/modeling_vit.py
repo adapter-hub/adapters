@@ -22,7 +22,7 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 
-from adapter_transformers.composition import adjust_tensors_for_parallel
+from adapters.composition import adjust_tensors_for_parallel
 from transformers.models.vit.modeling_vit import ViTLayer, ViTOutput, ViTSelfAttention
 
 from ...mixins.vit import ViTLayerAdaptersMixin, ViTOutputAdaptersMixin, ViTSelfAttentionAdaptersMixin

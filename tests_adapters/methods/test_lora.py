@@ -1,4 +1,4 @@
-from adapter_transformers import LoRAConfig
+from adapters import LoRAConfig
 from transformers.testing_utils import require_torch
 
 from .base import AdapterMethodBaseTestMixin

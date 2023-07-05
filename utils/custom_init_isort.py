@@ -10,7 +10,7 @@ import utils
 from utils.custom_init_isort import sort_imports_in_all_inits
 
 
-utils.custom_init_isort.PATH_TO_TRANSFORMERS = "src/adapter_transformers"
+utils.custom_init_isort.PATH_TO_TRANSFORMERS = "src/adapters"
 
 
 if __name__ == "__main__":

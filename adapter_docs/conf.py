@@ -19,7 +19,7 @@ sys.path.insert(0, rootdir)
 
 # -- Project information -----------------------------------------------------
 
-project = "adapter-transformers"
+project = "adapters"
 copyright = "2020-2022, Adapter-Hub Team"
 author = "Adapter-Hub Team"
 

@@ -1,5 +1,5 @@
 # flake8: noqa: F403,F405
-from adapter_transformers import RobertaAdapterModel
+from adapters import RobertaAdapterModel
 from tests.models.roberta.test_modeling_roberta import *
 from transformers.testing_utils import require_torch
 

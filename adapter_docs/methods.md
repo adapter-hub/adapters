@@ -1,6 +1,6 @@
 # Adapter Methods
 
-On this page, we present all adapter methods currently integrated into the `adapter-transformers` library.
+On this page, we present all adapter methods currently integrated into the `adapters` library.
 A tabulary overview of adapter methods is provided [here](overview.html#table-of-adapter-methods)
 Additionally, options to combine multiple adapter methods in a single setup are presented [on the next page](method_combinations.md).
 
@@ -18,7 +18,7 @@ $$
 Depending on the concrete adapter configuration, these layers can be introduced at different locations within a Transformer block. Further, residual connections, layer norms, activation functions and bottleneck sizes etc. can be configured.
 
 The most important configuration hyperparameter to be highlighted here is the bottleneck dimension $d_{bottleneck}$.
-In adapter-transformers, this bottleneck dimension is specified indirectly via the `reduction_factor` attribute of a configuration.
+In adapters, this bottleneck dimension is specified indirectly via the `reduction_factor` attribute of a configuration.
 This `reduction_factor` defines the ratio between a model's layer hidden dimension and the bottleneck dimension, i.e.:
 
 $$
@@ -37,7 +37,7 @@ A visualization of further configuration options related to the adapter structur
     Visualization of possible adapter configurations with corresponding dictionary keys.
 ```
 
-adapter-transformers comes with pre-defined configurations for some bottleneck adapter architectures proposed in literature:
+adapters comes with pre-defined configurations for some bottleneck adapter architectures proposed in literature:
 
 - [`HoulsbyConfig`](transformers.HoulsbyConfig) as proposed by [Houlsby et al. (2019)](https://arxiv.org/pdf/1902.00751.pdf) places adapter layers after both the multi-head attention and feed-forward block in each Transformer layer.
 - [`PfeifferConfig`](transformers.PfeifferConfig) as proposed by [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) places an adapter layer only after the feed-forward block in each Transformer layer.
@@ -83,7 +83,7 @@ _Papers:_
 
 ```{eval-rst}
 .. note::
-    V1.x of adapter-transformers made a distinction between task adapters (without invertible adapters) and language adapters (with invertible adapters) with the help of the ``AdapterType`` enumeration.
+    V1.x of adapters made a distinction between task adapters (without invertible adapters) and language adapters (with invertible adapters) with the help of the ``AdapterType`` enumeration.
     This distinction was dropped with v2.x.
 ```
 
@@ -119,7 +119,7 @@ config = PrefixTuningConfig(flat=False, prefix_length=30)
 model.add_adapter("prefix_tuning", config=config)
 ```
 
-As reparameterization using the bottleneck MLP is not necessary for performing inference on an already trained Prefix Tuning module, adapter-transformers includes a function to "eject" a reparameterized Prefix Tuning into a flat one:
+As reparameterization using the bottleneck MLP is not necessary for performing inference on an already trained Prefix Tuning module, adapters includes a function to "eject" a reparameterized Prefix Tuning into a flat one:
 ```python
 model.eject_prefix_tuning("prefix_tuning")
 ```
@@ -186,7 +186,7 @@ $$
 Here, $A \in \mathbb{R}^{r\times k}$ and $B \in \mathbb{R}^{d\times r}$ are the decomposition matrices and $r$, the low-dimensional rank of the decomposition, is the most important hyperparameter.
 
 While, in principle, this reparameterization can be applied to any weights matrix in a model, the original paper only adapts the attention weights of the Transformer self-attention sub-layer with LoRA.
-`adapter-transformers` additionally allows injecting LoRA into the dense feed-forward layers in the intermediate and output components of a Transformer block.
+`adapters` additionally allows injecting LoRA into the dense feed-forward layers in the intermediate and output components of a Transformer block.
 You can configure the locations where LoRA weights should be injected using the attributes in the [`LoRAConfig`](transformers.LoRAConfig) class.
 
 _Example_:
@@ -200,7 +200,7 @@ model.add_adapter("lora_adapter", config=config)
 In the design of LoRA, Hu et al. (2021) also pay special attention to keeping the inference latency overhead compared to full fine-tuning at a minimum.
 To accomplish this, the LoRA reparameterization can be merged with the original pre-trained weights of a model for inference.
 Thus, the adapted weights are directly used in every forward pass without passing activations through an additional module.
-In `adapter-transformers`, this can be realized using the built-in `merge_adapter()` method:
+In `adapters`, this can be realized using the built-in `merge_adapter()` method:
 ```python
 model.merge_adapter("lora_adapter")
 ```

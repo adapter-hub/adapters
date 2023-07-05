@@ -2,7 +2,7 @@ cff-version: "1.2.0"
 date-released: 2020-10
 message: "If you use this software, please cite it as below."
 title: "AdapterHub: A Framework for Adapting Transformers"
-url: "https://github.com/Adapter-Hub/adapter-transformers"
+url: "https://github.com/Adapter-Hub/adapters"
 authors: 
   - family-names: Pfeiffer
     given-names: Jonas

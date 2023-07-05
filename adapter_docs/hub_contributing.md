@@ -73,7 +73,7 @@ Let's go through the upload process step by step:
 
 ## Add a new adapter architecture
 
-The `adapter-transformers` libraries has some common adapter configurations preincluded. However, if you want to add a new adapter using a different architecture, you can easily do this by adding the architecture configuration to the Hub repo:
+The `adapters` libraries has some common adapter configurations preincluded. However, if you want to add a new adapter using a different architecture, you can easily do this by adding the architecture configuration to the Hub repo:
 
 1. After setting up your repository as described in the [Getting started section](#getting-started), create a new YAML file for your architecture in the `architectures` folder.
 

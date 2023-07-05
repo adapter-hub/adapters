@@ -1,5 +1,5 @@
 # flake8: noqa: F403,F405
-from adapter_transformers import GPTJAdapterModel
+from adapters import GPTJAdapterModel
 from tests.models.gptj.test_modeling_gptj import *
 from transformers.testing_utils import require_torch
 

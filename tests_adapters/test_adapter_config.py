@@ -2,7 +2,7 @@ import json
 import unittest
 from dataclasses import FrozenInstanceError, dataclass
 
-from adapter_transformers import (
+from adapters import (
     ADAPTER_CONFIG_MAP,
     AdapterConfig,
     AdapterConfigBase,

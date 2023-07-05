@@ -3,7 +3,7 @@
 _Configuration class_: [`ConfigUnion`](transformers.ConfigUnion)
 
 While different efficient fine-tuning methods and configurations have often been proposed as standalone, it might be beneficial to combine them for joint training.
-To make this process easier, adapter-transformers provides the possibility to group multiple configuration instances together using the `ConfigUnion` class.
+To make this process easier, adapters provides the possibility to group multiple configuration instances together using the `ConfigUnion` class.
 
 For example, this could be used to define different reduction factors for the adapter modules placed after the multi-head attention and the feed-forward blocks:
 
@@ -23,7 +23,7 @@ _Configuration class_: [`MAMConfig`](transformers.MAMConfig)
 
 [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) study various variants and combinations of efficient fine-tuning methods.
 Among others, they propose _Mix-and-Match Adapters_ as a combination of Prefix Tuning and parallel bottleneck adapters.
-This configuration is supported by adapter-transformers out-of-the-box:
+This configuration is supported by adapters out-of-the-box:
 
 ```python
 from transformers.adapters import MAMConfig
@@ -74,10 +74,10 @@ $$
 h \leftarrow W_0 x + \mathcal{G}_{LoRA} B A x
 $$
 
-In the configuration classes of `adapter-transformers`, these gating mechanisms can be activated via `use_gating=True`.
+In the configuration classes of `adapters`, these gating mechanisms can be activated via `use_gating=True`.
 The full UniPELT setup can be instantiated using `UniPELTConfig`[^unipelt]:
 
-[^unipelt]: Note that the implementation of UniPELT in `adapter-transformers` follows the implementation in the original code, which is slighlty different from the description in the paper. See [here](https://github.com/morningmoni/UniPELT/issues/1) for more.
+[^unipelt]: Note that the implementation of UniPELT in `adapters` follows the implementation in the original code, which is slighlty different from the description in the paper. See [here](https://github.com/morningmoni/UniPELT/issues/1) for more.
 
 ```python
 from transformers.adapters import UniPELTConfig
@@ -99,7 +99,7 @@ config = ConfigUnion(
 model.add_adapter("unipelt", config=config)
 ```
 
-Finally, as the gating values for each adapter module might provide interesting insights for analysis, `adapter-transformers` comes with an integrated mechanism of returning all gating values computed during a model forward pass via the `output_adapter_gating_scores` parameter:
+Finally, as the gating values for each adapter module might provide interesting insights for analysis, `adapters` comes with an integrated mechanism of returning all gating values computed during a model forward pass via the `output_adapter_gating_scores` parameter:
 
 ```python
 outputs = model(**inputs, output_adapter_gating_scores=True)

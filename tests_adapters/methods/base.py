@@ -4,10 +4,10 @@ import tempfile
 
 import torch
 
-from adapter_transformers import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
-from adapter_transformers.heads import CausalLMHead
-from adapter_transformers.utils import WEIGHTS_NAME
-from adapter_transformers.wrappers import wrap_model
+from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
+from adapters.heads import CausalLMHead
+from adapters.utils import WEIGHTS_NAME
+from adapters.wrappers import wrap_model
 from transformers import TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
 

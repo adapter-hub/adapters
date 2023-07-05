@@ -1,4 +1,4 @@
-from adapter_transformers import UniPELTConfig
+from adapters import UniPELTConfig
 from transformers.testing_utils import require_torch, torch_device
 
 from .base import AdapterMethodBaseTestMixin

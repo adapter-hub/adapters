@@ -30,7 +30,7 @@ from datasets import load_dataset
 
 import evaluate
 import transformers
-from adapter_transformers import AdapterArguments, Seq2SeqAdapterTrainer, setup_adapter_training
+from adapters import AdapterArguments, Seq2SeqAdapterTrainer, setup_adapter_training
 from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,

@@ -1,5 +1,5 @@
 # flake8: noqa: F403,F405
-from adapter_transformers import BartAdapterModel
+from adapters import BartAdapterModel
 from tests.models.bart.test_modeling_bart import *
 from transformers.testing_utils import require_torch
 

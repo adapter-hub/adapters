@@ -1,6 +1,6 @@
 ---
 name: "\U0001F41B Bug Report"
-about: Submit a bug report to help us improve adapter-transformers
+about: Submit a bug report to help us improve adapters
 title: ''
 labels: 'bug'
 assignees: ''
@@ -12,7 +12,7 @@ assignees: ''
 <!-- You can run the command `transformers-cli env` and copy-and-paste its output below.
      Don't forget to fill out the missing fields in that output! -->
      
-- `adapter-transformers` version:
+- `adapters` version:
 - Platform:
 - Python version:
 - PyTorch version (GPU?):

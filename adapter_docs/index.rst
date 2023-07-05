@@ -1,4 +1,4 @@
-.. adapter-transformers documentation main file, created by
+.. adapters documentation main file, created by
    sphinx-quickstart on Sat Apr 18 10:21:23 2020.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
@@ -7,11 +7,11 @@ AdapterHub Documentation
 ================================================
 
 *AdapterHub* is a framework simplifying the integration, training and usage of adapters and other efficient fine-tuning methods for Transformer-based language models.
-For a full list of currently implemented methods, see the `table in our repository <https://github.com/adapter-hub/adapter-transformers#implemented-methods>`_.
+For a full list of currently implemented methods, see the `table in our repository <https://github.com/adapter-hub/adapters#implemented-methods>`_.
 
 The framework consists of two main components:
 
-- ``adapter-transformers``, an extension of Huggingface's `Transformers <https://huggingface.co/transformers/>`_ library that adds adapter components to transformer models
+- ``adapters``, an extension of Huggingface's `Transformers <https://huggingface.co/transformers/>`_ library that adds adapter components to transformer models
 
 - `The Hub <https://adapterhub.ml>`_, a central repository collecting pre-trained adapter modules
 

@@ -3,10 +3,10 @@ import unittest
 
 import numpy as np
 
-from adapter_transformers import ADAPTER_CONFIG_MAP, AdapterConfig, BertAdapterModel, get_adapter_config_hash
-from adapter_transformers.trainer import AdapterTrainer as Trainer
-from adapter_transformers.utils import find_in_index
-from adapter_transformers.wrappers import wrap_model
+from adapters import ADAPTER_CONFIG_MAP, AdapterConfig, BertAdapterModel, get_adapter_config_hash
+from adapters.trainer import AdapterTrainer as Trainer
+from adapters.utils import find_in_index
+from adapters.wrappers import wrap_model
 from tests.test_modeling_common import ids_tensor
 from transformers import (  # get_adapter_config_hash,
     AutoModel,

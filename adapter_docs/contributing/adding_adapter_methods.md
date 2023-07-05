@@ -1,12 +1,12 @@
 # Adding Adapter Methods
 
-This document describes how different efficient fine-tuning methods can be integrated into the codebase of `adapter-transformers`.
+This document describes how different efficient fine-tuning methods can be integrated into the codebase of `adapters`.
 It can be used as a guide to add new efficient fine-tuning/ adapter methods.
 
-Before we start to go into implementation details, first some important design philosophies of `adapter-transformers`:
+Before we start to go into implementation details, first some important design philosophies of `adapters`:
 
 - _Adapters should integrate seamlessly with existing model classes_: This means (a) if a model architecture supports adapters, it should be possible to use them with all model classes of this architecture and (b) adapters should be entirely opt-in, i.e. the model classes still must work without adapters.
-- _Changes to the original should be minimal_: `adapter-transformers` tries to avoid changes to the original HF code as far as possible. We extensively use Python mixins to achieve this.
+- _Changes to the original should be minimal_: `adapters` tries to avoid changes to the original HF code as far as possible. We extensively use Python mixins to achieve this.
 
 Now we highlight the most important components of integrating adapter methods into Transformer models.
 Each integration is highly dependent on the specific details of the adapter methods.
@@ -46,7 +46,7 @@ Thus, each adapter method implementation at least should provide two classes:
 
 ## Testing
 
-❓ `adapter-transformers` provides a framework for testing adapter methods on implementing models in `tests_adapters`.
+❓ `adapters` provides a framework for testing adapter methods on implementing models in `tests_adapters`.
 Tests for each adapter method are provided via a mixin class.
 All test mixins derive from the common `AdapterMethodBaseTestMixin` class and reside in `tests_adapters/methods`.
 
@@ -62,7 +62,7 @@ All test mixins derive from the common `AdapterMethodBaseTestMixin` class and re
 
 ## Documentation
 
-❓ The documentation for `adapter-transformers` lives in the `adapter_docs` folder.
+❓ The documentation for `adapters` lives in the `adapter_docs` folder.
 
 **📝 Steps**
 
@@ -77,4 +77,4 @@ Finally, please add a row for the new method in the table of supported methods u
 ❓ To make sure the new adapter implementation works properly, it is useful to train some example adapters and compare the training results to full model fine-tuning and/or reference implementations.
 Ideally, this would include training adapters on one (or more) tasks that are good for demonstrating the new method and uploading them to AdapterHub.
 
-HuggingFace already provides example training scripts for many tasks, some of them have already been modified to support adapter training (see https://github.com/Adapter-Hub/adapter-transformers/tree/main/examples).
+HuggingFace already provides example training scripts for many tasks, some of them have already been modified to support adapter training (see https://github.com/Adapter-Hub/adapters/tree/main/examples).

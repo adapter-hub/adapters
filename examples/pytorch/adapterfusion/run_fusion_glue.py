@@ -26,7 +26,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
-from adapter_transformers import AdapterArguments, AdapterTrainer
+from adapters import AdapterArguments, AdapterTrainer
 from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer, EvalPrediction, GlueDataset
 from transformers import GlueDataTrainingArguments as DataTrainingArguments
 from transformers import (
@@ -139,7 +139,7 @@ def main():
 
     # ~~~~~ Here comes the interesting part of setting up AdapterFusion training ~~~~~
 
-    from adapter_transformers.configuration import PfeifferConfig
+    from adapters.configuration import PfeifferConfig
 
     # First, load the pre-trained adapters we want to fuse from Hub
     model.load_adapter("sentiment/sst-2@ukp", config=PfeifferConfig(), with_head=False)

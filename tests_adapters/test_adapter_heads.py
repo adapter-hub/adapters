@@ -3,9 +3,9 @@ import tempfile
 
 import torch
 
-from adapter_transformers import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel
-from adapter_transformers.composition import BatchSplit, Stack
-from adapter_transformers.wrappers import wrap_model
+from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel
+from adapters.composition import BatchSplit, Stack
+from adapters.wrappers import wrap_model
 from transformers import AutoModelForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
 

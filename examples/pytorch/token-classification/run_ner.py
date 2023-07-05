@@ -31,7 +31,7 @@ from datasets import ClassLabel, load_dataset
 
 import evaluate
 import transformers
-from adapter_transformers import AdapterArguments, AdapterTrainer, setup_adapter_training
+from adapters import AdapterArguments, AdapterTrainer, setup_adapter_training
 from transformers import (
     AutoConfig,
     AutoModelForTokenClassification,

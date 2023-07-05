@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 
-from adapter_transformers import PfeifferConfig, __version__
+from adapters import PfeifferConfig, __version__
 from tests_adapters.methods import create_twin_models
 from transformers.testing_utils import require_torch
 
