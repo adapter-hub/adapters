@@ -8,6 +8,7 @@ import torch
 from adapters import ADAPTER_MODEL_MAPPING, ADAPTERFUSION_CONFIG_MAP, AdapterConfig, AutoAdapterModel, PfeifferConfig
 from adapters.composition import Fuse
 from adapters.utils import ADAPTERFUSION_WEIGHTS_NAME
+from adapters.wrappers import load_model
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -127,7 +128,8 @@ class AdapterFusionModelTestMixin:
         # save & reload model
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_pretrained(temp_dir)
-            model2 = self.model_class.from_pretrained(temp_dir)
+
+            model2 = load_model(temp_dir, self.model_class)
 
         # check if AdapterFusion was correctly loaded
         self.assertTrue(model1.config.adapters.fusions == model2.config.adapters.fusions)

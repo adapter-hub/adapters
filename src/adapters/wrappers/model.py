@@ -1,4 +1,6 @@
 import importlib
+import os
+from typing import Any, Optional, Type, Union
 
 from transformers import PreTrainedModel
 from transformers.models.auto.auto_factory import getattribute_from_module
@@ -59,5 +61,44 @@ def wrap_model(model: PreTrainedModel) -> PreTrainedModel:
 
     # Finally, initialize adapters
     model.init_adapters(model.config)
+
+    return model
+
+
+def load_model(
+    model_name_or_path: Optional[Union[str, os.PathLike]],
+    model_class: Type[PreTrainedModel],
+    *model_args: Any,
+    **kwargs: Any
+) -> PreTrainedModel:
+    """
+    Loads a pretrained model with adapters from the given path or url.
+
+    Parameters:
+        model_name_or_path (`str` or `os.PathLike`, *optional*):
+            Parameter identical to PreTrainedModel.from_pretrained
+        model_class (`PreTrainedModel` or `AutoModel`):
+            The model class to load (e.g. EncoderDecoderModel and EncoderDecoderAdapterModel both work)
+        model_args (sequence of positional arguments, *optional*):
+            All remaining positional arguments will be passed to the underlying model's `__init__` method.
+        kwargs (remaining dictionary of keyword arguments, *optional*):
+            Can be used to update the configuration object (after it being loaded) and initiate the model (e.g.,
+            `output_attentions=True`).
+    Returns:
+        `PreTrainedModel`: The model with adapters loaded from the given path or url.
+    """
+
+    old_init = model_class.__init__
+
+    def new_init(self, config, *args, **kwargs):
+        old_init(self, config, *args, **kwargs)
+        wrap_model(self)
+
+    # wrap model after it is initialized but before the weights are loaded
+    model_class.__init__ = new_init
+    model = model_class.from_pretrained(model_name_or_path, *model_args, **kwargs)
+
+    # restore original __init__ function for when other models of the same type are created
+    model_class.__init__ = old_init
 
     return model

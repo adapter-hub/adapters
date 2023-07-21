@@ -7,7 +7,7 @@ import torch
 from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
 from adapters.heads import CausalLMHead
 from adapters.utils import WEIGHTS_NAME
-from adapters.wrappers import wrap_model
+from adapters.wrappers import load_model, wrap_model
 from transformers import TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
 
@@ -172,7 +172,7 @@ class AdapterMethodBaseTestMixin:
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_pretrained(temp_dir)
 
-            model2, loading_info = self.model_class.from_pretrained(temp_dir, output_loading_info=True)
+            model2, loading_info = load_model(temp_dir, self.model_class, output_loading_info=True)
 
         # check if all weights were loaded
         self.assertEqual(0, len(loading_info["missing_keys"]))
