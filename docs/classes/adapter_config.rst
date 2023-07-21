@@ -1,0 +1,88 @@
+Adapter Configuration
+=======================
+
+Classes representing the architectures of adapter modules and fusion layers.
+
+Single (bottleneck) adapters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.AdapterConfigBase
+    :members:
+
+.. autoclass:: adapters.AdapterConfig
+    :members:
+    :inherited-members: Mapping
+
+.. autoclass:: adapters.PfeifferConfig
+    :members:
+
+.. autoclass:: adapters.PfeifferInvConfig
+    :members:
+
+.. autoclass:: adapters.HoulsbyConfig
+    :members:
+
+.. autoclass:: adapters.HoulsbyInvConfig
+    :members:
+
+.. autoclass:: adapters.ParallelConfig
+    :members:
+
+.. autoclass:: adapters.CompacterConfig
+    :members:
+
+.. autoclass:: adapters.CompacterPlusPlusConfig
+    :members:
+
+Prefix Tuning
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.PrefixTuningConfig
+    :members:
+    :inherited-members: Mapping
+
+LoRAConfig
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.LoRAConfig
+    :members:
+    :inherited-members: Mapping
+
+IA3Config
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.IA3Config
+    :members:
+    :inherited-members: Mapping
+
+Combined configurations
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.ConfigUnion
+    :members:
+    :inherited-members: Mapping
+
+.. autoclass:: adapters.MAMConfig
+    :members:
+
+.. autoclass:: adapters.UniPELTConfig
+    :members:
+
+Adapter Fusion
+~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.AdapterFusionConfig
+    :members:
+    :inherited-members: Mapping
+
+.. autoclass:: adapters.StaticAdapterFusionConfig
+    :members:
+
+.. autoclass:: adapters.DynamicAdapterFusionConfig
+    :members:
+
+Adapter Setup
+~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.AdapterSetup
+    :members:

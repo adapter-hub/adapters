@@ -186,8 +186,11 @@ def get_from_cache(
 ) -> Optional[str]:
     """
     Given a URL, look for the corresponding file in the local cache. If it's not there, download it. Then return the
-    path to the cached file. Return:
+    path to the cached file.
+
+    Return:
         Local path (string) of file or if networking is off, last version of file cached on disk.
+
     Raises:
         In case of non-recoverable file (non-existent or inaccessible url + no cache on disk).
     """

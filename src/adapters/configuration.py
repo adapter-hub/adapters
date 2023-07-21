@@ -594,7 +594,7 @@ class UniPELTConfig(ConfigUnion):
         super().__init__(*[c.replace(use_gating=True) for c in components])
 
 
-# IMPORTANT: When adding a new config here, also add it to adapter_docs/overview.md!
+# IMPORTANT: When adding a new config here, also add it to docs/overview.md!
 ADAPTER_CONFIG_MAP = {
     "pfeiffer": PfeifferConfig(),
     "houlsby": HoulsbyConfig(),

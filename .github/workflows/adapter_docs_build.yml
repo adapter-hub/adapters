@@ -5,7 +5,7 @@ on:
     branches: [ main ]
     paths:
       - '.github/workflows/**'
-      - 'adapter_docs/**'
+      - 'docs/**'
   workflow_dispatch:
 
 jobs:
@@ -29,14 +29,14 @@ jobs:
           pip install markupsafe==2.0.1
       - name: Build
         run: |
-          cd adapter_docs && make html-multi-version && cd ..
+          cd docs && make html-multi-version && cd ..
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           user_name: "Adapter-Hub-Bert"
           user_email: "---"
-          publish_dir: ./adapter_docs/_build/html
+          publish_dir: ./docs/_build/html
           publish_branch: gh-pages
           force_orphan: true
           cname: docs.adapterhub.ml

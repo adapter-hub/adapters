@@ -75,7 +75,7 @@ Tasks to do for first usable version:
 ---
 
 <p align="center">
-<img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapters/main/adapter_docs/logo.png" />
+<img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapters/main/docs/logo.png" />
 </p>
 <h1 align="center">
 <span>adapters</span>
