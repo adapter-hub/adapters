@@ -2,11 +2,11 @@ from typing import Callable, Iterable, Tuple
 
 import torch.nn as nn
 
-from ..layer import AdapterLayer
-from ..lora import Linear as LoRALinear
-from ..lora import MergedLinear as LoRAMergedLinear
-from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin
-from ..prefix_tuning import PrefixTuningShim
+from ...layer import AdapterLayer
+from ...lora import Linear as LoRALinear
+from ...lora import MergedLinear as LoRAMergedLinear
+from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin
+from ...prefix_tuning import PrefixTuningShim
 
 
 class GPT2AttentionAdaptersMixin:

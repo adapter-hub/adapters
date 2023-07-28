@@ -1,5 +1,5 @@
-from ..lora import MergedLinear as LoRAMergedLinear
-from ..prefix_tuning import PrefixTuningShim
+from ...lora import MergedLinear as LoRAMergedLinear
+from ...prefix_tuning import PrefixTuningShim
 
 
 class DebertaSelfAttentionAdaptersMixin:

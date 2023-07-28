@@ -3,17 +3,17 @@ from typing import Callable, Iterable, Optional, Tuple
 import torch
 import torch.nn as nn
 
-from ..composition import adjust_tensors_for_parallel
-from ..layer import AdapterLayer
-from ..lora import Linear as LoRALinear
-from ..model_mixin import (
+from ...composition import adjust_tensors_for_parallel
+from ...layer import AdapterLayer
+from ...lora import Linear as LoRALinear
+from ...model_mixin import (
     EmbeddingAdaptersMixin,
     EmbeddingAdaptersWrapperMixin,
     InvertibleAdaptersMixin,
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
 )
-from ..prefix_tuning import PrefixTuningShim
+from ...prefix_tuning import PrefixTuningShim
 
 
 class BartAttentionAdaptersMixin:

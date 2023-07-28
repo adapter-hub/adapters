@@ -24,7 +24,7 @@ from torch import nn
 
 from transformers.models.beit.modeling_beit import BeitLayer, BeitRelativePositionBias, BeitSelfAttention
 
-from ...mixins.beit import BeitLayerAdaptersMixin, BeitSelfAttentionAdaptersMixin
+from .mixin_beit import BeitLayerAdaptersMixin, BeitSelfAttentionAdaptersMixin
 
 
 class BeitSelfAttentionWithAdapters(BeitSelfAttentionAdaptersMixin, BeitSelfAttention):

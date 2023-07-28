@@ -30,7 +30,7 @@ from transformers.models.gptj.modeling_gptj import (
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
 from ...context import ForwardContext
-from ...mixins.gptj import GPTJAttentionAdaptersMixin, GPTJDecoderBlockAdaptersMixin, GPTJModelAdapterMixin
+from .mixin_gptj import GPTJAttentionAdaptersMixin, GPTJDecoderBlockAdaptersMixin, GPTJModelAdapterMixin
 
 
 class GPTJAttentionWithAdapters(GPTJAttentionAdaptersMixin, GPTJAttention):

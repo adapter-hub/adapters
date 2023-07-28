@@ -29,7 +29,7 @@ from transformers.models.t5.modeling_t5 import (
 from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel
-from ...mixins.t5 import (
+from .mixin_t5 import (
     T5AttentionAdaptersMixin,
     T5CrossAttentionLayerAdaptersMixin,
     T5FFLayerAdaptersMixin,

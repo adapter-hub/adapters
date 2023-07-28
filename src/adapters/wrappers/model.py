@@ -6,8 +6,8 @@ from transformers import PreTrainedModel
 from transformers.models.auto.auto_factory import getattribute_from_module
 from transformers.models.auto.configuration_auto import model_type_to_module_name
 
-from ..mixins import MODEL_MIXIN_MAPPING
 from ..model_mixin import EmbeddingAdaptersWrapperMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
+from ..models import MODEL_MIXIN_MAPPING
 
 
 SPECIAL_MODEL_TYPE_TO_MODULE_NAME = {

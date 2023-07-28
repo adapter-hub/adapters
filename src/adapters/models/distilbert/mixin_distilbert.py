@@ -2,10 +2,10 @@ from typing import Callable, Iterable, Tuple
 
 import torch.nn as nn
 
-from ..layer import AdapterLayer
-from ..lora import Linear as LoRALinear
-from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
-from ..prefix_tuning import PrefixTuningShim
+from ...layer import AdapterLayer
+from ...lora import Linear as LoRALinear
+from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ...prefix_tuning import PrefixTuningShim
 
 
 class DistilBertMultiHeadSelfAttentionMixin:

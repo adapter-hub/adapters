@@ -3,11 +3,11 @@ from typing import Callable, Iterable, Tuple
 
 import torch.nn as nn
 
-from ..composition import adjust_tensors_for_parallel_
-from ..layer import AdapterLayer
-from ..lora import Linear as LoRALinear
-from ..model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
-from ..prefix_tuning import PrefixTuningShim
+from ...composition import adjust_tensors_for_parallel_
+from ...layer import AdapterLayer
+from ...lora import Linear as LoRALinear
+from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ...prefix_tuning import PrefixTuningShim
 
 
 logger = logging.getLogger(__name__)

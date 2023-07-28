@@ -26,7 +26,7 @@ from torch import nn
 from transformers.models.bert.modeling_bert import BertOutput, BertSelfAttention, BertSelfOutput
 
 from ...composition import adjust_tensors_for_parallel
-from ...mixins.bert import BertOutputAdaptersMixin, BertSelfAttentionAdaptersMixin, BertSelfOutputAdaptersMixin
+from .mixin_bert import BertOutputAdaptersMixin, BertSelfAttentionAdaptersMixin, BertSelfOutputAdaptersMixin
 
 
 class BertSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, BertSelfAttention):

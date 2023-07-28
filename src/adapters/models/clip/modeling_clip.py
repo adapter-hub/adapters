@@ -23,7 +23,7 @@ from torch import nn
 
 from transformers.models.clip.modeling_clip import CLIPAttention, CLIPEncoderLayer
 
-from ...mixins.clip import CLIPAttentionAdaptersMixin, CLIPEncoderLayerAdaptersMixin
+from .mixin_clip import CLIPAttentionAdaptersMixin, CLIPEncoderLayerAdaptersMixin
 
 
 class CLIPAttentionWithAdapters(CLIPAttentionAdaptersMixin, CLIPAttention):

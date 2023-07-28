@@ -17,7 +17,6 @@
 import torch
 import torch.utils.checkpoint
 
-from adapters.mixins.deberta import DebertaSelfAttentionAdaptersMixin
 from transformers.models.deberta.modeling_deberta import (
     DebertaOutput,
     DebertaSelfOutput,
@@ -26,7 +25,8 @@ from transformers.models.deberta.modeling_deberta import (
 )
 
 from ...composition import adjust_tensors_for_parallel
-from ...mixins.bert import BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
+from ..bert.mixin_bert import BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
+from .mixin_deberta import DebertaSelfAttentionAdaptersMixin
 
 
 class DebertaSelfOutputWithAdapters(BertSelfOutputAdaptersMixin, DebertaSelfOutput):

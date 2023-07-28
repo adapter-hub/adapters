@@ -22,7 +22,7 @@ from torch import nn
 from transformers.models.mbart.modeling_mbart import MBartAttention, MBartDecoderLayer, MBartEncoderLayer
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
-from ...mixins.bart import BartAttentionAdaptersMixin, BartDecoderLayerAdaptersMixin, BartEncoderLayerAdaptersMixin
+from ..bart.mixin_bart import BartAttentionAdaptersMixin, BartDecoderLayerAdaptersMixin, BartEncoderLayerAdaptersMixin
 
 
 class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):

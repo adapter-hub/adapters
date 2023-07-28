@@ -29,7 +29,7 @@ from transformers.models.xlm_roberta.modeling_xlm_roberta import (
 )
 
 from ...composition import adjust_tensors_for_parallel
-from ...mixins.bert import BertOutputAdaptersMixin, BertSelfAttentionAdaptersMixin, BertSelfOutputAdaptersMixin
+from ..bert.mixin_bert import BertOutputAdaptersMixin, BertSelfAttentionAdaptersMixin, BertSelfOutputAdaptersMixin
 
 
 # Copied from transformers.models.roberta.modeling_roberta.RobertaSelfAttention with Roberta->XLMRoberta

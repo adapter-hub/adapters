@@ -24,7 +24,7 @@ from transformers.models.albert.modeling_albert import AlbertAttention, AlbertLa
 from transformers.pytorch_utils import apply_chunking_to_forward
 
 from ...composition import adjust_tensors_for_parallel
-from ...mixins.albert import AlbertAttentionAdaptersMixin, AlbertEncoderLayerAdaptersMixin
+from .mixin_albert import AlbertAttentionAdaptersMixin, AlbertEncoderLayerAdaptersMixin
 
 
 class AlbertAttentionWithAdapters(AlbertAttentionAdaptersMixin, AlbertAttention):

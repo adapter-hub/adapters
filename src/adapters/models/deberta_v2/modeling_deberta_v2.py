@@ -25,8 +25,8 @@ from transformers.models.deberta_v2.modeling_deberta_v2 import (
 )
 
 from ...composition import adjust_tensors_for_parallel
-from ...mixins.bert import BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
-from ...mixins.deberta_v2 import DebertaV2SelfAttentionAdaptersMixin
+from ..bert.mixin_bert import BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
+from .mixin_deberta_v2 import DebertaV2SelfAttentionAdaptersMixin
 
 
 # Copied from transformers.models.deberta.modeling_deberta.DebertaSelfOutput with DebertaLayerNorm->LayerNorm

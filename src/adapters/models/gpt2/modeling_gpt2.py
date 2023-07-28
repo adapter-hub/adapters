@@ -26,7 +26,7 @@ from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
 from ...context import ForwardContext
-from ...mixins.gpt2 import GPT2AttentionAdaptersMixin, GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin
+from .mixin_gpt2 import GPT2AttentionAdaptersMixin, GPT2DecoderBlockAdaptersMixin, GPT2ModelAdapterMixin
 
 
 logger = logging.get_logger(__name__)
@@ -266,7 +266,6 @@ class GPT2ModelWithAdapters(GPT2ModelAdapterMixin, GPT2Model):
         all_cross_attentions = () if output_attentions and self.config.add_cross_attention else None
         all_hidden_states = () if output_hidden_states else None
         for i, (block, layer_past) in enumerate(zip(self.h, past_key_values)):
-
             # Model parallel
             if self.model_parallel:
                 torch.cuda.set_device(hidden_states.device)
@@ -282,7 +281,6 @@ class GPT2ModelWithAdapters(GPT2ModelAdapterMixin, GPT2Model):
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
             if self.gradient_checkpointing and self.training:
-
                 if use_cache:
                     logger.warning(
                         "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."

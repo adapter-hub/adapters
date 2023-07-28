@@ -28,7 +28,7 @@ from torch import nn
 from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAttention, TransformerBlock
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
-from ...mixins.distilbert import DistilBertMultiHeadSelfAttentionMixin, DistilBertTransfomerBlockAdaptersMixin
+from .mixin_distilbert import DistilBertMultiHeadSelfAttentionMixin, DistilBertTransfomerBlockAdaptersMixin
 
 
 class MultiHeadSelfAttentionWithAdapters(DistilBertMultiHeadSelfAttentionMixin, MultiHeadSelfAttention):

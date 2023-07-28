@@ -2,13 +2,13 @@ from typing import Iterable, Tuple
 
 import torch.nn as nn
 
-from ..layer import AdapterLayer
-from ..lora import Linear as LoRALinear
-from ..model_mixin import ModelBaseAdaptersMixin
-from ..prefix_tuning import PrefixTuningShim
+from ...layer import AdapterLayer
+from ...lora import Linear as LoRALinear
+from ...model_mixin import ModelBaseAdaptersMixin
+from ...prefix_tuning import PrefixTuningShim
 
 
-class ViTSelfAttentionAdaptersMixin:
+class BeitSelfAttentionAdaptersMixin:
     def init_adapters(self, config):
         self.location_key = "self"
 
@@ -20,32 +20,28 @@ class ViTSelfAttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningShim(self.location_key + "_prefix" if self.location_key else None, config)
 
 
-class ViTIntermediateAdaptersMixin:
+class BeitIntermediateAdaptersMixin:
     def init_adapters(self, config):
         # Wrap layers for LoRA
         self.dense = LoRALinear.wrap(self.dense, "intermediate", config)
 
 
-class ViTOutputAdaptersMixin:
-    """Adds adapters to the ViTOutput module."""
-
+class BeitOutputAdaptersMixin:
     def init_adapters(self, config):
-        self.output_adapters = AdapterLayer("output_adapter")
-
         # Wrap layers for LoRA
         self.dense = LoRALinear.wrap(self.dense, "output", config)
 
 
-# Unlike BERT, self attention adapters are added to Layer module in ViT
-class ViTLayerAdaptersMixin:
-    """Adds adapters to the ViTSelfOutput module."""
+class BeitLayerAdaptersMixin:
+    """Adds adapters to the BeitLayer module."""
 
     def init_adapters(self, config):
         self.attention_adapters = AdapterLayer("mh_adapter")
+        self.output_adapters = AdapterLayer("output_adapter")
 
 
-class ViTModelAdaptersMixin(ModelBaseAdaptersMixin):
-    """Adds adapters to the ViTModel class."""
+class BeitModelAdaptersMixin(ModelBaseAdaptersMixin):
+    """Adds adapters to the BeitModel module."""
 
     def init_adapters(self, config):
         super().init_adapters(config)
@@ -53,3 +49,6 @@ class ViTModelAdaptersMixin(ModelBaseAdaptersMixin):
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.encoder.layer):
             yield i, layer
+
+    def set_input_embeddings(self, value):
+        self.embeddings.patch_embeddings = value

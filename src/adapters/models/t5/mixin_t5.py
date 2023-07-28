@@ -2,16 +2,16 @@ from typing import Iterable, Tuple
 
 import torch.nn as nn
 
-from ..layer import AdapterLayer
-from ..lora import Linear as LoRALinear
-from ..model_mixin import (
+from ...layer import AdapterLayer
+from ...lora import Linear as LoRALinear
+from ...model_mixin import (
     EmbeddingAdaptersMixin,
     InvertibleAdaptersMixin,
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
     ModelWithHeadsAdaptersMixin,
 )
-from ..prefix_tuning import PrefixTuningShim
+from ...prefix_tuning import PrefixTuningShim
 
 
 class T5AttentionAdaptersMixin:
