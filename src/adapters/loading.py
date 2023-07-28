@@ -578,7 +578,7 @@ class PredictionHeadLoader(WeightsLoader):
 
     def filter_func(self, head_name):
         # ToDo remove this workaround
-        if self.model.__class__.__name__ == "T5ForConditionalGeneration":
+        if self.model.__class__.__name__ in ["T5ForConditionalGeneration", "T5ForQuestionAnswering"]:
             if head_name:
                 return (
                     lambda x: not x.startswith("encoder")

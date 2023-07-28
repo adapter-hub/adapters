@@ -28,13 +28,15 @@ from ...wrappers import wrap_model
     "MBART Model with the option to add multiple flexible prediction heads on top.", MBART_START_DOCSTRING
 )
 class MBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MBartPreTrainedModel):
-    _keys_to_ignore_on_load_missing = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
+    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
 
     def __init__(self, config: MBartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = wrap_model(MBartModel(config))
 
         self._init_head_modules()
+
+        self.post_init()
 
     def get_encoder(self):
         return self.model.get_encoder()

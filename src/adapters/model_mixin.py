@@ -1,3 +1,4 @@
+import inspect
 import logging
 import os
 import warnings
@@ -1060,6 +1061,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             for argument, value in model_kwargs.items()
             if not any(argument.startswith(p) for p in irrelevant_prefix)
         }
+
+        encoder_signature = set(inspect.signature(encoder.forward).parameters)
+        encoder_accepts_wildcard = "kwargs" in encoder_signature or "model_kwargs" in encoder_signature
+        if not encoder_accepts_wildcard:
+            encoder_kwargs = {
+                argument: value
+                for argument, value in encoder_kwargs.items()
+                if argument in encoder_signature or argument == "adapter_input_parallelized"
+            }
 
         # 3. make sure that encoder returns `ModelOutput`
         model_input_name = model_input_name if model_input_name is not None else self.main_input_name

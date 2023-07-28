@@ -27,6 +27,7 @@ class GPTJAdapterTestBase(AdapterTestBase):
         n_embd=32,
         n_layer=4,
         n_head=4,
+        rotary_dim=4,
         # set pad token to eos token
         pad_token_id=50256,
         resid_pdrop=0.1,

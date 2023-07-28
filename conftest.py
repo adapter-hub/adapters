@@ -18,6 +18,7 @@
 import doctest
 import sys
 import warnings
+import os
 from os.path import abspath, dirname, join
 
 
@@ -32,6 +33,10 @@ sys.path.insert(1, abspath(join(dirname(__file__), "hf_transformers")))
 # silence FutureWarning warnings in tests since often we can't act on them until
 # they become normal warnings - i.e. the tests still need to test the current functionality
 warnings.simplefilter(action="ignore", category=FutureWarning)
+
+
+# skip pipeline tests of HF by default
+os.environ["RUN_PIPELINE_TESTS"] = "false"
 
 
 def pytest_configure(config):

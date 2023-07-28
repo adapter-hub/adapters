@@ -188,6 +188,9 @@ class Linear(LoRALayer, nn.Linear):
                 module.weight.shape[0], module.weight.shape[1], location_key, config, attn_key=attn_key, **kwargs
             )
         else:
+            # Make sure that the bias is not added if the original module does not have one
+            if "bias" not in kwargs:
+                kwargs["bias"] = hasattr(module, "bias") and module.bias is not None
             new_module = cls(
                 module.in_features, module.out_features, location_key, config, attn_key=attn_key, **kwargs
             )

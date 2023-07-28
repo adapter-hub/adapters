@@ -31,6 +31,7 @@ from datasets import load_dataset
 import evaluate
 import transformers
 from adapters import AdapterArguments, Seq2SeqAdapterTrainer, setup_adapter_training
+from adapters.wrappers.model import wrap_model
 from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
@@ -388,6 +389,7 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+    model = wrap_model(model)
 
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.

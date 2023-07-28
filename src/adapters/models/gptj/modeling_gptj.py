@@ -25,8 +25,9 @@ from transformers.models.gptj.modeling_gptj import (
     GPTJBlock,
     GPTJModel,
     apply_rotary_pos_emb,
-    fixed_pos_embedding,
+    get_embed_positions,
 )
+from transformers.utils.import_utils import is_torch_fx_proxy
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
 from ...context import ForwardContext
@@ -36,9 +37,10 @@ from .mixin_gptj import GPTJAttentionAdaptersMixin, GPTJDecoderBlockAdaptersMixi
 class GPTJAttentionWithAdapters(GPTJAttentionAdaptersMixin, GPTJAttention):
     def forward(
         self,
-        hidden_states: Optional[torch.FloatTensor],
-        attention_mask: Optional[torch.FloatTensor] = None,
+        hidden_states: torch.FloatTensor,
         layer_past: Optional[Tuple[torch.Tensor]] = None,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
         use_cache: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
@@ -54,12 +56,16 @@ class GPTJAttentionWithAdapters(GPTJAttentionAdaptersMixin, GPTJAttention):
         key = self._split_heads(key, self.num_attention_heads, self.head_dim, True)
         value = self._split_heads(value, self.num_attention_heads, self.head_dim, False)
 
-        seq_len = key.shape[1]
-        offset = 0
+        if is_torch_fx_proxy(position_ids) or torch.jit.is_tracing():
+            # The logic to conditionally copy to GPU could not be traced, so we do this
+            # every time in the torch.fx case
+            embed_positions = get_embed_positions(self.embed_positions, position_ids)
+        else:
+            embed_positions = self._get_embed_positions(position_ids)
 
-        if layer_past is not None:
-            offset = layer_past[0].shape[-2]
-            seq_len += offset
+        repeated_position_ids = position_ids.unsqueeze(-1).repeat(1, 1, embed_positions.shape[-1])
+        sincos = torch.gather(embed_positions, 1, repeated_position_ids)
+        sin, cos = torch.split(sincos, sincos.shape[-1] // 2, dim=-1)
 
         if self.rotary_dim is not None:
             k_rot = key[:, :, :, : self.rotary_dim]
@@ -68,16 +74,14 @@ class GPTJAttentionWithAdapters(GPTJAttentionAdaptersMixin, GPTJAttention):
             q_rot = query[:, :, :, : self.rotary_dim]
             q_pass = query[:, :, :, self.rotary_dim :]
 
-            sincos = fixed_pos_embedding(k_rot, 1, seq_len=seq_len)
-            k_rot = apply_rotary_pos_emb(k_rot, sincos, offset=offset)
-            q_rot = apply_rotary_pos_emb(q_rot, sincos, offset=offset)
+            k_rot = apply_rotary_pos_emb(k_rot, sin, cos)
+            q_rot = apply_rotary_pos_emb(q_rot, sin, cos)
 
             key = torch.cat([k_rot, k_pass], dim=-1)
             query = torch.cat([q_rot, q_pass], dim=-1)
         else:
-            sincos = fixed_pos_embedding(key, 1, seq_len=seq_len)
-            key = apply_rotary_pos_emb(key, sincos, offset=offset)
-            query = apply_rotary_pos_emb(query, sincos, offset=offset)
+            key = apply_rotary_pos_emb(key, sin, cos)
+            query = apply_rotary_pos_emb(query, sin, cos)
 
         key = key.permute(0, 2, 1, 3)
         query = query.permute(0, 2, 1, 3)
@@ -116,6 +120,7 @@ class GPTJBlockWithAdapters(GPTJDecoderBlockAdaptersMixin, GPTJBlock):
         hidden_states: Optional[torch.FloatTensor],
         layer_past: Optional[Tuple[torch.Tensor]] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
         use_cache: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
@@ -127,6 +132,7 @@ class GPTJBlockWithAdapters(GPTJDecoderBlockAdaptersMixin, GPTJBlock):
             hidden_states,
             layer_past=layer_past,
             attention_mask=attention_mask,
+            position_ids=position_ids,
             head_mask=head_mask,
             use_cache=use_cache,
             output_attentions=output_attentions,
@@ -189,7 +195,7 @@ class GPTJModelWithAdapters(GPTJModelAdapterMixin, GPTJModel):
             token_type_ids = token_type_ids.view(-1, input_shape[-1])
 
         if position_ids is not None:
-            position_ids = position_ids.view(-1, input_shape[-1])
+            position_ids = position_ids.view(-1, input_shape[-1]).long()
 
         if past_key_values is None:
             past_length = 0
@@ -239,6 +245,13 @@ class GPTJModelWithAdapters(GPTJModelAdapterMixin, GPTJModel):
 
         output_shape = input_shape + (hidden_states.size(-1),)
 
+        if self.gradient_checkpointing and self.training:
+            if use_cache:
+                # logger.warning_once(
+                #     "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+                # )
+                use_cache = False
+
         presents = () if use_cache else None
         all_self_attentions = () if output_attentions else None
         all_hidden_states = () if output_hidden_states else None
@@ -283,6 +296,7 @@ class GPTJModelWithAdapters(GPTJModelAdapterMixin, GPTJModel):
                     hidden_states,
                     layer_past=layer_past,
                     attention_mask=attention_mask,
+                    position_ids=position_ids,
                     head_mask=head_mask[i],
                     use_cache=use_cache,
                     output_attentions=output_attentions,

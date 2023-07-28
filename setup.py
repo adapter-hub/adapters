@@ -21,6 +21,7 @@ from setuptools import find_packages, setup
 # We try to follow their general layout wherever sensible.
 
 _deps = [
+    "accelerate>=0.20.1",
     "black==22.3",  # after updating to black 2023, also update Python version in pyproject.toml to 3.7
     "datasets!=2.5.0",
     "dill<0.3.5",
@@ -35,6 +36,7 @@ _deps = [
     "onnxruntime-tools>=1.4.2",
     "onnxruntime>=1.4.0",
     "parameterized",
+    "pillow",
     "protobuf<=3.20.2",
     "psutil",
     "pytest",
@@ -59,7 +61,7 @@ _deps = [
     "sphinx-multiversion",
     "timeout-decorator",
     "torch>=1.7,!=1.12.0",
-    "transformers==4.26.1",
+    "transformers==4.31.0",
     "beautifulsoup4",
 ]
 
@@ -81,7 +83,7 @@ extras = {}
 
 extras["sklearn"] = deps_list("scikit-learn")
 
-extras["torch"] = deps_list("torch")
+extras["torch"] = deps_list("torch", "accelerate")
 
 extras["onnxruntime"] = deps_list("onnxruntime", "onnxruntime-tools")
 
@@ -107,6 +109,8 @@ extras["testing"] = deps_list(
     "rjieba",
     "safetensors",
     "beautifulsoup4",
+    "pillow",
+    "accelerate",
 )
 
 extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython", "hf-doc-builder")

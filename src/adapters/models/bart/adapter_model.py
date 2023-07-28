@@ -28,13 +28,15 @@ from ...wrappers import wrap_model
     "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
 )
 class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel):
-    _keys_to_ignore_on_load_missing = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
+    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
 
     def __init__(self, config: BartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = wrap_model(BartModel(config))
 
         self._init_head_modules()
+
+        self.post_init()
 
     def get_encoder(self):
         return self.model.get_encoder()

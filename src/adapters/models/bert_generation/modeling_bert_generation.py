@@ -28,7 +28,7 @@ from transformers.models.bert_generation.modeling_bert_generation import (
 )
 
 from ...composition import adjust_tensors_for_parallel
-from ...mixins.bert import BertOutputAdaptersMixin, BertSelfAttentionAdaptersMixin, BertSelfOutputAdaptersMixin
+from ..bert.mixin_bert import BertOutputAdaptersMixin, BertSelfAttentionAdaptersMixin, BertSelfOutputAdaptersMixin
 
 
 # Copied from transformers.models.bert.modeling_bert.BertSelfOutput with Bert->BertGeneration

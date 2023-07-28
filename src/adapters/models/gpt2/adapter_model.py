@@ -3,6 +3,7 @@ import warnings
 
 import torch
 
+from adapters.heads.base import QuestionAnsweringHead
 from transformers.models.gpt2.modeling_gpt2 import GPT2_START_DOCSTRING, GPT2Model, GPT2PreTrainedModel
 from transformers.utils import add_start_docstrings
 
@@ -150,6 +151,7 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         "multilabel_classification": MultiLabelClassificationHead,
         "causal_lm": CausalLMHead,
         "tagging": TaggingHead,
+        "question_answering": QuestionAnsweringHead,
     }
 
     def add_classification_head(
@@ -190,6 +192,18 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         """
         head = CausalLMHead(self, head_name)
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+    def add_qa_head(
+        self,
+        head_name,
+        num_labels=2,
+        layers=1,
+        activation_function=None,
+        overwrite_ok=False,
+        id2label=None,
+    ):
+        head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
+        self.add_prediction_head(head, overwrite_ok)
 
 
 class GPT2ModelWithHeads(GPT2AdapterModel):

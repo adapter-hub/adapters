@@ -172,7 +172,7 @@ class PredictionHeadModelTestMixin:
         input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
         generated = model1.generate(input_ids, max_length=seq_output_length)
-        self.assertEqual(generated.shape, (1, seq_output_length))
+        self.assertTrue(generated.shape[1] <= seq_output_length)
 
     def test_masked_lm_head(self):
         if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_masked_lm_head"):

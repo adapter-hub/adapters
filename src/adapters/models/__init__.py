@@ -51,6 +51,7 @@ MODEL_MIXIN_MAPPING = {
     "T5Block": T5BlockAdaptersMixin,
     "T5Model": T5ModelAdaptersMixin,
     "T5ForConditionalGeneration": T5ModelAdaptersWithHeadsMixin,
+    "T5ForQuestionAnswering": T5ModelAdaptersWithHeadsMixin,
     "T5EncoderModel": T5ModelAdaptersMixin,
     "ViTIntermediate": ViTIntermediateAdaptersMixin,
     "ViTModel": ViTModelAdaptersMixin,

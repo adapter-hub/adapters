@@ -5,7 +5,7 @@ import torch
 from transformers.models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOCSTRING, T5Model, T5PreTrainedModel
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
-from ...heads import ModelWithFlexibleHeadsAdaptersMixin, Seq2SeqLMHead
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin, QuestionAnsweringHead, Seq2SeqLMHead
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import wrap_model
 
@@ -15,10 +15,8 @@ logger = logging.getLogger(__name__)
 
 @add_start_docstrings("T5 Model with the option to add multiple flexible prediction heads on top.", T5_START_DOCSTRING)
 class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, T5PreTrainedModel):
-    _keys_to_ignore_on_load_missing = [
-        r"encoder.embed_tokens.weight",
-        r"decoder.embed_tokens.weight",
-    ]
+    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
+
     _keys_to_ignore_on_load_unexpected = [
         r"decoder.block.0.layer.1.EncDecAttention.relative_attention_bias.weight",
     ]
@@ -175,6 +173,7 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
 
     head_types = {
         "seq2seq_lm": Seq2SeqLMHead,
+        "question_answering": QuestionAnsweringHead,
     }
 
     def add_seq2seq_lm_head(self, head_name, overwrite_ok=False):
@@ -187,3 +186,15 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
         """
         head = Seq2SeqLMHead(self, head_name)
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
+
+    def add_qa_head(
+        self,
+        head_name,
+        num_labels=2,
+        layers=1,
+        activation_function=None,
+        overwrite_ok=False,
+        id2label=None,
+    ):
+        head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
+        self.add_prediction_head(head, overwrite_ok)
