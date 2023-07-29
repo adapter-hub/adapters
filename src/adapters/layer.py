@@ -1,11 +1,20 @@
 from abc import ABCMeta, abstractmethod
-from typing import List, Mapping, Union
+from typing import Dict, List, Mapping, Union
 
 import numpy as np
 import torch
 from torch import nn
 
-from .composition import AdapterCompositionBlock, BatchSplit, Fuse, Parallel, Split, Stack, adjust_tensors_for_parallel
+from .composition import (
+    AdapterCompositionBlock,
+    Average,
+    BatchSplit,
+    Fuse,
+    Parallel,
+    Split,
+    Stack,
+    adjust_tensors_for_parallel,
+)
 from .configuration import AdapterConfig
 from .context import AdapterSetup, ForwardContext
 from .modeling import Adapter, BertFusion, ParallelAdapter
@@ -71,7 +80,11 @@ class AdapterLayerBase(metaclass=ABCMeta):
             attention_cache[fusion_name][self.layer_idx][self.location_key] = attentions
 
     @abstractmethod
-    def add_adapter(self, adapter_name: str, layer_idx: int):
+    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
         raise NotImplementedError()
 
     @abstractmethod
@@ -105,7 +118,7 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         self.adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
 
-    def add_adapter(self, adapter_name: str, layer_idx: int):
+    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
         adapter_config = self.config.adapters.match(
             adapter_name,
@@ -139,6 +152,31 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
             )
             adapter.train(self.training)  # make sure training mode is consistent
             self.adapters[adapter_name] = adapter
+            return True
+
+        return False
+
+    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+        # add new adapter
+        if self.add_adapter(adapter_name, self.layer_idx):
+            # average weights
+            avg_state_dict = {}
+            for name, weight in input_adapters.items():
+                if name in self.adapters:
+                    module = self.adapters[name]
+                    for k, v in module.state_dict().items():
+                        if k in avg_state_dict:
+                            avg_state_dict[k] += weight * v
+                        else:
+                            avg_state_dict[k] = weight * v
+                else:
+                    self.delete_adapter(adapter_name)  # clean up before raising error
+                    raise ValueError("Adapter {} not found.".format(name))
+            # load averaged weights
+            self.adapters[adapter_name].load_state_dict(avg_state_dict)
+            return True
+
+        return False
 
     def delete_adapter(self, adapter_name: str):
         if adapter_name in self.adapters:
@@ -225,7 +263,12 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                 hidden_states = self.adapter_batchsplit(
                     adapter_stack_layer, hidden_states, input_tensor, layer_norm, lvl=lvl + 1
                 )
-            # Case 5: We have a single adapter which is part of this module -> forward pass
+            # Case 5: We have a nested average block -> call average method
+            elif isinstance(adapter_stack_layer, Average):
+                hidden_states = self.adapter_average_output(
+                    adapter_stack_layer, hidden_states, input_tensor, layer_norm, lvl=lvl + 1
+                )
+            # Case 6: We have a single adapter which is part of this module -> forward pass
             elif adapter_stack_layer in self.adapters:
                 adapter_layer = self.adapters[adapter_stack_layer]
                 hidden_states, _, residual = adapter_layer.pre_forward(hidden_states, input_tensor, layer_norm)
@@ -341,7 +384,12 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                 split_hidden_states[i] = self.adapter_batchsplit(
                     adapter_block, split_hidden_states[i], split_input_tensor[i], layer_norm, lvl=lvl + 1
                 )
-            # Case 4: We have a single adapter which is part of this module -> forward pass
+            # Case 4: We have a nested average -> call average method
+            elif isinstance(adapter_block, Average):
+                split_hidden_states[i] = self.adapter_average_output(
+                    adapter_block, split_hidden_states[i], split_input_tensor[i], layer_norm, lvl=lvl + 1
+                )
+            # Case 5: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapters:
                 adapter_layer = self.adapters[adapter_block]
                 context = ForwardContext.get_context()
@@ -352,7 +400,7 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                 )
                 split_hidden_states[i] = layer_output[0]
                 self._store_gating_score(adapter_block, layer_output[-1])
-            # Case 5: nesting other composition blocks is invalid
+            # Case 6: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
                 raise ValueError(
                     "Invalid adapter setup. Cannot nest {} in {}".format(
@@ -403,7 +451,7 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                     lvl=lvl + 1,
                 )
                 children_hidden.append(child_hidden_states)
-            # Case 2. We have a nested batchsplit block -> call batchsplit method
+            # Case 2: We have a nested batchsplit block -> call batchsplit method
             elif isinstance(child, BatchSplit):
                 child_hidden_states = self.adapter_batchsplit(
                     child,
@@ -413,7 +461,17 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                     lvl=lvl + 1,
                 )
                 children_hidden.append(child_hidden_states)
-            # Case 3: We have a single adapter which is part of this module -> forward pass
+            # Case 3: We have a nested average block -> call average method
+            elif isinstance(child, Average):
+                child_hidden_states = self.adapter_average_output(
+                    child,
+                    hidden_states[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    input_tensor[i * orig_batch_size : (i + 1) * orig_batch_size],
+                    layer_norm,
+                    lvl=lvl + 1,
+                )
+                children_hidden.append(child_hidden_states)
+            # Case 4: We have a single adapter which is part of this module -> forward pass
             elif child in self.adapters:
                 adapter_layer = self.adapters[child]
                 context = ForwardContext.get_context()
@@ -425,7 +483,7 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                 child_hidden_states = layer_output[0]
                 self._store_gating_score(child, layer_output[-1])
                 children_hidden.append(child_hidden_states)
-            # Case 4: nesting other composition blocks is invalid
+            # Case 5: nesting other composition blocks is invalid
             elif isinstance(child, AdapterCompositionBlock):
                 raise ValueError(
                     "Invalid adapter setup. Cannot nest {} in {}".format(
@@ -487,7 +545,17 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                     lvl=lvl + 1,
                 )
                 children_hidden.append(child)
-            # Case 4: We have a single adapter which is part of this module -> forward pass
+            # Case 4: We have a nested average block -> call average method
+            elif isinstance(adapter_block, Average):
+                child = self.adapter_average_output(
+                    adapter_block,
+                    hidden_states[batch_idx[0] : batch_idx[1]],
+                    input_tensor[batch_idx[0] : batch_idx[1]],
+                    layer_norm,
+                    lvl=lvl + 1,
+                )
+                children_hidden.append(child)
+            # Case 5: We have a single adapter which is part of this module -> forward pass
             elif adapter_block in self.adapters:
 
                 adapter_layer = self.adapters[adapter_block]
@@ -499,7 +567,7 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                 )
                 children_hidden.append(layer_output[0])
                 self._store_gating_score(adapter_block, layer_output[-1])
-            # Case 5: nesting other composition blocks is invalid
+            # Case 6: nesting other composition blocks is invalid
             elif isinstance(adapter_block, AdapterCompositionBlock):
                 raise ValueError(
                     "Invalid adapter setup. Cannot nest {} in {}".format(
@@ -511,6 +579,53 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                 children_hidden.append(hidden_states[batch_idx])
 
         hidden_states = torch.cat(children_hidden, 0)
+        return hidden_states
+
+    def adapter_average_output(self, adapter_setup: Average, hidden_states, input_tensor, layer_norm, lvl=0):
+        """
+        For averaging the output representations of multiple adapters.
+        """
+        context = ForwardContext.get_context()
+
+        # We assume all adapters have the same config
+        first_adapter = self.adapters[adapter_setup.first()]
+        hidden_states, _, residual = first_adapter.pre_forward(hidden_states, input_tensor, layer_norm)
+
+        children_hidden = []
+
+        for adapter_block in adapter_setup:
+            # Case 1: We have a nested stack -> call stack method
+            if isinstance(adapter_block, Stack):
+                child, _, _ = self.adapter_stack(adapter_block, hidden_states, input_tensor, layer_norm, lvl=lvl + 1)
+                children_hidden.append(child)
+            # Case 2: We have a nested split block -> call split method
+            elif isinstance(adapter_block, Split):
+                child = self.adapter_split(adapter_block, hidden_states, input_tensor, layer_norm, lvl=lvl + 1)
+                children_hidden.append(child)
+            # Case 3: We have a nested batch split block -> call batchsplit method
+            elif isinstance(adapter_block, BatchSplit):
+                child = self.adapter_batchsplit(adapter_block, hidden_states, input_tensor, layer_norm, lvl=lvl + 1)
+                children_hidden.append(child)
+            # Case 4: We have a single adapter which is part of this module -> forward pass
+            elif adapter_block in self.adapters:
+                adapter_layer = self.adapters[adapter_block]
+                layer_output = adapter_layer(
+                    hidden_states, residual_input=residual, output_gating=context.output_adapter_gating_scores
+                )
+                children_hidden.append(layer_output[0])
+                self._store_gating_score(adapter_block, layer_output[-1])
+            # Case 5: nesting other composition blocks is invalid
+            elif isinstance(adapter_block, AdapterCompositionBlock):
+                raise ValueError(
+                    "Invalid adapter setup. Cannot nest {} in {}".format(
+                        adapter_block.__class__.__name__, adapter_setup.__class__.__name__
+                    )
+                )
+            # Case X: No adapter which is part of this module -> ignore
+
+        weights = torch.tensor(adapter_setup.weights).unsqueeze(1).unsqueeze(1).to(hidden_states.device)
+        hidden_states = torch.mean(torch.cat(children_hidden, 0) * weights, 0)
+
         return hidden_states
 
     def adapter_layer_forward(self, hidden_states, residual_input, layer_norm):
@@ -550,6 +665,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                 )
             elif isinstance(adapter_setup, BatchSplit):
                 hidden_states = self.adapter_batchsplit(adapter_setup, hidden_states, residual_input, layer_norm)
+            elif isinstance(adapter_setup, Average):
+                hidden_states = self.adapter_average_output(adapter_setup, hidden_states, residual_input, layer_norm)
             else:
                 raise ValueError(f"Invalid adapter setup {adapter_setup}")
 

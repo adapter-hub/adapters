@@ -57,6 +57,39 @@ class AdapterMethodBaseTestMixin:
             self.assertTrue(v.requires_grad, k)
         self.assertTrue(has_weights)
 
+    def run_average_test(self, model, adapter_config, filter_keys):
+        model.eval()
+
+        weights = [0.1, 0.6, 0.3]
+
+        # add adapters to average
+        name = "test_adapter_" + adapter_config.__class__.__name__
+        for i in range(len(weights)):
+            model.add_adapter(name + f"_{i}", config=adapter_config)
+
+        # collect weighted average of adapter weights
+        averaged_weights = {}
+        for i, w in enumerate(weights):
+            this_filter_keys = [k.format(name=name + f"_{i}") for k in filter_keys]
+            for k, v in self.filter_parameters(model, this_filter_keys).items():
+                base_k = k.replace(name + f"_{i}", name)
+                if base_k not in averaged_weights:
+                    averaged_weights[base_k] = w * v
+                else:
+                    averaged_weights[base_k] += w * v
+
+        # average adapters
+        model.average_adapter(name, [name + f"_{i}" for i in range(len(weights))], weights=weights)
+
+        # adapter is correctly added to config
+        self.assertTrue(name in model.config.adapters)
+        self.assertEqual(adapter_config, model.config.adapters.get(name))
+
+        # compare averaged weights to collected weights
+        this_filter_keys = [k.format(name=name) for k in filter_keys]
+        for k, v in self.filter_parameters(model, this_filter_keys).items():
+            self.assertTrue(torch.allclose(v, averaged_weights[k]))
+
     def run_delete_test(self, model, adapter_config, filter_keys):
         model.eval()
 

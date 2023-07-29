@@ -39,13 +39,15 @@ The basic building blocks of the more advanced setups are simple objects derived
 each representing a different possibility to combine single adapters.
 The following table gives an overview on the supported composition blocks and their support by different adapter methods.
 
-| Block | (Bottleneck)<br> Adapters | Prefix<br> Tuning | Compacter | LoRA | (IA)³ |
+| Block | Bottleneck<br> Adapters | Prefix<br> Tuning | Compacter | LoRA | (IA)³ |
 | --- | --- | --- | --- | --- | --- |
 | [`Stack`](#stack) | ✅ | ✅ | ✅ |  |  |
 | [`Fuse`](#fuse) | ✅ |  | ✅ |  |  |
 | [`Split`](#split) | ✅ |  | ✅ |  |  |
 | [`BatchSplit`](#batchsplit) | ✅ | ✅ | ✅ |  |  |
 | [`Parallel`](#parallel) | ✅ | ✅ | ✅ |  |  |
+| [Output averaging](#output-averaging) | ✅ |  | ✅ |  |  |
+| [Parameter averaging](#parameter-averaging) | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Next, we present all composition blocks in more detail.
 
@@ -178,7 +180,8 @@ model.active_adapters = ac.Split("g", "h", split_index=64)
 ```
 
 ## `BatchSplit`
-The `BatchSplit` lock is an alternative to split the input between several adapters. It does not split the input sequences but the 
+
+The `BatchSplit` block is an alternative to split the input between several adapters. It does not split the input sequences but the 
 batch into smaller batches. As a result, the input sequences remain untouched. 
 
 In the following example, we split the batch between adapters `i`, `k` and `l`. The `batch_sizes`parameter specifies 
@@ -231,6 +234,50 @@ output1, output2 = model(**input_ids)
 print("STS-B adapter output:", output1[0].item())
 print("MRPC adapter output:", bool(torch.argmax(output2[0]).item()))
 ```
+
+## Averaging Outputs or Parameters
+
+Following approaches of ensembling full models at inference time for better generalization, recent work on adapters has explored methods of averaging pre-trained adapters.
+This includes averaging output representations of adapters ([Wang et al., 2021](https://arxiv.org/pdf/2109.04877.pdf)) as well as averaging adapter parameters ([Wang et al., 2022](https://arxiv.org/pdf/2205.12410.pdf), [Chronopoulou et al., 2023](https://aclanthology.org/2023.findings-eacl.153.pdf)).
+`adapters` provides built-in support for both types of inference time averaging methods.
+
+### Output averaging
+
+Output averaging allows to dynamically aggregate the output representations of multiple adapters in a model forward pass via weighted averaging.
+This is realized via the `Average` composition block that works similar to other composition blocks.
+In the example below, the three adapters are averaged with the weights `0.1` for `m`, `0.6` for `n` and `0.3` for `o`.
+
+```python
+import adapters.composition as ac
+
+// ...
+
+model.add_adapter("m")
+model.add_adapter("n")
+model.add_adapter("o")
+
+model.active_adapters = ac.Average("m", "n", "o", weights=[0.1, 0.6, 0.3])
+```
+
+### Parameter averaging
+
+Parameter averaging enables creating a new adapter via weighted averaging of the parameters of multiple pre-trained adapters.
+As this process is typically not done dynamically at runtime, `adapters` provides `average_adapter()` as a dedicated method for parameter averaging.
+In the example below, the parameters of the adapters `m`, `n` and `o` are averaged (with weights `0.1` `0.6` and `0.3`, respectively) to create a new adapter `avg`.
+Note that for this to succeed, all averaged adapters must use the same adapter configuration.
+
+```python
+model.add_adapter("m")
+model.add_adapter("n")
+model.add_adapter("o")
+
+model.average_adapter("avg", ["m", "n", "o"], weights=[0.1, 0.6, 0.3])
+```
+
+Compared to output averaging, parameter averaging of adapters has the advantage of not inducing any additional inference time relative to using a single adapter.
+
+For both output and parameter averaging, passed weights are normalized by default.
+To disable normalization, pass `normalize_weights=False`.
 
 ## Nesting composition blocks
 

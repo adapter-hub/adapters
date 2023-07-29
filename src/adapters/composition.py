@@ -1,6 +1,6 @@
 import itertools
 from collections.abc import Sequence
-from typing import List, Set, Union
+from typing import List, Optional, Set, Union
 
 
 class AdapterCompositionBlock(Sequence):
@@ -87,13 +87,33 @@ class BatchSplit(AdapterCompositionBlock):
         self.batch_sizes = batch_sizes if isinstance(batch_sizes, list) else [batch_sizes] * len(split_adapters)
 
 
+class Average(AdapterCompositionBlock):
+    def __init__(
+        self,
+        *average_adapters: List[Union[AdapterCompositionBlock, str]],
+        weights: Optional[List[float]] = None,
+        normalize_weights: bool = True
+    ):
+        super().__init__(*average_adapters)
+        if weights is not None:
+            # normalize weights
+            if normalize_weights:
+                sum_weights = sum(weights) if weights else 1
+                self.weights = [w / sum_weights for w in weights]
+            else:
+                self.weights = weights
+        else:
+            self.weights = [1 / len(average_adapters)] * len(average_adapters)
+
+
 # Mapping each composition block type to the allowed nested types
 ALLOWED_NESTINGS = {
-    Stack: [str, Fuse, Split, Parallel, BatchSplit],
+    Stack: [str, Fuse, Split, Parallel, BatchSplit, Average],
     Fuse: [str, Stack],
-    Split: [str, Split, Stack, BatchSplit],
-    Parallel: [str, Stack, BatchSplit],
-    BatchSplit: [str, Stack, Split, BatchSplit],
+    Split: [str, Split, Stack, BatchSplit, Average],
+    Parallel: [str, Stack, BatchSplit, Average],
+    BatchSplit: [str, Stack, Split, BatchSplit, Average],
+    Average: [str, Stack, Split, BatchSplit],
 }
 
 # Some composition blocks might not be supported by all models.

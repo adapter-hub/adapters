@@ -12,6 +12,10 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_add_test(model, PrefixTuningConfig(flat=True), ["prefix_tunings.{name}."])
 
+    def test_average_prefix_tuning(self):
+        model = self.get_model()
+        self.run_average_test(model, PrefixTuningConfig(flat=True), ["prefix_tunings.{name}."])
+
     def test_delete_prefix_tuning(self):
         model = self.get_model()
         self.run_delete_test(model, PrefixTuningConfig(flat=True), ["prefix_tunings.{name}."])

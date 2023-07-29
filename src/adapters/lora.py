@@ -4,7 +4,7 @@
 #  Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 #  ------------------------------------------------------------------------------------------
 import math
-from typing import List, Union
+from typing import Dict, List, Union
 
 import torch
 import torch.nn as nn
@@ -127,6 +127,28 @@ class LoRALayer(AdapterLayerBase):
             )
             lora.train(self.training)
             self.loras[adapter_name] = lora
+            return True
+
+        return False
+
+    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+        # add new adapter
+        if self.add_adapter(adapter_name, self.layer_idx):
+            # average weights
+            avg_state_dict = {}
+            for name, weight in input_adapters.items():
+                if name in self.loras:
+                    module = self.loras[name]
+                    for k, v in module.state_dict().items():
+                        if k in avg_state_dict:
+                            avg_state_dict[k] += weight * v
+                        else:
+                            avg_state_dict[k] = weight * v
+                else:
+                    self.delete_adapter(adapter_name)  # clean up before raising error
+                    raise ValueError("Adapter {} not found.".format(name))
+            # load averaged weights
+            self.loras[adapter_name].load_state_dict(avg_state_dict)
             return True
 
         return False

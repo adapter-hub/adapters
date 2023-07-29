@@ -10,6 +10,10 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_add_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8), ["adapters.{name}."])
 
+    def test_average_compacter(self):
+        model = self.get_model()
+        self.run_average_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8), ["adapters.{name}."])
+
     def test_delete_compacter(self):
         model = self.get_model()
         self.run_delete_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8), ["adapters.{name}."])

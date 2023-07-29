@@ -3,7 +3,7 @@ import unittest
 import torch
 
 from adapters import PfeifferConfig, PrefixTuningConfig, wrap_model
-from adapters.composition import BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
+from adapters.composition import Average, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from tests.test_modeling_common import ids_tensor
 from transformers import BertConfig, BertForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
@@ -215,9 +215,21 @@ class AdapterCompositionTest(unittest.TestCase):
         self.assertTrue(torch.allclose(output_a[0], output[0][0], atol=1e-6))
         self.assertTrue(torch.allclose(output_b[0], output[0][1], atol=1e-6))
 
+    def test_average(self):
+        if Average in self.unsupported_blocks:
+            self.skipTest("Average not supported by adapter config.")
+
+        model = self.build_model()
+        model.set_active_adapters(Average("a", "b", "c", "d"))
+
+        inputs = {}
+        inputs["input_ids"] = ids_tensor((1, 128), 1000)
+        logits = model(**inputs).logits
+        self.assertEqual(logits.shape, (1, 2))
+
 
 class PrefixTuningCompositionTest(AdapterCompositionTest):
-    unsupported_blocks = [Split, Fuse]
+    unsupported_blocks = [Split, Fuse, Average]
 
     def get_adapter_config(self):
         return PrefixTuningConfig()

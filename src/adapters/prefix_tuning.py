@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Dict, List, Union
 
 import torch
 import torch.nn.functional as F
@@ -157,11 +157,11 @@ class PrefixTuningPool(nn.Module):
 
         return self.prefix_counts[prefix_name][location_key]["count"] - 1
 
-    def confirm_prefix(self, prefix_name: str):
+    def confirm_prefix(self, prefix_name: str) -> bool:
         """Create Prefix Tuning module based on shim layer infications."""
         prefix_tuning_config = self.config.adapters.match(prefix_name, PrefixTuningConfig)
         if prefix_tuning_config is None:
-            return
+            return False
 
         if prefix_name not in self.prefix_counts:
             raise ValueError(f"Prefix {prefix_name} not found in PrefixTuningPool")
@@ -177,6 +177,25 @@ class PrefixTuningPool(nn.Module):
         prefix_tuning.train(self.training)  # make sure training mode is consistent
         self.prefix_tunings[prefix_name] = prefix_tuning
         del self.prefix_counts[prefix_name]
+        return True
+
+    def average_prefix(self, prefix_name: str, input_adapters: Dict[str, float]) -> bool:
+        if self.confirm_prefix(prefix_name):
+            # average weights
+            avg_state_dict = {}
+            for name, weight in input_adapters.items():
+                module = self.prefix_tunings[name]
+                if module is not None:
+                    for k, v in module.state_dict().items():
+                        if k in avg_state_dict:
+                            avg_state_dict[k] += weight * v
+                        else:
+                            avg_state_dict[k] = weight * v
+            # load averaged weights
+            self.prefix_tunings[prefix_name].load_state_dict(avg_state_dict)
+            return True
+
+        return False
 
     def delete_prefix(self, prefix_name: str):
         if prefix_name in self.prefix_tunings:
@@ -247,7 +266,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
     def set_pool(self, pool: PrefixTuningPool):
         self.__setattr__("pool", pool)
 
-    def add_adapter(self, adapter_name: str, layer_idx: int):
+    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
         # only match location keys for which we have config keys
         if self.location_key.startswith("cross") or self.location_key.startswith("encoder"):
@@ -274,6 +293,32 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                 gate = nn.Linear(self.config.hidden_size, gate_outputs)
                 gate.weight.data.normal_(mean=0.0, std=0.02)
                 self.prefix_gates[adapter_name] = gate
+            return True
+
+        return False
+
+    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+        # add new adapter
+        if self.add_adapter(adapter_name, self.layer_idx):
+            # prefix averaging is handled in pool, only average gates here
+            if adapter_name in self.prefix_gates:
+                avg_state_dict = {}
+                for name, weight in input_adapters.items():
+                    if name in self.prefix_gates:
+                        module = self.prefix_gates[name]
+                        for k, v in module.state_dict().items():
+                            if k in avg_state_dict:
+                                avg_state_dict[k] += weight * v
+                            else:
+                                avg_state_dict[k] = weight * v
+                    else:
+                        self.delete_adapter(adapter_name)  # clean up before raising error
+                        raise ValueError("Adapter {} not found.".format(name))
+                # load averaged weights
+                self.prefix_gates[adapter_name].load_state_dict(avg_state_dict)
+            return True
+        else:
+            return False
 
     def delete_adapter(self, adapter_name: str):
         self.pool.delete_prefix(adapter_name)

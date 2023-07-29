@@ -62,7 +62,7 @@ class InvertibleAdaptersMixin:
         """
         pass
 
-    def add_invertible_adapter(self, adapter_name: str):
+    def add_invertible_adapter(self, adapter_name: str) -> bool:
         """
         Adds an invertible adapter module for the adapter with the given name. If the given adapter does not specify an
         invertible adapter config, this method does nothing.
@@ -95,6 +95,28 @@ class InvertibleAdaptersMixin:
                 raise ValueError(f"Invalid invertible adapter type '{adapter_config['inv_adapter']}'.")
             self.invertible_adapters[adapter_name] = inv_adap
             self.invertible_adapters[adapter_name].apply(Adapter.init_bert_weights)
+            return True
+
+        return False
+
+    def _average_invertible_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+        # add new adapter
+        if self.add_invertible_adapter(adapter_name):
+            # average weights
+            avg_state_dict = {}
+            for name, weight in input_adapters.items():
+                module = self.invertible_adapters[name]
+                if module is not None:
+                    for k, v in module.state_dict().items():
+                        if k in avg_state_dict:
+                            avg_state_dict[k] += weight * v
+                        else:
+                            avg_state_dict[k] = weight * v
+            # load averaged weights
+            self.invertible_adapters[adapter_name].load_state_dict(avg_state_dict)
+            return True
+
+        return False
 
     def delete_invertible_adapter(self, adapter_name: str):
         if adapter_name in self.invertible_adapters:
@@ -142,7 +164,7 @@ class InvertibleAdaptersWrapperMixin:
             return self.invertible_adapters_base.invertible_adapters
         return None
 
-    def add_invertible_adapter(self, adapter_name: str):
+    def add_invertible_adapter(self, adapter_name: str) -> bool:
         """
         Adds an invertible adapter module for the adapter with the given name. If the given adapter does not specify an
         invertible adapter config, this method does nothing.
@@ -151,7 +173,13 @@ class InvertibleAdaptersWrapperMixin:
             adapter_name (str): The name of the adapter for which to add an invertible adapter module.
         """
         if self.invertible_adapters_base is not None:
-            self.invertible_adapters_base.add_invertible_adapter(adapter_name)
+            return self.invertible_adapters_base.add_invertible_adapter(adapter_name)
+        return False
+
+    def _average_invertible_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+        if self.invertible_adapters_base is not None:
+            return self.invertible_adapters_base._average_invertible_adapter(adapter_name, input_adapters)
+        return False
 
     def delete_invertible_adapter(self, adapter_name: str):
         if self.invertible_adapters_base is not None:
@@ -1014,6 +1042,83 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             s.insert(len(s) - 1, "-" * total_length)
             s.append("=" * total_length)
             return "\n".join(s)
+
+    def _average_shared_parameters(self, adapter_name: str, input_adapters: Dict[str, float]):
+        avg_state_dict = {}
+        for name, weight in input_adapters.items():
+            if name in self.base_model.shared_parameters:
+                param_dict = self.base_model.shared_parameters[name]
+                for key, value in param_dict.items():
+                    if key in avg_state_dict:
+                        avg_state_dict[key] += weight * value
+                    else:
+                        avg_state_dict[key] = weight * value
+            else:
+                raise ValueError(f"Adapter {name} not found in shared parameters.")
+        self.base_model.shared_parameters[adapter_name] = nn.ParameterDict(avg_state_dict)
+
+    def average_adapter(
+        self,
+        adapter_name: str,
+        adapter_list: List[str],
+        weights: Optional[List[float]] = None,
+        normalize_weights: bool = True,
+        overwrite_ok: bool = False,
+        set_active: bool = False,
+    ):
+        """
+        Adds a new adapter module as weighted average of a set of existing adapter modules.
+
+        Args:
+            adapter_name (str): The name of the adapter module to be added.
+            input_adapters (List[str] or Dict[str, float]):
+                Specifies the existing adapters whose weights should be averaged. Can either be a list of adapter names
+                or a dictionary mapping adapter names to weights.
+            overwrite_ok (bool, optional):
+                Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
+            set_active (bool, optional):
+                Set the adapter to be the active one. By default (False), the adapter is added but not activated.
+        """
+        # To be able to average the weights, all adapter configs must be the same
+        config = None
+        for name in adapter_list:
+            if config is None:
+                config = self.config.adapters.get(name)
+            elif get_adapter_config_hash(config) != get_adapter_config_hash(self.config.adapters.get(name)):
+                raise ValueError(
+                    "Cannot average adapters with different configurations. "
+                    "Please make sure all adapters have the same configuration."
+                )
+        # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
+        if overwrite_ok and adapter_name in self.config.adapters:
+            self.delete_adapter(adapter_name)
+        self.config.adapters.add(adapter_name, config=config)
+        if weights is None:
+            eq_weight = 1.0 / len(adapter_list)
+            input_adapters = {name: eq_weight for name in adapter_list}
+        else:
+            # normalize weights
+            if normalize_weights:
+                sum_weights = sum(weights)
+            else:
+                sum_weights = 1.0
+            input_adapters = {name: weight / sum_weights for name, weight in zip(adapter_list, weights)}
+        try:
+            self.apply_to_adapter_layers(lambda i, layer: layer.average_adapter(adapter_name, input_adapters))
+            # PHM Layer
+            if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
+                self._average_shared_parameters(adapter_name, input_adapters)
+            # Prefix Tuning
+            for module in self.modules():
+                if isinstance(module, PrefixTuningPool):
+                    module.average_prefix(adapter_name, input_adapters)
+            if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
+                self._average_invertible_adapter(adapter_name, input_adapters)
+        except ValueError as ex:
+            self.delete_adapter(adapter_name)
+            raise ex
+        if set_active:
+            self.set_active_adapters(adapter_name)
 
     def eject_prefix_tuning(self, name: str):
         """
