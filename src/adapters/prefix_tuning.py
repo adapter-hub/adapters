@@ -350,6 +350,15 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
                     for param in self.prefix_gates[prefix_tuning_name].parameters():
                         param.requires_grad = unfreeze_adapters
 
+    def freeze_adapter(self, adapter_name: str, freeze: bool = True):
+        if adapter_name in self.prefixes:
+            self.pool.get_prefix(adapter_name)[self.location_key].train(not freeze)
+            for param in self.pool.get_prefix(adapter_name)[self.location_key].parameters():
+                param.requires_grad = not freeze
+            if adapter_name in self.prefix_gates:
+                for param in self.prefix_gates[adapter_name].parameters():
+                    param.requires_grad = not freeze
+
     def get_adapter(self, adapter_name):
         return_dict = nn.ModuleDict()
         # Make sure to only return params once

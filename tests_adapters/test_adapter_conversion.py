@@ -19,6 +19,7 @@ from transformers import (
     BertPreTrainedModel,
     RobertaPreTrainedModel,
     XLMRobertaPreTrainedModel,
+    XmodPreTrainedModel,
 )
 from transformers.testing_utils import require_torch, torch_device
 
@@ -56,7 +57,11 @@ class ModelClassConversionTestMixin:
         # HACK for bert-based models
         if isinstance(static_model, BertPreTrainedModel):
             unexpected_keys = [k for k in unexpected_keys if "cls.predictions.bias" not in k]
-        elif isinstance(static_model, RobertaPreTrainedModel) or isinstance(static_model, XLMRobertaPreTrainedModel):
+        elif (
+            isinstance(static_model, RobertaPreTrainedModel)
+            or isinstance(static_model, XLMRobertaPreTrainedModel)
+            or isinstance(static_model, XmodPreTrainedModel)
+        ):
             unexpected_keys = [k for k in unexpected_keys if "lm_head.bias" not in k]
         elif isinstance(static_model, AlbertPreTrainedModel):
             unexpected_keys = [k for k in unexpected_keys if "predictions.bias" not in k]

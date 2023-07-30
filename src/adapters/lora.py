@@ -173,6 +173,12 @@ class LoRALayer(AdapterLayerBase):
                     for param in self.loras[name].parameters():
                         param.requires_grad = True
 
+    def freeze_adapter(self, adapter_name: str, freeze: bool = True):
+        if adapter_name in self.loras:
+            self.loras[adapter_name].train(not freeze)
+            for param in self.loras[adapter_name].parameters():
+                param.requires_grad = not freeze
+
     def get_adapter(self, adapter_name: str) -> nn.Module:
         if adapter_name in self.loras:
             return self.loras[adapter_name]

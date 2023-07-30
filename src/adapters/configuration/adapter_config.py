@@ -162,9 +162,10 @@ class BnConfig(AdapterConfigBase):
         use_gating (:obj:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False.
-        residual_before_ln (:obj:`bool`, optional):
-            If True, take the residual connection around the adapter bottleneck before the layer normalization. Only
-            applicable if :obj:`original_ln_before` is True.
+        residual_before_ln (:obj:`bool` or :obj:`str`, optional):
+            If True, take the residual connection around the adapter bottleneck before the layer normalization.
+            If set to "post_add", take the residual connection around the adapter bottleneck after the previous residual connection.
+            Only applicable if :obj:`original_ln_before` is True.
         adapter_residual_before_ln (:obj:`bool`, optional):
             If True, apply the residual connection around the adapter modules before the new layer normalization within
             the adapter. Only applicable if :obj:`ln_after` is True and :obj:`is_parallel` is False.
@@ -225,7 +226,7 @@ class BnConfig(AdapterConfigBase):
     is_parallel: bool = False
     scaling: Union[float, str] = 1.0
     use_gating: bool = False
-    residual_before_ln: bool = True
+    residual_before_ln: Union[bool, str] = True
     adapter_residual_before_ln: bool = False
     inv_adapter: Optional[str] = None
     inv_adapter_reduction_factor: Optional[float] = None
@@ -267,7 +268,7 @@ class SeqBnConfig(BnConfig):
 
     original_ln_before: bool = True
     original_ln_after: bool = True
-    residual_before_ln: bool = True
+    residual_before_ln: Union[bool, str] = True
     adapter_residual_before_ln: bool = False
     ln_before: bool = False
     ln_after: bool = False
@@ -306,7 +307,7 @@ class DoubleSeqBnConfig(BnConfig):
 
     original_ln_before: bool = False
     original_ln_after: bool = True
-    residual_before_ln: bool = True
+    residual_before_ln: Union[bool, str] = True
     adapter_residual_before_ln: bool = False
     ln_before: bool = False
     ln_after: bool = False
