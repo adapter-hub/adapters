@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 
-from adapters import ADAPTER_CONFIG_MAP, AdapterConfig, BertAdapterModel, get_adapter_config_hash
+from adapters import ADAPTER_CONFIG_MAP, AdapterConfigBase, BertAdapterModel, get_adapter_config_hash
 from adapters.trainer import AdapterTrainer as Trainer
 from adapters.utils import find_in_index
 from adapters.wrappers import wrap_model
@@ -65,7 +65,7 @@ class AdapterHubTest(unittest.TestCase):
                 self.assertNotIn(adapter_name, model.base_model.invertible_adapters)
 
                 # check if config is valid
-                expected_hash = get_adapter_config_hash(AdapterConfig.load(config))
+                expected_hash = get_adapter_config_hash(AdapterConfigBase.load(config))
                 real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
                 self.assertEqual(expected_hash, real_hash)
 
@@ -111,11 +111,11 @@ class AdapterHubTest(unittest.TestCase):
         self.assertNotIn(adapter_name, model.base_model.encoder.layer[11].output.adapters)
 
     def test_load_lang_adapter_from_hub(self):
-        for config in ["pfeiffer+inv", "houlsby+inv"]:
+        for config in ["seq_bn_inv", "double_seq_bn_inv"]:
             with self.subTest(config=config):
                 model = AutoModel.from_pretrained("bert-base-multilingual-cased")
                 model = wrap_model(model)
-                config = AdapterConfig.load(config, non_linearity="gelu", reduction_factor=2)
+                config = AdapterConfigBase.load(config, non_linearity="gelu", reduction_factor=2)
 
                 loading_info = {}
                 adapter_name = model.load_adapter(
@@ -154,7 +154,7 @@ class AdapterHubTest(unittest.TestCase):
 
         self.assertIn(adapter_name, model.config.adapters.adapters)
         # check if config is valid
-        expected_hash = get_adapter_config_hash(AdapterConfig.load("houlsby"))
+        expected_hash = get_adapter_config_hash(AdapterConfigBase.load("houlsby"))
         real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
         self.assertEqual(expected_hash, real_hash)
 

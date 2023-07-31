@@ -5,7 +5,7 @@ from torch import nn
 
 from transformers.activations import get_activation
 
-from .configuration import AdapterConfig, AdapterFusionConfig
+from .configuration import AdapterFusionConfig, BnConfig
 from .context import ForwardContext
 
 
@@ -38,7 +38,7 @@ class Adapter(nn.Module):
         adapter_name,
         input_size,
         down_sample,
-        config: AdapterConfig,
+        config: BnConfig,
     ):
         super().__init__()
         self.name = adapter_name
@@ -235,7 +235,7 @@ class ParallelAdapter(Adapter):
     Implementation of a parallel bottleneck adapter block.
     """
 
-    def __init__(self, adapter_name, input_size, down_sample, config: AdapterConfig):
+    def __init__(self, adapter_name, input_size, down_sample, config: BnConfig):
         super().__init__(adapter_name, input_size, down_sample, config)
 
     def pre_forward(

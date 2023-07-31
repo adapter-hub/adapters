@@ -8,11 +8,11 @@ To make this process easier, adapters provides the possibility to group multiple
 For example, this could be used to define different reduction factors for the adapter modules placed after the multi-head attention and the feed-forward blocks:
 
 ```python
-from adapters import AdapterConfig, ConfigUnion
+from adapters import BnConfig, ConfigUnion
 
 config = ConfigUnion(
-    AdapterConfig(mh_adapter=True, output_adapter=False, reduction_factor=16, non_linearity="relu"),
-    AdapterConfig(mh_adapter=False, output_adapter=True, reduction_factor=2, non_linearity="relu"),
+    BnConfig(mh_adapter=True, output_adapter=False, reduction_factor=16, non_linearity="relu"),
+    BnConfig(mh_adapter=False, output_adapter=True, reduction_factor=2, non_linearity="relu"),
 )
 model.add_adapter("union_adapter", config=config)
 ```
@@ -35,11 +35,11 @@ model.add_adapter("mam_adapter", config=config)
 and is identical to using the following `ConfigUnion`:
 
 ```python
-from adapters import ConfigUnion, ParallelConfig, PrefixTuningConfig
+from adapters import ConfigUnion, ParBnConfig, PrefixTuningConfig
 
 config = ConfigUnion(
     PrefixTuningConfig(bottleneck_size=800),
-    ParallelConfig(),
+    ParBnConfig(),
 )
 model.add_adapter("mam_adapter", config=config)
 ```
@@ -89,12 +89,12 @@ model.add_adapter("unipelt", config=config)
 which is identical to the following `ConfigUnion`:
 
 ```python
-from adapters import ConfigUnion, LoRAConfig, PrefixTuningConfig, PfeifferConfig
+from adapters import ConfigUnion, LoRAConfig, PrefixTuningConfig, SeqBnConfig
 
 config = ConfigUnion(
     LoRAConfig(r=8, use_gating=True),
     PrefixTuningConfig(prefix_length=10, use_gating=True),
-    PfeifferConfig(reduction_factor=16, use_gating=True),
+    SeqBnConfig(reduction_factor=16, use_gating=True),
 )
 model.add_adapter("unipelt", config=config)
 ```

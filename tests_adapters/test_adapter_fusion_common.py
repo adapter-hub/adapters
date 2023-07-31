@@ -5,7 +5,7 @@ from dataclasses import asdict
 
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, ADAPTERFUSION_CONFIG_MAP, AdapterConfig, AutoAdapterModel, PfeifferConfig
+from adapters import ADAPTER_MODEL_MAPPING, ADAPTERFUSION_CONFIG_MAP, AdapterConfigBase, AutoAdapterModel, SeqBnConfig
 from adapters.composition import Fuse
 from adapters.utils import ADAPTERFUSION_WEIGHTS_NAME
 from adapters.wrappers import load_model
@@ -15,8 +15,8 @@ from transformers.testing_utils import require_torch, torch_device
 @require_torch
 class AdapterFusionModelTestMixin:
     def test_add_adapter_fusion(self):
-        config_name = "pfeiffer"
-        adapter_config = AdapterConfig.load(config_name)
+        config_name = "seq_bn"
+        adapter_config = AdapterConfigBase.load(config_name)
 
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
             model = self.get_model()
@@ -51,9 +51,9 @@ class AdapterFusionModelTestMixin:
         model.eval()
 
         # fusion between a and b should be possible whereas fusion between a and c should fail
-        model.add_adapter("a", config=PfeifferConfig(reduction_factor=16))
-        model.add_adapter("b", config=PfeifferConfig(reduction_factor=2))
-        model.add_adapter("c", config="houlsby")
+        model.add_adapter("a", config=SeqBnConfig(reduction_factor=16))
+        model.add_adapter("b", config=SeqBnConfig(reduction_factor=2))
+        model.add_adapter("c", config="double_seq_bn")
 
         # correct fusion
         model.add_adapter_fusion(["a", "b"])
@@ -67,8 +67,8 @@ class AdapterFusionModelTestMixin:
 
         name1 = "test_adapter_1"
         name2 = "test_adapter_2"
-        model.add_adapter(name1, config="houlsby")
-        model.add_adapter(name2, config="houlsby")
+        model.add_adapter(name1, config="double_seq_bn")
+        model.add_adapter(name2, config="double_seq_bn")
         self.assertTrue(name1 in model.config.adapters)
         self.assertTrue(name2 in model.config.adapters)
 

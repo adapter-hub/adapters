@@ -53,7 +53,7 @@ class EncoderDecoderAdapterTest(
     def test_invertible_adapter_with_head(self):
         """This test class is copied and adapted from the identically-named test in test_adapter_heads.py."""
         model = AutoModelForSeq2SeqLM.from_config(self.config())
-        model.add_adapter("test", config="pfeiffer+inv")
+        model.add_adapter("test", config="seq_bn_inv")
         model.set_active_adapters("test")
 
         # Set a hook before the invertible adapter to make sure it's actually called twice:

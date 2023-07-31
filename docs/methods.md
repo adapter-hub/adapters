@@ -6,7 +6,7 @@ Additionally, options to combine multiple adapter methods in a single setup are 
 
 ## Bottleneck Adapters
 
-_Configuration class_: [`AdapterConfig`](adapters.AdapterConfig)
+_Configuration class_: [`BnConfig`](adapters.BnConfig)
 
 Bottleneck adapters introduce bottleneck feed-forward layers in each layer of a Transformer model.
 Generally, these adapter layers consist of a down-projection matrix $W_{down}$ that projects the layer hidden states into a lower dimension $d_{bottleneck}$, a non-linearity $f$, an up-projection $W_{up}$ that projects back into the original hidden layer dimension and a residual connection $r$:
@@ -25,7 +25,7 @@ $$
 \text{reduction_factor} = \frac{d_{hidden}}{d_{bottleneck}}
 $$
 
-A visualization of further configuration options related to the adapter structure is given in the figure below. For more details, refer to the documentation of [`AdapterConfig`](adapters.AdapterConfig).
+A visualization of further configuration options related to the adapter structure is given in the figure below. For more details, refer to the documentation of [`BnConfig`](adapters.BnConfig).
 
 
 ```{eval-rst}
@@ -39,15 +39,15 @@ A visualization of further configuration options related to the adapter structur
 
 `adapters` comes with pre-defined configurations for some bottleneck adapter architectures proposed in literature:
 
-- [`HoulsbyConfig`](adapters.HoulsbyConfig) as proposed by [Houlsby et al. (2019)](https://arxiv.org/pdf/1902.00751.pdf) places adapter layers after both the multi-head attention and feed-forward block in each Transformer layer.
-- [`PfeifferConfig`](adapters.PfeifferConfig) as proposed by [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) places an adapter layer only after the feed-forward block in each Transformer layer.
-- [`ParallelConfig`](adapters.ParallelConfig) as proposed by [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) places adapter layers in parallel to the original Transformer layers.
+- [`DoubleSeqBnConfig`](adapters.DoubleSeqBnConfig) as proposed by [Houlsby et al. (2019)](https://arxiv.org/pdf/1902.00751.pdf) places adapter layers after both the multi-head attention and feed-forward block in each Transformer layer.
+- [`SeqBnConfig`](adapters.SeqBnConfig) as proposed by [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) places an adapter layer only after the feed-forward block in each Transformer layer.
+- [`ParBnConfig`](adapters.ParBnConfig) as proposed by [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) places adapter layers in parallel to the original Transformer layers.
 
 _Example_:
 ```python
-from adapters import AdapterConfig
+from adapters import BnConfig
 
-config = AdapterConfig(mh_adapter=True, output_adapter=True, reduction_factor=16, non_linearity="relu")
+config = BnConfig(mh_adapter=True, output_adapter=True, reduction_factor=16, non_linearity="relu")
 model.add_adapter("bottleneck_adapter", config=config)
 ```
 
@@ -60,7 +60,7 @@ _Papers:_
 
 ## Language Adapters - Invertible Adapters
 
-_Configuration class_: [`PfeifferInvConfig`](adapters.PfeifferInvConfig), [`HoulsbyInvConfig`](adapters.HoulsbyInvConfig)
+_Configuration class_: [`SeqBnInvConfig`](adapters.SeqBnInvConfig), [`DoubleSeqBnInvConfig`](adapters.DoubleSeqBnInvConfig)
 
 The MAD-X setup ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00052.pdf)) proposes language adapters to learn language-specific transformations.
 After being trained on a language modeling task, a language adapter can be stacked before a task adapter for training on a downstream task.
@@ -68,13 +68,13 @@ To perform zero-shot cross-lingual transfer, one language adapter can simply be 
 
 In terms of architecture, language adapters are largely similar to regular bottleneck adapters, except for an additional _invertible adapter_ layer after the LM embedding layer.
 Embedding outputs are passed through this invertible adapter in the forward direction before entering the first Transformer layer and in the inverse direction after leaving the last Transformer layer.
-Invertible adapter architectures are further detailed in [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) and can be configured via the `inv_adapter` attribute of the `AdapterConfig` class.
+Invertible adapter architectures are further detailed in [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) and can be configured via the `inv_adapter` attribute of the `BnConfig` class.
 
 _Example_:
 ```python
-from adapters import PfeifferInvConfig
+from adapters import SeqBnInvConfig
 
-config = PfeifferInvConfig()
+config = SeqBnInvConfig()
 model.add_adapter("lang_adapter", config=config)
 ```
 
@@ -150,7 +150,7 @@ for a PHM layer by specifying `use_phm=True` in the config.
 The PHM layer has the following additional properties: `phm_dim`, `shared_phm_rule`, `factorized_phm_rule`, `learn_phm`, 
 `factorized_phm_W`, `shared_W_phm`, `phm_c_init`, `phm_init_range`, `hypercomplex_nonlinearity`
 
-For more information check out the [`AdapterConfig`](adapters.AdapterConfig) class.
+For more information check out the [`BnConfig`](adapters.BnConfig) class.
 
 To add a Compacter to your model you can use the predefined configs:
 ```python

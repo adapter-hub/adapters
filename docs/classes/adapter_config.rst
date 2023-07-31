@@ -9,23 +9,23 @@ Single (bottleneck) adapters
 .. autoclass:: adapters.AdapterConfigBase
     :members:
 
-.. autoclass:: adapters.AdapterConfig
+.. autoclass:: adapters.BnConfig
     :members:
     :inherited-members: Mapping
 
-.. autoclass:: adapters.PfeifferConfig
+.. autoclass:: adapters.SeqBnConfig
     :members:
 
-.. autoclass:: adapters.PfeifferInvConfig
+.. autoclass:: adapters.SeqBnInvConfig
     :members:
 
-.. autoclass:: adapters.HoulsbyConfig
+.. autoclass:: adapters.DoubleSeqBnConfig
     :members:
 
-.. autoclass:: adapters.HoulsbyInvConfig
+.. autoclass:: adapters.DoubleSeqBnInvConfig
     :members:
 
-.. autoclass:: adapters.ParallelConfig
+.. autoclass:: adapters.ParBnConfig
     :members:
 
 .. autoclass:: adapters.CompacterConfig

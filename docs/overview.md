@@ -44,12 +44,12 @@ Identifiers and configuration classes are explained in more detail in the [next 
 
 | Identifier | Configuration class | More information
 | --- | --- | --- |
-| `pfeiffer` | `PfeifferConfig()` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
-| `houlsby` | `HoulsbyConfig()` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
-| `parallel` | `ParallelConfig()` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
-| `scaled_parallel` | `ParallelConfig(scaling="learned")` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
-| `pfeiffer+inv` | `PfeifferInvConfig()` | [Invertible Adapters](methods.html#language-adapters---invertible-adapters) |
-| `houlsby+inv` | `HoulsbyInvConfig()` | [Invertible Adapters](methods.html#language-adapters---invertible-adapters) |
+| `seq_bn` | `SeqBnConfig()` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
+| `double_seq_bn` | `DoubleSeqBnConfig()` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
+| `par_bn` | `ParBnConfig()` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
+| `scaled_par_bn` | `ParBnConfig(scaling="learned")` | [Bottleneck Adapters](methods.html#bottleneck-adapters) |
+| `seq_bn_inv` | `SeqBnInvConfig()` | [Invertible Adapters](methods.html#language-adapters---invertible-adapters) |
+| `double_seq_bn_inv` | `DoubleSeqBnInvConfig()` | [Invertible Adapters](methods.html#language-adapters---invertible-adapters) |
 | `compacter` | `CompacterConfig()` | [Compacter](methods.html#compacter) |
 | `compacter++` | `CompacterPlusPlusConfig()` | [Compacter](methods.html#compacter) |
 | `prefix_tuning` | `PrefixTuningConfig()` | [Prefix Tuning](methods.html#prefix-tuning) |
@@ -79,16 +79,16 @@ Configuration strings are a concise way of defining a specific adapter method co
 They are especially useful when adapter configurations are passed from external sources such as the command-line, when using configuration classes is not an option.
 
 In general, a configuration string for a single method takes the form `<identifier>[<key>=<value>, ...]`.
-Here, `<identifier>` refers to one of the identifiers listed in [the table above](#table-of-adapter-methods), e.g. `parallel`.
-In square brackets after the identifier, you can set specific configuration attributes from the respective configuration class, e.g. `parallel[reduction_factor=2]`.
+Here, `<identifier>` refers to one of the identifiers listed in [the table above](#table-of-adapter-methods), e.g. `par_bn`.
+In square brackets after the identifier, you can set specific configuration attributes from the respective configuration class, e.g. `par_bn[reduction_factor=2]`.
 If all attributes remain at their default values, this can be omitted.
 
 Finally, it is also possible to specify a [method combination](method_combinations.md) as a configuration string by joining multiple configuration strings with `|`.
-E.g., `prefix_tuning[bottleneck_size=800]|parallel` is identical to the following configuration class instance:
+E.g., `prefix_tuning[bottleneck_size=800]|par_bn` is identical to the following configuration class instance:
 
 ```python
 ConfigUnion(
     PrefixTuningConfig(bottleneck_size=800),
-    ParallelConfig(),
+    ParBnConfig(),
 )
 ```

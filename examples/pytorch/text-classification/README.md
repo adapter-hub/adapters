@@ -37,7 +37,7 @@ python run_glue.py \
   --output_dir /tmp/$TASK_NAME \
   --overwrite_output_dir \
   --train_adapter \
-  --adapter_config pfeiffer
+  --adapter_config seq_bn
 ```
 
 ---

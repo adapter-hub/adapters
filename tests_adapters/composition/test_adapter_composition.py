@@ -2,7 +2,7 @@ import unittest
 
 import torch
 
-from adapters import PfeifferConfig, PrefixTuningConfig, wrap_model
+from adapters import PrefixTuningConfig, SeqBnConfig, wrap_model
 from adapters.composition import Average, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from tests.test_modeling_common import ids_tensor
 from transformers import BertConfig, BertForSequenceClassification
@@ -31,7 +31,7 @@ class AdapterCompositionTest(unittest.TestCase):
     unsupported_blocks = []
 
     def get_adapter_config(self):
-        return PfeifferConfig()
+        return SeqBnConfig()
 
     def build_model(self):
         model = BertForSequenceClassification(

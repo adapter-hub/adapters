@@ -364,7 +364,7 @@ class PredictionHeadModelTestMixin:
             self.skipTest("No masked or causel language model head")
 
         model = AutoAdapterModel.from_config(self.config())
-        model.add_adapter("test", config="pfeiffer+inv")
+        model.add_adapter("test", config="seq_bn_inv")
         if lm_head == "casual_lm":
             model.add_causal_lm_head("test")
         elif lm_head == "masked_lm":

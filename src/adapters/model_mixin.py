@@ -15,9 +15,9 @@ from transformers.modeling_outputs import ModelOutput
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import (
     ADAPTER_CONFIG_MAP,
-    AdapterConfig,
     AdapterConfigBase,
     AdapterFusionConfig,
+    BnConfig,
     get_adapter_config_hash,
 )
 from .context import AdapterSetup, ForwardContext
@@ -75,7 +75,7 @@ class InvertibleAdaptersMixin:
         embedding_size = getattr(self.config, "embedding_size", self.config.hidden_size)
         adapter_config = self.config.adapters.match(
             adapter_name,
-            config_type=AdapterConfig,
+            config_type=BnConfig,
             location_key="inv_adapter",
         )
         if adapter_config and adapter_config["inv_adapter"]:
@@ -556,7 +556,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """Helper method that performs the actual parameter additions when adding a new adapter."""
         self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
         # PHM Layer
-        if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
+        if self.config.adapters.match(adapter_name, BnConfig, location_key="phm_layer"):
             adapter_module = list(self.get_adapter(adapter_name)[0].values())[0]
             # if multiple adapters with same location key exist they are returned as a modulelist
             if isinstance(adapter_module, nn.ModuleList):
@@ -1106,7 +1106,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         try:
             self.apply_to_adapter_layers(lambda i, layer: layer.average_adapter(adapter_name, input_adapters))
             # PHM Layer
-            if self.config.adapters.match(adapter_name, AdapterConfig, location_key="phm_layer"):
+            if self.config.adapters.match(adapter_name, BnConfig, location_key="phm_layer"):
                 self._average_shared_parameters(adapter_name, input_adapters)
             # Prefix Tuning
             for module in self.modules():

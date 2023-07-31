@@ -8,14 +8,14 @@ from adapters import (
     ADAPTER_MODEL_MAPPING,
     AutoAdapterModel,
     BatchSplit,
+    DoubleSeqBnConfig,
+    DoubleSeqBnInvConfig,
     Fuse,
-    HoulsbyConfig,
-    HoulsbyInvConfig,
     InvertibleAdaptersMixin,
     InvertibleAdaptersWrapperMixin,
     MAMConfig,
-    PfeifferConfig,
-    PfeifferInvConfig,
+    SeqBnConfig,
+    SeqBnInvConfig,
 )
 from adapters.heads.language_modeling import CausalLMHead
 from adapters.wrappers import wrap_model
@@ -28,7 +28,7 @@ from .base import AdapterMethodBaseTestMixin, create_twin_models
 @require_torch
 class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
     adapter_configs_to_test = [
-        (PfeifferConfig(), ["adapters.{name}."]),
+        (SeqBnConfig(), ["adapters.{name}."]),
         (MAMConfig(), ["adapters.{name}.", "prefix_tunings.{name}."]),
     ]
     inv_adapter_configs_to_test = [
@@ -66,7 +66,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         if not isinstance(model, InvertibleAdaptersMixin) and not isinstance(model, InvertibleAdaptersWrapperMixin):
             self.skipTest("Model does not support invertible adapters.")
 
-        for adapter_config in [PfeifferInvConfig(), HoulsbyInvConfig()]:
+        for adapter_config in [SeqBnInvConfig(), DoubleSeqBnInvConfig()]:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
@@ -154,8 +154,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
         reduction_factor = {"1": 1, "default": 2}
         for adapter_config in [
-            PfeifferConfig(reduction_factor=reduction_factor),
-            HoulsbyConfig(reduction_factor=reduction_factor),
+            SeqBnConfig(reduction_factor=reduction_factor),
+            DoubleSeqBnConfig(reduction_factor=reduction_factor),
         ]:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
@@ -184,8 +184,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
         reduction_factor = {"2": 8, "4": 32}
         for adapter_config in [
-            PfeifferConfig(reduction_factor=reduction_factor),
-            HoulsbyConfig(reduction_factor=reduction_factor),
+            SeqBnConfig(reduction_factor=reduction_factor),
+            DoubleSeqBnConfig(reduction_factor=reduction_factor),
         ]:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
@@ -201,13 +201,13 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 self.run_forward_test(model, adapter_config)
 
     def test_load_adapter(self):
-        self.run_load_test(PfeifferConfig())
+        self.run_load_test(SeqBnConfig())
 
     def test_load_mam_adapter(self):
         self.run_load_test(MAMConfig())
 
     def test_load_full_model_adapter(self):
-        self.run_full_model_load_test(PfeifferConfig())
+        self.run_full_model_load_test(SeqBnConfig())
 
     def test_model_config_serialization(self):
         """PretrainedConfigurations should not raise an Exception when serializing the config dict
@@ -328,7 +328,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         self.assertTrue(torch.allclose(output_base["logits"], output_with_head["logits"]))
 
     def test_train_single_adapter(self):
-        self.run_train_test(PfeifferConfig(), ["adapters.{name}."])
+        self.run_train_test(SeqBnConfig(), ["adapters.{name}."])
 
     def test_train_mam_adapter(self):
         self.run_train_test(MAMConfig(), ["adapters.{name}."])

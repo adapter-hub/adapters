@@ -59,7 +59,7 @@ Compared to fine-tuning the full model, there is only this one significant adapt
 # task adapter - only add if not existing
 if task_name not in model.config.adapters:
     # resolve the adapter config
-    adapter_config = AdapterConfig.load(adapter_args.adapter_config)
+    adapter_config = AdapterConfigBase.load(adapter_args.adapter_config)
     # add a new adapter
     model.add_adapter(task_name, config=adapter_config)
 # Enable adapter training
@@ -114,7 +114,7 @@ python run_glue.py \
   --output_dir /tmp/$TASK_NAME \
   --overwrite_output_dir \
   --train_adapter \
-  --adapter_config pfeiffer
+  --adapter_config seq_bn
 ```
 
 The important flag here is `--train_adapter` which switches from fine-tuning the full model to training an adapter module for the given GLUE task.
@@ -150,7 +150,7 @@ python run_mlm.py \
     --num_train_epochs 10.0 \
     --output_dir /tmp/test-mlm \
     --train_adapter \
-    --adapter_config "pfeiffer+inv"
+    --adapter_config "seq_bn_inv"
 ```
 
 ## Train AdapterFusion

@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 
-from adapters import PfeifferConfig, __version__
+from adapters import SeqBnConfig, __version__
 from tests_adapters.methods import create_twin_models
 from transformers.testing_utils import require_torch
 
@@ -11,7 +11,7 @@ from transformers.testing_utils import require_torch
 class CompabilityTestMixin:
     def test_load_old_non_linearity(self):
         model1, model2 = create_twin_models(self.model_class, self.config)
-        config = PfeifferConfig(non_linearity="gelu")
+        config = SeqBnConfig(non_linearity="gelu")
         name = "dummy"
         model1.add_adapter(name, config=config)
         model1.set_active_adapters([name])
@@ -36,7 +36,7 @@ class CompabilityTestMixin:
 
     def test_save_version_with_adapter(self):
         model = self.get_model()
-        config = PfeifferConfig(non_linearity="gelu")
+        config = SeqBnConfig(non_linearity="gelu")
         name = "dummy"
         model.add_adapter(name, config=config)
         model.set_active_adapters([name])

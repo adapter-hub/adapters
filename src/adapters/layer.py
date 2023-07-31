@@ -15,7 +15,7 @@ from .composition import (
     Stack,
     adjust_tensors_for_parallel,
 )
-from .configuration import AdapterConfig
+from .configuration import BnConfig
 from .context import AdapterSetup, ForwardContext
 from .modeling import Adapter, BertFusion, ParallelAdapter
 
@@ -122,7 +122,7 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         self.layer_idx = layer_idx
         adapter_config = self.config.adapters.match(
             adapter_name,
-            config_type=AdapterConfig,
+            config_type=BnConfig,
             layer_idx=self.layer_idx,
             location_key=self.location_key,
         )

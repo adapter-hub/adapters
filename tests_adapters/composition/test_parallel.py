@@ -3,7 +3,7 @@ import random
 
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PfeifferConfig, PrefixTuningConfig, T5AdapterModel
+from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig, SeqBnConfig, T5AdapterModel
 from adapters.composition import BatchSplit, Parallel
 from adapters.models.bert_generation.adapter_model import BertGenerationAdapterModel
 from transformers import MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, Trainer, TrainingArguments
@@ -265,13 +265,13 @@ class ParallelTrainingMixin:
                 self.assertTrue(torch.allclose(v, state_dict[k.replace(b1, b2)], atol=1e-5))
 
     def test_parallel_training_bottleneck(self):
-        self.run_parallel_training_test(PfeifferConfig(), "adapters.{}")
+        self.run_parallel_training_test(SeqBnConfig(), "adapters.{}")
 
     def test_parallel_training_prefix_tuning(self):
         self.run_parallel_training_test(PrefixTuningConfig(), "prefix_tunings.{}")
 
     def test_parallel_training_equivalent_to_single_bottleneck(self):
-        self.run_parallel_training_equivalent_to_single(PfeifferConfig())
+        self.run_parallel_training_equivalent_to_single(SeqBnConfig())
 
     def test_parallel_training_equivalent_to_single_prefix_tuning(self):
         self.run_parallel_training_equivalent_to_single(PrefixTuningConfig())
@@ -280,8 +280,8 @@ class ParallelTrainingMixin:
         model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
-        a1, a2 = self.create_twin_adapters(model, "a", PfeifferConfig())
-        b1, b2 = self.create_twin_adapters(model, "b", PfeifferConfig())
+        a1, a2 = self.create_twin_adapters(model, "a", SeqBnConfig())
+        b1, b2 = self.create_twin_adapters(model, "b", SeqBnConfig())
 
         state_dict = model.state_dict()
         for k, v in state_dict.items():

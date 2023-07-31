@@ -88,7 +88,7 @@ class AdapterConfigBase(Mapping):
         elif architecture == "union":
             cls_new = ConfigUnion
         else:
-            cls_new = AdapterConfig
+            cls_new = BnConfig
 
         return cls_new
 
@@ -131,9 +131,9 @@ class AdapterConfigBase(Mapping):
 
 
 @dataclass(eq=False)
-class AdapterConfig(AdapterConfigBase):
+class BnConfig(AdapterConfigBase):
     """
-    Base class that models the architecture of an adapter.
+    Base class that models the architecture of a bottleneck adapter.
 
     Args:
         mh_adapter (:obj:`bool`): If True, add adapter modules after the multi-head attention block of each layer.
@@ -263,7 +263,7 @@ class AdapterConfig(AdapterConfigBase):
 
 
 @dataclass(eq=False)
-class PfeifferConfig(AdapterConfig):
+class SeqBnConfig(BnConfig):
     """
     The adapter architecture proposed by Pfeiffer et al. (2020). See https://arxiv.org/pdf/2005.00247.pdf.
     """
@@ -281,7 +281,7 @@ class PfeifferConfig(AdapterConfig):
 
 
 @dataclass(eq=False)
-class CompacterPlusPlusConfig(PfeifferConfig):
+class CompacterPlusPlusConfig(SeqBnConfig):
     """
     The Compacter++ architecture proposed by Mahabadi et al. (2021). See https://arxiv.org/pdf/2106.04647.pdf.
     """
@@ -292,7 +292,7 @@ class CompacterPlusPlusConfig(PfeifferConfig):
 
 
 @dataclass(eq=False)
-class PfeifferInvConfig(PfeifferConfig):
+class SeqBnInvConfig(SeqBnConfig):
     """
     The adapter architecture proposed by Pfeiffer et al. (2020). See https://arxiv.org/pdf/2005.00247.pdf.
     """
@@ -302,7 +302,7 @@ class PfeifferInvConfig(PfeifferConfig):
 
 
 @dataclass(eq=False)
-class HoulsbyConfig(AdapterConfig):
+class DoubleSeqBnConfig(BnConfig):
     """
     The adapter architecture proposed by Houlsby et al. (2019). See https://arxiv.org/pdf/1902.00751.pdf.
     """
@@ -320,7 +320,7 @@ class HoulsbyConfig(AdapterConfig):
 
 
 @dataclass(eq=False)
-class CompacterConfig(HoulsbyConfig):
+class CompacterConfig(DoubleSeqBnConfig):
     """
     The Compacter architecture proposed by Mahabadi et al. (2021). See https://arxiv.org/pdf/2106.04647.pdf.
     """
@@ -331,7 +331,7 @@ class CompacterConfig(HoulsbyConfig):
 
 
 @dataclass(eq=False)
-class HoulsbyInvConfig(HoulsbyConfig):
+class DoubleSeqBnInvConfig(DoubleSeqBnConfig):
     """
     The adapter architecture proposed by Houlsby et. al. (2019). See https://arxiv.org/pdf/1902.00751.pdf.
     """
@@ -341,7 +341,7 @@ class HoulsbyInvConfig(HoulsbyConfig):
 
 
 @dataclass(eq=False)
-class ParallelConfig(AdapterConfig):
+class ParBnConfig(BnConfig):
     """
     The parallel adapter architecture proposed by He et al. (2021). See https://arxiv.org/pdf/2110.04366.pdf.
     """
@@ -557,12 +557,12 @@ class MAMConfig(ConfigUnion):
     The Mix-And-Match adapter architecture proposed by He et al. (2021). See https://arxiv.org/pdf/2110.04366.pdf.
     """
 
-    def __init__(self, prefix_tuning: Optional[PrefixTuningConfig] = None, adapter: Optional[AdapterConfig] = None):
+    def __init__(self, prefix_tuning: Optional[PrefixTuningConfig] = None, adapter: Optional[BnConfig] = None):
         prefix_tuning = prefix_tuning or PrefixTuningConfig(bottleneck_size=800)
-        adapter = adapter or ParallelConfig()
+        adapter = adapter or ParBnConfig()
 
         assert isinstance(prefix_tuning, PrefixTuningConfig)
-        assert isinstance(adapter, AdapterConfig)
+        assert isinstance(adapter, BnConfig)
         super().__init__(prefix_tuning, adapter)
 
     @property
@@ -582,12 +582,12 @@ class UniPELTConfig(ConfigUnion):
     def __init__(
         self,
         prefix_tuning: Optional[PrefixTuningConfig] = None,
-        adapter: Optional[AdapterConfig] = None,
+        adapter: Optional[BnConfig] = None,
         lora: Optional[LoRAConfig] = None,
     ):
         components = [
             prefix_tuning or PrefixTuningConfig(prefix_length=10),
-            adapter or PfeifferConfig(reduction_factor=16),
+            adapter or SeqBnConfig(reduction_factor=16),
             lora or LoRAConfig(r=8),
         ]
 
@@ -596,12 +596,20 @@ class UniPELTConfig(ConfigUnion):
 
 # IMPORTANT: When adding a new config here, also add it to docs/overview.md!
 ADAPTER_CONFIG_MAP = {
-    "pfeiffer": PfeifferConfig(),
-    "houlsby": HoulsbyConfig(),
-    "parallel": ParallelConfig(),
-    "scaled_parallel": ParallelConfig(scaling="learned"),
-    "pfeiffer+inv": PfeifferInvConfig(),
-    "houlsby+inv": HoulsbyInvConfig(),
+    # DEPRECATED STRINGS
+    "pfeiffer": SeqBnConfig(),
+    "houlsby": DoubleSeqBnConfig(),
+    "parallel": ParBnConfig(),
+    "scaled_parallel": ParBnConfig(scaling="learned"),
+    "pfeiffer+inv": SeqBnInvConfig(),
+    "houlsby+inv": DoubleSeqBnInvConfig(),
+    # CURRENT STRINGS
+    "seq_bn": SeqBnConfig(),
+    "double_seq_bn": DoubleSeqBnConfig(),
+    "par_bn": ParBnConfig(),
+    "scaled_par_bn": ParBnConfig(scaling="learned"),
+    "seq_bn_inv": SeqBnInvConfig(),
+    "double_seq_bn_inv": DoubleSeqBnInvConfig(),
     "compacter++": CompacterPlusPlusConfig(),
     "compacter": CompacterConfig(),
     "prefix_tuning": PrefixTuningConfig(),
@@ -612,7 +620,7 @@ ADAPTER_CONFIG_MAP = {
     "unipelt": UniPELTConfig(),
 }
 
-DEFAULT_ADAPTER_CONFIG = "pfeiffer"
+DEFAULT_ADAPTER_CONFIG = "seq_bn"
 
 
 class ModelAdaptersConfig(Collection):

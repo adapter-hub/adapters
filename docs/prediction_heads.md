@@ -29,7 +29,7 @@ To learn more about the different head types and the configuration options, plea
 
 Now, of course, we would like to train our classification head together with an adapter, so let's add one:
 ```python
-model.add_adapter("mrpc", config="pfeiffer")
+model.add_adapter("mrpc", config="seq_bn")
 model.set_active_adapters("mrpc")
 ```
 

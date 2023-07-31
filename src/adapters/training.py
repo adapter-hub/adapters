@@ -23,7 +23,7 @@ class AdapterArguments:
         default="", metadata={"help": "Pre-trained adapter module to be loaded from Hub."}
     )
     adapter_config: Optional[str] = field(
-        default="pfeiffer", metadata={"help": "Adapter configuration. Either a config string or a path to a file."}
+        default="seq_bn", metadata={"help": "Adapter configuration. Either a config string or a path to a file."}
     )
     load_lang_adapter: Optional[str] = field(
         default=None, metadata={"help": "Pre-trained language adapter module to be loaded from Hub."}

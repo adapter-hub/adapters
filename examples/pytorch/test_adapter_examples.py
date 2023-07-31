@@ -79,7 +79,7 @@ class AdapterExamplesTests(TestCasePlus):
             --seed=42
             --max_seq_length=128
             --train_adapter
-            --adapter_config=houlsby
+            --adapter_config=double_seq_bn
             """.split()
         with patch.object(sys, "argv", testargs):
             run_glue.main()
@@ -107,7 +107,7 @@ class AdapterExamplesTests(TestCasePlus):
             --seed=42
             --max_seq_length=128
             --train_adapter
-            --adapter_config=houlsby
+            --adapter_config=double_seq_bn
             --load_adapter=qqp@ukp
             """.split()
         with patch.object(sys, "argv", testargs):
@@ -137,7 +137,7 @@ class AdapterExamplesTests(TestCasePlus):
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
             --train_adapter
-            --adapter_config=houlsby
+            --adapter_config=double_seq_bn
             --adapter_reduction_factor=8
         """.split()
 
@@ -167,7 +167,7 @@ class AdapterExamplesTests(TestCasePlus):
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
             --train_adapter
-            --adapter_config=houlsby
+            --adapter_config=double_seq_bn
             --adapter_reduction_factor=8
         """.split()
 
@@ -196,7 +196,7 @@ class AdapterExamplesTests(TestCasePlus):
             --output_dir {tmp_dir}
             --overwrite_output_dir
             --train_adapter
-            --adapter_config=houlsby
+            --adapter_config=double_seq_bn
             --adapter_reduction_factor=8
             """.split()
 
@@ -229,7 +229,7 @@ class AdapterExamplesTests(TestCasePlus):
             --prediction_loss_only
             --num_train_epochs=1
             --train_adapter
-            --adapter_config=houlsby
+            --adapter_config=double_seq_bn
             --adapter_reduction_factor=8
         """.split()
 
@@ -287,7 +287,7 @@ class AdapterExamplesTests(TestCasePlus):
                 --per_device_eval_batch_size=1
                 --predict_with_generate
                 --train_adapter
-                --adapter_config=houlsby
+                --adapter_config=double_seq_bn
                 --adapter_reduction_factor=8
             """.split()
 
@@ -325,7 +325,7 @@ class AdapterExamplesTests(TestCasePlus):
                 --source_lang en_XX
                 --target_lang ro_RO
                 --train_adapter
-                --adapter_config=houlsby
+                --adapter_config=double_seq_bn
                 --adapter_reduction_factor=8
             """.split()
 
@@ -357,7 +357,7 @@ class AdapterExamplesTests(TestCasePlus):
             --per_device_eval_batch_size=2
             --num_train_epochs={epochs}
             --train_adapter
-            --adapter_config=houlsby
+            --adapter_config=double_seq_bn
             --adapter_reduction_factor=16
         """.split()
 

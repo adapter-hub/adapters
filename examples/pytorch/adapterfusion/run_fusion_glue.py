@@ -139,24 +139,24 @@ def main():
 
     # ~~~~~ Here comes the interesting part of setting up AdapterFusion training ~~~~~
 
-    from adapters.configuration import PfeifferConfig
+    from adapters.configuration import SeqBnConfig
 
     # First, load the pre-trained adapters we want to fuse from Hub
-    model.load_adapter("sentiment/sst-2@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/multinli@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/rte@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sts/mrpc@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sts/qqp@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/cosmosqa@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/csqa@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/hellaswag@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/siqa@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("comsense/winogrande@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/cb@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/sick@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("nli/scitail@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("qa/boolq@ukp", config=PfeifferConfig(), with_head=False)
-    model.load_adapter("sentiment/imdb@ukp", config=PfeifferConfig(), with_head=False)
+    model.load_adapter("sentiment/sst-2@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("nli/multinli@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("nli/rte@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("sts/mrpc@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("sts/qqp@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("comsense/cosmosqa@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("comsense/csqa@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("comsense/hellaswag@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("comsense/siqa@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("comsense/winogrande@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("nli/cb@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("nli/sick@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("nli/scitail@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("qa/boolq@ukp", config=SeqBnConfig(), with_head=False)
+    model.load_adapter("sentiment/imdb@ukp", config=SeqBnConfig(), with_head=False)
 
     adapter_setup = [
         [

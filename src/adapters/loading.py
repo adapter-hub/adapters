@@ -326,7 +326,7 @@ class AdapterLoader(WeightsLoader):
         return k
 
     # This method is used to remove unnecessary invertible adapters from task adapters using the old format.
-    # In the old format, task adapters e.g. using pfeiffer config specify inv. adapters but don't use them.
+    # In the old format, task adapters e.g. using seq_bn config specify inv. adapters but don't use them.
     # As inv. adapters would be incorrectly used in the new implementation,
     # catch this case here when loading pretrained adapters.
     def _fix_legacy_config(self, adapter_name, missing_keys):
