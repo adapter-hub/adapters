@@ -1255,6 +1255,18 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         else:
             self.base_model.add_adapter(adapter_name, config, overwrite_ok=overwrite_ok, set_active=set_active)
 
+    def delete_adapter(self, adapter_name: str):
+        """
+        Deletes the adapter with the specified name from the model.
+
+        Args:
+            adapter_name (str): The name of the adapter.
+        """
+        if self.base_model is self:
+            super().delete_adapter(adapter_name)
+        else:
+            self.base_model.delete_adapter(adapter_name)
+
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
         """
         Sets the model into mode for training the given adapters. If self.base_model is self, must inherit from a class

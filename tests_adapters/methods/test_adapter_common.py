@@ -27,10 +27,13 @@ from .base import AdapterMethodBaseTestMixin, create_twin_models
 
 @require_torch
 class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
-
     adapter_configs_to_test = [
         (PfeifferConfig(), ["adapters.{name}."]),
         (MAMConfig(), ["adapters.{name}.", "prefix_tunings.{name}."]),
+    ]
+    inv_adapter_configs_to_test = [
+        (PfeifferInvConfig(), ["invertible_adapters.{name}"]),
+        (HoulsbyInvConfig(), ["invertible_adapters.{name}"]),
     ]
 
     def test_add_adapter(self):
@@ -103,6 +106,40 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
                 # We expect one call to invertible adapter
                 self.assertEqual(1, calls)
+
+    def test_delete_adapter_with_invertible(self):
+        """Tests if the invertible adapters are deleted correctly."""
+        model = self.get_model().base_model
+        model.eval()
+        if not isinstance(model, InvertibleAdaptersMixin) and not isinstance(model, InvertibleAdaptersWrapperMixin):
+            self.skipTest("Model does not support invertible adapters.")
+
+        # iterate through all adapter invertible adapter configs
+        for adapter_config, filter_keys in self.inv_adapter_configs_to_test:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                name = adapter_config.__class__.__name__
+                model.add_adapter(name, config=adapter_config)
+                model.set_active_adapters([name])
+
+                # check if adapter is correctly added to config
+                self.assert_adapter_available(model, name)
+                # remove the adapter again
+                model.delete_adapter(name)
+
+                # check if adapter is correctly removed from the model
+                self.assert_adapter_unavailable(model, name)
+
+                # check additionally if invertible adapter is removed correctly from the model
+                self.assertFalse(name in model.invertible_adapters)
+                self.assertEqual(None, model.get_invertible_adapter())
+
+                # check that weights are available and active
+                has_weights = False
+                filter_keys = [k.format(name=name) for k in filter_keys]
+                print(f"filter_keys = {filter_keys}")
+                for k, v in self.filter_parameters(model, filter_keys).items():
+                    has_weights = True
+                self.assertFalse(has_weights)
 
     def test_get_adapter(self):
         model = self.get_model()
