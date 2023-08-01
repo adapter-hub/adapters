@@ -16,7 +16,7 @@ from ...heads import (
     TaggingHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,8 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
 class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
-        self.transformer = wrap_model(GPT2Model(config))
+        self.transformer = GPT2Model(config)
+        init(self.transformer)
 
         self._init_head_modules()
 

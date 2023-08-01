@@ -11,7 +11,7 @@ from ...heads import (
     TaggingHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 @add_start_docstrings(
@@ -23,7 +23,8 @@ class DebertaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
     def __init__(self, config):
         super().__init__(config)
 
-        self.deberta = wrap_model(DebertaModel(config))
+        self.deberta = DebertaModel(config)
+        init(self.deberta)
 
         self._init_head_modules()
 

@@ -3,6 +3,7 @@ import tempfile
 
 import torch
 
+import adapters
 from adapters import (
     ADAPTER_CONFIG_MAP,
     ADAPTER_MODEL_MAPPING,
@@ -18,7 +19,6 @@ from adapters import (
     SeqBnInvConfig,
 )
 from adapters.heads.language_modeling import CausalLMHead
-from adapters.wrappers import wrap_model
 from transformers import MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING
 from transformers.testing_utils import require_torch, torch_device
 
@@ -301,7 +301,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             self.skipTest("No causal lm class.")
 
         static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
-        static_model = wrap_model(static_model)
+        adapters.init(static_model)
         flex_model = AutoAdapterModel.from_pretrained(None, config=self.config(), state_dict=static_model.state_dict())
 
         static_model.add_adapter("dummy")

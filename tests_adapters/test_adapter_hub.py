@@ -3,10 +3,10 @@ import unittest
 
 import numpy as np
 
+import adapters
 from adapters import ADAPTER_CONFIG_MAP, AdapterConfigBase, BertAdapterModel, get_adapter_config_hash
 from adapters.trainer import AdapterTrainer as Trainer
 from adapters.utils import find_in_index
-from adapters.wrappers import wrap_model
 from tests.test_modeling_common import ids_tensor
 from transformers import (  # get_adapter_config_hash,
     AutoModel,
@@ -50,7 +50,7 @@ class AdapterHubTest(unittest.TestCase):
             with self.subTest(config=config):
                 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
                 model = BertForSequenceClassification.from_pretrained("bert-base-uncased")
-                model = wrap_model(model)
+                adapters.init(model)
 
                 loading_info = {}
                 adapter_name = model.load_adapter(
@@ -94,7 +94,7 @@ class AdapterHubTest(unittest.TestCase):
 
     def test_load_task_adapter_from_hub_with_leave_out(self):
         model = AutoModel.from_pretrained("bert-base-uncased")
-        model = wrap_model(model)
+        adapters.init(model)
 
         loading_info = {}
         adapter_name = model.load_adapter("sts/mrpc@ukp", config="pfeiffer", loading_info=loading_info, leave_out=[11])
@@ -114,7 +114,7 @@ class AdapterHubTest(unittest.TestCase):
         for config in ["seq_bn_inv", "double_seq_bn_inv"]:
             with self.subTest(config=config):
                 model = AutoModel.from_pretrained("bert-base-multilingual-cased")
-                model = wrap_model(model)
+                adapters.init(model)
                 config = AdapterConfigBase.load(config, non_linearity="gelu", reduction_factor=2)
 
                 loading_info = {}

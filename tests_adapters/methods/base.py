@@ -4,10 +4,11 @@ import tempfile
 
 import torch
 
+import adapters
 from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
 from adapters.heads import CausalLMHead
 from adapters.utils import WEIGHTS_NAME
-from adapters.wrappers import load_model, wrap_model
+from adapters.wrappers import load_model
 from transformers import TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
 
@@ -22,7 +23,7 @@ def create_twin_models(model_class, config_creator=None):
     else:
         model_config = model_class.config_class()
         model1 = model_class(model_config)
-    model1 = wrap_model(model1)
+    adapters.init(model1)
     model1.eval()
     # create a twin initialized with the same random weights
     model2 = copy.deepcopy(model1)

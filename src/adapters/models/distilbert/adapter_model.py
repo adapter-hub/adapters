@@ -20,7 +20,7 @@ from ...heads import (
     TaggingHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 @add_start_docstrings(
@@ -32,7 +32,8 @@ class DistilBertAdapterModel(
 ):
     def __init__(self, config):
         super().__init__(config)
-        self.distilbert = wrap_model(DistilBertModel(config))
+        self.distilbert = DistilBertModel(config)
+        init(self.distilbert)
 
         self._init_head_modules()
 

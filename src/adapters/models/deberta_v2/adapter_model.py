@@ -12,7 +12,7 @@ from ...heads import (
     TaggingHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 @add_start_docstrings(
@@ -26,7 +26,8 @@ class DebertaV2AdapterModel(
     def __init__(self, config):
         super().__init__(config)
 
-        self.deberta = wrap_model(DebertaV2Model(config))
+        self.deberta = DebertaV2Model(config)
+        init(self.deberta)
 
         self._init_head_modules()
 

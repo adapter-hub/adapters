@@ -2,7 +2,8 @@ import unittest
 from tempfile import TemporaryDirectory
 from typing import Dict
 
-from adapters import BertAdapterModel, wrap_model
+import adapters
+from adapters import BertAdapterModel
 from transformers import BertConfig, BertForSequenceClassification
 
 
@@ -46,7 +47,7 @@ class TestSaveLabel(unittest.TestCase):
 
     def test_classification_model_head_labels(self):
         model = BertForSequenceClassification(self.config)
-        model = wrap_model(model)
+        adapters.init(model)
         with TemporaryDirectory() as temp_dir:
             model.save_head(temp_dir)
             model.load_head(temp_dir)
@@ -56,7 +57,7 @@ class TestSaveLabel(unittest.TestCase):
 
     def test_sequ_classification_model_head_labels(self):
         model = BertForSequenceClassification(self.config)
-        model = wrap_model(model)
+        adapters.init(model)
         with TemporaryDirectory() as temp_dir:
             model.save_head(temp_dir)
             model.load_head(temp_dir)

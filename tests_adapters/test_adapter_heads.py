@@ -3,9 +3,9 @@ import tempfile
 
 import torch
 
+import adapters
 from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel
 from adapters.composition import BatchSplit, Stack
-from adapters.wrappers import wrap_model
 from transformers import AutoModelForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
 
@@ -320,7 +320,7 @@ class PredictionHeadModelTestMixin:
         if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
             self.skipTest("No classification head available")
         static_head_model = AutoModelForSequenceClassification.from_config(self.config())
-        static_head_model = wrap_model(static_head_model)
+        adapters.init(static_head_model)
         flex_head_model = AutoAdapterModel.from_pretrained(
             None, config=self.config(), state_dict=static_head_model.state_dict()
         )

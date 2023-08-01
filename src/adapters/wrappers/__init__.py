@@ -21,12 +21,12 @@ from typing import TYPE_CHECKING
 from transformers.utils import _LazyModule
 
 
-_import_structure = {"configuration": ["wrap_config"], "model": ["wrap_model", "load_model"]}
+_import_structure = {"configuration": ["wrap_config"], "model": ["init", "load_model"]}
 
 
 if TYPE_CHECKING:
     from .configuration import wrap_config
-    from .model import load_model, wrap_model
+    from .model import init, load_model
 
 else:
     import sys

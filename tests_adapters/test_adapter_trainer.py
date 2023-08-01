@@ -4,7 +4,8 @@ from tempfile import TemporaryDirectory
 
 import torch
 
-from adapters import AutoAdapterModel, wrap_model
+import adapters
+from adapters import AutoAdapterModel
 from adapters.composition import Fuse, Stack
 from adapters.trainer import AdapterTrainer, logger
 from transformers import (
@@ -38,7 +39,7 @@ class TestAdapterTrainer(unittest.TestCase):
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
         model = AutoModelForSequenceClassification.from_config(self.get_model_config())
-        model = wrap_model(model)
+        adapters.init(model)
         model.add_adapter("adapter")
         model.add_adapter("additional_adapter")
         model.set_active_adapters("adapter")
@@ -62,7 +63,7 @@ class TestAdapterTrainer(unittest.TestCase):
         trainer.train()
         # create second model that should resume the training of the first
         model_resume = AutoModelForSequenceClassification.from_config(self.get_model_config())
-        model_resume = wrap_model(model_resume)
+        adapters.init(model_resume)
         model_resume.add_adapter("adapter")
         model_resume.add_adapter("additional_adapter")
         model_resume.set_active_adapters("adapter")
@@ -89,7 +90,7 @@ class TestAdapterTrainer(unittest.TestCase):
         train_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
         model = AutoModelForSequenceClassification.from_config(self.get_model_config())
-        model = wrap_model(model)
+        adapters.init(model)
         model.add_adapter("adapter")
         model.add_adapter("additional_adapter")
         model.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
@@ -113,7 +114,7 @@ class TestAdapterTrainer(unittest.TestCase):
 
         trainer.train()
         model_resume = AutoModelForSequenceClassification.from_config(self.get_model_config())
-        model_resume = wrap_model(model_resume)
+        adapters.init(model_resume)
         model_resume.add_adapter("adapter")
         model_resume.add_adapter("additional_adapter")
         model_resume.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
@@ -144,7 +145,7 @@ class TestAdapterTrainer(unittest.TestCase):
                 intermediate_size=37,
             )
         )
-        model = wrap_model(model)
+        adapters.init(model)
         model.add_adapter("adapter1")
         model.add_adapter("adapter2")
         model.add_adapter_fusion(Fuse("adapter1", "adapter2"))
@@ -169,7 +170,7 @@ class TestAdapterTrainer(unittest.TestCase):
         eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev")
 
         model = AutoModelForSequenceClassification.from_config(self.get_model_config())
-        model = wrap_model(model)
+        adapters.init(model)
         model.add_adapter("adapter")
         model.train_adapter("adapter")
 
@@ -204,7 +205,7 @@ class TestAdapterTrainer(unittest.TestCase):
         eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev")
 
         model = AutoModelForSequenceClassification.from_config(self.get_model_config())
-        model = wrap_model(model)
+        adapters.init(model)
         model.add_adapter("adapter")
         model.train_adapter("adapter")
 
@@ -237,7 +238,7 @@ class TestAdapterTrainer(unittest.TestCase):
         eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev")
 
         model = AutoModelForSequenceClassification.from_config(self.get_model_config())
-        model = wrap_model(model)
+        adapters.init(model)
         model.add_adapter("fuse_adapter_1")
         model.add_adapter("fuse_adapter_2")
         model.add_adapter_fusion(Fuse("fuse_adapter_1", "fuse_adapter_2"))

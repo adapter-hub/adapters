@@ -3,8 +3,8 @@ import random
 import datasets
 import torch
 
+import adapters
 from adapters import AutoAdapterModel
-from adapters.wrappers import wrap_model
 from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
 from transformers.testing_utils import torch_device
 
@@ -25,7 +25,7 @@ class AdapterTestBase:
             model = AutoAdapterModel.from_config(self.config())
         else:
             model = self.model_class(self.config())
-        model = wrap_model(model)
+        adapters.init(model)
         model.to(torch_device)
         return model
 

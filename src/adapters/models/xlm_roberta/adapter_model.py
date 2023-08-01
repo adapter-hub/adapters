@@ -21,7 +21,7 @@ from ...heads import (
     TaggingHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 @add_start_docstrings(
@@ -34,7 +34,8 @@ class XLMRobertaAdapterModel(
     def __init__(self, config):
         super().__init__(config)
 
-        self.roberta = wrap_model(XLMRobertaModel(config))
+        self.roberta = XLMRobertaModel(config)
+        init(self.roberta)
 
         self._init_head_modules()
 

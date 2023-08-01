@@ -12,7 +12,7 @@ from transformers.utils import add_start_docstrings, add_start_docstrings_to_mod
 
 from ...context import AdapterSetup
 from ...heads import ImageClassificationHead, ModelWithFlexibleHeadsAdaptersMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 @add_start_docstrings(
@@ -23,7 +23,8 @@ class ViTAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, ViTPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
-        self.vit = wrap_model(ViTModel(config))
+        self.vit = ViTModel(config)
+        init(self.vit)
 
         self._init_head_modules()
 

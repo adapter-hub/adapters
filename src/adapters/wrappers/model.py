@@ -22,7 +22,7 @@ def get_module_name(model_type: str) -> str:
     return model_type_to_module_name(model_type)
 
 
-def wrap_model(model: PreTrainedModel) -> PreTrainedModel:
+def init(model: PreTrainedModel) -> None:
     if isinstance(model, ModelAdaptersMixin):
         return model
 
@@ -62,8 +62,6 @@ def wrap_model(model: PreTrainedModel) -> PreTrainedModel:
     # Finally, initialize adapters
     model.init_adapters(model.config)
 
-    return model
-
 
 def load_model(
     model_name_or_path: Optional[Union[str, os.PathLike]],
@@ -92,7 +90,7 @@ def load_model(
 
     def new_init(self, config, *args, **kwargs):
         old_init(self, config, *args, **kwargs)
-        wrap_model(self)
+        init(self)
 
     # wrap model after it is initialized but before the weights are loaded
     model_class.__init__ = new_init

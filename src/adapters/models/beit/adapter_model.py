@@ -12,7 +12,7 @@ from transformers.utils import add_start_docstrings, add_start_docstrings_to_mod
 
 from ...context import AdapterSetup
 from ...heads import ImageClassificationHead, ModelWithFlexibleHeadsAdaptersMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 @add_start_docstrings(
@@ -23,7 +23,8 @@ class BeitAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BeitPreTrainedModel)
     def __init__(self, config):
         super().__init__(config)
 
-        self.beit = wrap_model(BeitModel(config))
+        self.beit = BeitModel(config)
+        init(self.beit)
 
         self._init_head_modules()
 

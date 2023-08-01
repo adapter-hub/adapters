@@ -13,7 +13,7 @@ from transformers.utils import add_start_docstrings, add_start_docstrings_to_mod
 from ...context import AdapterSetup
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 @add_start_docstrings(CLIP_START_DOCSTRING)
@@ -21,7 +21,8 @@ class CLIPAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
     def __init__(self, config):
         super().__init__(config)
 
-        self.clip = wrap_model(CLIPModel(config))
+        self.clip = CLIPModel(config)
+        init(self.clip)
 
         self._init_head_modules()
 

@@ -21,7 +21,7 @@ from ...heads import (
     Seq2SeqLMHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 @add_start_docstrings(
@@ -32,7 +32,8 @@ class MBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
 
     def __init__(self, config: MBartConfig, **kwargs):
         super().__init__(config, **kwargs)
-        self.model = wrap_model(MBartModel(config))
+        self.model = MBartModel(config)
+        init(self.model)
 
         self._init_head_modules()
 

@@ -17,7 +17,7 @@ from ...heads import (
     TaggingHead,
 )
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 @add_start_docstrings(
@@ -28,7 +28,8 @@ class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
     def __init__(self, config):
         super().__init__(config)
 
-        self.albert = wrap_model(AlbertModel(config))
+        self.albert = AlbertModel(config)
+        init(self.albert)
 
         self._init_head_modules()
 

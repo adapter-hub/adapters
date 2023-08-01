@@ -27,11 +27,11 @@ This branch disentangles `adapter-transformers` from HF Transformers and adds Tr
     ```
 - Built-in HF model classes can be adapted for usage with adapters via a wrapper method, e.g.:
     ```python
+    import adapters
     from transformers import BertModel
-    from adapters import wrap_model
 
     model = BertModel.from_pretrained("bert-base-uncased")
-    model = wrap_model(model)
+    adapters.init(model)
     ```
 
 ### Model support

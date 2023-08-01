@@ -7,7 +7,7 @@ from transformers.utils import add_start_docstrings, add_start_docstrings_to_mod
 
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin, QuestionAnsweringHead, Seq2SeqLMHead
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...wrappers import wrap_model
+from ...wrappers import init
 
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,8 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
     def __init__(self, config):
         super().__init__(config)
 
-        self.transformer = wrap_model(T5Model(config))
+        self.transformer = T5Model(config)
+        init(self.transformer)
 
         self._init_head_modules()
 

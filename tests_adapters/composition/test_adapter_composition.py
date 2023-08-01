@@ -2,7 +2,8 @@ import unittest
 
 import torch
 
-from adapters import PrefixTuningConfig, SeqBnConfig, wrap_model
+import adapters
+from adapters import PrefixTuningConfig, SeqBnConfig
 from adapters.composition import Average, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from tests.test_modeling_common import ids_tensor
 from transformers import BertConfig, BertForSequenceClassification
@@ -42,7 +43,7 @@ class AdapterCompositionTest(unittest.TestCase):
                 intermediate_size=37,
             )
         )
-        model = wrap_model(model)
+        adapters.init(model)
         adapter_config = self.get_adapter_config()
         model.add_adapter("a", config=adapter_config)
         model.add_adapter("b", config=adapter_config)
