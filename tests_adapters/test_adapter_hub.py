@@ -61,12 +61,12 @@ class AdapterHubTest(unittest.TestCase):
                 self.assertEqual(0, len(loading_info["missing_keys"]))
                 self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
-                self.assertIn(adapter_name, model.config.adapters.adapters)
+                self.assertIn(adapter_name, model.adapters_config.adapters)
                 self.assertNotIn(adapter_name, model.base_model.invertible_adapters)
 
                 # check if config is valid
                 expected_hash = get_adapter_config_hash(AdapterConfigBase.load(config))
-                real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
+                real_hash = get_adapter_config_hash(model.adapters_config.get(adapter_name))
                 self.assertEqual(expected_hash, real_hash)
 
                 # setup dataset
@@ -101,10 +101,10 @@ class AdapterHubTest(unittest.TestCase):
 
         self.assertEqual(0, len(loading_info["missing_keys"]))
         # self.assertEqual(0, len(loading_info["unexpected_keys"]))
-        self.assertIn(adapter_name, model.config.adapters.adapters)
+        self.assertIn(adapter_name, model.adapters_config.adapters)
 
         # check if leave out was applied to config
-        self.assertEqual([11], model.config.adapters.get(adapter_name).leave_out)
+        self.assertEqual([11], model.adapters_config.get(adapter_name).leave_out)
 
         # layer 11 should be removed while others should still exist
         self.assertIn(adapter_name, model.base_model.encoder.layer[10].output.adapters)
@@ -126,13 +126,13 @@ class AdapterHubTest(unittest.TestCase):
                 self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
                 # check if adapter & invertible adapter were added
-                self.assertIn(adapter_name, model.config.adapters.adapters)
+                self.assertIn(adapter_name, model.adapters_config.adapters)
                 self.assertIn(adapter_name, model.invertible_adapters)
 
                 # check if config is valid
                 # TODO-AH hashes are not guaranteed to be equal because of legacy keys in lang adapter config
                 # expected_hash = get_adapter_config_hash(config)
-                # real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
+                # real_hash = get_adapter_config_hash(model.adapters_config.get(adapter_name))
                 # self.assertEqual(expected_hash, real_hash)
 
                 # check size of output
@@ -152,10 +152,10 @@ class AdapterHubTest(unittest.TestCase):
         self.assertEqual(0, len(loading_info["missing_keys"]))
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
-        self.assertIn(adapter_name, model.config.adapters.adapters)
+        self.assertIn(adapter_name, model.adapters_config.adapters)
         # check if config is valid
         expected_hash = get_adapter_config_hash(AdapterConfigBase.load("houlsby"))
-        real_hash = get_adapter_config_hash(model.config.adapters.get(adapter_name))
+        real_hash = get_adapter_config_hash(model.adapters_config.get(adapter_name))
         self.assertEqual(expected_hash, real_hash)
 
         # check size of output

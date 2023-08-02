@@ -18,22 +18,22 @@ from ...prefix_tuning import PrefixTuningShim
 class CLIPAttentionAdaptersMixin:
     """Adds adapters to the CLIPAttention module."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
-        self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", config, attn_key="q")
-        self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", config, attn_key="k")
-        self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", config, attn_key="v")
+        self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", model_config, adapters_config, attn_key="q")
+        self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
+        self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
 
-        self.prefix_tuning = PrefixTuningShim("self_prefix", config, add_model_type_to_key=True)
+        self.prefix_tuning = PrefixTuningShim("self_prefix", model_config, adapters_config, add_model_type_to_key=True)
 
 
 class CLIPEncoderLayerAdaptersMixin:
     """Adds adapters to the CLIPEncoderLayer module of CLIP."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
-        self.mlp.fc1 = LoRALinear.wrap(self.mlp.fc1, "intermediate", config)
-        self.mlp.fc2 = LoRALinear.wrap(self.mlp.fc2, "output", config)
+        self.mlp.fc1 = LoRALinear.wrap(self.mlp.fc1, "intermediate", model_config, adapters_config)
+        self.mlp.fc2 = LoRALinear.wrap(self.mlp.fc2, "output", model_config, adapters_config)
 
         self.attention_adapters = AdapterLayer("mh_adapter")
         self.output_adapters = AdapterLayer("output_adapter")
@@ -42,7 +42,7 @@ class CLIPEncoderLayerAdaptersMixin:
 class CLIPEncoderAdaptersMixin:
     """Adds adapters to the CLIPEncoder module of CLIP."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, model_config, adapters_config):
         # Set hook for parallel composition
         for layer in self.layers:
             self._set_layer_hook_for_parallel(layer)
@@ -91,11 +91,11 @@ class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWr
         for i, layer in enumerate(self.vision_model.encoder.layers, start=len(self.text_model.encoder.layers)):
             yield i, layer
 
-    def _init_adapters_submodules(self, config):
+    def _init_adapters_submodules(self, model_config, adapters_config):
         # Initialize adapters in text and vision model separately
         for module in self.text_model.modules():
             if hasattr(module, "init_adapters"):
-                module.init_adapters(config.text_config)
+                module.init_adapters(model_config.text_config, adapters_config)
         for module in self.vision_model.modules():
             if hasattr(module, "init_adapters"):
-                module.init_adapters(config.vision_config)
+                module.init_adapters(model_config.vision_config, adapters_config)

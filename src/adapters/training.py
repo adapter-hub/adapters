@@ -68,7 +68,7 @@ def setup_adapter_training(
                 **adapter_load_kwargs,
             )
         # otherwise, if adapter does not exist, add it
-        elif adapter_name not in model.config.adapters:
+        elif adapter_name not in model.adapters_config:
             model.add_adapter(adapter_name, config=adapter_config)
         # optionally load a pre-trained language adapter
         if adapter_args.load_lang_adapter:

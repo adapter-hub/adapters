@@ -498,6 +498,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         self._active_heads = []
 
     def _init_head_modules(self):
+        # HACK connect adapters_config to base model -> this should move to a better place
+        self.adapters_config = self.base_model.adapters_config
         # this dict is _only_ used for saving & reloading the configs and should not be modified otherwise
         if not hasattr(self.config, "prediction_heads"):
             self.config.prediction_heads = {}
@@ -800,9 +802,9 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             )
             return_output = MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
         elif self.has_parallel_adapters or isinstance(self.active_head, Parallel):
-            if len(self.active_head) != self.config.adapters.active_setup.parallel_channels:
+            if len(self.active_head) != self.adapters_config.active_setup.parallel_channels:
                 raise ValueError("The number of parallel adapters and the number of active heads must match.")
-            orig_batch_size = all_outputs[0].shape[0] // self.config.adapters.active_setup.parallel_channels
+            orig_batch_size = all_outputs[0].shape[0] // self.adapters_config.active_setup.parallel_channels
             head_outputs = []
             for i, head in enumerate(self.active_head):
                 head_module = self.heads[head]

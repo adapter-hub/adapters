@@ -75,8 +75,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 model.set_active_adapters([name])
 
                 # adapter is correctly added to config
-                self.assertTrue(name in model.config.adapters)
-                self.assertEqual(adapter_config, model.config.adapters.get(name))
+                self.assertTrue(name in model.adapters_config)
+                self.assertEqual(adapter_config, model.adapters_config.get(name))
 
                 # invertible adapter is correctly added and returned
                 self.assertTrue(name in model.invertible_adapters)
@@ -164,8 +164,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 model.set_active_adapters([name])
 
                 # adapter is correctly added to config
-                self.assertTrue(name in model.config.adapters)
-                self.assertEqual(adapter_config, model.config.adapters.get(name))
+                self.assertTrue(name in model.adapters_config)
+                self.assertEqual(adapter_config, model.adapters_config.get(name))
 
                 adapter = model.get_adapter(name)
 
@@ -347,9 +347,9 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.add_adapter("b")
         model.add_adapter("c")
 
-        self.assertIn("a", model.config.adapters.adapters)
-        self.assertIn("b", model.config.adapters.adapters)
-        self.assertIn("c", model.config.adapters.adapters)
+        self.assertIn("a", model.adapters_config.adapters)
+        self.assertIn("b", model.adapters_config.adapters)
+        self.assertIn("c", model.adapters_config.adapters)
 
         # setup fusion
         adapter_setup = Fuse("a", "b", "c")

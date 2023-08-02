@@ -14,7 +14,7 @@ from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
 from .composition import AdapterCompositionBlock
-from .configuration import LoRAConfig
+from .configuration import LoRAConfig, ModelAdaptersConfig
 from .layer import AdapterLayerBase
 
 
@@ -94,10 +94,13 @@ class LoRA(nn.Module):
 
 
 class LoRALayer(AdapterLayerBase):
-    def __init__(self, location_key: str, config: PretrainedConfig, *args, **kwargs):
+    def __init__(
+        self, location_key: str, model_config: PretrainedConfig, adapters_config: ModelAdaptersConfig, *args, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.location_key = location_key + "_lora"
-        self.config = config
+        self.model_config = model_config
+        self.adapters_config = adapters_config
         self.loras = nn.ModuleDict(dict())
 
         self.merged = False
@@ -113,7 +116,7 @@ class LoRALayer(AdapterLayerBase):
 
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
-        lora_config = self.config.adapters.match(
+        lora_config = self.adapters_config.match(
             adapter_name,
             config_type=LoRAConfig,
             layer_idx=self.layer_idx,
@@ -184,12 +187,13 @@ class Linear(LoRALayer, nn.Linear):
         in_features: int,
         out_features: int,
         location_key: str,
-        config: PretrainedConfig,
+        model_config: PretrainedConfig,
+        adapters_config: ModelAdaptersConfig,
         attn_key: str = None,
         fan_in_fan_out: bool = False,  # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
         **kwargs
     ):
-        LoRALayer.__init__(self, location_key, config, in_features, out_features, **kwargs)
+        LoRALayer.__init__(self, location_key, model_config, adapters_config, in_features, out_features, **kwargs)
 
         self.attn_key = attn_key
         self.fan_in_fan_out = fan_in_fan_out
@@ -201,20 +205,33 @@ class Linear(LoRALayer, nn.Linear):
         cls,
         module: Union[nn.Linear, Conv1D],
         location_key: str,
-        config: PretrainedConfig,
+        model_config: PretrainedConfig,
+        adapters_config: ModelAdaptersConfig,
         attn_key: str = None,
         **kwargs
     ):
         if isinstance(module, Conv1D):
             new_module = cls(
-                module.weight.shape[0], module.weight.shape[1], location_key, config, attn_key=attn_key, **kwargs
+                module.weight.shape[0],
+                module.weight.shape[1],
+                location_key,
+                model_config,
+                adapters_config,
+                attn_key=attn_key,
+                **kwargs,
             )
         else:
             # Make sure that the bias is not added if the original module does not have one
             if "bias" not in kwargs:
                 kwargs["bias"] = hasattr(module, "bias") and module.bias is not None
             new_module = cls(
-                module.in_features, module.out_features, location_key, config, attn_key=attn_key, **kwargs
+                module.in_features,
+                module.out_features,
+                location_key,
+                model_config,
+                adapters_config,
+                attn_key=attn_key,
+                **kwargs,
             )
         new_module.weight.data = module.weight.data
         if module.bias is not None:
@@ -308,22 +325,34 @@ class MergedLinear(LoRALayer, nn.Linear):
         in_features: int,
         out_features: int,
         location_key: str,
-        config: PretrainedConfig,
+        model_config: PretrainedConfig,
+        adapters_config: ModelAdaptersConfig,
         fan_in_fan_out: bool = False,
         **kwargs
     ):
-        LoRALayer.__init__(self, location_key, config, in_features, out_features, **kwargs)
+        LoRALayer.__init__(self, location_key, model_config, adapters_config, in_features, out_features, **kwargs)
 
         self.fan_in_fan_out = fan_in_fan_out
         if fan_in_fan_out:
             self.weight.data = self.weight.data.T
 
     @classmethod
-    def wrap(cls, module: Union[nn.Linear, Conv1D], location_key: str, config: PretrainedConfig, **kwargs):
+    def wrap(
+        cls,
+        module: Union[nn.Linear, Conv1D],
+        location_key: str,
+        model_config: PretrainedConfig,
+        adapters_config: ModelAdaptersConfig,
+        **kwargs
+    ):
         if isinstance(module, Conv1D):
-            new_module = cls(module.weight.shape[0], module.weight.shape[1], location_key, config, **kwargs)
+            new_module = cls(
+                module.weight.shape[0], module.weight.shape[1], location_key, model_config, adapters_config, **kwargs
+            )
         else:
-            new_module = cls(module.in_features, module.out_features, location_key, config, **kwargs)
+            new_module = cls(
+                module.in_features, module.out_features, location_key, model_config, adapters_config, **kwargs
+            )
         new_module.weight.data = module.weight.data
         if module.bias is not None:
             new_module.bias.data = module.bias.data
@@ -343,7 +372,7 @@ class MergedLinear(LoRALayer, nn.Linear):
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         is_added = super().add_adapter(adapter_name, layer_idx)
         if is_added:
-            lora_config = lora_config = self.config.adapters.match(
+            lora_config = lora_config = self.adapters_config.match(
                 adapter_name,
                 config_type=LoRAConfig,
                 layer_idx=self.layer_idx,

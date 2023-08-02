@@ -341,7 +341,7 @@ class PredictionHeadModelTestMixin:
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
         # adapter and head were loaded
-        self.assertIn("test", flex_head_model.config.adapters)
+        self.assertIn("test", flex_head_model.adapters_config)
         self.assertIn("test", flex_head_model.heads)
 
         # check equal output

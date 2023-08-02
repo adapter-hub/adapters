@@ -65,11 +65,11 @@ class AdapterTestBase:
         return GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
     def assert_adapter_available(self, model, adapter_name):
-        self.assertTrue(adapter_name in model.config.adapters)
+        self.assertTrue(adapter_name in model.adapters_config)
         self.assertGreater(len(model.get_adapter(adapter_name)), 0)
 
     def assert_adapter_unavailable(self, model, adapter_name):
-        self.assertFalse(adapter_name in model.config.adapters)
+        self.assertFalse(adapter_name in model.adapters_config)
         self.assertEqual(len(model.get_adapter(adapter_name)), 0)
 
 

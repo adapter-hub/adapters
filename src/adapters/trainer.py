@@ -223,7 +223,7 @@ class AdapterTrainer(Trainer):
             f"Loading best adapter(s) from {self.state.best_model_checkpoint} (score: {self.state.best_metric})."
         )
         # attempt to re-load all adapters from checkpoint
-        for adapter in model.config.adapters.adapters:
+        for adapter in model.adapters_config.adapters:
             adapter_dir = os.path.join(self.state.best_model_checkpoint, adapter)
             if os.path.exists(adapter_dir):
                 model.load_adapter(adapter_dir)
@@ -233,7 +233,7 @@ class AdapterTrainer(Trainer):
                 f" {self.state.best_metric})."
             )
             # attempt to re-load all adapter fusions from checkpoint
-            for fusion in model.config.adapters.fusions:
+            for fusion in model.adapters_config.fusions:
                 fusion_dir = os.path.join(self.state.best_model_checkpoint, fusion)
                 if os.path.exists(fusion_dir):
                     model.load_adapter_fusion(fusion_dir)

@@ -29,10 +29,10 @@ class AdapterFusionModelTestMixin:
                 model.add_adapter(name2, config=config_name)
 
                 # adapter is correctly added to config
-                self.assertTrue(name1 in model.config.adapters)
-                self.assertTrue(name2 in model.config.adapters)
-                self.assertEqual(asdict(adapter_config), asdict(model.config.adapters.get(name1)))
-                self.assertEqual(asdict(adapter_config), asdict(model.config.adapters.get(name2)))
+                self.assertTrue(name1 in model.adapters_config)
+                self.assertTrue(name2 in model.adapters_config)
+                self.assertEqual(asdict(adapter_config), asdict(model.adapters_config.get(name1)))
+                self.assertEqual(asdict(adapter_config), asdict(model.adapters_config.get(name2)))
 
                 model.add_adapter_fusion([name1, name2], adater_fusion_config_name)
 
@@ -57,7 +57,7 @@ class AdapterFusionModelTestMixin:
 
         # correct fusion
         model.add_adapter_fusion(["a", "b"])
-        self.assertIn("a,b", model.config.adapters.fusions)
+        self.assertIn("a,b", model.adapters_config.fusions)
         # failing fusion
         self.assertRaises(ValueError, lambda: model.add_adapter_fusion(["a", "c"]))
 
@@ -69,14 +69,14 @@ class AdapterFusionModelTestMixin:
         name2 = "test_adapter_2"
         model.add_adapter(name1, config="double_seq_bn")
         model.add_adapter(name2, config="double_seq_bn")
-        self.assertTrue(name1 in model.config.adapters)
-        self.assertTrue(name2 in model.config.adapters)
+        self.assertTrue(name1 in model.adapters_config)
+        self.assertTrue(name2 in model.adapters_config)
 
         model.add_adapter_fusion([name1, name2])
-        self.assertTrue(",".join([name1, name2]) in model.config.adapters.fusions)
+        self.assertTrue(",".join([name1, name2]) in model.adapters_config.fusions)
 
         model.delete_adapter_fusion([name1, name2])
-        self.assertFalse(",".join([name1, name2]) in model.config.adapters.fusions)
+        self.assertFalse(",".join([name1, name2]) in model.adapters_config.fusions)
 
     def test_load_adapter_fusion(self):
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
@@ -105,7 +105,7 @@ class AdapterFusionModelTestMixin:
                     self.assertTrue(os.path.exists(os.path.join(temp_dir, ADAPTERFUSION_WEIGHTS_NAME)))
 
                 # check if adapter was correctly loaded
-                self.assertEqual(model1.config.adapters.fusions.keys(), model2.config.adapters.fusions.keys())
+                self.assertEqual(model1.adapters_config.fusions.keys(), model2.adapters_config.fusions.keys())
 
                 # check equal output
                 in_data = self.get_input_samples(config=model1.config)
@@ -132,7 +132,7 @@ class AdapterFusionModelTestMixin:
             model2 = load_model(temp_dir, self.model_class)
 
         # check if AdapterFusion was correctly loaded
-        self.assertTrue(model1.config.adapters.fusions == model2.config.adapters.fusions)
+        self.assertTrue(model1.adapters_config.fusions == model2.adapters_config.fusions)
 
         # check equal output
         input_data = self.get_input_samples(config=model1.config)

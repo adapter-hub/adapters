@@ -75,7 +75,7 @@ class TestAdapterTrainer(unittest.TestCase):
         )
         trainer_resume.train(resume_from_checkpoint=True)
 
-        self.assertEqual(model.config.adapters.adapters, model_resume.config.adapters.adapters)
+        self.assertEqual(model.adapters_config.adapters, model_resume.adapters_config.adapters)
 
         for (k1, v1), (k2, v2) in zip(trainer.model.state_dict().items(), trainer_resume.model.state_dict().items()):
             self.assertEqual(k1, k2)
@@ -127,7 +127,7 @@ class TestAdapterTrainer(unittest.TestCase):
         )
         trainer_resume.train(resume_from_checkpoint=True)
 
-        self.assertEqual(model.config.adapters.adapters, model_resume.config.adapters.adapters)
+        self.assertEqual(model.adapters_config.adapters, model_resume.adapters_config.adapters)
 
         for (k1, v1), (k2, v2) in zip(
             trainer.model.to("cpu").state_dict().items(), trainer_resume.model.to("cpu").state_dict().items()
@@ -324,7 +324,7 @@ class TestAdapterTrainer(unittest.TestCase):
             trainer_resume.train(resume_from_checkpoint=True)
 
             self.assertEqual("dummy", model.active_head)
-            self.assertEqual(model.config.adapters.adapters, model_resume.config.adapters.adapters)
+            self.assertEqual(model.adapters_config.adapters, model_resume.adapters_config.adapters)
 
             for (k1, v1), (k2, v2) in zip(
                 trainer.model.to("cpu").state_dict().items(), trainer_resume.model.to("cpu").state_dict().items()

@@ -11,22 +11,22 @@ from ...prefix_tuning import PrefixTuningShim
 class DistilBertMultiHeadSelfAttentionMixin:
     """Adds adapters to the MultiHeadSelfAttention module of DistilBert."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
-        self.q_lin = LoRALinear.wrap(self.q_lin, "selfattn", config, attn_key="q")
-        self.k_lin = LoRALinear.wrap(self.k_lin, "selfattn", config, attn_key="k")
-        self.v_lin = LoRALinear.wrap(self.v_lin, "selfattn", config, attn_key="v")
+        self.q_lin = LoRALinear.wrap(self.q_lin, "selfattn", model_config, adapters_config, attn_key="q")
+        self.k_lin = LoRALinear.wrap(self.k_lin, "selfattn", model_config, adapters_config, attn_key="k")
+        self.v_lin = LoRALinear.wrap(self.v_lin, "selfattn", model_config, adapters_config, attn_key="v")
 
-        self.prefix_tuning = PrefixTuningShim("self", config)
+        self.prefix_tuning = PrefixTuningShim("self", model_config, adapters_config)
 
 
 class DistilBertTransfomerBlockAdaptersMixin:
     """Adds adapters to the TransformerBlock module of DistilBert."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
-        self.ffn.lin1 = LoRALinear.wrap(self.ffn.lin1, "intermediate", config)
-        self.ffn.lin2 = LoRALinear.wrap(self.ffn.lin2, "output", config)
+        self.ffn.lin1 = LoRALinear.wrap(self.ffn.lin1, "intermediate", model_config, adapters_config)
+        self.ffn.lin2 = LoRALinear.wrap(self.ffn.lin2, "output", model_config, adapters_config)
 
         self.attention_adapters = AdapterLayer("mh_adapter")
         self.output_adapters = AdapterLayer("output_adapter")

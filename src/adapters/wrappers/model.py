@@ -6,6 +6,7 @@ from transformers import PreTrainedModel
 from transformers.models.auto.auto_factory import getattribute_from_module
 from transformers.models.auto.configuration_auto import model_type_to_module_name
 
+from ..configuration import ModelAdaptersConfig
 from ..model_mixin import EmbeddingAdaptersWrapperMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ..models import MODEL_MIXIN_MAPPING
 
@@ -22,7 +23,7 @@ def get_module_name(model_type: str) -> str:
     return model_type_to_module_name(model_type)
 
 
-def init(model: PreTrainedModel) -> None:
+def init(model: PreTrainedModel, adapters_config: Optional[ModelAdaptersConfig] = None) -> None:
     if isinstance(model, ModelAdaptersMixin):
         return model
 
@@ -60,7 +61,7 @@ def init(model: PreTrainedModel) -> None:
                 model.__class__ = model_class
 
     # Finally, initialize adapters
-    model.init_adapters(model.config)
+    model.init_adapters(model.config, adapters_config)
 
 
 def load_model(

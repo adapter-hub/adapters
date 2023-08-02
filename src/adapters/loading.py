@@ -336,10 +336,10 @@ class AdapterLoader(WeightsLoader):
                 del self.model.base_model.invertible_adapters[adapter_name]
                 missing_keys = [k for k in missing_keys if k not in inv_adapter_keys]
                 # remove invertible_adapter from config
-                adapter_config_name = self.model.config.adapters.adapters[adapter_name]
-                if adapter_config_name in self.model.config.adapters.config_map:
-                    adapter_config = self.model.config.adapters.config_map[adapter_config_name]
-                    self.model.config.adapters.config_map[adapter_config_name] = adapter_config.replace(
+                adapter_config_name = self.model.adapters_config.adapters[adapter_name]
+                if adapter_config_name in self.model.adapters_config.config_map:
+                    adapter_config = self.model.adapters_config.config_map[adapter_config_name]
+                    self.model.adapters_config.config_map[adapter_config_name] = adapter_config.replace(
                         inv_adapter=None, inv_adapter_reduction_factor=None
                     )
         return missing_keys
@@ -369,10 +369,10 @@ class AdapterLoader(WeightsLoader):
                 save_directory
             ), "Saving path should be a directory where adapter and configuration can be saved."
         assert (
-            name in self.model.config.adapters.adapters
+            name in self.model.adapters_config.adapters
         ), "No adapter of this type with the given name is part of this model."
 
-        adapter_config = self.model.config.adapters.get(name)
+        adapter_config = self.model.adapters_config.get(name)
 
         config_dict = build_full_config(
             adapter_config,
@@ -448,7 +448,7 @@ class AdapterLoader(WeightsLoader):
 
         adapter_name = load_as or config["name"]
         # If the adapter is not part of the model, add it
-        if adapter_name not in self.model.config.adapters.adapters:
+        if adapter_name not in self.model.adapters_config.adapters:
             self.model.add_adapter(adapter_name, config=config["config"], set_active=set_active)
         else:
             logger.warning("Overwriting existing adapter '{}'.".format(adapter_name))
@@ -493,7 +493,7 @@ class AdapterFusionLoader(WeightsLoader):
             name (str, optional): The AdapterFusion name.
         """
 
-        if name not in self.model.config.adapters.fusions:
+        if name not in self.model.adapters_config.fusions:
             if self.error_on_missing:
                 raise ValueError(f"Unknown AdapterFusion '{name}'.")
             else:
@@ -505,7 +505,7 @@ class AdapterFusionLoader(WeightsLoader):
         else:
             assert isdir(save_directory), "Saving path should be a directory where the head can be saved."
 
-        adapter_fusion_config = self.model.config.adapters.get_fusion(name)
+        adapter_fusion_config = self.model.adapters_config.get_fusion(name)
 
         # Save the adapter fusion configuration
         config_dict = build_full_config(
@@ -543,7 +543,7 @@ class AdapterFusionLoader(WeightsLoader):
         config = self.weights_helper.load_weights_config(save_directory)
 
         adapter_fusion_name = load_as or config["name"]
-        if adapter_fusion_name not in self.model.config.adapters.fusions:
+        if adapter_fusion_name not in self.model.adapters_config.fusions:
             self.model.add_adapter_fusion(
                 adapter_fusion_name, config["config"], overwrite_ok=True, set_active=kwargs.pop("set_active", True)
             )

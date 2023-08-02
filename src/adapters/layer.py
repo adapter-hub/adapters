@@ -37,17 +37,17 @@ class AdapterLayerBase(metaclass=ABCMeta):
         setattr(self, "_layer_idx", idx)
 
     def get_active_setup(self, module_dict):
-        if getattr(self.config, "is_adaptable", False):
+        if hasattr(self, "adapters_config"):
             # First check current context before falling back to defined setup
             context = AdapterSetup.get_context()
             if context is not None:
                 adapter_setup = context.adapter_setup
             else:
-                adapter_setup = self.config.adapters.active_setup
+                adapter_setup = self.adapters_config.active_setup
         else:
             adapter_setup = None
         skip_adapters = adapter_setup is None or (
-            self.config.adapters.skip_layers is not None and self.layer_idx in self.config.adapters.skip_layers
+            self.adapters_config.skip_layers is not None and self.layer_idx in self.adapters_config.skip_layers
         )
         if not skip_adapters and (len(set(module_dict.keys()) & adapter_setup.flatten()) > 0):
             return adapter_setup
@@ -113,14 +113,15 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         super().__init__()
         self.location_key = location_key
 
-    def init_adapters(self, config):
-        self.config = config
+    def init_adapters(self, model_config, adapters_config):
+        self.model_config = model_config
+        self.adapters_config = adapters_config
         self.adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
 
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
-        adapter_config = self.config.adapters.match(
+        adapter_config = self.adapters_config.match(
             adapter_name,
             config_type=BnConfig,
             layer_idx=self.layer_idx,
@@ -146,8 +147,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                 adapter_class = Adapter
             adapter = adapter_class(
                 adapter_name=adapter_name,
-                input_size=self.config.hidden_size,
-                down_sample=int(self.config.hidden_size // reduction_factor),
+                input_size=self.model_config.hidden_size,
+                down_sample=int(self.model_config.hidden_size // reduction_factor),
                 config=adapter_config,
             )
             adapter.train(self.training)  # make sure training mode is consistent
@@ -185,12 +186,12 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
-        if self.config.adapters.common_config_value(adapter_names, self.location_key):
-            fusion_config = self.config.adapters.get_fusion(adapter_names)
+        if self.adapters_config.common_config_value(adapter_names, self.location_key):
+            fusion_config = self.adapters_config.get_fusion(adapter_names)
             fusion = BertFusion(
                 fusion_config,
-                self.config.hidden_size,
-                self.config.attention_probs_dropout_prob,
+                self.model_config.hidden_size,
+                self.model_config.attention_probs_dropout_prob,
             )
             fusion.train(self.training)  # make sure training mode is consistent
             self.adapter_fusion_layer[",".join(adapter_names)] = fusion
@@ -295,7 +296,7 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         context = ForwardContext.get_context()
 
         # config of _last_ fused adapter is significant
-        fusion_config = self.config.adapters.get_fusion(adapter_setup.name)
+        fusion_config = self.adapters_config.get_fusion(adapter_setup.name)
         last_adapter = self.adapters[adapter_setup.last()]
         hidden_states, query, residual = last_adapter.pre_forward(
             hidden_states, input_tensor, layer_norm, fusion_config=fusion_config
@@ -421,8 +422,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         context = ForwardContext.get_context()
         if not context.adapters_parallelized:
             orig_batch_size = input_tensor.shape[0]
-            input_tensor = input_tensor.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1)
-            hidden_states = hidden_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1)
+            input_tensor = input_tensor.repeat(self.adapters_config.active_setup.parallel_channels, 1, 1)
+            hidden_states = hidden_states.repeat(self.adapters_config.active_setup.parallel_channels, 1, 1)
             context.adapters_parallelized = True
         else:
             # The base model should handle replication of input.

@@ -1,9 +1,8 @@
 import copy
-from typing import Any, Dict
+from typing import Optional
 
+from transformers import PreTrainedModel
 from transformers.configuration_utils import PretrainedConfig
-from transformers.models.clip.configuration_clip import CLIPConfig
-from transformers.models.encoder_decoder.configuration_encoder_decoder import EncoderDecoderConfig
 
 from ..configuration import ModelAdaptersConfig
 
@@ -60,32 +59,37 @@ CONFIG_CLASS_KEYS_MAPPING = {
 }
 
 
-class PretrainedConfigAdaptersMixin:
-    def adapters_to_dict(self, output):
-        # Adapter-specific changes
-        if hasattr(self, "adapters") and not isinstance(output["adapters"], dict):
-            output["adapters"] = self.adapters.to_dict()
-        if "custom_heads" in output:
-            del output["custom_heads"]
-        if "is_adaptable" in output:
-            del output["is_adaptable"]
-        return output
+def init_adapters_config(
+    model: PreTrainedModel, model_config: PretrainedConfig, adapters_config: Optional[ModelAdaptersConfig] = None
+):
+    """Initializes the adapters config object of the model to enable adapter support. Also make required changes to the
+    model's config.
 
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serializes this instance to a Python dictionary.
+        Args:
+            model (PreTrainedModel): The model for which to add the adapters config.
+            model_config (PretrainedConfig): The model's config.
+            adapters_config (ModelAdaptersConfig): The adapters config to be added.
+    """
+    # Make sure config is wrapped
+    model.config = model_config
+    wrap_config(model.config)
 
-        Returns:
-            `Dict[str, Any]`: Dictionary of all the attributes that make up this configuration instance.
-        """
-        output = super().to_dict()
+    # Init ModelAdaptersConfig
+    if adapters_config is not None:
+        model.adapters_config = adapters_config
+    elif not hasattr(model_config, "adapters"):
+        model.adapters_config = ModelAdaptersConfig()
+    elif model_config.adapters is not None and not isinstance(model_config.adapters, ModelAdaptersConfig):
+        model.adapters_config = ModelAdaptersConfig(**model_config.adapters)
 
-        self.adapters_to_dict(output)
+    # Convert AdapterFusions from old format for backwards compatibility
+    fusion_models = getattr(model_config, "adapter_fusion_models", [])
+    fusion_config = getattr(model_config, "adapter_fusion", None)
+    for fusion_adapter_names in fusion_models:
+        model.adapters_config.add_fusion(fusion_adapter_names, config=fusion_config)
 
-        return output
 
-
-def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
+def wrap_config(config: PretrainedConfig):
     """
     Makes required changes to a model config class to allow usage with adapters.
 
@@ -95,23 +99,6 @@ def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
     Returns:
         PretrainedConfig: The same config object, with modifications applied.
     """
-    if getattr(config, "is_adaptable", False):
-        return config
-
-    # Create new config class that inherits original one & adds PretrainedConfigAdaptersMixin
-    config.__class__ = type(config.__class__.__name__, (PretrainedConfigAdaptersMixin, config.__class__), {})
-
-    # Init ModelAdaptersConfig
-    if not hasattr(config, "adapters"):
-        config.adapters = ModelAdaptersConfig()
-    elif config.adapters is not None and not isinstance(config.adapters, ModelAdaptersConfig):
-        config.adapters = ModelAdaptersConfig(**config.adapters)
-
-    # Convert AdapterFusions from old format for backwards compatibility
-    fusion_models = getattr(config, "adapter_fusion_models", [])
-    fusion_config = getattr(config, "adapter_fusion", None)
-    for fusion_adapter_names in fusion_models:
-        config.adapters.add_fusion(fusion_adapter_names, config=fusion_config)
 
     # Make sure each class has its own attribute_map
     type(config).attribute_map = copy.deepcopy(type(config).attribute_map)
@@ -120,22 +107,3 @@ def wrap_config(config: PretrainedConfig) -> PretrainedConfig:
         for key, value in CONFIG_CLASS_KEYS_MAPPING[config.model_type].items():
             if key not in config.attribute_map:
                 config.attribute_map[key] = value
-
-    # Ensure custom_heads attribute is present
-    if not hasattr(config, "custom_heads"):
-        config.custom_heads = {}
-
-    if isinstance(config, EncoderDecoderConfig):
-        # make sure adapter config is shared
-        wrap_config(config.encoder)
-        wrap_config(config.decoder)
-        config.decoder.adapters = config.encoder.adapters
-        config.adapters = config.encoder.adapters
-    elif isinstance(config, CLIPConfig):
-        wrap_config(config.vision_config)
-        wrap_config(config.text_config)
-        config.vision_config.adapters = config.adapters
-        config.text_config.adapters = config.adapters
-    config.is_adaptable = True
-
-    return config

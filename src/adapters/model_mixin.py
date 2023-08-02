@@ -13,13 +13,7 @@ from torch import nn
 from transformers.modeling_outputs import ModelOutput
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import (
-    ADAPTER_CONFIG_MAP,
-    AdapterConfigBase,
-    AdapterFusionConfig,
-    BnConfig,
-    get_adapter_config_hash,
-)
+from .configuration import ADAPTER_CONFIG_MAP, AdapterConfigBase, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .layer import AdapterLayer, AdapterLayerBase
@@ -27,8 +21,8 @@ from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, W
 from .lora import LoRALayer
 from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock
 from .prefix_tuning import PrefixTuningPool, PrefixTuningShim
-from .utils import EMBEDDING_FILE, TOKENIZER_PATH, inherit_doc
-from .wrappers.configuration import wrap_config
+from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc
+from .wrappers.configuration import init_adapters_config
 
 
 logger = logging.getLogger(__name__)
@@ -37,14 +31,13 @@ logger = logging.getLogger(__name__)
 class InvertibleAdaptersMixin:
     """Mixin for Transformer models adding invertible adapters."""
 
-    def init_adapters(self, config, **kwargs):
+    def init_adapters(self, model_config, adapters_config, **kwargs):
         self.invertible_adapters = nn.ModuleDict(dict())
 
-        # Make sure config is wrapped
-        self.config = wrap_config(config)
+        init_adapters_config(self, model_config, adapters_config)
 
         if hasattr(super(), "init_adapters"):
-            super().init_adapters(config, **kwargs)
+            super().init_adapters(self.config, self.adapters_config, **kwargs)
 
         self.hook_after_embeddings(self._hook_fn)
 
@@ -73,7 +66,7 @@ class InvertibleAdaptersMixin:
         if adapter_name in self.invertible_adapters:
             raise ValueError(f"Model already contains an adapter module for '{adapter_name}'.")
         embedding_size = getattr(self.config, "embedding_size", self.config.hidden_size)
-        adapter_config = self.config.adapters.match(
+        adapter_config = self.adapters_config.match(
             adapter_name,
             config_type=BnConfig,
             location_key="inv_adapter",
@@ -124,8 +117,8 @@ class InvertibleAdaptersMixin:
 
     def get_invertible_adapter(self):
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if self.config.adapters.active_setup is not None and len(self.config.adapters.active_setup) > 0:
-            first_adapter = self.config.adapters.active_setup.first()
+        if self.adapters_config.active_setup is not None and len(self.adapters_config.active_setup) > 0:
+            first_adapter = self.adapters_config.active_setup.first()
             if first_adapter in self.invertible_adapters:
                 return self.invertible_adapters[first_adapter]
         return None
@@ -138,8 +131,8 @@ class InvertibleAdaptersMixin:
 
     def invertible_adapters_forward(self, hidden_states, rev=False):
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if self.config.adapters.active_setup is not None and len(self.config.adapters.active_setup) > 0:
-            first_adapter = self.config.adapters.active_setup.first()
+        if self.adapters_config.active_setup is not None and len(self.adapters_config.active_setup) > 0:
+            first_adapter = self.adapters_config.active_setup.first()
             if first_adapter in self.invertible_adapters:
                 hidden_states = self.invertible_adapters[first_adapter](hidden_states, rev=rev)
 
@@ -203,14 +196,13 @@ class InvertibleAdaptersWrapperMixin:
 class EmbeddingAdaptersMixin:
     """Mixin for Transformer models adding support for dynamically switching embeddings."""
 
-    def init_adapters(self, config, **kwargs):
+    def init_adapters(self, model_config, adapters_config, **kwargs):
         self.loaded_embeddings = {}
         self._active_embedding = "default"
 
-        # Make sure config is wrapped
-        self.config = wrap_config(config)
+        init_adapters_config(self, model_config, adapters_config)
 
-        super().init_adapters(config, **kwargs)
+        super().init_adapters(self.config, self.adapters_config, **kwargs)
 
     def load_embeddings(self, path: str, name: str):
         """
@@ -382,37 +374,36 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def model_name(self):
         return self.config.name_or_path
 
-    def _init_adapters_submodules(self, config):
+    def _init_adapters_submodules(self, model_config, adapters_config):
         # Initialize adapters in all submodules
         for module in self.modules():
             # skip calling module
             if module == self:
                 continue
             if hasattr(module, "init_adapters"):
-                module.init_adapters(config)
+                module.init_adapters(model_config, adapters_config)
 
-    def init_adapters(self, config, add_prefix_tuning_pool=True):
+    def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
         """
         This method initializes adapter modules and fusion modules from the model config.
         """
         self.base_model.shared_parameters = nn.ModuleDict()
 
-        # Make sure config is wrapped
-        self.config = wrap_config(config)
-
+        # Initialize adapters config
+        init_adapters_config(self, model_config, adapters_config)
         # Initialize adapters in all submodules
-        self._init_adapters_submodules(self.config)
+        self._init_adapters_submodules(self.config, self.adapters_config)
 
         # Link all prefix tunings
         if add_prefix_tuning_pool:
-            self.base_model.prefix_tuning = PrefixTuningPool(self.config)
+            self.base_model.prefix_tuning = PrefixTuningPool(self.config, self.adapters_config)
             self.apply_to_adapter_layers(lambda i, layer: self._link_prefix_to_pool(layer))
 
         # Initialize adapters from config
-        for adapter_name in self.config.adapters:
+        for adapter_name in self.adapters_config:
             self._add_adapter_weights(adapter_name)
         # Initialize fusion from config
-        for fusion_name in self.config.adapters.fusions:
+        for fusion_name in self.adapters_config.fusions:
             self.apply_to_adapter_layers(lambda i, layer: layer.add_fusion_layer(fusion_name))
 
         if isinstance(self, EmbeddingAdaptersMixin):
@@ -475,20 +466,18 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # TODO implement fusion for invertible adapters
 
     def has_adapters(self):
-        if not getattr(self.config, "is_adaptable", None):
-            return False
-        return len(self.config.adapters.adapters) > 0
+        return len(self.adapters_config.adapters) > 0
 
     @property
     def has_parallel_adapters(self) -> bool:
-        if self.config.adapters.active_setup:
-            return self.config.adapters.active_setup.parallel_channels > 1
+        if self.adapters_config.active_setup:
+            return self.adapters_config.active_setup.parallel_channels > 1
         else:
             return False
 
     @property
     def active_adapters(self) -> AdapterCompositionBlock:
-        return self.config.adapters.active_setup
+        return self.adapters_config.active_setup
 
     @active_adapters.setter
     def active_adapters(self, adapter_setup: Union[list, AdapterCompositionBlock]):
@@ -511,7 +500,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         adapter_setup = parse_composition(adapter_setup, model_type=self.config.model_type)
         if adapter_setup:
             for adapter_name in adapter_setup.flatten():
-                if adapter_name not in self.config.adapters.adapters:
+                if adapter_name not in self.adapters_config.adapters:
                     raise ValueError(
                         f"No adapter with name '{adapter_name}' found. Please make sure that all specified adapters"
                         " are correctly loaded."
@@ -519,8 +508,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         # Make sure LoRA is reset
         self.reset_adapter()
-        self.config.adapters.active_setup = adapter_setup
-        self.config.adapters.skip_layers = skip_layers
+        self.adapters_config.active_setup = adapter_setup
+        self.adapters_config.skip_layers = skip_layers
 
     def add_adapter(self, adapter_name: str, config=None, overwrite_ok: bool = False, set_active: bool = False):
         """
@@ -541,9 +530,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         config = AdapterConfigBase.load(config)  # ensure config is ok and up-to-date
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
-        if overwrite_ok and adapter_name in self.config.adapters:
+        if overwrite_ok and adapter_name in self.adapters_config:
             self.delete_adapter(adapter_name)
-        self.config.adapters.add(adapter_name, config=config)
+        self.adapters_config.add(adapter_name, config=config)
         try:
             self._add_adapter_weights(adapter_name)
         except ValueError as ex:
@@ -556,7 +545,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """Helper method that performs the actual parameter additions when adding a new adapter."""
         self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
         # PHM Layer
-        if self.config.adapters.match(adapter_name, BnConfig, location_key="phm_layer"):
+        if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):
             adapter_module = list(self.get_adapter(adapter_name)[0].values())[0]
             # if multiple adapters with same location key exist they are returned as a modulelist
             if isinstance(adapter_module, nn.ModuleList):
@@ -612,9 +601,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if isinstance(config, dict):
             config = AdapterFusionConfig.from_dict(config)  # ensure config is ok and up-to-date
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
-        if overwrite_ok and self.config.adapters.get_fusion(adapter_names) is not None:
+        if overwrite_ok and self.adapters_config.get_fusion(adapter_names) is not None:
             self.delete_adapter_fusion(adapter_names)
-        self.config.adapters.add_fusion(adapter_names, config=config)
+        self.adapters_config.add_fusion(adapter_names, config=config)
         self.apply_to_adapter_layers(lambda i, layer: layer.add_fusion_layer(adapter_names))
         if set_active:
             if not isinstance(adapter_names, list):
@@ -628,10 +617,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             adapter_name (str): The name of the adapter.
         """
-        if adapter_name not in self.config.adapters:
+        if adapter_name not in self.adapters_config:
             logger.info("No adapter '%s' found for deletion. Skipping.", adapter_name)
             return
-        del self.config.adapters.adapters[adapter_name]
+        del self.adapters_config.adapters[adapter_name]
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
         # PHM Layer
         if adapter_name in self.base_model.shared_parameters:
@@ -658,10 +647,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         else:
             raise ValueError("Invalid AdapterFusion definition: {}".format(adapter_names))
 
-        if adapter_fusion_name not in self.config.adapters.fusions:
+        if adapter_fusion_name not in self.adapters_config.fusions:
             logger.info("No AdapterFusion '%s' found for deletion. Skipping.", adapter_fusion_name)
             return
-        del self.config.adapters.fusions[adapter_fusion_name]
+        del self.adapters_config.fusions[adapter_fusion_name]
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_fusion_layer(adapter_fusion_name))
         # Reset active adapters if this was the active setup
         if self.active_adapters == adapter_names:
@@ -844,8 +833,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             save_directory (str): Path to a directory where the adapters should be saved.
         """
         os.makedirs(save_directory, exist_ok=True)
-        for name in self.config.adapters:
-            adapter_config = self.config.adapters.get(name)
+        for name in self.adapters_config:
+            adapter_config = self.adapters_config.get(name)
             h = get_adapter_config_hash(adapter_config)
             save_path = join(save_directory, name)
             if meta_dict:
@@ -868,8 +857,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             save_directory (str): Path to a directory where the AdapterFusion layers should be saved.
         """
         os.makedirs(save_directory, exist_ok=True)
-        for name in self.config.adapters.fusions:
-            adapter_fusion_config = self.config.adapters.get_fusion(name)
+        for name in self.adapters_config.fusions:
+            adapter_fusion_config = self.adapters_config.get_fusion(name)
             h = get_adapter_config_hash(adapter_fusion_config)
             save_path = join(save_directory, name)
             if meta_dict:
@@ -991,9 +980,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # rows containing adapter info
         rows = []
         # fill in data for adapters
-        for name, config_name in self.config.adapters.adapters.items():
-            if config_name in self.config.adapters.config_map:
-                config = self.config.adapters.config_map.get(config_name, None)
+        for name, config_name in self.adapters_config.adapters.items():
+            if config_name in self.adapters_config.config_map:
+                config = self.adapters_config.config_map.get(config_name, None)
             else:
                 config = ADAPTER_CONFIG_MAP.get(config_name, None)
             if isinstance(config, str):
@@ -1083,16 +1072,16 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         config = None
         for name in adapter_list:
             if config is None:
-                config = self.config.adapters.get(name)
-            elif get_adapter_config_hash(config) != get_adapter_config_hash(self.config.adapters.get(name)):
+                config = self.adapters_config.get(name)
+            elif get_adapter_config_hash(config) != get_adapter_config_hash(self.adapters_config.get(name)):
                 raise ValueError(
                     "Cannot average adapters with different configurations. "
                     "Please make sure all adapters have the same configuration."
                 )
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
-        if overwrite_ok and adapter_name in self.config.adapters:
+        if overwrite_ok and adapter_name in self.adapters_config:
             self.delete_adapter(adapter_name)
-        self.config.adapters.add(adapter_name, config=config)
+        self.adapters_config.add(adapter_name, config=config)
         if weights is None:
             eq_weight = 1.0 / len(adapter_list)
             input_adapters = {name: eq_weight for name in adapter_list}
@@ -1106,7 +1095,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         try:
             self.apply_to_adapter_layers(lambda i, layer: layer.average_adapter(adapter_name, input_adapters))
             # PHM Layer
-            if self.config.adapters.match(adapter_name, BnConfig, location_key="phm_layer"):
+            if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):
                 self._average_shared_parameters(adapter_name, input_adapters)
             # Prefix Tuning
             for module in self.modules():
@@ -1192,14 +1181,26 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         # Pre-replicate inputs for parallel adapters to avoid issues within generation code
         if (
-            hasattr(self.config, "adapters")
-            and self.config.adapters.active_setup
-            and self.config.adapters.active_setup.parallel_channels > 1
+            hasattr(self, "adapters_config")
+            and self.adapters_config.active_setup
+            and self.adapters_config.active_setup.parallel_channels > 1
         ):
-            input_ids = input_ids.repeat(self.config.adapters.active_setup.parallel_channels, 1)
+            input_ids = input_ids.repeat(self.adapters_config.active_setup.parallel_channels, 1)
             model_kwargs["adapter_input_parallelized"] = True
 
         return input_ids, input_name, model_kwargs
+
+    # Override to support saving adapters_config
+    def save_pretrained(
+        self,
+        save_directory: Union[str, os.PathLike],
+        **kwargs,
+    ):
+        # Attach adapters_config to model_config to ensure saving with old format.
+        self.config.adapters = self.adapters_config.to_dict()
+        super().save_pretrained(save_directory, **kwargs)
+        # Remove adapters config
+        del self.config.adapters
 
 
 @inherit_doc
@@ -1218,8 +1219,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
 
-    def init_adapters(self, config, add_prefix_tuning_pool=True):
-        super().init_adapters(config, add_prefix_tuning_pool=add_prefix_tuning_pool)
+    def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
+        super().init_adapters(model_config, adapters_config, add_prefix_tuning_pool=add_prefix_tuning_pool)
         self._convert_to_flex_head = False
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
@@ -1365,8 +1366,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
     ):
         os.makedirs(save_directory, exist_ok=True)
-        for name in self.config.adapters:
-            adapter_config = self.config.adapters.get(name)
+        for name in self.adapters_config:
+            adapter_config = self.adapters_config.get(name)
             h = get_adapter_config_hash(adapter_config)
             save_path = join(save_directory, name)
             if meta_dict:

@@ -157,7 +157,7 @@ class GPT2ModelWithAdapters(GPT2ModelAdapterMixin, GPT2Model):
     def __init__(self, config):
         super().__init__(config)
 
-        self.init_adapters(config)
+        self.init_adapters(config, None)
 
     @ForwardContext.wrap
     def forward(

@@ -147,8 +147,8 @@ _import_structure = {
     ],
     "wrappers": [
         "init",
+        "init_adapters_config",
         "load_model",
-        "wrap_config",
     ],
 }
 
@@ -240,7 +240,7 @@ if TYPE_CHECKING:
         get_adapter_info,
         list_adapters,
     )
-    from .wrappers import init, load_model, wrap_config
+    from .wrappers import init, init_adapters_config, load_model
 
 else:
     import sys

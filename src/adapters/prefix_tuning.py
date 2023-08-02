@@ -4,10 +4,11 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from transformers import PretrainedConfig
 from transformers.modeling_utils import ModuleUtilsMixin
 
 from .composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack, adjust_tensors_for_parallel
-from .configuration import PrefixTuningConfig
+from .configuration import ModelAdaptersConfig, PrefixTuningConfig
 from .context import AdapterSetup, ForwardContext
 from .layer import AdapterLayerBase
 from .modeling import Activation_Function_Class
@@ -140,9 +141,10 @@ class PrefixTuningPool(nn.Module):
         config (:class:`~transformers.PretrainedConfig`): The model config.
     """
 
-    def __init__(self, config):
+    def __init__(self, model_config: PretrainedConfig, adapters_config: ModelAdaptersConfig):
         super().__init__()
-        self.config = config
+        self.model_config = model_config
+        self.adapters_config = adapters_config
         self.prefix_counts = {}
         self.prefix_tunings = nn.ModuleDict()
 
@@ -159,7 +161,7 @@ class PrefixTuningPool(nn.Module):
 
     def confirm_prefix(self, prefix_name: str) -> bool:
         """Create Prefix Tuning module based on shim layer infications."""
-        prefix_tuning_config = self.config.adapters.match(prefix_name, PrefixTuningConfig)
+        prefix_tuning_config = self.adapters_config.match(prefix_name, PrefixTuningConfig)
         if prefix_tuning_config is None:
             return False
 
@@ -217,7 +219,7 @@ class PrefixTuningPool(nn.Module):
         if context is not None:
             adapter_setup = context.adapter_setup
         else:
-            adapter_setup = self.config.adapters.active_setup
+            adapter_setup = self.adapters_config.active_setup
 
         prefix_states = {}
         if adapter_setup is not None:
@@ -254,12 +256,19 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         config (:class:`~transformers.PretrainedConfig`): The model config.
     """
 
-    def __init__(self, location_key: str, config, add_model_type_to_key: bool = False):
+    def __init__(
+        self,
+        location_key: str,
+        model_config: PretrainedConfig,
+        adapters_config: ModelAdaptersConfig,
+        add_model_type_to_key: bool = False,
+    ):
         super().__init__()
-        self.config = config
+        self.model_config = model_config
+        self.adapters_config = adapters_config
         self.location_key = location_key
         if add_model_type_to_key:
-            self.location_key = f"{self.config.model_type}_{self.location_key}"
+            self.location_key = f"{self.model_config.model_type}_{self.location_key}"
         self.prefixes = {}
         self.prefix_gates = nn.ModuleDict()
 
@@ -273,7 +282,7 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             used_location_key = self.location_key
         else:
             used_location_key = None
-        prefix_tuning_config = self.config.adapters.match(
+        prefix_tuning_config = self.adapters_config.match(
             adapter_name,
             config_type=PrefixTuningConfig,
             layer_idx=self.layer_idx,
@@ -283,14 +292,14 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             prefix_id = self.pool.indicate_prefix(
                 adapter_name,
                 self.location_key,
-                n_heads=self.config.num_attention_heads,
-                input_size=self.config.hidden_size,
+                n_heads=self.model_config.num_attention_heads,
+                input_size=self.model_config.hidden_size,
             )
             self.prefixes[adapter_name] = prefix_id
 
             if prefix_tuning_config.use_gating:
                 gate_outputs = 1 if prefix_tuning_config.shared_gating else 2
-                gate = nn.Linear(self.config.hidden_size, gate_outputs)
+                gate = nn.Linear(self.model_config.hidden_size, gate_outputs)
                 gate.weight.data.normal_(mean=0.0, std=0.02)
                 self.prefix_gates[adapter_name] = gate
             return True
@@ -415,8 +424,8 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
             # pad sizes
             pad_length = max_prefix_length - key_states.shape[-2]
             pad_size = (0, 0, pad_length, 0)
-            key_states = F.pad(key_states, pad_size, "constant", self.config.pad_token_id)
-            value_states = F.pad(value_states, pad_size, "constant", self.config.pad_token_id)
+            key_states = F.pad(key_states, pad_size, "constant", self.model_config.pad_token_id)
+            value_states = F.pad(value_states, pad_size, "constant", self.model_config.pad_token_id)
 
             # pad attention mask
             if pad_length > 0:
@@ -528,15 +537,15 @@ class PrefixTuningShim(AdapterLayerBase, nn.Module):
         context = ForwardContext.get_context()
         if not context.adapters_parallelized:
             orig_batch_size = residual_input.shape[0]
-            residual_input = residual_input.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
-            key_states = key_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
-            value_states = value_states.repeat(self.config.adapters.active_setup.parallel_channels, 1, 1, 1)
+            residual_input = residual_input.repeat(self.adapters_config.active_setup.parallel_channels, 1, 1, 1)
+            key_states = key_states.repeat(self.adapters_config.active_setup.parallel_channels, 1, 1, 1)
+            value_states = value_states.repeat(self.adapters_config.active_setup.parallel_channels, 1, 1, 1)
             if attention_mask is not None:
                 if attention_mask.dim() == 2:  # e.g. for DistilBERT, attention_mask has shape (batch_size, seq_len)
-                    attention_mask = attention_mask.repeat(self.config.adapters.active_setup.parallel_channels, 1)
+                    attention_mask = attention_mask.repeat(self.adapters_config.active_setup.parallel_channels, 1)
                 else:
                     attention_mask = attention_mask.repeat(
-                        self.config.adapters.active_setup.parallel_channels, 1, 1, 1
+                        self.adapters_config.active_setup.parallel_channels, 1, 1, 1
                     )
             context.adapters_parallelized = True
         else:

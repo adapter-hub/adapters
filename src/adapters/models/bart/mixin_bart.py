@@ -19,22 +19,24 @@ from ...prefix_tuning import PrefixTuningShim
 class BartAttentionAdaptersMixin:
     """Adds adapters to the BartAttention module."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
-        self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", config, attn_key="k")
-        self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", config, attn_key="v")
-        self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", config, attn_key="q")
+        self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
+        self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
+        self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", model_config, adapters_config, attn_key="q")
 
-        self.prefix_tuning = PrefixTuningShim(self.location_key + "_prefix" if self.location_key else None, config)
+        self.prefix_tuning = PrefixTuningShim(
+            self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
+        )
 
 
 class BartEncoderLayerAdaptersMixin:
     """Adds adapters to the BartEncoderLayer module of BART."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
-        self.fc1 = LoRALinear.wrap(self.fc1, "intermediate", config)
-        self.fc2 = LoRALinear.wrap(self.fc2, "output", config)
+        self.fc1 = LoRALinear.wrap(self.fc1, "intermediate", model_config, adapters_config)
+        self.fc2 = LoRALinear.wrap(self.fc2, "output", model_config, adapters_config)
 
         # Set attention layer location key for prefix tuning
         self.self_attn.location_key = "encoder"
@@ -45,8 +47,8 @@ class BartEncoderLayerAdaptersMixin:
 class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
     """Adds adapters to the BartDecoderLayer module of BART."""
 
-    def init_adapters(self, config):
-        super().init_adapters(config)
+    def init_adapters(self, model_config, adapters_config):
+        super().init_adapters(model_config, adapters_config)
         # Set attention layer location key for prefix tuning
         self.self_attn.location_key = "self"
         self.encoder_attn.location_key = "cross"

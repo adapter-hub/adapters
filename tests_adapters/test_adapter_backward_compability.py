@@ -29,9 +29,9 @@ class CompabilityTestMixin:
             model2.load_adapter(temp_dir, set_active=True)
 
         # check if adapter was correctly loaded
-        self.assertTrue(name in model2.config.adapters)
+        self.assertTrue(name in model2.adapters_config)
         self.assertEqual(
-            "gelu", model2.config.adapters.config_map[model2.config.adapters.adapters[name]]["non_linearity"]
+            "gelu", model2.adapters_config.config_map[model2.adapters_config.adapters[name]]["non_linearity"]
         )
 
     def test_save_version_with_adapter(self):

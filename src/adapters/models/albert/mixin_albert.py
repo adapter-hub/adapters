@@ -12,24 +12,26 @@ from ...prefix_tuning import PrefixTuningShim
 class AlbertAttentionAdaptersMixin:
     """Adds adapters to the AlbertAttention module of ALBERT."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
-        self.query = LoRALinear.wrap(self.query, "selfattn", config, attn_key="q")
-        self.key = LoRALinear.wrap(self.key, "selfattn", config, attn_key="k")
-        self.value = LoRALinear.wrap(self.value, "selfattn", config, attn_key="v")
+        self.query = LoRALinear.wrap(self.query, "selfattn", model_config, adapters_config, attn_key="q")
+        self.key = LoRALinear.wrap(self.key, "selfattn", model_config, adapters_config, attn_key="k")
+        self.value = LoRALinear.wrap(self.value, "selfattn", model_config, adapters_config, attn_key="v")
 
         self.attention_adapters = AdapterLayer("mh_adapter")
 
-        self.prefix_tuning = PrefixTuningShim(self.location_key + "_prefix" if self.location_key else None, config)
+        self.prefix_tuning = PrefixTuningShim(
+            self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
+        )
 
 
 class AlbertEncoderLayerAdaptersMixin:
     """Adds adapters to the AlbertLayer module."""
 
-    def init_adapters(self, config):
+    def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
-        self.ffn = LoRALinear.wrap(self.ffn, "intermediate", config)
-        self.ffn_output = LoRALinear.wrap(self.ffn_output, "output", config)
+        self.ffn = LoRALinear.wrap(self.ffn, "intermediate", model_config, adapters_config)
+        self.ffn_output = LoRALinear.wrap(self.ffn_output, "output", model_config, adapters_config)
 
         # Set location keys for prefix tuning
         self.location_key = "output_adapter"
@@ -42,8 +44,8 @@ class AlbertEncoderLayerAdaptersMixin:
 class AlbertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the AlbertModel module."""
 
-    def init_adapters(self, config):
-        super().init_adapters(config)
+    def init_adapters(self, model_config, adapters_config):
+        super().init_adapters(model_config, adapters_config)
 
         # Set hook for parallel composition
         for _, layer in self.iter_layers():

@@ -57,7 +57,7 @@ Compared to fine-tuning the full model, there is only this one significant adapt
 
 ```python
 # task adapter - only add if not existing
-if task_name not in model.config.adapters:
+if task_name not in model.adapters_config:
     # resolve the adapter config
     adapter_config = AdapterConfigBase.load(adapter_args.adapter_config)
     # add a new adapter

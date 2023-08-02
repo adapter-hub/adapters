@@ -103,7 +103,7 @@ static_head_model.save_adapter(temp_dir, "test")
 flex_head_model = AutoAdapterModel.from_pretrained("bert-base-uncased")
 flex_head_model.load_adapter(temp_dir)
 
-assert "test" in flex_head_model.config.adapters
+assert "test" in flex_head_model.adapters_config
 assert "test" in flex_head_model.heads
 ```
 

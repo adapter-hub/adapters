@@ -47,8 +47,8 @@ class AdapterMethodBaseTestMixin:
         model.to(torch_device)
 
         # adapter is correctly added to config
-        self.assertTrue(name in model.config.adapters)
-        self.assertEqual(adapter_config, model.config.adapters.get(name))
+        self.assertTrue(name in model.adapters_config)
+        self.assertEqual(adapter_config, model.adapters_config.get(name))
 
         # check that weights are available and active
         has_weights = False
@@ -83,8 +83,8 @@ class AdapterMethodBaseTestMixin:
         model.average_adapter(name, [name + f"_{i}" for i in range(len(weights))], weights=weights)
 
         # adapter is correctly added to config
-        self.assertTrue(name in model.config.adapters)
-        self.assertEqual(adapter_config, model.config.adapters.get(name))
+        self.assertTrue(name in model.adapters_config)
+        self.assertEqual(adapter_config, model.adapters_config.get(name))
 
         # compare averaged weights to collected weights
         this_filter_keys = [k.format(name=name) for k in filter_keys]
@@ -186,7 +186,7 @@ class AdapterMethodBaseTestMixin:
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
         # check if adapter was correctly loaded
-        self.assertTrue(name in model2.config.adapters)
+        self.assertTrue(name in model2.adapters_config)
 
         # check equal output
         input_data = self.get_input_samples(config=model1.config)
@@ -213,7 +213,7 @@ class AdapterMethodBaseTestMixin:
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
 
         # check if adapter was correctly loaded
-        self.assertTrue(name in model2.config.adapters)
+        self.assertTrue(name in model2.adapters_config)
 
         # check equal output
         input_data = self.get_input_samples(config=model1.config)
