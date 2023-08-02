@@ -27,13 +27,15 @@ from .base import AdapterMethodBaseTestMixin, create_twin_models
 
 @require_torch
 class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
+
     adapter_configs_to_test = [
         (SeqBnConfig(), ["adapters.{name}."]),
         (MAMConfig(), ["adapters.{name}.", "prefix_tunings.{name}."]),
     ]
+
     inv_adapter_configs_to_test = [
-        (PfeifferInvConfig(), ["invertible_adapters.{name}"]),
-        (HoulsbyInvConfig(), ["invertible_adapters.{name}"]),
+        (SeqBnInvConfig(), ["invertible_adapters.{name}"]),
+        (DoubleSeqBnInvConfig(), ["invertible_adapters.{name}"]),
     ]
 
     def test_add_adapter(self):
@@ -136,7 +138,6 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 # check that weights are available and active
                 has_weights = False
                 filter_keys = [k.format(name=name) for k in filter_keys]
-                print(f"filter_keys = {filter_keys}")
                 for k, v in self.filter_parameters(model, filter_keys).items():
                     has_weights = True
                 self.assertFalse(has_weights)
