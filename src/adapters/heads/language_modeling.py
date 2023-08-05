@@ -18,6 +18,7 @@ class CausalLMHead(PredictionHead):
         layer_norm=False,
         bias=False,
         shift_labels=True,
+        dropout_prob=None,
     ):
         super(CausalLMHead, self).__init__(head_name)
         self.config = {
@@ -30,6 +31,7 @@ class CausalLMHead(PredictionHead):
             "bias": bias,
             "shift_labels": shift_labels,
             "label2id": None,
+            "dropout_prob": dropout_prob,
         }
         self.build(model)
 

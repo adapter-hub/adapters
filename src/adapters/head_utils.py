@@ -526,6 +526,23 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "classifier"],
     },
+    # Llama
+    "LlamaForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 1,
+            "dropout_prob": 0,
+            "activation_function": None,
+            "bias": False,
+        },
+        "layers": [None, "score"],
+    },
+    "LlamaForCausalLM": {
+        "config": {
+            "head_type": "causal_lm",
+        },
+        "layers": ["lm_head"],
+    },
 }
 
 

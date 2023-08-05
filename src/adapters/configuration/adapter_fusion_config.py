@@ -18,6 +18,7 @@ class AdapterFusionConfig(AdapterConfigBase):
     temperature: bool
     value_before_softmax: bool
     value_initialized: str
+    dropout_prob: float
 
     @classmethod
     def load(cls, config: Union[dict, str], **kwargs):
@@ -58,6 +59,7 @@ class StaticAdapterFusionConfig(AdapterFusionConfig):
     temperature: bool = False
     value_before_softmax: bool = True
     value_initialized: str = False
+    dropout_prob: float = None
 
 
 @dataclass(eq=False)
@@ -75,6 +77,7 @@ class DynamicAdapterFusionConfig(AdapterFusionConfig):
     temperature: bool = False
     value_before_softmax: bool = True
     value_initialized: str = True
+    dropout_prob: float = None
 
 
 ADAPTERFUSION_CONFIG_MAP = {"static": StaticAdapterFusionConfig(), "dynamic": DynamicAdapterFusionConfig()}

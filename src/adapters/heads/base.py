@@ -70,7 +70,7 @@ class PredictionHead(nn.Sequential):
     def build(self, model):
         model_config = model.config
         pred_head = []
-        if "dropout_prob" in self.config:
+        if "dropout_prob" in self.config and self.config["dropout_prob"] is not None:
             dropout_prob = self.config["dropout_prob"]
         elif hasattr(model_config, "classifier_dropout") and model_config.classifier_dropout is not None:
             dropout_prob = model_config.classifier_dropout
@@ -116,6 +116,7 @@ class ClassificationHead(PredictionHead):
         id2label=None,
         use_pooler=False,
         bias=True,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -126,6 +127,7 @@ class ClassificationHead(PredictionHead):
             "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
             "use_pooler": use_pooler,
             "bias": bias,
+            "dropout_prob": dropout_prob,
         }
         self.build(model)
 
@@ -185,6 +187,7 @@ class MultiLabelClassificationHead(PredictionHead):
         id2label=None,
         use_pooler=False,
         bias=True,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -195,6 +198,7 @@ class MultiLabelClassificationHead(PredictionHead):
             "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
             "use_pooler": use_pooler,
             "bias": bias,
+            "dropout_prob": dropout_prob,
         }
         self.build(model)
 
@@ -250,6 +254,7 @@ class MultipleChoiceHead(PredictionHead):
         activation_function="tanh",
         id2label=None,
         use_pooler=False,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -259,6 +264,7 @@ class MultipleChoiceHead(PredictionHead):
             "activation_function": activation_function,
             "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
             "use_pooler": use_pooler,
+            "dropout_prob": dropout_prob,
         }
         self.build(model)
 
@@ -299,6 +305,7 @@ class TaggingHead(PredictionHead):
         layers=1,
         activation_function="tanh",
         id2label=None,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -307,6 +314,7 @@ class TaggingHead(PredictionHead):
             "layers": layers,
             "activation_function": activation_function,
             "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
+            "dropout_prob": dropout_prob,
         }
         self.build(model)
 
@@ -351,6 +359,7 @@ class QuestionAnsweringHead(PredictionHead):
         layers=1,
         activation_function="tanh",
         id2label=None,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -359,6 +368,7 @@ class QuestionAnsweringHead(PredictionHead):
             "layers": layers,
             "activation_function": activation_function,
             "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
+            "dropout_prob": dropout_prob,
         }
         self.build(model)
 
@@ -434,6 +444,7 @@ class ImageClassificationHead(PredictionHead):
         id2label=None,
         use_pooler=False,
         bias=True,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -445,6 +456,7 @@ class ImageClassificationHead(PredictionHead):
             "label2id": {label: id_ for id_, label in id2label.items()} if id2label is not None else None,
             "use_pooler": use_pooler,
             "bias": bias,
+            "dropout_prob": dropout_prob,
         }
         self.build(model)
 

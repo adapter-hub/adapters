@@ -134,6 +134,7 @@ SUPPORTED_MODELS = {
         "vit",
         "xlm-roberta",
         "bert-generation",
+        "llama",
     ],
 }
 

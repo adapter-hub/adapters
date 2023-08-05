@@ -188,10 +188,11 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
         if self.adapters_config.common_config_value(adapter_names, self.location_key):
             fusion_config = self.adapters_config.get_fusion(adapter_names)
+            dropout_prob = fusion_config.dropout_prob or getattr(self.model_config, "attention_probs_dropout_prob", 0)
             fusion = BertFusion(
                 fusion_config,
                 self.model_config.hidden_size,
-                self.model_config.attention_probs_dropout_prob,
+                dropout_prob,
             )
             fusion.train(self.training)  # make sure training mode is consistent
             self.adapter_fusion_layer[",".join(adapter_names)] = fusion

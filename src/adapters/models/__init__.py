@@ -16,6 +16,7 @@ from .clip.mixin_clip import (
 )
 from .distilbert.mixin_distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin
+from .llama.mixin_llama import LlamaModelAdapterMixin
 from .t5.mixin_t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
 from .vit.mixin_vit import ViTIntermediateAdaptersMixin, ViTModelAdaptersMixin
 
@@ -63,4 +64,5 @@ MODEL_MIXIN_MAPPING = {
     "DebertaV2Layer": BertLayerAdaptersMixin,
     "BertGenerationEncoder": BertModelAdaptersMixin,
     "BertGenerationLayer": BertLayerAdaptersMixin,
+    "LlamaModel": LlamaModelAdapterMixin,
 }

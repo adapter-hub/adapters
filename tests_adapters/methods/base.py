@@ -228,6 +228,7 @@ class AdapterMethodBaseTestMixin:
     def trainings_run(self, model, lr=1.0, steps=8):
         # setup dataset
         train_dataset = self.dataset()
+
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,
