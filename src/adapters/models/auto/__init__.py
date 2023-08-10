@@ -24,15 +24,13 @@ from transformers.utils import _LazyModule
 _import_structure = {
     "adapter_model": [
         "ADAPTER_MODEL_MAPPING",
-        "MODEL_WITH_HEADS_MAPPING",
         "AutoAdapterModel",
-        "AutoModelWithHeads",
     ],
 }
 
 
 if TYPE_CHECKING:
-    from .adapter_model import ADAPTER_MODEL_MAPPING, MODEL_WITH_HEADS_MAPPING, AutoAdapterModel, AutoModelWithHeads
+    from .adapter_model import ADAPTER_MODEL_MAPPING, AutoAdapterModel
 
 else:
     import sys

@@ -1,5 +1,4 @@
 import logging
-import warnings
 
 import torch
 
@@ -205,37 +204,3 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
     ):
         head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
         self.add_prediction_head(head, overwrite_ok)
-
-
-class GPT2ModelWithHeads(GPT2AdapterModel):
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                self.__class__.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        super().__init__(*args, **kwargs)
-
-    @classmethod
-    def from_config(cls, config):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                cls.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        return super().from_config(config)
-
-    @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                cls.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

@@ -89,50 +89,24 @@ _import_structure = {
     "models.albert": ["AlbertAdapterModel"],
     "models.auto": [
         "ADAPTER_MODEL_MAPPING",
-        "MODEL_WITH_HEADS_MAPPING",
         "AutoAdapterModel",
-        "AutoModelWithHeads",
     ],
-    "models.bart": [
-        "BartAdapterModel",
-        "BartModelWithHeads",
-    ],
+    "models.bart": ["BartAdapterModel"],
     "models.beit": ["BeitAdapterModel"],
-    "models.bert": [
-        "BertAdapterModel",
-        "BertModelWithHeads",
-    ],
+    "models.bert": ["BertAdapterModel"],
     "models.bert_generation": ["BertGenerationAdapterModel"],
     "models.clip": ["CLIPAdapterModel"],
     "models.deberta": ["DebertaAdapterModel"],
     "models.deberta_v2": ["DebertaV2AdapterModel"],
-    "models.distilbert": [
-        "DistilBertAdapterModel",
-        "DistilBertModelWithHeads",
-    ],
-    "models.gpt2": [
-        "GPT2AdapterModel",
-        "GPT2ModelWithHeads",
-    ],
+    "models.distilbert": ["DistilBertAdapterModel"],
+    "models.gpt2": ["GPT2AdapterModel"],
     "models.gptj": ["GPTJAdapterModel"],
     "models.llama": ["LlamaAdapterModel"],
-    "models.mbart": [
-        "MBartAdapterModel",
-        "MBartModelWithHeads",
-    ],
-    "models.roberta": [
-        "RobertaAdapterModel",
-        "RobertaModelWithHeads",
-    ],
-    "models.t5": [
-        "T5AdapterModel",
-        "T5ModelWithHeads",
-    ],
+    "models.mbart": ["MBartAdapterModel"],
+    "models.roberta": ["RobertaAdapterModel"],
+    "models.t5": ["T5AdapterModel"],
     "models.vit": ["ViTAdapterModel"],
-    "models.xlm_roberta": [
-        "XLMRobertaAdapterModel",
-        "XLMRobertaModelWithHeads",
-    ],
+    "models.xlm_roberta": ["XLMRobertaAdapterModel"],
     "trainer": ["AdapterTrainer", "Seq2SeqAdapterTrainer"],
     "training": [
         "AdapterArguments",
@@ -215,23 +189,23 @@ if TYPE_CHECKING:
         ModelWithHeadsAdaptersMixin,
     )
     from .models.albert import AlbertAdapterModel
-    from .models.auto import ADAPTER_MODEL_MAPPING, MODEL_WITH_HEADS_MAPPING, AutoAdapterModel, AutoModelWithHeads
-    from .models.bart import BartAdapterModel, BartModelWithHeads
+    from .models.auto import ADAPTER_MODEL_MAPPING, AutoAdapterModel
+    from .models.bart import BartAdapterModel
     from .models.beit import BeitAdapterModel
-    from .models.bert import BertAdapterModel, BertModelWithHeads
+    from .models.bert import BertAdapterModel
     from .models.bert_generation import BertGenerationAdapterModel
     from .models.clip import CLIPAdapterModel
     from .models.deberta import DebertaAdapterModel
     from .models.deberta_v2 import DebertaV2AdapterModel
-    from .models.distilbert import DistilBertAdapterModel, DistilBertModelWithHeads
-    from .models.gpt2 import GPT2AdapterModel, GPT2ModelWithHeads
+    from .models.distilbert import DistilBertAdapterModel
+    from .models.gpt2 import GPT2AdapterModel
     from .models.gptj import GPTJAdapterModel
     from .models.llama import LlamaAdapterModel
-    from .models.mbart import MBartAdapterModel, MBartModelWithHeads
-    from .models.roberta import RobertaAdapterModel, RobertaModelWithHeads
-    from .models.t5 import T5AdapterModel, T5ModelWithHeads
+    from .models.mbart import MBartAdapterModel
+    from .models.roberta import RobertaAdapterModel
+    from .models.t5 import T5AdapterModel
     from .models.vit import ViTAdapterModel
-    from .models.xlm_roberta import XLMRobertaAdapterModel, XLMRobertaModelWithHeads
+    from .models.xlm_roberta import XLMRobertaAdapterModel
     from .trainer import AdapterTrainer, Seq2SeqAdapterTrainer
     from .training import AdapterArguments, setup_adapter_training
     from .utils import (

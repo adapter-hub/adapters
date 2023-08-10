@@ -1,5 +1,3 @@
-import warnings
-
 from transformers.models.bert.modeling_bert import (
     BERT_INPUTS_DOCSTRING,
     BERT_START_DOCSTRING,
@@ -248,37 +246,3 @@ class BertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
             self, head_name, layers=2, activation_function=activation_function, layer_norm=True, bias=True
         )
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
-
-
-class BertModelWithHeads(BertAdapterModel):
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                self.__class__.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        super().__init__(*args, **kwargs)
-
-    @classmethod
-    def from_config(cls, config):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                cls.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        return super().from_config(config)
-
-    @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
-        warnings.warn(
-            "This class has been renamed to `{}` in v3. "
-            "Please use the new class instead as this class might be removed in a future version.".format(
-                cls.__bases__[0].__name__
-            ),
-            FutureWarning,
-        )
-        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)

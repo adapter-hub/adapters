@@ -22,15 +22,12 @@ from transformers.utils import _LazyModule
 
 
 _import_structure = {
-    "adapter_model": [
-        "BertAdapterModel",
-        "BertModelWithHeads",
-    ],
+    "adapter_model": ["BertAdapterModel"],
 }
 
 
 if TYPE_CHECKING:
-    from .adapter_model import BertAdapterModel, BertModelWithHeads
+    from .adapter_model import BertAdapterModel
 
 else:
     import sys
