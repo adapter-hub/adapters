@@ -146,10 +146,10 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="4.0.0a0",
+    version="0.0.0.dev20230810",
     author="The AdapterHub team and community contributors",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
-    description="Efficient and scalable fine-tuning of Transformers with adapters",
+    description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     keywords="NLP deep learning transformer pytorch BERT adapters",

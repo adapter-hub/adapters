@@ -14,13 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-## Self-Contained `adapters` Library
+## `adapters` Library
 
-This branch disentangles `adapter-transformers` from HF Transformers and adds Transformers as an external dependency.
+This branch contains the development version of `adapters`, the next-generation library for parameter-efficient and modular transfer learning.
 
-### Breaking changes
+### Changes compared to `adapter-transformers`
 
-- All adapter-related classes now have to imported via `adapters` namespace, e.g.:
+- `adapters` is a standalone package, using `transformers` as an external dependency but not patching it directly
+- All adapter-related classes now are imported via `adapters` namespace, e.g.:
     ```python
     from adapters import BertAdapterModel
     # ...
@@ -34,43 +35,11 @@ This branch disentangles `adapter-transformers` from HF Transformers and adds Tr
     adapters.init(model)
     ```
 
-### Model support
-
-- [x] Albert
-- [x] Bart
-- [x] BEiT
-- [x] Bert
-- [x] Bert Generation
-- [x] CLIP
-- [x] Deberta
-- [x] Deberta V2
-- [x] DistilBert
-- [ ] Encoder-Decoder
-- [x] GPT-2
-- [x] GPT-J
-- [x] MBart
-- [x] Roberta
-- [x] T5
-- [x] ViT
-- [x] XLM-R
-
-### TODO
-
 Features not (yet) working:
 
 - Loading model + adapter checkpoints using HF classes
-- ~~Text generation with adapters~~ (hacked working version)
-- ~~Parallel generation with adapters~~
 - Using Transformers pipelines with adapters
 - Using HF language modeling classes with invertible adapters
-
-Tasks to do for first usable version:
-
-- ~~Remove utils folder and use utils of HF~~
-- Make all tests passing
-- Update example scripts w. breaking changes
-- Update docs w. breaking changes
-- Update contributing guides for new code structure
 
 ---
 
@@ -82,21 +51,18 @@ Tasks to do for first usable version:
 </h1>
 
 <h3 align="center">
-A friendly fork of HuggingFace's <i>Transformers</i>, adding Adapters to PyTorch language models
+A Unified Library for Parameter-Efficient and Modular Transfer Learning
 </h3>
 
 ![Tests](https://github.com/Adapter-Hub/adapters/workflows/Tests/badge.svg)
 [![GitHub](https://img.shields.io/github/license/adapter-hub/adapters.svg?color=blue)](https://github.com/adapter-hub/adapters/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/adapters)](https://pypi.org/project/adapters/)
 
-`adapters` is an extension of [HuggingFace's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
-
-_💡 Important: This library can be used as a drop-in replacement for HuggingFace Transformers and regularly synchronizes new upstream changes.
-Thus, most files in this repository are direct copies from the HuggingFace Transformers source, modified only with changes required for the adapter implementations._
+`adapters` is an add-on to [HuggingFace's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
 
 ## Installation
 
-`adapters` currently supports **Python 3.7+** and **PyTorch 1.3.1+**.
+`adapters` currently supports **Python 3.8+** and **PyTorch 1.10+**.
 After [installing PyTorch](https://pytorch.org/get-started/locally/), you can install `adapters` from PyPI ...
 
 ```
