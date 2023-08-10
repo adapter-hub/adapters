@@ -900,7 +900,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             if name in active_adapters.flatten()
         }
 
-        context.prefix_states = self.base_model.prefix_tuning(*args, **kwargs)
+        if hasattr(self.base_model, "prefix_tuning"):
+            context.prefix_states = self.base_model.prefix_tuning(*args, **kwargs)
+
         # Adapter gating and attention outputs
         context.output_adapter_gating_scores = kwargs.get("output_adapter_gating_scores", False)
         context.output_adapter_fusion_attentions = kwargs.get("output_adapter_fusion_attentions", False)
@@ -1208,6 +1210,25 @@ class ModelBaseAdaptersMixin(ModelAdaptersMixin):
     @ForwardContext.wrap
     def forward(self, *args, **kwargs):
         return super().forward(*args, **kwargs)
+
+
+@inherit_doc
+class ModelUsingSubmodelsAdaptersMixin(ModelAdaptersMixin):
+    """Mixin for models that only consist of submodels like the encoder-decoder model."""
+
+    @abstractmethod
+    def init_submodels(self):
+        """
+        Function to initialize the submodels of the model.
+        """
+        pass
+
+    def _init_adapters_submodules(self, model_config, adapters_config):
+        """
+        Initializes adapters in all submodules. Since all submodules have been wrapped by the init_submodels method
+        this method doesn't need to do anything.
+        """
+        pass
 
 
 @inherit_doc

@@ -25,7 +25,7 @@ class AdapterTestBase:
             model = AutoAdapterModel.from_config(self.config())
         else:
             model = self.model_class(self.config())
-        adapters.init(model)
+            adapters.init(model)
         model.to(torch_device)
         return model
 

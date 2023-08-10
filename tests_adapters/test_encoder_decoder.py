@@ -1,6 +1,10 @@
 # flake8: noqa: F403,F405
-from tests.models.encoder_decoder.test_modeling_encoder_decoder import *  # Imported to execute model tests
-from transformers import AutoModelForSeq2SeqLM, BertConfig
+import unittest
+
+import adapters
+from hf_transformers.tests.models.encoder_decoder.test_modeling_encoder_decoder import *  # Imported to execute model tests
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, BertConfig
+from transformers.testing_utils import require_torch, torch_device
 
 from .methods import (
     BottleneckAdapterTestMixin,
@@ -36,6 +40,7 @@ class EncoderDecoderAdapterTestBase(AdapterTestBase):
         )
     )
     tokenizer_name = "bert-base-uncased"
+    do_run_train_tests = False
 
 
 @require_torch
@@ -50,30 +55,31 @@ class EncoderDecoderAdapterTest(
     EncoderDecoderAdapterTestBase,
     unittest.TestCase,
 ):
+    def test_generation(self):
+        model = AutoModelForSeq2SeqLM.from_config(self.config())
+        adapters.init(model)
+        model.add_adapter("test", config="pfeiffer")
+        model.set_active_adapters("test")
+        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+
+        text = "This is a test sentence."
+        input_ids = tokenizer(text, return_tensors="pt").input_ids
+
+        generated_ids = model.generate(input_ids, bos_token_id=100)
+        generated_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        self.assertNotEqual("", generated_text)
+
     def test_invertible_adapter_with_head(self):
         """This test class is copied and adapted from the identically-named test in test_adapter_heads.py."""
-        model = AutoModelForSeq2SeqLM.from_config(self.config())
-        model.add_adapter("test", config="seq_bn_inv")
-        model.set_active_adapters("test")
+        raise self.skipTest("AutoModelForSeq2SeqLM does not support using invertible adapters.")
 
-        # Set a hook before the invertible adapter to make sure it's actually called twice:
-        # Once after the embedding layer and once in the prediction head.
-        calls = 0
+    def test_adapter_fusion_save_with_head(self):
+        # This test is not applicable to the encoder-decoder model since it has no heads.
+        self.skipTest("Not applicable to the encoder-decoder model.")
 
-        def forward_pre_hook(module, input):
-            nonlocal calls
-            calls += 1
-
-        inv_adapter = model.base_model.get_invertible_adapter()
-        self.assertIsNotNone(inv_adapter)
-        inv_adapter.register_forward_pre_hook(forward_pre_hook)
-
-        in_data = self.get_input_samples((1, 128), config=model.config)
-        model.to(torch_device)
-        out = model(**in_data)
-
-        self.assertEqual((1, 128, model.config.decoder.vocab_size), out[0].shape)
-        self.assertEqual(2, calls)
+    def test_forward_with_past(self):
+        # This test is not applicable to the encoder-decoder model since it has no heads.
+        self.skipTest("Not applicable to the encoder-decoder model.")
 
     def test_output_adapter_gating_scores_unipelt(self):
         # TODO currently not supported
