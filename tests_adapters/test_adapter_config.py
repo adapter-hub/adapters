@@ -20,7 +20,8 @@ from transformers.testing_utils import require_torch
 class AdapterConfigTest(unittest.TestCase):
     def test_config_load(self):
         download_kwargs = {"force_download": True}
-        for config_name in ["seq_bn", "double_seq_bn"]:
+        # TODO still uses the old config names as only these are available on the Hub
+        for config_name in ["pfeiffer", "houlsby"]:
             with self.subTest(config_name=config_name):
                 config = AdapterConfigBase.load(
                     config_name, download_kwargs=download_kwargs, non_linearity="leakyrelu"

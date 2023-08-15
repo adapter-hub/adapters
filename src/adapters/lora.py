@@ -392,6 +392,9 @@ class MergedLinear(LoRALayer, nn.Linear):
                 )
                 lora.lora_ind[lora.enable_lora, :] = True
                 lora.lora_ind = lora.lora_ind.view(-1)
+            return True
+        else:
+            return False
 
     def pad(self, x, lora, fill_value=None):
         if fill_value is None:

@@ -89,7 +89,7 @@ class AdapterMethodBaseTestMixin:
         # compare averaged weights to collected weights
         this_filter_keys = [k.format(name=name) for k in filter_keys]
         for k, v in self.filter_parameters(model, this_filter_keys).items():
-            self.assertTrue(torch.allclose(v, averaged_weights[k]))
+            self.assertTrue(torch.allclose(v, averaged_weights[k]), k)
 
     def run_delete_test(self, model, adapter_config, filter_keys):
         model.eval()
