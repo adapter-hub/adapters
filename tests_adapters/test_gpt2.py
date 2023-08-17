@@ -1,5 +1,6 @@
 import unittest
 
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
 from transformers import GPT2Config
 from transformers.testing_utils import require_torch
 
@@ -47,6 +48,7 @@ class GPT2AdapterTest(
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
+    ConfigUnionAdapterTest,
     GPT2AdapterTestBase,
     unittest.TestCase,
 ):

@@ -25,8 +25,8 @@ class GPTJAttentionAdaptersMixin:
 class GPTJMLPAdaptersMixin:
     def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
-        self.fc_in = LoRALinear.wrap(self.fc_in, "intermediate", model_config, adapters_config, attn_key="q")
-        self.fc_out = LoRALinear.wrap(self.fc_out, "output", model_config, adapters_config, attn_key="k")
+        self.fc_in = LoRALinear.wrap(self.fc_in, "intermediate", model_config, adapters_config)
+        self.fc_out = LoRALinear.wrap(self.fc_out, "output", model_config, adapters_config)
 
 
 class GPTJDecoderBlockAdaptersMixin:

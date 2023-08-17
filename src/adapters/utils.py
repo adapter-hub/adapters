@@ -411,7 +411,8 @@ def parse_adapter_config_string(config_string: str) -> List[Tuple[str, dict]]:
         if not match or not match.group("name"):
             raise ValueError(f"Invalid adapter config string format: '{config_string_chunk}'.")
         name = match.group("name")
-        if kvs := match.group("kvs"):
+        if match.group("kvs"):
+            kvs = match.group("kvs")
             # Replace "=" with ":" in key-value pairs for valid Python dict
             kvs = re.sub(r"(\w+)=", r"'\1':", kvs)
         else:

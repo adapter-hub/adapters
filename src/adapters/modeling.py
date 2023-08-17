@@ -568,6 +568,7 @@ class PHMLayer(nn.Module):
         assert (
             out_features % config["phm_dim"] == 0
         ), f"Argument `out_features`={out_features} is not divisble be `phm_dim`{config['phm_dim']}"
+        self.config = config
         self.name = adapter_name
         self.in_features = in_features
         self.out_features = out_features
@@ -616,42 +617,18 @@ class PHMLayer(nn.Module):
             self.register_parameter("b", None)
         self.reset_parameters()
 
-    def init_W(self, W_left=None, W_right=None, W=None):
+    def _init_W(self, W_left=None, W_right=None, W=None):
         if self.factorized_phm_W:
             W_left = W_left if W_left is not None else self.W_left
             W_right = W_right if W_right is not None else self.W_right
+            return init_W(self.config, W_left, W_right, W)
         else:
             W = W if W is not None else self.W
-        if self.w_init == "glorot-normal":
-            if self.factorized_phm_W:
-                for i in range(self.phm_dim):
-                    W_left.data[i] = nn.init.xavier_normal_(W_left.data[i])
-                    W_right.data[i] = nn.init.xavier_normal_(W_right.data[i])
-            else:
-                for i in range(self.phm_dim):
-                    W.data[i] = nn.init.xavier_normal_(W.data[i])
-        elif self.w_init == "glorot-uniform":
-            if self.factorized_phm_W:
-                for i in range(self.phm_dim):
-                    W_left.data[i] = nn.init.xavier_uniform_(W_left.data[i])
-                    W_right.data[i] = nn.init.xavier_uniform_(W_right.data[i])
-            else:
-                for i in range(self.phm_dim):
-                    W.data[i] = nn.init.xavier_uniform_(W.data[i])
-        elif self.w_init == "normal":
-            if self.factorized_phm_W:
-                for i in range(self.phm_dim):
-                    W_left.data[i].normal_(mean=0, std=self.phm_init_range)
-                    W_right.data[i].normal_(mean=0, std=self.phm_init_range)
-            else:
-                for i in range(self.phm_dim):
-                    W.data[i].normal_(mean=0, std=self.phm_init_range)
-        else:
-            raise ValueError
+            return init_W(self.config, W_left, W_right, W)
 
     def reset_parameters(self):
         if not self.shared_W_phm:
-            self.init_W()
+            self._init_W()
 
         if self.bias_flag:
             self.b.data = torch.zeros_like(self.b.data)
@@ -723,54 +700,101 @@ class PHMLayer(nn.Module):
             y += self.b
         return y
 
-    def init_shared_parameters(self):
-        parameters = nn.ParameterDict()
-        if self.shared_W_phm:
-            if self.factorized_phm_W:
-                W_down_left = torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self.phm_rank))
-                W_down_right = torch.Tensor(size=(self.phm_dim, self.phm_rank, self._out_feats_per_axis))
-                W_up_left = torch.Tensor(size=(self.phm_dim, self._out_feats_per_axis, self.phm_rank))
-                W_up_right = torch.Tensor(size=(self.phm_dim, self.phm_rank, self._in_feats_per_axis))
-                self.init_W(W_left=W_down_left, W_right=W_down_right)
-                self.init_W(W_left=W_up_left, W_right=W_up_right)
-                parameters["W_down_left"] = nn.Parameter(W_down_left, requires_grad=True)
-                parameters["W_down_right"] = nn.Parameter(W_down_right, requires_grad=True)
-                parameters["W_up_left"] = nn.Parameter(W_up_left, requires_grad=True)
-                parameters["W_up_right"] = nn.Parameter(W_up_right, requires_grad=True)
+
+def init_shared_parameters(config, in_features, device):
+    """
+    Create and initialize the parameters shared by all compacter modules
+    """
+    parameters = nn.ParameterDict()
+    if config["shared_W_phm"]:
+        if config["factorized_phm_W"]:
+            out_features = in_features // config["reduction_factor"]
+            _in_feats_per_axis = in_features // config["phm_dim"]
+            _out_feats_per_axis = out_features // config["phm_dim"]
+            W_down_left = torch.Tensor(size=(config["phm_dim"], _in_feats_per_axis, config["phm_rank"]))
+            W_down_right = torch.Tensor(size=(config["phm_dim"], config["phm_rank"], _out_feats_per_axis))
+            W_up_left = torch.Tensor(size=(config["phm_dim"], _out_feats_per_axis, config["phm_rank"]))
+            W_up_right = torch.Tensor(size=(config["phm_dim"], config["phm_rank"], _in_feats_per_axis))
+            init_W(config, W_left=W_down_left, W_right=W_down_right)
+            init_W(config, W_left=W_up_left, W_right=W_up_right)
+            parameters["W_down_left"] = nn.Parameter(W_down_left, requires_grad=True)
+            parameters["W_down_right"] = nn.Parameter(W_down_right, requires_grad=True)
+            parameters["W_up_left"] = nn.Parameter(W_up_left, requires_grad=True)
+            parameters["W_up_right"] = nn.Parameter(W_up_right, requires_grad=True)
+        else:
+            W_down = torch.Tensor(size=(config["phm_dim"], _in_feats_per_axis, _out_feats_per_axis))
+            W_up = torch.Tensor(size=(config["phm_dim"], _out_feats_per_axis, _in_feats_per_axis))
+            init_W(config, W=W_down)
+            init_W(config, W=W_up)
+            parameters["W_down"] = nn.Parameter(W_down, requires_grad=True)
+            parameters["W_up"] = nn.Parameter(W_up, requires_grad=True)
+    if config["shared_phm_rule"]:
+        if config["factorized_phm_rule"]:
+            phm_rule_left = nn.Parameter(
+                torch.FloatTensor(config["phm_dim"], config["phm_dim"], 1).to(device),
+                requires_grad=config["learn_phm"],
+            )
+            phm_rule_right = nn.Parameter(
+                torch.FloatTensor(config["phm_dim"], 1, config["phm_dim"]).to(device),
+                requires_grad=config["learn_phm"],
+            )
+            if config["phm_c_init"] == "normal":
+                phm_rule_left.data.normal_(mean=0, std=config["phm_init_range"])
+                phm_rule_right.data.normal_(mean=0, std=config["phm_init_range"])
+            elif config["phm_c_init"] == "uniform":
+                phm_rule_left.data.uniform_(-1, 1)
+                phm_rule_right.data.uniform_(-1, 1)
             else:
-                W_down = torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self._out_feats_per_axis))
-                W_up = torch.Tensor(size=(self.phm_dim, self._out_feats_per_axis, self._in_feats_per_axis))
-                self.init_W(W=W_down)
-                self.init_W(W=W_up)
-                parameters["W_down"] = nn.Parameter(W_down, requires_grad=True)
-                parameters["W_up"] = nn.Parameter(W_up, requires_grad=True)
-        if self.shared_phm_rule:
-            if self.factorized_phm_rule:
-                phm_rule_left = nn.Parameter(
-                    torch.FloatTensor(self.phm_dim, self.phm_dim, 1).to(self.device), requires_grad=self.learn_phm
-                )
-                phm_rule_right = nn.Parameter(
-                    torch.FloatTensor(self.phm_dim, 1, self.phm_dim).to(self.device), requires_grad=self.learn_phm
-                )
-                if self.c_init == "normal":
-                    phm_rule_left.data.normal_(mean=0, std=self.phm_init_range)
-                    phm_rule_right.data.normal_(mean=0, std=self.phm_init_range)
-                elif self.c_init == "uniform":
-                    phm_rule_left.data.uniform_(-1, 1)
-                    phm_rule_right.data.uniform_(-1, 1)
-                else:
-                    raise NotImplementedError
-                parameters["phm_rule_left"] = phm_rule_left
-                parameters["phm_rule_right"] = phm_rule_right
+                raise NotImplementedError
+            parameters["phm_rule_left"] = phm_rule_left
+            parameters["phm_rule_right"] = phm_rule_right
+        else:
+            phm_rule = nn.Parameter(
+                torch.FloatTensor(config["phm_dim"], config["phm_dim"], config["phm_dim"]),
+                requires_grad=config["learn_phm"],
+            )
+            if config["phm_c_init"] == "normal":
+                phm_rule.data.normal_(mean=0, std=config["phm_init_range"])
+            elif config["phm_c_init"] == "uniform":
+                phm_rule.data.uniform_(-1, 1)
             else:
-                phm_rule = nn.Parameter(
-                    torch.FloatTensor(self.phm_dim, self.phm_dim, self.phm_dim), requires_grad=self.learn_phm
-                )
-                if self.c_init == "normal":
-                    phm_rule.data.normal_(mean=0, std=self.phm_init_range)
-                elif self.c_init == "uniform":
-                    phm_rule.data.uniform_(-1, 1)
-                else:
-                    raise NotImplementedError
-                parameters["phm_rule"] = phm_rule
-        return parameters
+                raise NotImplementedError
+            parameters["phm_rule"] = phm_rule
+    return parameters
+
+
+def init_W(config, W_left=None, W_right=None, W=None):
+    """
+    Initialize the weights for the compacter module or the shared parameters
+    """
+    if config["factorized_phm_W"]:
+        W_left = W_left
+        W_right = W_right
+    else:
+        W = W
+    if config["hypercomplex_nonlinearity"]:
+        if config["factorized_phm_W"]:
+            for i in range(config["phm_dim"]):
+                W_left.data[i] = nn.init.xavier_normal_(W_left.data[i])
+                W_right.data[i] = nn.init.xavier_normal_(W_right.data[i])
+        else:
+            for i in range(config["phm_dim"]):
+                W.data[i] = nn.init.xavier_normal_(W.data[i])
+    elif config["hypercomplex_nonlinearity"] == "glorot-uniform":
+        if config["factorized_phm_W"]:
+            for i in range(config["phm_dim"]):
+                W_left.data[i] = nn.init.xavier_uniform_(W_left.data[i])
+                W_right.data[i] = nn.init.xavier_uniform_(W_right.data[i])
+        else:
+            for i in range(config["phm_dim"]):
+                W.data[i] = nn.init.xavier_uniform_(W.data[i])
+    elif config["hypercomplex_nonlinearity"] == "normal":
+        if config["factorized_phm_W"]:
+            for i in range(config["phm_dim"]):
+                W_left.data[i].normal_(mean=0, std=config["phm_init_range"])
+                W_right.data[i].normal_(mean=0, std=config["phm_init_range"])
+        else:
+            for i in range(config["phm_dim"]):
+                W.data[i].normal_(mean=0, std=config["phm_init_range"])
+    else:
+        raise ValueError

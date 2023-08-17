@@ -16,7 +16,12 @@ class GPT2AttentionAdaptersMixin:
         # Wrap layers for LoRA
         if not self.is_cross_attention:
             self.c_attn = LoRAMergedLinear.wrap(
-                self.c_attn, "selfattn", model_config, adapters_config, fan_in_fan_out=True
+                self.c_attn,
+                "selfattn",
+                model_config,
+                adapters_config,
+                fan_in_fan_out=True,
+                no_init_bias=True,
             )
 
         location_key = "cross_prefix" if self.is_cross_attention else "self_prefix"
@@ -29,10 +34,20 @@ class GPT2DecoderBlockAdaptersMixin:
     def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
         self.mlp.c_fc = LoRALinear.wrap(
-            self.mlp.c_fc, "intermediate", model_config, adapters_config, fan_in_fan_out=True
+            self.mlp.c_fc,
+            "intermediate",
+            model_config,
+            adapters_config,
+            fan_in_fan_out=True,
+            no_init_bias=True,
         )
         self.mlp.c_proj = LoRALinear.wrap(
-            self.mlp.c_proj, "output", model_config, adapters_config, fan_in_fan_out=True
+            self.mlp.c_proj,
+            "output",
+            model_config,
+            adapters_config,
+            fan_in_fan_out=True,
+            no_init_bias=True,
         )
 
         self.attention_adapters = AdapterLayer("mh_adapter")

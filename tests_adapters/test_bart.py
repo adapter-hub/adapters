@@ -1,5 +1,6 @@
 import unittest
 
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
 from transformers import BartConfig
 from transformers.testing_utils import require_torch
 
@@ -49,6 +50,7 @@ class BartAdapterTest(
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
+    ConfigUnionAdapterTest,
     BartAdapterTestBase,
     unittest.TestCase,
 ):

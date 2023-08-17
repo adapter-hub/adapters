@@ -1,5 +1,6 @@
 import unittest
 
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
 from transformers import DistilBertConfig
 from transformers.testing_utils import require_torch
 
@@ -46,6 +47,7 @@ class DistilBertAdapterTest(
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
+    ConfigUnionAdapterTest,
     DistilBertAdapterTestBase,
     unittest.TestCase,
 ):

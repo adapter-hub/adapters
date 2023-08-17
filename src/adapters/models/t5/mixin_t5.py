@@ -34,7 +34,6 @@ class T5SelfAttentionLayerAdaptersMixin(AdapterLayer):
 
     def init_adapters(self, model_config, adapters_config):
         self.location_key = "mh_adapter"
-        self.SelfAttention.location_key = "self"
         super().init_adapters(model_config, adapters_config)
 
 
@@ -72,6 +71,7 @@ class T5BlockAdaptersMixin:
 
     def init_adapters(self, model_config, adapters_config):
         location_key = "self" if self.is_decoder else "encoder"
+        self.layer[0].SelfAttention.location_key = location_key
         self.layer[-1].location_key = location_key
 
 

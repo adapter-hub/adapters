@@ -145,10 +145,20 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
     def test_get_adapter(self):
         model = self.get_model()
         model.eval()
+        n_layers = len(list(model.iter_layers()))
+        if model.config.is_encoder_decoder:
+            n_prefix_layers = 3
+        elif model.config.is_composition:
+            n_prefix_layers = 2
+        else:
+            n_prefix_layers = 1
 
-        for adapter_config, _ in self.adapter_configs_to_test:
+        for adapter_config, n_expected in [
+            (DoubleSeqBnConfig(), n_layers * 2),
+            (MAMConfig(), n_layers + n_prefix_layers),
+        ]:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-                self.run_get_test(model, adapter_config)
+                self.run_get_test(model, adapter_config, n_expected)
 
     def test_add_adapter_multiple_reduction_factors(self):
         model = self.get_model()

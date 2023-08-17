@@ -1,5 +1,6 @@
 import unittest
 
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
 from transformers import DebertaConfig
 from transformers.testing_utils import require_torch
 
@@ -49,6 +50,7 @@ class DebertaAdapterTest(
     UniPELTTestMixin,
     EmbeddingTestMixin,
     ParallelTrainingMixin,
+    ConfigUnionAdapterTest,
     DebertaAdapterTestBase,
     unittest.TestCase,
 ):
