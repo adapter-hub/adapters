@@ -46,4 +46,4 @@ class GPTJModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mod
             yield i, layer
 
     def hook_after_embeddings(self, hook_fn: Callable):
-        return self.wte.register_forward_hook(hook_fn)
+        return self.drop.register_forward_hook(hook_fn)
