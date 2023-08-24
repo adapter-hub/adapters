@@ -10,6 +10,14 @@ InvertibleAdaptersMixin
 .. autoclass:: adapters.InvertibleAdaptersMixin
     :members:
 
+
+EmbeddingAdaptersMixin
+----------------------------------
+
+.. autoclass:: adapters.EmbeddingAdaptersMixin
+    :members:
+
+
 ModelAdaptersMixin
 ------------------
 

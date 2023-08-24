@@ -1,10 +1,9 @@
 # Extending the Library
 
 ## Integrating new Transformer models
-
 Currently, not all model types included in Hugging Face's `transformers` support adapters yet.
-However, it is possible to the existing adapter implementation to new models.
-For a detailed guide, refer to [Adding Adapters to a Model](https://docs.adapterhub.ml/contributing/adding_adapters_to_a_model.html).
+However, it is possible to add the existing adapter implementation to new models.
+For detailed instructions, see [Adding Adapters to a Model](https://docs.adapterhub.ml/contributing/adding_adapters_to_a_model.html).
 
 ## Loading custom module weights
 
