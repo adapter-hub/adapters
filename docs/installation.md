@@ -1,6 +1,6 @@
 # Installation
 
-The `adapters` package is designed as an add-on for HuggingFace's Transformers library.
+The `adapters` package is designed as an add-on for Hugging Face's Transformers library.
 It currently supports Python 3.7+ and PyTorch 1.3.1+. You will have to [install PyTorch](https://pytorch.org/get-started/locally/) first. 
 
 ```{eval-rst}

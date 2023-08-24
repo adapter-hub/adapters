@@ -2,7 +2,7 @@
 
 ## Finding pre-trained adapters
 
-**[AdapterHub.ml](https://adapterhub.ml/explore)** provides a central collection of all pre-trained adapters uploaded via [our Hub repository](https://github.com/adapter-hub/hub) or HuggingFace's [Model Hub](https://huggingface.co/models).
+**[AdapterHub.ml](https://adapterhub.ml/explore)** provides a central collection of all pre-trained adapters uploaded via [our Hub repository](https://github.com/adapter-hub/hub) or Hugging Face's [Model Hub](https://huggingface.co/models).
 You can easily find pre-trained adapters for your task of interest along with all relevant information and code snippets to get started (also see below).
 
 Alternatively, [`list_adapters()`](adapters.utils.list_adapters) provides a programmatical way of accessing all available pre-trained adapters.
@@ -33,12 +33,14 @@ print("Uploaded by:", adapter_info.username)
 
 ## Using pre-trained adapters in your code
 
-Suppose we have loaded a pre-trained transformer model from HuggingFace, e.g. BERT:
+Suppose we have loaded a pre-trained transformer model from Hugging Face, e.g. BERT, and initialized it for adding adapters:
 
 ```python
 from transformers import BertModel
+import adapters
 
 model = BertModel.from_pretrained('bert-base-uncased')
+adaptrers.init(model)
 ```
 
 We can now easily load a pre-trained adapter module from Adapter Hub by its identifier using the [`load_adapter()`](adapters.ModelWithHeadsAdaptersMixin.load_adapter) method:
@@ -90,7 +92,7 @@ Based on this information, the library will only search for pre-trained adapter 
 
 - Adapter modules trained on different pre-trained language models in general can not be used interchangeably.
 Therefore, we need to make sure to load an adapter matching the language model we are using.
-If possible, the library will infer the name of the pre-trained model automatically (e.g. when we use `from_pretrained('identifier')` to load a model from Huggingface). However, if this is not the case, we must specify the name of the host model in the `model_name` parameter.
+If possible, the library will infer the name of the pre-trained model automatically (e.g. when we use `from_pretrained('identifier')` to load a model from Hugging Face). However, if this is not the case, we must specify the name of the host model in the `model_name` parameter.
 
 - There could be multiple versions of the same adapter available. To load a specific version, use the `version` parameter.
 
@@ -98,7 +100,7 @@ If possible, the library will infer the name of the pre-trained model automatica
 To load the adapter using a custom name, we can use the `load_as` parameter.
 
 - Finally the `source` parameter provides the possibility to load adapters from alternative adapter repositories.
-Besides the default value `ah`, referring to AdapterHub, it's also possible to pass `hf` to [load adapters from HuggingFace's Model Hub](huggingface_hub.md).
+Besides the default value `ah`, referring to AdapterHub, it's also possible to pass `hf` to [load adapters from Hugging Face's Model Hub](huggingface_hub.md).
 
 ## How adapter resolving works
 

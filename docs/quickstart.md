@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`adapters` adds adapter functionality to the PyTorch implementations of all Transformer models listed in the [Model Overview](model_overview.html).
+`adapters` adds adapter functionality to the PyTorch implementations of all Transformer models listed in the [Model Overview](https://docs.adapterhub.ml/model_overview.html).
 For working with adapters, a couple of methods, e.g. for creation (`add_adapter()`), loading (`load_adapter()`), 
 storing (`save_adapter()`) and deletion (`delete_adapter()`) are added to the model classes.
 In the following, we will briefly go through some examples to showcase these methods.
@@ -11,8 +11,30 @@ In the following, we will briefly go through some examples to showcase these met
 .. note::
     This document focuses on the adapter-related functionalities added by ``adapters``.
     For a more general overview of the *transformers* library, visit
-    `the 'Usage' section in HuggingFace's documentation <https://huggingface.co/docs/transformers/main/en/quicktour>`_.
+    `the 'Usage' section in Hugging Face's documentation <https://huggingface.co/docs/transformers/main/en/quicktour>`_.
 ```
+
+## Initialize Model with Adapters
+
+The `XAdapterModel` is the recommended model for training and inference of adapters:
+
+```
+from adapters import AutoAdapterModel
+
+model = AutoAdapterModel.from_pretrained(model_name)
+````
+
+This handles the initialization of the adapter-related functionality internally and provides you with the initialized model. The `XAdapterModel` also supports the dynamic adding, loading, and storing of heads for different tasks.
+
+
+If you want to use adapters in Hugging Face models, the models need to be initialized with the adapters library. This initializes the functionality of adding, loading and storing of adapters within the `transformers` models. 
+
+```
+import adapters
+
+adapters.init(model)
+```
+
 
 ## Using a Pre-Trained Adapter for Inference
 
@@ -22,7 +44,7 @@ The following example shows the usage of a basic pre-trained Transformer model w
 Our goal here is to predict the sentiment of a given sentence.
 
 We use BERT in this example, so we first load a pre-trained `BertTokenizer` to encode the input sentence and a pre-trained
-`bert-base-uncased` checkpoint from HuggingFace's Model Hub using the [`BertAdapterModel`](adapters.BertAdapterModel) class:
+`bert-base-uncased` checkpoint from Hugging Face's Model Hub using the [`BertAdapterModel`](adapters.BertAdapterModel) class:
 
 ```python
 import os
@@ -31,7 +53,7 @@ import torch
 from transformers import BertTokenizer
 from adapters import BertAdapterModel
 
-# Load pre-trained BERT tokenizer from HuggingFace
+# Load pre-trained BERT tokenizer from Hugging Face
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 # An input sentence
@@ -40,7 +62,7 @@ sentence = "It's also, clearly, great fun."
 # Tokenize the input sentence and create a PyTorch input tensor
 input_data = tokenizer(sentence, return_tensors="pt")
 
-# Load pre-trained BERT model from HuggingFace Hub
+# Load pre-trained BERT model from Hugging Face Hub
 # The `BertAdapterModel` class is specifically designed for working with adapters
 # It can be used with different prediction heads
 model = BertAdapterModel.from_pretrained('bert-base-uncased')
@@ -77,7 +99,7 @@ model.save_pretrained(example_path)
 # Save adapter
 model.save_adapter(example_path, adapter_name)
 
-# Load model, similar to HuggingFace's AutoModel class, 
+# Load model, similar to Hugging Face's AutoModel class, 
 # you can also use AutoAdapterModel instead of BertAdapterModel
 model = AutoAdapterModel.from_pretrained(example_path)
 model.load_adapter(example_path)

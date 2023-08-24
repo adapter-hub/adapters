@@ -1,7 +1,7 @@
 # Adapter Training
 
 This section describes some examples of training adapter methods for different scenarios. We focus on integrating adapter methods into existing training scripts for Transformer models.
-All presented scripts are only slightly modified from the original [examples from HuggingFace Transformers](https://github.com/huggingface/transformers/tree/main/examples/pytorch#examples).
+All presented scripts are only slightly modified from the original [examples from Hugging Face Transformers](https://github.com/huggingface/transformers/tree/main/examples/pytorch#examples).
 To run the scripts, make sure you have the latest version of the repository and have installed some additional requirements:
 
 ```
@@ -15,7 +15,7 @@ pip install -r ./examples/pytorch/<your_examples_folder>/requirements.txt
 
 Training a task adapter module on a dataset only requires minor modifications compared to training the entire model.
 Suppose we have an existing script for training a Transformer model.
-In the following, we will use HuggingFace's [run_glue.py](https://github.com/Adapter-Hub/adapters/blob/main/examples/pytorch/text-classification/run_glue.py) example script for training on the GLUE benchmark.
+In the following, we will use Hugging Face's [run_glue.py](https://github.com/Adapter-Hub/adapters/blob/main/examples/pytorch/text-classification/run_glue.py) example script for training on the GLUE benchmark.
 We go through all required changes step by step:
 
 ### Step A - Parse `AdapterArguments`
@@ -43,8 +43,8 @@ model = AutoAdapterModel.from_pretrained(
 model.add_classification_head(data_args.task_name, num_labels=num_labels)
 ```
 
-Note that this change is optional and training will also work with the original model class.
-Learn more about the benefits of AdapterModel classes [here](prediction_heads.md).
+Alternatively, you can also use the original `transformers` class and initialize the model for the usage of adapters by calling `adapters.init(model)`.
+Learn more about the benefits of AdapterModel classes [here](prediction_heads.md)
 
 ### Step C - Setup adapter methods
 
@@ -132,7 +132,7 @@ The important flag here is `--train_adapter`, which switches from fine-tuning th
 ## Train a Language Adapter
 
 Training a language adapter is equally straightforward as training a task adapter. Similarly to the steps for task adapters
-described above, we add a language adapter module to an existing model training script. Here, we modified HuggingFace's [run_mlm.py](https://github.com/Adapter-Hub/adapters/blob/main/examples/pytorch/language-modeling/run_mlm.py) script for masked language modeling with BERT-based models.
+described above, we add a language adapter module to an existing model training script. Here, we modified Hugging Face's [run_mlm.py](https://github.com/Adapter-Hub/adapters/blob/main/examples/pytorch/language-modeling/run_mlm.py) script for masked language modeling with BERT-based models.
 
 Training a language adapter on BERT using this script may look like the following:
 
@@ -188,7 +188,7 @@ python run_fusion_glue.py \
 
 ## AdapterTrainer
 
-Similar to the `Trainer` class provided by HuggingFace, adapters provides an `AdapterTrainer` class. This class is only
+Similar to the `Trainer` class provided by Hugging Face, adapters provides an `AdapterTrainer` class. This class is only
 intended for training adapters. The `Trainer` class should still be used to fully fine-tune models. To train adapters with the `AdapterTrainer`
 class, simply initialize it the same way you would initialize the `Trainer` class, e.g.: 
 

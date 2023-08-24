@@ -6,7 +6,7 @@ The table below further shows which model architectures support which adaptation
 ```{eval-rst}
 .. note::
     Each supported model architecture X typically provides a class ``XAdapterModel`` for usage with ``AutoAdapterModel``.
-    Additionally, it is possible to use adapters with the model classes already shipped with HuggingFace Transformers.
+    Additionally, it is possible to use adapters with the model classes already shipped with Hugging Face Transformers. For these classes, initialize the model for adapters with `adapters.init(model)`.
     E.g., for BERT, this means adapters provides a ``BertAdapterModel`` class, but you can also use ``BertModel``, ``BertForSequenceClassification`` etc. together with adapters.
 ```
 

@@ -1,19 +1,19 @@
-# Integration with HuggingFace's Model Hub
+# Integration with Hugging Face's Model Hub
 
 ```{eval-rst}
 .. figure:: img/hfhub.svg
     :align: center
-    :alt: HuggingFace Hub logo.
+    :alt: Hugging Face Hub logo.
 ```
 
-Starting with v2.1 of `adapters`, you can download adapters from and upload them to [HuggingFace's Model Hub](https://huggingface.co/models).
+You can download adapters from and upload them to [Hugging Face's Model Hub](https://huggingface.co/models).
 This document describes how to interact with the Model Hub when working with adapters.
 
 ## Downloading from the Hub
 
-The HuggingFace Model Hub already provides a few pre-trained adapters available for download.
+The Hugging Face Model Hub already provides a few pre-trained adapters available for download.
 To search for available adapters, use the _Adapter Transformers_ library filter on the Model Hub website or use this link: [https://huggingface.co/models?filter=adapters](https://huggingface.co/models?filter=adapters).
-Alternatively, all adapters on the HuggingFace Model Hub are also listed on [https://adapterhub.ml/explore](https://adapterhub.ml/explore) together with all adapters directly uploaded to AdapterHub.
+Alternatively, all adapters on the Hugging Face Model Hub are also listed on [https://adapterhub.ml/explore](https://adapterhub.ml/explore) together with all adapters directly uploaded to AdapterHub.
 
 After you have found an adapter you would like to use, loading it into a Transformer model is very similar to [loading adapters from AdapterHub](loading.md).
 For example, for loading and activating the adapter [`AdapterHub/roberta-base-pf-sick`](https://huggingface.co/AdapterHub/roberta-base-pf-sick), write:
@@ -28,12 +28,12 @@ Note that `source="hf"` is the only change from loading an adapter from AdapterH
 
 ## Uploading to the Hub
 
-HuggingFace's Model Hub provides a convenient way for everyone to upload their pre-trained models and share them with the world.
+Hugging Face's Model Hub provides a convenient way for everyone to upload their pre-trained models and share them with the world.
 Of course, this is also possible with adapters now!
 In the following, we'll go through the fastest way of uploading an adapter directly via Python in the `adapters` library.
 For more options and information, e.g. for managing models via the CLI and Git, refer to [HugginFace's documentation](https://huggingface.co/transformers/model_sharing.html).
 
-1. **Prepare access credentials**: Before being able to push to the HuggingFace Model Hub for the first time, we have to store our access token in the cache.
+1. **Prepare access credentials**: Before being able to push to the Hugging Face Model Hub for the first time, we have to store our access token in the cache.
     This can be done via the `transformers-cli` by running:
     ```
     transformers-cli login
@@ -55,13 +55,13 @@ For more options and information, e.g. for managing models via the CLI and Git, 
 
     ```{eval-rst}
     .. important::
-        All adapters uploaded to HuggingFace's Model Hub are automatically also listed on AdapterHub.ml. Thus, for better categorization, either ``adapterhub_tag`` or ``datasets_tag`` is required when uploading a new adapter to the Model Hub.
+        All adapters uploaded to Hugging Face's Model Hub are automatically also listed on AdapterHub.ml. Thus, for better categorization, either ``adapterhub_tag`` or ``datasets_tag`` is required when uploading a new adapter to the Model Hub.
 
         - ``adapterhub_tag`` specifies the AdapterHub categorization of the adapter in the format ``<task>/<subtask>`` according to the tasks and subtasks shown on https://adapterhub.ml/explore. For more, see `Add a new task or subtask <https://docs.adapterhub.ml/contributing.html#add-a-new-task-or-subtask>`_.
-        - ``datasets_tag`` specifies the dataset the adapter was trained on as an identifier from `HuggingFace Datasets <https://huggingface.co/datasets>`_.
+        - ``datasets_tag`` specifies the dataset the adapter was trained on as an identifier from `Hugging Face Datasets <https://huggingface.co/datasets>`_.
     ```
 
-Voilà! Your first adapter is on the HuggingFace Model Hub.
+Voilà! Your first adapter is on the Hugging Face Model Hub.
 Anyone can now run:
 ```
 model.load_adapter("<your_username>/my-awesome-adapter", source="hf")

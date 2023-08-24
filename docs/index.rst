@@ -11,7 +11,7 @@ For a full list of currently implemented methods, see the `table in our reposito
 
 The framework consists of two main components:
 
-- ``adapters``, an extension of Huggingface's `Transformers <https://huggingface.co/transformers/>`_ library that adds adapter components to transformer models
+- ``adapters``, an extension of Hugging Face's `Transformers <https://huggingface.co/transformers/>`_ library that adds adapter components to transformer models
 
 - `The Hub <https://adapterhub.ml>`_, a central repository collecting pre-trained adapter modules
 
@@ -24,6 +24,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    installation
    quickstart
    training
+   transitioning
 
 .. toctree::
    :maxdepth: 2
@@ -41,7 +42,6 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    prediction_heads
    embeddings
    extending
-   transitioning
 
 .. toctree::
    :maxdepth: 2
@@ -69,6 +69,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/models/encoderdecoder
    classes/models/gpt2
    classes/models/gptj
+   classes/models/llama
    classes/models/mbart
    classes/models/roberta
    classes/models/t5

@@ -2,7 +2,7 @@
 
 ```{eval-rst}
 .. note::
-    This document describes how to contribute adapters via the AdapterHub `Hub repository <https://github.com/adapter-hub/hub>`_. See `Integration with HuggingFace's Model Hub <huggingface_hub.html>`_ for uploading adapters via the HuggingFace Model Hub.
+    This document describes how to contribute adapters via the AdapterHub `Hub repository <https://github.com/adapter-hub/hub>`_. See `Integration with Hugging Face's Model Hub <huggingface_hub.html>`_ for uploading adapters via the Hugging Face Model Hub.
 ```
 
 You can easily add your own pre-trained adapter modules or architectures to Adapter Hub via our [Hub GitHub repo](https://github.com/adapter-hub/hub). Please make sure to follow the steps below corresponding to the type of contribution you would like to make.
@@ -26,15 +26,17 @@ Before making any kind of contribution to _Adapter-Hub_, you will first need to 
 
 As you're fully set up now, you can proceed on the specific steps if your contribution:
 
-- [](#add-your-pre-trained-adapter)
-- [](#add-a-new-adapter-architecture)
-- [](#add-a-new-task-or-subtask)
+- [Contributing Adapters to the Hub](#contributing-adapters-to-the-hub)
+  - [Getting started](#getting-started)
+  - [Add your pre-trained adapter](#add-your-pre-trained-adapter)
+  - [Add a new adapter architecture](#add-a-new-adapter-architecture)
+  - [Add a new task or subtask](#add-a-new-task-or-subtask)
 
 ## Add your pre-trained adapter
 
 You can add your pre-trained adapter modules to the Hub so others can load them via `model.load_adapter()`.
 
-_Note that we currently do not provide an option to host your module weights. Make sure you find an appropriate place to host them yourself!_
+_Note that we currently do not provide an option to host your module weights. Make sure you find an appropriate place to host them yourself or consider uploading your adapter to the huggingface hub!_
 
 Let's go through the upload process step by step:
 

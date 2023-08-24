@@ -1,6 +1,6 @@
 # Adding Adapters to a Model
 
-This document gives an overview on how `adapters` integrates adapter modules into the model architectures of HuggingFace Transformers.
+This document gives an overview on how `adapters` integrates adapter modules into the model architectures of Hugging Face Transformers.
 It can be used as a guide to add adapter support to new model architectures.
 
 Before we start to go into implementation details, first some important design philosophies of `adapters`:
@@ -56,12 +56,12 @@ This class allows flexible adding of and switching between multiple prediction h
 
 ## Testing
 
-❓ In addition to the general HuggingFace model tests, there are adapter-specific test cases. All tests are executed from the `tests_adapters` folder.
+❓ In addition to the general Hugging Face model tests, there are adapter-specific test cases. All tests are executed from the `tests_adapters` folder.
 
 **📝 Steps**
 
 - Add a new `test_<model_type>.py` module in `tests_adapters`. This module typically holds three test classes:
-    - `<model_type>AdapterModelTest` derives directly from HuggingFace's existing model test class `<model_type>ModelTest` and adds `<model_type>AdapterModel` as class to test.
+    - `<model_type>AdapterModelTest` derives directly from Hugging Face's existing model test class `<model_type>ModelTest` and adds `<model_type>AdapterModel` as class to test.
     - `<model_type>AdapterModelTest` derives from a collection of test mixins that hold various adapter tests (depending on the implementation).
     - (optionally) `<model_type>ClassConversionTest` runs tests for correct class conversion if conversion of prediction heads is implemented.
 - Append `<model_type>` to the list in `utils/check_adapters.py`.
@@ -79,4 +79,4 @@ This class allows flexible adding of and switching between multiple prediction h
 
 ❓ To make sure the new adapter implementation works properly, it is useful to train some example adapters and compare the training results to full model fine-tuning. Ideally, this would include training adapters on one (or more) tasks that are good for demonstrating the new model architecture (e.g. GLUE benchmark for BERT, summarization for BART) and uploading them to AdapterHub.
 
-HuggingFace already provides example training scripts for many tasks, some of them have already been modified to support adapter training (see https://github.com/Adapter-Hub/adapters/tree/main/examples).
+Hugging Face already provides example training scripts for many tasks, some of them have already been modified to support adapter training (see https://github.com/Adapter-Hub/adapters/tree/main/examples).

@@ -1,7 +1,7 @@
 # Prediction Heads
 
 This section gives an overview of how different prediction heads can be used together with adapter modules and how pre-trained adapters can be distributed side-by-side with matching prediction heads in AdapterHub.
-We will take a look at the `AdapterModel` classes (e.g. `BertAdapterModel`) introduced by adapters, which provide **flexible** support for prediction heads, as well as models with **static** heads provided out-of-the-box by HuggingFace Transformers (e.g. `BertForSequenceClassification`).
+We will take a look at the `AdapterModel` classes (e.g. `BertAdapterModel`) introduced by adapters, which provide **flexible** support for prediction heads, as well as models with **static** heads provided out-of-the-box by Hugging Face Transformers (e.g. `BertForSequenceClassification`).
 
 ```{eval-rst}
 .. tip::
@@ -13,7 +13,7 @@ We will take a look at the `AdapterModel` classes (e.g. `BertAdapterModel`) intr
 
 The AdapterModel classes provided by `adapters` allow a flexible configuration of prediction heads on top of a pre-trained language model.
 
-First, we load pre-trained model from the HuggingFace Hub via the [`AutoAdapterModel`](adapters.AutoAdapterModel) class:
+First, we load pre-trained model from the Hugging Face Hub via the [`AutoAdapterModel`](adapters.AutoAdapterModel) class:
 ```python
 model = AutoAdapterModel.from_pretrained("bert-base-uncased")
 ```
@@ -71,7 +71,7 @@ Lastly, it's also possible to delete an added head again:
 model.delete_head("mrpc")
 ```
 
-## Model classes with static heads (HuggingFace Transformers)
+## Model classes with static heads (Hugging Face Transformers)
 
 The `transformers` library provides strongly typed model classes with heads for various different tasks (e.g. `RobertaForSequenceClassification`, `AutoModelForMultipleChoice` ...).
 If an adapter module is trained with one of these out-of-the-box classes, it is encouraged to also distribute the prediction head weights together with the adapter weights.
