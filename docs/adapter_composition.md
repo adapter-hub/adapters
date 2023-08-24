@@ -1,8 +1,8 @@
 # Adapter Activation and Composition
 
-One of the great advantages of using adapters is the possibility to combine multiple adapters trained on different tasks in various ways.
-To enable such adapter compositions, `adapters` comes with a modular and flexible concept to define how the input to the model should flow through the available adapters.
-This not only allows stacking ([_MAD-X_](https://arxiv.org/pdf/2005.00052.pdf)) and fusing ([_AdapterFusion_](https://arxiv.org/pdf/2005.00247.pdf)) adapters, but also even more complex adapter setups.
+With `adapters`, it becomes possible to combine multiple adapters trained on different tasks in so-called *adapter compositions*.
+To enable such compositions, `adapters` comes with a modular and flexible concept to define how the input to the model should flow through the available adapters.
+This allows, e.g., stacking ([_MAD-X_](https://arxiv.org/pdf/2005.00052.pdf)) and fusing ([_AdapterFusion_](https://arxiv.org/pdf/2005.00247.pdf)) adapters and even more complex adapter setups.
 
 ## Adapter Activation
 
@@ -12,19 +12,20 @@ In the simplest case, you can set the name of a single adapter here to activate 
 model.active_adapters = "adapter_name"
 ```
 
-Note that we also could have used `model.set_active_adapters("adapter_name")` which does the same.
-
 ```{eval-rst}
 .. important::
-    ``active_adapters`` defines which of the available adapters are used in each forward and backward pass through the model. This means:
+    ``active_adapters`` defines which available adapters are used in each forward and backward pass through the model. This means:
 
-    - You cannot activate an adapter not previously added to the model using either ``add_adapter()`` or ``load_adapter()``.
-    - All adapters not mentioned anywhere in the ``active_adapters`` setup are ignored although they might be loaded into the model. Thus, after adding an adapter, make sure to activate it.
+    - You cannot activate an adapter before previously adding it to the model using either ``add_adapter()`` or ``load_adapter()``.
+    - All adapters not mentioned in the ``active_adapters`` setup are ignored, although they might have been loaded into the model. Thus, after adding an adapter, make sure to activate it.
 ```
+Note that we also could have used the [`set_active_adapters`](adapters.) method with `model.set_active_adapters("adapter_name")` which does the same.
 
 Alternatively, the [`AdapterSetup`](adapters.AdapterSetup) context manager allows dynamic configuration of activated setups without changing the model state:
 
 ```python
+from adapters import AdapterSetup
+
 model = ...
 model.add_adapter("adapter_name")
 
@@ -35,7 +36,7 @@ with AdapterSetup("adapter_name"):
 
 ## Composition Blocks - Overview
 
-The basic building blocks of the more advanced setups are simple objects derived from `AdapterCompositionBlock`,
+The basic building blocks of the more advanced setups are objects derived from `AdapterCompositionBlock`,
 each representing a different possibility to combine single adapters.
 The following table gives an overview on the supported composition blocks and their support by different adapter methods.
 
@@ -80,11 +81,10 @@ model.add_adapter("c")
 model.active_adapters = ac.Stack("a", "b", "c")
 ```
 
-Since v3.2.0, stacking is also supported for prefix tuning.
-Stacked prefixes are prepended to the input states from right to left, i.e. `Stack("a", "b", "c")` will first prepend prefix states for "a" to the input vectors, then prepend "b" to the resulting vectors etc.
-
-In v1.x of `adapters`, stacking adapters was done using a list of adapter names, i.e. the example from above would be defined as `["a", "b", "c"]`.
-For backwards compatibility, you can still do this, although it is recommended to use the new syntax.
+```{eval-rst}
+.. note::
+    When using stacking for prefix tuning the stacked prefixed are prepended to the input states from right to left, i.e. `Stack("a", "b", "c")` will first prepend prefix states for "a" to the input vectors, then prepend "b" to the resulting vectors etc.
+```
 
 ## `Fuse`
 
@@ -100,7 +100,7 @@ For backwards compatibility, you can still do this, although it is recommended t
 The `Fuse` block can be used to activate a fusion layer of adapters.
 _AdapterFusion_ is a non-destructive way to combine the knowledge of multiple pre-trained adapters on a new downstream task, proposed by [Pfeiffer et al., 2021](https://arxiv.org/pdf/2005.00247.pdf).
 In the following example, we activate the adapters `d`, `e` and `f` as well as the fusion layer that combines the outputs of all three.
-The fusion layer is added beforehand using `model.add_adapter_fusion()` where we specify the names of the adapters which should be fused.
+The fusion layer is added beforehand using `model.add_adapter_fusion()`, where we specify the names of the adapters which should be fused.
 
 ```python
 import adapters.composition as ac
@@ -122,9 +122,6 @@ model.active_adapters = ac.Fuse("d", "e", "f")
 ```
 
 To learn how training an _AdapterFusion_ layer works, check out [this Colab notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/03_Adapter_Fusion.ipynb) from the `adapters` repo.
-
-In v1.x of `adapters`, fusing adapters was done using a nested list of adapter names, i.e. the example from above would be defined as `[["d", "e", "f"]]`.
-For backwards compatibility, you can still do this, although it is recommended to use the new syntax.
 
 #### Retrieving AdapterFusion attentions
 
@@ -160,7 +157,7 @@ In the example, `attention_scores` holds a dictionary of the following form:
     :align: center
     :alt: Illustration of splitting adapters.
 
-    Splitting the input between two adapters using the 'Stack' block.
+    Splitting the input between two adapters using the 'Split' block.
 ```
 
 The `Split` block can be used to split an input sequence between two adapters.
@@ -219,6 +216,8 @@ In the following example, we load two adapters for semantic textual similarity (
 We activate a parallel setup where the input is passed through both adapters and their respective prediction heads.
 
 ```python
+import adapters.composition as ac
+
 model = AutoAdapterModel.from_pretrained("distilbert-base-uncased")
 tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
@@ -290,13 +289,15 @@ import adapters.composition as ac
 model.active_adapters = ac.Stack("a", ac.Split("b", "c", split_index=60))
 ```
 
-However, combinations of adapter composition blocks cannot be arbitrarily deep. All currently supported possibilities are visualized in the figure below. 
+However, combinations of adapter composition blocks cannot be arbitrarily deep. All currently supported possibilities are visualized in the table below.
 
-```{eval-rst}
-.. figure:: img/adapter_blocks_nesting.png
-    :height: 300
-    :align: center
-    :alt: Adapter composition block combinations
+|Block|Supported Nesting|
+|---|---|
+| [`Stack`](#stack)|[str, Fuse, Split, Parallel, BatchSplit, Average]|
+| [`Fuse`](#fuse)|[str, Stack]|
+|[`Split`](#split)|[str, Split, Stack, BatchSplit, Average]|
+|[`Parallel`](#parallel)|[str, Stack, BatchSplit, Average]|
+|[`BatchSplit`](#batchsplit)|[str, Stack, Split, BatchSplit, Average]|
+|[`Average`](#output-averaging)|[str, Stack, Split, BatchSplit]|
 
-    Allowed nestings of adapter composition blocks.
-```
+In the table, `str` represents an adapter, e.g. adapter "a" in the nesting example above. Depending on the individual model, some nested compositions might not be possible.
