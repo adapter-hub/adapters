@@ -26,6 +26,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
+import adapters
 from adapters import AdapterArguments, AdapterTrainer
 from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer, EvalPrediction, GlueDataset
 from transformers import GlueDataTrainingArguments as DataTrainingArguments
@@ -136,6 +137,9 @@ def main():
         config=config,
         cache_dir=model_args.cache_dir,
     )
+
+    # Convert the model into an adapter model
+    adapters.init(model)
 
     # ~~~~~ Here comes the interesting part of setting up AdapterFusion training ~~~~~
 

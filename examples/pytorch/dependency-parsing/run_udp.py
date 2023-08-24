@@ -11,6 +11,7 @@ from typing import Dict, Optional
 
 from datasets import load_dataset
 
+import adapters
 import adapters.composition as ac
 from adapters import AdapterArguments, AdapterConfigBase, AutoAdapterModel, setup_adapter_training
 from preprocessing import preprocess_dataset
@@ -169,6 +170,9 @@ def main():
         config=config,
         cache_dir=model_args.cache_dir,
     )
+
+    # Convert the model into an adapter model
+    adapters.init(model)
     model.add_dependency_parsing_head(
         task_name,
         num_labels=num_labels,

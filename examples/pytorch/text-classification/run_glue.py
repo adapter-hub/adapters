@@ -27,6 +27,7 @@ import datasets
 import numpy as np
 from datasets import load_dataset
 
+import adapters
 import evaluate
 import transformers
 from adapters import AdapterArguments, AdapterTrainer, AutoAdapterModel, setup_adapter_training
@@ -375,6 +376,10 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
         ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
     )
+
+    # Convert the model into an adapter model
+    adapters.init(model)
+
     model.add_classification_head(
         data_args.task_name or "glue",
         num_labels=num_labels,

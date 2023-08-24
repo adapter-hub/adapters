@@ -27,9 +27,11 @@ from typing import List, Optional, Tuple
 import datasets
 from datasets import load_dataset
 
+import adapters
 import evaluate
 import transformers
-from trainer_seq2seq_qa import QuestionAnsweringSeq2SeqTrainer
+from adapters import AdapterArguments, setup_adapter_training
+from trainer_seq2seq_qa import QuestionAnsweringSeq2SeqAdapterTrainer, QuestionAnsweringSeq2SeqTrainer
 from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
@@ -264,13 +266,15 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, AdapterArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, adapter_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
-        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+        model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -379,6 +383,9 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
+    # Convert the model into an adapter model
+    adapters.init(model)
 
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.
@@ -633,8 +640,14 @@ def main():
         references = [{"id": ex["id"], "answers": ex[answer_column]} for ex in examples]
         return EvalPrediction(predictions=formatted_predictions, label_ids=references)
 
+    # Setup adapters
+    setup_adapter_training(model, adapter_args, data_args.dataset_name or "mlm")
+
     # Initialize our Trainer
-    trainer = QuestionAnsweringSeq2SeqTrainer(
+    trainer_class = (
+        QuestionAnsweringSeq2SeqAdapterTrainer if adapter_args.train_adapter else QuestionAnsweringSeq2SeqTrainer
+    )
+    trainer = trainer_class(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,

@@ -14,7 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Question answering
+# Question answering with Adapters
+
+> **Note:** We have not adapted the following scripts of Hugging Face Transformers:
+> - `run_qa_beam_search_no_trainer.py`
+> - `run_qa_no_trainer.py`
+> - `run_qa_beam_search.py`
+> 
+> To avoid confusion we have not included these non-adapted versions in the examples of Adapters.
 
 This folder contains several scripts that showcase how to fine-tune a 🤗 Transformers model on a question answering dataset,
 like SQuAD. 
@@ -49,7 +56,10 @@ python run_qa.py \
   --num_train_epochs 2 \
   --max_seq_length 384 \
   --doc_stride 128 \
-  --output_dir /tmp/debug_squad/
+  --output_dir /tmp/debug_squad/ \
+  --train_adapter \
+  --adapter_config seq_bn \
+  --overwrite_output_dir
 ```
 
 Training with the previously defined hyper-parameters yields the following results:
@@ -59,48 +69,6 @@ f1 = 88.52
 exact_match = 81.22
 ```
 
-### Fine-tuning XLNet with beam search on SQuAD
-
-The [`run_qa_beam_search.py`](https://github.com/huggingface/transformers/blob/main/examples/pytorch/question-answering/run_qa_beam_search.py) script is only meant to fine-tune XLNet, which is a special encoder-only Transformer model. The example code below fine-tunes XLNet on the SQuAD1.0 and SQuAD2.0 datasets.
-
-#### Command for SQuAD1.0:
-
-```bash
-python run_qa_beam_search.py \
-    --model_name_or_path xlnet-large-cased \
-    --dataset_name squad \
-    --do_train \
-    --do_eval \
-    --learning_rate 3e-5 \
-    --num_train_epochs 2 \
-    --max_seq_length 384 \
-    --doc_stride 128 \
-    --output_dir ./wwm_cased_finetuned_squad/ \
-    --per_device_eval_batch_size=4  \
-    --per_device_train_batch_size=4   \
-    --save_steps 5000
-```
-
-#### Command for SQuAD2.0:
-
-```bash
-export SQUAD_DIR=/path/to/SQUAD
-
-python run_qa_beam_search.py \
-    --model_name_or_path xlnet-large-cased \
-    --dataset_name squad_v2 \
-    --do_train \
-    --do_eval \
-    --version_2_with_negative \
-    --learning_rate 3e-5 \
-    --num_train_epochs 4 \
-    --max_seq_length 384 \
-    --doc_stride 128 \
-    --output_dir ./wwm_cased_finetuned_squad/ \
-    --per_device_eval_batch_size=2  \
-    --per_device_train_batch_size=2   \
-    --save_steps 5000
-```
 
 ### Fine-tuning T5 on SQuAD2.0
 
@@ -123,61 +91,8 @@ python run_seq2seq_qa.py \
   --num_train_epochs 2 \
   --max_seq_length 384 \
   --doc_stride 128 \
-  --output_dir /tmp/debug_seq2seq_squad/
+  --output_dir /tmp/debug_seq2seq_squad/ \
+  --train_adapter \
+  --adapter_config seq_bn \
+  --overwrite_output_dir
 ```
-
-## Accelerate-based scripts
-
-Based on the scripts `run_qa_no_trainer.py` and `run_qa_beam_search_no_trainer.py`.
-
-Like `run_qa.py` and `run_qa_beam_search.py`, these scripts allow you to fine-tune any of the models supported on a
-SQuAD or a similar dataset, the main difference is that this script exposes the bare training loop, to allow you to quickly experiment and add any customization you would like. It offers less options than the script with `Trainer` (for instance you can easily change the options for the optimizer or the dataloaders directly in the script), but still run in a distributed setup, on TPU and supports mixed precision by leveraging the [🤗 `Accelerate`](https://github.com/huggingface/accelerate) library. 
-
-You can use the script normally after installing it:
-
-```bash
-pip install git+https://github.com/huggingface/accelerate
-```
-
-then
-
-```bash
-python run_qa_no_trainer.py \
-  --model_name_or_path bert-base-uncased \
-  --dataset_name squad \
-  --max_seq_length 384 \
-  --doc_stride 128 \
-  --output_dir ~/tmp/debug_squad
-```
-
-You can then use your usual launchers to run in it in a distributed environment, but the easiest way is to run
-
-```bash
-accelerate config
-```
-
-and reply to the questions asked. Then
-
-```bash
-accelerate test
-```
-
-that will check everything is ready for training. Finally, you can launch training with
-
-```bash
-accelerate launch run_qa_no_trainer.py \
-  --model_name_or_path bert-base-uncased \
-  --dataset_name squad \
-  --max_seq_length 384 \
-  --doc_stride 128 \
-  --output_dir ~/tmp/debug_squad
-```
-
-This command is the same and will work for:
-
-- a CPU-only setup
-- a setup with one GPU
-- a distributed training with several GPUs (single or multi node)
-- a training on TPUs
-
-Note that this library is in alpha release so your feedback is more than welcome if you encounter any problem using it.

@@ -14,7 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-## Translation
+## Translation with Adapters
+> **Note:** We have not adapted the following scripts of Hugging Face Transformers:
+> - `run_translation_no_trainer.py`
+>
+> To avoid confusion we have not included these non-adapted versions in the examples of Adapters.
 
 This directory contains examples for finetuning and evaluating transformers on translation tasks.
 Please tag @patil-suraj with any issues/unexpected behaviors, or send a PR!
@@ -31,6 +35,8 @@ For the old `finetune_trainer.py` and related utils, see [`examples/legacy/seq2s
 - `T5ForConditionalGeneration`
 - `MT5ForConditionalGeneration`
 
+Of course, if you want to train your model using adapters, only architectures supported by Adapters will work (https://docs.adapterhub.ml/model_overview.html).
+
 `run_translation.py` is a lightweight examples of how to download and preprocess a dataset from the [🤗 Datasets](https://github.com/huggingface/datasets) library or use your own files (jsonlines or csv), then fine-tune one of the architectures above on it.
 
 For custom datasets in `jsonlines` format please see: https://huggingface.co/docs/datasets/loading_datasets.html#json-files
@@ -39,10 +45,10 @@ and you also will find examples of these below.
 
 ## With Trainer
 
-Here is an example of a translation fine-tuning with a MarianMT model:
+Here is an example of a translation fine-tuning with a MarianMT model **without adding adapters**:
 
 ```bash
-python examples/pytorch/translation/run_translation.py \
+python run_translation.py \
     --model_name_or_path Helsinki-NLP/opus-mt-en-ro \
     --do_train \
     --do_eval \
@@ -59,10 +65,10 @@ python examples/pytorch/translation/run_translation.py \
 
 MBart and some T5 models require special handling.
 
-T5 models `t5-small`, `t5-base`, `t5-large`, `t5-3b` and `t5-11b` must use an additional argument: `--source_prefix "translate {source_lang} to {target_lang}"`. For example:
+T5 models `t5-small`, `t5-base`, `t5-large`, `t5-3b` and `t5-11b` must use an additional argument: `--source_prefix "translate {source_lang} to {target_lang}"`. For example **with adding adapters**:
 
 ```bash
-python examples/pytorch/translation/run_translation.py \
+python run_translation.py \
     --model_name_or_path t5-small \
     --do_train \
     --do_eval \
@@ -75,7 +81,10 @@ python examples/pytorch/translation/run_translation.py \
     --per_device_train_batch_size=4 \
     --per_device_eval_batch_size=4 \
     --overwrite_output_dir \
-    --predict_with_generate
+    --predict_with_generate \
+    --overwrite_output_dir \
+    --train_adapter \
+    --adapter_config seq_bn
 ```
 
 If you get a terrible BLEU score, make sure that you didn't forget to use the `--source_prefix` argument.
@@ -97,7 +106,10 @@ python examples/pytorch/translation/run_translation.py \
     --per_device_train_batch_size=4 \
     --per_device_eval_batch_size=4 \
     --overwrite_output_dir \
-    --predict_with_generate
+    --predict_with_generate \
+    --overwrite_output_dir \
+    --train_adapter \
+    --adapter_config seq_bn
  ```
 
 And here is how you would use the translation finetuning on your own files, after adjusting the
@@ -119,7 +131,10 @@ python examples/pytorch/translation/run_translation.py \
     --per_device_train_batch_size=4 \
     --per_device_eval_batch_size=4 \
     --overwrite_output_dir \
-    --predict_with_generate
+    --predict_with_generate \
+    --overwrite_output_dir \
+    --train_adapter \
+    --adapter_config seq_bn
 ```
 
 The task of translation supports only custom JSONLINES files, with each line being a dictionary with a key `"translation"` and its value another dictionary whose keys is the language pair. For example:
@@ -145,67 +160,8 @@ python examples/pytorch/translation/run_translation.py \
     --per_device_train_batch_size=4 \
     --per_device_eval_batch_size=4 \
     --overwrite_output_dir \
-    --predict_with_generate
+    --predict_with_generate \
+    --overwrite_output_dir \
+    --train_adapter \
+    --adapter_config seq_bn
  ```
-
-## With Accelerate
-
-Based on the script [`run_translation_no_trainer.py`](https://github.com/huggingface/transformers/blob/main/examples/pytorch/translation/run_translation_no_trainer.py).
-
-Like `run_translation.py`, this script allows you to fine-tune any of the models supported on a
-translation task, the main difference is that this
-script exposes the bare training loop, to allow you to quickly experiment and add any customization you would like.
-
-It offers less options than the script with `Trainer` (for instance you can easily change the options for the optimizer
-or the dataloaders directly in the script) but still run in a distributed setup, on TPU and supports mixed precision by
-the mean of the [🤗 `Accelerate`](https://github.com/huggingface/accelerate) library. You can use the script normally
-after installing it:
-
-```bash
-pip install git+https://github.com/huggingface/accelerate
-```
-
-then
-
-```bash
-python run_translation_no_trainer.py \
-    --model_name_or_path Helsinki-NLP/opus-mt-en-ro \
-    --source_lang en \
-    --target_lang ro \
-    --dataset_name wmt16 \
-    --dataset_config_name ro-en \
-    --output_dir ~/tmp/tst-translation
-```
-
-You can then use your usual launchers to run in it in a distributed environment, but the easiest way is to run
-
-```bash
-accelerate config
-```
-
-and reply to the questions asked. Then
-
-```bash
-accelerate test
-```
-
-that will check everything is ready for training. Finally, you can launch training with
-
-```bash
-accelerate launch run_translation_no_trainer.py \
-    --model_name_or_path Helsinki-NLP/opus-mt-en-ro \
-    --source_lang en \
-    --target_lang ro \
-    --dataset_name wmt16 \
-    --dataset_config_name ro-en \
-    --output_dir ~/tmp/tst-translation
-```
-
-This command is the same and will work for:
-
-- a CPU-only setup
-- a setup with one GPU
-- a distributed training with several GPUs (single or multi node)
-- a training on TPUs
-
-Note that this library is in alpha release so your feedback is more than welcome if you encounter any problem using it.

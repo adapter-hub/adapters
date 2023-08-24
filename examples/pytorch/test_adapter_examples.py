@@ -67,8 +67,8 @@ class AdapterExamplesTests(TestCasePlus):
             --model_name_or_path bert-base-uncased
             --output_dir {tmp_dir}
             --overwrite_output_dir
-            --train_file ./tests/fixtures/tests_samples/MRPC/train.csv
-            --validation_file ./tests/fixtures/tests_samples/MRPC/dev.csv
+            --train_file ./tests_adapters/fixtures/samples/MRPC/train.csv
+            --validation_file ./tests_adapters/fixtures/samples/MRPC/dev.csv
             --do_train
             --do_eval
             --per_device_train_batch_size=2
@@ -93,11 +93,11 @@ class AdapterExamplesTests(TestCasePlus):
         testargs = """
             run_fusion_glue.py
             --model_name_or_path bert-base-uncased
-            --data_dir ./tests/fixtures/tests_samples/MRPC/
+            --data_dir ./tests_adapters/fixtures/samples/MRPC/
             --task_name mrpc
             --do_train
             --do_eval
-            --output_dir ./tests/fixtures/tests_samples/temp_dir
+            --output_dir ./tests_adapters/fixtures/samples/temp_dir
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
             --learning_rate=5e-5
@@ -125,8 +125,8 @@ class AdapterExamplesTests(TestCasePlus):
             run_squad.py
             --model_name_or_path bert-base-uncased
             --version_2_with_negative
-            --train_file ./tests/fixtures/tests_samples/SQUAD/sample.json
-            --validation_file ./tests/fixtures/tests_samples/SQUAD/sample.json
+            --train_file ./tests_adapters/fixtures/samples/SQUAD/sample.json
+            --validation_file ./tests_adapters/fixtures/samples/SQUAD/sample.json
             --output_dir {tmp_dir}
             --overwrite_output_dir
             --max_steps=15
@@ -137,8 +137,7 @@ class AdapterExamplesTests(TestCasePlus):
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
             --train_adapter
-            --adapter_config=double_seq_bn
-            --adapter_reduction_factor=8
+            --adapter_config=double_seq_bn[reduction_factor=8]
         """.split()
 
         with patch.object(sys, "argv", testargs):
@@ -155,8 +154,8 @@ class AdapterExamplesTests(TestCasePlus):
         testargs = f"""
             run_swag.py
             --model_name_or_path bert-base-uncased
-            --train_file ./tests/fixtures/tests_samples/swag/sample.json
-            --validation_file ./tests/fixtures/tests_samples/swag/sample.json
+            --train_file ./tests_adapters/fixtures/samples/swag/sample.json
+            --validation_file ./tests_adapters/fixtures/samples/swag/sample.json
             --output_dir {tmp_dir}
             --overwrite_output_dir
             --max_steps=20
@@ -167,8 +166,7 @@ class AdapterExamplesTests(TestCasePlus):
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
             --train_adapter
-            --adapter_config=double_seq_bn
-            --adapter_reduction_factor=8
+            --adapter_config=double_seq_bn[reduction_factor=8]
         """.split()
 
         with patch.object(sys, "argv", testargs):
@@ -184,8 +182,8 @@ class AdapterExamplesTests(TestCasePlus):
         testargs = f"""
             run_clm.py
             --model_name_or_path gpt2
-            --train_file ./tests/fixtures/sample_text.txt
-            --validation_file ./tests/fixtures/sample_text.txt
+            --train_file ./tests_adapters/fixtures/sample_text.txt
+            --validation_file ./tests_adapters/fixtures/sample_text.txt
             --do_train
             --do_eval
             --learning_rate 1e-3
@@ -196,8 +194,7 @@ class AdapterExamplesTests(TestCasePlus):
             --output_dir {tmp_dir}
             --overwrite_output_dir
             --train_adapter
-            --adapter_config=double_seq_bn
-            --adapter_reduction_factor=8
+            --adapter_config=double_seq_bn[reduction_factor=8]
             """.split()
 
         if torch.cuda.device_count() > 1:
@@ -220,8 +217,8 @@ class AdapterExamplesTests(TestCasePlus):
         testargs = f"""
             run_mlm.py
             --model_name_or_path roberta-base
-            --train_file ./tests/fixtures/sample_text.txt
-            --validation_file ./tests/fixtures/sample_text.txt
+            --train_file ./tests_adapters/fixtures/sample_text.txt
+            --validation_file ./tests_adapters/fixtures/sample_text.txt
             --output_dir {tmp_dir}
             --overwrite_output_dir
             --do_train
@@ -229,8 +226,7 @@ class AdapterExamplesTests(TestCasePlus):
             --prediction_loss_only
             --num_train_epochs=1
             --train_adapter
-            --adapter_config=double_seq_bn
-            --adapter_reduction_factor=8
+            --adapter_config=double_seq_bn[reduction_factor=8]
         """.split()
 
         if torch_device != "cuda":
@@ -274,8 +270,8 @@ class AdapterExamplesTests(TestCasePlus):
         testargs = f"""
                 run_summarization.py
                 --model_name_or_path facebook/bart-base
-                --train_file ./tests/fixtures/tests_samples/xsum/sample.json
-                --validation_file ./tests/fixtures/tests_samples/xsum/sample.json
+                --train_file ./tests_adapters/fixtures/samples/xsum/sample.json
+                --validation_file ./tests_adapters/fixtures/samples/xsum/sample.json
                 --output_dir {tmp_dir}
                 --overwrite_output_dir
                 --max_steps=50
@@ -287,8 +283,7 @@ class AdapterExamplesTests(TestCasePlus):
                 --per_device_eval_batch_size=1
                 --predict_with_generate
                 --train_adapter
-                --adapter_config=double_seq_bn
-                --adapter_reduction_factor=8
+                --adapter_config=double_seq_bn[reduction_factor=8]
             """.split()
 
         with patch.object(sys, "argv", testargs):
@@ -310,8 +305,8 @@ class AdapterExamplesTests(TestCasePlus):
                 --model_name_or_path facebook/bart-base
                 --source_lang en
                 --target_lang ro
-                --train_file ./tests/fixtures/tests_samples/wmt16/sample.json
-                --validation_file ./tests/fixtures/tests_samples/wmt16/sample.json
+                --train_file ./tests_adapters/fixtures/samples/wmt16/sample.json
+                --validation_file ./tests_adapters/fixtures/samples/wmt16/sample.json
                 --output_dir {tmp_dir}
                 --overwrite_output_dir
                 --max_steps=50
@@ -325,8 +320,7 @@ class AdapterExamplesTests(TestCasePlus):
                 --source_lang en_XX
                 --target_lang ro_RO
                 --train_adapter
-                --adapter_config=double_seq_bn
-                --adapter_reduction_factor=8
+                --adapter_config=double_seq_bn[reduction_factor=8]
             """.split()
 
         with patch.object(sys, "argv", testargs):
@@ -345,8 +339,8 @@ class AdapterExamplesTests(TestCasePlus):
         testargs = f"""
             run_ner.py
             --model_name_or_path bert-base-uncased
-            --train_file ./tests/fixtures/tests_samples/conll/sample.json
-            --validation_file ./tests/fixtures/tests_samples/conll/sample.json
+            --train_file ./tests_adapters/fixtures/samples/conll/sample.json
+            --validation_file ./tests_adapters/fixtures/samples/conll/sample.json
             --output_dir {tmp_dir}
             --overwrite_output_dir
             --do_train
@@ -357,8 +351,7 @@ class AdapterExamplesTests(TestCasePlus):
             --per_device_eval_batch_size=2
             --num_train_epochs={epochs}
             --train_adapter
-            --adapter_config=double_seq_bn
-            --adapter_reduction_factor=16
+            --adapter_config=double_seq_bn[reduction_factor=16]
         """.split()
 
         if torch_device != "cuda":

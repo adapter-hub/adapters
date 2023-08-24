@@ -30,6 +30,7 @@ import numpy as np
 import torch
 from datasets import load_dataset
 
+import adapters
 import transformers
 from adapters import AdapterArguments, AdapterTrainer, setup_adapter_training
 from transformers import (
@@ -325,6 +326,9 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
+    # Convert the model into an adapter model
+    adapters.init(model)
 
     # When using your own dataset or a different dataset from swag, you will probably need to change this.
     ending_names = [f"ending{i}" for i in range(4)]

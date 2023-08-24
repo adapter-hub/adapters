@@ -389,6 +389,7 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+    # Convert the model into an adapter model
     adapters.init(model)
 
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch

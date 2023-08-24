@@ -16,8 +16,10 @@ limitations under the License.
 
 # Examples
 
-This folder contains a subset of [the example scripts provided by HuggingFace for the Transformers library](https://github.com/huggingface/transformers/tree/main/examples).
-Most of the scripts here have been modified to support training adapters instead of full model fine-tuning.
+This folder contains example scripts that show how adapters can be used for various tasks.
+The examples are partly written by us and partly a modified version of [the example scripts provided by HuggingFace for the Transformers library](https://github.com/huggingface/transformers/tree/main/examples).
+
+All of the scripts here have been modified to support training adapters instead of full model fine-tuning.
 
 Before getting started with an example script, make sure to have everything set up.
 It is best to install the latest `adapters` version from the repository:
@@ -32,7 +34,15 @@ Now, switch to an examples folder and run:
 pip install -r requirements.txt
 ```
 
-Currently, scripts for these tasks support adapters:
+## Adapter Specific Scripts
+| Task | Description |
+| --- | --- |
+| [**`adapterdrop`**](https://github.com/adapter-hub/adapters/tree/master/examples/pytorch/adapterdrop) | Demonstrating how to use AdapterDrop ([ Rücklé et al., 2021](https://arxiv.org/pdf/2010.11918.pdf))
+| [**`adapterfusion`**](https://github.com/adapter-hub/adapters/tree/master/examples/pytorch/adapterfusion) | Training AdapterFusion ([Pfeiffer et al., 2020](https://arxiv.org/pdf/2005.00247.pdf)) on the GLUE dataset
+
+## Modified Hugging Face Transformers Example Scripts
+
+Modified scripts of the Hugging Face Transformers library that support adapters:
 
 | Task | Description |
 | --- | --- |
@@ -57,7 +67,7 @@ Fore more information and examples on training adapters, please refer to these l
 
 ---
 
-**NOTE: Below, you find the original, unmodified, documentation by HuggingFace. Check out [their examples folder](https://github.com/huggingface/transformers/tree/main/examples) for more example scripts.**
+**NOTE: Below, you find the original, unmodified, documentation by Hugging Face. Check out [their examples folder](https://github.com/huggingface/transformers/tree/main/examples) for more example scripts.**
 
 ---
 

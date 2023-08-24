@@ -17,4 +17,7 @@ python3 run_ner.py \
   --dataset_name conll2003 \
   --output_dir /tmp/test-ner \
   --do_train \
-  --do_eval
+  --do_eval \
+  --overwrite_output_dir \
+  --train_adapter \
+  --adapter_config seq_bn

@@ -24,6 +24,7 @@ import logging
 import numpy as np
 import torch
 
+import adapters
 from transformers import (
     CTRLLMHeadModel,
     CTRLTokenizer,
@@ -215,6 +216,10 @@ def main():
 
     tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
     model = model_class.from_pretrained(args.model_name_or_path)
+
+    # Convert the model into an adapter model
+    adapters.init(model)
+
     model.to(args.device)
 
     # Setup adapters

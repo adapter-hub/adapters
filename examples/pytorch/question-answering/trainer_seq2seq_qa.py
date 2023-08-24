@@ -21,6 +21,7 @@ from typing import Dict, List, Optional
 
 from torch.utils.data import Dataset
 
+from adapters import AdapterTrainer
 from transformers import Seq2SeqTrainer, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput, speed_metrics
 
@@ -160,3 +161,7 @@ class QuestionAnsweringSeq2SeqTrainer(Seq2SeqTrainer):
                 metrics[f"{metric_key_prefix}_{key}"] = metrics.pop(key)
         metrics.update(output.metrics)
         return PredictionOutput(predictions=predictions.predictions, label_ids=predictions.label_ids, metrics=metrics)
+
+
+class QuestionAnsweringSeq2SeqAdapterTrainer(QuestionAnsweringSeq2SeqTrainer, AdapterTrainer):
+    pass

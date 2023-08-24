@@ -32,6 +32,7 @@ from typing import Optional
 import datasets
 from datasets import load_dataset
 
+import adapters
 import evaluate
 import transformers
 from adapters import AdapterArguments, AdapterTrainer, setup_adapter_training
@@ -387,6 +388,9 @@ def main():
     else:
         logger.info("Training new model from scratch")
         model = AutoModelForMaskedLM.from_config(config)
+
+    # Convert the model into an adapter model
+    adapters.init(model)
 
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.

@@ -1,4 +1,4 @@
-# Dependency parsing on Universal Dependencies
+# Dependency parsing on Universal Dependencies with Adapters
 
 These example scripts are based on the fine-tuning code from the repository of ["How Good is Your Tokenizer? On the Monolingual Performance of Multilingual Language Models"](https://github.com/Adapter-Hub/hgiyt).
 The scripts were upgraded to `adapters` v2.x and modified to use [flex heads](https://docs.adapterhub.ml/prediction_heads.html#models-with-flexible-heads) and HuggingFace Datasets.

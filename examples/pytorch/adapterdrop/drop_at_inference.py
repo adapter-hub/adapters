@@ -1,12 +1,15 @@
 # TODO: Replace this with a proper colab notebook
 import torch
 
-from src.transformers import AutoModelForSequenceClassification, AutoTokenizer
+import adapters
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 
 if __name__ == "__main__":
     """A temporary example to highlight changes implemented for AdapterDrop at inference"""
     model = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
+    # Convert the model into an adapter model
+    adapters.init(model)
     model.load_adapter("sentiment/sst-2@ukp")
 
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")

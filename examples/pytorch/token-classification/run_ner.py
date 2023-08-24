@@ -29,6 +29,7 @@ import datasets
 import numpy as np
 from datasets import ClassLabel, load_dataset
 
+import adapters
 import evaluate
 import transformers
 from adapters import AdapterArguments, AdapterTrainer, setup_adapter_training
@@ -374,6 +375,9 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
         ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
     )
+
+    # Convert the model into an adapter model
+    adapters.init(model)
 
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):

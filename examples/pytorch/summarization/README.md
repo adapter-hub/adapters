@@ -14,7 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-## Summarization
+## Summarization with Adapters
+
+> **Note:** We have not adapted the following scripts of Hugging Face Transformers:
+> - `run_summarization_no_trainer.py`
+> 
+> To avoid confusion we have not included these non-adapted versions in the examples of Adapters.
+
 
 This directory contains examples for finetuning and evaluating transformers on summarization  tasks.
 Please tag @patil-suraj with any issues/unexpected behaviors, or send a PR!
@@ -40,7 +46,7 @@ and you also will find examples of these below.
 
 Here is an example on a summarization task:
 ```bash
-python examples/pytorch/summarization/run_summarization.py \
+python run_summarization.py \
     --model_name_or_path t5-small \
     --do_train \
     --do_eval \
@@ -51,7 +57,10 @@ python examples/pytorch/summarization/run_summarization.py \
     --per_device_train_batch_size=4 \
     --per_device_eval_batch_size=4 \
     --overwrite_output_dir \
-    --predict_with_generate
+    --predict_with_generate \
+    --train_adapter \
+    --adapter_config seq_bn \
+    --overwrite_output_dir
 ```
 
 Only T5 models `t5-small`, `t5-base`, `t5-large`, `t5-3b` and `t5-11b` must use an additional argument: `--source_prefix "summarize: "`.
@@ -75,7 +84,10 @@ python examples/pytorch/summarization/run_summarization.py \
     --overwrite_output_dir \
     --per_device_train_batch_size=4 \
     --per_device_eval_batch_size=4 \
-    --predict_with_generate
+    --predict_with_generate  \
+    --train_adapter \
+    --adapter_config seq_bn \
+    --overwrite_output_dir
 ```
 
 The task of summarization supports custom CSV and JSONLINES formats.
@@ -134,63 +146,3 @@ And as with the CSV files, you can specify which values to select from the file,
     --text_column text \
     --summary_column summary \
 ```
-
-## With Accelerate
-
-Based on the script [`run_summarization_no_trainer.py`](https://github.com/huggingface/transformers/blob/main/examples/pytorch/summarization/run_summarization_no_trainer.py).
-
-Like `run_summarization.py`, this script allows you to fine-tune any of the models supported on a
-summarization task, the main difference is that this
-script exposes the bare training loop, to allow you to quickly experiment and add any customization you would like.
-
-It offers less options than the script with `Trainer` (for instance you can easily change the options for the optimizer
-or the dataloaders directly in the script) but still run in a distributed setup, on TPU and supports mixed precision by
-the mean of the [🤗 `Accelerate`](https://github.com/huggingface/accelerate) library. You can use the script normally
-after installing it:
-
-```bash
-pip install git+https://github.com/huggingface/accelerate
-```
-
-then
-
-```bash
-python run_summarization_no_trainer.py \
-    --model_name_or_path t5-small \
-    --dataset_name cnn_dailymail \
-    --dataset_config "3.0.0" \
-    --source_prefix "summarize: " \
-    --output_dir ~/tmp/tst-summarization
-```
-
-You can then use your usual launchers to run in it in a distributed environment, but the easiest way is to run
-
-```bash
-accelerate config
-```
-
-and reply to the questions asked. Then
-
-```bash
-accelerate test
-```
-
-that will check everything is ready for training. Finally, you can launch training with
-
-```bash
-accelerate launch run_summarization_no_trainer.py \
-    --model_name_or_path t5-small \
-    --dataset_name cnn_dailymail \
-    --dataset_config "3.0.0" \
-    --source_prefix "summarize: " \
-    --output_dir ~/tmp/tst-summarization
-```
-
-This command is the same and will work for:
-
-- a CPU-only setup
-- a setup with one GPU
-- a distributed training with several GPUs (single or multi node)
-- a training on TPUs
-
-Note that this library is in alpha release so your feedback is more than welcome if you encounter any problem using it.

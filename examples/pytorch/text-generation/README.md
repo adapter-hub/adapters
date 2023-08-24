@@ -14,7 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-## Language generation
+## Language generation with Adapters
+> **Note:** We have not adapted the following scripts of Hugging Face Transformers:
+> - `run_generation_contrastive_search.py`
+>
+> To avoid confusion we have not included these non-adapted versions in the examples of Adapters.
 
 Based on the script [`run_generation.py`](https://github.com/huggingface/transformers/blob/main/examples/pytorch/text-generation/run_generation.py).
 
@@ -33,7 +37,7 @@ python run_generation.py \
 This can also be done by using a trained adapter. With the `--adapter_path` argument you can specify an adapter to load 
 for language generation.
 
-Example with adapter:  
+Example with Adapters:  
 ```bash
 python run_generation.py \
     --model_type=gpt2 \

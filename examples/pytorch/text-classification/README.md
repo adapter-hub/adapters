@@ -14,11 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Text classification examples
+# Text classification with Adapters
+> **Note:** We have not adapted the following scripts of Hugging Face Transformers:
+> - `run_glue_no_trainer.py`
+> - `run_xnli.py`
+>
+> To avoid confusion we have not included these non-adapted versions in the examples of Adapters.
+
 
 ## Training Adapters in PyTorch
 
-Based on scripts `run_glue.py` and `run_glue.py` (using model classes with flexible heads).
+Based on script `run_glue.py` (using model classes with flexible heads).
 
 By specifying a few additional, adapter-specific flags, you can easily switch from fine-tuning a full model to training Adapter modules on GLUE:
 
@@ -42,7 +48,7 @@ python run_glue.py \
 
 ---
 
-## PyTorch version
+## Hugging Face Transformers version
 
 Based on the script [`run_glue.py`](https://github.com/Adapter-Hub/adapters/blob/master/examples/pytorch/text-classification/run_glue.py).
 

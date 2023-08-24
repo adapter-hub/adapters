@@ -27,6 +27,7 @@ from typing import Optional
 import datasets
 from datasets import load_dataset
 
+import adapters
 import evaluate
 import transformers
 from adapters import AdapterArguments, setup_adapter_training
@@ -335,6 +336,9 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
+    # Convert the model into an adapter model
+    adapters.init(model)
+
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
         raise ValueError(
@@ -599,7 +603,7 @@ def main():
         return metric.compute(predictions=p.predictions, references=p.label_ids)
 
     # Setup adapters
-    setup_adapter_training(model, adapter_args, training_args, data_args.dataset_name or "squad")
+    setup_adapter_training(model, adapter_args, data_args.dataset_name or "squad")
     # Initialize our Trainer
     trainer_class = QuestionAnsweringAdapterTrainer if adapter_args.train_adapter else QuestionAnsweringTrainer
     trainer = trainer_class(

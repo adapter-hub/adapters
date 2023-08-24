@@ -29,6 +29,7 @@ import nltk  # Here to have a nice missing dependency error message early on
 import numpy as np
 from datasets import load_dataset
 
+import adapters
 import evaluate
 import transformers
 from adapters import AdapterArguments, Seq2SeqAdapterTrainer, setup_adapter_training
@@ -430,6 +431,9 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
+    # Convert the model into an adapter model
+    adapters.init(model)
 
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.
