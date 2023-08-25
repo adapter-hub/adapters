@@ -1,0 +1,19 @@
+{
+    "t": {
+        "s": {
+            "default": "path/to/default",
+            "9076f36a74755ac4": {
+                "default": "path/to/pfeiffer/default",
+                "versions": {
+                    "example-org": "path/to/pfeiffer/example-org",
+                    "ukp": "path/to/pfeiffer/ukp"
+                }
+            },
+            "b1017368d7a97b11": {
+                "versions": {
+                    "example-org": "path/to/houlsby/example-org"
+                }
+            }
+        }
+    }
+}

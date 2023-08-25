@@ -1,0 +1,50 @@
+cff-version: "1.2.0"
+date-released: 2020-10
+message: "If you use this software, please cite it as below."
+title: "AdapterHub: A Framework for Adapting Transformers"
+url: "https://github.com/Adapter-Hub/adapter-transformers"
+authors: 
+  - family-names: Pfeiffer
+    given-names: Jonas
+  - family-names: Rücklé
+    given-names: Andreas
+  - family-names: Poth
+    given-names: Clifton
+  - family-names: Kamath
+    given-names: Aishwarya
+  - family-names: Vulić
+    given-names: Ivan
+  - family-names: Ruder
+    given-names: Sebastian
+  - family-names: Cho
+    given-names: Kyunghyun
+  - family-names: Gurevych
+    given-names: Iryna
+preferred-citation:
+  type: inproceedings
+  authors:
+  - family-names: Pfeiffer
+    given-names: Jonas
+  - family-names: Rücklé
+    given-names: Andreas
+  - family-names: Poth
+    given-names: Clifton
+  - family-names: Kamath
+    given-names: Aishwarya
+  - family-names: Vulić
+    given-names: Ivan
+  - family-names: Ruder
+    given-names: Sebastian
+  - family-names: Cho
+    given-names: Kyunghyun
+  - family-names: Gurevych
+    given-names: Iryna
+  booktitle: "Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations"
+  month: 10
+  start: 46
+  end: 54
+  title: "AdapterHub: A Framework for Adapting Transformers"
+  year: 2020
+  publisher: "Association for Computational Linguistics"
+  url: "https://aclanthology.org/2020.emnlp-demos.7"
+  address: "Online"

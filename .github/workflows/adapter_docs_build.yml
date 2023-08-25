@@ -1,0 +1,42 @@
+name: Build Adapter Docs
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/**'
+      - 'adapter_docs/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install
+        run: |
+          pip install setuptools==57.4.0
+          pip install torch
+          pip install recommonmark==0.7.1
+          pip install -e .[docs]
+          pip install Jinja2==2.11.3
+          pip install markupsafe==2.0.1
+      - name: Build
+        run: |
+          cd adapter_docs && make html-multi-version && cd ..
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          user_name: "Adapter-Hub-Bert"
+          user_email: "---"
+          publish_dir: ./adapter_docs/_build/html
+          publish_branch: gh-pages
+          force_orphan: true
+          cname: docs.adapterhub.ml
