@@ -5,8 +5,8 @@ import torch.nn as nn
 from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel_
-from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
 from ...context import ForwardContext
+from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
 
 
 logger = logging.get_logger(__name__)
@@ -44,7 +44,10 @@ class XmodModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
     @ForwardContext.wrap
     def forward(self, *args, **kwargs):
         if "lang_ids" in kwargs and kwargs["lang_ids"] is not None:
-            raise ValueError("XmodModel with adapters does not support `lang_ids` as an argument. Use `set_active_adapters` instead.")
+            raise ValueError(
+                "XmodModel with adapters does not support `lang_ids` as an argument. Use `set_active_adapters`"
+                " instead."
+            )
         else:
             kwargs["lang_ids"] = 1
         return super().forward(*args, **kwargs)
@@ -52,7 +55,9 @@ class XmodModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
     # Override adapter-specific methods in original implementation
 
     def set_default_language(self, language: str):
-        raise ValueError("`set_default_language` is not implemented for models using `adapters`. Use `set_active_adapters` instead.")
+        raise ValueError(
+            "`set_default_language` is not implemented for models using `adapters`. Use `set_active_adapters` instead."
+        )
 
     def freeze_embeddings_and_language_adapters(self):
         """

@@ -163,9 +163,9 @@ class BnConfig(AdapterConfigBase):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False.
         residual_before_ln (:obj:`bool` or :obj:`str`, optional):
-            If True, take the residual connection around the adapter bottleneck before the layer normalization.
-            If set to "post_add", take the residual connection around the adapter bottleneck after the previous residual connection.
-            Only applicable if :obj:`original_ln_before` is True.
+            If True, take the residual connection around the adapter bottleneck before the layer normalization. If set
+            to "post_add", take the residual connection around the adapter bottleneck after the previous residual
+            connection. Only applicable if :obj:`original_ln_before` is True.
         adapter_residual_before_ln (:obj:`bool`, optional):
             If True, apply the residual connection around the adapter modules before the new layer normalization within
             the adapter. Only applicable if :obj:`ln_after` is True and :obj:`is_parallel` is False.
