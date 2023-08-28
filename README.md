@@ -18,6 +18,8 @@ limitations under the License.
 
 This branch contains the development version of `adapters`, the next-generation library for parameter-efficient and modular transfer learning.
 
+> **Note**: For the stable version of `adapter-transformers`, please switch to the [master branch of the repo](https://github.com/adapter-hub/adapter-transformers).
+
 ### Changes compared to `adapter-transformers`
 
 - `adapters` is a standalone package, using `transformers` as an external dependency but not patching it directly

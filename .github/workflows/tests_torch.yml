@@ -2,8 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "adapters"]
     paths:
+      - ".github/workflows/**"
       - "src/**"
       - "examples/**"
       - "templates/**"
@@ -11,8 +12,9 @@ on:
       - "tests_adapters/**"
       - "utils/**"
   pull_request:
-    branches: ["main", "develop"]
+    branches: ["main", "adapters"]
     paths:
+      - ".github/workflows/**"
       - "src/**"
       - "examples/**"
       - "templates/**"
