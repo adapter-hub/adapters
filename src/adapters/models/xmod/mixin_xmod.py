@@ -5,7 +5,6 @@ import torch.nn as nn
 from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel_
-from ...context import ForwardContext
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
 
 
@@ -41,7 +40,6 @@ class XmodModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
     def hook_after_embeddings(self, hook_fn: Callable):
         return self.embeddings.register_forward_hook(hook_fn)
 
-    @ForwardContext.wrap
     def forward(self, *args, **kwargs):
         if "lang_ids" in kwargs and kwargs["lang_ids"] is not None:
             raise ValueError(
