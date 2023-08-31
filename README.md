@@ -43,6 +43,9 @@ Features not (yet) working:
 - Using Transformers pipelines with adapters
 - Using HF language modeling classes with invertible adapters
 
+## Documentation
+To read the documentation of _Adapters_, follow the steps in [docs/README.md](docs/README.md). Currently, the documentation is **not** yet available from https://docs.adapterhub.ml/.
+
 ---
 
 <p align="center">
