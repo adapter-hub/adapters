@@ -145,18 +145,6 @@ class XmodSelfOutputWithAdapters(BertSelfOutputAdaptersMixin, XmodSelfOutput):
 
 
 class XmodOutputWithAdapters(BertOutputAdaptersMixin, XmodOutput):
-    def __init__(self, config):
-        super().__init__()
-        self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
-        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        if config.adapter_layer_norm:
-            self.adapter_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
-        else:
-            self.adapter_layer_norm = None
-        self.adapter_reuse_layer_norm = config.adapter_reuse_layer_norm
-        # Other adapter-specific modules of original module are not created here
-
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor, lang_ids: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)

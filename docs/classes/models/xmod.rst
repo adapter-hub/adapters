@@ -1,15 +1,15 @@
 X-MOD
 =====
 
-.. note::
+.. important::
     The X-MOD implementation integrated into Transformers already supports adapters.
     To make this implementation compatible with Adapters, a few changes were necessary:
 
-        - In Adapters, the X-MOD classes rely on the usual adapter methods instead of the custom methods introduced in Transformers, i.e.:
-            - ``set_active_adapters()`` instead of ``set_default_language()``.
-            - ``AdapterSetup`` context instead of ``lang_ids`` parameter.
-        - We provide dedicated model checkpoints converted for usage with Adapters
-            - e.g. ``facebook/xmod-base`` is available as ``AdapterHub/xmod-base`` with languages adapters split into separate repos (e.g. ``AdapterHub/xmod-base-af_ZA``) for on-demand loading.
+    - Pre-trained X-MOD checkpoints require conversion before they can be used with Adapters. We provide pre-converted checkpoints for the following models:
+            - ``facebook/xmod-base`` -> ``AdapterHub/xmod-base`` with languages adapters split into separate repos (e.g. ``AdapterHub/xmod-base-af_ZA``)
+    - In Adapters, the X-MOD classes rely on the usual adapter methods instead of the custom methods introduced in Transformers, i.e.:
+        - ``set_active_adapters()`` instead of ``set_default_language()``.
+        - ``AdapterSetup`` context instead of ``lang_ids`` parameter.
 
 The abstract from the paper is the following:
 
