@@ -145,7 +145,7 @@ class Adapter(nn.Module):
         """
         query = None
 
-        if self.residual_before_ln:
+        if self.residual_before_ln is True:
             residual = hidden_states
 
         if fusion_config is not None and fusion_config["query_before_ln"]:
@@ -153,7 +153,10 @@ class Adapter(nn.Module):
 
         if self.original_ln_before:
             if layer_norm:
-                hidden_states = layer_norm(hidden_states + input_tensor)
+                hidden_states = hidden_states + input_tensor
+                if self.residual_before_ln == "post_add":
+                    residual = hidden_states
+                hidden_states = layer_norm(hidden_states)
             else:
                 hidden_states = hidden_states + input_tensor
 

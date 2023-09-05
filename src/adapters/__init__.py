@@ -107,6 +107,7 @@ _import_structure = {
     "models.t5": ["T5AdapterModel"],
     "models.vit": ["ViTAdapterModel"],
     "models.xlm_roberta": ["XLMRobertaAdapterModel"],
+    "models.xmod": ["XmodAdapterModel"],
     "trainer": ["AdapterTrainer", "Seq2SeqAdapterTrainer"],
     "training": [
         "AdapterArguments",
@@ -206,6 +207,7 @@ if TYPE_CHECKING:
     from .models.t5 import T5AdapterModel
     from .models.vit import ViTAdapterModel
     from .models.xlm_roberta import XLMRobertaAdapterModel
+    from .models.xmod import XmodAdapterModel
     from .trainer import AdapterTrainer, Seq2SeqAdapterTrainer
     from .training import AdapterArguments, setup_adapter_training
     from .utils import (

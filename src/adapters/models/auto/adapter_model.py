@@ -26,6 +26,7 @@ ADAPTER_MODEL_MAPPING_NAMES = OrderedDict(
         ("t5", "T5AdapterModel"),
         ("vit", "ViTAdapterModel"),
         ("xlm-roberta", "XLMRobertaAdapterModel"),
+        ("xmod", "XmodAdapterModel"),
     ]
 )
 

@@ -227,7 +227,13 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                         for param in self.adapter_fusion_layer[sub_setup.name].parameters():
                             param.requires_grad = True
 
-    def get_adapter(self, adapter_name):
+    def freeze_adapter(self, adapter_name: str, freeze: bool = True):
+        if adapter_name in self.adapters:
+            self.adapters[adapter_name].train(not freeze)
+            for param in self.adapters[adapter_name].parameters():
+                param.requires_grad = not freeze
+
+    def get_adapter(self, adapter_name: str):
         if adapter_name in self.adapters:
             return self.adapters[adapter_name]
         else:
