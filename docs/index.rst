@@ -66,6 +66,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/models/deberta
    classes/models/deberta_v2
    classes/models/distilbert
+   classes/models/electra
    classes/models/encoderdecoder
    classes/models/gpt2
    classes/models/gptj

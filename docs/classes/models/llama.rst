@@ -1,7 +1,7 @@
 LLaMA
 -----------------------------------------------------------------------------------------------------------------------
 
-The LLaMA model was proposed in `LLaMA: Open and Efficient Foundation Language Models<https://arxiv.org/abs/2302.13971>` by 
+The LLaMA model was proposed in `LLaMA: Open and Efficient Foundation Language Models <https://arxiv.org/abs/2302.13971>`__ by 
 Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-Anne Lachaux, Timothée Lacroix, Baptiste Rozière, Naman Goyal, 
 Eric Hambro, Faisal Azhar, Aurelien Rodriguez, Armand Joulin, Edouard Grave, Guillaume Lample. It is a collection of foundation language 
 models ranging from 7B to 65B parameters.

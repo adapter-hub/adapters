@@ -598,6 +598,70 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": ["lm_head"],
     },
+    "ElectraForTokenClassification": {
+        "config": {
+            "head_type": "tagging",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "classifier"],
+    },
+    "ElectraForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 2,
+            "activation_function": "gelu",
+            "bias": True,
+        },
+        "layers": [None, "classifier.dense", None, None, "classifier.out_proj"],
+    },
+    "ElectraForQuestionAnswering": {
+        "config": {
+            "head_type": "question_answering",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "qa_outputs"],
+    },
+    "ElectraForMultipleChoice": {
+        "config": {
+            "head_type": "multiple_choice",
+            "layers": 2,
+            "activation_function": "gelu",
+            "use_pooler": False,
+        },
+        "layers": [None, "sequence_summary.summary", None, None, "classifier"],
+    },
+    "ElectraForMaskedLM": {
+        "config": {
+            "head_type": "masked_lm",
+            "layers": 2,
+            "activation_function": "gelu",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": [
+            "generator_predictions.dense",
+            None,
+            "generator_predictions.LayerNorm",
+            "generator_lm_head",
+        ],
+    },
+    "ElectraForCausalLM": {
+        "config": {
+            "head_type": "causal_lm",
+            "layers": 2,
+            "activation_function": "gelu",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": [
+            "generator_predictions.dense",
+            None,
+            "generator_predictions.LayerNorm",
+            "generator_lm_head",
+        ],
+    },
 }
 
 

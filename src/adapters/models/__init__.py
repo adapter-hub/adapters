@@ -43,6 +43,8 @@ MODEL_MIXIN_MAPPING = {
     "CLIPModel": CLIPModelAdaptersMixin,
     "CLIPTextModelWithProjection": CLIPTextModelAdaptersMixin,
     "CLIPVisionModelWithProjection": CLIPVisionModelAdaptersMixin,
+    "ElectraLayer": BertLayerAdaptersMixin,
+    "ElectraModel": BertModelAdaptersMixin,
     "MBartEncoder": BartEncoderAdaptersMixin,
     "MBartDecoder": BartDecoderAdaptersMixin,
     "MBartDecoderWrapper": BartDecoderWrapperAdaptersMixin,

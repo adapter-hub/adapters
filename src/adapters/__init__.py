@@ -99,6 +99,7 @@ _import_structure = {
     "models.deberta": ["DebertaAdapterModel"],
     "models.deberta_v2": ["DebertaV2AdapterModel"],
     "models.distilbert": ["DistilBertAdapterModel"],
+    "models.electra": ["ElectraAdapterModel"],
     "models.gpt2": ["GPT2AdapterModel"],
     "models.gptj": ["GPTJAdapterModel"],
     "models.llama": ["LlamaAdapterModel"],
@@ -199,6 +200,7 @@ if TYPE_CHECKING:
     from .models.deberta import DebertaAdapterModel
     from .models.deberta_v2 import DebertaV2AdapterModel
     from .models.distilbert import DistilBertAdapterModel
+    from .models.electra import ElectraAdapterModel
     from .models.gpt2 import GPT2AdapterModel
     from .models.gptj import GPTJAdapterModel
     from .models.llama import LlamaAdapterModel
