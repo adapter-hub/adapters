@@ -19,6 +19,7 @@ from .gptj.mixin_gptj import GPTJMLPAdaptersMixin
 from .llama.mixin_llama import LlamaModelAdapterMixin
 from .t5.mixin_t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
 from .vit.mixin_vit import ViTIntermediateAdaptersMixin, ViTModelAdaptersMixin
+from .xmod.mixin_xmod import XmodModelAdaptersMixin
 
 
 # IMPORTANT: Only add classes to this mapping that are not copied into the adapters package
@@ -60,6 +61,8 @@ MODEL_MIXIN_MAPPING = {
     "ViTModel": ViTModelAdaptersMixin,
     "XLMRobertaLayer": BertLayerAdaptersMixin,
     "XLMRobertaModel": BertModelAdaptersMixin,
+    "XmodLayer": BertLayerAdaptersMixin,
+    "XmodModel": XmodModelAdaptersMixin,
     "DebertaModel": BertModelAdaptersMixin,
     "DebertaLayer": BertLayerAdaptersMixin,
     "DebertaV2Model": BertModelAdaptersMixin,

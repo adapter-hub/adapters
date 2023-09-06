@@ -256,6 +256,61 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": ["lm_head.dense", None, "lm_head.layer_norm", "lm_head.decoder"],
     },
+    # Xmod
+    "XmodForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 2,
+            "activation_function": "tanh",
+            "use_pooler": False,
+        },
+        "layers": [None, "classifier.dense", None, None, "classifier.out_proj"],
+    },
+    "XmodForMultipleChoice": {
+        "config": {
+            "head_type": "multiple_choice",
+            "layers": 1,
+            "activation_function": None,
+            "use_pooler": True,
+        },
+        "layers": [None, "classifier"],
+    },
+    "XmodForTokenClassification": {
+        "config": {
+            "head_type": "tagging",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "classifier"],
+    },
+    "XmodForQuestionAnswering": {
+        "config": {
+            "head_type": "question_answering",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "qa_outputs"],
+    },
+    "XmodForMaskedLM": {
+        "config": {
+            "head_type": "masked_lm",
+            "layers": 2,
+            "activation_function": "gelu",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": ["lm_head.dense", None, "lm_head.layer_norm", "lm_head.decoder"],
+    },
+    "XmodForCausalLM": {
+        "config": {
+            "head_type": "causal_lm",
+            "layers": 2,
+            "activation_function": "gelu",
+            "layer_norm": True,
+            "bias": True,
+        },
+        "layers": ["lm_head.dense", None, "lm_head.layer_norm", "lm_head.decoder"],
+    },
     # BART
     "BartForSequenceClassification": {
         "config": {
