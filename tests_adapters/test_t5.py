@@ -38,10 +38,6 @@ class T5AdapterTestBase(AdapterTestBase):
     )
     tokenizer_name = "t5-base"
 
-    def add_head(self, model, name, **kwargs):
-        model.add_seq2seq_lm_head(name)
-        return self.default_input_samples_shape[-1]
-
     def dataset(self, tokenizer=None):
         # setup tokenizer
         if tokenizer is None:

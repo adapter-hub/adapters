@@ -5,7 +5,14 @@ import torch
 from transformers.models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOCSTRING, T5Model, T5PreTrainedModel
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
-from ...heads import ModelWithFlexibleHeadsAdaptersMixin, QuestionAnsweringHead, Seq2SeqLMHead
+from ...composition import adjust_tensors_for_parallel
+from ...heads import (
+    ClassificationHead,
+    ModelWithFlexibleHeadsAdaptersMixin,
+    MultiLabelClassificationHead,
+    QuestionAnsweringHead,
+    Seq2SeqLMHead,
+)
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -102,11 +109,24 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
             else:
                 model_output["last_hidden_state"] = new_hidden_state
 
+        # sequence classification based on last token in sequence
+        if input_ids is not None and sequence_output.shape[1] == input_ids.shape[1]:
+            eos_mask = input_ids.eq(self.config.eos_token_id)
+            (eos_mask,) = adjust_tensors_for_parallel(sequence_output, eos_mask)
+            if len(torch.unique(eos_mask.sum(1))) > 1:
+                raise ValueError("All examples must have the same number of <eos> tokens.")
+            cls_representation = sequence_output[eos_mask, :].view(
+                sequence_output.size(0), -1, sequence_output.size(-1)
+            )[:, -1, :]
+        else:
+            cls_representation = sequence_output
+
         if head or self.active_head:
             kwargs["labels"] = labels
             head_outputs = self.forward_head(
                 model_output,
                 head_name=head,
+                cls_output=cls_representation,
                 return_dict=return_dict,
                 **kwargs,
             )
@@ -175,6 +195,8 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
     head_types = {
         "seq2seq_lm": Seq2SeqLMHead,
         "question_answering": QuestionAnsweringHead,
+        "classification": ClassificationHead,
+        "multilabel_classification": MultiLabelClassificationHead,
     }
 
     def add_seq2seq_lm_head(self, head_name, overwrite_ok=False):
@@ -198,4 +220,32 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
         id2label=None,
     ):
         head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
+        self.add_prediction_head(head, overwrite_ok)
+
+    def add_classification_head(
+        self,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        overwrite_ok=False,
+        multilabel=False,
+        id2label=None,
+    ):
+        """
+        Adds a sequence classification head on top of the model.
+
+        Args:
+            head_name (str): The name of the head.
+            num_labels (int, optional): Number of classification labels. Defaults to 2.
+            layers (int, optional): Number of layers. Defaults to 2.
+            activation_function (str, optional): Activation function. Defaults to 'tanh'.
+            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
+            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
+        """
+
+        if multilabel:
+            head = MultiLabelClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
+        else:
+            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
         self.add_prediction_head(head, overwrite_ok)
