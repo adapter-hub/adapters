@@ -5,7 +5,7 @@ import torch.nn as nn
 from ...layer import AdapterLayer
 from ...lora import Linear as LoRALinear
 from ...lora import MergedLinear as LoRAMergedLinear
-from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin
+from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
 from ...prefix_tuning import PrefixTuningShim
 
 
@@ -54,7 +54,7 @@ class GPT2DecoderBlockAdaptersMixin:
         self.output_adapters = AdapterLayer("output_adapter")
 
 
-class GPT2ModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelAdaptersMixin):
+class GPT2ModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.base_model.h):
             yield i, layer
