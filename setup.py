@@ -21,7 +21,7 @@ from setuptools import find_packages, setup
 # We try to follow their general layout wherever sensible.
 
 _deps = [
-    "accelerate>=0.20.1",
+    "accelerate>=0.20.3",
     "black==22.3",  # after updating to black 2023, also update Python version in pyproject.toml to 3.7
     "datasets!=2.5.0",
     "dill<0.3.5",
@@ -60,8 +60,8 @@ _deps = [
     "sphinx-intl",
     "sphinx-multiversion",
     "timeout-decorator",
-    "torch>=1.7,!=1.12.0",
-    "transformers==4.31.0",
+    "torch>=1.10,!=1.12.0",
+    "transformers==4.33.1",
     "beautifulsoup4",
 ]
 
