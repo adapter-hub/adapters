@@ -20,7 +20,7 @@ tags:
 
 An [adapter](https://adapterhub.ml) for the `{model_name}` model that was trained on the {dataset_name} dataset{head_info}.
 
-This adapter was created for usage with the **[adapters](https://github.com/Adapter-Hub/adapters)** library.
+This adapter was created for usage with the **[Adapters](https://github.com/Adapter-Hub/adapters)** library.
 
 ## Usage
 
@@ -29,12 +29,11 @@ First, install `adapters`:
 ```
 pip install -U adapters
 ```
-_Note: adapters is a fork of transformers that acts as a drop-in replacement with adapter support. [More](https://docs.adapterhub.ml/installation.html)_
 
 Now, the adapter can be loaded and activated like this:
 
 ```python
-from transformers import AutoAdapterModel
+from adapters import AutoAdapterModel
 
 model = AutoAdapterModel.from_pretrained("{model_name}")
 adapter_name = model.load_adapter("{adapter_repo_name}", source="hf", set_active=True)
@@ -71,7 +70,7 @@ class PushAdapterToHubMixin:
         metrics: Optional[List[str]] = None,
         **kwargs
     ):
-        all_tags = {"adapters"}
+        all_tags = {"adapter-transformers"}  # TODO: change this tag once changed on HF side
         datasets = set()
         # Dataset/ Task info
         dataset_name = None
@@ -184,7 +183,7 @@ class PushAdapterToHubMixin:
         use_temp_dir = not os.path.isdir(local_path) if local_path else True
 
         # Create repo or get retrieve an existing repo
-        repo_id, token = self._create_repo(repo_id, private=private, use_auth_token=use_auth_token)
+        repo_id = self._create_repo(repo_id, private=private, use_auth_token=use_auth_token)
 
         # Commit and push
         logger.info('Pushing adapter "%s" to model hub at %s ...', adapter_name, repo_id)
@@ -203,5 +202,10 @@ class PushAdapterToHubMixin:
                     **adapter_card_kwargs,
                 )
             return self._upload_modified_files(
-                work_dir, repo_id, files_timestamps, commit_message=commit_message, token=token, create_pr=create_pr
+                work_dir,
+                repo_id,
+                files_timestamps,
+                commit_message=commit_message,
+                token=use_auth_token,
+                create_pr=create_pr,
             )
