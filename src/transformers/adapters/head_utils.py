@@ -314,6 +314,13 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": ["lm_head"],
     },
+    # Whisper
+    "WhisperForConditionalGeneration": {
+        "config": {
+            "head_type": "seq2seq_lm",
+        },
+        "layers": ["proj_out"],
+    },
     # DistilBERT
     "DistilBertForSequenceClassification": {
         "config": {

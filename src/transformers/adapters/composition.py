@@ -108,6 +108,7 @@ SUPPORTED_MODELS = {
         "deberta",
         "bart",
         "mbart",
+        "whisper",
         "gpt2",
         "gptj",
         "t5",

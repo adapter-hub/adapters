@@ -25,6 +25,7 @@ The table below further shows which model architectures support which adaptation
 | [GPT-2](classes/models/gpt2.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [GPT-J](classes/models/gptj.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [MBart](classes/models/mbart.html)      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [Whisper](classes/models/whisper.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [RoBERTa](classes/models/roberta.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [T5](classes/models/t5.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [ViT](classes/models/vit.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |

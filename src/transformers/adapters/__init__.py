@@ -118,6 +118,10 @@ _import_structure = {
         "MBartAdapterModel",
         "MBartModelWithHeads",
     ],
+    "models.whisper": [
+        "WhisperAdapterModel",
+        "WhisperModelWithHeads",
+    ],    
     "models.roberta": [
         "RobertaAdapterModel",
         "RobertaModelWithHeads",
@@ -219,6 +223,7 @@ if TYPE_CHECKING:
     from .models.gpt2 import GPT2AdapterModel, GPT2ModelWithHeads
     from .models.gptj import GPTJAdapterModel
     from .models.mbart import MBartAdapterModel, MBartModelWithHeads
+    from .models.whisper import WhisperAdapterModel, WhisperModelWithHeads
     from .models.roberta import RobertaAdapterModel, RobertaModelWithHeads
     from .models.t5 import T5AdapterModel, T5ModelWithHeads
     from .models.vit import ViTAdapterModel

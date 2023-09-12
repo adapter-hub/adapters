@@ -12,6 +12,7 @@ MODELS_WITH_ADAPTERS = [
     "distilbert",
     "bart",
     "mbart",
+    "whisper",
     "gpt2",
     "gptj",
     "encoder_decoder",
@@ -27,6 +28,8 @@ IGNORE_NOT_IMPLEMENTING_MIXIN = [
     "BartDecoder",
     "MBartEncoder",
     "MBartDecoder",
+    "WhisperEncoder",
+    "WhisperDecoder",
     "T5Stack",
 ]
 

@@ -13,8 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ PyTorch Whisper model."""
-
-
+import copy
 import math
 import random
 from typing import Optional, Tuple, Union
@@ -25,14 +24,35 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
+from ...adapters.composition import adjust_tensors_for_parallel
+from ...adapters.context import ForwardContext
+from ...adapters.lora import Linear as LoRALinear
+from ...adapters.mixins.whisper import (
+    WhisperDecoderLayerAdaptersMixin,
+    WhisperEncoderLayerAdaptersMixin,
+    WhisperModelAdaptersMixin,
+    WhisperModelWithHeadsAdaptersMixin,
+)
+from ...adapters.model_mixin import InvertibleAdaptersMixin
+from ...adapters.prefix_tuning import PrefixTuningShim
 from ...modeling_outputs import (
     BaseModelOutput,
     BaseModelOutputWithPastAndCrossAttentions,
+    CausalLMOutputWithCrossAttentions,
     Seq2SeqLMOutput,
     Seq2SeqModelOutput,
+    Seq2SeqQuestionAnsweringModelOutput,
+    Seq2SeqSequenceClassifierOutput,
 )
 from ...modeling_utils import PreTrainedModel
-from ...utils import add_start_docstrings, add_start_docstrings_to_model_forward, logging, replace_return_docstrings
+from ...utils import (
+    add_code_sample_docstrings,
+    add_end_docstrings,
+    add_start_docstrings,
+    add_start_docstrings_to_model_forward,
+    logging,
+    replace_return_docstrings,
+)
 from .configuration_whisper import WhisperConfig
 
 
@@ -110,11 +130,13 @@ class WhisperAttention(nn.Module):
 
     def __init__(
         self,
+        config: WhisperConfig,
         embed_dim: int,
         num_heads: int,
         dropout: float = 0.0,
         is_decoder: bool = False,
         bias: bool = True,
+        location_key: Optional[str] = None,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -130,10 +152,12 @@ class WhisperAttention(nn.Module):
         self.scaling = self.head_dim**-0.5
         self.is_decoder = is_decoder
 
-        self.k_proj = nn.Linear(embed_dim, embed_dim, bias=False)
-        self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.k_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, attn_key="k", bias=False)
+        self.v_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, attn_key="v", bias=bias)
+        self.q_proj = LoRALinear(embed_dim, embed_dim, "selfattn", config, attn_key="q", bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        
+        self.prefix_tuning = PrefixTuningShim(location_key + "_prefix" if location_key else None, config)
 
     # Copied from transformers.models.bart.modeling_bart.BartAttention._shape with BART->whisper
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
@@ -197,6 +221,12 @@ class WhisperAttention(nn.Module):
             past_key_value = (key_states, value_states)
 
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
+
+        key_states, value_states, attention_mask = self.prefix_tuning(
+            key_states, value_states, hidden_states, attention_mask
+        )
+        (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
+
         query_states = self._shape(query_states, tgt_len, bsz).view(*proj_shape)
         key_states = key_states.view(*proj_shape)
         value_states = value_states.view(*proj_shape)
@@ -253,7 +283,7 @@ class WhisperAttention(nn.Module):
         attn_output = attn_output.transpose(1, 2)
 
         # Use the `embed_dim` from the config (stored in the class) rather than `hidden_state` because `attn_output` can be
-        # partitioned aross GPUs when using tensor-parallelism.
+        # partitioned across GPUs when using tensor-parallelism.
         attn_output = attn_output.reshape(bsz, tgt_len, self.embed_dim)
 
         attn_output = self.out_proj(attn_output)
@@ -262,22 +292,28 @@ class WhisperAttention(nn.Module):
 
 
 # Copied from transformers.models.mbart.modeling_mbart.MBartEncoderLayer with MBart->Whisper
-class WhisperEncoderLayer(nn.Module):
+class WhisperEncoderLayer(WhisperEncoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: WhisperConfig):
         super().__init__()
+        self.config = config
+        
         self.embed_dim = config.d_model
         self.self_attn = WhisperAttention(
+            config,
             embed_dim=self.embed_dim,
             num_heads=config.encoder_attention_heads,
             dropout=config.attention_dropout,
+            location_key="encoder",
         )
         self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
         self.activation_dropout = config.activation_dropout
-        self.fc1 = nn.Linear(self.embed_dim, config.encoder_ffn_dim)
-        self.fc2 = nn.Linear(config.encoder_ffn_dim, self.embed_dim)
+        self.fc1 = LoRALinear(self.embed_dim, config.encoder_ffn_dim, "intermediate", config)
+        self.fc2 = LoRALinear(config.encoder_ffn_dim, self.embed_dim, "output", config)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -306,7 +342,7 @@ class WhisperEncoderLayer(nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = self.attention_adapters(hidden_states, residual, None)
 
         residual = hidden_states
         hidden_states = self.final_layer_norm(hidden_states)
@@ -314,7 +350,7 @@ class WhisperEncoderLayer(nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = self.attention_adapters(hidden_states, residual, None)
 
         if hidden_states.dtype == torch.float16 and (
             torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()
@@ -331,16 +367,20 @@ class WhisperEncoderLayer(nn.Module):
 
 
 # Copied from transformers.models.mbart.modeling_mbart.MBartDecoderLayer with MBart->Whisper
-class WhisperDecoderLayer(nn.Module):
+class WhisperDecoderLayer(WhisperDecoderLayerAdaptersMixin, nn.Module):
     def __init__(self, config: WhisperConfig):
         super().__init__()
+        self.config = config
+        
         self.embed_dim = config.d_model
 
         self.self_attn = WhisperAttention(
+            config,
             embed_dim=self.embed_dim,
             num_heads=config.decoder_attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
+            location_key="self",
         )
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
@@ -348,15 +388,19 @@ class WhisperDecoderLayer(nn.Module):
 
         self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.encoder_attn = WhisperAttention(
+            config,
             self.embed_dim,
             config.decoder_attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
+            location_key="cross",
         )
         self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
-        self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
-        self.fc2 = nn.Linear(config.decoder_ffn_dim, self.embed_dim)
+        self.fc1 = LoRALinear(self.embed_dim, config.encoder_ffn_dim, "intermediate", config)
+        self.fc2 = LoRALinear(config.encoder_ffn_dim, self.embed_dim, "output", config)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+
+        self._init_adapter_modules()
 
     def forward(
         self,
@@ -403,7 +447,7 @@ class WhisperDecoderLayer(nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = self.attention_adapters(hidden_states, residual, None)
 
         # Cross-Attention Block
         cross_attn_present_key_value = None
@@ -423,7 +467,7 @@ class WhisperDecoderLayer(nn.Module):
                 output_attentions=output_attentions,
             )
             hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-            hidden_states = residual + hidden_states
+            hidden_states = self.cross_attention_adapters(hidden_states, residual, None)
 
             # add cross-attn to positions 3,4 of present_key_value tuple
             present_key_value = present_key_value + cross_attn_present_key_value
@@ -435,7 +479,7 @@ class WhisperDecoderLayer(nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = self.output_adapters(hidden_states, residual, None)
 
         outputs = (hidden_states,)
 
@@ -453,7 +497,6 @@ class WhisperPreTrainedModel(PreTrainedModel):
     base_model_prefix = "model"
     main_input_name = "input_features"
     supports_gradient_checkpointing = True
-    _no_split_modules = ["WhisperEncoderLayer"]
 
     def _init_weights(self, module):
         std = self.config.init_std
@@ -573,7 +616,7 @@ WHISPER_INPUTS_DOCSTRING = r"""
 """
 
 
-class WhisperEncoder(WhisperPreTrainedModel):
+class WhisperEncoder(InvertibleAdaptersMixin, WhisperPreTrainedModel):
     """
     Transformer encoder consisting of *config.encoder_layers* self attention layers. Each layer is a
     [`WhisperEncoderLayer`].
@@ -585,6 +628,8 @@ class WhisperEncoder(WhisperPreTrainedModel):
 
     def __init__(self, config: WhisperConfig):
         super().__init__(config)
+        self.config = config
+        
         self.dropout = config.dropout
         self.layerdrop = config.encoder_layerdrop
 
@@ -659,6 +704,8 @@ class WhisperEncoder(WhisperPreTrainedModel):
         hidden_states = inputs_embeds + embed_pos
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
 
+        hidden_states = self.invertible_adapters_forward(hidden_states)
+
         encoder_states = () if output_hidden_states else None
         all_attentions = () if output_attentions else None
 
@@ -667,6 +714,7 @@ class WhisperEncoder(WhisperPreTrainedModel):
             assert head_mask.size()[0] == (
                 len(self.layers)
             ), f"The head_mask should be specified for {len(self.layers)} layers, but it is for {head_mask.size()[0]}."
+
 
         for idx, encoder_layer in enumerate(self.layers):
             if output_hidden_states:
@@ -699,11 +747,13 @@ class WhisperEncoder(WhisperPreTrainedModel):
                     )
 
                 hidden_states = layer_outputs[0]
+                (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
 
             if output_attentions:
                 all_attentions = all_attentions + (layer_outputs[1],)
 
         hidden_states = self.layer_norm(hidden_states)
+        
         if output_hidden_states:
             encoder_states = encoder_states + (hidden_states,)
 
@@ -752,7 +802,6 @@ class WhisperDecoder(WhisperPreTrainedModel):
         # create causal mask
         # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
         combined_attention_mask = None
-
         if input_shape[-1] > 1:
             combined_attention_mask = _make_causal_mask(
                 input_shape, inputs_embeds.dtype, past_key_values_length=past_key_values_length
@@ -760,7 +809,9 @@ class WhisperDecoder(WhisperPreTrainedModel):
 
         if attention_mask is not None:
             # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
-            expanded_attn_mask = _expand_mask(attention_mask, inputs_embeds.dtype, tgt_len=input_shape[-1])
+            expanded_attn_mask = _expand_mask(attention_mask, inputs_embeds.dtype, tgt_len=input_shape[-1]).to(
+                inputs_embeds.device
+            )
             combined_attention_mask = (
                 expanded_attn_mask if combined_attention_mask is None else expanded_attn_mask + combined_attention_mask
             )
@@ -936,6 +987,7 @@ class WhisperDecoder(WhisperPreTrainedModel):
                     use_cache=use_cache,
                 )
             hidden_states = layer_outputs[0]
+            (attention_mask,) = adjust_tensors_for_parallel(hidden_states, attention_mask)
 
             if use_cache:
                 next_decoder_cache += (layer_outputs[3 if output_attentions else 1],)
@@ -947,6 +999,7 @@ class WhisperDecoder(WhisperPreTrainedModel):
                     all_cross_attentions += (layer_outputs[2],)
 
         hidden_states = self.layer_norm(hidden_states)
+        
         # add hidden states from the last decoder layer
         if output_hidden_states:
             all_hidden_states += (hidden_states,)
@@ -971,7 +1024,7 @@ class WhisperDecoder(WhisperPreTrainedModel):
     "The bare Whisper Model outputting raw hidden-states without any specific head on top.",
     WHISPER_START_DOCSTRING,
 )
-class WhisperModel(WhisperPreTrainedModel):
+class WhisperModel(WhisperModelAdaptersMixin, WhisperPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"proj_out.weight"]
 
     def __init__(self, config: WhisperConfig):
@@ -979,7 +1032,9 @@ class WhisperModel(WhisperPreTrainedModel):
 
         self.encoder = WhisperEncoder(config)
         self.decoder = WhisperDecoder(config)
-        # Initialize weights and apply final processing
+
+        self._init_adapter_modules()
+
         self.post_init()
 
     def get_input_embeddings(self):
@@ -1003,6 +1058,7 @@ class WhisperModel(WhisperPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqModelOutput, config_class=_CONFIG_FOR_DOC)
+    @ForwardContext.wrap
     def forward(
         self,
         input_features: Optional[torch.LongTensor] = None,
@@ -1095,7 +1151,7 @@ class WhisperModel(WhisperPreTrainedModel):
     "The Whisper Model with a language modeling head. Can be used for automatic speech recognition.",
     WHISPER_START_DOCSTRING,
 )
-class WhisperForConditionalGeneration(WhisperPreTrainedModel):
+class WhisperForConditionalGeneration(WhisperModelWithHeadsAdaptersMixin, WhisperPreTrainedModel):
     base_model_prefix = "model"
     _keys_to_ignore_on_load_missing = [
         r"encoder.version",
@@ -1208,6 +1264,7 @@ class WhisperForConditionalGeneration(WhisperPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
+        lm_logits = self.model.encoder.invertible_adapters_forward(outputs[0], rev=True)
         lm_logits = self.proj_out(outputs[0])
 
         loss = None
