@@ -73,9 +73,14 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
         **kwargs
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        if labels is not None and decoder_input_ids is None and decoder_inputs_embeds is None:
-            # get decoder inputs from shifting lm labels to the right
-            decoder_input_ids = self._shift_right(labels)
+        if decoder_input_ids is None and decoder_inputs_embeds is None:
+            # Check if we're using a LM head
+            if labels is not None and any([isinstance(head, Seq2SeqLMHead) for head in self._get_used_heads(head)]):
+                # get decoder inputs from shifting lm labels to the right
+                decoder_input_ids = self._shift_right(labels)
+            else:
+                # decoder_input_ids from input_ids if no decoder_input_ids are provided
+                decoder_input_ids = self._shift_right(input_ids)
 
         model_output = self.transformer(
             input_ids=input_ids,
@@ -121,18 +126,15 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
         else:
             cls_representation = sequence_output
 
-        if head or self.active_head:
-            kwargs["labels"] = labels
-            head_outputs = self.forward_head(
-                model_output,
-                head_name=head,
-                cls_output=cls_representation,
-                return_dict=return_dict,
-                **kwargs,
-            )
-            return head_outputs
-        else:
-            return model_output
+        kwargs["labels"] = labels
+        head_outputs = self.forward_head(
+            model_output,
+            head_name=head,
+            cls_output=cls_representation,
+            return_dict=return_dict,
+            **kwargs,
+        )
+        return head_outputs
 
     # Copied from T5ForConditionalGeneration
     def prepare_inputs_for_generation(

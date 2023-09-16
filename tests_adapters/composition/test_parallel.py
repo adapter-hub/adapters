@@ -234,7 +234,7 @@ class ParallelTrainingMixin:
         dataset = []
         for i in range(3):
             input_data = self.get_input_samples(config=model.config)
-            if isinstance(model, T5AdapterModel) or isinstance(model, BertGenerationAdapterModel):
+            if isinstance(model, BertGenerationAdapterModel):
                 input_data["labels"] = torch.randint(0, 2, (3, 64))
             else:
                 input_data["labels"] = torch.randint(0, 2, (3, 1))
@@ -291,7 +291,7 @@ class ParallelTrainingMixin:
                 self.assertTrue(torch.equal(v, state_dict[k.replace(b1, b2)]))
 
         input_data = self.get_input_samples(config=model.config)
-        if isinstance(model, T5AdapterModel) or isinstance(model, BertGenerationAdapterModel):
+        if isinstance(model, BertGenerationAdapterModel):
             input_data["labels"] = torch.randint(0, 2, (3, 64), device=torch_device)
         else:
             input_data["labels"] = torch.randint(0, 2, (3, 1), device=torch_device)
