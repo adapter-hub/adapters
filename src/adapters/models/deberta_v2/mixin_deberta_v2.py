@@ -1,5 +1,5 @@
-from ...lora import Linear as LoRALinear
-from ...prefix_tuning import PrefixTuningShim
+from ...methods.lora import Linear as LoRALinear
+from ...methods.prefix_tuning import PrefixTuningShim
 
 
 class DebertaV2SelfAttentionAdaptersMixin:

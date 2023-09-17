@@ -32,7 +32,7 @@ Thus, each adapter method implementation at least should provide two classes:
     including methods for adding, enabling and deleting adapter weights.
     - Most importantly, the module classes deriving from this base class should implement the forward pass through an adaptation component.
     - The concrete implementation of these classes heavily depends on the specifics of the adapter method.
-    For a reference implementation, have a look at `AdapterLayer` for bottleneck adapters.
+    For a reference implementation, have a look at `BottleneckLayer` for bottleneck adapters.
 - To actually make use of the newly implemented classes, it's finally necessary to integrate the forward calls to the modules in the actual model implementations.
     - This, again, is highly dependent on how the adapter method interacts with the base model classes. Typically, module classes can be integrated either via mixins (see `src/transformers/adapters/mixins`) or directly as submodules of the respective model components.
     - The model class integration has to be repeated for each supported Transformer model, as they typically don't share a codebase. At this point it is often important to consider where the adapters need to be added to the transformer model and whether there is an implementation that does not require more copying of classes than the current implementation.

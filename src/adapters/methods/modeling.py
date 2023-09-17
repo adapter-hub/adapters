@@ -5,8 +5,8 @@ from torch import nn
 
 from transformers.activations import get_activation
 
-from .configuration import AdapterFusionConfig, BnConfig
-from .context import ForwardContext
+from ..configuration import AdapterFusionConfig, BnConfig
+from ..context import ForwardContext
 
 
 class Activation_Function_Class(nn.Module):

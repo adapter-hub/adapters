@@ -2,10 +2,10 @@ from typing import Callable, Iterable, Tuple
 
 import torch.nn as nn
 
-from ...layer import AdapterLayer
-from ...lora import Linear as LoRALinear
+from ...methods.bottleneck import BottleneckLayer
+from ...methods.lora import Linear as LoRALinear
+from ...methods.prefix_tuning import PrefixTuningShim
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
-from ...prefix_tuning import PrefixTuningShim
 
 
 class DistilBertMultiHeadSelfAttentionMixin:
@@ -28,8 +28,8 @@ class DistilBertTransfomerBlockAdaptersMixin:
         self.ffn.lin1 = LoRALinear.wrap(self.ffn.lin1, "intermediate", model_config, adapters_config)
         self.ffn.lin2 = LoRALinear.wrap(self.ffn.lin2, "output", model_config, adapters_config)
 
-        self.attention_adapters = AdapterLayer("mh_adapter")
-        self.output_adapters = AdapterLayer("output_adapter")
+        self.attention_adapters = BottleneckLayer("mh_adapter")
+        self.output_adapters = BottleneckLayer("output_adapter")
 
 
 class DistilBertTransformerAdaptersMixin:

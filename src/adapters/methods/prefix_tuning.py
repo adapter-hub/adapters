@@ -7,10 +7,10 @@ from torch import nn
 from transformers import PretrainedConfig
 from transformers.modeling_utils import ModuleUtilsMixin
 
-from .composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack, adjust_tensors_for_parallel
-from .configuration import ModelAdaptersConfig, PrefixTuningConfig
-from .context import AdapterSetup, ForwardContext
-from .layer import AdapterLayerBase
+from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack, adjust_tensors_for_parallel
+from ..configuration import ModelAdaptersConfig, PrefixTuningConfig
+from ..context import AdapterSetup, ForwardContext
+from .adapter_layer_base import AdapterLayerBase
 from .modeling import Activation_Function_Class
 
 

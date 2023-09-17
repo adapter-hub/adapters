@@ -16,11 +16,12 @@ from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import ADAPTER_CONFIG_MAP, AdapterConfigBase, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
-from .layer import AdapterLayer, AdapterLayerBase
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
-from .lora import LoRALayer
-from .modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
-from .prefix_tuning import PrefixTuningPool, PrefixTuningShim
+from .methods.adapter_layer_base import AdapterLayerBase
+from .methods.bottleneck import BottleneckLayer
+from .methods.lora import LoRALayer
+from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
+from .methods.prefix_tuning import PrefixTuningPool, PrefixTuningShim
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
@@ -933,7 +934,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         target = torch.zeros((self.config.hidden_size, self.config.hidden_size)).fill_diagonal_(1.0).to(self.device)
         for i, layer in self.iter_layers():
             for module in layer.modules():
-                if isinstance(module, AdapterLayer):
+                if isinstance(module, BottleneckLayer):
                     for _, layer_fusion in module.adapter_fusion_layer.items():
                         if hasattr(layer_fusion, "value") and layer_fusion.value.weight.requires_grad:
                             layer_reg_loss = 0.01 * (target - layer_fusion.value.weight).pow(2).sum()

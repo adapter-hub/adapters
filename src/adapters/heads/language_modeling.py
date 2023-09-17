@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from transformers.modeling_outputs import CausalLMOutput, CausalLMOutputWithPast, MaskedLMOutput, Seq2SeqLMOutput
 
-from ..modeling import Activation_Function_Class
+from ..methods.modeling import Activation_Function_Class
 from .base import PredictionHead
 
 

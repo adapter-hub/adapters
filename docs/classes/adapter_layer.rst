@@ -1,5 +1,5 @@
-AdapterLayer
+BottleneckLayer
 =======================
 
-.. autoclass:: adapters.AdapterLayer
+.. autoclass:: adapters.BottleneckLayer
     :members:

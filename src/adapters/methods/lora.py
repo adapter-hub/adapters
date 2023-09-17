@@ -13,9 +13,9 @@ import torch.nn.functional as F
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
-from .composition import AdapterCompositionBlock
-from .configuration import LoRAConfig, ModelAdaptersConfig
-from .layer import AdapterLayerBase
+from ..composition import AdapterCompositionBlock
+from ..configuration import LoRAConfig, ModelAdaptersConfig
+from .adapter_layer_base import AdapterLayerBase
 
 
 class LoRA(nn.Module):

@@ -78,7 +78,7 @@ _import_structure = {
         "Seq2SeqLMHead",
         "TaggingHead",
     ],
-    "layer": ["AdapterLayer", "AdapterLayerBase"],
+    "methods.adapter_layer_base": ["AdapterLayerBase"],
     "model_mixin": [
         "EmbeddingAdaptersMixin",
         "InvertibleAdaptersMixin",
@@ -182,7 +182,7 @@ if TYPE_CHECKING:
         Seq2SeqLMHead,
         TaggingHead,
     )
-    from .layer import AdapterLayer, AdapterLayerBase
+    from .methods.adapter_layer_base import AdapterLayerBase
     from .model_mixin import (
         EmbeddingAdaptersMixin,
         InvertibleAdaptersMixin,
