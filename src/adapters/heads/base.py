@@ -523,7 +523,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     # The following methods are required for handling LM heads
 
-    def get_output_embeddings(self):
+    def get_output_embeddings(self) -> Union[nn.Module, List[nn.Module]]:
         # Only gets the output embeddings for the currently active head
         embeddings = []
         for head_name in self._active_heads:
@@ -539,12 +539,14 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         else:
             return embeddings
 
-    def set_output_embeddings(self, new_embeddings):
+    def set_output_embeddings(self, new_embeddings: Union[nn.Module, List[nn.Module]]):
         # Only sets the output embeddings for the currently active head
-        for head_name in self._active_heads:
+        if not isinstance(new_embeddings, list):
+            new_embeddings = [new_embeddings] * len(self._active_heads)
+        for head_name, emb in zip(self._active_heads, new_embeddings):
             if head_name in self.heads:
                 head = self.heads[head_name]
-                head.set_output_embeddings(new_embeddings)
+                head.set_output_embeddings(emb)
 
     def tie_weights(self):
         """
