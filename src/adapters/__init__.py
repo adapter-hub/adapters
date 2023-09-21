@@ -102,11 +102,13 @@ _import_structure = {
     "models.electra": ["ElectraAdapterModel"],
     "models.gpt2": ["GPT2AdapterModel"],
     "models.gptj": ["GPTJAdapterModel"],
+    "models.hubert": ["HubertAdapterModel"],
     "models.llama": ["LlamaAdapterModel"],
     "models.mbart": ["MBartAdapterModel"],
     "models.roberta": ["RobertaAdapterModel"],
     "models.t5": ["T5AdapterModel"],
     "models.vit": ["ViTAdapterModel"],
+    "models.wavlm": ["WavLMAdapterModel"],
     "models.xlm_roberta": ["XLMRobertaAdapterModel"],
     "models.xmod": ["XmodAdapterModel"],
     "trainer": ["AdapterTrainer", "Seq2SeqAdapterTrainer"],
@@ -203,11 +205,13 @@ if TYPE_CHECKING:
     from .models.electra import ElectraAdapterModel
     from .models.gpt2 import GPT2AdapterModel
     from .models.gptj import GPTJAdapterModel
+    # from .models.hubert import
     from .models.llama import LlamaAdapterModel
     from .models.mbart import MBartAdapterModel
     from .models.roberta import RobertaAdapterModel
     from .models.t5 import T5AdapterModel
     from .models.vit import ViTAdapterModel
+    from .models.wavlm import WavLMAdapterModel
     from .models.xlm_roberta import XLMRobertaAdapterModel
     from .models.xmod import XmodAdapterModel
     from .trainer import AdapterTrainer, Seq2SeqAdapterTrainer

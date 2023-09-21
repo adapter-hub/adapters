@@ -24,6 +24,7 @@ class ViTAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, ViTPreTrainedModel):
         super().__init__(config)
 
         self.vit = ViTModel(config)
+        # print(self.vit, type(self.vit))
         init(self.vit)
 
         self._init_head_modules()

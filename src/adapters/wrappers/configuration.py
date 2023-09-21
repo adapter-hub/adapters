@@ -6,7 +6,6 @@ from transformers.configuration_utils import PretrainedConfig
 
 from ..configuration import ModelAdaptersConfig
 
-
 CONFIG_CLASS_KEYS_MAPPING = {
     "albert": {
         "classifier_dropout": "classifier_dropout_prob",
@@ -40,12 +39,14 @@ CONFIG_CLASS_KEYS_MAPPING = {
         "hidden_dropout_prob": "resid_pdrop",
         "attention_probs_dropout_prob": "attn_pdrop",
     },
+    "hubert": {},
     "mbart": {
         "num_attention_heads": "encoder_attention_heads",
         "hidden_size": "d_model",
         "hidden_dropout_prob": "dropout",
         "attention_probs_dropout_prob": "attention_dropout",
     },
+    "mert": {},
     "roberta": {},
     "t5": {
         "hidden_size": "d_model",
@@ -55,13 +56,14 @@ CONFIG_CLASS_KEYS_MAPPING = {
         "attention_probs_dropout_prob": "dropout_rate",
     },
     "vit": {},
+    "wavlm": {},
     "xlm_roberta": {},
 }
 SUBMODEL_NAMES = {"clip": ["vision_config", "text_config"], "encoder-decoder": ["encoder", "decoder"]}
 
 
 def init_adapters_config(
-    model: PreTrainedModel, model_config: PretrainedConfig, adapters_config: Optional[ModelAdaptersConfig] = None
+        model: PreTrainedModel, model_config: PretrainedConfig, adapters_config: Optional[ModelAdaptersConfig] = None
 ):
     """Initializes the adapters config object of the model to enable adapter support. Also make required changes to the
     model's config.
