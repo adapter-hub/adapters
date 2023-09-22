@@ -22,7 +22,7 @@ from transformers.utils import _LazyModule
 
 
 _import_structure = {
-    "adapter_model": ["WavLMAdapterModel"],
+    "adapter_model": ["HubertAdapterModel"],
 }
 
 

@@ -1,7 +1,6 @@
 from typing import Optional
 
 import torch
-from typing import Optional, Tuple, Union
 
 from transformers.models.wavlm.modeling_wavlm import (
     WAVLM_INPUTS_DOCSTRING,
@@ -9,7 +8,6 @@ from transformers.models.wavlm.modeling_wavlm import (
     WavLMModel,
     WavLMPreTrainedModel
 )
-
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import AdapterSetup

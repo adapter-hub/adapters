@@ -31,7 +31,7 @@ class HubertSelfAttentionAdaptersMixin:
 
 
 # For backwards compatibility, BertSelfOutput inherits directly from AdapterLayer
-class WavLMSelfOutputAdaptersMixin(AdapterLayer):
+class HubertSelfOutputAdaptersMixin(AdapterLayer):
     """Adds adapters to the BertSelfOutput module."""
 
     def __init__(self):
@@ -43,7 +43,7 @@ class WavLMSelfOutputAdaptersMixin(AdapterLayer):
 
 
 # For backwards compatibility, BertOutput inherits directly from AdapterLayer
-class WavLMOutputAdaptersMixin(AdapterLayer):
+class HubertOutputAdaptersMixin(AdapterLayer):
     """Adds adapters to the BertOutput module."""
 
     def __init__(self):
@@ -54,7 +54,7 @@ class WavLMOutputAdaptersMixin(AdapterLayer):
         super().init_adapters(model_config, adapters_config)
 
 
-class WavLMLayerAdaptersMixin:
+class HubertLayerAdaptersMixin:
     """Adds adapters to the WavLMLayer module."""
 
     def init_adapters(self, model_config, adapters_config):
@@ -78,7 +78,7 @@ class WavLMLayerAdaptersMixin:
         #     self.crossattention.self.location_key = "cross"
 
 
-class WavLMModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
+class HubertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the WavLMModel module."""
 
     def init_adapters(self, model_config, adapters_config):

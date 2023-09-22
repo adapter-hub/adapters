@@ -26,10 +26,10 @@ from .multi_head_attention import multi_head_attention_forward
 from adapters.composition import adjust_tensors_for_parallel
 from transformers.models.hubert.modeling_hubert import HubertEncoderLayer, HubertAttention, HubertFeedForward
 
-from .mixin_hubert import WavLMLayerAdaptersMixin, WavLMOutputAdaptersMixin, WavLMSelfAttentionAdaptersMixin
+from .mixin_hubert import HubertLayerAdaptersMixin, HubertOutputAdaptersMixin, HubertSelfAttentionAdaptersMixin
 
 Tensor = torch.Tensor
-class HubertSelfAttentionWithAdapters(WavLMSelfAttentionAdaptersMixin, HubertAttention):
+class HubertSelfAttentionWithAdapters(HubertSelfAttentionAdaptersMixin, HubertAttention):
 
     def forward(
             self,
@@ -73,7 +73,7 @@ class HubertSelfAttentionWithAdapters(WavLMSelfAttentionAdaptersMixin, HubertAtt
         return attn_output, attn_weights, position_bias
 
 
-class WavLMEncoderLayerWithAdapters(WavLMOutputAdaptersMixin, WavLMEncoderLayer):
+class HubertEncoderLayerWithAdapters(HubertOutputAdaptersMixin, HubertEncoderLayer):
     def forward(self, hidden_states, attention_mask=None, position_bias=None, output_attentions=False, index=0):
         attn_residual = hidden_states
         hidden_states, attn_weights, position_bias = self.attention(

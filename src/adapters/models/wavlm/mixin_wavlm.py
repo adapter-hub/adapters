@@ -16,19 +16,13 @@ class WavLMSelfAttentionAdaptersMixin:
     """Adds adapters to the WavLMSelfAttention module."""
 
     def init_adapters(self, model_config, adapters_config):
+        # Wrap layers for LoRA
         self.location_key = "self"
 
-        # Wrap layers for LoRA
-        self.query = LoRALinear.wrap(self.query, "selfattn", model_config, adapters_config, attn_key="q")
-        self.key = LoRALinear.wrap(self.key, "selfattn", model_config, adapters_config, attn_key="k")
-        self.value = LoRALinear.wrap(self.value, "selfattn", model_config, adapters_config, attn_key="v")
-
-        # Wrap layers for LoRA
-
         # fixme: original name -> q_proj, k_proj, v_proj
-        # self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", model_config, adapters_config, attn_key="q")
-        # self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
-        # self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
+        self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", model_config, adapters_config, attn_key="q")
+        self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
+        self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
 
         # fixme: no need?
         self.prefix_tuning = PrefixTuningShim(
