@@ -28,8 +28,10 @@ class WavLMAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, WavLMPreTrainedMode
 
         self._init_head_modules()
 
-        # Initialize weights and apply final processing
-        self.post_init()
+        self.init_weights()
+
+        # # Initialize weights and apply final processing
+        # self.post_init()
 
     @add_start_docstrings_to_model_forward(WAVLM_INPUTS_DOCSTRING)
     def forward(self, input_values: Optional[torch.Tensor], attention_mask: Optional[torch.Tensor] = None,
@@ -42,6 +44,7 @@ class WavLMAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, WavLMPreTrainedMode
         outputs = self.wavlm(input_values, attention_mask=attention_mask, mask_time_indices=mask_time_indices,
                             output_attentions=output_attentions, output_hidden_states=output_hidden_states,
                             return_dict=return_dict,)
+
 
         if not return_dict:
             head_inputs = (outputs[0],) + outputs[2:]
@@ -62,3 +65,9 @@ class WavLMAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, WavLMPreTrainedMode
         else:
             # in case no head is used just return the output of the base model (including pooler output)
             return outputs
+            # return Wav2Vec2BaseModelOutput(
+            #     last_hidden_state=outputs,
+            #     extract_features=extract_features,
+            #     hidden_states=encoder_outputs.hidden_states,
+            #     attentions=encoder_outputs.attentions,
+            # )

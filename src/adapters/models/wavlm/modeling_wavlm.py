@@ -21,10 +21,9 @@ from typing import Optional, Tuple, Union
 import torch
 import torch.utils.checkpoint
 from torch import nn
-from .multi_head_attention import multi_head_attention_forward
 
 from adapters.composition import adjust_tensors_for_parallel
-from transformers.models.wavlm.modeling_wavlm import WavLMEncoderLayer, WavLMAttention, WavLMFeedForward
+from transformers.models.wavlm.modeling_wavlm import WavLMEncoderLayerStableLayerNorm, WavLMAttention, WavLMFeedForward
 
 from .mixin_wavlm import WavLMLayerAdaptersMixin, WavLMOutputAdaptersMixin, WavLMSelfAttentionAdaptersMixin
 
@@ -73,9 +72,11 @@ class WavLMSelfAttentionWithAdapters(WavLMSelfAttentionAdaptersMixin, WavLMAtten
         return attn_output, attn_weights, position_bias
 
 
-class WavLMEncoderLayerWithAdapters(WavLMOutputAdaptersMixin, WavLMEncoderLayer):
+class WavLMEncoderLayerWithAdapters(WavLMLayerAdaptersMixin, WavLMEncoderLayerStableLayerNorm):
     def forward(self, hidden_states, attention_mask=None, position_bias=None, output_attentions=False, index=0):
         attn_residual = hidden_states
+
+        # WavLM SelfAttention
         hidden_states, attn_weights, position_bias = self.attention(
             hidden_states,
             attention_mask=attention_mask,
@@ -84,14 +85,19 @@ class WavLMEncoderLayerWithAdapters(WavLMOutputAdaptersMixin, WavLMEncoderLayer)
             index=index,
         )
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.attention_adapters(hidden_states, attn_residual, self.layer_norm)
-        # hidden_states = attn_residual + hidden_states
-
         hidden_states = self.layer_norm(hidden_states)
+        attn_residual = hidden_states
+        hidden_states = self.attention_adapters.adapter_layer_forward(hidden_states, attn_residual, None)
 
-        hidden_states = hidden_states + self.feed_forward(hidden_states)
-        hidden_states = self.adapter_layer_forward(hidden_states, attn_residual, self.LayerNorm)
-        # hidden_states = self.final_layer_norm(hidden_states)
+        # WavLMIntermediate
+        hidden_states = self.feed_forward.intermediate_dense(hidden_states)
+        hidden_states = self.feed_forward.intermediate_act_fn(hidden_states)
+        hidden_states = self.feed_forward.intermediate_dropout(hidden_states)
+
+        # WavLMOutput
+        hidden_states = self.feed_forward.output_dense(hidden_states)
+        hidden_states = self.feed_forward.output_dropout(hidden_states)
+        hidden_states = self.output_adapters.adapter_layer_forward(hidden_states, attn_residual, self.final_layer_norm)
 
         outputs = (hidden_states, position_bias)
 

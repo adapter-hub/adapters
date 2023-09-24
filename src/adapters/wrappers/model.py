@@ -87,6 +87,7 @@ def init(model: PreTrainedModel, adapters_config: Optional[ModelAdaptersConfig] 
                 )
                 model.__class__ = model_class
 
+
     # Finally, initialize adapters
     model.init_adapters(model.config, adapters_config)
 

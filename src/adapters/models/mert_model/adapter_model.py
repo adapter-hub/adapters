@@ -8,6 +8,7 @@ from transformers.models.hubert.modeling_hubert import (
     HubertModel,
     HubertPreTrainedModel
 )
+
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import AdapterSetup
@@ -19,12 +20,12 @@ from ...wrappers import init
     """Hubert Model transformer with the option to add multiple flexible heads on top.""",
     HUBERT_START_DOCSTRING,
 )
-class HubertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, HubertPreTrainedModel):
+class MertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, HubertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
-        self.hubert = HubertModel(config)
-        init(self.hubert)
+        self.Hubert = HubertModel(config)
+        init(self.Hubert)
 
         self._init_head_modules()
 
@@ -41,9 +42,9 @@ class HubertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, HubertPreTrainedMo
                 output_adapter_fusion_attentions=False,
                 **kwargs):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        outputs = self.hubert(input_values, attention_mask=attention_mask, mask_time_indices=mask_time_indices,
-                            output_attentions=output_attentions, output_hidden_states=output_hidden_states,
-                            return_dict=return_dict,)
+        outputs = self.Hubert(input_values, attention_mask=attention_mask, mask_time_indices=mask_time_indices,
+                              output_attentions=output_attentions, output_hidden_states=output_hidden_states,
+                              return_dict=return_dict, )
 
         if not return_dict:
             head_inputs = (outputs[0],) + outputs[2:]

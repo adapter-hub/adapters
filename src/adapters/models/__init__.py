@@ -16,9 +16,11 @@ from .clip.mixin_clip import (
 )
 from .distilbert.mixin_distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin
+from .hubert.mixin_hubert import HubertModelAdaptersMixin, HubertLayerAdaptersMixin, HubertSelfAttentionAdaptersMixin
 from .llama.mixin_llama import LlamaModelAdapterMixin
 from .t5.mixin_t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
 from .vit.mixin_vit import ViTIntermediateAdaptersMixin, ViTModelAdaptersMixin
+from  .wavlm.mixin_wavlm import WavLMModelAdaptersMixin, WavLMLayerAdaptersMixin, WavLMSelfAttentionAdaptersMixin
 from .xmod.mixin_xmod import XmodModelAdaptersMixin
 
 
@@ -50,6 +52,9 @@ MODEL_MIXIN_MAPPING = {
     "MBartDecoderWrapper": BartDecoderWrapperAdaptersMixin,
     "MBartModel": BartModelAdaptersMixin,
     "GPTJMLP": GPTJMLPAdaptersMixin,
+    "HubertModel": HubertModelAdaptersMixin,
+    "HubertAttention": HubertSelfAttentionAdaptersMixin,
+    "HubertEncoderLayer": HubertLayerAdaptersMixin,
     "RobertaLayer": BertLayerAdaptersMixin,
     "RobertaModel": BertModelAdaptersMixin,
     "T5Block": T5BlockAdaptersMixin,
@@ -59,6 +64,10 @@ MODEL_MIXIN_MAPPING = {
     "T5EncoderModel": T5ModelAdaptersMixin,
     "ViTIntermediate": ViTIntermediateAdaptersMixin,
     "ViTModel": ViTModelAdaptersMixin,
+    "WavLMModel": WavLMModelAdaptersMixin,
+    "WavLMAttention": WavLMSelfAttentionAdaptersMixin,
+    "WavLMEncoderLayer":WavLMLayerAdaptersMixin,
+    "WavLMEncoderLayerStableLayerNorm":WavLMLayerAdaptersMixin,
     "XLMRobertaLayer": BertLayerAdaptersMixin,
     "XLMRobertaModel": BertModelAdaptersMixin,
     "XmodLayer": BertLayerAdaptersMixin,

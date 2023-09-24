@@ -24,6 +24,7 @@ ADAPTER_MODEL_MAPPING_NAMES = OrderedDict(
         ("hubert", "HubertAdapterModel"),
         ("llama", "LlamaAdapterModel"),
         ("mbart", "MBartAdapterModel"),
+        ("mert_model", "MertAdapterModel"),
         ("roberta", "RobertaAdapterModel"),
         ("t5", "T5AdapterModel"),
         ("vit", "ViTAdapterModel"),

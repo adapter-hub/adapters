@@ -46,7 +46,7 @@ CONFIG_CLASS_KEYS_MAPPING = {
         "hidden_dropout_prob": "dropout",
         "attention_probs_dropout_prob": "attention_dropout",
     },
-    "mert": {},
+    "mert_model": {},
     "roberta": {},
     "t5": {
         "hidden_size": "d_model",
@@ -81,6 +81,7 @@ def init_adapters_config(
     if adapters_config is not None:
         model.adapters_config = adapters_config
     elif not hasattr(model_config, "adapters"):
+        has_attr_aconfig = hasattr(model.base_model,"adapters_config")
         model.adapters_config = ModelAdaptersConfig()
     elif model_config.adapters is not None and not isinstance(model_config.adapters, ModelAdaptersConfig):
         model.adapters_config = ModelAdaptersConfig(**model_config.adapters)

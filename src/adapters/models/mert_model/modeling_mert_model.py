@@ -26,10 +26,10 @@ from torch import nn
 from adapters.composition import adjust_tensors_for_parallel
 from transformers.models.hubert.modeling_hubert import HubertEncoderLayer, HubertAttention
 
-from .mixin_hubert import HubertLayerAdaptersMixin, HubertSelfAttentionAdaptersMixin
+from ..hubert.mixin_hubert import HubertLayerAdaptersMixin, HubertSelfAttentionAdaptersMixin
 
 Tensor = torch.Tensor
-class HubertSelfAttentionWithAdapters(HubertSelfAttentionAdaptersMixin, HubertAttention):
+class MertSelfAttentionWithAdapters(HubertSelfAttentionAdaptersMixin, HubertAttention):
 
     def forward(
             self,
@@ -151,7 +151,7 @@ class HubertSelfAttentionWithAdapters(HubertSelfAttentionAdaptersMixin, HubertAt
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-class HubertEncoderLayerWithAdapters(HubertLayerAdaptersMixin, HubertEncoderLayer):
+class MertEncoderLayerWithAdapters(HubertLayerAdaptersMixin, HubertEncoderLayer):
 
     def forward(self, hidden_states, attention_mask=None, output_attentions=False):
         attn_residual = hidden_states
