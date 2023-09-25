@@ -1,6 +1,6 @@
 # flake8: noqa: F403,F405
 from adapters import HubertAdapterModel
-from tests.models.test_wavlm import *
+from hf_transformers.tests.models.hubert.test_modeling_hubert import *
 from transformers.testing_utils import require_torch
 
 from .base import AdapterModelTesterMixin
