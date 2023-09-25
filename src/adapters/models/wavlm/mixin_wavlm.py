@@ -76,7 +76,7 @@ class WavLMLayerAdaptersMixin:
         self.attention_adapters = AdapterLayer(location_key="mh_adapter")
         self.output_adapters = AdapterLayer(location_key="output_adapter")
         # Set location keys for prefix tuning
-        self.attention.location_key = "."
+        self.attention.location_key = "attention"
 
         # fixme: wavlm encoder doesn't have cross attention attribute
         # if hasattr(self, "add_cross_attention") and self.add_cross_attention:

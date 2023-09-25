@@ -17,13 +17,6 @@ class HubertSelfAttentionAdaptersMixin:
 
     def init_adapters(self, model_config, adapters_config):
         # Wrap layers for LoRA
-        # self.location_key = ""
-
-        # fixme: original name -> q_proj, k_proj, v_proj
-        # self.query = LoRALinear.wrap(self.query, "selfattn", model_config, adapters_config, attn_key="q")
-        # self.key = LoRALinear.wrap(self.key, "selfattn", model_config, adapters_config, attn_key="k")
-        # self.value = LoRALinear.wrap(self.value, "selfattn", model_config, adapters_config, attn_key="v")
-
         self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", model_config, adapters_config, attn_key="q")
         self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
         self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
@@ -32,30 +25,6 @@ class HubertSelfAttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningShim(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
-
-
-# For backwards compatibility, BertSelfOutput inherits directly from AdapterLayer
-# class HubertSelfOutputAdaptersMixin(AdapterLayer):
-#     """Adds adapters to the HubertSelfOutput module."""
-#
-#     def __init__(self):
-#         super().__init__("mh_adapter")
-#
-#     def init_adapters(self, model_config, adapters_config):
-#         self.location_key = "mh_adapter"
-#         super().init_adapters(model_config, adapters_config)
-
-
-# For backwards compatibility, BertOutput inherits directly from AdapterLayer
-# class HubertOutputAdaptersMixin(AdapterLayer):
-#     """Adds adapters to the HubertOutput module."""
-#
-#     def __init__(self):
-#         super().__init__("output_adapter")
-#
-#     def init_adapters(self, model_config, adapters_config):
-#         self.location_key = "output_adapter"
-#         super().init_adapters(model_config, adapters_config)
 
 
 class HubertLayerAdaptersMixin:
@@ -76,9 +45,9 @@ class HubertLayerAdaptersMixin:
         self.attention_adapters = AdapterLayer(location_key="mh_adapter")
         self.output_adapters = AdapterLayer(location_key="output_adapter")
         # Set location keys for prefix tuning
-        self.attention.location_key = "."
+        self.attention.location_key = "attention"
 
-        # fixme: Hubert encoder doesn't have cross attention attribute
+        # fixme: Didn't work
         # if hasattr(self, "add_cross_attention") and self.add_cross_attention:
         #     self.crossattention.self.location_key = "cross"
 

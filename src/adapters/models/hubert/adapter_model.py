@@ -64,9 +64,3 @@ class HubertAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, HubertPreTrainedMo
         else:
             # in case no head is used just return the output of the base model (including pooler output)
             return outputs
-            # return Wav2Vec2BaseModelOutput(
-            #     last_hidden_state=outputs,
-            #     extract_features=extract_features,
-            #     hidden_states=encoder_outputs.hidden_states,
-            #     attentions=encoder_outputs.attentions,
-            # )
