@@ -58,16 +58,16 @@ class HubertModelAdaptersMixin(ModelBaseAdaptersMixin):
     def init_adapters(self, model_config, adapters_config):
         super().init_adapters(model_config, adapters_config)
 
-        # # Set hook for parallel composition
-        # for _, layer in self.iter_layers():
-        #     self._set_layer_hook_for_parallel(layer)
+        # Set hook for parallel composition
+        for _, layer in self.iter_layers():
+            self._set_layer_hook_for_parallel(layer)
 
-    # def _set_layer_hook_for_parallel(self, layer: nn.Module):
-    #     def hook(module, input):
-    #         adjust_tensors_for_parallel_(input[0], input[1])
-    #         return input
-    #
-    #     layer.register_forward_pre_hook(hook)
+    def _set_layer_hook_for_parallel(self, layer: nn.Module):
+        def hook(module, input):
+            adjust_tensors_for_parallel_(input[0], input[1])
+            return input
+
+        layer.register_forward_pre_hook(hook)
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.encoder.layers):
