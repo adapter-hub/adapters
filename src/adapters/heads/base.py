@@ -511,7 +511,6 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     def _init_head_modules(self):
         # HACK connect adapters_config to base model -> this should move to a better place
-        has_attr_aconfig = hasattr(self.base_model, "adapters_config")
         self.adapters_config = self.base_model.adapters_config
         # this dict is _only_ used for saving & reloading the configs and should not be modified otherwise
         if not hasattr(self.config, "prediction_heads"):

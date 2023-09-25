@@ -22,7 +22,7 @@ from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
 class HubertAdapterTestBase(AdapterTestBase):
-    config_class = WavLMConfig
+    config_class = HubertConfig
     config = make_config(
         HubertConfig,
         # hidden_size=32,
