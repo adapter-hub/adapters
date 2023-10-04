@@ -61,7 +61,7 @@ _deps = [
     "sphinx-multiversion",
     "timeout-decorator",
     "torch>=1.10,!=1.12.0",
-    "transformers==4.33.2",
+    "transformers==4.33.3",
     "beautifulsoup4",
 ]
 
