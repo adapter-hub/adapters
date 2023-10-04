@@ -224,9 +224,9 @@ class AdapterCompositionTest(unittest.TestCase):
         model.set_active_adapters(Average("a", "b", "c", "d"))
 
         inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000)
+        inputs["input_ids"] = ids_tensor((2, 128), 1000)
         logits = model(**inputs).logits
-        self.assertEqual(logits.shape, (1, 2))
+        self.assertEqual(logits.shape, (2, 2))
 
 
 class PrefixTuningCompositionTest(AdapterCompositionTest):

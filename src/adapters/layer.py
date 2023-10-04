@@ -631,8 +631,8 @@ class AdapterLayer(AdapterLayerBase, nn.Module):
                 )
             # Case X: No adapter which is part of this module -> ignore
 
-        weights = torch.tensor(adapter_setup.weights).unsqueeze(1).unsqueeze(1).to(hidden_states.device)
-        hidden_states = torch.mean(torch.cat(children_hidden, 0) * weights, 0)
+        weights = torch.tensor(adapter_setup.weights)[:, None, None, None].to(hidden_states.device)
+        hidden_states = torch.mean(torch.stack(children_hidden, 0) * weights, 0)
 
         return hidden_states
 
