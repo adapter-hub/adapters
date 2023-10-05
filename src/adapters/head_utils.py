@@ -483,6 +483,20 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "qa_outputs"],
     },
+    "T5ForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 2,
+            "activation_function": "tanh",
+        },
+        "layers": [
+            None,
+            "classification_head.dense",
+            None,
+            None,
+            "classification_head.out_proj",
+        ],
+    },
     "DebertaV2ForSequenceClassification": {
         "config": {
             "head_type": "classification",

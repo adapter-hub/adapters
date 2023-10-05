@@ -19,7 +19,7 @@ from adapters import (
     SeqBnInvConfig,
 )
 from adapters.heads.language_modeling import CausalLMHead
-from transformers import MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING
+from transformers import MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING, CLIPConfig
 from transformers.testing_utils import require_torch, torch_device
 
 from .base import AdapterMethodBaseTestMixin, create_twin_models
@@ -148,7 +148,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         n_layers = len(list(model.iter_layers()))
         if model.config.is_encoder_decoder:
             n_prefix_layers = 3
-        elif model.config.is_composition:
+        elif model.config.is_composition or isinstance(model.config, CLIPConfig):
             n_prefix_layers = 2
         else:
             n_prefix_layers = 1

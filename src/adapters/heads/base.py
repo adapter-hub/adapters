@@ -554,9 +554,9 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 self = getattr(self, self.base_model_prefix)
             self._tie_encoder_decoder_weights(self.encoder, self.decoder, self.base_model_prefix)
 
-    def _resize_token_embeddings(self, new_num_tokens):
+    def _resize_token_embeddings(self, new_num_tokens, pad_to_multiple_of=None):
         old_embeddings = self.get_input_embeddings()
-        new_embeddings = self._get_resized_embeddings(old_embeddings, new_num_tokens)
+        new_embeddings = self._get_resized_embeddings(old_embeddings, new_num_tokens, pad_to_multiple_of)
         self.set_input_embeddings(new_embeddings)
 
         # if word embeddings are not tied, make sure that lm head is resized as well
@@ -730,6 +730,27 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         if self.active_head == head_name:
             self.active_head = None
 
+    def _get_used_heads(self, head_name: str = None):
+        if head_name:
+            used_heads = [head_name]
+        # together with context, check if we have heads at all to allow for models without heads
+        elif len(self.heads) > 0 and AdapterSetup.get_context_head_setup():
+            used_heads = AdapterSetup.get_context_head_setup()
+            if isinstance(used_heads, str):
+                used_heads = [used_heads]
+        elif self._active_heads:
+            used_heads = self._active_heads
+        else:
+            return []
+
+        head_modules = []
+        for head in used_heads:
+            if head not in self.heads:
+                raise ValueError("Unknown head_name '{}'".format(head))
+            head_modules.append(self.heads[head])
+
+        return head_modules
+
     def forward_head(
         self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
     ):
@@ -750,16 +771,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             return_dict (bool): Whether or not to return a ``ModelOutput`` instead of a plain tuple.
             **kwargs: Additional keyword arguments passed to the forward pass of the head.
         """
-        if head_name:
-            used_heads = [head_name]
-        # together with context, check if we have heads at all to allow for models without heads
-        elif len(self.heads) > 0 and AdapterSetup.get_context_head_setup():
-            used_heads = AdapterSetup.get_context_head_setup()
-            if isinstance(used_heads, str):
-                used_heads = [used_heads]
-        elif self._active_heads:
-            used_heads = self._active_heads
-        else:
+        used_head_modules = self._get_used_heads(head_name)
+        if len(used_head_modules) == 0:
             logger.debug("No prediction head is used.")
             return all_outputs
 
@@ -787,9 +800,6 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if inv_adapter:
                 kwargs["invertible_adapter"] = inv_adapter
 
-        for head in used_heads:
-            if head not in self.heads:
-                raise ValueError("Unknown head_name '{}'".format(head))
         if isinstance(self.active_head, BatchSplit):
             if sum(self.active_head.batch_sizes) != all_outputs[0].size()[0]:
                 raise ValueError(
@@ -830,14 +840,13 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 else None
             )
             return_output = MultiHeadOutput(head_outputs=head_outputs, loss=combined_loss)
-        elif len(used_heads) > 1:
+        elif len(used_head_modules) > 1:
             head_outputs = []
-            for head in used_heads:
-                head_module = self.heads[head]
+            for head_module in used_head_modules:
                 head_outputs.append(head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs))
             return_output = MultiHeadOutput(head_outputs=head_outputs)
         else:
-            head_module = self.heads[used_heads[0]]
+            head_module = used_head_modules[0]
             return_output = head_module(all_outputs, cls_output, attention_mask, return_dict, **kwargs)
 
         if isinstance(return_output, ModelOutput):
