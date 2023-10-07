@@ -160,10 +160,10 @@ In the example, `attention_scores` holds a dictionary of the following form:
     Splitting the input between two adapters using the 'Split' block.
 ```
 
-The `Split` block can be used to split an input sequence between two adapters.
-This is done by specifying a split index, at which the sequences should be divided.
+The `Split` block can be used to split an input sequence between multiple adapters.
+This is done by specifying split indices at which the sequences should be divided.
 In the following example, we split each input sequence between adapters `g` and `h`.
-For each sequence, all tokens from 0 up to 63 are forwarded through `g` while all tokens beginning at index 64 are forwarded through `h`:
+For each sequence, all tokens from 0 up to 63 are forwarded through `g` while the next 64 tokens are forwarded through `h`:
 
 ```python
 import adapters.composition as ac
@@ -173,7 +173,7 @@ import adapters.composition as ac
 model.add_adapter("g")
 model.add_adapter("h")
 
-model.active_adapters = ac.Split("g", "h", split_index=64)
+model.active_adapters = ac.Split("g", "h", splits=[64, 64])
 ```
 
 ## `BatchSplit`
@@ -286,7 +286,7 @@ E.g., we can nest a `Split` block within a `Stack` of adapters:
 ```python
 import adapters.composition as ac
 
-model.active_adapters = ac.Stack("a", ac.Split("b", "c", split_index=60))
+model.active_adapters = ac.Stack("a", ac.Split("b", "c", splits=60))
 ```
 
 However, combinations of adapter composition blocks cannot be arbitrarily deep. All currently supported possibilities are visualized in the table below.
