@@ -5,7 +5,7 @@ import torch.nn as nn
 from ...composition import adjust_tensors_for_parallel_
 from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import Linear as LoRALinear
-from ...methods.prefix_tuning import PrefixTuningShim
+from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
 
 
@@ -20,7 +20,7 @@ class AlbertAttentionAdaptersMixin:
 
         self.attention_adapters = BottleneckLayer("mh_adapter")
 
-        self.prefix_tuning = PrefixTuningShim(
+        self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
 

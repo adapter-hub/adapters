@@ -6,7 +6,7 @@ import torch.nn as nn
 from ...composition import adjust_tensors_for_parallel
 from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import Linear as LoRALinear
-from ...methods.prefix_tuning import PrefixTuningShim
+from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import (
     EmbeddingAdaptersMixin,
     EmbeddingAdaptersWrapperMixin,
@@ -25,7 +25,7 @@ class BartAttentionAdaptersMixin:
         self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
         self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", model_config, adapters_config, attn_key="q")
 
-        self.prefix_tuning = PrefixTuningShim(
+        self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
 

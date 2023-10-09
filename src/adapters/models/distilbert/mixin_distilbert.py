@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import Linear as LoRALinear
-from ...methods.prefix_tuning import PrefixTuningShim
+from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
 
 
@@ -17,7 +17,7 @@ class DistilBertMultiHeadSelfAttentionMixin:
         self.k_lin = LoRALinear.wrap(self.k_lin, "selfattn", model_config, adapters_config, attn_key="k")
         self.v_lin = LoRALinear.wrap(self.v_lin, "selfattn", model_config, adapters_config, attn_key="v")
 
-        self.prefix_tuning = PrefixTuningShim("self", model_config, adapters_config)
+        self.prefix_tuning = PrefixTuningLayer("self", model_config, adapters_config)
 
 
 class DistilBertTransfomerBlockAdaptersMixin:

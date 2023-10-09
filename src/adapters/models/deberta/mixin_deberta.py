@@ -1,5 +1,5 @@
 from ...methods.lora import MergedLinear as LoRAMergedLinear
-from ...methods.prefix_tuning import PrefixTuningShim
+from ...methods.prefix_tuning import PrefixTuningLayer
 
 
 class DebertaSelfAttentionAdaptersMixin:
@@ -9,6 +9,6 @@ class DebertaSelfAttentionAdaptersMixin:
         # Wrap layers for LoRA
         self.in_proj = LoRAMergedLinear.wrap(self.in_proj, "selfattn", model_config, adapters_config)
 
-        self.prefix_tuning = PrefixTuningShim(
+        self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )

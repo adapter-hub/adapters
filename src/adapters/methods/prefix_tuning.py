@@ -126,7 +126,7 @@ class PrefixTuningPool(nn.Module):
 
     How it works:
 
-        1. A `PrefixTuningShim` module that sets this module as pool module is added to each layer.
+        1. A `PrefixTuningLayer` module that sets this module as pool module is added to each layer.
         2. On adding a prefix, each shim module where a prefix should be added increments a counter in `prefix_counts`.
         3. Finally, the base model class confirms adding a new prefix by calling `confirm_prefix()`.
         4. This module adds a prefix layer that produces outputs corresponding to the indicated number of layers.
@@ -135,7 +135,7 @@ class PrefixTuningPool(nn.Module):
 
         - The forward call to this layer is executed in the ForwardContext of each model pass.
         - All other methods of this class (except for `confirm_prefix()`) should be called exclusively by
-          `PrefixTuningShim`.
+          `PrefixTuningLayer`.
 
     Args:
         config (:class:`~transformers.PretrainedConfig`): The model config.
@@ -265,7 +265,7 @@ class PrefixTuningState(NamedTuple):
     idx_slice: Optional[slice] = None
 
 
-class PrefixTuningShim(ComposableAdapterLayerBase, nn.Module):
+class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
     """
     Representation of a Prefix Tuning layer within one Transformer layer. This class implements `AdapterLayerBase` for
     compatibility with adapters. It uses `PrefixTuningPool` in the background and `set_pool()` must be called after

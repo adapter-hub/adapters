@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import Linear as LoRALinear
-from ...methods.prefix_tuning import PrefixTuningShim
+from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
 
 
@@ -17,7 +17,7 @@ class GPTJAttentionAdaptersMixin:
         self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
         self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
 
-        self.prefix_tuning = PrefixTuningShim(
+        self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
 

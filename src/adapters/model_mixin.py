@@ -21,7 +21,7 @@ from .methods.adapter_layer_base import AdapterLayerBase
 from .methods.bottleneck import BottleneckLayer
 from .methods.lora import LoRALayer
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
-from .methods.prefix_tuning import PrefixTuningPool, PrefixTuningShim
+from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
@@ -368,7 +368,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         super().__init__(config, *args, **kwargs)
 
     def _link_prefix_to_pool(self, layer):
-        if isinstance(layer, PrefixTuningShim):
+        if isinstance(layer, PrefixTuningLayer):
             layer.set_pool(self.base_model.prefix_tuning)
 
     @property
