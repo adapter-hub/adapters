@@ -102,7 +102,7 @@ class BeitLayerWithAdapters(BeitLayerAdaptersMixin, BeitLayer):
             attention_output = self.lambda_1 * attention_output
 
         # first residual connection
-        hidden_states = self.attention_adapters.adapter_layer_forward(
+        hidden_states = self.attention_adapters.bottleneck_layer_forward(
             self.drop_path(attention_output), hidden_states, None
         )
 
@@ -116,7 +116,7 @@ class BeitLayerWithAdapters(BeitLayerAdaptersMixin, BeitLayer):
             layer_output = self.lambda_2 * layer_output
 
         # second residual connection
-        layer_output = self.output_adapters.adapter_layer_forward(self.drop_path(layer_output), hidden_states, None)
+        layer_output = self.output_adapters.bottleneck_layer_forward(self.drop_path(layer_output), hidden_states, None)
 
         outputs = (layer_output,) + outputs
 
