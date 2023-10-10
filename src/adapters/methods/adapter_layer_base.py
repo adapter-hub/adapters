@@ -117,6 +117,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._init_mapping()
+
+    def _init_mapping(self):
         self.composition_to_func_map = {
             Stack: self.compose_stack,
             Fuse: self.compose_fuse,

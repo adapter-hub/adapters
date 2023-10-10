@@ -48,6 +48,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
         self.location_key = location_key
 
     def init_adapters(self, model_config, adapters_config):
+        self._init_mapping()
         self.model_config = model_config
         self.adapters_config = adapters_config
         self.adapters = nn.ModuleDict(dict())
