@@ -238,7 +238,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             ValueError: If the composition is invalid.
         """
         # Break if setup is too deep
-        if lvl >= 1:
+        if type(parent) == Stack and lvl >= 1:
             raise ValueError(
                 "Specified adapter setup is too deep. Cannot have {} at level {}".format(child.__class__.__name__, lvl)
             )
@@ -400,7 +400,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             else:
                 pass
 
-        weights = torch.tensor(adapter_setup.weights).unsqueeze(1).unsqueeze(1).to(state[0].device)
+        weights = torch.tensor(adapter_setup.weights)[:, None, None, None].to(state[0].device)
         state = self.mean(children_states, weights)
 
         return state

@@ -21,10 +21,10 @@ class AdapterCompositionParsingTest(unittest.TestCase):
 
     def test_invalid_nesting_fusion(self):
         self.assertRaises(ValueError, lambda: parse_composition(Fuse(Fuse("a", "b"), "c")))
-        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Split("a", "b", 128), "c")))
+        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Split("a", "b", splits=128), "c")))
 
     def test_invalid_nesting_split(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Split("a", Fuse("b", "c"), 128)))
+        self.assertRaises(ValueError, lambda: parse_composition(Split("a", Fuse("b", "c"), splits=128)))
 
 
 @require_torch
@@ -224,9 +224,9 @@ class AdapterCompositionTest(unittest.TestCase):
         model.set_active_adapters(Average("a", "b", "c", "d"))
 
         inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000)
+        inputs["input_ids"] = ids_tensor((2, 128), 1000)
         logits = model(**inputs).logits
-        self.assertEqual(logits.shape, (1, 2))
+        self.assertEqual(logits.shape, (2, 2))
 
 
 class PrefixTuningCompositionTest(AdapterCompositionTest):
