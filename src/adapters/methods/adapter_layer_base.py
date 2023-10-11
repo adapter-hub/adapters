@@ -238,7 +238,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             ValueError: If the composition is invalid.
         """
         # Break if setup is too deep
-        if type(parent) == Stack and lvl >= 1:
+        if isinstance(parent, Stack) and lvl >= 1:
             raise ValueError(
                 "Specified adapter setup is too deep. Cannot have {} at level {}".format(child.__class__.__name__, lvl)
             )
