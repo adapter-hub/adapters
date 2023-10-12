@@ -7,7 +7,6 @@ import adapters
 from adapters import ADAPTER_CONFIG_MAP, AdapterConfigBase, BertAdapterModel, get_adapter_config_hash
 from adapters.trainer import AdapterTrainer as Trainer
 from adapters.utils import find_in_index
-from tests.test_modeling_common import ids_tensor
 from transformers import (  # get_adapter_config_hash,
     AutoModel,
     AutoTokenizer,
@@ -18,6 +17,8 @@ from transformers import (  # get_adapter_config_hash,
     glue_compute_metrics,
 )
 from transformers.testing_utils import require_torch, torch_device
+
+from .test_adapter import ids_tensor
 
 
 SAMPLE_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/hub-index.sample.json")

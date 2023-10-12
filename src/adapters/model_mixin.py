@@ -10,10 +10,11 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import torch
 from torch import nn
 
+from transformers.configuration_utils import PretrainedConfig
 from transformers.modeling_outputs import ModelOutput
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import ADAPTER_CONFIG_MAP, AdapterConfigBase, AdapterFusionConfig, BnConfig
+from .configuration import ADAPTER_CONFIG_MAP, AdapterConfigBase, AdapterFusionConfig, BnConfig, ModelAdaptersConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
@@ -22,6 +23,7 @@ from .methods.bottleneck import BottleneckLayer
 from .methods.lora import LoRALayer
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
+from .prompt_tuning import PromptTuningLayer
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
@@ -40,21 +42,20 @@ class InvertibleAdaptersMixin:
         if hasattr(super(), "init_adapters"):
             super().init_adapters(self.config, self.adapters_config, **kwargs)
 
-        self.hook_after_embeddings(self._hook_fn)
+        # self.hook_after_embeddings(self._hook_fn)
 
-    def _hook_fn(self, module, args, output):
-        new_output = self.invertible_adapters_forward(output)
-        return new_output
+    # def _hook_fn(self, module, args, output):
+    #     new_output = self.invertible_adapters_forward(output)
+    #     return new_output
 
-    def hook_after_embeddings(self, hook_fn: Callable):
-        """
-        Hook a function to be called after the embeddings have been computed. The default implementation does nothing.
-        Override this method to add a hook.
+    # TODO: entfernen
+    # def hook_after_embeddings(self, hook_fn: Callable):
+    #     """
+    # Hook a function to be called after the embeddings have been computed. The default implementation does nothing. #
+    Override this method to add a hook.
 
-        Args:
-            hook_fn (Callable): The function to be called after the embeddings have been computed.
-        """
-        pass
+    # Args: # hook_fn (Callable): The function to be called after the embeddings have been computed. #"""
+    #     pass
 
     def add_invertible_adapter(self, adapter_name: str) -> bool:
         """
@@ -361,8 +362,27 @@ class EmbeddingAdaptersWrapperMixin:
         return self.base_model.loaded_embeddings
 
 
-class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
+class PromptTuningMixin:
+    def init_prompt_tuning(
+        self, model_config: PretrainedConfig, adapters_config: ModelAdaptersConfig, base_model_embeddings: nn.Module
+    ):
+        self.prompt_tuning = PromptTuningLayer(model_config, adapters_config, base_model_embeddings)
+
+    def add_prompt_tuning(self, adapter_name: str) -> bool:
+        return self.prompt_tuning.add_adapter(adapter_name=adapter_name, layer_idx=-1)
+
+    # TODO: delete, etc .... prompt tuning
+    # TODO: can probably be merged into whereever this gets called
+
+
+class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
+
+    # Setting this to True will automatically add a prompt tuning layer to the model
+    # This prompt tuning layer is stoed in self.prompt_tuning
+    # Since the correct position to call the prompt tuning forward depends on the model type, this has to be called in the post_embedding_forward method
+    supports_prompt_tuning = False
+    prefix_attention_mask = None
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
@@ -370,6 +390,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def _link_prefix_to_pool(self, layer):
         if isinstance(layer, PrefixTuningLayer):
             layer.set_pool(self.base_model.prefix_tuning)
+
+    # TODO: provide documentation & maybe better fitting name & move to more fitting place in this class
+    # @abstractmethod
+    def post_embedding_forward(self, module, args, embedding_output):
+        # def post_embedding_forward(self, *args, **kwargs):
+        """function to pass the embedding layer output through"""
+        raise NotImplementedError
 
     @property
     def model_name(self):
@@ -399,6 +426,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if add_prefix_tuning_pool:
             self.base_model.prefix_tuning = PrefixTuningPool(self.config, self.adapters_config)
             self.apply_to_adapter_layers(lambda i, layer: self._link_prefix_to_pool(layer))
+
+        # Add Prompt Tuning
+        if self.supports_prompt_tuning:
+            self.init_prompt_tuning(self.config, self.adapters_config, self.get_input_embeddings())
 
         # Initialize adapters from config
         for adapter_name in self.adapters_config:
@@ -576,6 +607,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 module.confirm_prefix(adapter_name)
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.add_invertible_adapter(adapter_name)
+
+        # Prompt Tuning
+        if self.supports_prompt_tuning:
+            self.add_prompt_tuning(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
         warnings.warn(
@@ -1228,6 +1263,16 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 class ModelBaseAdaptersMixin(ModelAdaptersMixin):
     @ForwardContext.wrap
     def forward(self, *args, **kwargs):
+        # TODO: adapt attention mask here
+        attention_mask = kwargs.get("attention_mask", None)
+        if attention_mask is not None and self.prefix_attention_mask is not None:
+            self.prefix_attention_mask = self.prefix_attention_mask.to(attention_mask.device)
+            attention_mask = torch.cat((self.prefix_attention_mask, attention_mask), dim=1)
+            kwargs.update(
+                {
+                    "attention_mask": attention_mask,
+                }
+            )
         return super().forward(*args, **kwargs)
 
 

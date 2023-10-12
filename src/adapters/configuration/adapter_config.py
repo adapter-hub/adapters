@@ -84,6 +84,8 @@ class AdapterConfigBase(Mapping):
             cls_new = LoRAConfig
         elif architecture == "union":
             cls_new = ConfigUnion
+        elif architecture == "prompt_tuning":
+            cls_new = PromptTuningConfig
         else:
             cls_new = BnConfig
 
@@ -396,6 +398,30 @@ class PrefixTuningConfig(AdapterConfigBase):
 
 
 @dataclass(eq=False)
+class PromptTuningConfig(AdapterConfigBase):
+    # TODO: add config
+    """
+    The Prompt Tuning architecture proposed by Lester et al. (2021). See https://arxiv.org/pdf/2104.08691.pdf
+
+    Args:
+
+    """
+
+    prompt_length: int
+
+    prompt_init_text: Optional[str] = None  # only necessary when using prompt_init="from_string"
+    architecture: Optional[str] = "prompt_tuning"
+
+    prompt_init: str = (  # random_uniform, from_string, from_array,  TODO: add more from https://github.com/google-research/prompt-tuning/blob/main/prompt_tuning/prompts.py
+        "random_uniform"
+    )
+    combine: str = "prefix"  # prefix, prefix_after_bos, suffix
+
+    # TODO: add a parameter for the random uniform scale
+    # TODO: add more params if necessary
+
+
+@dataclass(eq=False)
 class LoRAConfig(AdapterConfigBase):
     """
     The Low-Rank Adaptation (LoRA) architecture proposed by Hu et al. (2021). See https://arxiv.org/pdf/2106.09685.pdf.
@@ -612,6 +638,7 @@ ADAPTER_CONFIG_MAP = {
     "compacter": CompacterConfig(),
     "prefix_tuning": PrefixTuningConfig(),
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
+    "prompt_tuning": PromptTuningConfig(prompt_length=10),  # TODO: is that alright?
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
     "mam": MAMConfig(),

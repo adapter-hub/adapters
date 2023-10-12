@@ -22,4 +22,5 @@ from .test_compacter import CompacterTestMixin
 from .test_ia3 import IA3TestMixin
 from .test_lora import LoRATestMixin
 from .test_prefix_tuning import PrefixTuningTestMixin
+from .test_prompt_tuning import PromptTuningTestMixin
 from .test_unipelt import UniPELTTestMixin
