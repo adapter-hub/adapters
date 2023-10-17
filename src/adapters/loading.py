@@ -766,3 +766,42 @@ class PredictionHeadLoader(WeightsLoader):
         )
 
         return save_directory, head_name
+
+    def convert_static_to_flex_head(self, state_dict, load_as="default"):
+        """
+        Loads a prediction head module from the given state dict, which contains a static head checkpoint.
+
+        Args:
+            state_dict (dict): The static head checkpoint from which to load the head module.
+            load_as (str, optional): Load the weights with this name. Defaults to None.
+
+        Returns:
+            Tuple[dict, dict]: A tuple consisting of the head config and the state dict of the loaded weights.
+        """
+        assert self.convert_to_flex_head, "load_from_state_dict() can only be used with convert_to_flex_head=True."
+        assert hasattr(self.model, "heads"), "load_from_state_dict() can only be used with flex heads model class."
+
+        conversion_rename_func = None
+
+        original_model_class = self.model.config.architectures[0] if self.model.config.architectures else None
+        if original_model_class in STATIC_TO_FLEX_HEAD_MAP:
+            head_config, conversion_rename_func = get_head_config_and_rename_list(
+                original_model_class,
+                load_as,
+                getattr(self.model.config, "label2id"),
+                num_labels=getattr(self.model.config, "num_labels", None),
+            )
+        elif self.error_on_missing:
+            raise ValueError(
+                f"Cannot automatically convert prediction head of model class {original_model_class} to flex"
+                " head."
+            )
+        else:
+            return None, None
+
+        # Load head weights
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            new_k = conversion_rename_func(k)
+            new_state_dict[new_k] = v
+        return head_config, new_state_dict
