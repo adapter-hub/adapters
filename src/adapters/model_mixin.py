@@ -42,21 +42,6 @@ class InvertibleAdaptersMixin:
         if hasattr(super(), "init_adapters"):
             super().init_adapters(self.config, self.adapters_config, **kwargs)
 
-        # self.hook_after_embeddings(self._hook_fn)
-
-    # def _hook_fn(self, module, args, output):
-    #     new_output = self.invertible_adapters_forward(output)
-    #     return new_output
-
-    # TODO: entfernen
-    # def hook_after_embeddings(self, hook_fn: Callable):
-    #     """
-    # Hook a function to be called after the embeddings have been computed. The default implementation does nothing. #
-    Override this method to add a hook.
-
-    # Args: # hook_fn (Callable): The function to be called after the embeddings have been computed. #"""
-    #     pass
-
     def add_invertible_adapter(self, adapter_name: str) -> bool:
         """
         Adds an invertible adapter module for the adapter with the given name. If the given adapter does not specify an
@@ -133,12 +118,30 @@ class InvertibleAdaptersMixin:
 
     def invertible_adapters_forward(self, hidden_states, rev=False):
         # TODO: Currently no fusion over invertible adapters, takes only very first language adapter position
-        if self.adapters_config.active_setup is not None and len(self.adapters_config.active_setup) > 0:
-            first_adapter = self.adapters_config.active_setup.first()
+        adapter_setup = self._get_active_setup()
+        if adapter_setup is not None and len(adapter_setup) > 0:
+            first_adapter = adapter_setup.first()
             if first_adapter in self.invertible_adapters:
                 hidden_states = self.invertible_adapters[first_adapter](hidden_states, rev=rev)
-
         return hidden_states
+
+    def _get_active_setup(self):
+        if hasattr(self, "adapters_config"):
+            # First check current context before falling back to defined setup
+            context = AdapterSetup.get_context()
+            if context is not None:
+                adapter_setup = context.adapter_setup
+            else:
+                adapter_setup = self.adapters_config.active_setup
+        else:
+            adapter_setup = None
+        skip_adapters = adapter_setup is None or (
+            self.adapters_config.skip_layers is not None and self.layer_idx in self.adapters_config.skip_layers
+        )
+        if not skip_adapters and (len(adapter_setup.flatten()) > 0):
+            return adapter_setup
+        else:
+            return None
 
 
 class InvertibleAdaptersWrapperMixin:
@@ -382,7 +385,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
     # This prompt tuning layer is stoed in self.prompt_tuning
     # Since the correct position to call the prompt tuning forward depends on the model type, this has to be called in the post_embedding_forward method
     supports_prompt_tuning = False
-    prefix_attention_mask = None
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
@@ -391,12 +393,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
         if isinstance(layer, PrefixTuningLayer):
             layer.set_pool(self.base_model.prefix_tuning)
 
-    # TODO: provide documentation & maybe better fitting name & move to more fitting place in this class
-    # @abstractmethod
     def post_embedding_forward(self, module, args, embedding_output):
-        # def post_embedding_forward(self, *args, **kwargs):
-        """function to pass the embedding layer output through"""
-        raise NotImplementedError
+        if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
+            embedding_output = self.invertible_adapters_forward(embedding_output)
+
+        if self.supports_prompt_tuning:
+            embedding_output = self.prompt_tuning.forward(embedding_output)
+
+        return embedding_output
 
     @property
     def model_name(self):
@@ -681,6 +685,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
             del self.base_model.shared_parameters[adapter_name]
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.delete_invertible_adapter(adapter_name)
+        if self.supports_prompt_tuning:
+            self.prompt_tuning.delete_adapter(adapter_name)
+
         # Reset active adapters if this was the only active adapter
         if self.active_adapters == Stack(adapter_name):
             self.active_adapters = None
@@ -1001,6 +1008,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
         ) and name in self.invertible_adapters:
             destination[-1]["invertible"] = self.invertible_adapters[name]
 
+        if self.supports_prompt_tuning:
+            prompt_tuning = self.prompt_tuning.get_adapter(name)
+            if prompt_tuning is not None:
+                destination[-1]["prompt"] = prompt_tuning
+
         # use a custom index to ensure numbering is from 0 to N layers
         for i, (_, layer) in enumerate(self.iter_layers()):
             for module in layer.modules():
@@ -1263,16 +1275,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
 class ModelBaseAdaptersMixin(ModelAdaptersMixin):
     @ForwardContext.wrap
     def forward(self, *args, **kwargs):
-        # TODO: adapt attention mask here
-        attention_mask = kwargs.get("attention_mask", None)
-        if attention_mask is not None and self.prefix_attention_mask is not None:
-            self.prefix_attention_mask = self.prefix_attention_mask.to(attention_mask.device)
-            attention_mask = torch.cat((self.prefix_attention_mask, attention_mask), dim=1)
-            kwargs.update(
-                {
-                    "attention_mask": attention_mask,
-                }
-            )
         return super().forward(*args, **kwargs)
 
 

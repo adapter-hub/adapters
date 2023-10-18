@@ -16,9 +16,9 @@ class PromptTuningTestMixin(AdapterMethodBaseTestMixin):
 
     # TODO: add tests to add different configs (like initialization [random_uniform, from_array, ...] or prefix_prompt vs prefix_prompt_after_bos
 
-    # def test_average_prompt_tuning(self):
-    #     model = self.get_model()
-    #     self.run_average_test(model, PromptTuningConfig(), ["prompt_tunings.{name}."])
+    def test_average_prompt_tuning(self):
+        model = self.get_model()
+        self.run_average_test(model, PromptTuningConfig(prompt_length=10), ["prompt_tunings.{name}."])
 
     def test_delete_prompt_tuning(self):
         model = self.get_model()

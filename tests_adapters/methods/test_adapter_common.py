@@ -27,7 +27,6 @@ from .base import AdapterMethodBaseTestMixin, create_twin_models
 
 @require_torch
 class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
-
     adapter_configs_to_test = [
         (SeqBnConfig(), ["adapters.{name}."]),
         (MAMConfig(), ["adapters.{name}.", "prefix_tunings.{name}."]),
@@ -208,6 +207,14 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
 
         for adapter_config, _ in self.adapter_configs_to_test:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                self.run_forward_test(model, adapter_config)
+
+    def test_invertible_adapter_forward(self):
+        model = self.get_model()
+        model.eval()
+
+        for adapter_config, _ in self.inv_adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 self.run_forward_test(model, adapter_config)
 

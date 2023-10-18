@@ -17,6 +17,7 @@ class BertSelfAttentionAdaptersMixin:
     """Adds adapters to the BertSelfAttention module."""
 
     def init_adapters(self, model_config, adapters_config):
+        self.adapters_config = adapters_config
         # Wrap layers for LoRA
         self.query = LoRALinear.wrap(self.query, "selfattn", model_config, adapters_config, attn_key="q")
         self.key = LoRALinear.wrap(self.key, "selfattn", model_config, adapters_config, attn_key="k")
@@ -75,10 +76,6 @@ class BertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
     def init_adapters(self, model_config, adapters_config):
         super().init_adapters(model_config, adapters_config)
 
-        # TODO: move somewhere else? e.g. in ModelBaseAdaptersMixin as we can add this and just don't use it in post_embedding_forward if we don't want to support it
-        # wie machen wir das mit dem Hinzufügen der Adaoter? Wenn wir es nicht benutzen soll man auch keine hinzufügen können
-        # self.prompt_tuning = PromptTuningLayer(adapters_config)
-
         # Set hook for parallel composition
         for _, layer in self.iter_layers():
             self._set_layer_hook_for_parallel(layer)
@@ -96,16 +93,3 @@ class BertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.encoder.layer):
             yield i, layer
-
-    def post_embedding_forward(self, module, args, embedding_output):
-        print(f"args: {module}")
-
-        new_output = self.invertible_adapters_forward(embedding_output)
-        new_output, prefix_attention_mask = self.prompt_tuning.forward(embedding_output)
-
-        # TODO: das funktioniert so nicht alleine. Wir müssen die attention mask in die BertSelfAttention bekommen.
-        # Das ist aber nicht so einfach, weil wir prefix_attention_mask nicht direkt BertSelfAttention mitgeben können, da wir die mitgegebenen Parameter nicht verändern können.
-        # Wir können das mittels BertSelfAttentionAdaptersMixin machen, indem:
-        self.prefix_attention_mask = prefix_attention_mask
-
-        return new_output

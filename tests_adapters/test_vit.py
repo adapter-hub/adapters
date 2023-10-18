@@ -10,6 +10,7 @@ from .methods import (
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    PromptTuningTestMixin,
     UniPELTTestMixin,
 )
 from .test_adapter import VisionAdapterTestBase, make_config
@@ -39,6 +40,7 @@ class ViTAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    PromptTuningTestMixin,
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
