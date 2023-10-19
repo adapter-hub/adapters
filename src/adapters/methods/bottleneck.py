@@ -215,7 +215,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             state.bottleneck_up.repeat(channels, 1, 1) if state.bottleneck_up is not None else None,
         )
 
-    def mean(self, states: List[NamedTuple], weights: torch.Tensor) -> NamedTuple:
+    def mean(self, states: List[BottleneckState], weights: torch.Tensor) -> BottleneckState:
         return BottleneckState(
             torch.mean(torch.stack([s.hidden_states for s in states], 0) * weights, dim=0),
             states[0].input_tensor,
