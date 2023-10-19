@@ -20,9 +20,9 @@ from transformers.utils import ModelOutput
 
 from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, parse_heads_from_composition
 from ..context import AdapterSetup, ForwardContext
+from ..loading import PredictionHeadLoader
 from ..model_mixin import ModelWithHeadsAdaptersMixin
 from ..modeling import Activation_Function_Class
-from ..loading import PredictionHeadLoader
 
 
 logger = logging.getLogger(__name__)
@@ -917,9 +917,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if head_name in model.heads:
                 logger.warning("Overwriting existing head '{}'".format(head_name))
 
-            model.add_prediction_head_from_config(
-                head_name, head_config, overwrite_ok=True
-            )
+            model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
 
             for k in head_state_dict:
                 del state_dict[k]

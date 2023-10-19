@@ -789,12 +789,10 @@ class PredictionHeadLoader(WeightsLoader):
                 original_model_class,
                 load_as,
                 getattr(self.model.config, "label2id"),
-                num_labels=getattr(self.model.config, "num_labels", None),
             )
         elif self.error_on_missing:
             raise ValueError(
-                f"Cannot automatically convert prediction head of model class {original_model_class} to flex"
-                " head."
+                f"Cannot automatically convert prediction head of model class {original_model_class} to flex head."
             )
         else:
             return None, None
