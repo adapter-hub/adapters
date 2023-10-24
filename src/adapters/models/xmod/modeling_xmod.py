@@ -23,7 +23,7 @@ from torch import nn
 
 from transformers.models.xmod.modeling_xmod import XmodOutput, XmodSelfAttention, XmodSelfOutput
 
-from ...composition import adjust_tensors_for_parallel
+from ...composition import adjust_tensors_for_parallel, prefix_attention_mask
 from ..bert.mixin_bert import BertOutputAdaptersMixin, BertSelfAttentionAdaptersMixin, BertSelfOutputAdaptersMixin
 
 
@@ -39,6 +39,8 @@ class XmodSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, XmodSelfAtte
         past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
+        attention_mask = prefix_attention_mask(self.adapters_config, attention_mask)  # type: ignore
+
         mixed_query_layer = self.query(hidden_states)
 
         # If this is instantiated as a cross-attention module, the keys

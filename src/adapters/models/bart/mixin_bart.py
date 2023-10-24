@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Optional, Tuple
+from typing import Iterable, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -20,6 +20,8 @@ class BartAttentionAdaptersMixin:
     """Adds adapters to the BartAttention module."""
 
     def init_adapters(self, model_config, adapters_config):
+        self.adapters_config = adapters_config
+
         # Wrap layers for LoRA
         self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
         self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
@@ -34,6 +36,7 @@ class BartEncoderLayerAdaptersMixin:
     """Adds adapters to the BartEncoderLayer module of BART."""
 
     def init_adapters(self, model_config, adapters_config):
+        self.adapters_config = adapters_config
         # Wrap layers for LoRA
         self.fc1 = LoRALinear.wrap(self.fc1, "intermediate", model_config, adapters_config)
         self.fc2 = LoRALinear.wrap(self.fc2, "output", model_config, adapters_config)
@@ -58,8 +61,7 @@ class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
 class BartEncoderAdaptersMixin(InvertibleAdaptersMixin):
     """Adds adapters to the BartEncoder module of BART."""
 
-    def hook_after_embeddings(self, hook_fn: Callable):
-        return self.layernorm_embedding.register_forward_hook(hook_fn)
+    pass
 
 
 class BartDecoderAdaptersMixin:
@@ -76,6 +78,10 @@ class BartModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMi
     """Adds adapters to the BartModel class."""
 
     invertible_adapters_base_name = "encoder"
+
+    def init_adapters(self, model_config, adapters_config):
+        super().init_adapters(model_config, adapters_config)
+        self.encoder.layernorm_embedding.register_forward_hook(self.post_embedding_forward)
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         if hasattr(self, "encoder"):

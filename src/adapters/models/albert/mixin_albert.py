@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Tuple
+from typing import Iterable, Tuple
 
 import torch.nn as nn
 
@@ -13,6 +13,8 @@ class AlbertAttentionAdaptersMixin:
     """Adds adapters to the AlbertAttention module of ALBERT."""
 
     def init_adapters(self, model_config, adapters_config):
+        self.adapters_config = adapters_config
+
         # Wrap layers for LoRA
         self.query = LoRALinear.wrap(self.query, "selfattn", model_config, adapters_config, attn_key="q")
         self.key = LoRALinear.wrap(self.key, "selfattn", model_config, adapters_config, attn_key="k")
@@ -51,6 +53,8 @@ class AlbertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, 
         for _, layer in self.iter_layers():
             self._set_layer_hook_for_parallel(layer)
 
+        self.embeddings.register_forward_hook(self.post_embedding_forward)
+
     def _set_layer_hook_for_parallel(self, layer: nn.Module):
         def hook(module, input):
             adjust_tensors_for_parallel_(input[0], input[1])
@@ -64,6 +68,3 @@ class AlbertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, 
             for albertLayer in albertLayerGroup.albert_layers:
                 yield i, albertLayer
                 i += 1
-
-    def hook_after_embeddings(self, hook_fn: Callable):
-        return self.embeddings.register_forward_hook(hook_fn)

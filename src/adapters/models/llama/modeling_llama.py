@@ -25,7 +25,7 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 
-from adapters.composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
+from adapters.composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, prefix_attention_mask
 from transformers.models.llama.modeling_llama import apply_rotary_pos_emb
 from transformers.utils import logging
 
@@ -47,6 +47,10 @@ class LlamaAttentionWithAdapters(nn.Module, LlamaAttentionMixin):
         output_attentions: bool = False,
         use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+        attention_mask = prefix_attention_mask(self.adapters_config, attention_mask, dim=3)  # type: ignore
+        attention_mask = prefix_attention_mask(self.adapters_config, attention_mask, dim=2)  # type: ignore
+        position_ids = prefix_attention_mask(self.adapters_config, position_ids, dim=1)  # type: ignore
+
         bsz, q_len, _ = hidden_states.size()
 
         query_states = self.q_proj(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)

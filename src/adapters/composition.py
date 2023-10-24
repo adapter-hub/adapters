@@ -2,6 +2,8 @@ import itertools
 from collections.abc import Sequence
 from typing import List, Optional, Set, Union
 
+import torch
+
 
 class AdapterCompositionBlock(Sequence):
     def __init__(self, *children):
@@ -242,3 +244,23 @@ def adjust_tensors_for_parallel_(hidden_states, *tensors):
             repeats[0] = hidden_states.shape[0] // tensor.shape[0]
             new_tensor = tensor.repeat(*repeats)
             tensor.set_(new_tensor)
+
+
+def prefix_attention_mask(adapters_config, attention_mask=None, dim=3):
+    """
+    Prepends a given attention mask with a tensor of ones of the length specified in the adapter configuration
+    `prefix_attention_mask_length`. `prefix_attention_mask_length` is set e.g. by prompt tuning.
+    """
+    if attention_mask is not None and adapters_config.prefix_attention_mask_length is not None:
+        # Create a tensor of ones with the desired shape
+        ones_shape = list(attention_mask.shape)
+        ones_shape[dim] = adapters_config.prefix_attention_mask_length
+        prefix_attention_mask = torch.ones(
+            ones_shape,
+            dtype=attention_mask.dtype,
+        ).to(attention_mask.device)
+
+        # Concatenate the prefix_attention_mask along the specified dimension
+        attention_mask = torch.cat((prefix_attention_mask, attention_mask), dim=dim)
+
+    return attention_mask

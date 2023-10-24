@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Tuple
+from typing import Iterable, Tuple
 
 import torch.nn as nn
 
@@ -25,6 +25,9 @@ class XmodModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
         for _, layer in self.iter_layers():
             del layer.output.adapter_modules
 
+        # Register hook for post embedding forward
+        self.embeddings.register_forward_hook(self.post_embedding_forward)
+
     def _set_layer_hook_for_parallel(self, layer: nn.Module):
         def hook(module, input):
             # hook[1] is lang_ids tensor
@@ -36,9 +39,6 @@ class XmodModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.encoder.layer):
             yield i, layer
-
-    def hook_after_embeddings(self, hook_fn: Callable):
-        return self.embeddings.register_forward_hook(hook_fn)
 
     def forward(self, *args, **kwargs):
         if "lang_ids" in kwargs and kwargs["lang_ids"] is not None:

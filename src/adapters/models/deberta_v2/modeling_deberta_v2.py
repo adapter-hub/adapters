@@ -24,7 +24,7 @@ from transformers.models.deberta_v2.modeling_deberta_v2 import (
     XSoftmax,
 )
 
-from ...composition import adjust_tensors_for_parallel
+from ...composition import adjust_tensors_for_parallel, prefix_attention_mask
 from ..bert.mixin_bert import BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
 from .mixin_deberta_v2 import DebertaV2SelfAttentionAdaptersMixin
 
@@ -88,9 +88,10 @@ class DisentangledSelfAttentionWithAdapters(DebertaV2SelfAttentionAdaptersMixin,
             rel_embeddings (`torch.FloatTensor`):
                 The embedding of relative distances. It's a tensor of shape [\\(2 \\times
                 \\text{max_relative_positions}\\), *hidden_size*].
-
-
         """
+        attention_mask = prefix_attention_mask(self.adapters_config, attention_mask, dim=3)  # type: ignore
+        attention_mask = prefix_attention_mask(self.adapters_config, attention_mask, dim=2)  # type: ignore
+
         if query_states is None:
             query_states = hidden_states
         query_layer = self.transpose_for_scores_extended(self.query_proj(query_states), self.num_attention_heads)

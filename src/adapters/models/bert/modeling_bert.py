@@ -25,7 +25,7 @@ from torch import nn
 
 from transformers.models.bert.modeling_bert import BertOutput, BertSelfAttention, BertSelfOutput
 
-from ...composition import adjust_tensors_for_parallel
+from ...composition import adjust_tensors_for_parallel, prefix_attention_mask
 from .mixin_bert import BertOutputAdaptersMixin, BertSelfAttentionAdaptersMixin, BertSelfOutputAdaptersMixin
 
 
@@ -40,16 +40,7 @@ class BertSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, BertSelfAtte
         past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
-        if attention_mask is not None and self.adapters_config.prefix_attention_mask_length is not None:
-            prefix_attention_mask = torch.ones(
-                attention_mask.shape[0],
-                attention_mask.shape[1],
-                attention_mask.shape[2],
-                self.adapters_config.prefix_attention_mask_length,
-                dtype=torch.float32,
-            ).to(attention_mask.device)
-
-            attention_mask = torch.cat((prefix_attention_mask, attention_mask), dim=3)
+        attention_mask = prefix_attention_mask(self.adapters_config, attention_mask)  # type: ignore
 
         mixed_query_layer = self.query(hidden_states)
 

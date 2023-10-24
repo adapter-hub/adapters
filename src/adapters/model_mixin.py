@@ -365,26 +365,10 @@ class EmbeddingAdaptersWrapperMixin:
         return self.base_model.loaded_embeddings
 
 
-class PromptTuningMixin:
-    def init_prompt_tuning(
-        self, model_config: PretrainedConfig, adapters_config: ModelAdaptersConfig, base_model_embeddings: nn.Module
-    ):
-        self.prompt_tuning = PromptTuningLayer(model_config, adapters_config, base_model_embeddings)
-
-    def add_prompt_tuning(self, adapter_name: str) -> bool:
-        return self.prompt_tuning.add_adapter(adapter_name=adapter_name, layer_idx=-1)
-
-    # TODO: delete, etc .... prompt tuning
-    # TODO: can probably be merged into whereever this gets called
-
-
-class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
+class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
-    # Setting this to True will automatically add a prompt tuning layer to the model
-    # This prompt tuning layer is stoed in self.prompt_tuning
-    # Since the correct position to call the prompt tuning forward depends on the model type, this has to be called in the post_embedding_forward method
-    supports_prompt_tuning = False
+    add_base_adapters = False
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
@@ -392,15 +376,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
     def _link_prefix_to_pool(self, layer):
         if isinstance(layer, PrefixTuningLayer):
             layer.set_pool(self.base_model.prefix_tuning)
-
-    def post_embedding_forward(self, module, args, embedding_output):
-        if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
-            embedding_output = self.invertible_adapters_forward(embedding_output)
-
-        if self.supports_prompt_tuning:
-            embedding_output = self.prompt_tuning.forward(embedding_output)
-
-        return embedding_output
 
     @property
     def model_name(self):
@@ -432,8 +407,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
             self.apply_to_adapter_layers(lambda i, layer: self._link_prefix_to_pool(layer))
 
         # Add Prompt Tuning
-        if self.supports_prompt_tuning:
-            self.init_prompt_tuning(self.config, self.adapters_config, self.get_input_embeddings())
+        if self.add_base_adapters:
+            self.prompt_tuning = PromptTuningLayer(model_config, self.adapters_config, self.get_input_embeddings())
 
         # Initialize adapters from config
         for adapter_name in self.adapters_config:
@@ -465,12 +440,23 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
                 if isinstance(module, AdapterLayerBase):
                     fn(i, module)
 
+    def apply_to_basemodel_childs(self, fn):
+        """
+        Applies a function to all direct childs of the model if they are a instance of AdapterLayerBase.
+        """
+        if self.add_base_adapters:
+            for module in self.base_model.children():
+                if isinstance(module, AdapterLayerBase):
+                    # These childs don't have a layer index so we pass -1
+                    fn(-1, module)
+
     def train_adapter(self, adapter_setup: Union[list, AdapterCompositionBlock], train_embeddings=False):
         """Sets the model into mode for training the given adapters."""
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
         self.apply_to_adapter_layers(lambda i, layer: layer.enable_adapters(adapter_setup, True, False))
+        self.apply_to_basemodel_childs(lambda i, child: child.enable_adapters(adapter_setup, True, False))
         for adapter_name in adapter_setup:
             if adapter_name in self.base_model.shared_parameters:
                 for param in self.base_model.shared_parameters[adapter_name].values():
@@ -497,6 +483,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
         self.apply_to_adapter_layers(lambda i, layer: layer.enable_adapters(adapter_setup, unfreeze_adapters, True))
+        self.apply_to_basemodel_childs(lambda i, child: child.enable_adapters(adapter_setup, unfreeze_adapters, True))
         # use the adapters to be trained by default in every forward pass
         self.set_active_adapters(adapter_setup)
         # TODO implement fusion for invertible adapters
@@ -580,6 +567,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
     def _add_adapter_weights(self, adapter_name: str):
         """Helper method that performs the actual parameter additions when adding a new adapter."""
         self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
+        self.apply_to_basemodel_childs(lambda i, child: child.add_adapter(adapter_name, i))
+
         # PHM Layer
         if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):
             adapter_module = list(self.get_adapter(adapter_name)[0].values())[0]
@@ -611,10 +600,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
                 module.confirm_prefix(adapter_name)
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.add_invertible_adapter(adapter_name)
-
-        # Prompt Tuning
-        if self.supports_prompt_tuning:
-            self.add_prompt_tuning(adapter_name)
 
     def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
         warnings.warn(
@@ -663,6 +648,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
             self.delete_adapter_fusion(adapter_names)
         self.adapters_config.add_fusion(adapter_names, config=config)
         self.apply_to_adapter_layers(lambda i, layer: layer.add_fusion_layer(adapter_names))
+        self.apply_to_basemodel_childs(lambda i, child: child.add_fusion_layer(adapter_names))
         if set_active:
             if not isinstance(adapter_names, list):
                 adapter_names = adapter_names.split(",")
@@ -680,13 +666,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
             return
         del self.adapters_config.adapters[adapter_name]
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
+        self.apply_to_basemodel_childs(lambda i, child: child.delete_adapter(adapter_name))
         # PHM Layer
         if adapter_name in self.base_model.shared_parameters:
             del self.base_model.shared_parameters[adapter_name]
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.delete_invertible_adapter(adapter_name)
-        if self.supports_prompt_tuning:
-            self.prompt_tuning.delete_adapter(adapter_name)
 
         # Reset active adapters if this was the only active adapter
         if self.active_adapters == Stack(adapter_name):
@@ -713,6 +698,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
             return
         del self.adapters_config.fusions[adapter_fusion_name]
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_fusion_layer(adapter_fusion_name))
+        self.apply_to_basemodel_childs(lambda i, child: child.delete_fusion_layer(adapter_fusion_name))
         # Reset active adapters if this was the active setup
         if self.active_adapters == adapter_names:
             self.active_adapters = None
@@ -1008,10 +994,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
         ) and name in self.invertible_adapters:
             destination[-1]["invertible"] = self.invertible_adapters[name]
 
-        if self.supports_prompt_tuning:
-            prompt_tuning = self.prompt_tuning.get_adapter(name)
-            if prompt_tuning is not None:
-                destination[-1]["prompt"] = prompt_tuning
+        prompt_tuning = self.prompt_tuning.get_adapter(name)
+        if prompt_tuning is not None:
+            destination[-1]["prompt"] = prompt_tuning
 
         # use a custom index to ensure numbering is from 0 to N layers
         for i, (_, layer) in enumerate(self.iter_layers()):
@@ -1162,6 +1147,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
             input_adapters = {name: weight / sum_weights for name, weight in zip(adapter_list, weights)}
         try:
             self.apply_to_adapter_layers(lambda i, layer: layer.average_adapter(adapter_name, input_adapters))
+            self.apply_to_basemodel_childs(lambda i, child: child.average_adapter(adapter_name, input_adapters))
             # PHM Layer
             if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):
                 self._average_shared_parameters(adapter_name, input_adapters)
@@ -1273,6 +1259,16 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, PromptTuningMixin, ABC):
 
 @inherit_doc
 class ModelBaseAdaptersMixin(ModelAdaptersMixin):
+    add_base_adapters = True
+
+    def post_embedding_forward(self, module, args, embedding_output):
+        if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
+            embedding_output = self.invertible_adapters_forward(embedding_output)
+
+        embedding_output = self.prompt_tuning.forward(embedding_output)
+
+        return embedding_output
+
     @ForwardContext.wrap
     def forward(self, *args, **kwargs):
         return super().forward(*args, **kwargs)

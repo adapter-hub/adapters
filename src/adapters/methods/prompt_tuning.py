@@ -1,8 +1,7 @@
 # https://github.com/google-research/prompt-tuning/blob/main/prompt_tuning/train/prompts.py
 
-import logging
 import math
-from typing import Callable, Dict, List, Optional, Protocol, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Union
 
 import numpy as np
 import torch
@@ -11,15 +10,9 @@ from torch import nn
 from transformers import AutoTokenizer
 from transformers.configuration_utils import PretrainedConfig
 
-from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, Stack, adjust_tensors_for_parallel
+from ..composition import AdapterCompositionBlock
 from ..configuration import ModelAdaptersConfig, PromptTuningConfig
 from .adapter_layer_base import AdapterLayerBase
-
-
-logger = logging.getLogger(__name__)
-
-
-Initializer = Callable[[torch.Tensor, Sequence[int]], torch.Tensor]
 
 
 class PromptTuning(nn.Module):
@@ -121,7 +114,16 @@ class PromptTuning(nn.Module):
 
 
 class PromptTuningLayer(AdapterLayerBase, nn.Module):
-    # TODO: add documentation
+    """
+    Prompt Tuning implementation.
+
+    Args:
+        model_config: The model configuration.
+        adapters_config: The adapter configuration.
+        base_model_embeddings:
+            The embedding layer of the base model (used to initialize the prompt embedding if
+            prompt_init='from_string').
+    """
 
     adapter_modules_name = "prompt_tunings"
 
@@ -158,17 +160,17 @@ class PromptTuningLayer(AdapterLayerBase, nn.Module):
         return False
 
     def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
-        raise NotImplementedError()
+        pass  # TODO: implement
 
     def delete_adapter(self, adapter_name: str):
         if adapter_name in self.prompt_tunings:
             del self.prompt_tunings[adapter_name]
 
     def add_fusion_layer(self, adapter_names: Union[List, str]):
-        raise NotImplementedError()
+        pass  # not applicable to prompt tuning
 
     def delete_fusion_layer(self, adapter_names: Union[List, str]):
-        raise NotImplementedError()
+        pass  # not applicable to prompt tuning
 
     def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
         if unfreeze_adapters:

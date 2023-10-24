@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Tuple
+from typing import Iterable, Tuple
 
 import torch.nn as nn
 
@@ -10,6 +10,7 @@ from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mode
 
 class LlamaAttentionMixin:
     def init_adapters(self, model_config, adapters_config):
+        self.adapters_config = adapters_config
         self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", model_config, adapters_config, attn_key="q")
         self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
         self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
@@ -28,9 +29,12 @@ class LlamaDecoderLayerMixin:
 
 
 class LlamaModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
+    def init_adapters(self, model_config, adapters_config):
+        super().init_adapters(model_config, adapters_config)
+
+        # Register hook for post embedding forward
+        self.embed_tokens.register_forward_hook(self.post_embedding_forward)
+
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.layers):
             yield i, layer
-
-    def hook_after_embeddings(self, hook_fn: Callable):
-        return self.embed_tokens.register_forward_hook(hook_fn)

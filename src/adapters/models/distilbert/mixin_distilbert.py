@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Tuple
+from typing import Iterable, Tuple
 
 import torch.nn as nn
 
@@ -24,6 +24,7 @@ class DistilBertTransfomerBlockAdaptersMixin:
     """Adds adapters to the TransformerBlock module of DistilBert."""
 
     def init_adapters(self, model_config, adapters_config):
+        self.adapters_config = adapters_config
         # Wrap layers for LoRA
         self.ffn.lin1 = LoRALinear.wrap(self.ffn.lin1, "intermediate", model_config, adapters_config)
         self.ffn.lin2 = LoRALinear.wrap(self.ffn.lin2, "output", model_config, adapters_config)
@@ -44,15 +45,10 @@ class DistilBertTransformerAdaptersMixin:
 class DistilBertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the DistilBert module."""
 
+    def init_adapters(self, model_config, adapters_config):
+        super().init_adapters(model_config, adapters_config)
+        self.embeddings.register_forward_hook(self.post_embedding_forward)
+
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.transformer.layer):
             yield i, layer
-
-    def _hook_fn(self, module, input):
-        new_input = self.invertible_adapters_forward(input)
-        return new_input
-
-    def hook_after_embeddings(self, hook_fn: Callable):
-        # PyTorch's built-in pre-forward hook does not pass the input ids.
-        # Therefore, we need to use a custom hook.
-        self.transformer.pre_forward_fn = hook_fn

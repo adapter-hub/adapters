@@ -343,7 +343,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         # sequentially feed different parts of the blown-up batch into different adapters
         children_states = []
         for i, child in enumerate(adapter_setup):
-            # compute ids of sequences thet should be passed to the ith adapter
+            # compute ids of sequences that should be passed to the ith adapter
             batch_idx = (
                 sum(adapter_setup.batch_sizes[:i]),
                 sum(adapter_setup.batch_sizes[: i + 1]),

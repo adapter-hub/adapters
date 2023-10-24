@@ -21,7 +21,7 @@ from torch import nn
 
 from transformers.models.mbart.modeling_mbart import MBartAttention, MBartDecoderLayer, MBartEncoderLayer
 
-from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
+from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, prefix_attention_mask
 from ..bart.mixin_bart import BartAttentionAdaptersMixin, BartDecoderLayerAdaptersMixin, BartEncoderLayerAdaptersMixin
 
 
@@ -176,6 +176,7 @@ class MBartEncoderLayerWithAdapters(BartEncoderLayerAdaptersMixin, MBartEncoderL
                 returned tensors for more detail.
         """
         adjust_tensors_for_parallel_(hidden_states, attention_mask)
+        attention_mask = prefix_attention_mask(self.adapters_config, attention_mask, dim=3)  # type: ignore
 
         residual = hidden_states
         hidden_states = self.self_attn_layer_norm(hidden_states)

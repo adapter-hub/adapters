@@ -71,8 +71,6 @@ class BertLayerAdaptersMixin:
 class BertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the BertModel module."""
 
-    supports_prompt_tuning = True
-
     def init_adapters(self, model_config, adapters_config):
         super().init_adapters(model_config, adapters_config)
 
