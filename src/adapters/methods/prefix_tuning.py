@@ -254,6 +254,7 @@ class PrefixTuningState(NamedTuple):
         residual_input (torch.Tensor): The residual input of the attention layer.
         attention_mask (torch.Tensor, optional): The attention mask of the attention layer.
         invert_mask (bool): Whether the attention mask is inverted (ie. using '1' for padding).
+        idx_slice (slice, optional): Id slice for slicing prefix states along the batch size dimension.
 
     """
 

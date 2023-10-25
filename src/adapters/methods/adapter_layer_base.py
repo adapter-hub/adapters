@@ -78,30 +78,70 @@ class AdapterLayerBase(metaclass=ABCMeta):
 
     @abstractmethod
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
+        """Adds a new adapter module to the layer.
+
+        Args:
+            adapter_name (str): The name of the new adapter to add.
+            layer_idx (int):
+                The index of the adapters layer (this should be set once by the first added adapter and the kept fix).
+
+        Returns:
+            bool: True if the adapter was added, False otherwise.
+        """
         raise NotImplementedError()
 
     @abstractmethod
     def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+        """Averages a set of adapter modules into a new adapter module.
+
+        Args:
+            adapter_name (str): The name of the new (averaged) adapter module to add.
+            input_adapters (Dict[str, float]): Either:
+                - a list of adapter names (with equal weighting).
+                - a dictionary of adapter names and their corresponding weights.
+
+        Returns:
+            bool: True if the adapter was added, False otherwise.
+        """
         raise NotImplementedError()
 
     @abstractmethod
     def delete_adapter(self, adapter_name: str):
+        """Deletes an adapter module from the layer.
+
+        Args:
+            adapter_name (str): The name of the adapter to delete.
+        """
         raise NotImplementedError()
 
     @abstractmethod
     def add_fusion_layer(self, adapter_names: Union[List, str]):
+        # TODO remove this method from the base class
         raise NotImplementedError()
 
     @abstractmethod
     def delete_fusion_layer(self, adapter_names: Union[List, str]):
+        # TODO remove this method from the base class
         raise NotImplementedError()
 
     @abstractmethod
     def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
+        """Enables/ disables a set of adapter modules within the layer.
+
+        Args:
+            adapter_setup (AdapterCompositionBlock): The adapter setup to enable/ disable.
+            unfreeze_adapters (bool): Whether to unfreeze the adapters.
+            unfreeze_fusion (bool): Whether to unfreeze the fusion layers.
+        """
         raise NotImplementedError()
 
     @abstractmethod
     def get_adapter(self, adapter_name: str) -> nn.Module:
+        """Returns the adapter module with the given name.
+
+        Args:
+            adapter_name (str): The name of the adapter module.
+        """
         raise NotImplementedError()
 
 
