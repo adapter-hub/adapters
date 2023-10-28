@@ -4,6 +4,7 @@ import subprocess
 import typing
 from subprocess import PIPE
 from typing import Any, Union
+from adapters import init, AutoAdapterModel
 
 import numpy as np
 import torch
@@ -36,21 +37,18 @@ from transformers import (
     ViTImageProcessor,
     XLMRobertaConfig,
 )
+from transformers import CLIPVisionModelWithProjection, EncoderDecoderModel
 
-def create_output(model: Any, model_name: str, adapter_config: Any, adapter_name: str = "test"):
-    """ Given a model add an adapter and run a forward pass with some dummy data.
+def create_output(model: Any, model_name: str,):
+    """ Given a model run a forward pass with some dummy data.
     Args:
         model: The model for which the forward pass is run.
         model_name: The name of the model.
-        adapter_name: The adapter config for the adapter which is added to the model.
     Returns:
-        The model with the added adapter and the model output.
+        The model output.
     Raises:
         NotImplementedError: If the specified model type is not implemented. """
-        
-    model.add_adapter(adapter_name, config=adapter_config)
-    model.set_active_adapters(adapter_name)
-    
+
     dummy_data = generate_dummy_data(model_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # use GPU if available
     model.to(device)
@@ -58,7 +56,21 @@ def create_output(model: Any, model_name: str, adapter_config: Any, adapter_name
     with torch.no_grad():
         model_output = model(**dummy_data)
         
-    return model, model_output
+    return model_output
+
+
+def load_model(model_name: str, model_save_dir: str):
+    if model_name == "clip":
+        model = CLIPVisionModelWithProjection.from_pretrained(model_save_dir)
+        init(model)
+    elif model_name == "encoder_decoder":
+        model = EncoderDecoderModel.from_pretrained(model_save_dir)
+        init(model)
+    else:
+        model = AutoAdapterModel.from_pretrained(model_save_dir)
+    model.eval()
+    init(model)
+    return model
 
 
 def get_old_adapter_config_strings():

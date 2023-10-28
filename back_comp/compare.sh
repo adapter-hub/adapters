@@ -1,6 +1,10 @@
-echo hello
-echo current branch
-git branch 
-echo checkout to $1
-git checkout $1
-git branch
+#!/bin/bash
+
+# Select a directory to save the reference outputs
+SaveDir="/home/timo/workbench_l/AdapterHub/test"
+
+echo "Creating reference outputs..."
+python create_outputs.py --path="$SaveDir"
+
+echo "Comparing to reference outputs..."
+python compare_outputs.py --path="$SaveDir"
