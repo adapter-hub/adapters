@@ -37,75 +37,28 @@ from transformers import (
     XLMRobertaConfig,
 )
 
-
-def create_ref_outputs(file_path, venv_python_path, model_name):
-    """Create the reference samples for the specified model."""
-    # taken from: https://stackoverflow.com/a/27123973
-    print(f"venv_python_path = {venv_python_path}")
-    print(f"Create reference outputs...")
-    process = subprocess.Popen([venv_python_path, file_path, f"--model={model_name}"], stdout=PIPE, stderr=PIPE)
-    stdout, stderr = process.communicate()
-    print(stdout)
-    print(stderr)
-
-
-def compare_to_ref_output(model_name, rtol=1e-05, atol=1e-05):
-    """Compares to reference samples for the specified model."""
-    import adapters
-    from adapters import AutoAdapterModel
-    from transformers import EncoderDecoderModel
-
-    adapter_configs_old = get_old_adapter_config_strings()
-    adapter_configs_new = get_new_adapter_config_strings()
-    fix_seeds()
-
-    # Load appropriate directory for comparison
-    base_dir_path = os.path.join(os.getcwd(), "Ref_Out")
-    model_dir_path = os.path.join(base_dir_path, model_name)
-    adapter_dir_path = os.path.join(model_dir_path, "adapters")
-
-    # load saved model
-    model_save_dir = os.path.join(model_dir_path, "test_model")
-    if model_name == "clip":
-        model = CLIPVisionModelWithProjection.from_pretrained(model_save_dir)
-        adapters.init(model)
-    elif model_name == "encoder_decoder":
-        model = EncoderDecoderModel.from_pretrained(model_save_dir)
-        adapters.init(model)
-    else:
-        model = AutoAdapterModel.from_pretrained(model_save_dir)
-    model.eval()
-
-    for old, new in zip(adapter_configs_old, adapter_configs_new):
-        print(f"config: {new}")
-        # create a model instance and add and activate the adatper
-        adapter_config_dir = os.path.join(adapter_dir_path, old)
-        print(f"adapter_dir = {adapter_config_dir}")
-        adapter_name = model.load_adapter(adapter_name_or_path=adapter_config_dir)
-        model.set_active_adapters(adapter_name)
-        dummy_sample = generate_dummy_data(model=model_name)
-
-        # transfer to device and run forward pass
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # model.to(device)
-        # dummy_sample.to(device)
-        with torch.no_grad():
-            model_outputs = model(**dummy_sample)
-
-        # convert the output to a format that can be saved in .jsonl and save it in the model directory
-        conv_model_outputs, last_hidden_state = convert_tensors_to_list(model_outputs)
-
-        # compare last hidden state
-        file_path_last_hidden_state = os.path.join(model_dir_path, old + ".pt")
-        ref = torch.load(file_path_last_hidden_state)
-        print(f"Last hidden state equal: {torch.allclose(last_hidden_state, ref, atol=1e-05)}")
-
-        # compare complete model output
-        file_path = os.path.join(model_dir_path, model_name + "_outputs.jsonl")
-        ref_outputs = restore_from_jsonl(config=old, file_path=file_path)
-        compare_lists_close(ref_outputs, conv_model_outputs[0], rtol=rtol, atol=atol)
-        model.delete_adapter(adapter_name)
-
+def create_output(model: Any, model_name: str, adapter_config: Any, adapter_name: str = "test"):
+    """ Given a model add an adapter and run a forward pass with some dummy data.
+    Args:
+        model: The model for which the forward pass is run.
+        model_name: The name of the model.
+        adapter_name: The adapter config for the adapter which is added to the model.
+    Returns:
+        The model with the added adapter and the model output.
+    Raises:
+        NotImplementedError: If the specified model type is not implemented. """
+        
+    model.add_adapter(adapter_name, config=adapter_config)
+    model.set_active_adapters(adapter_name)
+    
+    dummy_data = generate_dummy_data(model_name)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # use GPU if available
+    model.to(device)
+    dummy_data.to(device)
+    with torch.no_grad():
+        model_output = model(**dummy_data)
+        
+    return model, model_output
 
 
 def get_old_adapter_config_strings():
@@ -164,7 +117,7 @@ def get_model_names():
         "xlm-r",
     ]
 
-def create_model_instance_without_adapter(model_name: str, model_class: Any) -> Any:
+def create_model(model_name: str, model_class: Any) -> Any:
     """Creates and returns an instance of a specified test model.
     Args:
         model_name (str): Specifies which model to instantiate.
@@ -172,7 +125,6 @@ def create_model_instance_without_adapter(model_name: str, model_class: Any) -> 
         NotImplementedError: If the specified model type is not implemented."""
     from transformers import EncoderDecoderModel
 
-    print(f"model_name = {model_name}")
     if model_name == "bart":
         bart_config = BartConfig(
             d_model=16,
@@ -183,7 +135,6 @@ def create_model_instance_without_adapter(model_name: str, model_class: Any) -> 
             encoder_ffn_dim=4,
             decoder_ffn_dim=4,
         )
-        print("Create Bart adapter model")
         model = model_class.from_config(bart_config)
 
     elif model_name == "albert":
@@ -400,6 +351,7 @@ def fix_seeds(seed: int = 42):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+    
 
 
 def decode_tuple(tuple_to_decode: tuple):
@@ -528,5 +480,8 @@ def restore_from_jsonl(config: str, file_path: str) -> Union[int, list]:
         return -1
 
 
-def save_to_pt(content, file_path):
-    torch.save(content, file_path)
+def save_model_output(model_output, save_path):
+    
+    last_hidden_state = model_output.to_tuple()[0].cpu()
+    os.makedirs(save_path, exist_ok=True)
+    torch.save(last_hidden_state, save_path)
