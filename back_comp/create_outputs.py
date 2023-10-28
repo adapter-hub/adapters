@@ -11,13 +11,15 @@ for model_name in get_model_names():
     
     print(f"Model = {model_name}")
     model_dir = os.path.join(base_dir, model_name)
+    os.makedirs(model_dir, exist_ok=True)
+    
     model = create_model(model_name=model_name, model_class=AutoAdapterModel)
     init(model)
 
     for adapter_config in get_new_adapter_config_strings():
                 
         # create model output
-        adapter_name = "weights"+adapter_config
+        adapter_name = "weights_"+adapter_config
         model, model_output = create_output(model, model_name, adapter_config, adapter_name)
         
         # process & save output
