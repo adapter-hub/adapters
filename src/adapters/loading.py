@@ -772,7 +772,7 @@ class PredictionHeadLoader(WeightsLoader):
         Loads a prediction head module from the given state dict, which contains a static head checkpoint.
 
         Args:
-            state_dict (dict): The static head checkpoint from which to load the head module.
+            state_dict (dict): The static head checkpoint from which to load the head module. Can be None.
             load_as (str, optional): Load the weights with this name. Defaults to None.
 
         Returns:
@@ -798,8 +798,11 @@ class PredictionHeadLoader(WeightsLoader):
             return None, None
 
         # Load head weights
-        new_state_dict = {}
-        for k, v in state_dict.items():
-            new_k = conversion_rename_func(k)
-            new_state_dict[new_k] = v
+        if state_dict is not None:
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                new_k = conversion_rename_func(k)
+                new_state_dict[new_k] = v
+        else:
+            new_state_dict = None
         return head_config, new_state_dict

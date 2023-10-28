@@ -905,9 +905,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         **kwargs,
     ):
         # Filter only weights not part of base model
-        head_state_dict = {
-            key: value for key, value in state_dict.items() if not key.startswith(cls.base_model_prefix)
-        }
+        if state_dict is not None:
+            head_state_dict = {
+                key: value for key, value in state_dict.items() if not key.startswith(cls.base_model_prefix)
+            }
+        else:
+            head_state_dict = None
         head_name = "default"
         loader = PredictionHeadLoader(model, error_on_missing=False, convert_to_flex_head=True)
         head_config, new_head_state_dict = loader.convert_static_to_flex_head(head_state_dict, load_as=head_name)
@@ -919,6 +922,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
             model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
 
+        if new_head_state_dict is not None:
             for k in head_state_dict:
                 del state_dict[k]
                 loaded_keys.remove(k)
