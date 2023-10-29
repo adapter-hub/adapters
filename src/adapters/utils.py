@@ -843,8 +843,6 @@ def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
 
     forward_context = ForwardContext.get_context()
 
-    print(f"In prefix_attention_mask: {attention_mask}")
-
     if (
         attention_mask is not None
         and forward_context is not None
@@ -862,6 +860,5 @@ def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
 
         # Concatenate the prefix_attention_mask along the specified dimension
         attention_mask = torch.cat((prefix_attention_mask, attention_mask), dim=dim)
-        print(f"attention_mask after concat: {attention_mask}")
 
     return attention_mask
