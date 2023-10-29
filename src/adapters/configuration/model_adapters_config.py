@@ -32,8 +32,6 @@ class ModelAdaptersConfig(Collection):
         self.active_setup: Optional[AdapterCompositionBlock] = None
         self.skip_layers = None
 
-        self.prefix_attention_mask_length = None
-
     def __contains__(self, item):
         return item in self.adapters.keys()
 

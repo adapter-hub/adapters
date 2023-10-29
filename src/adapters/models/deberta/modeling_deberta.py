@@ -24,7 +24,8 @@ from transformers.models.deberta.modeling_deberta import (
     XSoftmax,
 )
 
-from ...composition import adjust_tensors_for_parallel, prefix_attention_mask
+from ...composition import adjust_tensors_for_parallel
+from ...utils import prefix_attention_mask
 from ..bert.mixin_bert import BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
 from .mixin_deberta import DebertaSelfAttentionAdaptersMixin
 
@@ -94,8 +95,8 @@ class DisentangledSelfAttentionWithAdapters(DebertaSelfAttentionAdaptersMixin, D
 
 
         """
-        attention_mask = prefix_attention_mask(self.adapters_config, attention_mask, dim=3)  # type: ignore
-        attention_mask = prefix_attention_mask(self.adapters_config, attention_mask, dim=2)  # type: ignore
+        attention_mask = prefix_attention_mask(attention_mask, dim=3, prefix_value=1)  # type: ignore
+        attention_mask = prefix_attention_mask(attention_mask, dim=2, prefix_value=1)  # type: ignore
 
         if query_states is None:
             qp = self.in_proj(hidden_states)  # .split(self.all_head_size, dim=-1)

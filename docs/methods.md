@@ -267,3 +267,31 @@ model.reset_adapter()
 
 _Papers:_
 - [Few-Shot Parameter-Efficient Fine-Tuning is Better and Cheaper than In-Context Learning](https://arxiv.org/pdf/2205.05638.pdf) (Liu et al., 2022)
+
+## Prompt Tuning
+Prompt Tuning is an efficient fine-tuning technique proposed by Lester et al. (2021). Prompt tuning adds tunable tokens, called soft-prompts, that are prepended to the input text.
+First, the input sequence ${x_1, x_2, \dots, x_n }$ gets embedded, resulting in the matrix $X_e \in \mathbb{R}^{n \times e}$ where $e$ is the dimension of
+the embedding space. The soft-prompts with length $p$ are represented as $P_e \in \mathbb{R}^{p \times e}$.
+$P_e$ and $X_e$ get concatenated, forming the input of the following encoder or decoder:
+
+$$
+\left[P_e; X_e\right] \in \mathbb{R}^{\left(p + n\right) \times e}
+$$
+
+The `PromptTuningConfig` has the properties:
+- `prompt_length`: to set the soft-prompts length $p$ 
+- `prompt_init`: to set the weight initialisation method, which is either "random_uniform" or "from_string" to initialize each prompt token with an embedding drawn from the model’s vocabulary.
+    - `prompt_init_text` as the text use for initialisation if `prompt_init="from_string"`
+- `combine`: To define if the prefix should be added before the embedded input sequence or after the BOS token
+
+To add Prompt Tuning to your model, you can use the predefined configs:
+```python
+from adapters import PromptTuningConfig
+
+config = PromptTuningConfig(prompt_length=10)
+model.add_adapter("dummy", config=config)
+```
+
+_Papers:_
+- [The Power of Scale for Parameter-Efficient Prompt Tuning](https://aclanthology.org/2021.emnlp-main.243/) (Lester et al., 2021)
+

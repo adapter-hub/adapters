@@ -17,7 +17,6 @@ class BertSelfAttentionAdaptersMixin:
     """Adds adapters to the BertSelfAttention module."""
 
     def init_adapters(self, model_config, adapters_config):
-        self.adapters_config = adapters_config
         # Wrap layers for LoRA
         self.query = LoRALinear.wrap(self.query, "selfattn", model_config, adapters_config, attn_key="q")
         self.key = LoRALinear.wrap(self.key, "selfattn", model_config, adapters_config, attn_key="k")

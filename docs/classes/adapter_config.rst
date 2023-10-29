@@ -55,6 +55,13 @@ IA3Config
     :members:
     :inherited-members: Mapping
 
+PromptTuningConfig
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.PromptTuningConfig
+    :members:
+    :inherited-members: Mapping
+
 Combined configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

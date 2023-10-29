@@ -24,7 +24,6 @@ class DistilBertTransfomerBlockAdaptersMixin:
     """Adds adapters to the TransformerBlock module of DistilBert."""
 
     def init_adapters(self, model_config, adapters_config):
-        self.adapters_config = adapters_config
         # Wrap layers for LoRA
         self.ffn.lin1 = LoRALinear.wrap(self.ffn.lin1, "intermediate", model_config, adapters_config)
         self.ffn.lin2 = LoRALinear.wrap(self.ffn.lin2, "output", model_config, adapters_config)

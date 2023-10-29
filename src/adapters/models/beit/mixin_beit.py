@@ -11,7 +11,6 @@ from ...model_mixin import ModelBaseAdaptersMixin
 class BeitSelfAttentionAdaptersMixin:
     def init_adapters(self, model_config, adapters_config):
         self.location_key = "self"
-        self.adapters_config = adapters_config
 
         # Wrap layers for LoRA
         self.query = LoRALinear.wrap(self.query, "selfattn", model_config, adapters_config, attn_key="q")

@@ -21,6 +21,8 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 
+import torch
+
 import requests
 from filelock import FileLock
 from huggingface_hub import HfApi, HfFolder, snapshot_download
@@ -36,6 +38,7 @@ from transformers.utils import http_user_agent, is_remote_url
 from transformers.utils.hub import torch_cache_home
 
 from . import __version__
+from .context import ForwardContext
 
 
 logger = logging.getLogger(__name__)
@@ -287,7 +290,6 @@ def get_from_cache(
     # Prevent parallel downloads of the same file with a lock.
     lock_path = cache_path + ".lock"
     with FileLock(lock_path):
-
         # If the download just completed while the lock was activated.
         if os.path.exists(cache_path) and not force_download:
             # Even if returning early like here, the lock will be released.
@@ -819,3 +821,47 @@ def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInf
             return None
     else:
         raise ValueError("Please specify either 'ah' or 'hf' as source.")
+
+
+def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
+    """
+    Adds a prefix to an attention mask. The length of the prefix is determined by the `prefix_attention_mask_length`
+    attribute in the ForwardContext.
+
+    Args:
+        attention_mask:
+            The attention mask to add the prefix to.
+        dim (int):
+            The dimension along which to concatenate the prefix_attention_mask. Defaults to 3.
+        prefix_value (int):
+            The value to use for the prefix_attention_mask. Defaults to 0, however some models, e.g. DistilBert, use
+            different values. BERT like models invert their extended_attention_mask, hence they use 0 as value for not
+            masked tokens. This inversion is usually done in the forward method of the model in 2 different ways:
+                1) by calling self.invert_attention_mask, as BERT does 2) by doing the inversion manually, e.g. ALBERT
+                does: `extended_attention_mask = (1.0 - extended_attention_mask) * torch.finfo(self.dtype).min`
+    """
+
+    forward_context = ForwardContext.get_context()
+
+    print(f"In prefix_attention_mask: {attention_mask}")
+
+    if (
+        attention_mask is not None
+        and forward_context is not None
+        and forward_context.prefix_attention_mask_length is not None
+    ):
+        # Create a tensor of ones with the desired shape
+        ones_shape = list(attention_mask.shape)
+        ones_shape[dim] = forward_context.prefix_attention_mask_length
+
+        prefix_attention_mask = torch.full(
+            ones_shape,
+            prefix_value,
+            dtype=attention_mask.dtype,
+        ).to(attention_mask.device)
+
+        # Concatenate the prefix_attention_mask along the specified dimension
+        attention_mask = torch.cat((prefix_attention_mask, attention_mask), dim=dim)
+        print(f"attention_mask after concat: {attention_mask}")
+
+    return attention_mask

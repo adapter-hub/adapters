@@ -10,7 +10,6 @@ from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mode
 
 class LlamaAttentionMixin:
     def init_adapters(self, model_config, adapters_config):
-        self.adapters_config = adapters_config
         self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", model_config, adapters_config, attn_key="q")
         self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
         self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")

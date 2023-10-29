@@ -12,6 +12,7 @@ from transformers.configuration_utils import PretrainedConfig
 
 from ..composition import AdapterCompositionBlock
 from ..configuration import ModelAdaptersConfig, PromptTuningConfig
+from ..context import ForwardContext
 from .adapter_layer_base import AdapterLayerBase
 
 
@@ -97,7 +98,6 @@ class PromptTuning(nn.Module):
     def forward(self, embedded_input):
         # Compute prompt embedding
         self.prompt_tokens = self.prompt_tokens.to(embedded_input.device)
-        self.prompt_embedding = self.prompt_embedding.to(embedded_input.device)
         prompt = self.prompt_embedding(self.prompt_tokens)
 
         # Prompt to batch size
@@ -199,6 +199,8 @@ class PromptTuningLayer(AdapterLayerBase, nn.Module):
             if first_adapter in self.prompt_tunings:
                 hidden_states, prefix_attention_mask_length = self.prompt_tunings[first_adapter](hidden_states)
 
-        self.adapters_config.prefix_attention_mask_length = prefix_attention_mask_length
+        context = ForwardContext.get_context()
+        if context is not None:
+            context.prefix_attention_mask_length = prefix_attention_mask_length
 
         return hidden_states

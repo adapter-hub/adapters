@@ -27,7 +27,8 @@ from torch import nn
 
 from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAttention, TransformerBlock
 
-from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, prefix_attention_mask
+from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
+from ...utils import prefix_attention_mask
 from .mixin_distilbert import DistilBertMultiHeadSelfAttentionMixin, DistilBertTransfomerBlockAdaptersMixin
 
 
@@ -118,7 +119,7 @@ class TransformerBlockWithAdapters(DistilBertTransfomerBlockAdaptersMixin, Trans
             torch.tensor(bs, seq_length, dim) The output of the transformer block contextualization.
         """
         adjust_tensors_for_parallel_(x, attn_mask)
-        attn_mask = prefix_attention_mask(self.adapters_config, attn_mask, dim=1)  # type: ignore
+        attn_mask = prefix_attention_mask(attn_mask, dim=1, prefix_value=1)  # type: ignore
 
         # Self-Attention
         sa_output = self.attention(
