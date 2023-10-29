@@ -55,7 +55,7 @@ for model_name in get_model_names():
         
         # process & save output
         model_output_n, last_hidden_state = convert_tensors_to_list(model_output)
-        save_to_jsonl(model_output_n, adapter_config, os.path.join(model_dir, "output.jsonl"))
+        save_to_jsonl(model_output_n, config, os.path.join(model_dir, "output.jsonl"))
         
         # save adapter weights
         adapter_save_dir = os.path.join(model_dir, adapter_name)
