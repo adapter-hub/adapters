@@ -122,7 +122,7 @@ class ElectraSelfOutputWithAdapters(BertSelfOutputAdaptersMixin, ElectraSelfOutp
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
+        hidden_states = self.bottleneck_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
@@ -130,5 +130,5 @@ class ElectraOutputWithAdapters(BertOutputAdaptersMixin, ElectraOutput):
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
+        hidden_states = self.bottleneck_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states

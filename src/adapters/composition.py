@@ -73,12 +73,9 @@ class Fuse(AdapterCompositionBlock):
 
 
 class Split(AdapterCompositionBlock):
-    def __init__(self, left: str, right: str, split_index: int):
-        super().__init__(left, right)
-        assert split_index > 0
-        self.left = left
-        self.right = right
-        self.split_index = split_index
+    def __init__(self, *split_adapters: List[Union[AdapterCompositionBlock, str]], splits: Union[List[int], int]):
+        super().__init__(*split_adapters)
+        self.splits = splits if isinstance(splits, list) else [splits] * len(split_adapters)
 
 
 class BatchSplit(AdapterCompositionBlock):

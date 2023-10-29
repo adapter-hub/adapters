@@ -72,7 +72,7 @@ class ViTOutputWithAdapters(ViTOutputAdaptersMixin, ViTOutput):
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.output_adapters.adapter_layer_forward(hidden_states, input_tensor, None)
+        hidden_states = self.output_adapters.bottleneck_layer_forward(hidden_states, input_tensor, None)
 
         return hidden_states
 
@@ -94,7 +94,7 @@ class ViTLayerWithAdapters(ViTLayerAdaptersMixin, ViTLayer):
         attention_output = self_attention_outputs[0]
         outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
 
-        hidden_states = self.attention_adapters.adapter_layer_forward(attention_output, hidden_states, None)
+        hidden_states = self.attention_adapters.bottleneck_layer_forward(attention_output, hidden_states, None)
 
         # in ViT, layernorm is also applied after self-attention
         layer_output = self.layernorm_after(hidden_states)

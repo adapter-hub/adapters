@@ -27,8 +27,8 @@ Now that we have discussed the purpose of every file in `src/adapters/models/<mo
         - To figure out which classes to change, think about where to insert LoRA, Prefix Tuning, and bottleneck adapters.
         - You can use similar model implementations for guidance.
         - Often, existing mixins of another class can be reused. E.g. `BertLayer`, `RobertaLayer`, `XLMRobertaLayer`, `DebertaLayer`, `DebertaV2Layer` and `BertGenerationLayer` (all models derived from BERT) use the `BertLayerAdaptersMixin`.
-    - To additionally support Prefix Tuning, it's necessary to apply the forward call to the `PrefixTuningShim` module in the respective attention layer (see step 3 for how to modify the code of an Hugging Face class).
-    - Make sure the calls to `adapter_layer_forward()` are added in the right places.
+    - To additionally support Prefix Tuning, it's necessary to apply the forward call to the `PrefixTuningLayer` module in the respective attention layer (see step 3 for how to modify the code of an Hugging Face class).
+    - Make sure the calls to `bottleneck_layer_forward()` are added in the right places.
     - The mixin for the whole base model class (e.g., `BertModel`) should derive from `ModelBaseAdaptersMixin` and (if possible) `EmbeddingAdaptersMixin` and/or `InvertibleAdaptersMixin`. This mixin should at least implement the `iter_layers()` method but might require additional modifications depending on the architecture.
         - If the model is a combination of different models, such as the EncoderDecoderModel, use `ModelUsingSubmodelsAdaptersMixin` instead of `ModelBaseAdaptersMixin`.
 3. **Copied functions:**

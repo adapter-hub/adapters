@@ -4,10 +4,10 @@ from typing import Callable, Iterable, Tuple
 import torch.nn as nn
 
 from ...composition import adjust_tensors_for_parallel_
-from ...layer import AdapterLayer
-from ...lora import Linear as LoRALinear
+from ...methods.bottleneck import BottleneckLayer
+from ...methods.lora import Linear as LoRALinear
+from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
-from ...prefix_tuning import PrefixTuningShim
 
 
 logger = logging.getLogger(__name__)
@@ -22,13 +22,13 @@ class BertSelfAttentionAdaptersMixin:
         self.key = LoRALinear.wrap(self.key, "selfattn", model_config, adapters_config, attn_key="k")
         self.value = LoRALinear.wrap(self.value, "selfattn", model_config, adapters_config, attn_key="v")
 
-        self.prefix_tuning = PrefixTuningShim(
+        self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
 
 
-# For backwards compatibility, BertSelfOutput inherits directly from AdapterLayer
-class BertSelfOutputAdaptersMixin(AdapterLayer):
+# For backwards compatibility, BertSelfOutput inherits directly from BottleneckLayer
+class BertSelfOutputAdaptersMixin(BottleneckLayer):
     """Adds adapters to the BertSelfOutput module."""
 
     def __init__(self):
@@ -39,8 +39,8 @@ class BertSelfOutputAdaptersMixin(AdapterLayer):
         super().init_adapters(model_config, adapters_config)
 
 
-# For backwards compatibility, BertOutput inherits directly from AdapterLayer
-class BertOutputAdaptersMixin(AdapterLayer):
+# For backwards compatibility, BertOutput inherits directly from BottleneckLayer
+class BertOutputAdaptersMixin(BottleneckLayer):
     """Adds adapters to the BertOutput module."""
 
     def __init__(self):

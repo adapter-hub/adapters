@@ -21,10 +21,10 @@ class AdapterCompositionParsingTest(unittest.TestCase):
 
     def test_invalid_nesting_fusion(self):
         self.assertRaises(ValueError, lambda: parse_composition(Fuse(Fuse("a", "b"), "c")))
-        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Split("a", "b", 128), "c")))
+        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Split("a", "b", splits=128), "c")))
 
     def test_invalid_nesting_split(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Split("a", Fuse("b", "c"), 128)))
+        self.assertRaises(ValueError, lambda: parse_composition(Split("a", Fuse("b", "c"), splits=128)))
 
 
 @require_torch
@@ -83,7 +83,7 @@ class AdapterCompositionTest(unittest.TestCase):
 
         model = self.build_model()
         # pass over split setup
-        model.set_active_adapters(Split("a", "b", 64))
+        model.set_active_adapters(Split("a", "b", splits=64))
 
         self.training_pass(model)
 
@@ -93,7 +93,7 @@ class AdapterCompositionTest(unittest.TestCase):
 
         model = self.build_model()
         # split into two stacks
-        model.set_active_adapters(Split(Stack("a", "b"), Stack("c", "d"), split_index=64))
+        model.set_active_adapters(Split(Stack("a", "b"), Stack("c", "d"), splits=64))
 
         self.training_pass(model)
 
@@ -118,7 +118,7 @@ class AdapterCompositionTest(unittest.TestCase):
         model.add_adapter_fusion(Fuse("a", "b"))
         model.to(torch_device)
 
-        model.set_active_adapters(Stack("a", Split("c", "d", split_index=64), Fuse("a", "b")))
+        model.set_active_adapters(Stack("a", Split("c", "d", splits=64), Fuse("a", "b")))
 
         self.training_pass(model)
 
@@ -128,7 +128,7 @@ class AdapterCompositionTest(unittest.TestCase):
 
         model = self.build_model()
         # split into two stacks
-        model.set_active_adapters(Split(Split("a", "b", split_index=32), "c", split_index=64))
+        model.set_active_adapters(Split(Split("a", "b", splits=32), "c", splits=64))
 
         self.training_pass(model)
 

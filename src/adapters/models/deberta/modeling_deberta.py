@@ -33,7 +33,7 @@ class DebertaSelfOutputWithAdapters(BertSelfOutputAdaptersMixin, DebertaSelfOutp
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
+        hidden_states = self.bottleneck_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 
@@ -41,7 +41,7 @@ class DebertaOutputWithAdapters(BertOutputAdaptersMixin, DebertaOutput):
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, self.LayerNorm)
+        hidden_states = self.bottleneck_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
 
 

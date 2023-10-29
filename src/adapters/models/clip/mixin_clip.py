@@ -3,8 +3,9 @@ from typing import Callable, Iterable, Tuple
 import torch.nn as nn
 
 from ...composition import adjust_tensors_for_parallel_
-from ...layer import AdapterLayer
-from ...lora import Linear as LoRALinear
+from ...methods.bottleneck import BottleneckLayer
+from ...methods.lora import Linear as LoRALinear
+from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import (
     EmbeddingAdaptersMixin,
     EmbeddingAdaptersWrapperMixin,
@@ -12,7 +13,6 @@ from ...model_mixin import (
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
 )
-from ...prefix_tuning import PrefixTuningShim
 
 
 class CLIPAttentionAdaptersMixin:
@@ -24,7 +24,9 @@ class CLIPAttentionAdaptersMixin:
         self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
         self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
 
-        self.prefix_tuning = PrefixTuningShim("self_prefix", model_config, adapters_config, add_model_type_to_key=True)
+        self.prefix_tuning = PrefixTuningLayer(
+            "self_prefix", model_config, adapters_config, add_model_type_to_key=True
+        )
 
 
 class CLIPEncoderLayerAdaptersMixin:
@@ -35,8 +37,8 @@ class CLIPEncoderLayerAdaptersMixin:
         self.mlp.fc1 = LoRALinear.wrap(self.mlp.fc1, "intermediate", model_config, adapters_config)
         self.mlp.fc2 = LoRALinear.wrap(self.mlp.fc2, "output", model_config, adapters_config)
 
-        self.attention_adapters = AdapterLayer("mh_adapter")
-        self.output_adapters = AdapterLayer("output_adapter")
+        self.attention_adapters = BottleneckLayer("mh_adapter")
+        self.output_adapters = BottleneckLayer("output_adapter")
 
 
 class CLIPEncoderAdaptersMixin:
