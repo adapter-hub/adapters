@@ -2,10 +2,10 @@ from typing import Iterable, Tuple
 
 import torch.nn as nn
 
-from ...layer import AdapterLayer
-from ...lora import Linear as LoRALinear
+from ...methods.bottleneck import BottleneckLayer
+from ...methods.lora import Linear as LoRALinear
+from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import ModelBaseAdaptersMixin
-from ...prefix_tuning import PrefixTuningShim
 
 
 class ViTSelfAttentionAdaptersMixin:
@@ -17,7 +17,7 @@ class ViTSelfAttentionAdaptersMixin:
         self.key = LoRALinear.wrap(self.key, "selfattn", model_config, adapters_config, attn_key="k")
         self.value = LoRALinear.wrap(self.value, "selfattn", model_config, adapters_config, attn_key="v")
 
-        self.prefix_tuning = PrefixTuningShim(
+        self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
 
@@ -32,7 +32,7 @@ class ViTOutputAdaptersMixin:
     """Adds adapters to the ViTOutput module."""
 
     def init_adapters(self, model_config, adapters_config):
-        self.output_adapters = AdapterLayer("output_adapter")
+        self.output_adapters = BottleneckLayer("output_adapter")
 
         # Wrap layers for LoRA
         self.dense = LoRALinear.wrap(self.dense, "output", model_config, adapters_config)
@@ -43,7 +43,7 @@ class ViTLayerAdaptersMixin:
     """Adds adapters to the ViTSelfOutput module."""
 
     def init_adapters(self, model_config, adapters_config):
-        self.attention_adapters = AdapterLayer("mh_adapter")
+        self.attention_adapters = BottleneckLayer("mh_adapter")
 
 
 class ViTModelAdaptersMixin(ModelBaseAdaptersMixin):

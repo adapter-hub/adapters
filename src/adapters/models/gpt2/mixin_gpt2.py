@@ -2,11 +2,11 @@ from typing import Callable, Iterable, Tuple
 
 import torch.nn as nn
 
-from ...layer import AdapterLayer
-from ...lora import Linear as LoRALinear
-from ...lora import MergedLinear as LoRAMergedLinear
+from ...methods.bottleneck import BottleneckLayer
+from ...methods.lora import Linear as LoRALinear
+from ...methods.lora import MergedLinear as LoRAMergedLinear
+from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
-from ...prefix_tuning import PrefixTuningShim
 
 
 class GPT2AttentionAdaptersMixin:
@@ -25,7 +25,7 @@ class GPT2AttentionAdaptersMixin:
             )
 
         location_key = "cross_prefix" if self.is_cross_attention else "self_prefix"
-        self.prefix_tuning = PrefixTuningShim(location_key, model_config, adapters_config)
+        self.prefix_tuning = PrefixTuningLayer(location_key, model_config, adapters_config)
 
 
 class GPT2DecoderBlockAdaptersMixin:
@@ -50,8 +50,8 @@ class GPT2DecoderBlockAdaptersMixin:
             no_init_bias=True,
         )
 
-        self.attention_adapters = AdapterLayer("mh_adapter")
-        self.output_adapters = AdapterLayer("output_adapter")
+        self.attention_adapters = BottleneckLayer("mh_adapter")
+        self.output_adapters = BottleneckLayer("output_adapter")
 
 
 class GPT2ModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):

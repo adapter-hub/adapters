@@ -21,8 +21,8 @@ from transformers.utils import ModelOutput
 from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, parse_heads_from_composition
 from ..context import AdapterSetup, ForwardContext
 from ..loading import PredictionHeadLoader
+from ..methods.modeling import Activation_Function_Class
 from ..model_mixin import ModelWithHeadsAdaptersMixin
-from ..modeling import Activation_Function_Class
 
 
 logger = logging.getLogger(__name__)

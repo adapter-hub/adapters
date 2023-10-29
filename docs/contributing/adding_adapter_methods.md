@@ -20,28 +20,49 @@ Thus, each adapter method implementation at least should provide two classes:
 
 - a configuration class deriving from `AdapterConfigBase` that provides attributes for all configuration options of the method
 - a module class deriving from the abstract `AdapterLayerBase` that provides the method parameters and a set of standard adapter management functions
+    - modules supporting [adapter composition](https://docs.adapterhub.ml/adapter_composition.html) should instead derive from `ComposableAdapterLayerBase`
 
-**📝 Steps**
+### Configuration
 
-- All configuration classes reside in `src/transformers/adapters/configuration.py`.
-    To add a new configuration class for a new method, create a new subclass of `AdapterConfigBase`.
+All configuration classes reside in `src/adapters/configuration/adapter_config.py`.
+- To add a new configuration class for a new method, create a new subclass of [`AdapterConfigBase`](adapters.AdapterConfigBase).
     Make sure to set the `architecture` attribute in your class.
-    - Finally, also make sure the config class is added to the `__init__.py` files in `src/transformers/adapters` and `src/transformers`.
-- The `AdapterLayerBase` class from which any new adapter modules should derive resides in `src/transformers/adapters/layer.py`.
-    - This abstract base class defines a set of methods that should be implemented by each deriving class,
-    including methods for adding, enabling and deleting adapter weights.
-    - Most importantly, the module classes deriving from this base class should implement the forward pass through an adaptation component.
-    - The concrete implementation of these classes heavily depends on the specifics of the adapter method.
-    For a reference implementation, have a look at `AdapterLayer` for bottleneck adapters.
-- To actually make use of the newly implemented classes, it's finally necessary to integrate the forward calls to the modules in the actual model implementations.
-    - This, again, is highly dependent on how the adapter method interacts with the base model classes. Typically, module classes can be integrated either via mixins (see `src/transformers/adapters/mixins`) or directly as submodules of the respective model components.
-    - The model class integration has to be repeated for each supported Transformer model, as they typically don't share a codebase. At this point it is often important to consider where the adapters need to be added to the transformer model and whether there is an implementation that does not require more copying of classes than the current implementation.
-    Please try to integrate any new adapter method into every model class when it's reasonable.
-    You can find all currently supported model classes at https://docs.adapterhub.ml/model_overview.html.
+- Finally, also make sure the config class is added to the `__init__.py` files in `src/adapters`.
+
+### Modeling
+
+All adapter method implementations reside in `src/adapters/methods`.
+
+#### For methods **without** composition support
+
+The [`AdapterLayerBase`](adapters.AdapterLayerBase) class from which any new adapter modules should derive resides in `src/adapters/methods/adapter_layer_base.py`.
+- This abstract base class defines a set of methods that should be implemented by each deriving class,
+including methods for adding, enabling and deleting adapter weights. These methods are marked as abstract in the base class. See [`AdapterLayerBase`](adapters.AdapterLayerBase) for details.
+- Most importantly however, the module classes deriving from this base class should implement the forward pass through an adaptation component.
+- The concrete implementation of these classes heavily depends on the specifics of the adapter method.
+
+#### For methods **with** composition support 
+
+The [`ComposableAdapterLayerBase`](adapters.ComposableAdapterLayerBase) class (as subclass of [`AdapterLayerBase`](adapters.AdapterLayerBase)), which resides in `src/adapters/methods/adapter_layer_base.py` provides the basic skeleton for implementing adapter composition.
+- Your deriving module class firstly should implement all methods required by [`AdapterLayerBase`](adapters.AdapterLayerBase). See section above for details.
+- For adapter composition, the pre-implemented `compose()` method constitutes the main entry-point. This method should be called during the forward pass of your adapter module.
+- `compose()` expects a `state` object, which is a generic named tuple object defined by your adapter method. This state object should hold all tensors (such as hidden states, attention masks etc.) and state attributes required for your adapter implementation. See `BottleneckState` for an example.
+- Implementations for specific composition blocks are given in methods starting with `compose_`. Some composition blocks provide generic default implementations, some must be implemented by the deriving class if they should be supported. Make sure to list all supported composition blocks in the `supported_compositions` class attribute of your deriving module.
+- In any case, a small set of helper methods should be implemented by any deriving module to support basic composition logic. These are marked as abstract methods in [`ComposableAdapterLayerBase`](adapters.ComposableAdapterLayerBase) and currently consist of the following: vslice(), pad_and_concat(), repeat(), mean(), compose_single(). See [`ComposableAdapterLayerBase`](adapters.ComposableAdapterLayerBase) for details.
+
+For a reference implementation, have a look at `BottleneckLayer` for bottleneck adapters.
+
+#### For all methods
+
+To actually make use of the newly implemented classes, it's finally necessary to integrate the forward calls to the modules in the actual model implementations.
+- This, again, is highly dependent on how the adapter method interacts with the base model classes. Typically, module classes can be integrated either via mixins (see modules starting with "mixin" in `src/adapters/models`) or directly as submodules of the respective model components.
+- The model class integration has to be repeated for each supported Transformer model, as they typically don't share a codebase. At this point it is often important to consider where the adapters need to be added to the transformer model and whether there is an implementation that does not require more copying of classes than the current implementation.
+Please try to integrate any new adapter method into every model class when it's reasonable.
+You can find all currently supported model classes at https://docs.adapterhub.ml/model_overview.html.
 
 **Additional things to consider**
 
-- New adapter methods typically also require some changes in the `AdapterLoader` class in `src/transformers/adapters/loading.py` (also see [here](https://docs.adapterhub.ml/extending.html#loading-custom-module-weights)).
+- New adapter methods typically also require some changes in the `AdapterLoader` class in `src/adapters/loading.py` (also see [here](https://docs.adapterhub.ml/extending.html#loading-custom-module-weights)).
 - Depending on the method to be integrated, further changes in other classes might be necessary.
 
 ## Testing

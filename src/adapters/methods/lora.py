@@ -13,9 +13,9 @@ import torch.nn.functional as F
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
-from .composition import AdapterCompositionBlock
-from .configuration import LoRAConfig, ModelAdaptersConfig
-from .layer import AdapterLayerBase
+from ..composition import AdapterCompositionBlock
+from ..configuration import LoRAConfig, ModelAdaptersConfig
+from .adapter_layer_base import AdapterLayerBase
 
 
 class LoRA(nn.Module):
@@ -94,6 +94,8 @@ class LoRA(nn.Module):
 
 
 class LoRALayer(AdapterLayerBase):
+    adapter_modules_name = "loras"
+
     def __init__(
         self, location_key: str, model_config: PretrainedConfig, adapters_config: ModelAdaptersConfig, *args, **kwargs
     ):
@@ -313,7 +315,7 @@ class Linear(LoRALayer, nn.Linear):
             return torch.transpose(w, -2, -1) if self.fan_in_fan_out else w
 
         if not self.merged:
-            adapter_setup = self.get_active_setup(self.loras)
+            adapter_setup = self.get_active_setup()
             if adapter_setup is not None:
                 if len(adapter_setup) == 1:
                     lora = self.loras[adapter_setup[0]]
@@ -496,7 +498,7 @@ class MergedLinear(LoRALayer, nn.Linear):
             return torch.t(w) if self.fan_in_fan_out else w
 
         if not self.merged:
-            adapter_setup = self.get_active_setup(self.loras)
+            adapter_setup = self.get_active_setup()
             if adapter_setup is not None:
                 if len(adapter_setup) == 1:
                     result = F.linear(x, T(self.weight), bias=self.bias)

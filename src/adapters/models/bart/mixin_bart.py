@@ -4,8 +4,9 @@ import torch
 import torch.nn as nn
 
 from ...composition import adjust_tensors_for_parallel
-from ...layer import AdapterLayer
-from ...lora import Linear as LoRALinear
+from ...methods.bottleneck import BottleneckLayer
+from ...methods.lora import Linear as LoRALinear
+from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import (
     EmbeddingAdaptersMixin,
     EmbeddingAdaptersWrapperMixin,
@@ -13,7 +14,6 @@ from ...model_mixin import (
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
 )
-from ...prefix_tuning import PrefixTuningShim
 
 
 class BartAttentionAdaptersMixin:
@@ -25,7 +25,7 @@ class BartAttentionAdaptersMixin:
         self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
         self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", model_config, adapters_config, attn_key="q")
 
-        self.prefix_tuning = PrefixTuningShim(
+        self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
 
@@ -40,8 +40,8 @@ class BartEncoderLayerAdaptersMixin:
 
         # Set attention layer location key for prefix tuning
         self.self_attn.location_key = "encoder"
-        self.attention_adapters = AdapterLayer("mh_adapter")
-        self.output_adapters = AdapterLayer("output_adapter")
+        self.attention_adapters = BottleneckLayer("mh_adapter")
+        self.output_adapters = BottleneckLayer("output_adapter")
 
 
 class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
@@ -52,7 +52,7 @@ class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
         # Set attention layer location key for prefix tuning
         self.self_attn.location_key = "self"
         self.encoder_attn.location_key = "cross"
-        self.cross_attention_adapters = AdapterLayer("cross_adapter")
+        self.cross_attention_adapters = BottleneckLayer("cross_adapter")
 
 
 class BartEncoderAdaptersMixin(InvertibleAdaptersMixin):

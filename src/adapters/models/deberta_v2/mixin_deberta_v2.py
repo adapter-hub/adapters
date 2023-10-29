@@ -1,5 +1,5 @@
-from ...lora import Linear as LoRALinear
-from ...prefix_tuning import PrefixTuningShim
+from ...methods.lora import Linear as LoRALinear
+from ...methods.prefix_tuning import PrefixTuningLayer
 
 
 class DebertaV2SelfAttentionAdaptersMixin:
@@ -11,6 +11,6 @@ class DebertaV2SelfAttentionAdaptersMixin:
         self.key_proj = LoRALinear.wrap(self.key_proj, "selfattn", model_config, adapters_config, attn_key="k")
         self.value_proj = LoRALinear.wrap(self.value_proj, "selfattn", model_config, adapters_config, attn_key="v")
 
-        self.prefix_tuning = PrefixTuningShim(
+        self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )

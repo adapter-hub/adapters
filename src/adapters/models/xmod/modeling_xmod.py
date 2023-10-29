@@ -140,7 +140,7 @@ class XmodSelfOutputWithAdapters(BertSelfOutputAdaptersMixin, XmodSelfOutput):
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, None)
+        hidden_states = self.bottleneck_layer_forward(hidden_states, input_tensor, None)
         return hidden_states
 
 
@@ -152,5 +152,5 @@ class XmodOutputWithAdapters(BertOutputAdaptersMixin, XmodOutput):
             layer_norm = self.adapter_layer_norm
         elif self.adapter_reuse_layer_norm:
             layer_norm = self.LayerNorm
-        hidden_states = self.adapter_layer_forward(hidden_states, input_tensor, layer_norm)
+        hidden_states = self.bottleneck_layer_forward(hidden_states, input_tensor, layer_norm)
         return hidden_states

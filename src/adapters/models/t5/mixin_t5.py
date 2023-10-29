@@ -2,8 +2,9 @@ from typing import Iterable, Tuple
 
 import torch.nn as nn
 
-from ...layer import AdapterLayer
-from ...lora import Linear as LoRALinear
+from ...methods.bottleneck import BottleneckLayer
+from ...methods.lora import Linear as LoRALinear
+from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import (
     EmbeddingAdaptersMixin,
     InvertibleAdaptersMixin,
@@ -11,7 +12,6 @@ from ...model_mixin import (
     ModelBaseAdaptersMixin,
     ModelWithHeadsAdaptersMixin,
 )
-from ...prefix_tuning import PrefixTuningShim
 
 
 class T5AttentionAdaptersMixin:
@@ -23,12 +23,12 @@ class T5AttentionAdaptersMixin:
         self.k = LoRALinear.wrap(self.k, "selfattn", model_config, adapters_config, attn_key="k", bias=False)
         self.v = LoRALinear.wrap(self.v, "selfattn", model_config, adapters_config, attn_key="v", bias=False)
 
-        self.prefix_tuning = PrefixTuningShim(
+        self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
 
 
-class T5SelfAttentionLayerAdaptersMixin(AdapterLayer):
+class T5SelfAttentionLayerAdaptersMixin(BottleneckLayer):
     def __init__(self):
         super().__init__("mh_adapter", None)
 
@@ -37,7 +37,7 @@ class T5SelfAttentionLayerAdaptersMixin(AdapterLayer):
         super().init_adapters(model_config, adapters_config)
 
 
-class T5CrossAttentionLayerAdaptersMixin(AdapterLayer):
+class T5CrossAttentionLayerAdaptersMixin(BottleneckLayer):
     def __init__(self):
         super().__init__("cross_adapter", None)
 
@@ -47,7 +47,7 @@ class T5CrossAttentionLayerAdaptersMixin(AdapterLayer):
         super().init_adapters(model_config, adapters_config)
 
 
-class T5FFLayerAdaptersMixin(AdapterLayer):
+class T5FFLayerAdaptersMixin(BottleneckLayer):
     def __init__(self):
         super().__init__("output_adapter", None)
 
