@@ -1,9 +1,5 @@
-import asyncio
 import os
-import torch
-from Utils import compare_lists_close, load_model, restore_from_jsonl, convert_tensors_to_list ,save_to_jsonl, get_new_adapter_config_strings, create_model, get_model_names, generate_dummy_data, fix_seeds, create_output, save_model_output
-from adapters import AutoAdapterModel, init
-from transformers import CLIPVisionModelWithProjection, EncoderDecoderModel
+from Utils import compare_lists_close, load_model, restore_from_jsonl, convert_tensors_to_list ,get_new_adapter_config_strings, get_model_names, fix_seeds, create_output
 import argparse
 
 parser = argparse.ArgumentParser()

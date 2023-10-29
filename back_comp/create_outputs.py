@@ -1,5 +1,4 @@
 import os
-import torch
 from Utils import (
     convert_tensors_to_list,
     create_model,
@@ -11,8 +10,7 @@ from Utils import (
     load_model
 )
 
-from transformers import CLIPVisionModelWithProjection, EncoderDecoderModel
-from adapters import AutoAdapterModel, init, CompacterConfig, CompacterPlusPlusConfig
+from adapters import AutoAdapterModel, CompacterConfig, CompacterPlusPlusConfig
 import argparse
 
 parser = argparse.ArgumentParser()
