@@ -23,7 +23,7 @@ from .methods.bottleneck import BottleneckLayer
 from .methods.lora import LoRALayer
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
-from .prompt_tuning import PromptTuningLayer
+from .methods.prompt_tuning import PromptTuningLayer
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
