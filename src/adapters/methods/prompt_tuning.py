@@ -201,6 +201,6 @@ class PromptTuningLayer(AdapterLayerBase, nn.Module):
 
         context = ForwardContext.get_context()
         if context is not None:
-            context.prefix_attention_mask_length = prefix_attention_mask_length
+            context.prompt_tokens_length = prefix_attention_mask_length
 
         return hidden_states

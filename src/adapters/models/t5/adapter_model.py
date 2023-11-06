@@ -82,7 +82,7 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
                 # decoder_input_ids from input_ids if no decoder_input_ids are provided
                 decoder_input_ids = self._shift_right(input_ids)
 
-        model_output = self.transformer(
+        model_output, context = self.transformer(
             input_ids=input_ids,
             attention_mask=attention_mask,
             decoder_input_ids=decoder_input_ids,
@@ -101,7 +101,10 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
             adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
+            output_context=True,
         )
+        # required e.g. for prompt tuning in all models
+        kwargs["context"] = context
         sequence_output = model_output[0]
         # ToDo move head to device for parallel forward pass
 

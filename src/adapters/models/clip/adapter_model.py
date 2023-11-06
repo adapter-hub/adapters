@@ -44,7 +44,7 @@ class CLIPAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         output_adapter_fusion_attentions=False,
         **kwargs
     ):
-        outputs = self.clip(
+        outputs, context = self.clip(
             input_ids=input_ids,
             pixel_values=pixel_values,
             attention_mask=attention_mask,
@@ -56,7 +56,10 @@ class CLIPAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
             adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
+            output_context=True,
         )
+        # required e.g. for prompt tuning in all models
+        kwargs["context"] = context
 
         if head or AdapterSetup.get_context_head_setup() or self.active_head:
             head_outputs = self.forward_head(

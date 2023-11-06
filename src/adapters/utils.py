@@ -846,11 +846,11 @@ def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
     if (
         attention_mask is not None
         and forward_context is not None
-        and forward_context.prefix_attention_mask_length is not None
+        and getattr(forward_context, "prompt_tokens_length", None) is not None
     ):
         # Create a tensor of ones with the desired shape
         ones_shape = list(attention_mask.shape)
-        ones_shape[dim] = forward_context.prefix_attention_mask_length
+        ones_shape[dim] = forward_context.prompt_tokens_length
 
         prefix_attention_mask = torch.full(
             ones_shape,

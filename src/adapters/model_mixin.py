@@ -5,16 +5,15 @@ import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from os.path import join
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch import nn
 
-from transformers.configuration_utils import PretrainedConfig
 from transformers.modeling_outputs import ModelOutput
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import ADAPTER_CONFIG_MAP, AdapterConfigBase, AdapterFusionConfig, BnConfig, ModelAdaptersConfig
+from .configuration import ADAPTER_CONFIG_MAP, AdapterConfigBase, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
@@ -955,7 +954,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         context.output_adapter_fusion_attentions = kwargs.get("output_adapter_fusion_attentions", False)
         context.adapter_gating_scores = defaultdict(dict)
         context.adapter_fusion_attentions = defaultdict(dict)
-        context.prefix_attention_mask_length = kwargs.get("output_prefix_attention_mask_length", None)
 
     def get_fusion_regularization_loss(self):
         reg_loss = None

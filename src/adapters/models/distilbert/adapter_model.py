@@ -85,7 +85,7 @@ class DistilBertAdapterModel(
             else None
         )
 
-        distilbert_output = self.distilbert(
+        distilbert_output, context = self.distilbert(
             input_ids=input_ids,
             attention_mask=attention_mask,
             head_mask=head_mask,
@@ -96,7 +96,10 @@ class DistilBertAdapterModel(
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
             adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
+            output_context=True,
         )
+        # required e.g. for prompt tuning in all models
+        kwargs["context"] = context
 
         outputs = self.forward_head(
             distilbert_output, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs

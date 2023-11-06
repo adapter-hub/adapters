@@ -76,7 +76,7 @@ class MBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
         if "labels" in kwargs or "start_positions" in kwargs and "end_positions" in kwargs:
             use_cache = False
 
-        outputs = self.model(
+        outputs, context = self.model(
             input_ids,
             attention_mask=attention_mask,
             decoder_input_ids=decoder_input_ids,
@@ -95,7 +95,10 @@ class MBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
             adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
+            output_context=True,
         )
+        # required e.g. for prompt tuning in all models
+        kwargs["context"] = context
         # sequence classification based on last token in sequence
         x = outputs[0]  # last hidden state
         if input_ids is not None and x.shape[1] == input_ids.shape[1]:
