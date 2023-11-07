@@ -10,22 +10,17 @@ from transformers import PreTrainedModel, Seq2SeqTrainer, Trainer, __version__
 from transformers.configuration_utils import PretrainedConfig
 from transformers.data.data_collator import DataCollator
 from transformers.dependency_versions_check import dep_version_check
-from transformers.integrations import is_fairscale_available
 from transformers.modeling_utils import unwrap_model
 from transformers.optimization import Adafactor, AdamW
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_callback import TrainerCallback, TrainerControl, TrainerState
 from transformers.trainer_pt_utils import get_parameter_names
-from transformers.trainer_utils import EvalPrediction, ShardedDDPOption
+from transformers.trainer_utils import EvalPrediction
 from transformers.training_args import TrainingArguments
 from transformers.utils import CONFIG_NAME, WEIGHTS_NAME, is_sagemaker_mp_enabled, logging
 
 from .composition import AdapterCompositionBlock, Fuse
 
-
-if is_fairscale_available():
-    dep_version_check("fairscale")
-    from fairscale.optim import OSS
 
 if is_sagemaker_mp_enabled():
     import smdistributed.modelparallel.torch as smp
@@ -94,45 +89,37 @@ class AdapterTrainer(Trainer):
         Setup the optimizer.
 
         We provide a reasonable default that works well. If you want to use something else, you can pass a tuple in the
-        Trainer's init through :obj:`optimizers`, or subclass and override this method in a subclass.
+        Trainer's init through `optimizers`, or subclass and override this method in a subclass.
         """
+        opt_model = self.model_wrapped if is_sagemaker_mp_enabled() else self.model
+
         if self.optimizer is None:
-            decay_parameters = get_parameter_names(self.model, [nn.LayerNorm])
-            decay_parameters = [name for name in decay_parameters if "bias" not in name]
+            decay_parameters = self.get_decay_parameter_names(opt_model)
             if hasattr(self.model, "config") and hasattr(self.model.config, "adapters"):
                 match_str = r"adapter_fusion_layer\..*\.value"
                 decay_parameters = [name for name in decay_parameters if not re.match(match_str, name)]
             optimizer_grouped_parameters = [
                 {
-                    "params": [p for n, p in self.model.named_parameters() if n in decay_parameters],
+                    "params": [
+                        p for n, p in opt_model.named_parameters() if (n in decay_parameters and p.requires_grad)
+                    ],
                     "weight_decay": self.args.weight_decay,
                 },
                 {
-                    "params": [p for n, p in self.model.named_parameters() if n not in decay_parameters],
+                    "params": [
+                        p for n, p in opt_model.named_parameters() if (n not in decay_parameters and p.requires_grad)
+                    ],
                     "weight_decay": 0.0,
                 },
             ]
-            if self.args.adafactor:
-                optimizer_cls = Adafactor
-                optimizer_kwargs = {"scale_parameter": False, "relative_step": False}
-            else:
-                optimizer_cls = AdamW
-                optimizer_kwargs = {
-                    "betas": (self.args.adam_beta1, self.args.adam_beta2),
-                    "eps": self.args.adam_epsilon,
-                }
-            optimizer_kwargs["lr"] = self.args.learning_rate
-            if self.sharded_ddp == ShardedDDPOption.SIMPLE:
-                self.optimizer = OSS(
-                    params=optimizer_grouped_parameters,
-                    optim=optimizer_cls,
-                    **optimizer_kwargs,
-                )
-            else:
-                self.optimizer = optimizer_cls(optimizer_grouped_parameters, **optimizer_kwargs)
+
+            optimizer_cls, optimizer_kwargs = Trainer.get_optimizer_cls_and_kwargs(self.args)
+            self.optimizer = optimizer_cls(optimizer_grouped_parameters, **optimizer_kwargs)
 
         if is_sagemaker_mp_enabled():
             self.optimizer = smp.DistributedOptimizer(self.optimizer)
+
+        return self.optimizer
 
     def _save(self, output_dir: Optional[str] = None, state_dict=None):
         # If we are executing this function, we are the process zero, so we don't check for that.
