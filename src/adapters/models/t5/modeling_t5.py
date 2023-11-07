@@ -28,7 +28,7 @@ from transformers.models.t5.modeling_t5 import (
 )
 from transformers.utils import logging
 
-from ...composition import adjust_tensors_for_parallel
+from ...composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
 from .mixin_t5 import (
     T5AttentionAdaptersMixin,
     T5CrossAttentionLayerAdaptersMixin,
@@ -127,6 +127,11 @@ class T5AttentionWithAdapters(T5AttentionAdaptersMixin, T5Attention):
         value_states = project(
             hidden_states, self.v, key_value_states, past_key_value[1] if past_key_value is not None else None
         )
+
+        query_states, key_states, value_states = match_attn_matrices_for_parallel(
+            query_states, key_states, value_states
+        )
+        (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
 
         present_key_value_state = (key_states, value_states) if (self.is_decoder and use_cache) else None
 

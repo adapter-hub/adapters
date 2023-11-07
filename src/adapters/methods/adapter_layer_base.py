@@ -154,6 +154,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
     """
 
     supported_compositions = []
+    allow_multi_parallelize = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -382,15 +383,23 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             orig_batch_size = self._bsz(state)
             state = self.repeat(state, adapter_setup.parallel_channels)
             context.adapters_parallelized = True
+            context.original_batch_size = orig_batch_size
         else:
+            bsz = self._bsz(state)
+            # If the input was already parallelized, we can parallelize it again.
+            # This is useful e.g. for LoRA, where attention matrices are parallelized independently.
+            if self.allow_multi_parallelize and bsz == getattr(context, "original_batch_size", -1):
+                state = self.repeat(state, adapter_setup.parallel_channels)
+                orig_batch_size = bsz
             # The base model should handle replication of input.
             # Therefore, we assume the (replicated) input batch to be divisible by the number of parallel channels.
-            if self._bsz(state) % adapter_setup.parallel_channels != 0:
+            elif bsz % adapter_setup.parallel_channels != 0:
                 raise ValueError(
                     "The total input batch size in a Parallel adapter block must be divisible by the number of"
                     " parallel channels."
                 )
-            orig_batch_size = self._bsz(state) // adapter_setup.parallel_channels
+            else:
+                orig_batch_size = bsz // adapter_setup.parallel_channels
 
         state = self.pre_block(adapter_setup, state)
 

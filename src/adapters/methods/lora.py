@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
-from ..composition import AdapterCompositionBlock, Average, BatchSplit, Stack
+from ..composition import AdapterCompositionBlock, Average, BatchSplit, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
 
@@ -285,8 +285,8 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
 
     """
 
-    # TODO: enable parallel composition for LoRA
-    supported_compositions = [Stack, BatchSplit, Average]
+    supported_compositions = [Stack, BatchSplit, Average, Parallel]
+    allow_multi_parallelize = True
 
     def __init__(
         self,
