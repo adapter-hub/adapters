@@ -252,7 +252,7 @@ class LoRALayer(AdapterLayerBase):
             return None
 
 
-class Linear(LoRALayer, nn.Linear):
+class LoRALinear(LoRALayer, nn.Linear):
     """
     LoRA implementation for Linear layer.
 
@@ -376,7 +376,7 @@ class Linear(LoRALayer, nn.Linear):
         return x
 
 
-class MergedLinear(LoRALayer, nn.Linear):
+class LoRAMergedLinear(LoRALayer, nn.Linear):
     """
     LoRA implementation for merged attention layer layer.
 

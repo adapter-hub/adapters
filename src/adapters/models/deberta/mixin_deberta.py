@@ -1,4 +1,4 @@
-from ...methods.lora import MergedLinear as LoRAMergedLinear
+from ...methods.lora import LoRAMergedLinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 
 
