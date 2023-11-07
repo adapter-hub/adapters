@@ -3,7 +3,7 @@ import unittest
 import torch
 
 import adapters
-from adapters import PrefixTuningConfig, SeqBnConfig
+from adapters import IA3Config, LoRAConfig, PrefixTuningConfig, SeqBnConfig
 from adapters.composition import Average, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from tests.test_modeling_common import ids_tensor
 from transformers import BertConfig, BertForSequenceClassification
@@ -234,3 +234,17 @@ class PrefixTuningCompositionTest(AdapterCompositionTest):
 
     def get_adapter_config(self):
         return PrefixTuningConfig()
+
+
+class LoRACompositionTest(AdapterCompositionTest):
+    unsupported_blocks = [Split, Fuse, Parallel]
+
+    def get_adapter_config(self):
+        return LoRAConfig(init_weights="bert")
+
+
+class IA3CompositionTest(AdapterCompositionTest):
+    unsupported_blocks = [Split, Fuse, Parallel]
+
+    def get_adapter_config(self):
+        return IA3Config()
