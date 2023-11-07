@@ -39,7 +39,6 @@ class ViTSelfAttentionWithAdapters(ViTSelfAttentionAdaptersMixin, ViTSelfAttenti
         query_layer = self.transpose_for_scores(mixed_query_layer)
 
         query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
-        (attention_mask,) = adjust_tensors_for_parallel(query_layer, attention_mask)
 
         key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer, hidden_states)
         (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)

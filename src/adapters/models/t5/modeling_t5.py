@@ -131,7 +131,7 @@ class T5AttentionWithAdapters(T5AttentionAdaptersMixin, T5Attention):
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
-        (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
+        (mask,) = adjust_tensors_for_parallel(query_states, mask)
 
         present_key_value_state = (key_states, value_states) if (self.is_decoder and use_cache) else None
 
