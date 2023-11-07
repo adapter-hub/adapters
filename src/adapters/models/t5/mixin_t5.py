@@ -1,5 +1,6 @@
-from typing import Iterable, Tuple
+from typing import Iterable, Optional, Tuple
 
+import torch
 import torch.nn as nn
 
 from ...methods.bottleneck import BottleneckLayer
@@ -99,5 +100,28 @@ class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixi
                 yield i, layer
 
 
-class T5ModelAdaptersWithHeadsMixin(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin):
-    pass
+# Stating "labels" and "input_ids" explicitly is required for training using Trainer class
+class T5ForCondiditionalGenerationWithHeadsMixin(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin):
+    def forward(
+        self,
+        *args,
+        input_ids: Optional[torch.LongTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        **kwargs,
+    ):
+        return super().forward(*args, input_ids=input_ids, labels=labels, **kwargs)
+
+
+# Stating "start_positions"/"end_positions" and "input_ids" explicitly is required for training using Trainer class
+class T5ForQuestionAnsweringWithHeadsMixin(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin):
+    def forward(
+        self,
+        *args,
+        input_ids: Optional[torch.LongTensor] = None,
+        start_positions: Optional[torch.LongTensor] = None,
+        end_positions: Optional[torch.LongTensor] = None,
+        **kwargs,
+    ):
+        return super().forward(
+            *args, input_ids=input_ids, start_positions=start_positions, end_positions=end_positions, **kwargs
+        )
