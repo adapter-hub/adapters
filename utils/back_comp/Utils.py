@@ -3,14 +3,15 @@ import random
 import typing
 from typing import Any, Union
 
-import jsonlines
 import numpy as np
-import requests
 import torch
-import transformers
-from adapters import AutoAdapterModel, init
 from PIL import Image
 from torch import squeeze
+
+import jsonlines
+import requests
+import transformers
+from adapters import AutoAdapterModel, init
 from transformers import (
     AlbertConfig,
     BartConfig,
@@ -51,9 +52,7 @@ def create_output(
         NotImplementedError: If the specified model type is not implemented."""
 
     dummy_data = generate_dummy_data(model_name)
-    device = torch.device(
-        "cuda" if torch.cuda.is_available() else "cpu"
-    )  # use GPU if available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # use GPU if available
     model.to(device)
     dummy_data.to(device)
     with torch.no_grad():
@@ -339,15 +338,11 @@ def generate_dummy_data(model: str = "") -> BatchEncoding:
         url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         image = Image.open(requests.get(url, stream=True).raw)
         if model == "beit":
-            processor = BeitImageProcessor.from_pretrained(
-                "microsoft/beit-base-patch16-224-pt22k"
-            )
+            processor = BeitImageProcessor.from_pretrained("microsoft/beit-base-patch16-224-pt22k")
         if model == "clip":
             processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
         if model == "vit":
-            processor = ViTImageProcessor.from_pretrained(
-                "google/vit-base-patch16-224-in21k"
-            )
+            processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
         return processor(images=image, return_tensors="pt")
 
     else:
@@ -363,9 +358,7 @@ def generate_dummy_data(model: str = "") -> BatchEncoding:
                     "attention_mask": attention_mask_tensor,
                 }
             )
-        return BatchEncoding(
-            {"input_ids": input_ids_tensor, "attention_mask": attention_mask_tensor}
-        )
+        return BatchEncoding({"input_ids": input_ids_tensor, "attention_mask": attention_mask_tensor})
 
 
 def fix_seeds(seed: int = 42):
@@ -398,9 +391,7 @@ def decode_tuple(tuple_to_decode: tuple):
         )
 
 
-def convert_tensors_to_list(
-    model_output: transformers.utils.ModelOutput
-) -> typing.Tuple:
+def convert_tensors_to_list(model_output: transformers.utils.ModelOutput) -> typing.Tuple:
     """Converts the model output, which consists of a Tuple of Tensors to a Tuple of lists, while preserving the
     original dimensions. The converted output is returned.
     Args:
@@ -416,9 +407,7 @@ def convert_tensors_to_list(
     # recursively search each tuple entry
     for output_value in model_output_tensors:
         if isinstance(output_value, torch.Tensor):
-            model_output_numpy.append(
-                squeeze(output_value.cpu()).numpy().astype(np.float32).tolist()
-            )
+            model_output_numpy.append(squeeze(output_value.cpu()).numpy().astype(np.float32).tolist())
 
         elif isinstance(output_value, tuple):
             model_output_numpy.append(decode_tuple(output_value))
@@ -496,9 +485,7 @@ def restore_from_jsonl(config: str, file_path: str) -> Union[int, list]:
         with jsonlines.open(file_path, mode="r") as f:
             data = [line for line in f]
     else:
-        raise FileExistsError(
-            f"There exists no file at the specified path. \npath:{file_path}"
-        )
+        raise FileExistsError(f"There exists no file at the specified path. \npath:{file_path}")
     # Get result of specified model
     for i, line in enumerate(data):
         if config in line:

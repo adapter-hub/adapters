@@ -1,17 +1,18 @@
+import argparse
 import os
+
+from adapters import AutoAdapterModel, CompacterConfig, CompacterPlusPlusConfig
 from Utils import (
     convert_tensors_to_list,
     create_model,
-    fix_seeds,
-    get_new_adapter_config_strings,
-    save_to_jsonl,
-    get_model_names,
     create_output,
+    fix_seeds,
+    get_model_names,
+    get_new_adapter_config_strings,
     load_model,
+    save_to_jsonl,
 )
 
-from adapters import AutoAdapterModel, CompacterConfig, CompacterPlusPlusConfig
-import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--path", type=str)
