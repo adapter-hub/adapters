@@ -18,14 +18,14 @@ Therefore, the described steps might not be applicable to each implementation.
 These module classes then have to be inserted into the correct locations within the Transformer model implementation.
 Thus, each adapter method implementation at least should provide two classes:
 
-- a configuration class deriving from `AdapterConfigBase` that provides attributes for all configuration options of the method
+- a configuration class deriving from `AdapterConfig` that provides attributes for all configuration options of the method
 - a module class deriving from the abstract `AdapterLayerBase` that provides the method parameters and a set of standard adapter management functions
     - modules supporting [adapter composition](https://docs.adapterhub.ml/adapter_composition.html) should instead derive from `ComposableAdapterLayerBase`
 
 ### Configuration
 
 All configuration classes reside in `src/adapters/configuration/adapter_config.py`.
-- To add a new configuration class for a new method, create a new subclass of [`AdapterConfigBase`](adapters.AdapterConfigBase).
+- To add a new configuration class for a new method, create a new subclass of [`AdapterConfig`](adapters.AdapterConfig).
     Make sure to set the `architecture` attribute in your class.
 - Finally, also make sure the config class is added to the `__init__.py` files in `src/adapters`.
 

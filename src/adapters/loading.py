@@ -7,7 +7,7 @@ from typing import Callable, Mapping, Sequence, Tuple
 
 import torch
 
-from .configuration import AdapterConfigBase, build_full_config
+from .configuration import AdapterConfig, build_full_config
 from .head_utils import STATIC_TO_FLEX_HEAD_MAP, get_head_config_and_rename_list
 from .utils import (
     ACTIVATION_RENAME,
@@ -420,7 +420,7 @@ class AdapterLoader(WeightsLoader):
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
             and the name of the loaded weights.
         """
-        requested_config = AdapterConfigBase.load(config) if config else None
+        requested_config = AdapterConfig.load(config) if config else None
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
         model_name = self.model.model_name or model_name
         resolved_folder = resolve_adapter_path(
