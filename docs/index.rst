@@ -84,7 +84,6 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
 
    classes/adapter_config
    classes/model_adapters_config
-   classes/adapter_modules
    classes/adapter_layer
    classes/model_mixins
    classes/adapter_training
