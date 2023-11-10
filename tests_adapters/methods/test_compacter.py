@@ -30,7 +30,7 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
 
     def test_forward_shared_phm_compacter(self):
         model = self.get_model()
-        adapter_config = CompacterPlusPlusConfig(phm_dim=2, shared_W_phm=True, reduction_factor=8)
+        adapter_config = CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8)
         self.run_forward_test(model, adapter_config)
 
     def test_load_compacter(self):
