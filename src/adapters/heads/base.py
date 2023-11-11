@@ -20,6 +20,7 @@ from transformers.utils import ModelOutput
 
 from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, parse_heads_from_composition
 from ..context import AdapterSetup, ForwardContext
+from ..loading import PredictionHeadLoader
 from ..methods.modeling import Activation_Function_Class
 from ..model_mixin import ModelWithHeadsAdaptersMixin
 
@@ -891,3 +892,48 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             return None
         else:
             return list(label_dict.values())
+
+    # This method is called during model loading in from_pretrained() to apply the state_dict to the model.
+    # Override it to inject adapter head logic.
+    @classmethod
+    def _load_pretrained_model(
+        cls,
+        model,
+        state_dict,
+        loaded_keys,
+        *args,
+        **kwargs,
+    ):
+        # Filter only weights not part of base model
+        if state_dict is not None:
+            head_state_dict = {
+                key: value for key, value in state_dict.items() if not key.startswith(cls.base_model_prefix)
+            }
+        else:
+            head_state_dict = None
+        head_name = "default"
+        loader = PredictionHeadLoader(model, error_on_missing=False, convert_to_flex_head=True)
+        head_config, new_head_state_dict = loader.convert_static_to_flex_head(head_state_dict, load_as=head_name)
+
+        if head_config is not None:
+            # add head from config
+            if head_name in model.heads:
+                logger.warning("Overwriting existing head '{}'".format(head_name))
+
+            model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
+
+        if new_head_state_dict is not None:
+            for k in head_state_dict:
+                del state_dict[k]
+                loaded_keys.remove(k)
+            for k in new_head_state_dict:
+                state_dict[k] = new_head_state_dict[k]
+                loaded_keys.append(k)
+
+        return super()._load_pretrained_model(
+            model,
+            state_dict,
+            loaded_keys,
+            *args,
+            **kwargs,
+        )
