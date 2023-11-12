@@ -1,6 +1,6 @@
 # flake8: noqa: F403,F405
 from adapters import DebertaAdapterModel
-from tests.models.deberta.test_modeling_deberta import *
+from hf_transformers.tests.models.deberta.test_modeling_deberta import *
 from transformers.testing_utils import require_torch
 
 from .base import AdapterModelTesterMixin

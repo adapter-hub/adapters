@@ -2,8 +2,8 @@
 import numpy as np
 
 from adapters import CLIPAdapterModel
-from tests.models.clip.test_modeling_clip import *  # Imported to execute model tests
-from tests.test_modeling_common import _config_zero_init
+from hf_transformers.tests.models.clip.test_modeling_clip import *  # Imported to execute model tests
+from hf_transformers.tests.test_modeling_common import _config_zero_init
 from transformers.testing_utils import require_torch
 
 from .base import AdapterModelTesterMixin
