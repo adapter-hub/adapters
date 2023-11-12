@@ -23,9 +23,7 @@ class AdapterConfigTest(unittest.TestCase):
         # TODO still uses the old config names as only these are available on the Hub
         for config_name in ["pfeiffer", "houlsby"]:
             with self.subTest(config_name=config_name):
-                config = AdapterConfig.load(
-                    config_name, download_kwargs=download_kwargs, non_linearity="leakyrelu"
-                )
+                config = AdapterConfig.load(config_name, download_kwargs=download_kwargs, non_linearity="leakyrelu")
                 self.assertTrue(isinstance(config, AdapterConfig))
                 self.assertEqual(config.non_linearity, "leakyrelu")
 

@@ -262,9 +262,7 @@ def main():
                     **adapter_load_kwargs,
                 )
                 if adapter_args.load_lang_adapter:
-                    lang_adapter_config = AdapterConfig.load(
-                        adapter_args.lang_adapter_config, **adapter_config_kwargs
-                    )
+                    lang_adapter_config = AdapterConfig.load(adapter_args.lang_adapter_config, **adapter_config_kwargs)
                     lang_adapter_name = model.load_adapter(
                         os.path.join(training_args.output_dir, "best_model", lang_adapter_name)
                         if training_args.do_train
