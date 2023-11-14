@@ -38,18 +38,13 @@ from transformers import (
 )
 
 
-def create_output(
-    model: Any,
-    model_name: str,
-):
+def create_output(model: Any, model_name: str):
     """Given a model run a forward pass with some dummy data.
     Args:
         model: The model for which the forward pass is run.
         model_name: The name of the model.
     Returns:
-        The model output.
-    Raises:
-        NotImplementedError: If the specified model type is not implemented."""
+        The model output."""
 
     dummy_data = generate_dummy_data(model_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # use GPU if available
@@ -62,6 +57,12 @@ def create_output(
 
 
 def load_model(model_name: str, model_save_dir: str):
+    """Loads a pre-trained model from a specified path based on the specified model_name.
+    Args:
+        model_name (str): The name of the model to be loaded.
+        model_save_dir (str): The directory path where the pre-trained model is saved.
+    Returns:
+        Any: The loaded pre-trained model."""
     if model_name == "clip":
         model = CLIPVisionModelWithProjection.from_pretrained(model_save_dir)
         init(model)
@@ -76,6 +77,7 @@ def load_model(model_name: str, model_save_dir: str):
 
 
 def get_old_adapter_config_strings():
+    """Returns a list of strings representing old adapter configuration strings."""
     return [
         "pfeiffer",
         "houlsby",
@@ -95,6 +97,7 @@ def get_old_adapter_config_strings():
 
 
 def get_new_adapter_config_strings():
+    """Returns a list of strings representing new adapter configurations."""
     return [
         "seq_bn",
         "double_seq_bn",
@@ -114,6 +117,7 @@ def get_new_adapter_config_strings():
 
 
 def get_model_names():
+    """Returns a list of strings representing the testable model names."""
     return [
         "bart",
         "albert",
@@ -329,11 +333,11 @@ def create_model(model_name: str, model_class: Any) -> Any:
     return model
 
 
-def generate_dummy_data(model: str = "") -> BatchEncoding:
-    """Generates dummy data for text and vision transformer.
-    Returns:
-        BatchEncoding: A BatchEncoding containing two keys: "input_ids" and
-        "attention_mask", each with corresponding tensors containing the dummy data."""
+def generate_dummy_data(model: str = ""):
+    """Generates dummy data for text and vision transformers.
+    Args:
+        model (str, optional): The name of the transformer model. Defaults to an empty string."""
+    # For the vision models load an image and process it
     if model == "beit" or model == "clip" or model == "vit":
         url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         image = Image.open(requests.get(url, stream=True).raw)
@@ -344,7 +348,8 @@ def generate_dummy_data(model: str = "") -> BatchEncoding:
         if model == "vit":
             processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
         return processor(images=image, return_tensors="pt")
-
+    
+    # For text just create and process a dummy string.
     else:
         input_ids = [i for i in range(20)]
         attention_mask = [1 for i in range(len(input_ids))]
@@ -362,7 +367,9 @@ def generate_dummy_data(model: str = "") -> BatchEncoding:
 
 
 def fix_seeds(seed: int = 42):
-    """Sets seeds manually."""
+    """Sets seeds manually.
+    Args:
+        seed (int, optional): The seed value to use for random number generation."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -370,7 +377,7 @@ def fix_seeds(seed: int = 42):
 
 
 def decode_tuple(tuple_to_decode: tuple):
-    """Reconstructs a potentially nested tuple of type `torch.Tensor` as a nested list and returns it.
+    """Reconstructs a potentially nested tuple of type `torch.Tensor` as a nested list.
     Args:
         tuple_to_decode (tuple): The tuple to decode.
     Returns:
@@ -391,20 +398,20 @@ def decode_tuple(tuple_to_decode: tuple):
         )
 
 
-def convert_tensors_to_list(model_output: transformers.utils.ModelOutput) -> typing.Tuple:
+def convert_tensors_to_list(model_output: transformers.utils.ModelOutput):
     """Converts the model output, which consists of a Tuple of Tensors to a Tuple of lists, while preserving the
     original dimensions. The converted output is returned.
     Args:
         model_output (transformers.utils.ModelOutput): The model's output of the forward pass.
     Returns:
-        list: The converted model output as a list.
+        The converted model output as a tuple of lists and the last hidden state tensor also seperately.
     Raises:
         TypeError: If the model output is not a tuple of tensors."""
     # Model ouputs can't be unpacked directly, convert to tuple first
     model_output_tensors = model_output.to_tuple()
     model_output_numpy = []
 
-    # recursively search each tuple entry
+    # Recursively search each tuple entry
     for output_value in model_output_tensors:
         if isinstance(output_value, torch.Tensor):
             model_output_numpy.append(squeeze(output_value.cpu()).numpy().astype(np.float32).tolist())
@@ -416,12 +423,11 @@ def convert_tensors_to_list(model_output: transformers.utils.ModelOutput) -> typ
 
 
 def save_to_jsonl(model_output: list, adapter_config: str, file_path: str):
-    """Save model output to .jsonl file as a dictionary. Each line represents one model, where the key is the model
-    name and the value the model output stored as a list of lists. If an output for a model is already there it is
-    overwritten.
+    """Save model output to a JSON Lines (.jsonl) file as a dictionary. Each line represents one model, where the key is the model name (specified by adapter_config)
+    and the value is the model output stored as a list of lists. If an output for a model already exists, it is overwritten.
     Args:
-        model (str): The model name, serves as the key for the dictionary.
         model_output (list): The model's output as a list.
+        adapter_config (str): The model name, serving as the key for the dictionary.
         file_path (str): The path of the file to save the new entry."""
     # Check if the file exists
     if os.path.exists(file_path):
@@ -470,15 +476,13 @@ def compare_lists_close(a: list, b: list, rtol=1e-05, atol=1e-08):
 
 
 def restore_from_jsonl(config: str, file_path: str) -> Union[int, list]:
-    """-> Restores the model output from a .jsonl file as a list of lists for the specified model.
+    """Restores the model output from a JSON Lines (.jsonl) file as a list of lists for the specified model.
     Args:
         config (str): Name of the adapter config to restore the output for.
         file_path (str): Path to the .jsonl file containing the model outputs.
     Returns:
-        list: A list of lists representing the model output for the specified model. Returns -1 if there is no output for
-        the specified model in the file.
-    Raises:
-        FileExistsError: If the specified file path does not exist."""
+        A list of lists representing the model output for the specified model.
+        Returns -1 if there is no output for the specified model in the file."""
     # Check if the file exists
     if os.path.exists(file_path):
         # Load content from .jsonl file
@@ -493,9 +497,3 @@ def restore_from_jsonl(config: str, file_path: str) -> Union[int, list]:
     else:
         print(f"File does not contain an output for the model {config}.")
         return -1
-
-
-def save_model_output(model_output, save_path):
-    last_hidden_state = model_output.to_tuple()[0].cpu()
-    os.makedirs(save_path, exist_ok=True)
-    torch.save(last_hidden_state, save_path)
