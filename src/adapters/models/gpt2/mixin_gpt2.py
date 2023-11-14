@@ -55,9 +55,19 @@ class GPT2DecoderBlockAdaptersMixin:
 
 
 class GPT2ModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
+    support_prompt_tuning = False
+
+    def init_adapters(self, model_config, adapters_config):
+        super().init_adapters(model_config, adapters_config)
+
+        # Register hook for post embedding forward
+        self.drop.register_forward_hook(self.post_embedding_forward)
+
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.base_model.h):
             yield i, layer
 
-    def hook_after_embeddings(self, hook_fn: Callable):
-        return self.drop.register_forward_hook(hook_fn)
+    def post_embedding_forward(self, module, args, embedding_output):
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+        # Prompt tuning not yet supported
+        return embedding_output

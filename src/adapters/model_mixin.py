@@ -368,6 +368,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
     add_base_adapters = False
+    support_prompt_tuning = True  # If False, the prompt tuning layer is not added to the model. If True, the prompt tuning layer is added if add_base_adapters is True.
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
@@ -407,7 +408,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         # Add Prompt Tuning
         if self.add_base_adapters:
-            self.prompt_tuning = PromptTuningLayer(model_config, self.adapters_config, self.get_input_embeddings())
+            if self.support_prompt_tuning:
+                self.prompt_tuning = PromptTuningLayer(model_config, self.adapters_config, self.get_input_embeddings())
 
         # Initialize adapters from config
         for adapter_name in self.adapters_config:
@@ -993,9 +995,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         ) and name in self.invertible_adapters:
             destination[-1]["invertible"] = self.invertible_adapters[name]
 
-        prompt_tuning = self.prompt_tuning.get_adapter(name)
-        if prompt_tuning is not None:
-            destination[-1]["prompt"] = prompt_tuning
+        if self.support_prompt_tuning:
+            prompt_tuning = self.prompt_tuning.get_adapter(name)
+            if prompt_tuning is not None:
+                destination[-1]["prompt"] = prompt_tuning
 
         # use a custom index to ensure numbering is from 0 to N layers
         for i, (_, layer) in enumerate(self.iter_layers()):

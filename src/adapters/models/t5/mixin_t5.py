@@ -82,11 +82,17 @@ class T5StackAdaptersMixin(InvertibleAdaptersMixin):
         if not self.is_decoder:
             InvertibleAdaptersMixin.init_adapters(self, self.config, adapters_config)
 
+    def post_embedding_forward(self, embedding_output):
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+        # Prompt tuning not yet supported
+        return embedding_output
+
 
 class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the T5Model class."""
 
     invertible_adapters_base_name = "encoder"
+    support_prompt_tuning = False
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         global_i = 0

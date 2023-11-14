@@ -28,6 +28,8 @@ class LlamaDecoderLayerMixin:
 
 
 class LlamaModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
+    support_prompt_tuning = False
+
     def init_adapters(self, model_config, adapters_config):
         super().init_adapters(model_config, adapters_config)
 
@@ -37,3 +39,8 @@ class LlamaModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.layers):
             yield i, layer
+
+    def post_embedding_forward(self, module, args, embedding_output):
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+        # Prompt tuning not yet supported
+        return embedding_output

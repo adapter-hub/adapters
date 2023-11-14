@@ -11,7 +11,6 @@ from .methods import (
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
-    PromptTuningTestMixin,
     UniPELTTestMixin,
 )
 from .test_adapter import AdapterTestBase, make_config
@@ -45,7 +44,6 @@ class GPTJAdapterTest(
     LoRATestMixin,
     UniPELTTestMixin,
     PrefixTuningTestMixin,
-    PromptTuningTestMixin,
     EmbeddingTestMixin,
     CompabilityTestMixin,
     AdapterFusionModelTestMixin,

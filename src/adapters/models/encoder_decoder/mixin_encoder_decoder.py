@@ -17,6 +17,8 @@ class EncoderDecoderModelAdaptersMixin(
 ):
     """Adds adapters to the EncoderDecoderModel class."""
 
+    support_prompt_tuning = False
+
     def init_adapters(self, model_config, adapters_config):
         if not isinstance(self.encoder, ModelAdaptersMixin) or not isinstance(self.decoder, ModelAdaptersMixin):
             return
