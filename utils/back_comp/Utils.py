@@ -1,6 +1,5 @@
 import os
 import random
-import typing
 from typing import Any, Union
 
 import numpy as np
@@ -348,7 +347,7 @@ def generate_dummy_data(model: str = ""):
         if model == "vit":
             processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
         return processor(images=image, return_tensors="pt")
-    
+
     # For text just create and process a dummy string.
     else:
         input_ids = [i for i in range(20)]
