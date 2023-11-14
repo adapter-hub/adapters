@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Tuple
+from typing import Iterable, Tuple
 
 import torch.nn as nn
 
