@@ -150,7 +150,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
     Base class for all adapter methods that support composition.
 
     Make sure the 'adapter_modules_name' and 'supported_compositions' attributes as well as all abstract methods are
-    overriden in derived classes.
+    overriden in derived classes. 'allow_multi_parallelize' can be set to True to allow inputs to be parallelized
+    independently multiple times. This is useful when there are multiple parallel input flows though an adapter layer
+    (e.g. in LoRA).
     """
 
     supported_compositions = []
