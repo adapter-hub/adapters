@@ -26,7 +26,11 @@ from ...wrappers import init
     "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
 )
 class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel):
-    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
+    _tied_weights_keys = [
+        "encoder.embed_tokens.weight",
+        "decoder.embed_tokens.weight",
+        "prompt_tuning.base_model_embeddings.*",
+    ]
 
     def __init__(self, config: BartConfig, **kwargs):
         super().__init__(config, **kwargs)

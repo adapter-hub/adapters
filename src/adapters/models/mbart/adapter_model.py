@@ -26,7 +26,11 @@ from ...wrappers import init
     "MBART Model with the option to add multiple flexible prediction heads on top.", MBART_START_DOCSTRING
 )
 class MBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MBartPreTrainedModel):
-    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
+    _tied_weights_keys = [
+        "encoder.embed_tokens.weight",
+        "decoder.embed_tokens.weight",
+        "prompt_tuning.base_model_embeddings.*",
+    ]
 
     def __init__(self, config: MBartConfig, **kwargs):
         super().__init__(config, **kwargs)
