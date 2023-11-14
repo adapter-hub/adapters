@@ -19,9 +19,9 @@ sys.path.insert(0, rootdir)
 
 # -- Project information -----------------------------------------------------
 
-project = "adapters"
-copyright = "2020-2022, Adapter-Hub Team"
-author = "Adapter-Hub Team"
+project = "AdapterHub"
+copyright = "2020-2023, AdapterHub Team"
+author = "AdapterHub Team"
 
 docs_versions = [
     "adapters1.1.1",

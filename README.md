@@ -14,39 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-## `adapters` Library
-
-This branch contains the development version of `adapters`, the next-generation library for parameter-efficient and modular transfer learning.
-
-> **Note**: For the stable version of `adapter-transformers`, please switch to the [master branch of the repo](https://github.com/adapter-hub/adapter-transformers).
-
-### Changes compared to `adapter-transformers`
-
-- `adapters` is a standalone package, using `transformers` as an external dependency but not patching it directly
-- All adapter-related classes now are imported via `adapters` namespace, e.g.:
-    ```python
-    from adapters import BertAdapterModel
-    # ...
-    ```
-- Built-in HF model classes can be adapted for usage with adapters via a wrapper method, e.g.:
-    ```python
-    import adapters
-    from transformers import BertModel
-
-    model = BertModel.from_pretrained("bert-base-uncased")
-    adapters.init(model)
-    ```
-
-Features not (yet) working:
-
-- Loading model + adapter checkpoints using HF classes
-- Using Transformers pipelines with adapters
-- Using HF language modeling classes with invertible adapters
-
-## Documentation
-To read the documentation of _Adapters_, follow the steps in [docs/README.md](docs/README.md). Currently, the documentation is **not** yet available from https://docs.adapterhub.ml/.
-
----
+> **Note**: This repository holds the codebase of the _Adapters_ library, which has replaced `adapter-transformers`. For the legacy codebase, go to: https://github.com/adapter-hub/adapter-transformers-legacy.
 
 <p align="center">
 <img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapter-transformers/master/adapter_docs/logo.png" />
