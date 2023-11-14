@@ -369,7 +369,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     add_base_adapters = False
     support_prompt_tuning = True  # If False, the prompt tuning layer is not added to the model. If True, the prompt tuning layer is added if add_base_adapters is True.
-
     _tied_weights_keys = ["prompt_tuning.base_model_embeddings.*"]
 
     def __init__(self, config, *args, **kwargs):

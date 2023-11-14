@@ -33,6 +33,7 @@ class AdapterConfigTest(unittest.TestCase):
         def set_attr(config: AdapterConfigBase):
             config.non_linearity = "dummy"
             config.r = -1  # for LoRA
+            config.prompt_length = -1  # for PromptTuning
 
         for config in ADAPTER_CONFIG_MAP.values():
             if isinstance(config, ConfigUnion):

@@ -25,7 +25,6 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
     _tied_weights_keys = [
         "encoder.embed_tokens.weight",
         "decoder.embed_tokens.weight",
-        "prompt_tuning.base_model_embeddings.*",
     ]
 
     _keys_to_ignore_on_load_unexpected = [

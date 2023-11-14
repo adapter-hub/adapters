@@ -67,8 +67,11 @@ class PromptTuning(nn.Module):
 
     def _init_prompt_embedding(self, base_model_embeddings: nn.Module) -> None:
         if self.prompt_tuning_config.prompt_init == "random_uniform":
-            # Embedding was created using torch.nn.Embedding which already uses a random uniform distribution for initialization
-            pass
+            nn.init.uniform_(
+                self.prompt_embedding.weight,
+                a=-self.prompt_tuning_config.random_uniform_scale,
+                b=self.prompt_tuning_config.random_uniform_scale,
+            )
 
         elif self.prompt_tuning_config.prompt_init == "from_string":
             tokenizer = AutoTokenizer.from_pretrained(self.model_config.tokenizer_name_or_path)
@@ -160,7 +163,26 @@ class PromptTuningLayer(AdapterLayerBase, nn.Module):
         return False
 
     def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
-        pass  # TODO: implement
+        # add new adapter
+        if self.add_adapter(adapter_name, -1):
+            # average weights
+            avg_state_dict = {}
+            for name, weight in input_adapters.items():
+                if name in self.prompt_tunings:
+                    module = self.prompt_tunings[name]
+                    for k, v in module.state_dict().items():
+                        if k in avg_state_dict:
+                            avg_state_dict[k] += weight * v
+                        else:
+                            avg_state_dict[k] = weight * v
+                else:
+                    self.delete_adapter(adapter_name)  # clean up before raising error
+                    raise ValueError("Adapter {} not found.".format(name))
+            # load averaged weights
+            self.prompt_tunings[adapter_name].load_state_dict(avg_state_dict)
+            return True
+
+        return False
 
     def delete_adapter(self, adapter_name: str):
         if adapter_name in self.prompt_tunings:

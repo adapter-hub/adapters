@@ -76,6 +76,7 @@ class CLIPTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapp
     """Adds adapters to the CLIPTextModel class."""
 
     invertible_adapters_base_name = "text_model"
+    support_prompt_tuning = False
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.text_model.encoder.layers):
@@ -84,6 +85,8 @@ class CLIPTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapp
 
 class CLIPVisionModelAdaptersMixin(ModelBaseAdaptersMixin):
     """Adds adapters to the a CLIPVisionModel class."""
+
+    support_prompt_tuning = False
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.vision_model.encoder.layers):

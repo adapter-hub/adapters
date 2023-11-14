@@ -32,6 +32,8 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
     LLAMA_START_DOCSTRING,
 )
 class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, LlamaPreTrainedModel):
+    _tied_weights_keys = []  # needs to be empty since LLaMA does not yet support prompt tuning
+
     def __init__(self, config):
         super().__init__(config)
         self.model = LlamaModel(config)

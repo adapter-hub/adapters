@@ -399,23 +399,29 @@ class PrefixTuningConfig(AdapterConfigBase):
 
 @dataclass(eq=False)
 class PromptTuningConfig(AdapterConfigBase):
-    # TODO: documentation
     """
     The Prompt Tuning architecture proposed by Lester et al. (2021). See https://arxiv.org/pdf/2104.08691.pdf
 
-    Args:"""
+    Args:
+        prompt_length (int): The number of tokens in the prompt.
+            Defaults to 10.
+        prompt_init (str): The initialization method for the prompt. Can be either "random_uniform" or "from_string".
+            Defaults to "random_uniform".
+        prompt_init_text (str): The text to use for prompt initialization if prompt_init="from_string".
+        random_uniform_scale (float): The scale of the random uniform initialization if prompt_init="random_uniform".
+            Defaults to 0.5 as in the paper.
+        combine (str):
+            The method used to combine the prompt with the input. Can be either "prefix" or "prefix_after_bos".
+            Defaults to "prefix".
+    """
 
-    prompt_length: int
+    architecture: str = "prompt_tuning"
 
-    prompt_init_text: Optional[str] = None  # only necessary when using prompt_init="from_string"
-    architecture: Optional[str] = "prompt_tuning"
-
-    prompt_init: str = (  # random_uniform, from_string, from_array,  TODO: ? add more from https://github.com/google-research/prompt-tuning/blob/main/prompt_tuning/prompts.py
-        "random_uniform"
-    )
-    combine: str = "prefix"  # prefix, prefix_after_bos, suffix
-
-    # TODO: add a parameter for the random uniform scale
+    prompt_length: int = 10
+    prompt_init: str = "random_uniform"
+    prompt_init_text: Optional[str] = None
+    random_uniform_scale = 0.5
+    combine: str = "prefix"
 
 
 @dataclass(eq=False)
@@ -635,7 +641,7 @@ ADAPTER_CONFIG_MAP = {
     "compacter": CompacterConfig(),
     "prefix_tuning": PrefixTuningConfig(),
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
-    "prompt_tuning": PromptTuningConfig(prompt_length=10),  # TODO: is that alright?
+    "prompt_tuning": PromptTuningConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
     "mam": MAMConfig(),
