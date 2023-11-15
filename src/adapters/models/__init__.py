@@ -18,7 +18,12 @@ from .distilbert.mixin_distilbert import DistilBertModelAdaptersMixin, DistilBer
 from .gpt2.mixin_gpt2 import GPT2ModelAdapterMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin, GPTJModelAdapterMixin
 from .llama.mixin_llama import LlamaModelAdapterMixin
-from .t5.mixin_t5 import T5BlockAdaptersMixin, T5ModelAdaptersMixin, T5ModelAdaptersWithHeadsMixin
+from .t5.mixin_t5 import (
+    T5BlockAdaptersMixin,
+    T5ForCondiditionalGenerationWithHeadsMixin,
+    T5ForQuestionAnsweringWithHeadsMixin,
+    T5ModelAdaptersMixin,
+)
 from .vit.mixin_vit import ViTIntermediateAdaptersMixin, ViTModelAdaptersMixin
 from .xmod.mixin_xmod import XmodModelAdaptersMixin
 
@@ -57,8 +62,8 @@ MODEL_MIXIN_MAPPING = {
     "RobertaModel": BertModelAdaptersMixin,
     "T5Block": T5BlockAdaptersMixin,
     "T5Model": T5ModelAdaptersMixin,
-    "T5ForConditionalGeneration": T5ModelAdaptersWithHeadsMixin,
-    "T5ForQuestionAnswering": T5ModelAdaptersWithHeadsMixin,
+    "T5ForConditionalGeneration": T5ForCondiditionalGenerationWithHeadsMixin,
+    "T5ForQuestionAnswering": T5ForQuestionAnsweringWithHeadsMixin,
     "T5EncoderModel": T5ModelAdaptersMixin,
     "ViTIntermediate": ViTIntermediateAdaptersMixin,
     "ViTModel": ViTModelAdaptersMixin,
