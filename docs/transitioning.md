@@ -50,7 +50,7 @@ The `adapters` library supports the configuration of adapters using [config stri
 For a complete list of config strings and classes see [here](https://docs.adapterhub.ml/overview.html). We strongly recommend using the new config strings, but we will continue to support the old config strings for the time being to make the transition easier.
 Note that with the config strings the coresponding adapter config classes have changed, e.g. `PfeifferConfig` -> `SeqBnConfig`.
 
-An other consequence of this that the `AdapterConfig` class is now not only for the bottleneck adapters anymore, but the base class of all the configurations (previously `AdapterConfigBase`). Hence the function this class serves has changed. However, you can still load adapter configs with:
+Another consequence of this that the `AdapterConfig` class is now not only for the bottleneck adapters anymore, but the base class of all the configurations (previously `AdapterConfigBase`). Hence the function this class serves has changed. However, you can still load adapter configs with:
 ```
 adapter_config = AdapterConfig.load("lora")
 ```
