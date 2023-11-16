@@ -21,7 +21,6 @@ from typing import Tuple
 from unittest.mock import patch
 
 from parameterized import parameterized
-
 from transformers.testing_utils import (
     CaptureStderr,
     ExtendSysPath,

@@ -9,12 +9,9 @@ from torch.utils.data.dataset import Dataset
 from transformers import PreTrainedModel, Seq2SeqTrainer, Trainer, __version__
 from transformers.configuration_utils import PretrainedConfig
 from transformers.data.data_collator import DataCollator
-from transformers.dependency_versions_check import dep_version_check
 from transformers.modeling_utils import unwrap_model
-from transformers.optimization import Adafactor, AdamW
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_callback import TrainerCallback, TrainerControl, TrainerState
-from transformers.trainer_pt_utils import get_parameter_names
 from transformers.trainer_utils import EvalPrediction
 from transformers.training_args import TrainingArguments
 from transformers.utils import CONFIG_NAME, WEIGHTS_NAME, is_sagemaker_mp_enabled, logging
