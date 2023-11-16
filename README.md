@@ -51,7 +51,76 @@ cd adapters
 pip install .
 ```
 
-## Getting Started
+## Quick Tour
+
+#### Load pre-trained adapters:
+
+```python
+from adapters import AutoAdapterModel
+from transformers import AutoTokenizer
+
+model = AutoAdapterModel.from_pretrained("roberta-base")
+tokenizer = AutoTokenizer.from_pretrained("roberta-base")
+
+model.load_adapter("AdapterHub/roberta-base-pf-imdb", source="hf", set_active=True)
+
+print(model(**tokenizer("This works great!", return_tensors="pt")).logits)
+```
+
+**[Learn More](https://docs.adapterhub.ml/loading.html)**
+
+#### Adapt existing model setups:
+
+```python
+import adapters
+from transformers import AutoModelForSequenceClassification
+
+model = AutoModelForSequenceClassification.from_pretrained("t5-base")
+
+adapters.init(model)
+
+model.add_adapter("my_lora_adapter", config="lora")
+model.train_adapter("my_lora_adapter")
+
+# Your regular training loop...
+```
+
+**[Learn More](https://docs.adapterhub.ml/quickstart.html)**
+
+#### Flexibly configure adapters:
+
+```python
+from adapters import ConfigUnion, PrefixTuningConfig, ParBnConfig, AutoAdapterModel
+
+model = AutoAdapterModel.from_pretrained("microsoft/deberta-v3-base")
+
+adapter_config = ConfigUnion(
+    PrefixTuningConfig(prefix_length=20),
+    ParBnConfig(reduction_factor=4),
+)
+model.add_adapter("my_adapter", config=adapter_config, set_active=True)
+```
+
+**[Learn More](https://docs.adapterhub.ml/overview.html)**
+
+#### Easily compose adapters in a single model:
+
+```python
+from adapters import AdapterSetup, AutoAdapterModel
+import adapters.composition as ac
+
+model = AutoAdapterModel.from_pretrained("roberta-base")
+
+qc = model.load_adapter("AdapterHub/roberta-base-pf-trec")
+sent = model.load_adapter("AdapterHub/roberta-base-pf-imdb")
+
+with AdapterSetup(ac.Parallel(qc, sent)):
+    print(model(**tokenizer("What is AdapterHub?", return_tensors="pt")))
+```
+
+**[Learn More](https://docs.adapterhub.ml/adapter_composition.html)**
+
+## Useful Resources
 
 HuggingFace's great documentation on getting started with _Transformers_ can be found [here](https://huggingface.co/transformers/index.html). `adapters` is fully compatible with _Transformers_.
 
