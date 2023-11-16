@@ -171,4 +171,4 @@ scripts/git-strip-merge
 
 # DS_Store (MacOS)
 .DS_Store
-tests/backwards_compatibility/Ref_Out
+tests_adapters/backwards_compatibility/Ref_Out

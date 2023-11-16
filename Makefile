@@ -3,7 +3,7 @@
 # make sure to test the local checkout in scripts and not the pre-installed one (don't use quotes!)
 export PYTHONPATH = src
 
-check_dirs := examples tests src utils
+check_dirs := examples tests_adapters src utils
 
 # this target runs checks on all files
 
@@ -33,13 +33,13 @@ style:
 # Run tests for the library
 
 test:
-	python -m pytest -n auto --dist=loadfile -s -v ./tests/
+	python -m pytest -n auto --dist=loadfile -s -v ./tests_adapters/
 
 test-adapter-methods:
-	python -m pytest --ignore ./tests/models -n auto --dist=loadfile -s -v ./tests/
+	python -m pytest --ignore ./tests_adapters/models -n auto --dist=loadfile -s -v ./tests_adapters/
 
 test-adapter-models:
-	python -m pytest -n auto --dist=loadfile -s -v ./tests/models
+	python -m pytest -n auto --dist=loadfile -s -v ./tests_adapters/models
 
 # Run tests for examples
 

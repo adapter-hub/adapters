@@ -1,7 +1,7 @@
 import unittest
 
-from tests.methods.test_config_union import ConfigUnionAdapterTest
-from transformers import GPT2Config
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
+from transformers import ElectraConfig
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -21,21 +21,21 @@ from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
-class GPT2AdapterTestBase(AdapterTestBase):
-    config_class = GPT2Config
+class ElectraAdapterTestBase(AdapterTestBase):
+    config_class = ElectraConfig
     config = make_config(
-        GPT2Config,
-        n_embd=32,
-        n_layer=4,
-        n_head=4,
-        # set pad token to eos token
-        pad_token_id=50256,
+        ElectraConfig,
+        # vocab_size=99,
+        hidden_size=32,
+        num_hidden_layers=5,
+        num_attention_heads=4,
+        intermediate_size=37,
     )
-    tokenizer_name = "gpt2"
+    tokenizer_name = "google/electra-base-generator"
 
 
 @require_torch
-class GPT2AdapterTest(
+class ElectraAdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
@@ -43,22 +43,22 @@ class GPT2AdapterTest(
     PrefixTuningTestMixin,
     UniPELTTestMixin,
     EmbeddingTestMixin,
-    CompabilityTestMixin,
     AdapterFusionModelTestMixin,
+    CompabilityTestMixin,
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     ConfigUnionAdapterTest,
-    GPT2AdapterTestBase,
+    ElectraAdapterTestBase,
     unittest.TestCase,
 ):
     pass
 
 
 @require_torch
-class GPT2ClassConversionTest(
+class ElectraClassConversionTest(
     ModelClassConversionTestMixin,
-    GPT2AdapterTestBase,
+    ElectraAdapterTestBase,
     unittest.TestCase,
 ):
     pass

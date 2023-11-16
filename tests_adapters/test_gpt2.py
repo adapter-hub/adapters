@@ -1,7 +1,7 @@
 import unittest
 
-from tests.methods.test_config_union import ConfigUnionAdapterTest
-from transformers import BartConfig
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
+from transformers import GPT2Config
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -21,46 +21,44 @@ from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
-class BartAdapterTestBase(AdapterTestBase):
-    config_class = BartConfig
+class GPT2AdapterTestBase(AdapterTestBase):
+    config_class = GPT2Config
     config = make_config(
-        BartConfig,
-        d_model=16,
-        encoder_layers=2,
-        decoder_layers=2,
-        encoder_attention_heads=4,
-        decoder_attention_heads=4,
-        encoder_ffn_dim=4,
-        decoder_ffn_dim=4,
+        GPT2Config,
+        n_embd=32,
+        n_layer=4,
+        n_head=4,
+        # set pad token to eos token
+        pad_token_id=50256,
     )
-    tokenizer_name = "facebook/bart-base"
+    tokenizer_name = "gpt2"
 
 
 @require_torch
-class BartAdapterTest(
+class GPT2AdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
     UniPELTTestMixin,
-    AdapterFusionModelTestMixin,
-    CompabilityTestMixin,
     EmbeddingTestMixin,
+    CompabilityTestMixin,
+    AdapterFusionModelTestMixin,
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     ConfigUnionAdapterTest,
-    BartAdapterTestBase,
+    GPT2AdapterTestBase,
     unittest.TestCase,
 ):
     pass
 
 
 @require_torch
-class BartClassConversionTest(
+class GPT2ClassConversionTest(
     ModelClassConversionTestMixin,
-    BartAdapterTestBase,
+    GPT2AdapterTestBase,
     unittest.TestCase,
 ):
     pass

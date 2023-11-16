@@ -59,16 +59,16 @@ Now that we have discussed the purpose of every file in `src/adapters/models/<mo
 
 ## Testing
 
-❓ In addition to the general Hugging Face model tests, there are adapter-specific test cases. All tests are executed from the `tests` folder. You need to add two different test classes.
+❓ In addition to the general Hugging Face model tests, there are adapter-specific test cases. All tests are executed from the `tests_adapters` folder. You need to add two different test classes.
 
 **📝 Steps**
-1. Add a new `test_<model_type>.py` module in `tests/`
+1. Add a new `test_<model_type>.py` module in `tests_adapters/`
     - This file is used to test that everything related to the usage of adapters (adding, removing, activating, ...) works.
     - This module typically holds 2 test classes and a test base class:
         - `<model_type>AdapterTestBase`: This class contains the `tokenizer_name`, `config_class` and `config`.
         - `<model_type>AdapterTest` derives from a collection of test mixins that hold various adapter tests (depending on the implementation).
         - (optionally) `<model_type>ClassConversionTest` runs tests for correct class conversion if conversion of prediction heads is implemented.
-2. Add a new `test_<model_type>.py` module in `tests/models/`
+2. Add a new `test_<model_type>.py` module in `tests_adapters/models/`
     - This file is used to test the AdapterModel class.
     - This module typically holds 1 test class with the name `<model_type>AdapterModelTest`
         - `<model_type>AdapterModelTest` derives directly from Hugging Face's existing model test class `<model_type>ModelTest` and adds `<model_type>AdapterModel` as a class to test.

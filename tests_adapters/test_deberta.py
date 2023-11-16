@@ -1,10 +1,10 @@
 import unittest
 
-from tests.methods.test_config_union import ConfigUnionAdapterTest
-from transformers import RobertaConfig
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
+from transformers import DebertaConfig
 from transformers.testing_utils import require_torch
 
-from .composition.test_parallel import ParallelAdapterInferenceTestMixin
+from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .methods import (
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
@@ -16,46 +16,51 @@ from .methods import (
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
+from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
-class RobertaAdapterTestBase(AdapterTestBase):
-    config_class = RobertaConfig
+class DebertaAdapterTestBase(AdapterTestBase):
+    config_class = DebertaConfig
     config = make_config(
-        RobertaConfig,
+        DebertaConfig,
         hidden_size=32,
-        num_hidden_layers=4,
+        num_hidden_layers=5,
         num_attention_heads=4,
         intermediate_size=37,
-        vocab_size=50265,
+        hidden_act="gelu",
+        relative_attention=True,
+        pos_att_type="p2c|c2p",
     )
-    tokenizer_name = "roberta-base"
+    tokenizer_name = "microsoft/deberta-base"
 
 
 @require_torch
-class RobertaAdapterTest(
+class DebertaAdapterTest(
+    AdapterFusionModelTestMixin,
+    CompabilityTestMixin,
+    PredictionHeadModelTestMixin,
+    ParallelAdapterInferenceTestMixin,
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
     UniPELTTestMixin,
-    AdapterFusionModelTestMixin,
-    CompabilityTestMixin,
-    PredictionHeadModelTestMixin,
-    ParallelAdapterInferenceTestMixin,
+    EmbeddingTestMixin,
+    ParallelTrainingMixin,
     ConfigUnionAdapterTest,
-    RobertaAdapterTestBase,
+    DebertaAdapterTestBase,
     unittest.TestCase,
 ):
     pass
 
 
 @require_torch
-class RobertaClassConversionTest(
+class DebertaClassConversionTest(
     ModelClassConversionTestMixin,
-    RobertaAdapterTestBase,
+    DebertaAdapterTestBase,
     unittest.TestCase,
 ):
     pass

@@ -1,7 +1,7 @@
 import unittest
 
-from tests.methods.test_config_union import ConfigUnionAdapterTest
-from transformers import DistilBertConfig
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
+from transformers import DebertaV2Config
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -21,20 +21,27 @@ from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
-class DistilBertAdapterTestBase(AdapterTestBase):
-    config_class = DistilBertConfig
+class DebertaV2AdapterTestBase(AdapterTestBase):
+    config_class = DebertaV2Config
     config = make_config(
-        DistilBertConfig,
-        dim=32,
-        n_layers=4,
-        n_heads=4,
-        hidden_dim=37,
+        DebertaV2Config,
+        hidden_size=32,
+        num_hidden_layers=5,
+        num_attention_heads=4,
+        intermediate_size=37,
+        hidden_act="gelu",
+        relative_attention=True,
+        pos_att_type="p2c|c2p",
     )
-    tokenizer_name = "distilbert-base-uncased"
+    tokenizer_name = "microsoft/deberta-v3-base"
 
 
 @require_torch
-class DistilBertAdapterTest(
+class DebertaV2AdapterTest(
+    AdapterFusionModelTestMixin,
+    CompabilityTestMixin,
+    PredictionHeadModelTestMixin,
+    ParallelAdapterInferenceTestMixin,
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
@@ -42,22 +49,18 @@ class DistilBertAdapterTest(
     PrefixTuningTestMixin,
     UniPELTTestMixin,
     EmbeddingTestMixin,
-    CompabilityTestMixin,
-    AdapterFusionModelTestMixin,
-    PredictionHeadModelTestMixin,
-    ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     ConfigUnionAdapterTest,
-    DistilBertAdapterTestBase,
+    DebertaV2AdapterTestBase,
     unittest.TestCase,
 ):
     pass
 
 
 @require_torch
-class DistilBertClassConversionTest(
+class DebertaV2ClassConversionTest(
     ModelClassConversionTestMixin,
-    DistilBertAdapterTestBase,
+    DebertaV2AdapterTestBase,
     unittest.TestCase,
 ):
     pass

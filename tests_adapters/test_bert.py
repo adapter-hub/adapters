@@ -1,7 +1,7 @@
 import unittest
 
-from tests.methods.test_config_union import ConfigUnionAdapterTest
-from transformers import DebertaV2Config
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
+from transformers import BertConfig
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -21,27 +21,20 @@ from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
-class DebertaV2AdapterTestBase(AdapterTestBase):
-    config_class = DebertaV2Config
+class BertAdapterTestBase(AdapterTestBase):
+    config_class = BertConfig
     config = make_config(
-        DebertaV2Config,
+        BertConfig,
         hidden_size=32,
-        num_hidden_layers=5,
+        num_hidden_layers=4,
         num_attention_heads=4,
         intermediate_size=37,
-        hidden_act="gelu",
-        relative_attention=True,
-        pos_att_type="p2c|c2p",
     )
-    tokenizer_name = "microsoft/deberta-v3-base"
+    tokenizer_name = "bert-base-uncased"
 
 
 @require_torch
-class DebertaV2AdapterTest(
-    AdapterFusionModelTestMixin,
-    CompabilityTestMixin,
-    PredictionHeadModelTestMixin,
-    ParallelAdapterInferenceTestMixin,
+class BertAdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
@@ -49,18 +42,22 @@ class DebertaV2AdapterTest(
     PrefixTuningTestMixin,
     UniPELTTestMixin,
     EmbeddingTestMixin,
+    AdapterFusionModelTestMixin,
+    CompabilityTestMixin,
+    PredictionHeadModelTestMixin,
+    ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     ConfigUnionAdapterTest,
-    DebertaV2AdapterTestBase,
+    BertAdapterTestBase,
     unittest.TestCase,
 ):
     pass
 
 
 @require_torch
-class DebertaV2ClassConversionTest(
+class BertClassConversionTest(
     ModelClassConversionTestMixin,
-    DebertaV2AdapterTestBase,
+    BertAdapterTestBase,
     unittest.TestCase,
 ):
     pass
