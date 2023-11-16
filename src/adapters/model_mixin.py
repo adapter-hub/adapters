@@ -1317,6 +1317,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             super().train_adapter(adapter_setup, train_embeddings)
         else:
             self.base_model.train_adapter(adapter_setup, train_embeddings)
+        self.freeze_embeddings()
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """
@@ -1327,6 +1328,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             super().train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
         else:
             self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
+        self.freeze_embeddings()
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)
@@ -1497,3 +1499,15 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             return super().get_adapter(name)
         else:
             return self.base_model.get_adapter(name)
+
+    def freeze_embeddings(self, freeze=True):
+        # If model has prediction head with embeddings, ensure these are frozen
+        if self.get_output_embeddings() is not None:
+            output_embeddings = self.get_output_embeddings()
+            if isinstance(output_embeddings, list):
+                for output_embedding in output_embeddings:
+                    for p in output_embedding.parameters():
+                        p.requires_grad = not freeze
+            else:
+                for p in self.get_output_embeddings().parameters():
+                    p.requires_grad = not freeze
