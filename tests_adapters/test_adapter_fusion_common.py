@@ -5,7 +5,7 @@ from dataclasses import asdict
 
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, ADAPTERFUSION_CONFIG_MAP, AdapterConfigBase, AutoAdapterModel, SeqBnConfig
+from adapters import ADAPTER_MODEL_MAPPING, ADAPTERFUSION_CONFIG_MAP, AdapterConfig, AutoAdapterModel, SeqBnConfig
 from adapters.composition import Fuse
 from adapters.utils import ADAPTERFUSION_WEIGHTS_NAME
 from adapters.wrappers import load_model
@@ -16,7 +16,7 @@ from transformers.testing_utils import require_torch, torch_device
 class AdapterFusionModelTestMixin:
     def test_add_adapter_fusion(self):
         config_name = "seq_bn"
-        adapter_config = AdapterConfigBase.load(config_name)
+        adapter_config = AdapterConfig.load(config_name)
 
         for adater_fusion_config_name, adapter_fusion_config in ADAPTERFUSION_CONFIG_MAP.items():
             model = self.get_model()

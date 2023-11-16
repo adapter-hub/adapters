@@ -9,7 +9,7 @@ from ..utils import resolve_adapter_config
 logger = logging.getLogger(__name__)
 
 
-class AdapterConfigBase(Mapping):
+class AdapterConfig(Mapping):
     """
     Base class for all adaptation methods. This class does not define specific configuration keys, but only provides
     some common helper methods.
@@ -21,7 +21,7 @@ class AdapterConfigBase(Mapping):
     architecture: Optional[str] = None
 
     def __init__(self):
-        raise TypeError("AdapterConfigBase is an abstract class and cannot be instantiated.")
+        raise TypeError("AdapterConfig is an abstract class and cannot be instantiated.")
 
     # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
     # Therefore, we don't allow changing attribute values if set once.
@@ -57,7 +57,7 @@ class AdapterConfigBase(Mapping):
     @classmethod
     def from_dict(cls, config):
         """Creates a config class from a Python dict."""
-        if isinstance(config, AdapterConfigBase):
+        if isinstance(config, AdapterConfig):
             return config
 
         # the constructor does not accept additional kwargs, so add them separately
@@ -92,7 +92,7 @@ class AdapterConfigBase(Mapping):
     @classmethod
     def load(cls, config: Union[dict, str], download_kwargs=None, **kwargs):
         """
-        Loads a given adapter configuration specifier into a full AdapterConfigBase instance.
+        Loads a given adapter configuration specifier into a full AdapterConfig instance.
 
         Args:
             config (Union[dict, str]): The configuration to load. Can be either:
@@ -117,7 +117,7 @@ class AdapterConfigBase(Mapping):
         else:
             config_dict = resolve_adapter_config(config, local_map=local_map)
         # convert back to dict to allow attr overrides
-        if isinstance(config_dict, AdapterConfigBase):
+        if isinstance(config_dict, AdapterConfig):
             cls_new = config_dict.__class__
             config_dict = config_dict.to_dict()
         else:
@@ -128,7 +128,7 @@ class AdapterConfigBase(Mapping):
 
 
 @dataclass(eq=False)
-class BnConfig(AdapterConfigBase):
+class BnConfig(AdapterConfig):
     """
     Base class that models the architecture of a bottleneck adapter.
 
@@ -359,7 +359,7 @@ class ParBnConfig(BnConfig):
 
 
 @dataclass(eq=False)
-class PrefixTuningConfig(AdapterConfigBase):
+class PrefixTuningConfig(AdapterConfig):
     """
     The Prefix Tuning architecture proposed by Li & Liang (2021). See https://arxiv.org/pdf/2101.00190.pdf.
 
@@ -396,7 +396,7 @@ class PrefixTuningConfig(AdapterConfigBase):
 
 
 @dataclass(eq=False)
-class LoRAConfig(AdapterConfigBase):
+class LoRAConfig(AdapterConfig):
     """
     The Low-Rank Adaptation (LoRA) architecture proposed by Hu et al. (2021). See https://arxiv.org/pdf/2106.09685.pdf.
     LoRA adapts a model by reparametrizing the weights of a layer matrix. You can merge the additional weights with the
@@ -462,7 +462,7 @@ class IA3Config(LoRAConfig):
     use_gating: bool = False
 
 
-class ConfigUnion(AdapterConfigBase):
+class ConfigUnion(AdapterConfig):
     """
     Composes multiple adaptation method configurations into one. This class can be used to define complex adaptation
     method setups.
@@ -470,9 +470,9 @@ class ConfigUnion(AdapterConfigBase):
 
     architecture: Optional[str] = "union"
 
-    configs: List[AdapterConfigBase]
+    configs: List[AdapterConfig]
 
-    def __init__(self, *configs: List[AdapterConfigBase]):
+    def __init__(self, *configs: List[AdapterConfig]):
         self.validate(configs)
         self.configs = configs
 
@@ -483,7 +483,7 @@ class ConfigUnion(AdapterConfigBase):
         setup.
 
         Args:
-            configs (List[AdapterConfigBase]): list of configs to check.
+            configs (List[AdapterConfig]): list of configs to check.
 
         Raises:
             TypeError: One of the configurations has a wrong type. ValueError: At least two given configurations
@@ -491,8 +491,8 @@ class ConfigUnion(AdapterConfigBase):
         """
         # perform single config checks
         for config in configs:
-            if not isinstance(config, AdapterConfigBase):
-                raise TypeError(f"{config} is not an instance of AdapterConfigBase")
+            if not isinstance(config, AdapterConfig):
+                raise TypeError(f"{config} is not an instance of AdapterConfig")
             elif isinstance(config, ConfigUnion):
                 raise TypeError(f"{config} of type {type(config)} is not supported in a config union.")
         # perform pairwise check
@@ -539,7 +539,7 @@ class ConfigUnion(AdapterConfigBase):
 
     @classmethod
     def from_dict(cls, config):
-        if isinstance(config, AdapterConfigBase):
+        if isinstance(config, AdapterConfig):
             return config
 
         configs = []

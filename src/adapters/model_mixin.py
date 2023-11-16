@@ -13,7 +13,7 @@ from torch import nn
 from transformers.modeling_outputs import ModelOutput
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import ADAPTER_CONFIG_MAP, AdapterConfigBase, AdapterFusionConfig, BnConfig
+from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
@@ -518,7 +518,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         Args:
             adapter_name (str): The name of the adapter module to be added.
-            config (str or dict or AdapterConfigBase, optional): The adapter configuration, can be either:
+            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
 
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
@@ -529,7 +529,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 Set the adapter to be the active one. By default (False),
             the adapter is added but not activated.
         """
-        config = AdapterConfigBase.load(config)  # ensure config is ok and up-to-date
+        config = AdapterConfig.load(config)  # ensure config is ok and up-to-date
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
         if overwrite_ok and adapter_name in self.adapters_config:
             self.delete_adapter(adapter_name)
