@@ -106,8 +106,8 @@ class VisionAdapterTestBase(AdapterTestBase):
             return inputs
 
         dataset = datasets.load_dataset(
-            "./tests_adapters/fixtures/samples/cifar10",
-            data_dir="./tests_adapters/fixtures/samples/cifar10",
+            "./tests/fixtures/samples/cifar10",
+            data_dir="./tests/fixtures/samples/cifar10",
             split="train",
         )
         dataset = dataset.with_transform(transform)

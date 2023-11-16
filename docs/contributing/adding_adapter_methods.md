@@ -67,17 +67,17 @@ You can find all currently supported model classes at https://docs.adapterhub.ml
 
 ## Testing
 
-❓ `adapters` provides a framework for testing adapter methods on implementing models in `tests_adapters`.
+❓ `adapters` provides a framework for testing adapter methods on implementing models in `tests`.
 Tests for each adapter method are provided via a mixin class.
-All test mixins derive from the common `AdapterMethodBaseTestMixin` class and reside in `tests_adapters/methods`.
+All test mixins derive from the common `AdapterMethodBaseTestMixin` class and reside in `tests/methods`.
 
 **📝 Steps**
 
-- Add a new `test_<method>.py` module in `tests_adapters/methods`.
+- Add a new `test_<method>.py` module in `tests/methods`.
     - This module should contain a `<method>TestMixin` class deriving from `AdapterMethodBaseTestMixin` that implements typical methods of adding, loading and training modules of the new adapter method.
     - Have a look at existing test mixins for reference.
 - Next, add the newly implemented test mixin to the tests of all model types that support the new adapter method.
-    - Each model type has its own test class `tests_adapters/test_<model_type>.py` that contains a `<model_type>AdapterTest` class.
+    - Each model type has its own test class `tests/test_<model_type>.py` that contains a `<model_type>AdapterTest` class.
     Add the new test mixin to the mixins of this class.
     E.g., if the new method is supported by BERT, add the its test mixin to `BertAdapterTest`.
 

@@ -1,6 +1,6 @@
 import unittest
 
-from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
+from tests.methods.test_config_union import ConfigUnionAdapterTest
 from transformers import GPTJConfig
 from transformers.testing_utils import require_torch
 

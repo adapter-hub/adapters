@@ -65,7 +65,7 @@ class BertGenerationAdapterTestBase(AdapterTestBase):
 
         data_args = {
             "task_name": "xsum",
-            "path": "./tests_adapters/fixtures/samples/xsum/sample.json",
+            "path": "./tests/fixtures/samples/xsum/sample.json",
         }
         dataset = load_dataset("json", data_files=data_args["path"])
         train_dataset = dataset["train"]
