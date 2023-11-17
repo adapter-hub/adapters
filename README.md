@@ -17,7 +17,7 @@ limitations under the License.
 > **Note**: This repository holds the codebase of the _Adapters_ library, which has replaced `adapter-transformers`. For the legacy codebase, go to: https://github.com/adapter-hub/adapter-transformers-legacy.
 
 <p align="center">
-<img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapter-transformers/master/adapter_docs/logo.png" />
+<img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapters/main/docs/logo.png" />
 </p>
 <h1 align="center">
 <span><i>Adapters</i></span>
@@ -27,8 +27,8 @@ limitations under the License.
 A Unified Library for Parameter-Efficient and Modular Transfer Learning
 </h3>
 
-![Tests](https://github.com/Adapter-Hub/adapter-transformers/workflows/Tests/badge.svg?branch=adapters)
-[![GitHub](https://img.shields.io/github/license/adapter-hub/adapter-transformers.svg?color=blue)](https://github.com/adapter-hub/adapter-transformers/blob/adapters/LICENSE)
+![Tests](https://github.com/Adapter-Hub/adapters/workflows/Tests/badge.svg?branch=adapters)
+[![GitHub](https://img.shields.io/github/license/adapter-hub/adapters.svg?color=blue)](https://github.com/adapter-hub/adapters/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/adapters)](https://pypi.org/project/adapters/)
 
 `adapters` is an add-on to [HuggingFace's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
@@ -45,7 +45,7 @@ pip install -U adapters
 ... or from source by cloning the repository:
 
 ```
-git clone https://github.com/adapter-hub/adapter-transformers.git
+git clone https://github.com/adapter-hub/adapters.git
 git checkout adapters
 cd adapters
 pip install .
