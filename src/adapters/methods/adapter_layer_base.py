@@ -151,7 +151,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
 
     Make sure the 'adapter_modules_name' and 'supported_compositions' attributes as well as all abstract methods are
     overriden in derived classes. 'allow_multi_parallelize' can be set to True to allow inputs to be parallelized
-    independently multiple times. This is useful when there are multiple parallel input flows though an adapter layer
+    independently multiple times. This is useful when there are multiple parallel input flows through an adapter layer
     (e.g. in LoRA).
     """
 
