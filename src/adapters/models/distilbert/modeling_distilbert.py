@@ -27,7 +27,7 @@ from torch import nn
 
 from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAttention, TransformerBlock
 
-from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
+from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
 from .mixin_distilbert import DistilBertMultiHeadSelfAttentionMixin, DistilBertTransfomerBlockAdaptersMixin
 
 
@@ -69,6 +69,9 @@ class MultiHeadSelfAttentionWithAdapters(DistilBertMultiHeadSelfAttentionMixin, 
         q = shape(self.q_lin(query))  # (bs, n_heads, q_length, dim_per_head)
         k = shape(self.k_lin(key))  # (bs, n_heads, k_length, dim_per_head)
         v = shape(self.v_lin(value))  # (bs, n_heads, k_length, dim_per_head)
+
+        q, k, v = match_attn_matrices_for_parallel(q, k, v)
+        (mask,) = adjust_tensors_for_parallel(q, mask)
 
         k, v, mask = self.prefix_tuning(k, v, value, mask, invert_mask=False)
         bs = k.size(0)  # reset for Parallel block

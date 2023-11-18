@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from ...composition import adjust_tensors_for_parallel_
 from ...methods.bottleneck import BottleneckLayer
-from ...methods.lora import Linear as LoRALinear
+from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import (
     EmbeddingAdaptersMixin,

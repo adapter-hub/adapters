@@ -3,7 +3,7 @@ import unittest
 import torch
 
 import adapters
-from adapters import PrefixTuningConfig, SeqBnConfig
+from adapters import IA3Config, LoRAConfig, PrefixTuningConfig, SeqBnConfig
 from adapters.composition import Average, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
 from tests.test_modeling_common import ids_tensor
 from transformers import BertConfig, BertForSequenceClassification
@@ -140,9 +140,9 @@ class AdapterCompositionTest(unittest.TestCase):
         model.set_active_adapters(Parallel("a", "b", "c", "d"))
 
         inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000)
+        inputs["input_ids"] = ids_tensor((2, 10), 1000)
         logits = model(**inputs).logits
-        self.assertEqual(logits.shape, (4, 2))
+        self.assertEqual(logits.shape, (8, 2))
 
     def test_nested_parallel(self):
         if Parallel in self.unsupported_blocks or Stack in self.unsupported_blocks:
@@ -152,7 +152,7 @@ class AdapterCompositionTest(unittest.TestCase):
         model.set_active_adapters(Stack("a", Parallel(Stack("b", "c"), "d")))
 
         inputs = {}
-        inputs["input_ids"] = ids_tensor((1, 128), 1000)
+        inputs["input_ids"] = ids_tensor((1, 10), 1000)
         logits = model(**inputs).logits
         self.assertEqual(logits.shape, (2, 2))
 
@@ -234,3 +234,17 @@ class PrefixTuningCompositionTest(AdapterCompositionTest):
 
     def get_adapter_config(self):
         return PrefixTuningConfig()
+
+
+class LoRACompositionTest(AdapterCompositionTest):
+    unsupported_blocks = [Split, Fuse]
+
+    def get_adapter_config(self):
+        return LoRAConfig(init_weights="bert")
+
+
+class IA3CompositionTest(AdapterCompositionTest):
+    unsupported_blocks = [Split, Fuse]
+
+    def get_adapter_config(self):
+        return IA3Config()
