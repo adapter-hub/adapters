@@ -3,6 +3,7 @@
 #  Copyright (c) Microsoft Corporation. All rights reserved.
 #  Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 #  ------------------------------------------------------------------------------------------
+import logging
 import math
 from typing import Dict, List, NamedTuple, Optional, Union
 
@@ -16,6 +17,9 @@ from transformers.pytorch_utils import Conv1D
 from ..composition import AdapterCompositionBlock, Average, BatchSplit, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
+
+
+logger = logging.getLogger(__name__)
 
 
 class LoRA(nn.Module):
@@ -44,6 +48,8 @@ class LoRA(nn.Module):
         self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
         self.scaling = self.lora_alpha / self.r
 
+        # For compatibility with (IA)^3, allow all init_weights types here.
+        # Usually should be "lora".
         if config.init_weights == "lora":
             # initialize A the same way as the default for nn.Linear and B to zero
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
@@ -114,7 +120,10 @@ class IA3(nn.Module):
         self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
         self.scaling = self.lora_alpha
 
+        # For compatibility with LoRA, allow all init_weights types here.
+        # Usually should be "ia3".
         if config.init_weights == "lora":
+            logger.warning("(IA)^3 module initialized with LoRA zeo init. Ignore if this is intended.")
             nn.init.zeros_(self.lora_B)
         elif config.init_weights == "bert":
             nn.init.normal_(self.lora_B, std=0.02)
