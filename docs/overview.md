@@ -64,7 +64,7 @@ Identifiers and configuration classes are explained in more detail in the [next 
 ## Configuration
 
 All supported adapter methods can be added, trained, saved and shared using the same set of model class functions (see [class documentation](adapters.ModelAdaptersMixin)).
-Each method is specified and configured using a specific configuration class, all of which derive from the common [`AdapterConfigBase`](adapters.AdapterConfigBase) class.
+Each method is specified and configured using a specific configuration class, all of which derive from the common [`AdapterConfig`](adapters.AdapterConfig) class.
 E.g., adding one of the supported adapter methods to an existing model instance follows this scheme:
 ```python
 model.add_adapter("name", config=<ADAPTER_CONFIG>)

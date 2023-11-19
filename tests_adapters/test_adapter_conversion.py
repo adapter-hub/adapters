@@ -198,3 +198,39 @@ class ModelClassConversionTestMixin:
 
         self.assertEquals(model_gen.shape, flex_model_gen.shape)
         self.assertTrue(torch.equal(model_gen, flex_model_gen))
+
+    def test_full_model_conversion(self):
+        if self.config_class not in MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING:
+            self.skipTest("No sequence classification class.")
+
+        static_head_model = MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING[self.config_class](self.config())
+        adapters.init(static_head_model)
+        static_head_model.eval()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            static_head_model.save_pretrained(temp_dir)
+
+            flex_head_model, loading_info = AutoAdapterModel.from_pretrained(temp_dir, output_loading_info=True)
+
+        # Roberta-based models always have a pooler, which is not used by the tested head
+        keys_to_ignore = ["roberta.pooler.dense.weight", "roberta.pooler.dense.bias"]
+
+        missing_keys = [k for k in loading_info["missing_keys"] if k not in keys_to_ignore]
+
+        self.assertEqual(0, len(missing_keys), "Missing keys: {}".format(", ".join(missing_keys)))
+        self.assertEqual(
+            0,
+            len(loading_info["unexpected_keys"]),
+            "Unexpected keys: {}".format(", ".join(loading_info["unexpected_keys"])),
+        )
+
+        # static head is re-loaded as "default"
+        self.assertIn("default", flex_head_model.heads)
+
+        # check equal output
+        in_data = self.get_input_samples(config=flex_head_model.config)
+        static_head_model.to(torch_device)
+        flex_head_model.to(torch_device)
+        output1 = static_head_model(**in_data)
+        output2 = flex_head_model(**in_data, head="default")
+        self.assertTrue(torch.allclose(output1.logits, output2.logits))

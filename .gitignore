@@ -172,3 +172,6 @@ scripts/git-strip-merge
 # DS_Store (MacOS)
 .DS_Store
 tests_adapters/backwards_compatibility/Ref_Out
+
+# backwards compatibility
+model_outputs

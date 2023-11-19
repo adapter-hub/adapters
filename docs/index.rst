@@ -6,19 +6,29 @@
 AdapterHub Documentation
 ================================================
 
+.. note::
+   This documentation is based on the new *Adapters* library.
+
+   The documentation based on the legacy *adapter-transformers* library can be found at: `https://docs-legacy.adapterhub.ml <https://docs-legacy.adapterhub.ml>`_.
+
 *AdapterHub* is a framework simplifying the integration, training and usage of adapters and other efficient fine-tuning methods for Transformer-based language models.
 For a full list of currently implemented methods, see the `table in our repository <https://github.com/adapter-hub/adapters#implemented-methods>`_.
 
 The framework consists of two main components:
 
-- ``adapters``, an extension of Hugging Face's `Transformers <https://huggingface.co/transformers/>`_ library that adds adapter components to transformer models
+.. list-table::
+   :widths: 50 50
+   :header-rows: 1
 
-- `The Hub <https://adapterhub.ml>`_, a central repository collecting pre-trained adapter modules
+   * - `Adapters <https://github.com/adapter-hub/adapters>`_
+     - `AdapterHub.ml <https://adapterhub.ml/explore>`_
+   * - an add-on to Hugging Face's `Transformers <https://huggingface.co/transformers/>`_ library that adds adapters into transformer models
+     - a central collection of pre-trained adapter modules
 
 Currently, we support the PyTorch versions of all models as listed on the `Model Overview <model_overview.html>`_ page.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Getting Started
 
    installation
@@ -79,7 +89,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/models/xmod
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Adapter-Related Classes
 
    classes/adapter_config

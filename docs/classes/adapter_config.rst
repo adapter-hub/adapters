@@ -6,7 +6,7 @@ Classes representing the architectures of adapter modules and fusion layers.
 Single (bottleneck) adapters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: adapters.AdapterConfigBase
+.. autoclass:: adapters.AdapterConfig
     :members:
 
 .. autoclass:: adapters.BnConfig

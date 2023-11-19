@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from typing import Union
 
 from ..utils import resolve_adapter_config
-from .adapter_config import AdapterConfigBase
+from .adapter_config import AdapterConfig
 
 
 @dataclass(eq=False)
-class AdapterFusionConfig(AdapterConfigBase):
+class AdapterFusionConfig(AdapterConfig):
     """Base class that models the architecture of an adapter fusion layer."""
 
     key: bool

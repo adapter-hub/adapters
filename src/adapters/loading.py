@@ -7,7 +7,7 @@ from typing import Callable, Mapping, Sequence, Tuple
 
 import torch
 
-from .configuration import AdapterConfigBase, build_full_config
+from .configuration import AdapterConfig, build_full_config
 from .head_utils import STATIC_TO_FLEX_HEAD_MAP, get_head_config_and_rename_list
 from .utils import (
     ACTIVATION_RENAME,
@@ -421,7 +421,7 @@ class AdapterLoader(WeightsLoader):
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
             and the name of the loaded weights.
         """
-        requested_config = AdapterConfigBase.load(config) if config else None
+        requested_config = AdapterConfig.load(config) if config else None
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
         model_name = self.model.model_name or model_name
         resolved_folder = resolve_adapter_path(
@@ -767,3 +767,43 @@ class PredictionHeadLoader(WeightsLoader):
         )
 
         return save_directory, head_name
+
+    def convert_static_to_flex_head(self, state_dict, load_as="default"):
+        """
+        Loads a prediction head module from the given state dict, which contains a static head checkpoint.
+
+        Args:
+            state_dict (dict): The static head checkpoint from which to load the head module. Can be None.
+            load_as (str, optional): Load the weights with this name. Defaults to None.
+
+        Returns:
+            Tuple[dict, dict]: A tuple consisting of the head config and the state dict of the loaded weights.
+        """
+        assert self.convert_to_flex_head, "load_from_state_dict() can only be used with convert_to_flex_head=True."
+        assert hasattr(self.model, "heads"), "load_from_state_dict() can only be used with flex heads model class."
+
+        conversion_rename_func = None
+
+        original_model_class = self.model.config.architectures[0] if self.model.config.architectures else None
+        if original_model_class in STATIC_TO_FLEX_HEAD_MAP:
+            head_config, conversion_rename_func = get_head_config_and_rename_list(
+                original_model_class,
+                load_as,
+                getattr(self.model.config, "label2id"),
+            )
+        elif self.error_on_missing:
+            raise ValueError(
+                f"Cannot automatically convert prediction head of model class {original_model_class} to flex head."
+            )
+        else:
+            return None, None
+
+        # Load head weights
+        if state_dict is not None:
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                new_k = conversion_rename_func(k)
+                new_state_dict[new_k] = v
+        else:
+            new_state_dict = None
+        return head_config, new_state_dict

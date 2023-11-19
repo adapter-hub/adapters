@@ -13,7 +13,7 @@ from torch import nn
 from transformers.modeling_outputs import ModelOutput
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import ADAPTER_CONFIG_MAP, AdapterConfigBase, AdapterFusionConfig, BnConfig
+from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
@@ -542,7 +542,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         Args:
             adapter_name (str): The name of the adapter module to be added.
-            config (str or dict or AdapterConfigBase, optional): The adapter configuration, can be either:
+            config (str or dict or AdapterConfig, optional): The adapter configuration, can be either:
 
                 - the string identifier of a pre-defined configuration dictionary
                 - a configuration dictionary specifying the full config
@@ -553,7 +553,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 Set the adapter to be the active one. By default (False),
             the adapter is added but not activated.
         """
-        config = AdapterConfigBase.load(config)  # ensure config is ok and up-to-date
+        config = AdapterConfig.load(config)  # ensure config is ok and up-to-date
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
         if overwrite_ok and adapter_name in self.adapters_config:
             self.delete_adapter(adapter_name)
@@ -1363,6 +1363,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             super().train_adapter(adapter_setup, train_embeddings)
         else:
             self.base_model.train_adapter(adapter_setup, train_embeddings)
+        self.freeze_embeddings()
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """
@@ -1373,6 +1374,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             super().train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
         else:
             self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
+        self.freeze_embeddings()
 
     def save_head(self, save_directory: str, head_name: str = None):
         loader = PredictionHeadLoader(self)
@@ -1543,3 +1545,15 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             return super().get_adapter(name)
         else:
             return self.base_model.get_adapter(name)
+
+    def freeze_embeddings(self, freeze=True):
+        # If model has prediction head with embeddings, ensure these are frozen
+        if self.get_output_embeddings() is not None:
+            output_embeddings = self.get_output_embeddings()
+            if isinstance(output_embeddings, list):
+                for output_embedding in output_embeddings:
+                    for p in output_embedding.parameters():
+                        p.requires_grad = not freeze
+            else:
+                for p in self.get_output_embeddings().parameters():
+                    p.requires_grad = not freeze
