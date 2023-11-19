@@ -307,6 +307,7 @@ class AdapterLoader(WeightsLoader):
             or ".prefix_tunings.{}.".format(adapter_name) in x
             or ".prefix_gates.{}.".format(adapter_name) in x
             or ".loras.{}.".format(adapter_name) in x
+            or ".prompt_tunings.{}.".format(adapter_name) in x
         )
 
     # This dict maps the original weight names to the currently used equivalents.

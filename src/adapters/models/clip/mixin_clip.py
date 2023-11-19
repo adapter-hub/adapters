@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Tuple
+from typing import Iterable, Tuple
 
 import torch.nn as nn
 
@@ -60,14 +60,23 @@ class CLIPEncoderAdaptersMixin:
 class CLIPTextTransformerAdaptersMixin(InvertibleAdaptersMixin):
     """Adds adapters to the CLIPTextTransformer module of CLIP."""
 
-    def hook_after_embeddings(self, hook_fn: Callable):
-        return self.embeddings.register_forward_hook(hook_fn)
+    def init_adapters(self, model_config, adapters_config):
+        super().init_adapters(model_config, adapters_config)
+
+        # Register hook for post embedding forward
+        self.embeddings.register_forward_hook(self.post_embedding_forward)
+
+    def post_embedding_forward(self, module, args, embedding_output):
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+        # Prompt tuning not yet supported
+        return embedding_output
 
 
 class CLIPTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the CLIPTextModel class."""
 
     invertible_adapters_base_name = "text_model"
+    support_prompt_tuning = False
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.text_model.encoder.layers):
@@ -76,6 +85,8 @@ class CLIPTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapp
 
 class CLIPVisionModelAdaptersMixin(ModelBaseAdaptersMixin):
     """Adds adapters to the a CLIPVisionModel class."""
+
+    support_prompt_tuning = False
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.vision_model.encoder.layers):
@@ -86,6 +97,7 @@ class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWr
     """Adds adapters to the CLIPModel class."""
 
     invertible_adapters_base_name = "text_model"
+    support_prompt_tuning = False
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.text_model.encoder.layers):

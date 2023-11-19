@@ -84,6 +84,8 @@ class AdapterConfig(Mapping):
             cls_new = LoRAConfig
         elif architecture == "union":
             cls_new = ConfigUnion
+        elif architecture == "prompt_tuning":
+            cls_new = PromptTuningConfig
         else:
             cls_new = BnConfig
 
@@ -396,6 +398,33 @@ class PrefixTuningConfig(AdapterConfig):
 
 
 @dataclass(eq=False)
+class PromptTuningConfig(AdapterConfig):
+    """
+    The Prompt Tuning architecture proposed by Lester et al. (2021). See https://arxiv.org/pdf/2104.08691.pdf
+
+    Args:
+        prompt_length (int): The number of tokens in the prompt.
+            Defaults to 10.
+        prompt_init (str): The initialization method for the prompt. Can be either "random_uniform" or "from_string".
+            Defaults to "random_uniform".
+        prompt_init_text (str): The text to use for prompt initialization if prompt_init="from_string".
+        random_uniform_scale (float): The scale of the random uniform initialization if prompt_init="random_uniform".
+            Defaults to 0.5 as in the paper.
+        combine (str):
+            The method used to combine the prompt with the input. Can be either "prefix" or "prefix_after_bos".
+            Defaults to "prefix".
+    """
+
+    architecture: str = "prompt_tuning"
+
+    prompt_length: int = 10
+    prompt_init: str = "random_uniform"
+    prompt_init_text: Optional[str] = None
+    random_uniform_scale = 0.5
+    combine: str = "prefix"
+
+
+@dataclass(eq=False)
 class LoRAConfig(AdapterConfig):
     """
     The Low-Rank Adaptation (LoRA) architecture proposed by Hu et al. (2021). See https://arxiv.org/pdf/2106.09685.pdf.
@@ -612,6 +641,7 @@ ADAPTER_CONFIG_MAP = {
     "compacter": CompacterConfig(),
     "prefix_tuning": PrefixTuningConfig(),
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
+    "prompt_tuning": PromptTuningConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
     "mam": MAMConfig(),

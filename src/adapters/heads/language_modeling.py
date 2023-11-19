@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 from transformers.modeling_outputs import CausalLMOutput, CausalLMOutputWithPast, MaskedLMOutput, Seq2SeqLMOutput
@@ -118,6 +119,15 @@ class CausalLMHead(PredictionHead):
                 labels = labels[..., 1:].contiguous()
             else:
                 logits_for_loss = lm_logits
+
+            # adjust labels for prompt tuning
+            if kwargs.get("prompt_tokens_length", 0) > 0:
+                prompt_length = kwargs.get("prompt_tokens_length")
+                prompt_labels = torch.full(
+                    (labels.shape[0], prompt_length), loss_fct.ignore_index, dtype=torch.long, device=labels.device
+                )
+                labels = torch.cat((prompt_labels, labels), dim=-1)
+
             loss = loss_fct(logits_for_loss.view(-1, self.config["vocab_size"]), labels.view(-1))
 
         if return_dict:

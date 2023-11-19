@@ -32,6 +32,8 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
     LLAMA_START_DOCSTRING,
 )
 class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, LlamaPreTrainedModel):
+    _tied_weights_keys = []  # needs to be empty since LLaMA does not yet support prompt tuning
+
     def __init__(self, config):
         super().__init__(config)
         self.model = LlamaModel(config)
@@ -68,7 +70,7 @@ class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.model(
+        outputs, context = self.model(
             input_ids,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
@@ -81,7 +83,10 @@ class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
             adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
+            output_context=True,
         )
+        # required e.g. for prompt tuning in all models
+        kwargs["context"] = context
 
         batch_size = outputs[0].shape[0]
 

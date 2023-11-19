@@ -33,6 +33,8 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
     GPT2_START_DOCSTRING,
 )
 class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel):
+    _tied_weights_keys = []  # needs to be empty since GPT2 does not yet support prompt tuning
+
     def __init__(self, config):
         super().__init__(config)
         self.transformer = GPT2Model(config)
@@ -68,7 +70,7 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.transformer(
+        outputs, context = self.transformer(
             input_ids,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
@@ -85,7 +87,10 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
             adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
+            output_context=True,
         )
+        # required e.g. for prompt tuning in all models
+        kwargs["context"] = context
 
         batch_size = outputs[0].shape[0]
 

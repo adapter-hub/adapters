@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Tuple
+from typing import Iterable, Tuple
 
 import torch.nn as nn
 
@@ -28,9 +28,19 @@ class LlamaDecoderLayerMixin:
 
 
 class LlamaModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
+    support_prompt_tuning = False
+
+    def init_adapters(self, model_config, adapters_config):
+        super().init_adapters(model_config, adapters_config)
+
+        # Register hook for post embedding forward
+        self.embed_tokens.register_forward_hook(self.post_embedding_forward)
+
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.layers):
             yield i, layer
 
-    def hook_after_embeddings(self, hook_fn: Callable):
-        return self.embed_tokens.register_forward_hook(hook_fn)
+    def post_embedding_forward(self, module, args, embedding_output):
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+        # Prompt tuning not yet supported
+        return embedding_output

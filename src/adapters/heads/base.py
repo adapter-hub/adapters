@@ -326,6 +326,19 @@ class TaggingHead(PredictionHead):
         labels = kwargs.pop("labels", None)
         if labels is not None:
             loss_fct = CrossEntropyLoss()
+            # adjust labels for prompt tuning
+            if kwargs.get("prompt_tokens_length", 0) > 0:
+                prompt_length = kwargs.get("prompt_tokens_length")
+                prompt_labels = torch.full(
+                    (labels.shape[0], prompt_length), loss_fct.ignore_index, dtype=torch.long, device=labels.device
+                )
+                labels = torch.cat((prompt_labels, labels), dim=-1)
+                if attention_mask is not None:
+                    attention_mask = torch.cat(
+                        (torch.ones_like(prompt_labels, dtype=torch.long, device=labels.device), attention_mask),
+                        dim=-1,
+                    )
+
             # Only keep active parts of the loss
             if attention_mask is not None:
                 active_loss = attention_mask.view(-1) == 1
@@ -763,7 +776,14 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         return head_modules
 
     def forward_head(
-        self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
+        self,
+        all_outputs,
+        head_name=None,
+        cls_output=None,
+        attention_mask=None,
+        return_dict=False,
+        context=None,
+        **kwargs
     ):
         """
         The forward pass through a prediction head configuration. There are three ways to specify the used prediction
@@ -810,6 +830,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             inv_adapter = self.base_model.get_invertible_adapter()
             if inv_adapter:
                 kwargs["invertible_adapter"] = inv_adapter
+
+        # Set prompt tokens length
+        if context is not None:
+            prompt_tokens_length = context.get("prompt_tokens_length", None)
+            if prompt_tokens_length is not None:
+                kwargs["prompt_tokens_length"] = prompt_tokens_length
 
         if isinstance(self.active_head, BatchSplit):
             if sum(self.active_head.batch_sizes) != all_outputs[0].size()[0]:

@@ -24,6 +24,7 @@ from transformers.models.albert.modeling_albert import AlbertAttention, AlbertLa
 from transformers.pytorch_utils import apply_chunking_to_forward
 
 from ...composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
+from ...utils import prefix_attention_mask
 from .mixin_albert import AlbertAttentionAdaptersMixin, AlbertEncoderLayerAdaptersMixin
 
 
@@ -35,6 +36,8 @@ class AlbertAttentionWithAdapters(AlbertAttentionAdaptersMixin, AlbertAttention)
         head_mask: Optional[torch.FloatTensor] = None,
         output_attentions: bool = False,
     ) -> Union[Tuple[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
+        attention_mask = prefix_attention_mask(attention_mask)  # type: ignore
+
         mixed_query_layer = self.query(hidden_states)
         mixed_key_layer = self.key(hidden_states)
         mixed_value_layer = self.value(hidden_states)

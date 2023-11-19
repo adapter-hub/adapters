@@ -356,7 +356,7 @@ class T5StackWithAdapters(T5StackAdaptersMixin, T5Stack):
 
         hidden_states = self.dropout(inputs_embeds)
         if not self.is_decoder:
-            hidden_states = self.invertible_adapters_forward(hidden_states)
+            hidden_states = self.post_embedding_forward(hidden_states)
 
         for i, (layer_module, past_key_value) in enumerate(zip(self.block, past_key_values)):
             layer_head_mask = head_mask[i]
