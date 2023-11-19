@@ -29,7 +29,6 @@ class MBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
     _tied_weights_keys = [
         "encoder.embed_tokens.weight",
         "decoder.embed_tokens.weight",
-        "prompt_tuning.base_model_embeddings.*",
     ]
 
     def __init__(self, config: MBartConfig, **kwargs):

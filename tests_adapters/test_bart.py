@@ -11,7 +11,6 @@ from .methods import (
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
-    PromptTuningTestMixin,
     UniPELTTestMixin,
 )
 from .test_adapter import AdapterTestBase, make_config
@@ -44,7 +43,6 @@ class BartAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
-    PromptTuningTestMixin,
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,

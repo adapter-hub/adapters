@@ -76,6 +76,7 @@ class BartModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMi
     """Adds adapters to the BartModel class."""
 
     invertible_adapters_base_name = "encoder"
+    support_prompt_tuning = False
 
     def init_adapters(self, model_config, adapters_config):
         super().init_adapters(model_config, adapters_config)
@@ -90,6 +91,11 @@ class BartModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMi
         else:
             for i, layer in enumerate(self.decoder.layers):
                 yield i, layer
+
+    def post_embedding_forward(self, module, args, embedding_output):
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+        # Prompt tuning not yet supported
+        return embedding_output
 
 
 class BartDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBaseAdaptersMixin):
