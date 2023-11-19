@@ -74,7 +74,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
-docs/_build/
+adapter_docs/_build/
 
 # PyBuilder
 target/
@@ -172,3 +172,6 @@ scripts/git-strip-merge
 # DS_Store (MacOS)
 .DS_Store
 tests_adapters/backwards_compatibility/Ref_Out
+
+# backwards compatibility
+model_outputs

@@ -6,7 +6,8 @@ from torch import nn
 
 from transformers.models.electra.modeling_electra import ElectraOutput, ElectraSelfAttention, ElectraSelfOutput
 
-from ...composition import adjust_tensors_for_parallel
+from ...composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
+from ...utils import prefix_attention_mask
 from ..bert.mixin_bert import BertOutputAdaptersMixin, BertSelfAttentionAdaptersMixin, BertSelfOutputAdaptersMixin
 
 
@@ -21,6 +22,8 @@ class ElectraSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, ElectraSe
         past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
+        attention_mask = prefix_attention_mask(attention_mask)  # type: ignore
+
         mixed_query_layer = self.query(hidden_states)
 
         # If this is instantiated as a cross-attention module, the keys
@@ -47,6 +50,8 @@ class ElectraSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, ElectraSe
             value_layer = self.transpose_for_scores(self.value(hidden_states))
 
         query_layer = self.transpose_for_scores(mixed_query_layer)
+        query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
+        (attention_mask,) = adjust_tensors_for_parallel(query_layer, attention_mask)
 
         use_cache = past_key_value is not None
         if self.is_decoder:

@@ -1,9 +1,10 @@
-from typing import Iterable, Tuple
+from typing import Iterable, Optional, Tuple
 
+import torch
 import torch.nn as nn
 
 from ...methods.bottleneck import BottleneckLayer
-from ...methods.lora import Linear as LoRALinear
+from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import (
     EmbeddingAdaptersMixin,
@@ -82,11 +83,17 @@ class T5StackAdaptersMixin(InvertibleAdaptersMixin):
         if not self.is_decoder:
             InvertibleAdaptersMixin.init_adapters(self, self.config, adapters_config)
 
+    def post_embedding_forward(self, embedding_output):
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+        # Prompt tuning not yet supported
+        return embedding_output
+
 
 class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the T5Model class."""
 
     invertible_adapters_base_name = "encoder"
+    support_prompt_tuning = False
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         global_i = 0
@@ -99,5 +106,28 @@ class T5ModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixi
                 yield i, layer
 
 
-class T5ModelAdaptersWithHeadsMixin(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin):
-    pass
+# Stating "labels" and "input_ids" explicitly is required for training using Trainer class
+class T5ForCondiditionalGenerationWithHeadsMixin(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin):
+    def forward(
+        self,
+        *args,
+        input_ids: Optional[torch.LongTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        **kwargs,
+    ):
+        return super().forward(*args, input_ids=input_ids, labels=labels, **kwargs)
+
+
+# Stating "start_positions"/"end_positions" and "input_ids" explicitly is required for training using Trainer class
+class T5ForQuestionAnsweringWithHeadsMixin(ModelWithHeadsAdaptersMixin, T5ModelAdaptersMixin):
+    def forward(
+        self,
+        *args,
+        input_ids: Optional[torch.LongTensor] = None,
+        start_positions: Optional[torch.LongTensor] = None,
+        end_positions: Optional[torch.LongTensor] = None,
+        **kwargs,
+    ):
+        return super().forward(
+            *args, input_ids=input_ids, start_positions=start_positions, end_positions=end_positions, **kwargs
+        )

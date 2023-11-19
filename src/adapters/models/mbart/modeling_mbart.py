@@ -21,7 +21,7 @@ from torch import nn
 
 from transformers.models.mbart.modeling_mbart import MBartAttention, MBartDecoderLayer, MBartEncoderLayer
 
-from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
+from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
 from ..bart.mixin_bart import BartAttentionAdaptersMixin, BartDecoderLayerAdaptersMixin, BartEncoderLayerAdaptersMixin
 
 
@@ -73,6 +73,11 @@ class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):
             # self_attention
             key_states = self._shape(self.k_proj(hidden_states), -1, bsz)
             value_states = self._shape(self.v_proj(hidden_states), -1, bsz)
+
+        query_states, key_states, value_states = match_attn_matrices_for_parallel(
+            query_states, key_states, value_states
+        )
+        (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
 
         if self.is_decoder:
             # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.

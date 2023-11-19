@@ -5,9 +5,10 @@ import torch
 
 from adapters import AutoAdapterModel
 from adapters.heads import ClassificationHead, PredictionHead
-from tests.test_modeling_common import ids_tensor
 from transformers import AutoConfig
 from transformers.testing_utils import require_torch, torch_device
+
+from .test_adapter import ids_tensor
 
 
 class CustomHead(PredictionHead):

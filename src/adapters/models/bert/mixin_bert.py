@@ -1,11 +1,11 @@
 import logging
-from typing import Callable, Iterable, Tuple
+from typing import Iterable, Tuple
 
 import torch.nn as nn
 
 from ...composition import adjust_tensors_for_parallel_
 from ...methods.bottleneck import BottleneckLayer
-from ...methods.lora import Linear as LoRALinear
+from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
 
@@ -77,6 +77,9 @@ class BertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
         for _, layer in self.iter_layers():
             self._set_layer_hook_for_parallel(layer)
 
+        # Register hook for post embedding forward
+        self.embeddings.register_forward_hook(self.post_embedding_forward)
+
     def _set_layer_hook_for_parallel(self, layer: nn.Module):
         def hook(module, input):
             adjust_tensors_for_parallel_(input[0], input[1])
@@ -87,6 +90,3 @@ class BertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.encoder.layer):
             yield i, layer
-
-    def hook_after_embeddings(self, hook_fn: Callable):
-        return self.embeddings.register_forward_hook(hook_fn)

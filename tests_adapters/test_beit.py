@@ -9,6 +9,7 @@ from .methods import (
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    PromptTuningTestMixin,
     UniPELTTestMixin,
 )
 from .test_adapter import VisionAdapterTestBase, make_config
@@ -38,6 +39,7 @@ class BeitAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    PromptTuningTestMixin,
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,

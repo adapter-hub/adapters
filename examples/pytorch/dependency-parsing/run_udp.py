@@ -13,7 +13,7 @@ from datasets import load_dataset
 
 import adapters
 import adapters.composition as ac
-from adapters import AdapterArguments, AdapterConfigBase, AutoAdapterModel, setup_adapter_training
+from adapters import AdapterArguments, AdapterConfig, AutoAdapterModel, setup_adapter_training
 from preprocessing import preprocess_dataset
 from transformers import AutoConfig, AutoTokenizer, HfArgumentParser, set_seed
 from utils_udp import UD_HEAD_LABELS, DependencyParsingAdapterTrainer, DependencyParsingTrainer, UDTrainingArguments
@@ -252,7 +252,7 @@ def main():
             logger.info("Loading best model for predictions.")
 
             if adapter_args.train_adapter:
-                adapter_config = AdapterConfigBase.load(adapter_args.adapter_config, **adapter_config_kwargs)
+                adapter_config = AdapterConfig.load(adapter_args.adapter_config, **adapter_config_kwargs)
                 model.load_adapter(
                     os.path.join(training_args.output_dir, "best_model", task_name)
                     if training_args.do_train
@@ -262,9 +262,7 @@ def main():
                     **adapter_load_kwargs,
                 )
                 if adapter_args.load_lang_adapter:
-                    lang_adapter_config = AdapterConfigBase.load(
-                        adapter_args.lang_adapter_config, **adapter_config_kwargs
-                    )
+                    lang_adapter_config = AdapterConfig.load(adapter_args.lang_adapter_config, **adapter_config_kwargs)
                     lang_adapter_name = model.load_adapter(
                         os.path.join(training_args.output_dir, "best_model", lang_adapter_name)
                         if training_args.do_train

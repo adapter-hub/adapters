@@ -42,13 +42,15 @@ The following table gives an overview on the supported composition blocks and th
 
 | Block | Bottleneck<br> Adapters | Prefix<br> Tuning | Compacter | LoRA | (IA)³ |
 | --- | --- | --- | --- | --- | --- |
-| [`Stack`](#stack) | ✅ | ✅ | ✅ |  |  |
+| [`Stack`](#stack) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |
 | [`Fuse`](#fuse) | ✅ |  | ✅ |  |  |
 | [`Split`](#split) | ✅ |  | ✅ |  |  |
-| [`BatchSplit`](#batchsplit) | ✅ | ✅ | ✅ |  |  |
-| [`Parallel`](#parallel) | ✅ | ✅ | ✅ |  |  |
-| [Output averaging](#output-averaging) | ✅ |  | ✅ |  |  |
+| [`BatchSplit`](#batchsplit) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |
+| [`Parallel`](#parallel) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |
+| [Output averaging](#output-averaging) | ✅ |  | ✅ | ✅(*) | ✅(*) |
 | [Parameter averaging](#parameter-averaging) | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+(*) except for Deberta-v1, GPT-2.
 
 Next, we present all composition blocks in more detail.
 

@@ -59,7 +59,7 @@ Compared to fine-tuning the entire model, we have to make only one significant a
 # task adapter - only add if not existing
 if task_name not in model.adapters_config:
     # resolve the adapter config
-    adapter_config = AdapterConfigBase.load(adapter_args.adapter_config)
+    adapter_config = AdapterConfig.load(adapter_args.adapter_config)
     # add a new adapter
     model.add_adapter(task_name, config=adapter_config)
 # Enable adapter training

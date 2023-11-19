@@ -6,7 +6,7 @@ Classes representing the architectures of adapter modules and fusion layers.
 Single (bottleneck) adapters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: adapters.AdapterConfigBase
+.. autoclass:: adapters.AdapterConfig
     :members:
 
 .. autoclass:: adapters.BnConfig
@@ -52,6 +52,13 @@ IA3Config
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: adapters.IA3Config
+    :members:
+    :inherited-members: Mapping
+
+PromptTuningConfig
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.PromptTuningConfig
     :members:
     :inherited-members: Mapping
 

@@ -31,3 +31,8 @@ a {
 .wy-side-scroll {
     padding-bottom: 1em;
 }
+
+/* override table no-wrap */
+.wy-table-responsive table td, .wy-table-responsive table th {
+    white-space: normal;
+}

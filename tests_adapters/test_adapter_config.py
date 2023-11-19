@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError, dataclass
 
 from adapters import (
     ADAPTER_CONFIG_MAP,
-    AdapterConfigBase,
+    AdapterConfig,
     ConfigUnion,
     DoubleSeqBnConfig,
     LoRAConfig,
@@ -23,16 +23,15 @@ class AdapterConfigTest(unittest.TestCase):
         # TODO still uses the old config names as only these are available on the Hub
         for config_name in ["pfeiffer", "houlsby"]:
             with self.subTest(config_name=config_name):
-                config = AdapterConfigBase.load(
-                    config_name, download_kwargs=download_kwargs, non_linearity="leakyrelu"
-                )
-                self.assertTrue(isinstance(config, AdapterConfigBase))
+                config = AdapterConfig.load(config_name, download_kwargs=download_kwargs, non_linearity="leakyrelu")
+                self.assertTrue(isinstance(config, AdapterConfig))
                 self.assertEqual(config.non_linearity, "leakyrelu")
 
     def test_config_immutable(self):
-        def set_attr(config: AdapterConfigBase):
+        def set_attr(config: AdapterConfig):
             config.non_linearity = "dummy"
             config.r = -1  # for LoRA
+            config.prompt_length = -1  # for PromptTuning
 
         for config in ADAPTER_CONFIG_MAP.values():
             if isinstance(config, ConfigUnion):
@@ -56,8 +55,8 @@ class AdapterConfigTest(unittest.TestCase):
         config = CustomAdapterConfig()
         config_dict = config.to_dict()
         self.assertEqual(config_dict["custom_attr"], "test_value")
-        # When calling load on an AdapterConfigBase instance, don't change the class of the config.
-        config = AdapterConfigBase.load(config, custom_attr="test_value_2")
+        # When calling load on an AdapterConfig instance, don't change the class of the config.
+        config = AdapterConfig.load(config, custom_attr="test_value_2")
         self.assertTrue(isinstance(config, CustomAdapterConfig))
         self.assertEqual(config["custom_attr"], "test_value_2")
 
@@ -79,8 +78,8 @@ class AdapterConfigTest(unittest.TestCase):
                 config_new = ConfigUnion.from_dict(config_dict)
                 self.assertEqual(config, config_new)
 
-                self.assertIsInstance(config_new[0], AdapterConfigBase)
-                self.assertIsInstance(config_new[1], AdapterConfigBase)
+                self.assertIsInstance(config_new[0], AdapterConfig)
+                self.assertIsInstance(config_new[1], AdapterConfig)
 
     def test_config_union_invalid(self):
         unions = [
@@ -113,7 +112,7 @@ class AdapterConfigTest(unittest.TestCase):
         ]
         for config_str, config in to_test:
             with self.subTest(config_str=config_str):
-                config_new = AdapterConfigBase.load(config_str)
+                config_new = AdapterConfig.load(config_str)
                 self.assertEqual(config, config_new)
 
     def test_config_string_invalid(self):
@@ -125,4 +124,4 @@ class AdapterConfigTest(unittest.TestCase):
         ]
         for config_str, error_type in to_test:
             with self.subTest(config_str=config_str):
-                self.assertRaises(error_type, AdapterConfigBase.load, config_str)
+                self.assertRaises(error_type, AdapterConfig.load, config_str)

@@ -20,6 +20,7 @@ from transformers.utils import ModelOutput
 
 from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, parse_heads_from_composition
 from ..context import AdapterSetup, ForwardContext
+from ..loading import PredictionHeadLoader
 from ..methods.modeling import Activation_Function_Class
 from ..model_mixin import ModelWithHeadsAdaptersMixin
 
@@ -325,6 +326,19 @@ class TaggingHead(PredictionHead):
         labels = kwargs.pop("labels", None)
         if labels is not None:
             loss_fct = CrossEntropyLoss()
+            # adjust labels for prompt tuning
+            if kwargs.get("prompt_tokens_length", 0) > 0:
+                prompt_length = kwargs.get("prompt_tokens_length")
+                prompt_labels = torch.full(
+                    (labels.shape[0], prompt_length), loss_fct.ignore_index, dtype=torch.long, device=labels.device
+                )
+                labels = torch.cat((prompt_labels, labels), dim=-1)
+                if attention_mask is not None:
+                    attention_mask = torch.cat(
+                        (torch.ones_like(prompt_labels, dtype=torch.long, device=labels.device), attention_mask),
+                        dim=-1,
+                    )
+
             # Only keep active parts of the loss
             if attention_mask is not None:
                 active_loss = attention_mask.view(-1) == 1
@@ -522,20 +536,30 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     # The following methods are required for handling LM heads
 
-    def get_output_embeddings(self):
+    def get_output_embeddings(self) -> Union[nn.Module, List[nn.Module]]:
         # Only gets the output embeddings for the currently active head
-        if self.active_head in self.heads:
-            head = self.heads[self.active_head]
-            return head.get_output_embeddings()
-        else:
-            return None
+        embeddings = []
+        for head_name in self._active_heads:
+            if head_name in self.heads:
+                head = self.heads[head_name]
+                output_embeddings = head.get_output_embeddings()
+                embeddings.append(output_embeddings)
 
-    def set_output_embeddings(self, new_embeddings):
+        if len(embeddings) == 1:
+            return embeddings[0]
+        elif len(embeddings) == 0 or all([e is None for e in embeddings]):
+            return None
+        else:
+            return embeddings
+
+    def set_output_embeddings(self, new_embeddings: Union[nn.Module, List[nn.Module]]):
         # Only sets the output embeddings for the currently active head
-        if self.active_head in self.heads:
-            head = self.heads[self.active_head]
-            if head.get_output_embeddings() is not None:
-                head.set_output_embeddings(new_embeddings)
+        if not isinstance(new_embeddings, list):
+            new_embeddings = [new_embeddings] * len(self._active_heads)
+        for head_name, emb in zip(self._active_heads, new_embeddings):
+            if head_name in self.heads:
+                head = self.heads[head_name]
+                head.set_output_embeddings(emb)
 
     def tie_weights(self):
         """
@@ -752,7 +776,14 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         return head_modules
 
     def forward_head(
-        self, all_outputs, head_name=None, cls_output=None, attention_mask=None, return_dict=False, **kwargs
+        self,
+        all_outputs,
+        head_name=None,
+        cls_output=None,
+        attention_mask=None,
+        return_dict=False,
+        context=None,
+        **kwargs
     ):
         """
         The forward pass through a prediction head configuration. There are three ways to specify the used prediction
@@ -799,6 +830,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             inv_adapter = self.base_model.get_invertible_adapter()
             if inv_adapter:
                 kwargs["invertible_adapter"] = inv_adapter
+
+        # Set prompt tokens length
+        if context is not None:
+            prompt_tokens_length = context.get("prompt_tokens_length", None)
+            if prompt_tokens_length is not None:
+                kwargs["prompt_tokens_length"] = prompt_tokens_length
 
         if isinstance(self.active_head, BatchSplit):
             if sum(self.active_head.batch_sizes) != all_outputs[0].size()[0]:
@@ -891,3 +928,48 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             return None
         else:
             return list(label_dict.values())
+
+    # This method is called during model loading in from_pretrained() to apply the state_dict to the model.
+    # Override it to inject adapter head logic.
+    @classmethod
+    def _load_pretrained_model(
+        cls,
+        model,
+        state_dict,
+        loaded_keys,
+        *args,
+        **kwargs,
+    ):
+        # Filter only weights not part of base model
+        if state_dict is not None:
+            head_state_dict = {
+                key: value for key, value in state_dict.items() if not key.startswith(cls.base_model_prefix)
+            }
+        else:
+            head_state_dict = None
+        head_name = "default"
+        loader = PredictionHeadLoader(model, error_on_missing=False, convert_to_flex_head=True)
+        head_config, new_head_state_dict = loader.convert_static_to_flex_head(head_state_dict, load_as=head_name)
+
+        if head_config is not None:
+            # add head from config
+            if head_name in model.heads:
+                logger.warning("Overwriting existing head '{}'".format(head_name))
+
+            model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
+
+        if new_head_state_dict is not None:
+            for k in head_state_dict:
+                del state_dict[k]
+                loaded_keys.remove(k)
+            for k in new_head_state_dict:
+                state_dict[k] = new_head_state_dict[k]
+                loaded_keys.append(k)
+
+        return super()._load_pretrained_model(
+            model,
+            state_dict,
+            loaded_keys,
+            *args,
+            **kwargs,
+        )

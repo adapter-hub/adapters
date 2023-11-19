@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .composition import Stack
-from .configuration import AdapterConfigBase
+from .configuration import AdapterConfig
 
 
 @dataclass
@@ -57,7 +57,7 @@ def setup_adapter_training(
     # Setup adapters
     if adapter_args.train_adapter:
         # resolve the adapter config
-        adapter_config = AdapterConfigBase.load(adapter_args.adapter_config, **adapter_config_kwargs)
+        adapter_config = AdapterConfig.load(adapter_args.adapter_config, **adapter_config_kwargs)
         # load a pre-trained from Hub if specified
         # note: this logic has changed in versions > 3.1.0: adapter is also loaded if it already exists
         if adapter_args.load_adapter:
@@ -73,7 +73,7 @@ def setup_adapter_training(
         # optionally load a pre-trained language adapter
         if adapter_args.load_lang_adapter:
             # resolve the language adapter config
-            lang_adapter_config = AdapterConfigBase.load(adapter_args.lang_adapter_config, **adapter_config_kwargs)
+            lang_adapter_config = AdapterConfig.load(adapter_args.lang_adapter_config, **adapter_config_kwargs)
             # load the language adapter from Hub
             lang_adapter_name = model.load_adapter(
                 adapter_args.load_lang_adapter,

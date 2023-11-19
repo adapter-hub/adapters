@@ -3,7 +3,7 @@ from typing import Iterable, Tuple
 import torch.nn as nn
 
 from ...methods.bottleneck import BottleneckLayer
-from ...methods.lora import Linear as LoRALinear
+from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import ModelBaseAdaptersMixin
 
@@ -47,6 +47,7 @@ class BeitModelAdaptersMixin(ModelBaseAdaptersMixin):
 
     def init_adapters(self, model_config, adapters_config):
         super().init_adapters(model_config, adapters_config)
+        self.embeddings.register_forward_hook(self.post_embedding_forward)
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.encoder.layer):

@@ -6,7 +6,7 @@ from typing import List, Optional, Union
 from .. import __version__
 from ..composition import AdapterCompositionBlock
 from ..utils import get_adapter_config_hash
-from .adapter_config import ADAPTER_CONFIG_MAP, DEFAULT_ADAPTER_CONFIG, AdapterConfigBase, ConfigUnion
+from .adapter_config import ADAPTER_CONFIG_MAP, DEFAULT_ADAPTER_CONFIG, AdapterConfig, ConfigUnion
 from .adapter_fusion_config import ADAPTERFUSION_CONFIG_MAP, DEFAULT_ADAPTERFUSION_CONFIG
 
 
@@ -77,8 +77,8 @@ class ModelAdaptersConfig(Collection):
         config = self.get(adapter_name)
         if config is None:
             return None
-        elif not isinstance(config, AdapterConfigBase):
-            config = AdapterConfigBase.load(config)
+        elif not isinstance(config, AdapterConfig):
+            config = AdapterConfig.load(config)
 
         if isinstance(config, config_type):
             leave_out = config.get("leave_out", [])
@@ -125,7 +125,7 @@ class ModelAdaptersConfig(Collection):
         # if it's a dict, compute it's hash and add a new entry to the config map
         elif isinstance(config, Mapping):
             config_name = get_adapter_config_hash(config)
-            self.config_map[config_name] = AdapterConfigBase.load(config)
+            self.config_map[config_name] = AdapterConfig.load(config)
         else:
             raise ValueError("Invalid adapter config: {}".format(config))
         self.adapters[adapter_name] = config_name
@@ -207,14 +207,14 @@ class ModelAdaptersConfig(Collection):
         output_dict["adapters"] = copy.deepcopy(self.adapters)
         output_dict["config_map"] = {}
         for k, v in self.config_map.items():
-            if isinstance(v, AdapterConfigBase):
+            if isinstance(v, AdapterConfig):
                 output_dict["config_map"][k] = v.to_dict()
             else:
                 output_dict["config_map"][k] = copy.deepcopy(v)
         output_dict["fusions"] = copy.deepcopy(self.fusions)
         output_dict["fusion_config_map"] = {}
         for k, v in self.fusion_config_map.items():
-            if isinstance(v, AdapterConfigBase):
+            if isinstance(v, AdapterConfig):
                 output_dict["fusion_config_map"][k] = v.to_dict()
             else:
                 output_dict["fusion_config_map"][k] = copy.deepcopy(v)
@@ -233,7 +233,7 @@ def build_full_config(adapter_config, model_config, save_id2label=False, **kwarg
     config_dict.update(kwargs)
     if not hasattr(model_config, "prediction_heads") and save_id2label:
         config_dict["label2id"] = model_config.label2id
-    if isinstance(adapter_config, AdapterConfigBase):
+    if isinstance(adapter_config, AdapterConfig):
         config_dict["config"] = adapter_config.to_dict()
     else:
         config_dict["config"] = adapter_config

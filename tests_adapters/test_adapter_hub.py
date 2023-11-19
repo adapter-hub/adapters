@@ -4,10 +4,9 @@ import unittest
 import numpy as np
 
 import adapters
-from adapters import ADAPTER_CONFIG_MAP, AdapterConfigBase, BertAdapterModel, get_adapter_config_hash
+from adapters import ADAPTER_CONFIG_MAP, AdapterConfig, BertAdapterModel, get_adapter_config_hash
 from adapters.trainer import AdapterTrainer as Trainer
 from adapters.utils import find_in_index
-from tests.test_modeling_common import ids_tensor
 from transformers import (  # get_adapter_config_hash,
     AutoModel,
     AutoTokenizer,
@@ -18,6 +17,8 @@ from transformers import (  # get_adapter_config_hash,
     glue_compute_metrics,
 )
 from transformers.testing_utils import require_torch, torch_device
+
+from .test_adapter import ids_tensor
 
 
 SAMPLE_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/hub-index.sample.json")
@@ -65,7 +66,7 @@ class AdapterHubTest(unittest.TestCase):
                 self.assertNotIn(adapter_name, model.base_model.invertible_adapters)
 
                 # check if config is valid
-                expected_hash = get_adapter_config_hash(AdapterConfigBase.load(config))
+                expected_hash = get_adapter_config_hash(AdapterConfig.load(config))
                 real_hash = get_adapter_config_hash(model.adapters_config.get(adapter_name))
                 self.assertEqual(expected_hash, real_hash)
 
@@ -115,7 +116,7 @@ class AdapterHubTest(unittest.TestCase):
             with self.subTest(config=config):
                 model = AutoModel.from_pretrained("bert-base-multilingual-cased")
                 adapters.init(model)
-                config = AdapterConfigBase.load(config, non_linearity="gelu", reduction_factor=2)
+                config = AdapterConfig.load(config, non_linearity="gelu", reduction_factor=2)
 
                 loading_info = {}
                 adapter_name = model.load_adapter(
@@ -154,7 +155,7 @@ class AdapterHubTest(unittest.TestCase):
 
         self.assertIn(adapter_name, model.adapters_config.adapters)
         # check if config is valid
-        expected_hash = get_adapter_config_hash(AdapterConfigBase.load("houlsby"))
+        expected_hash = get_adapter_config_hash(AdapterConfig.load("houlsby"))
         real_hash = get_adapter_config_hash(model.adapters_config.get(adapter_name))
         self.assertEqual(expected_hash, real_hash)
 

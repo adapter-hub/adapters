@@ -14,42 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-## `adapters` Library
-
-This branch contains the development version of `adapters`, the next-generation library for parameter-efficient and modular transfer learning.
-
-> **Note**: For the stable version of `adapter-transformers`, please switch to the [master branch of the repo](https://github.com/adapter-hub/adapter-transformers).
-
-### Changes compared to `adapter-transformers`
-
-- `adapters` is a standalone package, using `transformers` as an external dependency but not patching it directly
-- All adapter-related classes now are imported via `adapters` namespace, e.g.:
-    ```python
-    from adapters import BertAdapterModel
-    # ...
-    ```
-- Built-in HF model classes can be adapted for usage with adapters via a wrapper method, e.g.:
-    ```python
-    import adapters
-    from transformers import BertModel
-
-    model = BertModel.from_pretrained("bert-base-uncased")
-    adapters.init(model)
-    ```
-
-Features not (yet) working:
-
-- Loading model + adapter checkpoints using HF classes
-- Using Transformers pipelines with adapters
-- Using HF language modeling classes with invertible adapters
-
-## Documentation
-To read the documentation of _Adapters_, follow the steps in [docs/README.md](docs/README.md). Currently, the documentation is **not** yet available from https://docs.adapterhub.ml/.
-
----
+> **Note**: This repository holds the codebase of the _Adapters_ library, which has replaced `adapter-transformers`. For the legacy codebase, go to: https://github.com/adapter-hub/adapter-transformers-legacy.
 
 <p align="center">
-<img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapter-transformers/master/adapter_docs/logo.png" />
+<img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapters/main/docs/logo.png" />
 </p>
 <h1 align="center">
 <span><i>Adapters</i></span>
@@ -59,8 +27,8 @@ To read the documentation of _Adapters_, follow the steps in [docs/README.md](do
 A Unified Library for Parameter-Efficient and Modular Transfer Learning
 </h3>
 
-![Tests](https://github.com/Adapter-Hub/adapter-transformers/workflows/Tests/badge.svg?branch=adapters)
-[![GitHub](https://img.shields.io/github/license/adapter-hub/adapter-transformers.svg?color=blue)](https://github.com/adapter-hub/adapter-transformers/blob/adapters/LICENSE)
+![Tests](https://github.com/Adapter-Hub/adapters/workflows/Tests/badge.svg?branch=adapters)
+[![GitHub](https://img.shields.io/github/license/adapter-hub/adapters.svg?color=blue)](https://github.com/adapter-hub/adapters/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/adapters)](https://pypi.org/project/adapters/)
 
 `adapters` is an add-on to [HuggingFace's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
@@ -77,13 +45,82 @@ pip install -U adapters
 ... or from source by cloning the repository:
 
 ```
-git clone https://github.com/adapter-hub/adapter-transformers.git
+git clone https://github.com/adapter-hub/adapters.git
 git checkout adapters
 cd adapters
 pip install .
 ```
 
-## Getting Started
+## Quick Tour
+
+#### Load pre-trained adapters:
+
+```python
+from adapters import AutoAdapterModel
+from transformers import AutoTokenizer
+
+model = AutoAdapterModel.from_pretrained("roberta-base")
+tokenizer = AutoTokenizer.from_pretrained("roberta-base")
+
+model.load_adapter("AdapterHub/roberta-base-pf-imdb", source="hf", set_active=True)
+
+print(model(**tokenizer("This works great!", return_tensors="pt")).logits)
+```
+
+**[Learn More](https://docs.adapterhub.ml/loading.html)**
+
+#### Adapt existing model setups:
+
+```python
+import adapters
+from transformers import AutoModelForSequenceClassification
+
+model = AutoModelForSequenceClassification.from_pretrained("t5-base")
+
+adapters.init(model)
+
+model.add_adapter("my_lora_adapter", config="lora")
+model.train_adapter("my_lora_adapter")
+
+# Your regular training loop...
+```
+
+**[Learn More](https://docs.adapterhub.ml/quickstart.html)**
+
+#### Flexibly configure adapters:
+
+```python
+from adapters import ConfigUnion, PrefixTuningConfig, ParBnConfig, AutoAdapterModel
+
+model = AutoAdapterModel.from_pretrained("microsoft/deberta-v3-base")
+
+adapter_config = ConfigUnion(
+    PrefixTuningConfig(prefix_length=20),
+    ParBnConfig(reduction_factor=4),
+)
+model.add_adapter("my_adapter", config=adapter_config, set_active=True)
+```
+
+**[Learn More](https://docs.adapterhub.ml/overview.html)**
+
+#### Easily compose adapters in a single model:
+
+```python
+from adapters import AdapterSetup, AutoAdapterModel
+import adapters.composition as ac
+
+model = AutoAdapterModel.from_pretrained("roberta-base")
+
+qc = model.load_adapter("AdapterHub/roberta-base-pf-trec")
+sent = model.load_adapter("AdapterHub/roberta-base-pf-imdb")
+
+with AdapterSetup(ac.Parallel(qc, sent)):
+    print(model(**tokenizer("What is AdapterHub?", return_tensors="pt")))
+```
+
+**[Learn More](https://docs.adapterhub.ml/adapter_composition.html)**
+
+## Useful Resources
 
 HuggingFace's great documentation on getting started with _Transformers_ can be found [here](https://huggingface.co/transformers/index.html). `adapters` is fully compatible with _Transformers_.
 
@@ -115,6 +152,10 @@ Currently, adapters integrates all architectures and methods listed below:
 ## Supported Models
 
 We currently support the PyTorch versions of all models listed on the **[Model Overview](https://docs.adapterhub.ml/model_overview.html) page** in our documentation.
+
+## Developing & Contributing
+
+To get started with developing on _Adapters_ yourself and learn more about ways to contribute, please see https://docs.adapterhub.ml/contributing.html.
 
 ## Citation
 

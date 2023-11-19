@@ -150,10 +150,13 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
     Base class for all adapter methods that support composition.
 
     Make sure the 'adapter_modules_name' and 'supported_compositions' attributes as well as all abstract methods are
-    overriden in derived classes.
+    overriden in derived classes. 'allow_multi_parallelize' can be set to True to allow inputs to be parallelized
+    independently multiple times. This is useful when there are multiple parallel input flows through an adapter layer
+    (e.g. in LoRA).
     """
 
     supported_compositions = []
+    allow_multi_parallelize = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -343,7 +346,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         # sequentially feed different parts of the blown-up batch into different adapters
         children_states = []
         for i, child in enumerate(adapter_setup):
-            # compute ids of sequences thet should be passed to the ith adapter
+            # compute ids of sequences that should be passed to the ith adapter
             batch_idx = (
                 sum(adapter_setup.batch_sizes[:i]),
                 sum(adapter_setup.batch_sizes[: i + 1]),
@@ -382,15 +385,23 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             orig_batch_size = self._bsz(state)
             state = self.repeat(state, adapter_setup.parallel_channels)
             context.adapters_parallelized = True
+            context.original_batch_size = orig_batch_size
         else:
+            bsz = self._bsz(state)
+            # If the input was already parallelized, we can parallelize it again.
+            # This is useful e.g. for LoRA, where attention matrices are parallelized independently.
+            if self.allow_multi_parallelize and bsz == getattr(context, "original_batch_size", -1):
+                state = self.repeat(state, adapter_setup.parallel_channels)
+                orig_batch_size = bsz
             # The base model should handle replication of input.
             # Therefore, we assume the (replicated) input batch to be divisible by the number of parallel channels.
-            if self._bsz(state) % adapter_setup.parallel_channels != 0:
+            elif bsz % adapter_setup.parallel_channels != 0:
                 raise ValueError(
                     "The total input batch size in a Parallel adapter block must be divisible by the number of"
                     " parallel channels."
                 )
-            orig_batch_size = self._bsz(state) // adapter_setup.parallel_channels
+            else:
+                orig_batch_size = bsz // adapter_setup.parallel_channels
 
         state = self.pre_block(adapter_setup, state)
 

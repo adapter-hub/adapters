@@ -1,4 +1,4 @@
-from ...methods.lora import Linear as LoRALinear
+from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 
 

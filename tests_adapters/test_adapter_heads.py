@@ -192,6 +192,25 @@ class PredictionHeadModelTestMixin:
             label_dict=label_dict,
         )
 
+    def test_lm_head_freeze_output_embeddings(self):
+        if self.config_class not in ADAPTER_MODEL_MAPPING or (
+            not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head")
+            and not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head")
+        ):
+            self.skipTest("No seq2seq or causal language model head")
+
+        model1 = AutoAdapterModel.from_config(self.config())
+        model1.add_adapter("adapter1")
+        if hasattr(model1, "add_seq2seq_lm_head"):
+            model1.add_seq2seq_lm_head("adapter1")
+        else:
+            model1.add_causal_lm_head("adapter1")
+
+        model1.train_adapter("adapter1")
+
+        for n, p in model1.get_output_embeddings().named_parameters():
+            self.assertFalse(p.requires_grad, f"Parameter {n} should not be trainable.")
+
     def test_dependency_parsing_head(self):
         if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_dependency_parsing_head"):
             self.skipTest("No dependency parsing head")

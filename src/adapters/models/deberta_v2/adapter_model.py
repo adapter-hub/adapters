@@ -60,7 +60,7 @@ class DebertaV2AdapterModel(
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.deberta(
+        outputs, context = self.deberta(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
@@ -72,7 +72,10 @@ class DebertaV2AdapterModel(
             output_adapter_gating_scores=output_adapter_gating_scores,
             output_adapter_fusion_attentions=output_adapter_fusion_attentions,
             adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
+            output_context=True,
         )
+        # required e.g. for prompt tuning in all models
+        kwargs["context"] = context
         # BERT & RoBERTa return the pooled output as second item, we don't need that in these heads
         if not return_dict:
             head_inputs = (outputs[0],) + outputs[2:]
