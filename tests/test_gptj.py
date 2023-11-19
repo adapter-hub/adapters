@@ -1,7 +1,7 @@
 import unittest
 
-from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
-from transformers import DistilBertConfig
+from tests.methods.test_config_union import ConfigUnionAdapterTest
+from transformers import GPTJConfig
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -11,7 +11,6 @@ from .methods import (
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
-    PromptTuningTestMixin,
     UniPELTTestMixin,
 )
 from .test_adapter import AdapterTestBase, make_config
@@ -22,27 +21,29 @@ from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
-class DistilBertAdapterTestBase(AdapterTestBase):
-    config_class = DistilBertConfig
+class GPTJAdapterTestBase(AdapterTestBase):
+    config_class = GPTJConfig
     config = make_config(
-        DistilBertConfig,
-        dim=32,
-        n_layers=4,
-        n_heads=4,
-        hidden_dim=37,
+        GPTJConfig,
+        n_embd=32,
+        n_layer=4,
+        n_head=4,
+        rotary_dim=4,
+        # set pad token to eos token
+        pad_token_id=50256,
+        resid_pdrop=0.1,
     )
-    tokenizer_name = "distilbert-base-uncased"
+    tokenizer_name = "EleutherAI/gpt-j-6B"
 
 
 @require_torch
-class DistilBertAdapterTest(
+class GPTJAdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
     LoRATestMixin,
-    PrefixTuningTestMixin,
-    PromptTuningTestMixin,
     UniPELTTestMixin,
+    PrefixTuningTestMixin,
     EmbeddingTestMixin,
     CompabilityTestMixin,
     AdapterFusionModelTestMixin,
@@ -50,16 +51,16 @@ class DistilBertAdapterTest(
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     ConfigUnionAdapterTest,
-    DistilBertAdapterTestBase,
+    GPTJAdapterTestBase,
     unittest.TestCase,
 ):
     pass
 
 
 @require_torch
-class DistilBertClassConversionTest(
+class GPTJClassConversionTest(
     ModelClassConversionTestMixin,
-    DistilBertAdapterTestBase,
+    GPTJAdapterTestBase,
     unittest.TestCase,
 ):
     pass

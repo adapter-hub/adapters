@@ -1,7 +1,7 @@
 import unittest
 
-from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
-from transformers import DebertaConfig
+from tests.methods.test_config_union import ConfigUnionAdapterTest
+from transformers import ElectraConfig
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -22,27 +22,21 @@ from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
-class DebertaAdapterTestBase(AdapterTestBase):
-    config_class = DebertaConfig
+class ElectraAdapterTestBase(AdapterTestBase):
+    config_class = ElectraConfig
     config = make_config(
-        DebertaConfig,
+        ElectraConfig,
+        # vocab_size=99,
         hidden_size=32,
         num_hidden_layers=5,
         num_attention_heads=4,
         intermediate_size=37,
-        hidden_act="gelu",
-        relative_attention=True,
-        pos_att_type="p2c|c2p",
     )
-    tokenizer_name = "microsoft/deberta-base"
+    tokenizer_name = "google/electra-base-generator"
 
 
 @require_torch
-class DebertaAdapterTest(
-    AdapterFusionModelTestMixin,
-    CompabilityTestMixin,
-    PredictionHeadModelTestMixin,
-    ParallelAdapterInferenceTestMixin,
+class ElectraAdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
@@ -51,18 +45,22 @@ class DebertaAdapterTest(
     PromptTuningTestMixin,
     UniPELTTestMixin,
     EmbeddingTestMixin,
+    AdapterFusionModelTestMixin,
+    CompabilityTestMixin,
+    PredictionHeadModelTestMixin,
+    ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     ConfigUnionAdapterTest,
-    DebertaAdapterTestBase,
+    ElectraAdapterTestBase,
     unittest.TestCase,
 ):
     pass
 
 
 @require_torch
-class DebertaClassConversionTest(
+class ElectraClassConversionTest(
     ModelClassConversionTestMixin,
-    DebertaAdapterTestBase,
+    ElectraAdapterTestBase,
     unittest.TestCase,
 ):
     pass

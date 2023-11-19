@@ -5,7 +5,7 @@ import torch
 import adapters
 from adapters import IA3Config, LoRAConfig, PrefixTuningConfig, SeqBnConfig
 from adapters.composition import Average, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
-from tests_adapters.test_adapter import ids_tensor
+from tests.test_adapter import ids_tensor
 from transformers import BertConfig, BertForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
 
