@@ -153,6 +153,10 @@ Currently, adapters integrates all architectures and methods listed below:
 
 We currently support the PyTorch versions of all models listed on the **[Model Overview](https://docs.adapterhub.ml/model_overview.html) page** in our documentation.
 
+## Developing & Contributing
+
+To get started with developing on _Adapters_ yourself and learn more about ways to contribute, please see https://docs.adapterhub.ml/contributing.html.
+
 ## Citation
 
 If you use this library for your work, please consider citing our paper [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779):

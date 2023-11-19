@@ -22,7 +22,7 @@ import torch.utils.checkpoint
 from transformers.models.gptj.modeling_gptj import GPTJAttention, GPTJBlock, apply_rotary_pos_emb, get_embed_positions
 from transformers.utils.import_utils import is_torch_fx_proxy
 
-from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
+from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
 from .mixin_gptj import GPTJAttentionAdaptersMixin, GPTJDecoderBlockAdaptersMixin
 
 
@@ -43,6 +43,9 @@ class GPTJAttentionWithAdapters(GPTJAttentionAdaptersMixin, GPTJAttention):
         query = self.q_proj(hidden_states)
         key = self.k_proj(hidden_states)
         value = self.v_proj(hidden_states)
+
+        query, key, value = match_attn_matrices_for_parallel(query, key, value)
+        (attention_mask,) = adjust_tensors_for_parallel(query, attention_mask)
 
         query = self._split_heads(query, self.num_attention_heads, self.head_dim, True)
         key = self._split_heads(key, self.num_attention_heads, self.head_dim, True)

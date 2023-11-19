@@ -24,7 +24,7 @@ from transformers.models.deberta.modeling_deberta import (
     XSoftmax,
 )
 
-from ...composition import adjust_tensors_for_parallel
+from ...composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
 from ...utils import prefix_attention_mask
 from ..bert.mixin_bert import BertOutputAdaptersMixin, BertSelfOutputAdaptersMixin
 from .mixin_deberta import DebertaSelfAttentionAdaptersMixin
@@ -116,6 +116,9 @@ class DisentangledSelfAttentionWithAdapters(DebertaSelfAttentionAdaptersMixin, D
             q = linear(qkvw[0], qkvb[0], query_states.to(dtype=qkvw[0].dtype))
             k, v = [linear(qkvw[i], qkvb[i], hidden_states.to(dtype=qkvw[i].dtype)) for i in range(1, 3)]
             query_layer, key_layer, value_layer = [self.transpose_for_scores(x) for x in [q, k, v]]
+
+        query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
+        (attention_mask,) = adjust_tensors_for_parallel(query_layer, attention_mask)
 
         query_layer = query_layer + self.transpose_for_scores(self.q_bias[None, None, :])
         value_layer = value_layer + self.transpose_for_scores(self.v_bias[None, None, :])

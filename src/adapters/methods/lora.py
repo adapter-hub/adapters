@@ -3,8 +3,9 @@
 #  Copyright (c) Microsoft Corporation. All rights reserved.
 #  Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 #  ------------------------------------------------------------------------------------------
+import logging
 import math
-from typing import Dict, List, Union
+from typing import Dict, List, NamedTuple, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -13,9 +14,12 @@ import torch.nn.functional as F
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
-from ..composition import AdapterCompositionBlock
+from ..composition import AdapterCompositionBlock, Average, BatchSplit, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
-from .adapter_layer_base import AdapterLayerBase
+from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
+
+
+logger = logging.getLogger(__name__)
 
 
 class LoRA(nn.Module):
@@ -27,6 +31,7 @@ class LoRA(nn.Module):
         gating_heads: int = 1,
     ):
         super().__init__()
+        assert config.composition_mode == "add", "LoRA module only supports composition_mode='add'."
         self.r = config.r
         self.lora_alpha = config.alpha
         self.composition_mode = config.composition_mode
@@ -39,58 +44,126 @@ class LoRA(nn.Module):
             self.lora_dropout = lambda x: x
 
         # Actual trainable parameters
-        if self.r > 1 and self.composition_mode == "scale":
-            raise ValueError("Can only use composition_mode='scale' when r == 1.")
-        if self.r > 0:
-            if self.composition_mode == "add":
-                self.lora_A = nn.Parameter(torch.zeros(lora_A_shape))
-            self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
-            self.scaling = self.lora_alpha / self.r
+        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape))
+        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
+        self.scaling = self.lora_alpha / self.r
 
-            if self.use_gating:
-                self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
+        # For compatibility with (IA)^3, allow all init_weights types here.
+        # Usually should be "lora".
+        if config.init_weights == "lora":
+            # initialize A the same way as the default for nn.Linear and B to zero
+            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_B)
+        elif config.init_weights == "bert":
+            nn.init.normal_(self.lora_A, std=0.02)
+            nn.init.normal_(self.lora_B, std=0.02)
+        elif config.init_weights == "ia3":
+            nn.init.ones_(self.lora_A)
+            nn.init.ones_(self.lora_B)
+        else:
+            raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
 
-            if config.init_weights == "lora":
-                # initialize A the same way as the default for nn.Linear and B to zero
-                if self.composition_mode == "add":
-                    nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-                nn.init.zeros_(self.lora_B)
-                if self.use_gating:
-                    nn.init.normal_(self.gate.weight, std=0.02)
-            elif config.init_weights == "bert":
-                if self.composition_mode == "add":
-                    nn.init.normal_(self.lora_A, std=0.02)
-                nn.init.normal_(self.lora_B, std=0.02)
-                if self.use_gating:
-                    nn.init.normal_(self.gate.weight, std=0.02)
-            elif config.init_weights == "ia3":
-                if self.composition_mode == "add":
-                    nn.init.ones_(self.lora_A)
-                nn.init.ones_(self.lora_B)
-                if self.use_gating:
-                    nn.init.normal_(self.gate.weight, std=0.02)
-            else:
-                raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
+        if self.use_gating:
+            self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
+            nn.init.normal_(self.gate.weight, std=0.02)
+
+    @property
+    def delta_w(self) -> torch.Tensor:
+        return self.lora_B @ self.lora_A
 
     def com(self, weights: torch.Tensor, added: torch.Tensor, scaling=None) -> torch.Tensor:
         """Performs the composition operation between existing and injected weights."""
         if scaling is None:
             scaling = self.scaling
-        if self.composition_mode == "add":
-            return weights + added * scaling
-        elif self.composition_mode == "scale":
-            return weights * (added * scaling)
-        else:
-            raise ValueError("Invalid composition mode.")
+        return weights + added * scaling
 
     def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
         """Inverts the composition operation between existing and injected weights."""
-        if self.composition_mode == "add":
-            return weights - added * self.scaling
-        elif self.composition_mode == "scale":
-            return weights / (added * self.scaling)
+        return weights - added * self.scaling
+
+    def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
+        if hidden_states is None:
+            hidden_states = layer_input
+        hidden_states = self.lora_dropout(hidden_states) @ torch.t(self.lora_A) @ torch.t(self.lora_B)
+        if self.use_gating:
+            gate = torch.sigmoid(self.gate(layer_input))
+            gate = torch.mean(gate, dim=1).unsqueeze(-1)
+            hidden_states = hidden_states * gate
         else:
-            raise ValueError("Invalid composition mode.")
+            gate = None
+
+        return hidden_states, gate
+
+
+class IA3(nn.Module):
+    def __init__(
+        self,
+        lora_A_shape,
+        lora_B_shape,
+        config: LoRAConfig,
+        gating_heads: int = 1,
+    ):
+        super().__init__()
+        assert config.composition_mode == "scale", "IA3 module only supports composition_mode='scale'."
+        if config.r > 1:
+            raise ValueError("Can only use composition_mode='scale' when r == 1.")
+        self.r = config.r
+        self.lora_alpha = config.alpha
+        self.composition_mode = config.composition_mode
+        self.attn_matrices = config.attn_matrices
+        self.use_gating = config.use_gating
+        # Optional dropout
+        if config.dropout > 0.0:
+            raise ValueError("IA3 module does not support dropout.")
+
+        # Actual trainable parameters
+        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
+        self.scaling = self.lora_alpha
+
+        # For compatibility with LoRA, allow all init_weights types here.
+        # Usually should be "ia3".
+        if config.init_weights == "lora":
+            logger.warning("(IA)^3 module initialized with LoRA zeo init. Ignore if this is intended.")
+            nn.init.zeros_(self.lora_B)
+        elif config.init_weights == "bert":
+            nn.init.normal_(self.lora_B, std=0.02)
+        elif config.init_weights == "ia3":
+            nn.init.ones_(self.lora_B)
+        else:
+            raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
+
+        if self.use_gating:
+            self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
+            nn.init.normal_(self.gate.weight, std=0.02)
+
+    @property
+    def delta_w(self) -> torch.Tensor:
+        return self.lora_B
+
+    def com(self, weights: torch.Tensor, added: torch.Tensor, scaling=None) -> torch.Tensor:
+        """Performs the composition operation between existing and injected weights."""
+        if scaling is None:
+            scaling = self.scaling
+        return weights * (added * scaling)
+
+    def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
+        """Inverts the composition operation between existing and injected weights."""
+        return weights / (added * self.scaling)
+
+    def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
+        scaling_vector = self.lora_B.view(1, 1, -1).repeat(layer_input.shape[0], 1, 1)
+        if hidden_states is None:
+            hidden_states = scaling_vector
+        else:
+            hidden_states = hidden_states * scaling_vector
+        if self.use_gating:
+            gate = torch.sigmoid(self.gate(layer_input))
+            gate = torch.mean(gate, dim=1).unsqueeze(-1)
+            hidden_states = hidden_states * gate
+        else:
+            gate = None
+
+        return hidden_states, gate
 
 
 class LoRALayer(AdapterLayerBase):
@@ -107,7 +180,7 @@ class LoRALayer(AdapterLayerBase):
 
         self.merged = False
 
-    def get_n_heads(self, lora: Union[LoRA, LoRAConfig]):
+    def get_n_heads(self, lora: Union[LoRA, IA3, LoRAConfig]):
         return 1
 
     def _check_lora_location(self, config: LoRAConfig):
@@ -125,7 +198,13 @@ class LoRALayer(AdapterLayerBase):
             location_key=self.location_key,
         )
         if lora_config is not None and self._check_lora_location(lora_config):
-            lora = LoRA(
+            if lora_config.composition_mode == "add":
+                lora_cls = LoRA
+            elif lora_config.composition_mode == "scale":
+                lora_cls = IA3
+            else:
+                raise ValueError(f"Unknown composition_mode: {lora_config.composition_mode}")
+            lora = lora_cls(
                 *self._get_lora_shapes(lora_config),
                 lora_config,
                 gating_heads=self.get_n_heads(lora_config),
@@ -188,9 +267,25 @@ class LoRALayer(AdapterLayerBase):
             return None
 
 
-class Linear(LoRALayer, nn.Linear):
+class LoRAState(NamedTuple):
+    """Models the input and output states of a LoRA layer.
+
+    Args:
+        layer_input (torch.Tensor): The input states to the adapted layer.
+        hidden_states (Optional[torch.Tensor]):
+            The hidden states of the adaptation module. These can be None before passing through the first LoRA/ IA3
+            module.
+        layer_output (torch.Tensor): The output states of the original layer without adaptation.
     """
-    LoRA implementation for Linear layer.
+
+    layer_input: torch.Tensor
+    hidden_states: Optional[torch.Tensor]
+    layer_output: torch.Tensor
+
+
+class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
+    """
+    LoRA implementation for Linear layer. This layer supports composition.
 
     Args:
         fan_in_fan_out (bool, optional):
@@ -198,6 +293,9 @@ class Linear(LoRALayer, nn.Linear):
         no_init_bias (bool, optional): Use this to add a bias that is not initialized by PyTorch. Defaults to False.
 
     """
+
+    supported_compositions = [Stack, BatchSplit, Average, Parallel]
+    allow_multi_parallelize = True
 
     def __init__(
         self,
@@ -267,35 +365,16 @@ class Linear(LoRALayer, nn.Linear):
     def _get_lora_shapes(self, config: LoRAConfig):
         return (config.r, self.in_features), (self.out_features, config.r)
 
-    def reset_adapter(self):
-        def T(w):
-            return torch.t(w) if self.fan_in_fan_out else w
+    def maybe_t(self, w):
+        return torch.t(w) if self.fan_in_fan_out else w
 
+    def reset_adapter(self):
         if self.merged:
             lora = self.loras[self.merged]
             # Make sure that the weights are not merged
-            if lora.r > 0:
-                if lora.composition_mode == "scale":
-                    delta_w = T(lora.lora_B)
-                else:
-                    delta_w = T(lora.lora_B @ lora.lora_A)
-                self.weight.data = lora.com_inv(self.weight.data, delta_w)
+            delta_w = self.maybe_t(lora.delta_w)
+            self.weight.data = lora.com_inv(self.weight.data, delta_w)
             self.merged = None
-
-    def _compute_adapted_weight(self, lora, scaling=None):
-        def T(w):
-            return torch.t(w) if self.fan_in_fan_out else w
-
-        weight = self.weight
-        # Merge the weights and mark it
-        if lora.r > 0:
-            if lora.composition_mode == "scale":
-                delta_w = T(lora.lora_B)
-            else:
-                delta_w = T(lora.lora_B @ lora.lora_A)
-            weight = lora.com(weight, delta_w, scaling=scaling)
-
-        return weight
 
     def merge_adapter(self, name: str):
         if name in self.loras:
@@ -305,44 +384,74 @@ class Linear(LoRALayer, nn.Linear):
                 lora = self.loras[name]
                 if lora.use_gating:
                     raise ValueError("Cannot merge LoRA layer with gating.")
-                self.weight.data = self._compute_adapted_weight(lora)
+                delta_w = self.maybe_t(lora.delta_w)
+                self.weight.data = lora.com(self.weight.data, delta_w)
                 self.merged = name
             elif self.merged != name:
                 raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
 
-    def forward(self, x: torch.Tensor):
-        def T(w):
-            return torch.transpose(w, -2, -1) if self.fan_in_fan_out else w
+    def vslice(self, state: LoRAState, slice_obj: slice) -> LoRAState:
+        return LoRAState(
+            state.layer_input[slice_obj],
+            state.hidden_states[slice_obj] if state.hidden_states is not None else None,
+            state.layer_output[slice_obj],
+        )
+
+    def pad_and_concat(self, states: List[LoRAState]) -> LoRAState:
+        return LoRAState(
+            torch.cat([s.layer_input for s in states], dim=0),
+            torch.cat([s.hidden_states for s in states], dim=0) if states[0].hidden_states is not None else None,
+            torch.cat([s.layer_output for s in states], dim=0),
+        )
+
+    def repeat(self, state: LoRAState, channels: int) -> LoRAState:
+        return LoRAState(
+            state.layer_input.repeat(channels, 1, 1),
+            state.hidden_states.repeat(channels, 1, 1) if state.hidden_states is not None else None,
+            state.layer_output.repeat(channels, 1, 1),
+        )
+
+    def mean(self, states: List[LoRAState], weights: torch.Tensor) -> LoRAState:
+        return LoRAState(
+            states[0].layer_input,
+            torch.mean(torch.stack([s.hidden_states for s in states], dim=0) * weights, dim=0)
+            if states[0].hidden_states is not None
+            else None,
+            states[0].layer_output,
+        )
+
+    def compose_single(self, adapter_setup: str, state: LoRAState, lvl: int = 0) -> LoRAState:
+        lora = self.loras[adapter_setup]
+        hidden_states, gate = lora(state.hidden_states, state.layer_input)
+        if gate is not None:
+            self._store_gating_score(adapter_setup, gate)
+
+        return state._replace(hidden_states=hidden_states)
+
+    def forward(self, input_states: torch.Tensor):
+        weight = torch.transpose(self.weight, -2, -1) if self.fan_in_fan_out else self.weight
+        # result shape: <batch_size> x <seq_len> x <head_dim>
+        layer_output = F.linear(input_states, weight, bias=self.bias)
 
         if not self.merged:
             adapter_setup = self.get_active_setup()
             if adapter_setup is not None:
-                if len(adapter_setup) == 1:
-                    lora = self.loras[adapter_setup[0]]
-                    # result shape: <batch_size> x <seq_len> x <head_dim>
-                    result = F.linear(x, T(self.weight), bias=self.bias)
-                    if lora.r > 0:
-                        if lora.composition_mode == "scale":
-                            delta_w = lora.lora_B.view(1, 1, -1)
-                        else:
-                            delta_w = lora.lora_dropout(x) @ torch.t(lora.lora_A) @ torch.t(lora.lora_B)
-                        if lora.use_gating:
-                            gate = torch.sigmoid(lora.gate(x))
-                            gate = torch.mean(gate, dim=1).unsqueeze(-1)
-                            self._store_gating_score(adapter_setup[0], gate)
-                        else:
-                            gate = None
-                        result = lora.com(result, delta_w, scaling=gate)
-                    return result
-                else:
-                    raise ValueError(f"Invalid adapter setup. Cannot use {adapter_setup} with LoRA.")
+                state = LoRAState(input_states, None, layer_output)
+                state = self.compose(adapter_setup, state)
+                _, hidden_states, layer_output = state
 
-        return F.linear(x, T(self.weight), bias=self.bias)
+                last_lora = self.loras[adapter_setup.last()]
+                layer_output = last_lora.com(
+                    layer_output, hidden_states, scaling=1.0
+                )  # scaling already applied in compose
+
+        return layer_output
 
 
-class MergedLinear(LoRALayer, nn.Linear):
+class LoRAMergedLinear(LoRALayer, nn.Linear):
     """
-    LoRA implementation for merged attention layer layer.
+    LoRA implementation for merged attention layer, as used by some model implementations (e.g. GPT-2). This layer
+    currently does not support composition.
 
     Args:
         fan_in_fan_out (bool, optional):
@@ -395,7 +504,7 @@ class MergedLinear(LoRALayer, nn.Linear):
 
         return new_module
 
-    def get_n_heads(self, lora: Union[LoRA, LoRAConfig]):
+    def get_n_heads(self, lora: Union[LoRA, IA3, LoRAConfig]):
         return len(set(lora.attn_matrices))
 
     def _get_lora_shapes(self, config: LoRAConfig):

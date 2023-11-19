@@ -3,7 +3,7 @@ from typing import Iterable, Tuple
 import torch.nn as nn
 
 from ...methods.bottleneck import BottleneckLayer
-from ...methods.lora import Linear as LoRALinear
+from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import ModelBaseAdaptersMixin
 

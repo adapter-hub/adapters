@@ -22,7 +22,7 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 
-from adapters.composition import adjust_tensors_for_parallel
+from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
 from transformers.models.vit.modeling_vit import ViTLayer, ViTOutput, ViTSelfAttention
 
 from .mixin_vit import ViTLayerAdaptersMixin, ViTOutputAdaptersMixin, ViTSelfAttentionAdaptersMixin
@@ -37,6 +37,8 @@ class ViTSelfAttentionWithAdapters(ViTSelfAttentionAdaptersMixin, ViTSelfAttenti
         key_layer = self.transpose_for_scores(self.key(hidden_states))
         value_layer = self.transpose_for_scores(self.value(hidden_states))
         query_layer = self.transpose_for_scores(mixed_query_layer)
+
+        query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
 
         key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer, hidden_states)
         (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
