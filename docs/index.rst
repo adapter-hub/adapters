@@ -110,6 +110,9 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
 Citation
 ========
 
+If you use this library practically in your work, please consider citing our library paper [Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning](https://arxiv.org/abs/2311.11077):
+
+
 .. code-block:: bibtex
 
    @inproceedings{pfeiffer2020AdapterHub,
@@ -130,6 +133,29 @@ Citation
       pages = "46--54",
    }
 
+
+Alternatively, if you rather want to acknowledge the concept of Adapters and parameter-efficient finetuning in general or use the predecessor `adapter-transformers` or models from the Hub and the documentation, please consider citing our initial research paper [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779):
+
+
+.. code-block:: bibtex
+
+   @inproceedings{pfeiffer2020AdapterHub,
+      title={AdapterHub: A Framework for Adapting Transformers},
+      author={Jonas Pfeiffer and
+               Andreas R\"uckl\'{e} and
+               Clifton Poth and
+               Aishwarya Kamath and
+               Ivan Vuli\'{c} and
+               Sebastian Ruder and
+               Kyunghyun Cho and
+               Iryna Gurevych},
+      booktitle={Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP 2020): Systems Demonstrations},
+      year={2020},
+      address = "Online",
+      publisher = "Association for Computational Linguistics",
+      url = "https://www.aclweb.org/anthology/2020.emnlp-demos.7",
+      pages = "46--54",
+   }
 
 Indices and tables
 ==================
