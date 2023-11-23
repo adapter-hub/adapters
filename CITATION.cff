@@ -7,16 +7,16 @@ url: "https://github.com/Adapter-Hub/adapters"
 authors:
   - family-names: Poth
     given-names: Clifton
-  - given-names: Hannah
-    family-names: Sterz
-  - given-names: Indraneil
-    family-names: Paul
-  - given-names: Sukannya
-    family-names: Purkayastha
-  - given-names: Leon
-    family-names: Engländer
-  - given-names: Timo
-    family-names: Imhof
+  - family-names: Sterz
+    given-names: Hannah
+  - family-names: Paul
+    given-names: Indraneil
+  - family-names: Purkayastha
+    given-names: Sukannya
+  - family-names: Engländer
+    given-names: Leon
+  - family-names: Imhof
+    given-names: Timo
   - family-names: Vulić
     given-names: Ivan
   - family-names: Ruder
