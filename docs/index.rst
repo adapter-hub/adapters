@@ -115,22 +115,13 @@ If you use this library practically in your work, please consider citing our lib
 
 .. code-block:: bibtex
 
-   @inproceedings{pfeiffer2020AdapterHub,
-      title={AdapterHub: A Framework for Adapting Transformers},
-      author={Jonas Pfeiffer and
-               Andreas R\"uckl\'{e} and
-               Clifton Poth and
-               Aishwarya Kamath and
-               Ivan Vuli\'{c} and
-               Sebastian Ruder and
-               Kyunghyun Cho and
-               Iryna Gurevych},
-      booktitle={Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP 2020): Systems Demonstrations},
-      year={2020},
-      address = "Online",
-      publisher = "Association for Computational Linguistics",
-      url = "https://www.aclweb.org/anthology/2020.emnlp-demos.7",
-      pages = "46--54",
+   @misc{poth2023adapters,
+         title={Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning}, 
+         author={Clifton Poth and Hannah Sterz and Indraneil Paul and Sukannya Purkayastha and Leon Engländer and Timo Imhof and Ivan Vulić and Sebastian Ruder and Iryna Gurevych and Jonas Pfeiffer},
+         year={2023},
+         eprint={2311.11077},
+         archivePrefix={arXiv},
+         primaryClass={cs.CL}
    }
 
 
