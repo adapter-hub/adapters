@@ -172,7 +172,7 @@ If you use this library practically in your work, please consider citing our lib
 }
 ```
 
-Alternatively, if you rather want to acknowledge the concept of Adapters and parameter-efficient finetuning in general or use the predecessor `adapter-transformers` or models from the Hub and the documentation, please consider citing our initial research paper [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779):
+Alternatively, if you rather want to refer to the predecessor `adapter-transformers` or reference models from the Hub and the documentation, please consider citing our initial research paper [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779):
 
 ```
 @inproceedings{pfeiffer2020AdapterHub,
