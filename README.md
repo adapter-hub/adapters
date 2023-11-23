@@ -160,7 +160,20 @@ To get started with developing on _Adapters_ yourself and learn more about ways 
 
 ## Citation
 
-If you use this library for your work, please consider citing our paper [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779):
+If you use the _Adapters_ library in your work, please consider citing our library paper: [Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning](https://arxiv.org/abs/2311.11077)
+
+```
+@misc{poth2023adapters,
+      title={Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning}, 
+      author={Clifton Poth and Hannah Sterz and Indraneil Paul and Sukannya Purkayastha and Leon Engländer and Timo Imhof and Ivan Vulić and Sebastian Ruder and Iryna Gurevych and Jonas Pfeiffer},
+      year={2023},
+      eprint={2311.11077},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```
+
+Alternatively, for the predecessor `adapter-transformers`, the Hub infrastructure and adapters uploaded by the AdapterHub team, please consider citing our initial paper: [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779)
 
 ```
 @inproceedings{pfeiffer2020AdapterHub,
