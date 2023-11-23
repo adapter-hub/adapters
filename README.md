@@ -159,7 +159,7 @@ To get started with developing on _Adapters_ yourself and learn more about ways 
 
 ## Citation
 
-If you use this library practically in your work, please consider citing our library paper [Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning](https://arxiv.org/abs/2311.11077):
+If you use the _Adapters_ library in your work, please consider citing our library paper: [Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning](https://arxiv.org/abs/2311.11077)
 
 ```
 @misc{poth2023adapters,
