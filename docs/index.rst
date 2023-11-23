@@ -110,7 +110,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
 Citation
 ========
 
-If you use this library practically in your work, please consider citing our library paper: `Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning <https://arxiv.org/abs/2311.11077>`_
+If you use the _Adapters_ library in your work, please consider citing our library paper `Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning <https://arxiv.org/abs/2311.11077)>`
 
 
 .. code-block:: bibtex
