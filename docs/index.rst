@@ -125,7 +125,7 @@ If you use the _Adapters_ library in your work, please consider citing our libra
    }
 
 
-Alternatively, if you rather want to refer to the predecessor `adapter-transformers` or reference models from the Hub and the documentation, please consider citing our initial research paper: `AdapterHub: A Framework for Adapting Transformers <https://arxiv.org/abs/2007.07779>`_
+Alternatively, for the predecessor `adapter-transformers`, the Hub infrastructure and adapters uploaded by the AdapterHub team, please consider citing our initial paper: `AdapterHub: A Framework for Adapting Transformers <https://arxiv.org/abs/2007.07779>`_
 
 
 .. code-block:: bibtex
