@@ -148,6 +148,7 @@ Alternatively, if you rather want to refer to the predecessor `adapter-transform
       pages = "46--54",
    }
 
+
 Indices and tables
 ==================
 
