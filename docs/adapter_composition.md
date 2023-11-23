@@ -40,15 +40,15 @@ The basic building blocks of the more advanced setups are objects derived from `
 each representing a different possibility to combine single adapters.
 The following table gives an overview on the supported composition blocks and their support by different adapter methods.
 
-| Block | Bottleneck<br> Adapters | Prefix<br> Tuning | Compacter | LoRA | (IA)³ |
-| --- | --- | --- | --- | --- | --- |
-| [`Stack`](#stack) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |
-| [`Fuse`](#fuse) | ✅ |  | ✅ |  |  |
-| [`Split`](#split) | ✅ |  | ✅ |  |  |
-| [`BatchSplit`](#batchsplit) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |
-| [`Parallel`](#parallel) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |
-| [Output averaging](#output-averaging) | ✅ |  | ✅ | ✅(*) | ✅(*) |
-| [Parameter averaging](#parameter-averaging) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Block | Bottleneck<br> Adapters | Prefix<br> Tuning | Compacter | LoRA | (IA)³ | Prompt Tuning |
+| --- | --- | --- | --- | --- | --- | --- |
+| [`Stack`](#stack) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |  |
+| [`Fuse`](#fuse) | ✅ |  | ✅ |  |  |  |
+| [`Split`](#split) | ✅ |  | ✅ |  |  |  |
+| [`BatchSplit`](#batchsplit) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |  |
+| [`Parallel`](#parallel) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |  |
+| [Output averaging](#output-averaging) | ✅ |  | ✅ | ✅(*) | ✅(*) |  |
+| [Parameter averaging](#parameter-averaging) | ✅ | ✅ | ✅ | ✅ | ✅ |  |
 
 (*) except for Deberta-v1, GPT-2.
 
