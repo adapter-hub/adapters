@@ -13,6 +13,12 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_add_test(model, PrefixTuningConfig(flat=True), ["prefix_tunings.{name}."])
 
+    def test_leave_out_prefix_tuning(self):
+        # Note: for prefix tuning, this test is a little weird as the prefix tuning weights are only returned for the first layer with a prefix and not all.
+        # It still kind of tests the right thing as we prune layers from the end, which will move the returned layer to the next layer with a prefix.
+        model = self.get_model()
+        self.run_leave_out_test(model, PrefixTuningConfig(flat=True), [0, 1])
+
     def test_average_prefix_tuning(self):
         model = self.get_model()
         self.run_average_test(model, PrefixTuningConfig(flat=True), ["prefix_tunings.{name}."])

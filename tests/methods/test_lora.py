@@ -10,6 +10,10 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_add_test(model, LoRAConfig(), ["loras.{name}."])
 
+    def test_leave_out_lora(self):
+        model = self.get_model()
+        self.run_leave_out_test(model, LoRAConfig(), [0, 1])
+
     def test_average_lora(self):
         model = self.get_model()
         self.run_average_test(model, LoRAConfig(), ["loras.{name}."])
