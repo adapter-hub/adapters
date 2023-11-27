@@ -7,7 +7,7 @@ This results in some breaking changes. To transition your code from `adapter-tra
 
 ## Package and Namespace
  To use the library you need to install 
-`transformers` and `adapters` in the same enviironment (unlike `adapter-transformers` which contained `transformers` and could not be installed in the same environment). 
+`transformers` and `adapters` in the same environment (unlike `adapter-transformers` which contained `transformers` and could not be installed in the same environment). 
 
 Run the following to install both (installing `adapters` will automatically trigger the installation of `transformers` if it is not yet installed in th environment):
 
