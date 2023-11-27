@@ -260,7 +260,7 @@ CTRL_INPUTS_DOCSTRING = r"""
             If `past_key_values` is used, only input IDs that do not have their past calculated should be passed as
             `input_ids`.
 
-            Indices can be obtained using [`CTRLTokenizer`]. See [`PreTrainedTokenizer.__call__`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.__call__`] and
             [`PreTrainedTokenizer.encode`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -371,10 +371,10 @@ class CTRLModel(CTRLPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import CTRLTokenizer, CTRLModel
+        >>> from transformers import AutoTokenizer, CTRLModel
         >>> import torch
 
-        >>> tokenizer = CTRLTokenizer.from_pretrained("ctrl")
+        >>> tokenizer = AutoTokenizer.from_pretrained("ctrl")
         >>> model = CTRLModel.from_pretrained("ctrl")
 
         >>> # CTRL was trained with control codes as the first token
@@ -509,6 +509,8 @@ class CTRLModel(CTRLPreTrainedModel):
     CTRL_START_DOCSTRING,
 )
 class CTRLLMHeadModel(CTRLPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["lm_head.weight"]
+
     def __init__(self, config):
         super().__init__(config)
         self.transformer = CTRLModel(config)
@@ -523,12 +525,12 @@ class CTRLLMHeadModel(CTRLPreTrainedModel):
     def set_output_embeddings(self, new_embeddings):
         self.lm_head = new_embeddings
 
-    def prepare_inputs_for_generation(self, input_ids, past=None, use_cache=None, **kwargs):
+    def prepare_inputs_for_generation(self, input_ids, past_key_values=None, use_cache=None, **kwargs):
         # only last token for inputs_ids if past is defined in kwargs
-        if past:
+        if past_key_values:
             input_ids = input_ids[:, -1].unsqueeze(-1)
 
-        return {"input_ids": input_ids, "past_key_values": past, "use_cache": use_cache}
+        return {"input_ids": input_ids, "past_key_values": past_key_values, "use_cache": use_cache}
 
     @add_start_docstrings_to_model_forward(CTRL_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)
@@ -559,9 +561,9 @@ class CTRLLMHeadModel(CTRLPreTrainedModel):
 
         ```python
         >>> import torch
-        >>> from transformers import CTRLTokenizer, CTRLLMHeadModel
+        >>> from transformers import AutoTokenizer, CTRLLMHeadModel
 
-        >>> tokenizer = CTRLTokenizer.from_pretrained("ctrl")
+        >>> tokenizer = AutoTokenizer.from_pretrained("ctrl")
         >>> model = CTRLLMHeadModel.from_pretrained("ctrl")
 
         >>> # CTRL was trained with control codes as the first token
@@ -685,9 +687,9 @@ class CTRLForSequenceClassification(CTRLPreTrainedModel):
 
         ```python
         >>> import torch
-        >>> from transformers import CTRLTokenizer, CTRLForSequenceClassification
+        >>> from transformers import AutoTokenizer, CTRLForSequenceClassification
 
-        >>> tokenizer = CTRLTokenizer.from_pretrained("ctrl")
+        >>> tokenizer = AutoTokenizer.from_pretrained("ctrl")
         >>> model = CTRLForSequenceClassification.from_pretrained("ctrl")
 
         >>> # CTRL was trained with control codes as the first token
@@ -720,9 +722,9 @@ class CTRLForSequenceClassification(CTRLPreTrainedModel):
 
         ```python
         >>> import torch
-        >>> from transformers import CTRLTokenizer, CTRLForSequenceClassification
+        >>> from transformers import AutoTokenizer, CTRLForSequenceClassification
 
-        >>> tokenizer = CTRLTokenizer.from_pretrained("ctrl")
+        >>> tokenizer = AutoTokenizer.from_pretrained("ctrl")
         >>> model = CTRLForSequenceClassification.from_pretrained("ctrl", problem_type="multi_label_classification")
 
         >>> # CTRL was trained with control codes as the first token

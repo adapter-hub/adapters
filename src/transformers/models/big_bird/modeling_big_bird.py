@@ -53,7 +53,6 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "google/bigbird-roberta-base"
 _CONFIG_FOR_DOC = "BigBirdConfig"
-_TOKENIZER_FOR_DOC = "BigBirdTokenizer"
 
 BIG_BIRD_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "google/bigbird-roberta-base",
@@ -1803,7 +1802,7 @@ BIG_BIRD_INPUTS_DOCSTRING = r"""
         input_ids (`torch.LongTensor` of shape `({0})`):
             Indices of input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`BigBirdTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -1980,7 +1979,6 @@ class BigBirdModel(BigBirdPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(BIG_BIRD_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=BaseModelOutputWithPoolingAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
@@ -2262,6 +2260,8 @@ class BigBirdModel(BigBirdPreTrainedModel):
 
 
 class BigBirdForPreTraining(BigBirdPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["cls.predictions.decoder.weight", "cls.predictions.decoder.bias"]
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -2313,10 +2313,10 @@ class BigBirdForPreTraining(BigBirdPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import BigBirdTokenizer, BigBirdForPreTraining
+        >>> from transformers import AutoTokenizer, BigBirdForPreTraining
         >>> import torch
 
-        >>> tokenizer = BigBirdTokenizer.from_pretrained("google/bigbird-roberta-base")
+        >>> tokenizer = AutoTokenizer.from_pretrained("google/bigbird-roberta-base")
         >>> model = BigBirdForPreTraining.from_pretrained("google/bigbird-roberta-base")
 
         >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
@@ -2366,6 +2366,8 @@ class BigBirdForPreTraining(BigBirdPreTrainedModel):
 
 @add_start_docstrings("""BigBird Model with a `language modeling` head on top.""", BIG_BIRD_START_DOCSTRING)
 class BigBirdForMaskedLM(BigBirdPreTrainedModel):
+    _keys_to_ignore_on_load_missing = ["cls.predictions.decoder.weight", "cls.predictions.decoder.bias"]
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -2416,10 +2418,10 @@ class BigBirdForMaskedLM(BigBirdPreTrainedModel):
 
         ```python
         >>> import torch
-        >>> from transformers import BigBirdTokenizer, BigBirdForMaskedLM
+        >>> from transformers import AutoTokenizer, BigBirdForMaskedLM
         >>> from datasets import load_dataset
 
-        >>> tokenizer = BigBirdTokenizer.from_pretrained("google/bigbird-roberta-base")
+        >>> tokenizer = AutoTokenizer.from_pretrained("google/bigbird-roberta-base")
         >>> model = BigBirdForMaskedLM.from_pretrained("google/bigbird-roberta-base")
         >>> squad_ds = load_dataset("squad_v2", split="train")  # doctest: +IGNORE_RESULT
 
@@ -2508,8 +2510,12 @@ class BigBirdForMaskedLM(BigBirdPreTrainedModel):
     """BigBird Model with a `language modeling` head on top for CLM fine-tuning.""", BIG_BIRD_START_DOCSTRING
 )
 class BigBirdForCausalLM(BigBirdPreTrainedModel):
-
-    _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]
+    _keys_to_ignore_on_load_missing = [
+        r"position_ids",
+        r"predictions.decoder.bias",
+        "cls.predictions.decoder.weight",
+        "cls.predictions.decoder.bias",
+    ]
 
     def __init__(self, config):
         super().__init__(config)
@@ -2531,7 +2537,6 @@ class BigBirdForCausalLM(BigBirdPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(BIG_BIRD_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=CausalLMOutputWithCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
@@ -2618,7 +2623,7 @@ class BigBirdForCausalLM(BigBirdPreTrainedModel):
             cross_attentions=outputs.cross_attentions,
         )
 
-    def prepare_inputs_for_generation(self, input_ids, past=None, attention_mask=None, **model_kwargs):
+    def prepare_inputs_for_generation(self, input_ids, past_key_values=None, attention_mask=None, **model_kwargs):
         input_shape = input_ids.shape
 
         # if model is used as a decoder in encoder-decoder model, the decoder attention mask is created on the fly
@@ -2626,14 +2631,14 @@ class BigBirdForCausalLM(BigBirdPreTrainedModel):
             attention_mask = input_ids.new_ones(input_shape)
 
         # cut decoder_input_ids if past is used
-        if past is not None:
+        if past_key_values is not None:
             input_ids = input_ids[:, -1:]
 
-        return {"input_ids": input_ids, "attention_mask": attention_mask, "past_key_values": past}
+        return {"input_ids": input_ids, "attention_mask": attention_mask, "past_key_values": past_key_values}
 
-    def _reorder_cache(self, past, beam_idx):
+    def _reorder_cache(self, past_key_values, beam_idx):
         reordered_past = ()
-        for layer_past in past:
+        for layer_past in past_key_values:
             reordered_past += (
                 tuple(past_state.index_select(0, beam_idx) for past_state in layer_past[:2]) + layer_past[2:],
             )
@@ -2709,10 +2714,10 @@ class BigBirdForSequenceClassification(BigBirdPreTrainedModel):
 
         ```python
         >>> import torch
-        >>> from transformers import BigBirdTokenizer, BigBirdForSequenceClassification
+        >>> from transformers import AutoTokenizer, BigBirdForSequenceClassification
         >>> from datasets import load_dataset
 
-        >>> tokenizer = BigBirdTokenizer.from_pretrained("l-yohai/bigbird-roberta-base-mnli")
+        >>> tokenizer = AutoTokenizer.from_pretrained("l-yohai/bigbird-roberta-base-mnli")
         >>> model = BigBirdForSequenceClassification.from_pretrained("l-yohai/bigbird-roberta-base-mnli")
         >>> squad_ds = load_dataset("squad_v2", split="train")  # doctest: +IGNORE_RESULT
 
@@ -2814,7 +2819,6 @@ class BigBirdForMultipleChoice(BigBirdPreTrainedModel):
         BIG_BIRD_INPUTS_DOCSTRING.format("batch_size, num_choices, sequence_length")
     )
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=MultipleChoiceModelOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -2910,15 +2914,9 @@ class BigBirdForTokenClassification(BigBirdPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(BIG_BIRD_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
-        checkpoint="vumichien/token-classification-bigbird-roberta-base-random",
+        checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=TokenClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
-        expected_output=(
-            "['LABEL_1', 'LABEL_1', 'LABEL_1', 'LABEL_1', 'LABEL_1', 'LABEL_1', 'LABEL_1', 'LABEL_1', "
-            "'LABEL_1', 'LABEL_1', 'LABEL_1', 'LABEL_1']"
-        ),
-        expected_loss=0.54,
     )
     def forward(
         self,
@@ -3045,10 +3043,10 @@ class BigBirdForQuestionAnswering(BigBirdPreTrainedModel):
 
         ```python
         >>> import torch
-        >>> from transformers import BigBirdTokenizer, BigBirdForQuestionAnswering
+        >>> from transformers import AutoTokenizer, BigBirdForQuestionAnswering
         >>> from datasets import load_dataset
 
-        >>> tokenizer = BigBirdTokenizer.from_pretrained("abhinavkulkarni/bigbird-roberta-base-finetuned-squad")
+        >>> tokenizer = AutoTokenizer.from_pretrained("abhinavkulkarni/bigbird-roberta-base-finetuned-squad")
         >>> model = BigBirdForQuestionAnswering.from_pretrained("abhinavkulkarni/bigbird-roberta-base-finetuned-squad")
         >>> squad_ds = load_dataset("squad_v2", split="train")  # doctest: +IGNORE_RESULT
 

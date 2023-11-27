@@ -61,7 +61,6 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "gpt2"
 _CONFIG_FOR_DOC = "GPT2Config"
-_TOKENIZER_FOR_DOC = "GPT2Tokenizer"
 
 GPT2_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "gpt2",
@@ -171,6 +170,7 @@ class GPT2Attention(nn.Module):
                 "selfattn",
                 config,
                 fan_in_fan_out=True,
+                no_init_bias=True,
             )
         self.c_proj = Conv1D(self.embed_dim, self.embed_dim)
 
@@ -201,8 +201,8 @@ class GPT2Attention(nn.Module):
         attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
         if self.scale_attn_weights:
-            attn_weights = attn_weights / torch.tensor(
-                value.size(-1) ** 0.5, dtype=attn_weights.dtype, device=attn_weights.device
+            attn_weights = attn_weights / torch.full(
+                [], value.size(-1) ** 0.5, dtype=attn_weights.dtype, device=attn_weights.device
             )
 
         # Layer-wise attention scaling
@@ -216,8 +216,8 @@ class GPT2Attention(nn.Module):
             mask_value = torch.finfo(attn_weights.dtype).min
             # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
             # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
-            mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
-            attn_weights = torch.where(causal_mask, attn_weights, mask_value)
+            mask_value = torch.full([], mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
+            attn_weights = torch.where(causal_mask, attn_weights.to(attn_weights.dtype), mask_value)
 
         if attention_mask is not None:
             # Apply the attention mask
@@ -367,8 +367,12 @@ class GPT2MLP(nn.Module):
         super().__init__()
         embed_dim = config.hidden_size
         # Order of dimension inputs to LORALinear reversed compared to Conv1D
-        self.c_fc = LoRALinear(embed_dim, intermediate_size, "intermediate", config, fan_in_fan_out=True)
-        self.c_proj = LoRALinear(intermediate_size, embed_dim, "output", config, fan_in_fan_out=True)
+        self.c_fc = LoRALinear(
+            embed_dim, intermediate_size, "intermediate", config, fan_in_fan_out=True, no_init_bias=True
+        )
+        self.c_proj = LoRALinear(
+            intermediate_size, embed_dim, "output", config, fan_in_fan_out=True, no_init_bias=True
+        )
         self.act = ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.resid_pdrop)
 
@@ -575,7 +579,7 @@ GPT2_INPUTS_DOCSTRING = r"""
             If `past_key_values` is used, only `input_ids` that do not have their past calculated should be passed as
             `input_ids`.
 
-            Indices can be obtained using [`GPT2Tokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -761,7 +765,6 @@ class GPT2Model(GPT2ModelAdapterMixin, GPT2PreTrainedModel):
 
     @add_start_docstrings_to_model_forward(GPT2_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=BaseModelOutputWithPastAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
@@ -1018,10 +1021,10 @@ class GPT2LMHeadModel(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
     def set_output_embeddings(self, new_embeddings):
         self.lm_head = new_embeddings
 
-    def prepare_inputs_for_generation(self, input_ids, past=None, **kwargs):
+    def prepare_inputs_for_generation(self, input_ids, past_key_values=None, **kwargs):
         token_type_ids = kwargs.get("token_type_ids", None)
         # only last token for inputs_ids if past is defined in kwargs
-        if past:
+        if past_key_values:
             input_ids = input_ids[:, -1].unsqueeze(-1)
             if token_type_ids is not None:
                 token_type_ids = token_type_ids[:, -1].unsqueeze(-1)
@@ -1033,13 +1036,13 @@ class GPT2LMHeadModel(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
             # create position_ids on the fly for batch generation
             position_ids = attention_mask.long().cumsum(-1) - 1
             position_ids.masked_fill_(attention_mask == 0, 1)
-            if past:
+            if past_key_values:
                 position_ids = position_ids[:, -1].unsqueeze(-1)
         else:
             position_ids = None
         return {
             "input_ids": input_ids,
-            "past_key_values": past,
+            "past_key_values": past_key_values,
             "use_cache": kwargs.get("use_cache"),
             "position_ids": position_ids,
             "attention_mask": attention_mask,
@@ -1048,7 +1051,6 @@ class GPT2LMHeadModel(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel):
 
     @add_start_docstrings_to_model_forward(GPT2_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=CausalLMOutputWithCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
@@ -1191,10 +1193,10 @@ class GPT2DoubleHeadsModel(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel)
     def set_output_embeddings(self, new_embeddings):
         self.lm_head = new_embeddings
 
-    def prepare_inputs_for_generation(self, input_ids, past=None, **kwargs):
+    def prepare_inputs_for_generation(self, input_ids, past_key_values=None, **kwargs):
         token_type_ids = kwargs.get("token_type_ids", None)
         # only last token for inputs_ids if past is defined in kwargs
-        if past:
+        if past_key_values:
             input_ids = input_ids[:, -1].unsqueeze(-1)
             if token_type_ids is not None:
                 token_type_ids = token_type_ids[:, -1].unsqueeze(-1)
@@ -1206,14 +1208,14 @@ class GPT2DoubleHeadsModel(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel)
             # create position_ids on the fly for batch generation
             position_ids = attention_mask.long().cumsum(-1) - 1
             position_ids.masked_fill_(attention_mask == 0, 1)
-            if past:
+            if past_key_values:
                 position_ids = position_ids[:, -1].unsqueeze(-1)
         else:
             position_ids = None
 
         return {
             "input_ids": input_ids,
-            "past_key_values": past,
+            "past_key_values": past_key_values,
             "use_cache": kwargs.get("use_cache"),
             "position_ids": position_ids,
             "attention_mask": attention_mask,
@@ -1258,9 +1260,9 @@ class GPT2DoubleHeadsModel(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrainedModel)
 
         ```python
         >>> import torch
-        >>> from transformers import GPT2Tokenizer, GPT2DoubleHeadsModel
+        >>> from transformers import AutoTokenizer, GPT2DoubleHeadsModel
 
-        >>> tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+        >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
         >>> model = GPT2DoubleHeadsModel.from_pretrained("gpt2")
 
         >>> # Add a [CLS] to the vocabulary (we should train it also!)
@@ -1378,12 +1380,9 @@ class GPT2ForSequenceClassification(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrai
 
     @add_start_docstrings_to_model_forward(GPT2_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint="microsoft/DialogRPT-updown",
         output_type=SequenceClassifierOutputWithPast,
         config_class=_CONFIG_FOR_DOC,
-        expected_output="'LABEL_0'",
-        expected_loss=5.28,
     )
     def forward(
         self,
@@ -1436,7 +1435,7 @@ class GPT2ForSequenceClassification(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrai
             sequence_lengths = -1
         else:
             if input_ids is not None:
-                sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
+                sequence_lengths = (torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1).to(logits.device)
             else:
                 sequence_lengths = -1
                 logger.warning(
@@ -1513,7 +1512,6 @@ class GPT2ForTokenClassification(GPT2ModelWithHeadsAdaptersMixin, GPT2PreTrained
     @add_start_docstrings_to_model_forward(GPT2_INPUTS_DOCSTRING)
     # fmt: off
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint="brad1141/gpt2-finetuned-comp2",
         output_type=TokenClassifierOutput,
         config_class=_CONFIG_FOR_DOC,

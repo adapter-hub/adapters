@@ -1,4 +1,5 @@
 import unittest
+from tests_adapters.methods.test_config_union import ConfigUnionAdapterTest
 
 from transformers import BertConfig
 from transformers.testing_utils import require_torch
@@ -46,6 +47,7 @@ class BertAdapterTest(
     PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
+    ConfigUnionAdapterTest,
     BertAdapterTestBase,
     unittest.TestCase,
 ):

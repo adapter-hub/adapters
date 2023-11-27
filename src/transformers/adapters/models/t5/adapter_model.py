@@ -14,6 +14,14 @@ logger = logging.getLogger(__name__)
 
 @add_start_docstrings("T5 Model with the option to add multiple flexible prediction heads on top.", T5_START_DOCSTRING)
 class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, T5PreTrainedModel):
+    _keys_to_ignore_on_load_missing = [
+        r"encoder.embed_tokens.weight",
+        r"decoder.embed_tokens.weight",
+    ]
+    _keys_to_ignore_on_load_unexpected = [
+        r"decoder.block.0.layer.1.EncDecAttention.relative_attention_bias.weight",
+    ]
+
     def __init__(self, config):
         super().__init__(config)
 

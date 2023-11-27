@@ -29,6 +29,8 @@ A friendly fork of Hugging Face's <i>Transformers</i>, adding Adapters to PyTorc
 [![GitHub](https://img.shields.io/github/license/adapter-hub/adapter-transformers.svg?color=blue)](https://github.com/adapter-hub/adapter-transformers/blob/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/adapter-transformers)](https://pypi.org/project/adapter-transformers/)
 
+> **Note**: We're currently developing **a newer version of this library [on the `adapters` branch](https://github.com/adapter-hub/adapter-transformers/tree/adapters)**. All new changes will be integrated there. See [#584](https://github.com/adapter-hub/adapter-transformers/issues/584) for details.
+
 `adapter-transformers` is an extension of [Hugging Face's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
 
 _💡 Important: This library can be used as a drop-in replacement for Hugging Face Transformers and regularly synchronizes new upstream changes.
@@ -36,7 +38,7 @@ Thus, most files in this repository are direct copies from the Hugging Face Tran
 
 ## Installation
 
-`adapter-transformers` currently supports **Python 3.7+** and **PyTorch 1.3.1+**.
+`adapter-transformers` currently supports **Python 3.8+** and **PyTorch 1.12.1+**.
 After [installing PyTorch](https://pytorch.org/get-started/locally/), you can install `adapter-transformers` from PyPI ...
 
 ```
