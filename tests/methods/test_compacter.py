@@ -12,7 +12,7 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
 
     def test_leave_out_compacter(self):
         model = self.get_model()
-        self.run_leave_out_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8), [0, 1])
+        self.run_leave_out_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8), self.leave_out_layers)
 
     def test_average_compacter(self):
         model = self.get_model()

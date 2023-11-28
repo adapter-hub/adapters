@@ -51,7 +51,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
         for adapter_config, _ in self.adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-                self.run_leave_out_test(model, adapter_config, [0, 1])
+                self.run_leave_out_test(model, adapter_config, self.leave_out_layers)
 
     def test_average_adapter(self):
         model = self.get_model()

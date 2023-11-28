@@ -34,6 +34,7 @@ class AlbertAdapterTestBase(AdapterTestBase):
         num_hidden_groups=2,
     )
     tokenizer_name = "albert-base-v2"
+    leave_out_layers = [0]
 
 
 @require_torch

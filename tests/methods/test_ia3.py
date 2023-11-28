@@ -12,7 +12,7 @@ class IA3TestMixin(AdapterMethodBaseTestMixin):
 
     def test_leave_out_ia3(self):
         model = self.get_model()
-        self.run_leave_out_test(model, IA3Config(), [0, 1])
+        self.run_leave_out_test(model, IA3Config(), self.leave_out_layers)
 
     def test_average_ia3(self):
         model = self.get_model()
