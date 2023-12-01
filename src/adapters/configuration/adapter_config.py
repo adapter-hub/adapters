@@ -438,6 +438,8 @@ class LoRAConfig(AdapterConfig):
             Defaults to False.
         output_lora (bool, optional): If True, add LoRA to the output MLP weights of a model.
             Defaults to False.
+        leave_out (:obj:`List[int]`, optional):
+            The IDs of the layers (starting at 0) where NO adapter modules should be added.
         r (int, optional): The rank of the LoRA layer. Defaults to 8.
         alpha (int, optional): The hyperparameter used for scaling the LoRA reparametrization. Defaults to 8.
         dropout (float, optional): The dropout rate used in the LoRA layer. Defaults to 0.0.
@@ -460,6 +462,7 @@ class LoRAConfig(AdapterConfig):
     selfattn_lora: bool = True
     intermediate_lora: bool = False
     output_lora: bool = False
+    leave_out: List[int] = field(default_factory=list)
 
     r: int = 8
     alpha: int = 8
@@ -481,6 +484,7 @@ class IA3Config(LoRAConfig):
     selfattn_lora: bool = True
     intermediate_lora: bool = True
     output_lora: bool = False
+    leave_out: List[int] = field(default_factory=list)
 
     r: int = 1
     alpha: int = 1

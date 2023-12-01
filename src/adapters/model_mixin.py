@@ -573,10 +573,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         # PHM Layer
         if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):
-            adapter_module = list(self.get_adapter(adapter_name)[0].values())[0]
-            # if multiple adapters with same location key exist they are returned as a modulelist
-            if isinstance(adapter_module, nn.ModuleList):
-                adapter_module = adapter_module[0]
             adapter_config = self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer")
             if adapter_config["shared_phm_rule"] or adapter_config["shared_W_phm"]:
                 if self.config.model_type in SUBMODEL_NAMES:

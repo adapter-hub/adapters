@@ -58,6 +58,26 @@ class AdapterMethodBaseTestMixin:
             self.assertTrue(v.requires_grad, k)
         self.assertTrue(has_weights)
 
+    def run_leave_out_test(self, model, adapter_config, leave_out):
+        model.eval()
+
+        adapter_config = adapter_config.replace(leave_out=leave_out)
+        name = "test_adapter_" + adapter_config.__class__.__name__
+        model.add_adapter(name, config=adapter_config)
+        model.set_active_adapters([name])
+
+        # adapter is correctly added to config
+        self.assert_adapter_available(model, name)
+
+        adapter = model.get_adapter(name)
+
+        self.assertNotEqual(len(adapter), 0)
+        found_layers = list(adapter.keys())
+        for layer in leave_out:
+            self.assertNotIn(layer, found_layers)
+
+        model.delete_adapter(name)
+
     def run_average_test(self, model, adapter_config, filter_keys):
         model.eval()
 
