@@ -135,7 +135,15 @@ class WeightsLoaderHelper:
             state_dict = torch.load(weights_file, map_location="cpu")
         except Exception:
             raise OSError("Unable to load weights from pytorch checkpoint file. ")
+        logger.info("Loading module weights from {}".format(weights_file))
 
+        return self.load_weights_from_state_dict(
+            state_dict, filter_func, rename_func=rename_func, loading_info=loading_info, in_base_model=in_base_model
+        )
+
+    def load_weights_from_state_dict(
+        self, state_dict, filter_func, rename_func=None, loading_info=None, in_base_model=False, start_prefix=""
+    ):
         # Rename weights if needed
         if rename_func:
             if isinstance(rename_func, Sequence):
@@ -143,14 +151,11 @@ class WeightsLoaderHelper:
             else:
                 state_dict = self.rename_state_dict(state_dict, rename_func)
 
-        logger.info("Loading module weights from {}".format(weights_file))
-
         # Add the weights to the model
         # Make sure we are able to load base models as well as derived models (with heads)
-        start_prefix = ""
         model_to_load = self.model
         has_prefix_module = any(s.startswith(self.model.base_model_prefix) for s in state_dict.keys())
-        if not hasattr(self.model, self.model.base_model_prefix) and has_prefix_module:
+        if not start_prefix and not hasattr(self.model, self.model.base_model_prefix) and has_prefix_module:
             start_prefix = self.model.base_model_prefix + "."
         if in_base_model and hasattr(self.model, self.model.base_model_prefix) and not has_prefix_module:
             model_to_load = self.model.base_model
@@ -354,6 +359,36 @@ class AdapterLoader(WeightsLoader):
             .replace(".loras.{}.".format(old_name), ".loras.{}.".format(new_name))
         )
 
+    def save_to_state_dict(self, name: str):
+        """
+        Extracts the weights of a given adapter from the model and returns them as a state dict.
+
+        Args:
+            name (str): The name of the adapter to be saved.
+
+        Returns:
+            Tuple[dict, dict]: A tuple consisting of the state dict containing the adapter weights and the adapter
+            configuration.
+        """
+        if name not in self.model.adapters_config.adapters:
+            raise ValueError("No adapter of this type with the given name is part of this model.")
+
+        adapter_config = self.model.adapters_config.get(name)
+
+        config_dict = build_full_config(
+            adapter_config,
+            self.model.config,
+            model_name=self.model.model_name,
+            name=name,
+            model_class=self.model.__class__.__name__,
+        )
+
+        # Save adapter weights
+        filter_func = self.filter_func(config_dict["name"])
+        state_dict = self.weights_helper.state_dict(filter_func)
+
+        return state_dict, config_dict
+
     def save(self, save_directory, name, meta_dict=None):
         """
         Saves an adapter and its configuration file to a directory, so that it can be reloaded using the `load()`
@@ -389,6 +424,38 @@ class AdapterLoader(WeightsLoader):
         # Save adapter weights
         filter_func = self.filter_func(config_dict["name"])
         self.weights_helper.save_weights(save_directory, filter_func)
+
+    def load_from_state_dict(self, state_dict, name, load_as=None, loading_info=None, start_prefix=""):
+        """
+        Loads the weights of a given adapter from a state dict into the model.
+
+        Args:
+            state_dict (dict): The state dict from which to load the adapter weights.
+            name (str): The name of the adapter to be loaded.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
+                saved will be used.
+            loading_info (dict, optional):
+                A dictionary to which loading information (missing and unexpected keys) will be added.
+            start_prefix (str, optional): A custom prefix to be ignored in the given state dict.
+        """
+        new_adapter_name = load_as or name
+        if new_adapter_name not in self.model.adapters_config.adapters:
+            raise ValueError("No adapter of this type with the given name is part of this model.")
+
+        # Load adapter weights
+        filter_func = self.filter_func(name)
+        rename_func = self.rename_func(name, new_adapter_name)
+        missing_keys, _ = self.weights_helper.load_weights_from_state_dict(
+            state_dict,
+            filter_func,
+            rename_func=rename_func,
+            loading_info=loading_info,
+            in_base_model=True,
+            start_prefix=start_prefix,
+        )
+        missing_keys = self._fix_legacy_config(new_adapter_name, missing_keys)
+        if isinstance(loading_info, Mapping):
+            loading_info["missing_keys"] = missing_keys
 
     def load(
         self,
@@ -485,6 +552,36 @@ class AdapterFusionLoader(WeightsLoader):
             "adapter_fusion_layer.{}".format(old_name), "adapter_fusion_layer.{}".format(new_name)
         )
 
+    def save_to_state_dict(self, name: str):
+        """
+        Extracts the weights of a given AdapterFusion from the model and returns them as a state dict.
+
+        Args:
+            name (str): The name of the AdapterFusion to be saved.
+
+        Returns:
+            Tuple[dict, dict]: A tuple consisting of the state dict containing the AdapterFusion weights and the
+            AdapterFusion configuration.
+        """
+        if name not in self.model.adapters_config.fusions:
+            raise ValueError(f"No AdapterFusion with name '{name}' available.")
+
+        adapter_fusion_config = self.model.adapters_config.get_fusion(name)
+
+        config_dict = build_full_config(
+            adapter_fusion_config,
+            self.model.config,
+            model_name=self.model.model_name,
+            name=name,
+            model_class=self.model.__class__.__name__,
+        )
+
+        # Save adapter weights
+        filter_func = self.filter_func(name)
+        state_dict = self.weights_helper.state_dict(filter_func)
+
+        return state_dict, config_dict
+
     def save(self, save_directory: str, name: str, meta_dict=None):
         """
         Saves a AdapterFusion module into the given directory.
@@ -521,6 +618,36 @@ class AdapterFusionLoader(WeightsLoader):
         # Save head weights
         filter_func = self.filter_func(name)
         self.weights_helper.save_weights(save_directory, filter_func)
+
+    def load_from_state_dict(self, state_dict, name, load_as=None, loading_info=None, start_prefix=""):
+        """
+        Loads the weights of a given AdapterFusion module from a state dict into the model.
+
+        Args:
+            state_dict (dict): The state dict from which to load the AdapterFusion weights.
+            name (str): The name of the AdapterFusion to be loaded.
+            load_as (str, optional):
+                Load the AdapterFusion using this name. By default, the name with which the AdapterFusion was saved
+                will be used.
+            loading_info (dict, optional):
+                A dictionary to which loading information (missing and unexpected keys) will be added.
+            start_prefix (str, optional): A custom prefix to be ignored in the given state dict.
+        """
+        new_adapter_fusion_name = load_as or name
+        if new_adapter_fusion_name not in self.model.adapters_config.fusions:
+            raise ValueError(f"No AdapterFusion with name '{new_adapter_fusion_name}' available.")
+
+        # Load adapter weights
+        filter_func = self.filter_func(name)
+        rename_func = self.rename_func(name, new_adapter_fusion_name)
+        self.weights_helper.load_weights_from_state_dict(
+            state_dict,
+            filter_func,
+            rename_func=rename_func,
+            loading_info=loading_info,
+            in_base_model=True,
+            start_prefix=start_prefix,
+        )
 
     def load(self, save_directory, load_as=None, loading_info=None, **kwargs):
         """
