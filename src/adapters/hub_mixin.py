@@ -178,7 +178,8 @@ class PushAdapterToHubMixin:
         use_auth_token = deprecated_kwargs.pop("use_auth_token", None)
         if use_auth_token is not None:
             warnings.warn(
-                "The `use_auth_token` argument is deprecated and will be removed in future versions of Adapters. Please use `token` instead.",
+                "The `use_auth_token` argument is deprecated and will be removed in future versions of Adapters."
+                " Please use `token` instead.",
                 FutureWarning,
             )
             if token is not None:
