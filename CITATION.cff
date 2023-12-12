@@ -25,3 +25,35 @@ authors:
     given-names: Iryna
   - family-names: Pfeiffer
     given-names: Jonas
+preferred-citation:
+  type: conference-paper
+  authors:
+  - family-names: Poth
+    given-names: Clifton
+  - family-names: Sterz
+    given-names: Hannah
+  - family-names: Paul
+    given-names: Indraneil
+  - family-names: Purkayastha
+    given-names: Sukannya
+  - family-names: Engländer
+    given-names: Leon
+  - family-names: Imhof
+    given-names: Timo
+  - family-names: Vulić
+    given-names: Ivan
+  - family-names: Ruder
+    given-names: Sebastian
+  - family-names: Gurevych
+    given-names: Iryna
+  - family-names: Pfeiffer
+    given-names: Jonas
+  booktitle: "Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing: System Demonstrations"
+  month: 12
+  start: 149
+  end: 160
+  title: "Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning"
+  year: 2023
+  publisher: "Association for Computational Linguistics"
+  url: "https://aclanthology.org/2023.emnlp-demo.13"
+  address: "Singapore"

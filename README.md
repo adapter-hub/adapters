@@ -160,16 +160,28 @@ To get started with developing on _Adapters_ yourself and learn more about ways 
 
 ## Citation
 
-If you use the _Adapters_ library in your work, please consider citing our library paper: [Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning](https://arxiv.org/abs/2311.11077)
+If you use _Adapters_ in your work, please consider citing our library paper: [Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning](https://arxiv.org/abs/2311.11077)
 
 ```
-@misc{poth2023adapters,
-      title={Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning}, 
-      author={Clifton Poth and Hannah Sterz and Indraneil Paul and Sukannya Purkayastha and Leon Engländer and Timo Imhof and Ivan Vulić and Sebastian Ruder and Iryna Gurevych and Jonas Pfeiffer},
-      year={2023},
-      eprint={2311.11077},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@inproceedings{poth-etal-2023-adapters,
+    title = "Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning",
+    author = {Poth, Clifton  and
+      Sterz, Hannah  and
+      Paul, Indraneil  and
+      Purkayastha, Sukannya  and
+      Engl{\"a}nder, Leon  and
+      Imhof, Timo  and
+      Vuli{\'c}, Ivan  and
+      Ruder, Sebastian  and
+      Gurevych, Iryna  and
+      Pfeiffer, Jonas},
+    booktitle = "Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing: System Demonstrations",
+    month = dec,
+    year = "2023",
+    address = "Singapore",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2023.emnlp-demo.13",
+    pages = "149--160",
 }
 ```
 
