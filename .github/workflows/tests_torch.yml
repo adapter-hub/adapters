@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    branches: ["main", "adapters"]
+    branches: ["main"]
     paths:
       - ".github/workflows/**"
       - "src/**"
@@ -10,8 +10,9 @@ on:
       - "templates/**"
       - "tests/**"
       - "utils/**"
+      - "setup.py"
   pull_request:
-    branches: ["main", "adapters"]
+    branches: ["main"]
     paths:
       - ".github/workflows/**"
       - "src/**"
@@ -19,6 +20,7 @@ on:
       - "templates/**"
       - "tests/**"
       - "utils/**"
+      - "setup.py"
   workflow_dispatch:
 
 jobs:
@@ -37,7 +39,7 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
       - name: Install
         run: |
-          pip install torch==1.12.1
+          pip install torch==2.1.1
           pip install .[quality]
       - name: Check Quality and Repo Consistency
         run: |
@@ -60,9 +62,8 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==1.12.1
-          pip install .[sklearn,testing,sentencepiece,vision]
-          pip install datasets
+          pip install torch==2.1.1
+          pip install .[sklearn,testing,sentencepiece]
       - name: Test
         run: |
           make test-adapter-methods
@@ -84,9 +85,8 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==1.12.1
-          pip install .[sklearn,testing,sentencepiece,vision]
-          pip install datasets
+          pip install torch==2.1.1
+          pip install .[sklearn,testing,sentencepiece]
       - name: Test
         run: |
           make test-adapter-models
