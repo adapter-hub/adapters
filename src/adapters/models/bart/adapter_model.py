@@ -10,7 +10,6 @@ from transformers.models.bart.modeling_bart import (
 )
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
-from ...composition import adjust_tensors_for_parallel
 from ...heads import (
     ClassificationHead,
     ModelWithFlexibleHeadsAdaptersMixin,
@@ -102,23 +101,15 @@ class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         )
         # required e.g. for prompt tuning in all models
         kwargs["context"] = context
-        # sequence classification based on last token in sequence
-        x = outputs[0]  # last hidden state
-        if input_ids is not None and x.shape[1] == input_ids.shape[1]:
-            eos_mask = input_ids.eq(self.config.eos_token_id)
-            (eos_mask,) = adjust_tensors_for_parallel(x, eos_mask)
-            if len(torch.unique(eos_mask.sum(1))) > 1:
-                raise ValueError("All examples must have the same number of <eos> tokens.")
-            cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
-        else:
-            cls_representation = x
 
         head_outputs = self.forward_head(
             outputs,
             head_name=head,
-            cls_output=cls_representation,
             attention_mask=attention_mask,
             return_dict=return_dict,
+            get_cls_from_eos_tokens=True,
+            # `get_cls_from_eos_tokens` requires passing eos mask
+            eos_mask=input_ids.eq(self.config.eos_token_id) if input_ids is not None else None,
             **kwargs,
         )
 
