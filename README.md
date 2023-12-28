@@ -46,7 +46,6 @@ pip install -U adapters
 
 ```
 git clone https://github.com/adapter-hub/adapters.git
-git checkout adapters
 cd adapters
 pip install .
 ```
