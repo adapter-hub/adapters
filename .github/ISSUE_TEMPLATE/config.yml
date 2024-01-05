@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "🗪 Discussions Forum"
+    url: https://github.com/adapter-hub/adapters/discussions
+    about: Ask questions on working with adapters, request help or share your work
