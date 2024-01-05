@@ -370,7 +370,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         "layers": ["lm_head"],
     },
     # MT5
-        "MT5ForConditionalGeneration": {
+    "MT5ForConditionalGeneration": {
         "config": {
             "head_type": "seq2seq_lm",
         },
