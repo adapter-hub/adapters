@@ -69,7 +69,7 @@ MODEL_MIXIN_MAPPING = {
     "T5Model": T5ModelAdaptersMixin,
     "T5ForConditionalGeneration": T5ForCondiditionalGenerationWithHeadsMixin,
     "T5ForQuestionAnswering": T5ForQuestionAnsweringWithHeadsMixin,
-    "T5EncoderModel": T5ModelAdaptersMixin,   
+    "T5EncoderModel": T5ModelAdaptersMixin,
     "ViTIntermediate": ViTIntermediateAdaptersMixin,
     "ViTModel": ViTModelAdaptersMixin,
     "XLMRobertaLayer": BertLayerAdaptersMixin,
