@@ -34,7 +34,7 @@ class MT5AdapterTestBase(AdapterTestBase):
         tie_word_embeddings=False,
         decoder_start_token_id=0,
     )
-    tokenizer_name = "mt5-base"
+    tokenizer_name = "google/mt5-base"
 
 
 @require_torch
