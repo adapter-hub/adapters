@@ -127,6 +127,7 @@ SUPPORTED_MODELS = {
         "deberta",
         "bart",
         "mbart",
+        "mt5",
         "gpt2",
         "gptj",
         "t5",
