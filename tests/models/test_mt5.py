@@ -7,6 +7,6 @@ from .base import AdapterModelTesterMixin
 
 
 @require_torch
-class MT5AdapterModelTest(AdapterModelTesterMixin, MT5ModelTest):
+class MT5AdapterModelTest(AdapterModelTesterMixin, MT5IntegrationTest):
     all_model_classes = (MT5AdapterModel,)
     fx_compatible = False
