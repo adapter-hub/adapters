@@ -134,6 +134,7 @@ SUPPORTED_MODELS = {
         "xlm-roberta",
         "bert-generation",
         "llama",
+        "mistral",
         "electra",
         "xmod",
     ],

@@ -10,28 +10,29 @@ The table below further shows which model architectures support which adaptation
     E.g., for BERT, this means adapters provides a ``BertAdapterModel`` class, but you can also use ``BertModel``, ``BertForSequenceClassification`` etc. together with adapters.
 ```
 
-| Model                                   | (Bottleneck)<br> Adapters | Prefix<br> Tuning | LoRA | Compacter | Adapter<br> Fusion | Invertible<br> Adapters | Parallel<br> block | Prompt<br> Tuning |
-| --------------------------------------- | -| - | - | - | - | - | - |- |
-| [ALBERT](classes/models/albert.html)    | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [BART](classes/models/bart.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
-| [BEIT](classes/models/beit.html)        | ✅ | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
+| Model                                                  | (Bottleneck)<br> Adapters | Prefix<br> Tuning | LoRA | Compacter | Adapter<br> Fusion | Invertible<br> Adapters | Parallel<br> block | Prompt<br> Tuning |
+|--------------------------------------------------------| -| - | - | - | - | - | - |- |
+| [ALBERT](classes/models/albert.html)                   | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [BART](classes/models/bart.html)                       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| [BEIT](classes/models/beit.html)                       | ✅ | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
 | [BERT-Generation](classes/models/bert-generation.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [BERT](classes/models/bert.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [CLIP](classes/models/clip.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |  |  |
-| [DeBERTa](classes/models/deberta.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [DeBERTa-v2](classes/models/debertaV2.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [DistilBERT](classes/models/distilbert.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [Electra](classes/models/electra.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [Encoder Decoder](classes/models/encoderdecoder.html) | (*) | (*) | (*) | (*) | (*) | (*) | | |
-| [GPT-2](classes/models/gpt2.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
-| [GPT-J](classes/models/gptj.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
-| [Llama](classes/models/llama.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
-| [MBart](classes/models/mbart.html)      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
-| [RoBERTa](classes/models/roberta.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [T5](classes/models/t5.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
-| [ViT](classes/models/vit.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [XLM-RoBERTa](classes/models/xlmroberta.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [X-MOD](classes/models/xmod.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [BERT](classes/models/bert.html)                       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [CLIP](classes/models/clip.html)                       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |  |  |
+| [DeBERTa](classes/models/deberta.html)                 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [DeBERTa-v2](classes/models/debertaV2.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [DistilBERT](classes/models/distilbert.html)           | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [Electra](classes/models/electra.html)                 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [Encoder Decoder](classes/models/encoderdecoder.html)  | (*) | (*) | (*) | (*) | (*) | (*) | | |
+| [GPT-2](classes/models/gpt2.html)                      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| [GPT-J](classes/models/gptj.html)                      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| [Llama](classes/models/llama.html)                     | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| [MBart](classes/models/mbart.html)                     | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| [Mistral](classes/models/mistral.html)                 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| [RoBERTa](classes/models/roberta.html)                 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [T5](classes/models/t5.html)                           | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| [ViT](classes/models/vit.html)                         | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [XLM-RoBERTa](classes/models/xlmroberta.html)          | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [X-MOD](classes/models/xmod.html)                      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 (*) If the used encoder and decoder model class are supported.
 
