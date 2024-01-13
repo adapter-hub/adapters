@@ -20,7 +20,7 @@ sys.path.insert(0, rootdir)
 # -- Project information -----------------------------------------------------
 
 project = "AdapterHub"
-copyright = "2020-2023, AdapterHub Team"
+copyright = "2020-2024, AdapterHub Team"
 author = "AdapterHub Team"
 
 docs_versions = [
