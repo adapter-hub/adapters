@@ -57,7 +57,8 @@ class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         if "padding_mask" in kwargs:
             warnings.warn(
-                "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use `attention_mask` instead.`"
+                "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use"
+                " `attention_mask` instead.`"
             )
 
         bsz, q_len, _ = hidden_states.size()
@@ -97,9 +98,9 @@ class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
         if past_key_value is not None:
             if self.layer_idx is None:
                 raise ValueError(
-                    f"The cache structure has changed since version v4.36. If you are using {self.__class__.__name__} "
-                    "for auto-regressive decoding with k/v caching, please make sure to initialize the attention class "
-                    "with a layer index."
+                    "The cache structure has changed since version v4.36. If you are using"
+                    f" {self.__class__.__name__} for auto-regressive decoding with k/v caching, please make sure to"
+                    " initialize the attention class with a layer index."
                 )
             kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
@@ -165,7 +166,6 @@ class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
 
 
 class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaAttention):
-
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -179,7 +179,8 @@ class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaAttention):
         # LlamaFlashAttention2 attention does not support output_attentions
         if "padding_mask" in kwargs:
             warnings.warn(
-                "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use `attention_mask` instead.`"
+                "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use"
+                " `attention_mask` instead.`"
             )
 
             # overwrite attention_mask with padding_mask
@@ -247,8 +248,8 @@ class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaAttention):
                 target_dtype = self.q_proj.weight.dtype
 
             logger.warning_once(
-                f"The input hidden states seems to be silently casted in float32, this might be related to"
-                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
+                "The input hidden states seems to be silently casted in float32, this might be related to the fact"
+                " you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
                 f" {target_dtype}."
             )
 
@@ -284,8 +285,10 @@ class LlamaSdpaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
         if output_attentions:
             # TODO: Improve this warning with e.g. `model.config.attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "LlamaModel is using LlamaSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention implementation, "
-                'but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
+                "LlamaModel is using LlamaSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does"
+                " not support `output_attentions=True`. Falling back to the manual attention implementation, but"
+                " specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This"
+                ' warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
                 hidden_states=hidden_states,

@@ -19,8 +19,8 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 
-from transformers.utils import logging
 from transformers.models.bart.modeling_bart import BartAttention, BartDecoderLayer, BartEncoderLayer
+from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
 from .mixin_bart import BartAttentionAdaptersMixin, BartDecoderLayerAdaptersMixin, BartEncoderLayerAdaptersMixin
@@ -165,7 +165,6 @@ class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
 
 
 class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartAttention):
-
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -254,8 +253,8 @@ class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartAttention)
                 target_dtype = self.q_proj.weight.dtype
 
             logger.warning_once(
-                f"The input hidden states seems to be silently casted in float32, this might be related to"
-                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
+                "The input hidden states seems to be silently casted in float32, this might be related to the fact"
+                " you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
                 f" {target_dtype}."
             )
 
@@ -290,8 +289,11 @@ class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
         if output_attentions or layer_head_mask is not None:
             # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "BartModel is using BartSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True` or `layer_head_mask` not None. Falling back to the manual attention"
-                ' implementation, but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
+                "BartModel is using BartSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not"
+                " support `output_attentions=True` or `layer_head_mask` not None. Falling back to the manual attention"
+                " implementation, but specifying the manual implementation will be required from Transformers version"
+                ' v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when'
+                " loading the model."
             )
             return super().forward(
                 hidden_states,
