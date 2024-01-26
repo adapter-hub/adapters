@@ -706,7 +706,7 @@ class PredictionHeadLoader(WeightsLoader):
 
     def filter_func(self, head_name):
         # ToDo remove this workaround
-        if self.model.__class__.__name__ in ["T5ForConditionalGeneration", "T5ForQuestionAnswering"]:
+        if self.model.config.model_type in ["t5", "mt5"]:
             if head_name:
                 return (
                     lambda x: not x.startswith("encoder")
@@ -908,6 +908,9 @@ class PredictionHeadLoader(WeightsLoader):
         """
         assert self.convert_to_flex_head, "load_from_state_dict() can only be used with convert_to_flex_head=True."
         assert hasattr(self.model, "heads"), "load_from_state_dict() can only be used with flex heads model class."
+
+        if state_dict is None:
+            return None, None
 
         conversion_rename_func = None
 
