@@ -18,7 +18,13 @@ from transformers.modeling_outputs import (
 )
 from transformers.utils import ModelOutput
 
-from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, parse_heads_from_composition
+from ..composition import (
+    AdapterCompositionBlock,
+    BatchSplit,
+    Parallel,
+    adjust_tensors_for_parallel,
+    parse_heads_from_composition,
+)
 from ..context import AdapterSetup, ForwardContext
 from ..loading import PredictionHeadLoader
 from ..methods.modeling import Activation_Function_Class
@@ -105,6 +111,21 @@ class PredictionHead(nn.Sequential):
     def get_label_names(self):
         return ["labels"]
 
+    def _get_cls_output(self, outputs, **kwargs):
+        if self.config["use_pooler"]:
+            cls_output = kwargs.pop("pooled_output")
+        elif kwargs.get("get_cls_from_eos_tokens", False):
+            x = outputs[0]  # last hidden state
+            eos_mask = kwargs.get("eos_mask")
+            (eos_mask,) = adjust_tensors_for_parallel(x, eos_mask)
+            if len(torch.unique(eos_mask.sum(1))) > 1:
+                raise ValueError("All examples must have the same number of <eos> tokens.")
+            cls_output = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
+        else:
+            cls_output = outputs[0][:, 0]
+
+        return cls_output
+
 
 class ClassificationHead(PredictionHead):
     def __init__(
@@ -134,10 +155,7 @@ class ClassificationHead(PredictionHead):
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
         if cls_output is None:
-            if self.config["use_pooler"]:
-                cls_output = kwargs.pop("pooled_output")
-            else:
-                cls_output = outputs[0][:, 0]
+            cls_output = self._get_cls_output(outputs, **kwargs)
         logits = super().forward(cls_output)
         loss = None
         labels = kwargs.pop("labels", None)
@@ -205,10 +223,7 @@ class MultiLabelClassificationHead(PredictionHead):
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
         if cls_output is None:
-            if self.config["use_pooler"]:
-                cls_output = kwargs.pop("pooled_output")
-            else:
-                cls_output = outputs[0][:, 0]
+            cls_output = self._get_cls_output(outputs, **kwargs)
         logits = super().forward(cls_output)
         loss = None
         labels = kwargs.pop("labels", None)
@@ -271,10 +286,7 @@ class MultipleChoiceHead(PredictionHead):
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=None, **kwargs):
         if cls_output is None:
-            if self.config["use_pooler"]:
-                cls_output = kwargs.pop("pooled_output")
-            else:
-                cls_output = outputs[0][:, 0]
+            cls_output = self._get_cls_output(outputs, **kwargs)
         logits = super().forward(cls_output)
         logits = logits.view(-1, self.config["num_choices"])
         loss = None
@@ -476,10 +488,7 @@ class ImageClassificationHead(PredictionHead):
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
         if cls_output is None:
-            if self.config["use_pooler"]:
-                cls_output = kwargs.pop("pooled_output")
-            else:
-                cls_output = outputs[0][:, 0]
+            cls_output = self._get_cls_output(outputs, **kwargs)
         logits = super().forward(cls_output)
         loss = None
         labels = kwargs.pop("labels", None)
@@ -800,6 +809,9 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             cls_output (torch.Tensor, optional): The classification output of the model.
             attention_mask (torch.Tensor, optional): The attention mask of the model.
             return_dict (bool): Whether or not to return a ``ModelOutput`` instead of a plain tuple.
+            get_cls_from_eos_tokens (bool):
+                If set to True, retrieve classifier token representations from the last <eos> token in the sequence.
+                Setting to True requires `eos_mask` to be passed as well.
             **kwargs: Additional keyword arguments passed to the forward pass of the head.
         """
         used_head_modules = self._get_used_heads(head_name)
@@ -846,10 +858,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 )
             head_outputs = []
             labels = kwargs.pop("labels", None)
+            eos_mask = kwargs.pop("eos_mask", None)
             for i, head in enumerate(self.active_head):
                 head_module = self.heads[head]
                 batch_idx = range(sum(self.active_head.batch_sizes[:i]), sum(self.active_head.batch_sizes[: i + 1]))
                 kwargs["labels"] = labels[batch_idx] if labels is not None else None
+                kwargs["eos_mask"] = eos_mask[batch_idx] if eos_mask is not None else None
                 head_inputs, head_cls_input = _get_head_input(all_outputs, cls_output, batch_idx)
                 # head_attention = attention_mask[batch_idx] if attention_mask is not None else None
                 head_output = head_module(head_inputs, head_cls_input, attention_mask, return_dict, **kwargs)
@@ -941,14 +955,13 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         **kwargs,
     ):
         # Filter only weights not part of base model
+        loader = PredictionHeadLoader(model, error_on_missing=False, convert_to_flex_head=True)
+        filter_func = loader.filter_func(None)
         if state_dict is not None:
-            head_state_dict = {
-                key: value for key, value in state_dict.items() if not key.startswith(cls.base_model_prefix)
-            }
+            head_state_dict = {key: value for key, value in state_dict.items() if filter_func(key)}
         else:
             head_state_dict = None
         head_name = "default"
-        loader = PredictionHeadLoader(model, error_on_missing=False, convert_to_flex_head=True)
         head_config, new_head_state_dict = loader.convert_static_to_flex_head(head_state_dict, load_as=head_name)
 
         if head_config is not None:
@@ -959,6 +972,14 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
 
         if new_head_state_dict is not None:
+            # Always ensure base_model_prefix is added, otherwise loading head weights does not work.
+            if len(model.base_model_prefix) > 0 and not any(
+                s.startswith(model.base_model_prefix) for s in loaded_keys
+            ):
+                rename_func = lambda x: model.base_model_prefix + "." + x if x not in head_state_dict else x
+                state_dict = {rename_func(k): v for k, v in state_dict.items()}
+                loaded_keys = [rename_func(k) for k in loaded_keys]
+
             for k in head_state_dict:
                 del state_dict[k]
                 loaded_keys.remove(k)

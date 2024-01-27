@@ -134,10 +134,7 @@ class InvertibleAdaptersMixin:
                 adapter_setup = self.adapters_config.active_setup
         else:
             adapter_setup = None
-        skip_adapters = adapter_setup is None or (
-            self.adapters_config.skip_layers is not None and self.layer_idx in self.adapters_config.skip_layers
-        )
-        if not skip_adapters and (len(adapter_setup.flatten()) > 0):
+        if adapter_setup is not None and (len(adapter_setup.flatten()) > 0):
             return adapter_setup
         else:
             return None
