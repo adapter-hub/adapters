@@ -111,3 +111,4 @@ class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
         "question_answering": QuestionAnsweringHead,
         "masked_lm": BertStyleMaskedLMHead,
     }
+    use_pooler = True

@@ -34,6 +34,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     """
 
     head_types: dict = {}
+    use_pooler: bool = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -288,7 +289,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         overwrite_ok=False,
         multilabel=False,
         id2label=None,
-        use_pooler=False,
+        use_pooler=use_pooler,
     ):
         """
         Adds a sequence classification head on top of the model.
@@ -320,7 +321,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         overwrite_ok=False,
         multilabel=False,
         id2label=None,
-        use_pooler=True,
+        use_pooler=use_pooler,
     ):
         """
         Adds an image classification head on top of the model.
@@ -355,7 +356,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         activation_function="tanh",
         overwrite_ok=False,
         id2label=None,
-        use_pooler=False,
+        use_pooler=use_pooler,
     ):
         """
         Adds a multiple choice head on top of the model.

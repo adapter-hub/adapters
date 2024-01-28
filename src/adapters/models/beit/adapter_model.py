@@ -86,3 +86,4 @@ class BeitAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BeitPreTrainedModel)
     head_types = {
         "image_classification": ImageClassificationHead,
     }
+    use_pooler = True
