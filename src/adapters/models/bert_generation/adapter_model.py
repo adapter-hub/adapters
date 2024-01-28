@@ -123,29 +123,3 @@ class BertGenerationAdapterModel(
         "masked_lm": BertStyleMaskedLMHead,
         "causal_lm": CausalLMHead,
     }
-
-    def add_masked_lm_head(self, head_name, activation_function="gelu", overwrite_ok=False):
-        """
-        Adds a masked language modeling head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            activation_function (str, optional): Activation function. Defaults to 'gelu'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = BertStyleMaskedLMHead(self, head_name, activation_function=activation_function)
-        self.add_prediction_head(head, overwrite_ok=overwrite_ok)
-
-    def add_causal_lm_head(self, head_name, activation_function=None, overwrite_ok=False):
-        """
-        Adds a causal language modeling head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            activation_function (str, optional): Activation function. Defaults to 'gelu'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = CausalLMHead(
-            self, head_name, layers=1, activation_function=activation_function, layer_norm=True, bias=True
-        )
-        self.add_prediction_head(head, overwrite_ok=overwrite_ok)

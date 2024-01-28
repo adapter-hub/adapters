@@ -111,15 +111,15 @@ class ParallelAdapterInferenceTestMixin:
 
     def test_parallel_generate(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING or (
-            not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head")
-            and not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head")
+            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
         ):
             self.skipTest("No seq2seq or causal language model head")
 
         model1 = AutoAdapterModel.from_config(self.config())
         model1.add_adapter("adapter1")
         model1.add_adapter("adapter2")
-        if hasattr(model1, "add_seq2seq_lm_head"):
+        if "seq2seq_lm" in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             model1.add_seq2seq_lm_head("adapter1")
             model1.add_seq2seq_lm_head("adapter2")
         else:

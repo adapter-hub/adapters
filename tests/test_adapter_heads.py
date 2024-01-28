@@ -55,7 +55,7 @@ class PredictionHeadModelTestMixin:
         self.assertTrue(torch.equal(output1[idx], output2[idx]))
 
     def test_classification_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
+        if "classification" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             self.skipTest("No classification head")
 
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
@@ -66,7 +66,7 @@ class PredictionHeadModelTestMixin:
         self.run_prediction_head_test(model1, model2, "dummy", label_dict=label_dict)
 
     def test_image_classification_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_image_classification_head"):
+        if "image_classification" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             self.skipTest("No image classification head")
 
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
@@ -77,7 +77,7 @@ class PredictionHeadModelTestMixin:
         self.run_prediction_head_test(model1, model2, "dummy", input_shape=(1, 3, 224, 224), label_dict=label_dict)
 
     def test_multiple_choice_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_multiple_choice_head"):
+        if "multiple_choice" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             self.skipTest("No multiple choice head")
 
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
@@ -90,7 +90,7 @@ class PredictionHeadModelTestMixin:
         )
 
     def test_tagging_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_tagging_head"):
+        if "tagging" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             self.skipTest("No tagging head")
 
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
@@ -103,7 +103,7 @@ class PredictionHeadModelTestMixin:
         )
 
     def test_qa_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_qa_head"):
+        if "question_answering" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             self.skipTest("No QA head")
 
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
@@ -117,7 +117,7 @@ class PredictionHeadModelTestMixin:
         )
 
     def test_causal_lm_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head"):
+        if "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             self.skipTest("No causal language model head")
 
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
@@ -144,7 +144,7 @@ class PredictionHeadModelTestMixin:
         self.assertLessEqual(generated.shape[1], seq_output_length)
 
     def test_seq2seq_lm_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head"):
+        if "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             self.skipTest("No seq2seq language model head")
 
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
@@ -176,7 +176,7 @@ class PredictionHeadModelTestMixin:
         self.assertEqual(generated.shape[0], 1)
 
     def test_masked_lm_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_masked_lm_head"):
+        if "masked_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             self.skipTest("No causal or seq2seq language model head")
 
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
@@ -194,14 +194,14 @@ class PredictionHeadModelTestMixin:
 
     def test_lm_head_freeze_output_embeddings(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING or (
-            not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head")
-            and not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head")
+            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
         ):
             self.skipTest("No seq2seq or causal language model head")
 
         model1 = AutoAdapterModel.from_config(self.config())
         model1.add_adapter("adapter1")
-        if hasattr(model1, "add_seq2seq_lm_head"):
+        if "seq2seq_lm" in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             model1.add_seq2seq_lm_head("adapter1")
         else:
             model1.add_causal_lm_head("adapter1")
@@ -212,7 +212,7 @@ class PredictionHeadModelTestMixin:
             self.assertFalse(p.requires_grad, f"Parameter {n} should not be trainable.")
 
     def test_dependency_parsing_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_dependency_parsing_head"):
+        if "dependency_parsing" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             self.skipTest("No dependency parsing head")
 
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
@@ -337,7 +337,7 @@ class PredictionHeadModelTestMixin:
         self.assertTrue(isinstance(model.active_head, BatchSplit))
 
     def test_reload_static_to_flex_head(self):
-        if not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_classification_head"):
+        if "classification" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             self.skipTest("No classification head available")
         static_head_model = AutoModelForSequenceClassification.from_config(self.config())
         adapters.init(static_head_model)
@@ -374,11 +374,11 @@ class PredictionHeadModelTestMixin:
         self.assertTrue(torch.all(torch.isclose(output1.logits, output2.logits)))
 
     def test_invertible_adapter_with_head(self):
-        if hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_masked_lm_head"):
+        if "masked_lm" in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             lm_head = "masked_lm"
-        elif hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head"):
+        elif "casual_lm" in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             lm_head = "casual_lm"
-        elif hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head"):
+        elif "seq2seq_lm" in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             lm_head = "seq2seq_lm"
         else:
             self.skipTest("No masked or causel language model head")
