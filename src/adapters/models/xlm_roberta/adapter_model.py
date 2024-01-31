@@ -7,17 +7,7 @@ from transformers.models.xlm_roberta.modeling_xlm_roberta import (
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import AdapterSetup
-from ...heads import (
-    BertStyleMaskedLMHead,
-    BiaffineParsingHead,
-    CausalLMHead,
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    MultipleChoiceHead,
-    QuestionAnsweringHead,
-    TaggingHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -29,6 +19,18 @@ from ...wrappers import init
 class XLMRobertaAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, XLMRobertaPreTrainedModel
 ):
+
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "tagging",
+        "multiple_choice",
+        "question_answering",
+        "dependency_parsing",
+        "masked_lm",
+        "causal_lm",
+    ]
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -123,14 +125,3 @@ class XLMRobertaAdapterModel(
             "past_key_values": past,
             "adapter_input_parallelized": model_kwargs.pop("adapter_input_parallelized", False),
         }
-
-    head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "tagging": TaggingHead,
-        "multiple_choice": MultipleChoiceHead,
-        "question_answering": QuestionAnsweringHead,
-        "dependency_parsing": BiaffineParsingHead,
-        "masked_lm": BertStyleMaskedLMHead,
-        "causal_lm": CausalLMHead,
-    }

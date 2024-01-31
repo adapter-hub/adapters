@@ -11,7 +11,7 @@ from transformers.models.vit.modeling_vit import (
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import AdapterSetup
-from ...heads import ImageClassificationHead, ModelWithFlexibleHeadsAdaptersMixin
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...wrappers import init
 
 
@@ -20,6 +20,11 @@ from ...wrappers import init
     VIT_START_DOCSTRING,
 )
 class ViTAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, ViTPreTrainedModel):
+
+    head_types = [
+        "image_classification",
+    ]
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -81,7 +86,3 @@ class ViTAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, ViTPreTrainedModel):
         else:
             # in case no head is used just return the output of the base model (including pooler output)
             return outputs
-
-    head_types = {
-        "image_classification": ImageClassificationHead,
-    }

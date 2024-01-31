@@ -28,12 +28,26 @@ from .language_modeling import BertStyleMaskedLMHead, CausalLMHead, Seq2SeqLMHea
 logger = logging.getLogger(__name__)
 
 
+MODEL_HEAD_MAP = {
+    "classification": ClassificationHead,
+    "multilabel_classification": MultiLabelClassificationHead,
+    "tagging": TaggingHead,
+    "multiple_choice": MultipleChoiceHead,
+    "question_answering": QuestionAnsweringHead,
+    "dependency_parsing": BiaffineParsingHead,
+    "masked_lm": BertStyleMaskedLMHead,
+    "causal_lm": CausalLMHead,
+    "seq2seq_lm": Seq2SeqLMHead,
+    "image_classification": ImageClassificationHead,
+}
+
+
 class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     """
     Adds flexible prediction heads to a model class. Implemented by the XModelWithHeads classes.
     """
 
-    head_types: dict = {}
+    head_types: list = []
     use_pooler: bool = False
 
     def __init__(self, *args, **kwargs):
@@ -157,7 +171,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             config["id2label"] = id2label
 
         if head_type in self.head_types:
-            head_class = self.head_types[head_type]
+            head_class = MODEL_HEAD_MAP[head_type]
             head = head_class(self, head_name, **config)
             self.add_prediction_head(head, overwrite_ok=overwrite_ok, set_active=set_active)
         elif head_type in self.config.custom_heads:

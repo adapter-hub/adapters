@@ -7,15 +7,7 @@ from transformers.models.albert.modeling_albert import (
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import AdapterSetup
-from ...heads import (
-    BertStyleMaskedLMHead,
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    MultipleChoiceHead,
-    QuestionAnsweringHead,
-    TaggingHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -25,6 +17,16 @@ from ...wrappers import init
     ALBERT_START_DOCSTRING,
 )
 class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, AlbertPreTrainedModel):
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "tagging",
+        "multiple_choice",
+        "question_answering",
+        "masked_lm",
+    ]
+    use_pooler = True
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -102,13 +104,3 @@ class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
         else:
             # in case no head is used just return the output of the base model (including pooler output)
             return outputs
-
-    head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "tagging": TaggingHead,
-        "multiple_choice": MultipleChoiceHead,
-        "question_answering": QuestionAnsweringHead,
-        "masked_lm": BertStyleMaskedLMHead,
-    }
-    use_pooler = True

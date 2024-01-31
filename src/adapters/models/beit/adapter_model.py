@@ -11,7 +11,7 @@ from transformers.models.beit.modeling_beit import (
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import AdapterSetup
-from ...heads import ImageClassificationHead, ModelWithFlexibleHeadsAdaptersMixin
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...wrappers import init
 
 
@@ -20,6 +20,11 @@ from ...wrappers import init
     BEIT_START_DOCSTRING,
 )
 class BeitAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BeitPreTrainedModel):
+    head_types = [
+        "image_classification",
+    ]
+    use_pooler = True
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -82,8 +87,3 @@ class BeitAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BeitPreTrainedModel)
         else:
             # in case no head is used just return the output of the base model (including pooler output)
             return outputs
-
-    head_types = {
-        "image_classification": ImageClassificationHead,
-    }
-    use_pooler = True

@@ -2,14 +2,7 @@ from transformers.file_utils import add_start_docstrings
 from transformers.models.deberta.modeling_deberta import DebertaModel, DebertaPreTrainedModel
 
 from ...context import AdapterSetup
-from ...heads import (
-    BertStyleMaskedLMHead,
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    QuestionAnsweringHead,
-    TaggingHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -19,6 +12,15 @@ from ...wrappers import init
 )
 class DebertaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, DebertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"cls.predictions.bias"]
+
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "tagging",
+        "question_answering",
+        "multiple_choice",
+        "masked_lm",
+    ]
 
     def __init__(self, config):
         super().__init__(config)
@@ -93,11 +95,3 @@ class DebertaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         else:
             # in case no head is used just return the output of the base model (including pooler output)
             return outputs
-
-    head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "tagging": TaggingHead,
-        "question_answering": QuestionAnsweringHead,
-        "masked_lm": BertStyleMaskedLMHead,
-    }

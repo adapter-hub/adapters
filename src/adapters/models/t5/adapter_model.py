@@ -6,13 +6,7 @@ from transformers.models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOC
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...composition import adjust_tensors_for_parallel
-from ...heads import (
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    QuestionAnsweringHead,
-    Seq2SeqLMHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin, Seq2SeqLMHead
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -29,6 +23,13 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
 
     _keys_to_ignore_on_load_unexpected = [
         r"decoder.block.0.layer.1.EncDecAttention.relative_attention_bias.weight",
+    ]
+
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "question_answering",
+        "seq2seq_lm",
     ]
 
     def __init__(self, config):
@@ -199,10 +200,3 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
 
             reordered_decoder_past = reordered_decoder_past + (reordered_layer_past_states,)
         return reordered_decoder_past
-
-    head_types = {
-        "seq2seq_lm": Seq2SeqLMHead,
-        "question_answering": QuestionAnsweringHead,
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-    }

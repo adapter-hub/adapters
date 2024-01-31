@@ -6,14 +6,7 @@ from transformers.models.gptj.modeling_gptj import GPTJ_START_DOCSTRING, GPTJMod
 from transformers.utils import add_start_docstrings
 
 from ...composition import adjust_tensors_for_parallel
-from ...heads import (
-    CausalLMHead,
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    QuestionAnsweringHead,
-    TaggingHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -34,6 +27,14 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
 )
 class GPTJAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPTJPreTrainedModel):
     _tied_weights_keys = []  # needs to be empty since GPT-J does not yet support prompt tuning
+
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "tagging",
+        "question_answering",
+        "causal_lm",
+    ]
 
     def __init__(self, config):
         super().__init__(config)
@@ -146,11 +147,3 @@ class GPTJAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
             "token_type_ids": token_type_ids,
             "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
         }
-
-    head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "causal_lm": CausalLMHead,
-        "question_answering": QuestionAnsweringHead,
-        "tagging": TaggingHead,
-    }

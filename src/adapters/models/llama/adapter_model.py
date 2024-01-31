@@ -6,7 +6,7 @@ from transformers.models.llama.modeling_llama import LLAMA_START_DOCSTRING, Llam
 from transformers.utils import add_start_docstrings
 
 from ...composition import adjust_tensors_for_parallel
-from ...heads import CausalLMHead, ClassificationHead, ModelWithFlexibleHeadsAdaptersMixin, TaggingHead
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -27,6 +27,14 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
 )
 class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, LlamaPreTrainedModel):
     _tied_weights_keys = []  # needs to be empty since LLaMA does not yet support prompt tuning
+
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "tagging",
+        "question_answering",
+        "causal_lm",
+    ]
 
     def __init__(self, config):
         super().__init__(config)
@@ -141,9 +149,3 @@ class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
             }
         )
         return model_inputs
-
-    head_types = {
-        "causal_lm": CausalLMHead,
-        "tagging": TaggingHead,
-        "classification": ClassificationHead,
-    }

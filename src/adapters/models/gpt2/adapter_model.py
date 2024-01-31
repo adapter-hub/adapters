@@ -2,18 +2,11 @@ import logging
 
 import torch
 
-from adapters.heads.base import QuestionAnsweringHead
 from transformers.models.gpt2.modeling_gpt2 import GPT2_START_DOCSTRING, GPT2Model, GPT2PreTrainedModel
 from transformers.utils import add_start_docstrings
 
 from ...composition import adjust_tensors_for_parallel
-from ...heads import (
-    CausalLMHead,
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    TaggingHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -34,6 +27,14 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
 )
 class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel):
     _tied_weights_keys = []  # needs to be empty since GPT2 does not yet support prompt tuning
+
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "tagging",
+        "question_answering",
+        "causal_lm",
+    ]
 
     def __init__(self, config):
         super().__init__(config)
@@ -150,11 +151,3 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
             "token_type_ids": token_type_ids,
             "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
         }
-
-    head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "causal_lm": CausalLMHead,
-        "tagging": TaggingHead,
-        "question_answering": QuestionAnsweringHead,
-    }

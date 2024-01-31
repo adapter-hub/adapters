@@ -10,13 +10,7 @@ from transformers.models.bart.modeling_bart import (
 )
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
-from ...heads import (
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    QuestionAnsweringHead,
-    Seq2SeqLMHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -28,6 +22,13 @@ class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
     _tied_weights_keys = [
         "encoder.embed_tokens.weight",
         "decoder.embed_tokens.weight",
+    ]
+
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "question_answering",
+        "seq2seq_lm",
     ]
 
     def __init__(self, config: BartConfig, **kwargs):
@@ -159,10 +160,3 @@ class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
                 tuple(past_state.index_select(0, beam_idx) for past_state in layer_past[:2]) + layer_past[2:],
             )
         return reordered_past
-
-    head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "question_answering": QuestionAnsweringHead,
-        "seq2seq_lm": Seq2SeqLMHead,
-    }
