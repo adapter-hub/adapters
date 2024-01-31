@@ -3,8 +3,6 @@
 Large pre-trained Transformer-based language models (LMs) have become the foundation of NLP in recent years.
 While the most prevalent method of using these LMs for transfer learning involves costly *full fine-tuning* of all model parameters, a series of *efficient* and *lightweight* alternatives have recently been established.
 Instead of updating all parameters of the pre-trained LM towards a downstream target task, these methods commonly introduce a small number of new parameters and only update these while keeping the pre-trained model weights fixed.
-While the most prevalent method of using these LMs for transfer learning involves costly *full fine-tuning* of all model parameters, a series of *efficient* and *lightweight* alternatives have recently been established.
-Instead of updating all parameters of the pre-trained LM towards a downstream target task, these methods commonly introduce a small number of new parameters and only update these while keeping the pre-trained model weights fixed.
 
 ```{admonition} Why use Efficient Fine-Tuning?
 Efficient fine-tuning methods offer multiple benefits over the full fine-tuning of LMs:
