@@ -955,14 +955,13 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         **kwargs,
     ):
         # Filter only weights not part of base model
+        loader = PredictionHeadLoader(model, error_on_missing=False, convert_to_flex_head=True)
+        filter_func = loader.filter_func(None)
         if state_dict is not None:
-            head_state_dict = {
-                key: value for key, value in state_dict.items() if not key.startswith(cls.base_model_prefix)
-            }
+            head_state_dict = {key: value for key, value in state_dict.items() if filter_func(key)}
         else:
             head_state_dict = None
         head_name = "default"
-        loader = PredictionHeadLoader(model, error_on_missing=False, convert_to_flex_head=True)
         head_config, new_head_state_dict = loader.convert_static_to_flex_head(head_state_dict, load_as=head_name)
 
         if head_config is not None:
@@ -973,6 +972,14 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
 
         if new_head_state_dict is not None:
+            # Always ensure base_model_prefix is added, otherwise loading head weights does not work.
+            if len(model.base_model_prefix) > 0 and not any(
+                s.startswith(model.base_model_prefix) for s in loaded_keys
+            ):
+                rename_func = lambda x: model.base_model_prefix + "." + x if x not in head_state_dict else x
+                state_dict = {rename_func(k): v for k, v in state_dict.items()}
+                loaded_keys = [rename_func(k) for k in loaded_keys]
+
             for k in head_state_dict:
                 del state_dict[k]
                 loaded_keys.remove(k)
