@@ -1,0 +1,934 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>MT5 &mdash; AdapterHub  documentation</title>
+  
+
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.png"/>
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script src="../../_static/clipboard.min.js"></script>
+        <script src="../../_static/copybutton.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/copybutton.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> AdapterHub
+          
+
+          
+            
+            <img src="../../_static/logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../training.html">Adapter Training</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../transitioning.html">Transitioning from <code class="docutils literal notranslate"><span class="pre">adapter_transformers</span></code></a></li>
+</ul>
+<p class="caption"><span class="caption-text">Adapter Methods</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview and Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../methods.html">Adapter Methods</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../method_combinations.html">Method Combinations</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Advanced</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../adapter_composition.html">Adapter Activation and Composition</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../prediction_heads.html">Prediction Heads</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../embeddings.html">Embeddings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../extending.html">Extending the Library</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Loading and Sharing</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../loading.html">Loading Pre-Trained Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hub_contributing.html">Contributing Adapters to the Hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../huggingface_hub.html">Integration with Hugging Face’s Model Hub</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Supported Models</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../model_overview.html">Model Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="albert.html">ALBERT</a></li>
+<li class="toctree-l1"><a class="reference internal" href="auto.html">Auto Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bart.html">BART</a></li>
+<li class="toctree-l1"><a class="reference internal" href="beit.html">BEiT</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bert.html">BERT</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bert-generation.html">BertGeneration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clip.html">CLIP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deberta.html">DeBERTa</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deberta_v2.html">DeBERTa-v2</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distilbert.html">DistilBERT</a></li>
+<li class="toctree-l1"><a class="reference internal" href="electra.html">ELECTRA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="encoderdecoder.html">Encoder Decoder Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gpt2.html">OpenAI GPT2</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gptj.html">EleutherAI GPT-J-6B</a></li>
+<li class="toctree-l1"><a class="reference internal" href="llama.html">LLaMA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mbart.html">MBart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roberta.html">RoBERTa</a></li>
+<li class="toctree-l1"><a class="reference internal" href="t5.html">T5</a></li>
+<li class="toctree-l1"><a class="reference internal" href="vit.html">Vision Transformer (ViT)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="xlmroberta.html">XLM-RoBERTa</a></li>
+<li class="toctree-l1"><a class="reference internal" href="xmod.html">X-MOD</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Adapter-Related Classes</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../adapter_config.html">Adapter Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model_adapters_config.html">Model Adapters Config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adapter_layer.html">Adapter Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model_mixins.html">Model Mixins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adapter_training.html">Adapter Training</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adapter_utils.html">Adapter Utilities</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Contributing</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing to AdapterHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing/adding_adapter_methods.html">Adding Adapter Methods</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing/adding_adapters_to_a_model.html">Adding Adapters to a Model</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">AdapterHub</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+      <li>MT5</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/classes/models/mt5.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="mt5">
+<h1>MT5<a class="headerlink" href="#mt5" title="Permalink to this headline">¶</a></h1>
+<p>The mT5 model was presented in <a class="reference external" href="https://arxiv.org/pdf/2010.11934.pdf">mT5: A massively multilingual pre-trained text-to-text transformer</a> by Linting Xue, Noah Constant, Adam Roberts, Mihir Kale, Rami Al-Rfou,
+Aditya Siddhant, Aditya Barua, Colin Raffel.</p>
+<p>The abstract from the paper is the following,</p>
+<ul class="simple">
+<li><p>The recent “Text-to-Text Transfer Transformer” (T5) leveraged a unified text-to-text format and scale to attain
+state-of-the-art results on a wide variety of English-language NLP tasks. In this paper, we introduce mT5, a
+multilingual variant of T5 that was pre-trained on a new Common Crawl-based dataset covering 101 languages. We detail
+the design and modified training of mT5 and demonstrate its state-of-the-art performance on many multilingual
+benchmarks. We also describe a simple technique to prevent “accidental translation” in the zero-shot setting, where a
+generative model chooses to (partially) translate its prediction into the wrong language. All of the code and model
+checkpoints used in this work are publicly available.</p></li>
+</ul>
+<div class="section" id="mt5adaptermodel">
+<h2>MT5AdapterModel<a class="headerlink" href="#mt5adaptermodel" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="adapters.MT5AdapterModel">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">MT5AdapterModel</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel" title="Permalink to this definition">¶</a></dt>
+<dd><p>MT5 Model with the option to add multiple flexible prediction heads on top.</p>
+<p>The MT5 model was proposed in [Exploring the Limits of Transfer Learning with a Unified Text-to-Text
+Transformer](<a class="reference external" href="https://arxiv.org/abs/1910.10683">https://arxiv.org/abs/1910.10683</a>) by Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan
+Narang, Michael Matena, Yanqi Zhou, Wei Li, Peter J. Liu. It’s an encoder decoder transformer pre-trained in a
+text-to-text denoising generative setting.</p>
+<p>This model inherits from [<cite>PreTrainedModel</cite>]. Check the superclass documentation for the generic methods the
+library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
+etc.)</p>
+<p>This model is also a PyTorch [torch.nn.Module](<a class="reference external" href="https://pytorch.org/docs/stable/nn.html#torch.nn.Module">https://pytorch.org/docs/stable/nn.html#torch.nn.Module</a>) subclass.
+Use it as a regular PyTorch Module and refer to the PyTorch documentation for all matter related to general usage
+and behavior.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> ([<cite>MT5Config</cite>]) – Model configuration class with all the parameters of the model.
+Initializing with a config file does not load the weights associated with the model, only the
+configuration. Check out the [<cite>~PreTrainedModel.from_pretrained</cite>] method to load the model weights.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.active_head">
+<em class="property">property </em><code class="sig-name descname">active_head</code><a class="headerlink" href="#adapters.MT5AdapterModel.active_head" title="Permalink to this definition">¶</a></dt>
+<dd><p>The active prediction head configuration of this model. Can be either the name of a single available head
+(string) or a list of multiple available heads. In case of a list of heads, the same base model is forwarded
+through all specified heads.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>A string or a list of strings describing the active head configuration.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>Union[str, List[str]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.adapter_summary">
+<code class="sig-name descname">adapter_summary</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">as_dict</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span> &#x2192; Union<span class="p">[</span>str<span class="p">, </span>dict<span class="p">]</span><a class="headerlink" href="#adapters.MT5AdapterModel.adapter_summary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a string summary of all adapters currently added to the model. Each entry in the summary table has the
+following attributes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>name: the name of the adapter</p></li>
+<li><p>architecture: the architectural base of the adapter</p></li>
+<li><p>#param: the number of parameters of the adapter</p></li>
+<li><p>%param: the number of parameters of the adapter relative to the full model</p></li>
+<li><p>active: whether the adapter is active</p></li>
+<li><p>train: whether the adapter weights are enabled for training</p></li>
+</ul>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.add_adapter">
+<code class="sig-name descname">add_adapter</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_name</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">config</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">overwrite_ok</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">set_active</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.add_adapter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a new adapter module of the specified type to the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adapter_name</strong> (<em>str</em>) – The name of the adapter module to be added.</p></li>
+<li><p><strong>config</strong> (<em>str</em><em> or </em><em>dict</em><em>, </em><em>optional</em>) – <p>The adapter configuration, can be either:</p>
+<ul>
+<li><p>the string identifier of a pre-defined configuration dictionary</p></li>
+<li><p>a configuration dictionary specifying the full config</p></li>
+<li><p>if not given, the default configuration for this adapter type will be used</p></li>
+</ul>
+</p></li>
+<li><p><strong>overwrite_ok</strong> (<em>bool</em><em>, </em><em>optional</em>) – Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.</p></li>
+<li><p><strong>set_active</strong> (<em>bool</em><em>, </em><em>optional</em>) – Set the adapter to be the active one. By default (False), the adapter is added but not activated.</p></li>
+</ul>
+</dd>
+</dl>
+<p>If self.base_model is self, must inherit from a class that implements this method, to preclude infinite
+recursion</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.add_adapter_fusion">
+<code class="sig-name descname">add_adapter_fusion</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_names</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>adapters.composition.Fuse<span class="p">, </span>list<span class="p">, </span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">config</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">overwrite_ok</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">set_active</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.add_adapter_fusion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds AdapterFusion to the model with alll the necessary configurations and weight initializations</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adapter_names</strong> (<em>Fuse</em><em> or </em><em>list</em><em> or </em><em>str</em>) – <p>AdapterFusion layer to add. Can be either:</p>
+<ul>
+<li><p>a <code class="docutils literal notranslate"><span class="pre">Fuse</span></code> composition block</p></li>
+<li><p>a list of adapter names to fuse</p></li>
+<li><p>a comma-separated string of adapter names to fuse</p></li>
+</ul>
+</p></li>
+<li><p><strong>config</strong> (<em>str</em><em> or </em><em>dict</em>) – <p>adapter fusion configuration, can be either:</p>
+<ul>
+<li><p>a string identifying a pre-defined adapter fusion configuration</p></li>
+<li><p>a dictionary representing the adapter fusion configuration</p></li>
+<li><p>the path to a file containing the adapter fusion configuration</p></li>
+</ul>
+</p></li>
+<li><p><strong>overwrite_ok</strong> (<em>bool</em><em>, </em><em>optional</em>) – Overwrite an AdapterFusion layer with the same name if it exists. By default (False), an exception is
+thrown.</p></li>
+<li><p><strong>set_active</strong> (<em>bool</em><em>, </em><em>optional</em>) – Activate the added AdapterFusion. By default (False), the AdapterFusion is added but not activated.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.add_classification_head">
+<code class="sig-name descname">add_classification_head</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">head_name</span></em>, <em class="sig-param"><span class="n">num_labels</span><span class="o">=</span><span class="default_value">2</span></em>, <em class="sig-param"><span class="n">layers</span><span class="o">=</span><span class="default_value">2</span></em>, <em class="sig-param"><span class="n">activation_function</span><span class="o">=</span><span class="default_value">'tanh'</span></em>, <em class="sig-param"><span class="n">overwrite_ok</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">multilabel</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">id2label</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">use_pooler</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.add_classification_head" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a sequence classification head on top of the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>head_name</strong> (<em>str</em>) – The name of the head.</p></li>
+<li><p><strong>num_labels</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of classification labels. Defaults to 2.</p></li>
+<li><p><strong>layers</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of layers. Defaults to 2.</p></li>
+<li><p><strong>activation_function</strong> (<em>str</em><em>, </em><em>optional</em>) – Activation function. Defaults to ‘tanh’.</p></li>
+<li><p><strong>overwrite_ok</strong> (<em>bool</em><em>, </em><em>optional</em>) – Force overwrite if a head with the same name exists. Defaults to False.</p></li>
+<li><p><strong>multilabel</strong> (<em>bool</em><em>, </em><em>optional</em>) – Enable multilabel classification setup. Defaults to False.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.add_qa_head">
+<code class="sig-name descname">add_qa_head</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">head_name</span></em>, <em class="sig-param"><span class="n">num_labels</span><span class="o">=</span><span class="default_value">2</span></em>, <em class="sig-param"><span class="n">layers</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">activation_function</span><span class="o">=</span><span class="default_value">'tanh'</span></em>, <em class="sig-param"><span class="n">overwrite_ok</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">id2label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.add_qa_head" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a question answering head on top of the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>head_name</strong> (<em>str</em>) – The name of the head.</p></li>
+<li><p><strong>num_labels</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of classification labels. Defaults to 2.</p></li>
+<li><p><strong>layers</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of layers. Defaults to 1.</p></li>
+<li><p><strong>activation_function</strong> (<em>str</em><em>, </em><em>optional</em>) – Activation function. Defaults to ‘tanh’.</p></li>
+<li><p><strong>overwrite_ok</strong> (<em>bool</em><em>, </em><em>optional</em>) – Force overwrite if a head with the same name exists. Defaults to False.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.add_seq2seq_lm_head">
+<code class="sig-name descname">add_seq2seq_lm_head</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">head_name</span></em>, <em class="sig-param"><span class="n">overwrite_ok</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.add_seq2seq_lm_head" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a sequence-to-sequence language modeling head on top of the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>head_name</strong> (<em>str</em>) – The name of the head.</p></li>
+<li><p><strong>overwrite_ok</strong> (<em>bool</em><em>, </em><em>optional</em>) – Force overwrite if a head with the same name exists. Defaults to False.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.apply_to_adapter_layers">
+<code class="sig-name descname">apply_to_adapter_layers</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">fn</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.apply_to_adapter_layers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Applies a function to all adapter layers of the model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.apply_to_basemodel_childs">
+<code class="sig-name descname">apply_to_basemodel_childs</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">fn</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.apply_to_basemodel_childs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Applies a function to all direct childs of the model if they are a instance of AdapterLayerBase.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.average_adapter">
+<code class="sig-name descname">average_adapter</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_name</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">adapter_list</span><span class="p">:</span> <span class="n">List<span class="p">[</span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">weights</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>float<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">normalize_weights</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">overwrite_ok</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">set_active</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.average_adapter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a new adapter module as weighted average of a set of existing adapter modules.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adapter_name</strong> (<em>str</em>) – The name of the adapter module to be added.</p></li>
+<li><p><strong>input_adapters</strong> (<em>List</em><em>[</em><em>str</em><em>] or </em><em>Dict</em><em>[</em><em>str</em><em>, </em><em>float</em><em>]</em>) – Specifies the existing adapters whose weights should be averaged. Can either be a list of adapter names
+or a dictionary mapping adapter names to weights.</p></li>
+<li><p><strong>overwrite_ok</strong> (<em>bool</em><em>, </em><em>optional</em>) – Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.</p></li>
+<li><p><strong>set_active</strong> (<em>bool</em><em>, </em><em>optional</em>) – Set the adapter to be the active one. By default (False), the adapter is added but not activated.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.delete_adapter">
+<code class="sig-name descname">delete_adapter</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_name</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.delete_adapter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deletes the adapter with the specified name from the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>adapter_name</strong> (<em>str</em>) – The name of the adapter.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.delete_adapter_fusion">
+<code class="sig-name descname">delete_adapter_fusion</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_names</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>adapters.composition.Fuse<span class="p">, </span>list<span class="p">, </span>str<span class="p">]</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.delete_adapter_fusion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deletes the AdapterFusion layer of the specified adapters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>adapter_names</strong> (<em>Union</em><em>[</em><em>Fuse</em><em>, </em><em>list</em><em>, </em><em>str</em><em>]</em>) – AdapterFusion layer to delete.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.delete_head">
+<code class="sig-name descname">delete_head</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">head_name</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.delete_head" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deletes the prediction head with the specified name from the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>head_name</strong> (<em>str</em>) – The name of the prediction to delete.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.eject_prefix_tuning">
+<code class="sig-name descname">eject_prefix_tuning</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.eject_prefix_tuning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts the prefix tuning with the given name from the reparameterized form into the flat form.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>name</strong> (<em>str</em>) – The name of the prefix tuning.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">input_ids</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">attention_mask</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">decoder_input_ids</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">decoder_attention_mask</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">head_mask</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">decoder_head_mask</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cross_attn_head_mask</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">encoder_outputs</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">past_key_values</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">inputs_embeds</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">decoder_inputs_embeds</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">labels</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">use_cache</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">output_attentions</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">output_hidden_states</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">return_dict</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">head</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">output_adapter_gating_scores</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">output_adapter_fusion_attentions</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>The [<cite>MT5AdapterModel</cite>] forward method, overrides the <cite>__call__</cite> special method.</p>
+<p>&lt;Tip&gt;</p>
+<p>Although the recipe for forward pass needs to be defined within this function, one should call the [<cite>Module</cite>]
+instance afterwards instead of this since the former takes care of running the pre and post processing steps while
+the latter silently ignores them.</p>
+<p>&lt;/Tip&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_ids</strong> (<cite>torch.LongTensor</cite> of shape <cite>(batch_size, sequence_length)</cite>) – <p>Indices of input sequence tokens in the vocabulary. MT5 is a model with relative position embeddings so you
+should be able to pad the inputs on both the right and the left.</p>
+<p>Indices can be obtained using [<cite>AutoTokenizer</cite>]. See [<cite>PreTrainedTokenizer.encode</cite>] and
+[<cite>PreTrainedTokenizer.__call__</cite>] for detail.</p>
+<p>[What are input IDs?](../glossary#input-ids)</p>
+<p>To know more on how to prepare <cite>input_ids</cite> for pretraining take a look a [MT5 Training](./mt5#training).</p>
+</p></li>
+<li><p><strong>attention_mask</strong> (<cite>torch.FloatTensor</cite> of shape <cite>(batch_size, sequence_length)</cite>, <em>optional</em>) – <p>Mask to avoid performing attention on padding token indices. Mask values selected in <cite>[0, 1]</cite>:</p>
+<ul>
+<li><p>1 for tokens that are <strong>not masked</strong>,</p></li>
+<li><p>0 for tokens that are <strong>masked</strong>.</p></li>
+</ul>
+<p>[What are attention masks?](../glossary#attention-mask)</p>
+</p></li>
+<li><p><strong>decoder_input_ids</strong> (<cite>torch.LongTensor</cite> of shape <cite>(batch_size, target_sequence_length)</cite>, <em>optional</em>) – <p>Indices of decoder input sequence tokens in the vocabulary.</p>
+<p>Indices can be obtained using [<cite>AutoTokenizer</cite>]. See [<cite>PreTrainedTokenizer.encode</cite>] and
+[<cite>PreTrainedTokenizer.__call__</cite>] for details.</p>
+<p>[What are decoder input IDs?](../glossary#decoder-input-ids)</p>
+<p>MT5 uses the <cite>pad_token_id</cite> as the starting token for <cite>decoder_input_ids</cite> generation. If <cite>past_key_values</cite>
+is used, optionally only the last <cite>decoder_input_ids</cite> have to be input (see <cite>past_key_values</cite>).</p>
+<p>To know more on how to prepare <cite>decoder_input_ids</cite> for pretraining take a look at [MT5
+Training](./mt5#training).</p>
+</p></li>
+<li><p><strong>decoder_attention_mask</strong> (<cite>torch.BoolTensor</cite> of shape <cite>(batch_size, target_sequence_length)</cite>, <em>optional</em>) – Default behavior: generate a tensor that ignores pad tokens in <cite>decoder_input_ids</cite>. Causal mask will also
+be used by default.</p></li>
+<li><p><strong>head_mask</strong> (<cite>torch.FloatTensor</cite> of shape <cite>(num_heads,)</cite> or <cite>(num_layers, num_heads)</cite>, <em>optional</em>) – <p>Mask to nullify selected heads of the self-attention modules in the encoder. Mask values selected in <cite>[0,
+1]</cite>:</p>
+<ul>
+<li><p>1 indicates the head is <strong>not masked</strong>,</p></li>
+<li><p>0 indicates the head is <strong>masked</strong>.</p></li>
+</ul>
+</p></li>
+<li><p><strong>decoder_head_mask</strong> (<cite>torch.FloatTensor</cite> of shape <cite>(num_heads,)</cite> or <cite>(num_layers, num_heads)</cite>, <em>optional</em>) – <p>Mask to nullify selected heads of the self-attention modules in the decoder. Mask values selected in <cite>[0,
+1]</cite>:</p>
+<ul>
+<li><p>1 indicates the head is <strong>not masked</strong>,</p></li>
+<li><p>0 indicates the head is <strong>masked</strong>.</p></li>
+</ul>
+</p></li>
+<li><p><strong>cross_attn_head_mask</strong> (<cite>torch.Tensor</cite> of shape <cite>(num_heads,)</cite> or <cite>(num_layers, num_heads)</cite>, <em>optional</em>) – <p>Mask to nullify selected heads of the cross-attention modules in the decoder. Mask values selected in
+<cite>[0, 1]</cite>:</p>
+<ul>
+<li><p>1 indicates the head is <strong>not masked</strong>,</p></li>
+<li><p>0 indicates the head is <strong>masked</strong>.</p></li>
+</ul>
+</p></li>
+<li><p><strong>encoder_outputs</strong> (<cite>tuple(tuple(torch.FloatTensor)</cite>, <em>optional</em>) – Tuple consists of (<cite>last_hidden_state</cite>, <cite>optional</cite>: <em>hidden_states</em>, <cite>optional</cite>: <em>attentions</em>)
+<cite>last_hidden_state</cite> of shape <cite>(batch_size, sequence_length, hidden_size)</cite> is a sequence of hidden states at
+the output of the last layer of the encoder. Used in the cross-attention of the decoder.</p></li>
+<li><p><strong>past_key_values</strong> (<cite>tuple(tuple(torch.FloatTensor))</cite> of length <cite>config.n_layers</cite> with each tuple having 4 tensors of shape <cite>(batch_size, num_heads, sequence_length - 1, embed_size_per_head)</cite>) – <p>Contains precomputed key and value hidden states of the attention blocks. Can be used to speed up decoding.</p>
+<p>If <cite>past_key_values</cite> are used, the user can optionally input only the last <cite>decoder_input_ids</cite> (those that
+don’t have their past key value states given to this model) of shape <cite>(batch_size, 1)</cite> instead of all
+<cite>decoder_input_ids</cite> of shape <cite>(batch_size, sequence_length)</cite>.</p>
+</p></li>
+<li><p><strong>inputs_embeds</strong> (<cite>torch.FloatTensor</cite> of shape <cite>(batch_size, sequence_length, hidden_size)</cite>, <em>optional</em>) – Optionally, instead of passing <cite>input_ids</cite> you can choose to directly pass an embedded representation. This
+is useful if you want more control over how to convert <cite>input_ids</cite> indices into associated vectors than the
+model’s internal embedding lookup matrix.</p></li>
+<li><p><strong>decoder_inputs_embeds</strong> (<cite>torch.FloatTensor</cite> of shape <cite>(batch_size, target_sequence_length, hidden_size)</cite>, <em>optional</em>) – <p>Optionally, instead of passing <cite>decoder_input_ids</cite> you can choose to directly pass an embedded
+representation. If <cite>past_key_values</cite> is used, optionally only the last <cite>decoder_inputs_embeds</cite> have to be
+input (see <cite>past_key_values</cite>). This is useful if you want more control over how to convert
+<cite>decoder_input_ids</cite> indices into associated vectors than the model’s internal embedding lookup matrix.</p>
+<p>If <cite>decoder_input_ids</cite> and <cite>decoder_inputs_embeds</cite> are both unset, <cite>decoder_inputs_embeds</cite> takes the value
+of <cite>inputs_embeds</cite>.</p>
+</p></li>
+<li><p><strong>use_cache</strong> (<cite>bool</cite>, <em>optional</em>) – If set to <cite>True</cite>, <cite>past_key_values</cite> key value states are returned and can be used to speed up decoding (see
+<cite>past_key_values</cite>).</p></li>
+<li><p><strong>output_attentions</strong> (<cite>bool</cite>, <em>optional</em>) – Whether or not to return the attentions tensors of all attention layers. See <cite>attentions</cite> under returned
+tensors for more detail.</p></li>
+<li><p><strong>output_hidden_states</strong> (<cite>bool</cite>, <em>optional</em>) – Whether or not to return the hidden states of all layers. See <cite>hidden_states</cite> under returned tensors for
+more detail.</p></li>
+<li><p><strong>return_dict</strong> (<cite>bool</cite>, <em>optional</em>) – Whether or not to return a [<cite>~utils.ModelOutput</cite>] instead of a plain tuple.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.forward_context">
+<code class="sig-name descname">forward_context</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">context</span><span class="p">:</span> <span class="n">adapters.context.ForwardContext</span></em>, <em class="sig-param"><span class="o">*</span><span class="n">args</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.forward_context" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is called by the <code class="docutils literal notranslate"><span class="pre">ForwardContext</span></code> at the beginning of the forward pass.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.forward_head">
+<code class="sig-name descname">forward_head</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">all_outputs</span></em>, <em class="sig-param"><span class="n">head_name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cls_output</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">attention_mask</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">return_dict</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">context</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.forward_head" title="Permalink to this definition">¶</a></dt>
+<dd><p>The forward pass through a prediction head configuration. There are three ways to specify the used prediction
+head configuration (in order of priority):</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>If a head_name is passed, the head with the given name is used.</p></li>
+<li><p>If the forward call is executed within an <code class="docutils literal notranslate"><span class="pre">AdapterSetup</span></code> context, the head configuration is read from
+the context.</p></li>
+<li><p>If the <code class="docutils literal notranslate"><span class="pre">active_head</span></code> property is set, the head configuration is read from there.</p></li>
+</ol>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>all_outputs</strong> (<em>dict</em>) – The outputs of the base model.</p></li>
+<li><p><strong>head_name</strong> (<em>str</em><em>, </em><em>optional</em>) – The name of the prediction head to use. If None, the active head is used.</p></li>
+<li><p><strong>cls_output</strong> (<em>torch.Tensor</em><em>, </em><em>optional</em>) – The classification output of the model.</p></li>
+<li><p><strong>attention_mask</strong> (<em>torch.Tensor</em><em>, </em><em>optional</em>) – The attention mask of the model.</p></li>
+<li><p><strong>return_dict</strong> (<em>bool</em>) – Whether or not to return a <code class="docutils literal notranslate"><span class="pre">ModelOutput</span></code> instead of a plain tuple.</p></li>
+<li><p><strong>get_cls_from_eos_tokens</strong> (<em>bool</em>) – If set to True, retrieve classifier token representations from the last &lt;eos&gt; token in the sequence.
+Setting to True requires <cite>eos_mask</cite> to be passed as well.</p></li>
+<li><p><strong>**kwargs</strong> – Additional keyword arguments passed to the forward pass of the head.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.freeze_model">
+<code class="sig-name descname">freeze_model</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">freeze</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.freeze_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Freezes all weights of the model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.get_adapter">
+<code class="sig-name descname">get_adapter</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.get_adapter" title="Permalink to this definition">¶</a></dt>
+<dd><p>If self.base_model is self, must inherit from a class that implements this method, to preclude infinite
+recursion</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.get_labels">
+<code class="sig-name descname">get_labels</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">head_name</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.get_labels" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the labels the given head is assigning/predictin</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>head_name</strong> – (str, optional) the name of the head which labels should be returned. Default is None.</p></li>
+<li><p><strong>the name is None the labels of the active head are returned</strong> (<em>If</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns: labels</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.get_labels_dict">
+<code class="sig-name descname">get_labels_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">head_name</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.get_labels_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the id2label dict for the given hea</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>head_name</strong> – (str, optional) the name of the head which labels should be returned. Default is None.</p></li>
+<li><p><strong>the name is None the labels of the active head are returned</strong> (<em>If</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns: id2label</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.head_type">
+<code class="sig-name descname">head_type</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.head_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks which head type the decorated function belongs to and raises an error if the model does not support the
+head type.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.init_adapters">
+<code class="sig-name descname">init_adapters</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">model_config</span></em>, <em class="sig-param"><span class="n">adapters_config</span></em>, <em class="sig-param"><span class="n">add_prefix_tuning_pool</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.init_adapters" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method initializes adapter modules and fusion modules from the model config.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.iter_layers">
+<code class="sig-name descname">iter_layers</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Iterable<span class="p">[</span>Tuple<span class="p">[</span>int<span class="p">, </span>torch.nn.modules.module.Module<span class="p">]</span><span class="p">]</span><a class="headerlink" href="#adapters.MT5AdapterModel.iter_layers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterates over all layers of the model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.load_adapter">
+<code class="sig-name descname">load_adapter</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_name_or_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>dict<span class="p">, </span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">version</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">model_name</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">load_as</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">source</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">with_head</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">custom_weights_loaders</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>adapters.loading.WeightsLoader<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">leave_out</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>int<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">id2label</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">set_active</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#adapters.MT5AdapterModel.load_adapter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a pre-trained pytorch adapter module from the local file system or a remote location.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adapter_name_or_path</strong> (<em>str</em>) – <p>can be either:</p>
+<ul>
+<li><p>the identifier of a pre-trained task adapter to be loaded from Adapter Hub</p></li>
+<li><p>a path to a directory containing adapter weights saved using <cite>model.saved_adapter()</cite></p></li>
+<li><p>a URL pointing to a zip folder containing a saved adapter module</p></li>
+</ul>
+</p></li>
+<li><p><strong>config</strong> (<em>dict</em><em> or </em><em>str</em><em>, </em><em>optional</em>) – The requested configuration of the adapter.
+If not specified, will be either: - the default adapter config for the requested adapter if specified -
+the global default adapter config</p></li>
+<li><p><strong>version</strong> (<em>str</em><em>, </em><em>optional</em>) – The version of the adapter to be loaded.</p></li>
+<li><p><strong>model_name</strong> (<em>str</em><em>, </em><em>optional</em>) – The string identifier of the pre-trained model.</p></li>
+<li><p><strong>load_as</strong> (<em>str</em><em>, </em><em>optional</em>) – Load the adapter using this name. By default, the name with which the adapter was
+saved will be used.</p></li>
+<li><p><strong>source</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>Identifier of the source(s) from where to load the adapter. Can be:</p>
+<ul>
+<li><p>”ah” (default): search on AdapterHub.</p></li>
+<li><p>”hf”: search on HuggingFace model hub.</p></li>
+<li><p>None: search on all sources</p></li>
+</ul>
+</p></li>
+<li><p><strong>leave_out</strong> – Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.</p></li>
+<li><p><strong>set_active</strong> (<em>bool</em><em>, </em><em>optional</em>) – Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not
+activated.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The name with which the adapter was added to the model.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.load_adapter_fusion">
+<code class="sig-name descname">load_adapter_fusion</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_fusion_name_or_path</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">load_as</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">custom_weights_loaders</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>adapters.loading.WeightsLoader<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">set_active</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">with_head</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#adapters.MT5AdapterModel.load_adapter_fusion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a pre-trained AdapterFusion layer from the local file system.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adapter_fusion_name_or_path</strong> (<em>str</em>) – a path to a directory containing AdapterFusion weights saved using <cite>model.save_adapter_fusion()</cite>.</p></li>
+<li><p><strong>load_as</strong> (<em>str</em><em>, </em><em>optional</em>) – Load the AdapterFusion using this name.
+By default, the name with which the AdapterFusion layer was saved will be used.</p></li>
+<li><p><strong>set_active</strong> (<em>bool</em><em>, </em><em>optional</em>) – Activate the loaded AdapterFusion. By default (False), the AdapterFusion is loaded but not activated.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The name with which the AdapterFusion was added to the model.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.merge_adapter">
+<code class="sig-name descname">merge_adapter</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.merge_adapter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Merges the weights of the given LoRA module with the Transformer weights as described in the paper.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>name</strong> (<em>str</em>) – LoRA module to merge.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.push_adapter_to_hub">
+<code class="sig-name descname">push_adapter_to_hub</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">repo_name</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">adapter_name</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">organization</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">adapterhub_tag</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">datasets_tag</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">local_path</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">commit_message</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">private</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>bool<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">token</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Union<span class="p">[</span>bool<span class="p">, </span>str<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">overwrite_adapter_card</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">create_pr</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">revision</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">commit_description</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">adapter_card_kwargs</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">deprecated_kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.push_adapter_to_hub" title="Permalink to this definition">¶</a></dt>
+<dd><p>Upload an adapter to HuggingFace’s Model Hub.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>repo_name</strong> (<em>str</em>) – The name of the repository on the model hub to upload to.</p></li>
+<li><p><strong>adapter_name</strong> (<em>str</em>) – The name of the adapter to be uploaded.</p></li>
+<li><p><strong>organization</strong> (<em>str</em><em>, </em><em>optional</em>) – Organization in which to push the adapter
+(you must be a member of this organization). Defaults to None.</p></li>
+<li><p><strong>adapterhub_tag</strong> (<em>str</em><em>, </em><em>optional</em>) – Tag of the format <cite>&lt;task&gt;/&lt;subtask&gt;</cite> for categorization on <a class="reference external" href="https://adapterhub.ml/explore/">https://adapterhub.ml/explore/</a>. See
+<a class="reference external" href="https://docs.adapterhub.ml/contributing.html#add-a-new-task-or-subtask">https://docs.adapterhub.ml/contributing.html#add-a-new-task-or-subtask</a> for more. If not specified,
+<cite>datasets_tag</cite> must be given in case a new adapter card is generated. Defaults to None.</p></li>
+<li><p><strong>datasets_tag</strong> (<em>str</em><em>, </em><em>optional</em>) – Dataset identifier from <a class="reference external" href="https://huggingface.co/datasets">https://huggingface.co/datasets</a>.
+If not specified, <cite>adapterhub_tag</cite> must be given in case a new adapter card is generated. Defaults to
+None.</p></li>
+<li><p><strong>local_path</strong> (<em>str</em><em>, </em><em>optional</em>) – Local path used as clone directory of the adapter repository.
+If not specified, will create a temporary directory. Defaults to None.</p></li>
+<li><p><strong>commit_message</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>, <cite>optional</cite>) – Message to commit while pushing. Will default to <code class="xref py py-obj docutils literal notranslate"><span class="pre">&quot;add</span> <span class="pre">config&quot;</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">&quot;add</span> <span class="pre">tokenizer&quot;</span></code> or
+<code class="xref py py-obj docutils literal notranslate"><span class="pre">&quot;add</span> <span class="pre">model&quot;</span></code> depending on the type of the class.</p></li>
+<li><p><strong>private</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, <cite>optional</cite>) – Whether or not the repository created should be private (requires a paying subscription).</p></li>
+<li><p><strong>token</strong> (<cite>bool</cite> or <cite>str</cite>, <em>optional</em>) – The token to use as HTTP bearer authorization for remote files. If <cite>True</cite>, will use the token generated
+when running <cite>huggingface-cli login</cite> (stored in <cite>~/.huggingface</cite>). Will default to <cite>True</cite> if <cite>repo_url</cite>
+is not specified.</p></li>
+<li><p><strong>overwrite_adapter_card</strong> (<em>bool</em><em>, </em><em>optional</em>) – Overwrite an existing adapter card with a newly generated one.
+If set to <cite>False</cite>, will only generate an adapter card, if none exists. Defaults to False.</p></li>
+<li><p><strong>create_pr</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether or not to create a PR with the uploaded files or directly commit.</p></li>
+<li><p><strong>revision</strong> (<cite>str</cite>, <em>optional</em>) – Branch to push the uploaded files to.</p></li>
+<li><p><strong>commit_description</strong> (<cite>str</cite>, <em>optional</em>) – The description of the commit that will be created</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The url of the adapter repository on the model hub.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.reset_adapter">
+<code class="sig-name descname">reset_adapter</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.reset_adapter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Resets weights of a LoRA module merged using <cite>model.merge_adapter(name)</cite>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.save_adapter">
+<code class="sig-name descname">save_adapter</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">save_directory</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">adapter_name</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">with_head</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">meta_dict</span><span class="p">:</span> <span class="n">dict</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">custom_weights_loaders</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>adapters.loading.WeightsLoader<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.save_adapter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves an adapter and its configuration file to a directory so that it can be shared or reloaded using
+<cite>load_adapter()</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>save_directory</strong> (<em>str</em>) – Path to a directory where the adapter should be saved.</p></li>
+<li><p><strong>adapter_name</strong> (<em>str</em>) – Name of the adapter to be saved.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If the given adapter name is invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.save_adapter_fusion">
+<code class="sig-name descname">save_adapter_fusion</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">save_directory</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">adapter_names</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>adapters.composition.Fuse<span class="p">, </span>list<span class="p">, </span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">meta_dict</span><span class="p">:</span> <span class="n">dict</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">custom_weights_loaders</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>adapters.loading.WeightsLoader<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">with_head</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>bool<span class="p">, </span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.save_adapter_fusion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves an AdapterFusion layer and its configuration file to a directory so that it can be shared or reloaded
+using <cite>load_adapter_fusion()</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>save_directory</strong> (<em>str</em>) – Path to a directory where the AdapterFusion should be saved.</p></li>
+<li><p><strong>adapter_names</strong> (<em>Union</em><em>[</em><em>Fuse</em><em>, </em><em>list</em><em>, </em><em>str</em><em>]</em>) – AdapterFusion to be saved.</p></li>
+<li><p><strong>with_head</strong> (<em>Union</em><em>[</em><em>bool</em><em>, </em><em>str</em><em>]</em>) – If True, will save a head with the same name as the AdapterFusionLayer. If a string, this will be used
+as the name of the head to be saved.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If the given AdapterFusion name is invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.save_all_adapter_fusions">
+<code class="sig-name descname">save_all_adapter_fusions</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">save_directory</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">meta_dict</span><span class="p">:</span> <span class="n">dict</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">custom_weights_loaders</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>adapters.loading.WeightsLoader<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.save_all_adapter_fusions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves all AdapterFusion layers of this model together with their configuration to subfolders of the given
+location.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>save_directory</strong> (<em>str</em>) – Path to a directory where the AdapterFusion layers should be saved.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.save_all_adapters">
+<code class="sig-name descname">save_all_adapters</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">save_directory</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">with_head</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">meta_dict</span><span class="p">:</span> <span class="n">dict</span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">custom_weights_loaders</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>adapters.loading.WeightsLoader<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.save_all_adapters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves all adapters of this model together with their configuration to subfolders of the given location.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>save_directory</strong> (<em>str</em>) – Path to a directory where the adapters should be saved.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.set_active_adapters">
+<code class="sig-name descname">set_active_adapters</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_setup</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>list<span class="p">, </span>adapters.composition.AdapterCompositionBlock<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">skip_layers</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>int<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.set_active_adapters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the adapter modules to be used by default in every forward pass. This setting can be overriden by passing
+the <cite>adapter_names</cite> parameter in the <cite>foward()</cite> pass. If no adapter with the given name is found, no module of
+the respective type will be activated. In case the calling model class supports named prediction heads, this
+method will attempt to activate a prediction head with the name of the last adapter in the list of passed
+adapter names.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>adapter_setup</strong> (<em>list</em>) – The list of adapters to be activated by default. Can be a fusion or stacking configuration.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.tie_weights">
+<code class="sig-name descname">tie_weights</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.tie_weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tie the weights between the input embeddings and the output embeddings.</p>
+<p>If the <code class="xref py py-obj docutils literal notranslate"><span class="pre">torchscript</span></code> flag is set in the configuration, can’t handle parameter sharing so we are cloning
+the weights instead.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.train_adapter">
+<code class="sig-name descname">train_adapter</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_setup</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>list<span class="p">, </span>adapters.composition.AdapterCompositionBlock<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">train_embeddings</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.train_adapter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the model into mode for training the given adapters. If self.base_model is self, must inherit from a class
+that implements this method, to preclude infinite recursion</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.train_adapter_fusion">
+<code class="sig-name descname">train_adapter_fusion</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_setup</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>list<span class="p">, </span>adapters.composition.AdapterCompositionBlock<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">unfreeze_adapters</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.train_adapter_fusion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the model into mode for training of adapter fusion determined by a list of adapter names. If
+self.base_model is self, must inherit from a class that implements this method, to preclude infinite recursion</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.MT5AdapterModel.train_fusion">
+<code class="sig-name descname">train_fusion</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_setup</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>list<span class="p">, </span>adapters.composition.AdapterCompositionBlock<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">unfreeze_adapters</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MT5AdapterModel.train_fusion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the model into mode for training of adapter fusion determined by a list of adapter names.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020-2024, AdapterHub Team
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  <!--- IMPORTANT: This file has modifications compared to the snippet on the documentation page! -->
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Versions</span>
+    v: main
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="mt5.html">main</a></dd>
+    </dl>
+  </div>
+</div>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

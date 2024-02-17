@@ -1,0 +1,940 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Adapter Configuration &mdash; AdapterHub  documentation</title>
+  
+
+  
+  
+    <link rel="shortcut icon" href="../_static/favicon.png"/>
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+        <script src="../_static/clipboard.min.js"></script>
+        <script src="../_static/copybutton.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/copybutton.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Model Adapters Config" href="model_adapters_config.html" />
+    <link rel="prev" title="X-MOD" href="models/xmod.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> AdapterHub
+          
+
+          
+            
+            <img src="../_static/logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../training.html">Adapter Training</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../transitioning.html">Transitioning from <code class="docutils literal notranslate"><span class="pre">adapter_transformers</span></code></a></li>
+</ul>
+<p class="caption"><span class="caption-text">Adapter Methods</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview and Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../methods.html">Adapter Methods</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../method_combinations.html">Method Combinations</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Advanced</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../adapter_composition.html">Adapter Activation and Composition</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../prediction_heads.html">Prediction Heads</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../embeddings.html">Embeddings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending.html">Extending the Library</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Loading and Sharing</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../loading.html">Loading Pre-Trained Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hub_contributing.html">Contributing Adapters to the Hub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../huggingface_hub.html">Integration with Hugging Face’s Model Hub</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Supported Models</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../model_overview.html">Model Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/albert.html">ALBERT</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/auto.html">Auto Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/bart.html">BART</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/beit.html">BEiT</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/bert.html">BERT</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/bert-generation.html">BertGeneration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/clip.html">CLIP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/deberta.html">DeBERTa</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/deberta_v2.html">DeBERTa-v2</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/distilbert.html">DistilBERT</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/electra.html">ELECTRA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/encoderdecoder.html">Encoder Decoder Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/gpt2.html">OpenAI GPT2</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/gptj.html">EleutherAI GPT-J-6B</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/llama.html">LLaMA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/mbart.html">MBart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/roberta.html">RoBERTa</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/t5.html">T5</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/vit.html">Vision Transformer (ViT)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/xlmroberta.html">XLM-RoBERTa</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models/xmod.html">X-MOD</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Adapter-Related Classes</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Adapter Configuration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#single-bottleneck-adapters">Single (bottleneck) adapters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#prefix-tuning">Prefix Tuning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#loraconfig">LoRAConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ia3config">IA3Config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#prompttuningconfig">PromptTuningConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#combined-configurations">Combined configurations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#adapter-fusion">Adapter Fusion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#adapter-setup">Adapter Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="model_adapters_config.html">Model Adapters Config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adapter_layer.html">Adapter Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_mixins.html">Model Mixins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adapter_training.html">Adapter Training</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adapter_utils.html">Adapter Utilities</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Contributing</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to AdapterHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing/adding_adapter_methods.html">Adding Adapter Methods</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing/adding_adapters_to_a_model.html">Adding Adapters to a Model</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AdapterHub</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+      <li>Adapter Configuration</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/classes/adapter_config.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="adapter-configuration">
+<h1>Adapter Configuration<a class="headerlink" href="#adapter-configuration" title="Permalink to this headline">¶</a></h1>
+<p>Classes representing the architectures of adapter modules and fusion layers.</p>
+<div class="section" id="single-bottleneck-adapters">
+<h2>Single (bottleneck) adapters<a class="headerlink" href="#single-bottleneck-adapters" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="adapters.AdapterConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">AdapterConfig</code><a class="headerlink" href="#adapters.AdapterConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for all adaptation methods. This class does not define specific configuration keys, but only provides
+some common helper methods.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>architecture</strong> (<em>str</em><em>, </em><em>optional</em>) – The type of adaptation method defined by the configuration.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="adapters.AdapterConfig.from_dict">
+<em class="property">classmethod </em><code class="sig-name descname">from_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.AdapterConfig.from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a config class from a Python dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.AdapterConfig.load">
+<em class="property">classmethod </em><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>dict<span class="p">, </span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">download_kwargs</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.AdapterConfig.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a given adapter configuration specifier into a full AdapterConfig instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>Union</em><em>[</em><em>dict</em><em>, </em><em>str</em><em>]</em>) – <p>The configuration to load. Can be either:</p>
+<ul class="simple">
+<li><p>a dictionary representing the full config</p></li>
+<li><p>an identifier string available in ADAPTER_CONFIG_MAP</p></li>
+<li><p>the path to a file containing a full adapter configuration</p></li>
+<li><p>an identifier string available in Adapter-Hub</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The resolved adapter configuration dictionary.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.AdapterConfig.replace">
+<code class="sig-name descname">replace</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">changes</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.AdapterConfig.replace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a new instance of the config class with the specified changes applied.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.AdapterConfig.to_dict">
+<code class="sig-name descname">to_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.AdapterConfig.to_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts the config class to a Python dict.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.BnConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">BnConfig</code><span class="sig-paren">(</span><em class="sig-param">mh_adapter: bool, output_adapter: bool, reduction_factor: Union[float, collections.abc.Mapping], non_linearity: str, original_ln_before: bool = False, original_ln_after: bool = True, ln_before: bool = False, ln_after: bool = False, init_weights: str = 'bert', is_parallel: bool = False, scaling: Union[float, str] = 1.0, use_gating: bool = False, residual_before_ln: Union[bool, str] = True, adapter_residual_before_ln: bool = False, inv_adapter: Optional[str] = None, inv_adapter_reduction_factor: Optional[float] = None, cross_adapter: bool = False, leave_out: List[int] = &lt;factory&gt;, phm_layer: bool = False, phm_dim: int = 4, factorized_phm_W: Optional[bool] = True, shared_W_phm: Optional[bool] = False, shared_phm_rule: Optional[bool] = True, factorized_phm_rule: Optional[bool] = False, phm_c_init: Optional[str] = 'normal', phm_init_range: Optional[float] = 0.0001, learn_phm: Optional[bool] = True, hypercomplex_nonlinearity: Optional[str] = 'glorot-uniform', phm_rank: Optional[int] = 1, phm_bias: Optional[bool] = True</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.BnConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class that models the architecture of a bottleneck adapter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mh_adapter</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – If True, add adapter modules after the multi-head attention block of each layer.</p></li>
+<li><p><strong>output_adapter</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – If True, add adapter modules after the output FFN of each layer.</p></li>
+<li><p><strong>reduction_factor</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">Mapping</span></code>) – Either a scalar float (&gt; 0) specifying the reduction factor for all layers or a mapping from layer ID
+(starting at 0) to values specifying the reduction_factor for individual layers. If not all layers are
+represented in the mapping a default value should be given e.g. {‘1’: 8, ‘6’: 32, ‘default’: 16}.
+Specifying a reduction factor &lt; 1 will result in an up-projection layer.</p></li>
+<li><p><strong>non_linearity</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – The activation function to use in the adapter bottleneck.</p></li>
+<li><p><strong>original_ln_before</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – If True, apply layer pre-trained normalization and residual connection before the adapter modules. Defaults
+to False. Only applicable if <code class="xref py py-obj docutils literal notranslate"><span class="pre">is_parallel</span></code> is False.</p></li>
+<li><p><strong>original_ln_after</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – If True, apply pre-trained layer normalization and residual connection after the adapter modules. Defaults
+to True.</p></li>
+<li><p><strong>ln_before</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – If True, add a new layer normalization before the adapter bottleneck.
+Defaults to False.</p></li>
+<li><p><strong>ln_after</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – If True, add a new layer normalization after the adapter bottleneck.
+Defaults to False.</p></li>
+<li><p><strong>init_weights</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>, optional) – Initialization method for the weights of the adapter modules.
+Currently, this can be either “bert” (default) or “mam_adapter”.</p></li>
+<li><p><strong>is_parallel</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – If True, apply adapter transformations in parallel.
+By default (False), sequential application is used.</p></li>
+<li><p><strong>scaling</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>, optional) – Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021). Can be either a
+constant factor (float) or the string “learned”, in which case the scaling factor is learned. Defaults to
+1.0.</p></li>
+<li><p><strong>use_gating</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – Place a trainable gating module besides the added parameter module to control module activation. This is
+e.g. used for UniPELT. Defaults to False.</p></li>
+<li><p><strong>residual_before_ln</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>, optional) – If True, take the residual connection around the adapter bottleneck before the layer normalization. If set
+to “post_add”, take the residual connection around the adapter bottleneck after the previous residual
+connection. Only applicable if <code class="xref py py-obj docutils literal notranslate"><span class="pre">original_ln_before</span></code> is True.</p></li>
+<li><p><strong>adapter_residual_before_ln</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – If True, apply the residual connection around the adapter modules before the new layer normalization within
+the adapter. Only applicable if <code class="xref py py-obj docutils literal notranslate"><span class="pre">ln_after</span></code> is True and <code class="xref py py-obj docutils literal notranslate"><span class="pre">is_parallel</span></code> is False.</p></li>
+<li><p><strong>inv_adapter</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>, optional) – If not None (default), add invertible adapter modules after the model embedding layer. Currently, this can
+be either “nice” or “glow”.</p></li>
+<li><p><strong>inv_adapter_reduction_factor</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>, optional) – The reduction to use within the invertible adapter modules. Only applicable if <code class="xref py py-obj docutils literal notranslate"><span class="pre">inv_adapter</span></code> is not
+None.</p></li>
+<li><p><strong>cross_adapter</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – If True, add adapter modules after the cross attention block of each decoder layer in an encoder-decoder
+model. Defaults to False.</p></li>
+<li><p><strong>leave_out</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">List[int]</span></code>, optional) – The IDs of the layers (starting at 0) where NO adapter modules should be added.</p></li>
+<li><p><strong>phm_layer</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – If True the down and up projection layers are a PHMLayer.
+Defaults to False</p></li>
+<li><p><strong>phm_dim</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code>, optional) – The dimension of the phm matrix.
+Only applicable if <cite>phm_layer</cite> is set to <cite>True</cite>. Defaults to 4.</p></li>
+<li><p><strong>shared_phm_rule</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – Whether the phm matrix is shared across all layers.
+Defaults to True</p></li>
+<li><p><strong>factorized_phm_rule</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – Whether the phm matrix is factorized into a left and right matrix. Defaults to False.</p></li>
+<li><p><strong>learn_phm</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – Whether the phm matrix should be learned during training.
+Defaults to True</p></li>
+<li><p><strong>(</strong> (<em>factorized_phm_W</em>) – obj:<cite>bool</cite>, optional): Whether the weights matrix is factorized into a left and right matrix. Defaults to
+True</p></li>
+<li><p><strong>shared_W_phm</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – Whether the weights matrix is shared across all layers.
+Defaults to False.</p></li>
+<li><p><strong>phm_c_init</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>, optional) – The initialization function for the weights of the phm matrix.
+The possible values are <cite>[“normal”, “uniform”]</cite>. Defaults to <cite>normal</cite>.</p></li>
+<li><p><strong>phm_init_range</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>, optional) – std for initializing phm weights if <cite>phm_c_init=”normal”</cite>.
+Defaults to 0.0001.</p></li>
+<li><p><strong>hypercomplex_nonlinearity</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>, optional) – This specifies the distribution to draw the weights in the phm layer from. Defaults to <cite>glorot-uniform</cite>.</p></li>
+<li><p><strong>phm_rank</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code>, optional) – If the weight matrix is factorized this specifies the rank of the matrix. E.g. the left matrix of the down
+projection has the shape (phm_dim, _in_feats_per_axis, phm_rank) and the right matrix (phm_dim, phm_rank,
+_out_feats_per_axis). Defaults to 1</p></li>
+<li><p><strong>phm_bias</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – If True the down and up projection PHMLayer has a bias term. If <cite>phm_layer</cite> is False this is ignored.
+Defaults to True</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="adapters.BnConfig.from_dict">
+<em class="property">classmethod </em><code class="sig-name descname">from_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.BnConfig.from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a config class from a Python dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.BnConfig.load">
+<em class="property">classmethod </em><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>dict<span class="p">, </span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">download_kwargs</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.BnConfig.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a given adapter configuration specifier into a full AdapterConfig instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>Union</em><em>[</em><em>dict</em><em>, </em><em>str</em><em>]</em>) – <p>The configuration to load. Can be either:</p>
+<ul class="simple">
+<li><p>a dictionary representing the full config</p></li>
+<li><p>an identifier string available in ADAPTER_CONFIG_MAP</p></li>
+<li><p>the path to a file containing a full adapter configuration</p></li>
+<li><p>an identifier string available in Adapter-Hub</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The resolved adapter configuration dictionary.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.BnConfig.replace">
+<code class="sig-name descname">replace</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">changes</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.BnConfig.replace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a new instance of the config class with the specified changes applied.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.BnConfig.to_dict">
+<code class="sig-name descname">to_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.BnConfig.to_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts the config class to a Python dict.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.SeqBnConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">SeqBnConfig</code><span class="sig-paren">(</span><em class="sig-param">mh_adapter: bool = False</em>, <em class="sig-param">output_adapter: bool = True</em>, <em class="sig-param">reduction_factor: Union[float</em>, <em class="sig-param">collections.abc.Mapping] = 16</em>, <em class="sig-param">non_linearity: str = 'relu'</em>, <em class="sig-param">original_ln_before: bool = True</em>, <em class="sig-param">original_ln_after: bool = True</em>, <em class="sig-param">ln_before: bool = False</em>, <em class="sig-param">ln_after: bool = False</em>, <em class="sig-param">init_weights: str = 'bert'</em>, <em class="sig-param">is_parallel: bool = False</em>, <em class="sig-param">scaling: Union[float</em>, <em class="sig-param">str] = 1.0</em>, <em class="sig-param">use_gating: bool = False</em>, <em class="sig-param">residual_before_ln: Union[bool</em>, <em class="sig-param">str] = True</em>, <em class="sig-param">adapter_residual_before_ln: bool = False</em>, <em class="sig-param">inv_adapter: Optional[str] = None</em>, <em class="sig-param">inv_adapter_reduction_factor: Optional[float] = None</em>, <em class="sig-param">cross_adapter: bool = False</em>, <em class="sig-param">leave_out: List[int] = &lt;factory&gt;</em>, <em class="sig-param">phm_layer: bool = False</em>, <em class="sig-param">phm_dim: int = 4</em>, <em class="sig-param">factorized_phm_W: Optional[bool] = True</em>, <em class="sig-param">shared_W_phm: Optional[bool] = False</em>, <em class="sig-param">shared_phm_rule: Optional[bool] = True</em>, <em class="sig-param">factorized_phm_rule: Optional[bool] = False</em>, <em class="sig-param">phm_c_init: Optional[str] = 'normal'</em>, <em class="sig-param">phm_init_range: Optional[float] = 0.0001</em>, <em class="sig-param">learn_phm: Optional[bool] = True</em>, <em class="sig-param">hypercomplex_nonlinearity: Optional[str] = 'glorot-uniform'</em>, <em class="sig-param">phm_rank: Optional[int] = 1</em>, <em class="sig-param">phm_bias: Optional[bool] = True</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.SeqBnConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The adapter architecture proposed by Pfeiffer et al. (2020). See <a class="reference external" href="https://arxiv.org/pdf/2005.00247.pdf">https://arxiv.org/pdf/2005.00247.pdf</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.SeqBnInvConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">SeqBnInvConfig</code><span class="sig-paren">(</span><em class="sig-param">mh_adapter: bool = False</em>, <em class="sig-param">output_adapter: bool = True</em>, <em class="sig-param">reduction_factor: Union[float</em>, <em class="sig-param">collections.abc.Mapping] = 16</em>, <em class="sig-param">non_linearity: str = 'relu'</em>, <em class="sig-param">original_ln_before: bool = True</em>, <em class="sig-param">original_ln_after: bool = True</em>, <em class="sig-param">ln_before: bool = False</em>, <em class="sig-param">ln_after: bool = False</em>, <em class="sig-param">init_weights: str = 'bert'</em>, <em class="sig-param">is_parallel: bool = False</em>, <em class="sig-param">scaling: Union[float</em>, <em class="sig-param">str] = 1.0</em>, <em class="sig-param">use_gating: bool = False</em>, <em class="sig-param">residual_before_ln: Union[bool</em>, <em class="sig-param">str] = True</em>, <em class="sig-param">adapter_residual_before_ln: bool = False</em>, <em class="sig-param">inv_adapter: Optional[str] = 'nice'</em>, <em class="sig-param">inv_adapter_reduction_factor: Optional[float] = 2</em>, <em class="sig-param">cross_adapter: bool = False</em>, <em class="sig-param">leave_out: List[int] = &lt;factory&gt;</em>, <em class="sig-param">phm_layer: bool = False</em>, <em class="sig-param">phm_dim: int = 4</em>, <em class="sig-param">factorized_phm_W: Optional[bool] = True</em>, <em class="sig-param">shared_W_phm: Optional[bool] = False</em>, <em class="sig-param">shared_phm_rule: Optional[bool] = True</em>, <em class="sig-param">factorized_phm_rule: Optional[bool] = False</em>, <em class="sig-param">phm_c_init: Optional[str] = 'normal'</em>, <em class="sig-param">phm_init_range: Optional[float] = 0.0001</em>, <em class="sig-param">learn_phm: Optional[bool] = True</em>, <em class="sig-param">hypercomplex_nonlinearity: Optional[str] = 'glorot-uniform'</em>, <em class="sig-param">phm_rank: Optional[int] = 1</em>, <em class="sig-param">phm_bias: Optional[bool] = True</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.SeqBnInvConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The adapter architecture proposed by Pfeiffer et al. (2020). See <a class="reference external" href="https://arxiv.org/pdf/2005.00247.pdf">https://arxiv.org/pdf/2005.00247.pdf</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.DoubleSeqBnConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">DoubleSeqBnConfig</code><span class="sig-paren">(</span><em class="sig-param">mh_adapter: bool = True</em>, <em class="sig-param">output_adapter: bool = True</em>, <em class="sig-param">reduction_factor: Union[float</em>, <em class="sig-param">collections.abc.Mapping] = 16</em>, <em class="sig-param">non_linearity: str = 'swish'</em>, <em class="sig-param">original_ln_before: bool = False</em>, <em class="sig-param">original_ln_after: bool = True</em>, <em class="sig-param">ln_before: bool = False</em>, <em class="sig-param">ln_after: bool = False</em>, <em class="sig-param">init_weights: str = 'bert'</em>, <em class="sig-param">is_parallel: bool = False</em>, <em class="sig-param">scaling: Union[float</em>, <em class="sig-param">str] = 1.0</em>, <em class="sig-param">use_gating: bool = False</em>, <em class="sig-param">residual_before_ln: Union[bool</em>, <em class="sig-param">str] = True</em>, <em class="sig-param">adapter_residual_before_ln: bool = False</em>, <em class="sig-param">inv_adapter: Optional[str] = None</em>, <em class="sig-param">inv_adapter_reduction_factor: Optional[float] = None</em>, <em class="sig-param">cross_adapter: bool = False</em>, <em class="sig-param">leave_out: List[int] = &lt;factory&gt;</em>, <em class="sig-param">phm_layer: bool = False</em>, <em class="sig-param">phm_dim: int = 4</em>, <em class="sig-param">factorized_phm_W: Optional[bool] = True</em>, <em class="sig-param">shared_W_phm: Optional[bool] = False</em>, <em class="sig-param">shared_phm_rule: Optional[bool] = True</em>, <em class="sig-param">factorized_phm_rule: Optional[bool] = False</em>, <em class="sig-param">phm_c_init: Optional[str] = 'normal'</em>, <em class="sig-param">phm_init_range: Optional[float] = 0.0001</em>, <em class="sig-param">learn_phm: Optional[bool] = True</em>, <em class="sig-param">hypercomplex_nonlinearity: Optional[str] = 'glorot-uniform'</em>, <em class="sig-param">phm_rank: Optional[int] = 1</em>, <em class="sig-param">phm_bias: Optional[bool] = True</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.DoubleSeqBnConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The adapter architecture proposed by Houlsby et al. (2019). See <a class="reference external" href="https://arxiv.org/pdf/1902.00751.pdf">https://arxiv.org/pdf/1902.00751.pdf</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.DoubleSeqBnInvConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">DoubleSeqBnInvConfig</code><span class="sig-paren">(</span><em class="sig-param">mh_adapter: bool = True</em>, <em class="sig-param">output_adapter: bool = True</em>, <em class="sig-param">reduction_factor: Union[float</em>, <em class="sig-param">collections.abc.Mapping] = 16</em>, <em class="sig-param">non_linearity: str = 'swish'</em>, <em class="sig-param">original_ln_before: bool = False</em>, <em class="sig-param">original_ln_after: bool = True</em>, <em class="sig-param">ln_before: bool = False</em>, <em class="sig-param">ln_after: bool = False</em>, <em class="sig-param">init_weights: str = 'bert'</em>, <em class="sig-param">is_parallel: bool = False</em>, <em class="sig-param">scaling: Union[float</em>, <em class="sig-param">str] = 1.0</em>, <em class="sig-param">use_gating: bool = False</em>, <em class="sig-param">residual_before_ln: Union[bool</em>, <em class="sig-param">str] = True</em>, <em class="sig-param">adapter_residual_before_ln: bool = False</em>, <em class="sig-param">inv_adapter: Optional[str] = 'nice'</em>, <em class="sig-param">inv_adapter_reduction_factor: Optional[float] = 2</em>, <em class="sig-param">cross_adapter: bool = False</em>, <em class="sig-param">leave_out: List[int] = &lt;factory&gt;</em>, <em class="sig-param">phm_layer: bool = False</em>, <em class="sig-param">phm_dim: int = 4</em>, <em class="sig-param">factorized_phm_W: Optional[bool] = True</em>, <em class="sig-param">shared_W_phm: Optional[bool] = False</em>, <em class="sig-param">shared_phm_rule: Optional[bool] = True</em>, <em class="sig-param">factorized_phm_rule: Optional[bool] = False</em>, <em class="sig-param">phm_c_init: Optional[str] = 'normal'</em>, <em class="sig-param">phm_init_range: Optional[float] = 0.0001</em>, <em class="sig-param">learn_phm: Optional[bool] = True</em>, <em class="sig-param">hypercomplex_nonlinearity: Optional[str] = 'glorot-uniform'</em>, <em class="sig-param">phm_rank: Optional[int] = 1</em>, <em class="sig-param">phm_bias: Optional[bool] = True</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.DoubleSeqBnInvConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The adapter architecture proposed by Houlsby et. al. (2019). See <a class="reference external" href="https://arxiv.org/pdf/1902.00751.pdf">https://arxiv.org/pdf/1902.00751.pdf</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.ParBnConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">ParBnConfig</code><span class="sig-paren">(</span><em class="sig-param">mh_adapter: bool = False</em>, <em class="sig-param">output_adapter: bool = True</em>, <em class="sig-param">reduction_factor: Union[float</em>, <em class="sig-param">collections.abc.Mapping] = 2</em>, <em class="sig-param">non_linearity: str = 'relu'</em>, <em class="sig-param">original_ln_before: bool = False</em>, <em class="sig-param">original_ln_after: bool = True</em>, <em class="sig-param">ln_before: bool = False</em>, <em class="sig-param">ln_after: bool = False</em>, <em class="sig-param">init_weights: str = 'mam_adapter'</em>, <em class="sig-param">is_parallel: bool = True</em>, <em class="sig-param">scaling: Union[float</em>, <em class="sig-param">str] = 4.0</em>, <em class="sig-param">use_gating: bool = False</em>, <em class="sig-param">residual_before_ln: Union[bool</em>, <em class="sig-param">str] = True</em>, <em class="sig-param">adapter_residual_before_ln: bool = False</em>, <em class="sig-param">inv_adapter: Optional[str] = None</em>, <em class="sig-param">inv_adapter_reduction_factor: Optional[float] = None</em>, <em class="sig-param">cross_adapter: bool = False</em>, <em class="sig-param">leave_out: List[int] = &lt;factory&gt;</em>, <em class="sig-param">phm_layer: bool = False</em>, <em class="sig-param">phm_dim: int = 4</em>, <em class="sig-param">factorized_phm_W: Optional[bool] = True</em>, <em class="sig-param">shared_W_phm: Optional[bool] = False</em>, <em class="sig-param">shared_phm_rule: Optional[bool] = True</em>, <em class="sig-param">factorized_phm_rule: Optional[bool] = False</em>, <em class="sig-param">phm_c_init: Optional[str] = 'normal'</em>, <em class="sig-param">phm_init_range: Optional[float] = 0.0001</em>, <em class="sig-param">learn_phm: Optional[bool] = True</em>, <em class="sig-param">hypercomplex_nonlinearity: Optional[str] = 'glorot-uniform'</em>, <em class="sig-param">phm_rank: Optional[int] = 1</em>, <em class="sig-param">phm_bias: Optional[bool] = True</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.ParBnConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The parallel adapter architecture proposed by He et al. (2021). See <a class="reference external" href="https://arxiv.org/pdf/2110.04366.pdf">https://arxiv.org/pdf/2110.04366.pdf</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.CompacterConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">CompacterConfig</code><span class="sig-paren">(</span><em class="sig-param">mh_adapter: bool = True</em>, <em class="sig-param">output_adapter: bool = True</em>, <em class="sig-param">reduction_factor: Union[float</em>, <em class="sig-param">collections.abc.Mapping] = 32</em>, <em class="sig-param">non_linearity: str = 'gelu'</em>, <em class="sig-param">original_ln_before: bool = False</em>, <em class="sig-param">original_ln_after: bool = True</em>, <em class="sig-param">ln_before: bool = False</em>, <em class="sig-param">ln_after: bool = False</em>, <em class="sig-param">init_weights: str = 'bert'</em>, <em class="sig-param">is_parallel: bool = False</em>, <em class="sig-param">scaling: Union[float</em>, <em class="sig-param">str] = 1.0</em>, <em class="sig-param">use_gating: bool = False</em>, <em class="sig-param">residual_before_ln: Union[bool</em>, <em class="sig-param">str] = True</em>, <em class="sig-param">adapter_residual_before_ln: bool = False</em>, <em class="sig-param">inv_adapter: Optional[str] = None</em>, <em class="sig-param">inv_adapter_reduction_factor: Optional[float] = None</em>, <em class="sig-param">cross_adapter: bool = False</em>, <em class="sig-param">leave_out: List[int] = &lt;factory&gt;</em>, <em class="sig-param">phm_layer: bool = True</em>, <em class="sig-param">phm_dim: int = 4</em>, <em class="sig-param">factorized_phm_W: Optional[bool] = True</em>, <em class="sig-param">shared_W_phm: Optional[bool] = False</em>, <em class="sig-param">shared_phm_rule: Optional[bool] = True</em>, <em class="sig-param">factorized_phm_rule: Optional[bool] = False</em>, <em class="sig-param">phm_c_init: Optional[str] = 'normal'</em>, <em class="sig-param">phm_init_range: Optional[float] = 0.0001</em>, <em class="sig-param">learn_phm: Optional[bool] = True</em>, <em class="sig-param">hypercomplex_nonlinearity: Optional[str] = 'glorot-uniform'</em>, <em class="sig-param">phm_rank: Optional[int] = 1</em>, <em class="sig-param">phm_bias: Optional[bool] = True</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.CompacterConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Compacter architecture proposed by Mahabadi et al. (2021). See <a class="reference external" href="https://arxiv.org/pdf/2106.04647.pdf">https://arxiv.org/pdf/2106.04647.pdf</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.CompacterPlusPlusConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">CompacterPlusPlusConfig</code><span class="sig-paren">(</span><em class="sig-param">mh_adapter: bool = False</em>, <em class="sig-param">output_adapter: bool = True</em>, <em class="sig-param">reduction_factor: Union[float</em>, <em class="sig-param">collections.abc.Mapping] = 32</em>, <em class="sig-param">non_linearity: str = 'gelu'</em>, <em class="sig-param">original_ln_before: bool = True</em>, <em class="sig-param">original_ln_after: bool = True</em>, <em class="sig-param">ln_before: bool = False</em>, <em class="sig-param">ln_after: bool = False</em>, <em class="sig-param">init_weights: str = 'bert'</em>, <em class="sig-param">is_parallel: bool = False</em>, <em class="sig-param">scaling: Union[float</em>, <em class="sig-param">str] = 1.0</em>, <em class="sig-param">use_gating: bool = False</em>, <em class="sig-param">residual_before_ln: Union[bool</em>, <em class="sig-param">str] = True</em>, <em class="sig-param">adapter_residual_before_ln: bool = False</em>, <em class="sig-param">inv_adapter: Optional[str] = None</em>, <em class="sig-param">inv_adapter_reduction_factor: Optional[float] = None</em>, <em class="sig-param">cross_adapter: bool = False</em>, <em class="sig-param">leave_out: List[int] = &lt;factory&gt;</em>, <em class="sig-param">phm_layer: bool = True</em>, <em class="sig-param">phm_dim: int = 4</em>, <em class="sig-param">factorized_phm_W: Optional[bool] = True</em>, <em class="sig-param">shared_W_phm: Optional[bool] = False</em>, <em class="sig-param">shared_phm_rule: Optional[bool] = True</em>, <em class="sig-param">factorized_phm_rule: Optional[bool] = False</em>, <em class="sig-param">phm_c_init: Optional[str] = 'normal'</em>, <em class="sig-param">phm_init_range: Optional[float] = 0.0001</em>, <em class="sig-param">learn_phm: Optional[bool] = True</em>, <em class="sig-param">hypercomplex_nonlinearity: Optional[str] = 'glorot-uniform'</em>, <em class="sig-param">phm_rank: Optional[int] = 1</em>, <em class="sig-param">phm_bias: Optional[bool] = True</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.CompacterPlusPlusConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Compacter++ architecture proposed by Mahabadi et al. (2021). See <a class="reference external" href="https://arxiv.org/pdf/2106.04647.pdf">https://arxiv.org/pdf/2106.04647.pdf</a>.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="prefix-tuning">
+<h2>Prefix Tuning<a class="headerlink" href="#prefix-tuning" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="adapters.PrefixTuningConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">PrefixTuningConfig</code><span class="sig-paren">(</span><em class="sig-param">architecture: Optional[str] = 'prefix_tuning'</em>, <em class="sig-param">encoder_prefix: bool = True</em>, <em class="sig-param">cross_prefix: bool = True</em>, <em class="sig-param">leave_out: List[int] = &lt;factory&gt;</em>, <em class="sig-param">flat: bool = False</em>, <em class="sig-param">prefix_length: int = 30</em>, <em class="sig-param">bottleneck_size: int = 512</em>, <em class="sig-param">non_linearity: str = 'tanh'</em>, <em class="sig-param">dropout: float = 0.0</em>, <em class="sig-param">use_gating: bool = False</em>, <em class="sig-param">shared_gating: bool = True</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.PrefixTuningConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Prefix Tuning architecture proposed by Li &amp; Liang (2021). See <a class="reference external" href="https://arxiv.org/pdf/2101.00190.pdf">https://arxiv.org/pdf/2101.00190.pdf</a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>encoder_prefix</strong> (<em>bool</em>) – If True, add prefixes to the encoder of an encoder-decoder model.</p></li>
+<li><p><strong>cross_prefix</strong> (<em>bool</em>) – If True, add prefixes to the cross attention of an encoder-decoder model.</p></li>
+<li><p><strong>flat</strong> (<em>bool</em>) – If True, train the prefix parameters directly. Otherwise, reparametrize using a bottleneck MLP.</p></li>
+<li><p><strong>prefix_length</strong> (<em>int</em>) – The length of the prefix.</p></li>
+<li><p><strong>bottleneck_size</strong> (<em>int</em>) – If flat=False, the size of the bottleneck MLP.</p></li>
+<li><p><strong>non_linearity</strong> (<em>str</em>) – If flat=False, the non-linearity used in the bottleneck MLP.</p></li>
+<li><p><strong>dropout</strong> (<em>float</em>) – The dropout rate used in the prefix tuning layer.</p></li>
+<li><p><strong>leave_out</strong> (<em>List</em><em>[</em><em>int</em><em>]</em>) – The IDs of the layers (starting at 0) where NO prefix should be added.</p></li>
+<li><p><strong>use_gating</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – Place a trainable gating module besides the added parameter module to control module activation. This is
+e.g. used for UniPELT. Defaults to False.</p></li>
+<li><p><strong>(</strong> (<em>shared_gating</em>) – obj:<cite>bool</cite>, optional): Whether to use a shared gate for the prefixes of all attention matrices. Only
+applicable if <cite>use_gating=True</cite>. Defaults to True.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="adapters.PrefixTuningConfig.from_dict">
+<em class="property">classmethod </em><code class="sig-name descname">from_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.PrefixTuningConfig.from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a config class from a Python dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.PrefixTuningConfig.load">
+<em class="property">classmethod </em><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>dict<span class="p">, </span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">download_kwargs</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.PrefixTuningConfig.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a given adapter configuration specifier into a full AdapterConfig instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>Union</em><em>[</em><em>dict</em><em>, </em><em>str</em><em>]</em>) – <p>The configuration to load. Can be either:</p>
+<ul class="simple">
+<li><p>a dictionary representing the full config</p></li>
+<li><p>an identifier string available in ADAPTER_CONFIG_MAP</p></li>
+<li><p>the path to a file containing a full adapter configuration</p></li>
+<li><p>an identifier string available in Adapter-Hub</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The resolved adapter configuration dictionary.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.PrefixTuningConfig.replace">
+<code class="sig-name descname">replace</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">changes</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.PrefixTuningConfig.replace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a new instance of the config class with the specified changes applied.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.PrefixTuningConfig.to_dict">
+<code class="sig-name descname">to_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.PrefixTuningConfig.to_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts the config class to a Python dict.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="loraconfig">
+<h2>LoRAConfig<a class="headerlink" href="#loraconfig" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="adapters.LoRAConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">LoRAConfig</code><span class="sig-paren">(</span><em class="sig-param">architecture: Optional[str] = 'lora'</em>, <em class="sig-param">selfattn_lora: bool = True</em>, <em class="sig-param">intermediate_lora: bool = False</em>, <em class="sig-param">output_lora: bool = False</em>, <em class="sig-param">leave_out: List[int] = &lt;factory&gt;</em>, <em class="sig-param">r: int = 8</em>, <em class="sig-param">alpha: int = 8</em>, <em class="sig-param">dropout: float = 0.0</em>, <em class="sig-param">attn_matrices: List[str] = &lt;factory&gt;</em>, <em class="sig-param">composition_mode: str = 'add'</em>, <em class="sig-param">init_weights: str = 'lora'</em>, <em class="sig-param">use_gating: bool = False</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.LoRAConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Low-Rank Adaptation (LoRA) architecture proposed by Hu et al. (2021). See <a class="reference external" href="https://arxiv.org/pdf/2106.09685.pdf">https://arxiv.org/pdf/2106.09685.pdf</a>.
+LoRA adapts a model by reparametrizing the weights of a layer matrix. You can merge the additional weights with the
+original layer weights using <code class="docutils literal notranslate"><span class="pre">model.merge_adapter(&quot;lora_name&quot;)</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>selfattn_lora</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, add LoRA to the self-attention weights of a model.
+Defaults to True.</p></li>
+<li><p><strong>intermediate_lora</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, add LoRA to the intermediate MLP weights of a model.
+Defaults to False.</p></li>
+<li><p><strong>output_lora</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, add LoRA to the output MLP weights of a model.
+Defaults to False.</p></li>
+<li><p><strong>leave_out</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">List[int]</span></code>, optional) – The IDs of the layers (starting at 0) where NO adapter modules should be added.</p></li>
+<li><p><strong>r</strong> (<em>int</em><em>, </em><em>optional</em>) – The rank of the LoRA layer. Defaults to 8.</p></li>
+<li><p><strong>alpha</strong> (<em>int</em><em>, </em><em>optional</em>) – The hyperparameter used for scaling the LoRA reparametrization. Defaults to 8.</p></li>
+<li><p><strong>dropout</strong> (<em>float</em><em>, </em><em>optional</em>) – The dropout rate used in the LoRA layer. Defaults to 0.0.</p></li>
+<li><p><strong>attn_matrices</strong> (<em>List</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Determines which matrices of the self-attention module to adapt.
+A list that may contain the strings “q” (query), “k” (key), “v” (value). Defaults to [“q”, “v”].</p></li>
+<li><p><strong>composition_mode</strong> (<em>str</em><em>, </em><em>optional</em>) – Defines how the injected weights are composed with the original model weights. Can be either “add”
+(addition of decomposed matrix, as in LoRA) or “scale” (element-wise multiplication of vector, as in
+(IA)^3). “scale” can only be used together with r=1. Defaults to “add”.</p></li>
+<li><p><strong>init_weights</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>, optional) – Initialization method for the weights of the LoRA modules.
+Currently, this can be either “lora” (default) or “bert”.</p></li>
+<li><p><strong>use_gating</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>, optional) – Place a trainable gating module besides the added parameter module to control module activation. This is
+e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
+<cite>merge_adapter()</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="adapters.LoRAConfig.from_dict">
+<em class="property">classmethod </em><code class="sig-name descname">from_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.LoRAConfig.from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a config class from a Python dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.LoRAConfig.load">
+<em class="property">classmethod </em><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>dict<span class="p">, </span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">download_kwargs</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.LoRAConfig.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a given adapter configuration specifier into a full AdapterConfig instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>Union</em><em>[</em><em>dict</em><em>, </em><em>str</em><em>]</em>) – <p>The configuration to load. Can be either:</p>
+<ul class="simple">
+<li><p>a dictionary representing the full config</p></li>
+<li><p>an identifier string available in ADAPTER_CONFIG_MAP</p></li>
+<li><p>the path to a file containing a full adapter configuration</p></li>
+<li><p>an identifier string available in Adapter-Hub</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The resolved adapter configuration dictionary.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.LoRAConfig.replace">
+<code class="sig-name descname">replace</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">changes</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.LoRAConfig.replace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a new instance of the config class with the specified changes applied.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.LoRAConfig.to_dict">
+<code class="sig-name descname">to_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.LoRAConfig.to_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts the config class to a Python dict.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="ia3config">
+<h2>IA3Config<a class="headerlink" href="#ia3config" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="adapters.IA3Config">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">IA3Config</code><span class="sig-paren">(</span><em class="sig-param">architecture: Optional[str] = 'lora'</em>, <em class="sig-param">selfattn_lora: bool = True</em>, <em class="sig-param">intermediate_lora: bool = True</em>, <em class="sig-param">output_lora: bool = False</em>, <em class="sig-param">leave_out: List[int] = &lt;factory&gt;</em>, <em class="sig-param">r: int = 1</em>, <em class="sig-param">alpha: int = 1</em>, <em class="sig-param">dropout: float = 0.0</em>, <em class="sig-param">attn_matrices: List[str] = &lt;factory&gt;</em>, <em class="sig-param">composition_mode: str = 'scale'</em>, <em class="sig-param">init_weights: str = 'ia3'</em>, <em class="sig-param">use_gating: bool = False</em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.IA3Config" title="Permalink to this definition">¶</a></dt>
+<dd><p>The ‘Infused Adapter by Inhibiting and Amplifying Inner Activations’ ((IA)^3) architecture proposed by Liu et al.
+(2022). See <a class="reference external" href="https://arxiv.org/pdf/2205.05638.pdf">https://arxiv.org/pdf/2205.05638.pdf</a>. (IA)^3 builds on top of LoRA, however, unlike the additive
+composition of LoRA, it scales weights of a layer using an injected vector.</p>
+<dl class="py method">
+<dt id="adapters.IA3Config.from_dict">
+<em class="property">classmethod </em><code class="sig-name descname">from_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.IA3Config.from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a config class from a Python dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.IA3Config.load">
+<em class="property">classmethod </em><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>dict<span class="p">, </span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">download_kwargs</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.IA3Config.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a given adapter configuration specifier into a full AdapterConfig instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>Union</em><em>[</em><em>dict</em><em>, </em><em>str</em><em>]</em>) – <p>The configuration to load. Can be either:</p>
+<ul class="simple">
+<li><p>a dictionary representing the full config</p></li>
+<li><p>an identifier string available in ADAPTER_CONFIG_MAP</p></li>
+<li><p>the path to a file containing a full adapter configuration</p></li>
+<li><p>an identifier string available in Adapter-Hub</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The resolved adapter configuration dictionary.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.IA3Config.replace">
+<code class="sig-name descname">replace</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">changes</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.IA3Config.replace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a new instance of the config class with the specified changes applied.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.IA3Config.to_dict">
+<code class="sig-name descname">to_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.IA3Config.to_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts the config class to a Python dict.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="prompttuningconfig">
+<h2>PromptTuningConfig<a class="headerlink" href="#prompttuningconfig" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="adapters.PromptTuningConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">PromptTuningConfig</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">architecture</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'prompt_tuning'</span></em>, <em class="sig-param"><span class="n">prompt_length</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">10</span></em>, <em class="sig-param"><span class="n">prompt_init</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'random_uniform'</span></em>, <em class="sig-param"><span class="n">prompt_init_text</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">combine</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">'prefix'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.PromptTuningConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Prompt Tuning architecture proposed by Lester et al. (2021). See <a class="reference external" href="https://arxiv.org/pdf/2104.08691.pdf">https://arxiv.org/pdf/2104.08691.pdf</a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>prompt_length</strong> (<em>int</em>) – The number of tokens in the prompt.
+Defaults to 10.</p></li>
+<li><p><strong>prompt_init</strong> (<em>str</em>) – The initialization method for the prompt. Can be either “random_uniform” or “from_string”.
+Defaults to “random_uniform”.</p></li>
+<li><p><strong>prompt_init_text</strong> (<em>str</em>) – The text to use for prompt initialization if prompt_init=”from_string”.</p></li>
+<li><p><strong>random_uniform_scale</strong> (<em>float</em>) – The scale of the random uniform initialization if prompt_init=”random_uniform”.
+Defaults to 0.5 as in the paper.</p></li>
+<li><p><strong>combine</strong> (<em>str</em>) – The method used to combine the prompt with the input. Can be either “prefix” or “prefix_after_bos”.
+Defaults to “prefix”.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="adapters.PromptTuningConfig.from_dict">
+<em class="property">classmethod </em><code class="sig-name descname">from_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.PromptTuningConfig.from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a config class from a Python dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.PromptTuningConfig.load">
+<em class="property">classmethod </em><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>dict<span class="p">, </span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">download_kwargs</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.PromptTuningConfig.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a given adapter configuration specifier into a full AdapterConfig instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>Union</em><em>[</em><em>dict</em><em>, </em><em>str</em><em>]</em>) – <p>The configuration to load. Can be either:</p>
+<ul class="simple">
+<li><p>a dictionary representing the full config</p></li>
+<li><p>an identifier string available in ADAPTER_CONFIG_MAP</p></li>
+<li><p>the path to a file containing a full adapter configuration</p></li>
+<li><p>an identifier string available in Adapter-Hub</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The resolved adapter configuration dictionary.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.PromptTuningConfig.replace">
+<code class="sig-name descname">replace</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">changes</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.PromptTuningConfig.replace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a new instance of the config class with the specified changes applied.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.PromptTuningConfig.to_dict">
+<code class="sig-name descname">to_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.PromptTuningConfig.to_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts the config class to a Python dict.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="combined-configurations">
+<h2>Combined configurations<a class="headerlink" href="#combined-configurations" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="adapters.ConfigUnion">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">ConfigUnion</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">*</span><span class="n">configs</span><span class="p">:</span> <span class="n">List<span class="p">[</span>adapters.configuration.adapter_config.AdapterConfig<span class="p">]</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.ConfigUnion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Composes multiple adaptation method configurations into one. This class can be used to define complex adaptation
+method setups.</p>
+<dl class="py method">
+<dt id="adapters.ConfigUnion.from_dict">
+<em class="property">classmethod </em><code class="sig-name descname">from_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.ConfigUnion.from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a config class from a Python dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.ConfigUnion.load">
+<em class="property">classmethod </em><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>dict<span class="p">, </span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="n">download_kwargs</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.ConfigUnion.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a given adapter configuration specifier into a full AdapterConfig instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>Union</em><em>[</em><em>dict</em><em>, </em><em>str</em><em>]</em>) – <p>The configuration to load. Can be either:</p>
+<ul class="simple">
+<li><p>a dictionary representing the full config</p></li>
+<li><p>an identifier string available in ADAPTER_CONFIG_MAP</p></li>
+<li><p>the path to a file containing a full adapter configuration</p></li>
+<li><p>an identifier string available in Adapter-Hub</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The resolved adapter configuration dictionary.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.ConfigUnion.replace">
+<code class="sig-name descname">replace</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">changes</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.ConfigUnion.replace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a new instance of the config class with the specified changes applied.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.ConfigUnion.to_dict">
+<code class="sig-name descname">to_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.ConfigUnion.to_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts the config class to a Python dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.ConfigUnion.validate">
+<em class="property">static </em><code class="sig-name descname">validate</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">configs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.ConfigUnion.validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs simple validations of a list of configurations to check whether they can be combined to a common
+setup.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>configs</strong> (<em>List</em><em>[</em><a class="reference internal" href="#adapters.AdapterConfig" title="adapters.AdapterConfig"><em>AdapterConfig</em></a><em>]</em>) – list of configs to check.</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>TypeError</strong> – One of the configurations has a wrong type. ValueError: At least two given configurations</p></li>
+<li><p><strong>conflict.</strong> – </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.MAMConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">MAMConfig</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">prefix_tuning</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>adapters.configuration.adapter_config.PrefixTuningConfig<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">adapter</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>adapters.configuration.adapter_config.BnConfig<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.MAMConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Mix-And-Match adapter architecture proposed by He et al. (2021). See <a class="reference external" href="https://arxiv.org/pdf/2110.04366.pdf">https://arxiv.org/pdf/2110.04366.pdf</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.UniPELTConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">UniPELTConfig</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">prefix_tuning</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>adapters.configuration.adapter_config.PrefixTuningConfig<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">adapter</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>adapters.configuration.adapter_config.BnConfig<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">lora</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>adapters.configuration.adapter_config.LoRAConfig<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.UniPELTConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>The UniPELT adapter architecture proposed by Mao et al. (2022). See <a class="reference external" href="https://arxiv.org/pdf/2110.07577.pdf">https://arxiv.org/pdf/2110.07577.pdf</a>.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="adapter-fusion">
+<h2>Adapter Fusion<a class="headerlink" href="#adapter-fusion" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="adapters.AdapterFusionConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">AdapterFusionConfig</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">key</span><span class="p">:</span> <span class="n">bool</span></em>, <em class="sig-param"><span class="n">query</span><span class="p">:</span> <span class="n">bool</span></em>, <em class="sig-param"><span class="n">value</span><span class="p">:</span> <span class="n">bool</span></em>, <em class="sig-param"><span class="n">query_before_ln</span><span class="p">:</span> <span class="n">bool</span></em>, <em class="sig-param"><span class="n">regularization</span><span class="p">:</span> <span class="n">bool</span></em>, <em class="sig-param"><span class="n">residual_before</span><span class="p">:</span> <span class="n">bool</span></em>, <em class="sig-param"><span class="n">temperature</span><span class="p">:</span> <span class="n">bool</span></em>, <em class="sig-param"><span class="n">value_before_softmax</span><span class="p">:</span> <span class="n">bool</span></em>, <em class="sig-param"><span class="n">value_initialized</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">dropout_prob</span><span class="p">:</span> <span class="n">float</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.AdapterFusionConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class that models the architecture of an adapter fusion layer.</p>
+<dl class="py method">
+<dt id="adapters.AdapterFusionConfig.from_dict">
+<em class="property">classmethod </em><code class="sig-name descname">from_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.AdapterFusionConfig.from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a config class from a Python dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.AdapterFusionConfig.load">
+<em class="property">classmethod </em><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Union<span class="p">[</span>dict<span class="p">, </span>str<span class="p">]</span></span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.AdapterFusionConfig.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a given adapter fusion configuration specifier into a full AdapterFusionConfig instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>Union</em><em>[</em><em>dict</em><em>, </em><em>str</em><em>]</em>) – <p>The configuration to load. Can be either:</p>
+<ul class="simple">
+<li><p>a dictionary representing the full config</p></li>
+<li><p>an identifier string available in ADAPTERFUSION_CONFIG_MAP</p></li>
+<li><p>the path to a file containing a full adapter fusion configuration</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The resolved adapter fusion configuration dictionary.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.AdapterFusionConfig.replace">
+<code class="sig-name descname">replace</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">changes</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.AdapterFusionConfig.replace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a new instance of the config class with the specified changes applied.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="adapters.AdapterFusionConfig.to_dict">
+<code class="sig-name descname">to_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#adapters.AdapterFusionConfig.to_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts the config class to a Python dict.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.StaticAdapterFusionConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">StaticAdapterFusionConfig</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">key</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">query</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">value</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">query_before_ln</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">regularization</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">residual_before</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">temperature</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">value_before_softmax</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">value_initialized</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">dropout_prob</span><span class="p">:</span> <span class="n">float</span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.StaticAdapterFusionConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>Static version of adapter fusion without a value matrix. See <a class="reference external" href="https://arxiv.org/pdf/2005.00247.pdf">https://arxiv.org/pdf/2005.00247.pdf</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="adapters.DynamicAdapterFusionConfig">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">DynamicAdapterFusionConfig</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">key</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">query</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">value</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">query_before_ln</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">regularization</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">residual_before</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">temperature</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">value_before_softmax</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">value_initialized</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">True</span></em>, <em class="sig-param"><span class="n">dropout_prob</span><span class="p">:</span> <span class="n">float</span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.DynamicAdapterFusionConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dynamic version of adapter fusion with a value matrix and regularization. See <a class="reference external" href="https://arxiv.org/pdf/2005.00247.pdf">https://arxiv.org/pdf/2005.00247.pdf</a>.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="adapter-setup">
+<h2>Adapter Setup<a class="headerlink" href="#adapter-setup" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="adapters.AdapterSetup">
+<em class="property">class </em><code class="sig-prename descclassname">adapters.</code><code class="sig-name descname">AdapterSetup</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">adapter_setup</span></em>, <em class="sig-param"><span class="n">head_setup</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">ignore_empty</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#adapters.AdapterSetup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Represents an adapter setup of a model including active adapters and active heads. This class is intended to be
+used as a context manager using the <code class="docutils literal notranslate"><span class="pre">with</span></code> statement. The setup defined by the <code class="docutils literal notranslate"><span class="pre">AdapterSetup</span></code> context will
+override static adapter setups defined in a model (i.e. setups specified via <code class="docutils literal notranslate"><span class="pre">active_adapters</span></code>).</p>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">AdapterSetup</span><span class="p">(</span><span class="n">Stack</span><span class="p">(</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">)):</span>
+    <span class="c1"># will use the adapter stack &quot;a&quot; and &quot;b&quot; outputs = model(**inputs)</span>
+</pre></div>
+</div>
+<p>Note that the context manager is thread-local, i.e. it can be used with different setups in a multi-threaded
+environment.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="model_adapters_config.html" class="btn btn-neutral float-right" title="Model Adapters Config" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="models/xmod.html" class="btn btn-neutral float-left" title="X-MOD" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020-2024, AdapterHub Team
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  <!--- IMPORTANT: This file has modifications compared to the snippet on the documentation page! -->
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Versions</span>
+    v: main
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="adapter_config.html">main</a></dd>
+    </dl>
+  </div>
+</div>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
