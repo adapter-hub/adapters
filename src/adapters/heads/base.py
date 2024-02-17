@@ -102,7 +102,11 @@ class PredictionHead(nn.Sequential):
         for i, module in enumerate(pred_head):
             self.add_module(str(i), module)
 
-        self.apply(model._init_weights)
+        # We need to import the current value of _init_weights at each execution to determine if weights init is disabled.
+        from transformers.modeling_utils import _init_weights
+
+        if _init_weights:
+            self.apply(model._init_weights)
         self.train(model.training)  # make sure training mode is consistent
 
     def get_output_embeddings(self):

@@ -56,7 +56,7 @@ class LlamaAdapterTest(
 
 
 @require_torch
-class BertClassConversionTest(
+class LlamaClassConversionTest(
     ModelClassConversionTestMixin,
     LlamaAdapterTestBase,
     unittest.TestCase,
