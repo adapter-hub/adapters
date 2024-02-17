@@ -37,9 +37,9 @@ _deps = [
     "onnxruntime>=1.4.0",
     "parameterized",
     "pillow",
-    "protobuf<=3.20.2",
+    "protobuf",
     "psutil",
-    "pytest",
+    "pytest>=7.2.0,<8.0.0",
     "pytest-subtests",
     "pytest-timeout",
     "pytest-xdist",
@@ -88,6 +88,7 @@ extras["onnxruntime"] = deps_list("onnxruntime", "onnxruntime-tools")
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = deps_list(
     "pytest",
+    "pytest-subtests",
     "pytest-xdist",
     "timeout-decorator",
     "parameterized",
@@ -101,7 +102,6 @@ extras["testing"] = deps_list(
     "rouge-score",
     "nltk",
     "GitPython",
-    "protobuf",  # Can be removed once we can unpin protobuf
     "sacremoses",
     "rjieba",
     "beautifulsoup4",

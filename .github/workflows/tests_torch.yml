@@ -39,7 +39,7 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
       - name: Install
         run: |
-          pip install torch==2.1.1
+          pip install torch==2.1.2
           pip install .[quality]
       - name: Check Quality and Repo Consistency
         run: |
@@ -62,7 +62,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==2.1.1
+          pip install torch==2.1.2
           pip install .[sklearn,testing,sentencepiece]
       - name: Test
         run: |
@@ -85,7 +85,7 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install
         run: |
-          pip install torch==2.1.1
+          pip install torch==2.1.2
           pip install .[sklearn,testing,sentencepiece]
       - name: Test
         run: |
