@@ -6,13 +6,7 @@ from transformers.models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOC
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...composition import adjust_tensors_for_parallel
-from ...heads import (
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    QuestionAnsweringHead,
-    Seq2SeqLMHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin, Seq2SeqLMHead
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -29,6 +23,13 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
 
     _keys_to_ignore_on_load_unexpected = [
         r"decoder.block.0.layer.1.EncDecAttention.relative_attention_bias.weight",
+    ]
+
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "question_answering",
+        "seq2seq_lm",
     ]
 
     def __init__(self, config):
@@ -199,61 +200,3 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
 
             reordered_decoder_past = reordered_decoder_past + (reordered_layer_past_states,)
         return reordered_decoder_past
-
-    head_types = {
-        "seq2seq_lm": Seq2SeqLMHead,
-        "question_answering": QuestionAnsweringHead,
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-    }
-
-    def add_seq2seq_lm_head(self, head_name, overwrite_ok=False):
-        """
-        Adds a seq2seq language modeling head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = Seq2SeqLMHead(self, head_name)
-        self.add_prediction_head(head, overwrite_ok=overwrite_ok)
-
-    def add_qa_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=1,
-        activation_function=None,
-        overwrite_ok=False,
-        id2label=None,
-    ):
-        head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
-        self.add_prediction_head(head, overwrite_ok)
-
-    def add_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        overwrite_ok=False,
-        multilabel=False,
-        id2label=None,
-    ):
-        """
-        Adds a sequence classification head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            num_labels (int, optional): Number of classification labels. Defaults to 2.
-            layers (int, optional): Number of layers. Defaults to 2.
-            activation_function (str, optional): Activation function. Defaults to 'tanh'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
-        """
-
-        if multilabel:
-            head = MultiLabelClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
-        else:
-            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
-        self.add_prediction_head(head, overwrite_ok)

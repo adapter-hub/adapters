@@ -11,7 +11,7 @@ from transformers.models.beit.modeling_beit import (
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import AdapterSetup
-from ...heads import ImageClassificationHead, ModelWithFlexibleHeadsAdaptersMixin
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...wrappers import init
 
 
@@ -20,6 +20,11 @@ from ...wrappers import init
     BEIT_START_DOCSTRING,
 )
 class BeitAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BeitPreTrainedModel):
+    head_types = [
+        "image_classification",
+    ]
+    use_pooler = True
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -82,42 +87,3 @@ class BeitAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BeitPreTrainedModel)
         else:
             # in case no head is used just return the output of the base model (including pooler output)
             return outputs
-
-    head_types = {
-        "image_classification": ImageClassificationHead,
-    }
-
-    def add_image_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=1,
-        activation_function="tanh",
-        overwrite_ok=False,
-        multilabel=False,
-        id2label=None,
-        use_pooler=True,
-    ):
-        """
-        Adds an image classification head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            num_labels (int, optional): Number of classification labels. Defaults to 2.
-            layers (int, optional): Number of layers. Defaults to 1.
-            activation_function (str, optional): Activation function. Defaults to 'tanh'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
-        """
-
-        head = ImageClassificationHead(
-            self,
-            head_name,
-            num_labels=num_labels,
-            layers=layers,
-            activation_function=activation_function,
-            multilabel=multilabel,
-            id2label=id2label,
-            use_pooler=use_pooler,
-        )
-        self.add_prediction_head(head, overwrite_ok)
