@@ -46,5 +46,6 @@ class LlamaModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
         return embedding_output
 
 
-class LlamaForQuestionAnswering:
-    base_model_prefix = "transformer"  # this is needed because Transformers v4.38.1 is inconsistent with the naming of the base model but didn't change the base_model_prefix
+class LlamaForQuestionAnsweringAdapterMixin:
+    # this is needed because Transformers v4.38.1 is inconsistent with the naming of the base model but didn't change the base_model_prefix
+    base_model_prefix = "transformer"
