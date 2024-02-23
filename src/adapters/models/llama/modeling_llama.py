@@ -27,10 +27,7 @@ import torch.nn.functional as F
 import torch.utils.checkpoint
 from torch import nn
 
-from adapters.composition import (
-    adjust_tensors_for_parallel,
-    match_attn_matrices_for_parallel,
-)
+from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
 from transformers.cache_utils import Cache
 from transformers.models.llama.modeling_llama import LlamaAttention, LlamaDecoderLayer, apply_rotary_pos_emb, repeat_kv
 from transformers.utils import logging
@@ -216,8 +213,8 @@ class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaAttention):
                 target_dtype = self.q_proj.weight.dtype
 
             logger.warning_once(
-                f"The input hidden states seems to be silently casted in float32, this might be related to"
-                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
+                "The input hidden states seems to be silently casted in float32, this might be related to the fact"
+                " you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
                 f" {target_dtype}."
             )
 
@@ -254,8 +251,10 @@ class LlamaSdpaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
         if output_attentions:
             # TODO: Improve this warning with e.g. `model.config.attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "LlamaModel is using LlamaSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention implementation, "
-                'but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
+                "LlamaModel is using LlamaSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does"
+                " not support `output_attentions=True`. Falling back to the manual attention implementation, but"
+                " specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This"
+                ' warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
                 hidden_states=hidden_states,
@@ -357,7 +356,8 @@ class LlamaDecoderLayerWithAdapters(LlamaDecoderLayerMixin, LlamaDecoderLayer):
         """
         if "padding_mask" in kwargs:
             warnings.warn(
-                "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use `attention_mask` instead.`"
+                "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use"
+                " `attention_mask` instead.`"
             )
 
         residual = hidden_states

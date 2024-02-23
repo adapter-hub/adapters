@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import torch
 
@@ -9,8 +10,6 @@ from ...composition import adjust_tensors_for_parallel
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
-
-from typing import Optional
 
 
 logger = logging.getLogger(__name__)
@@ -153,3 +152,14 @@ class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
             }
         )
         return model_inputs
+
+    def _load_pretrained_model(cls, model, state_dict, loaded_keys, *args, **kwargs):
+        # TODO: remove this once Hugging Face has fixed the naming inconsistency (https://github.com/huggingface/transformers/pull/29258)
+        # LlamaForQuestionAnswering has inconsistent naming of the base model: it is called "transformer" instead of "model"
+        # if we are loading a LlamaForQuestionAnswering model, state_dict and model contain keys like transformer.embed_tokens.weight', 'transformer.layers.0.self_attn.q_proj.weight', ...
+        # rename every occurence of "transformer" to "model" in the state_dict
+
+        state_dict = [key.replace("transformer", "model") for key in state_dict]
+        model = {key.replace("transformer", "model"): value for key, value in model.items()}
+
+        return super()._load_pretrained_model(cls, model, state_dict, loaded_keys, *args, **kwargs)

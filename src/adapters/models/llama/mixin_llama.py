@@ -44,3 +44,7 @@ class LlamaModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
         embedding_output = self.invertible_adapters_forward(embedding_output)
         # Prompt tuning not yet supported
         return embedding_output
+
+
+class LlamaForQuestionAnswering:
+    base_model_prefix = "transformer"  # this is needed because Transformers v4.38.1 is inconsistent with the naming of the base model but didn't change the base_model_prefix
