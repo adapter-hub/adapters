@@ -10,6 +10,8 @@ from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
+from typing import Optional
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,7 @@ class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
         past_key_values=None,
         inputs_embeds=None,
         use_cache=None,
+        cache_position: Optional[torch.LongTensor] = None,
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
@@ -79,6 +82,7 @@ class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
             position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             use_cache=use_cache,
+            cache_position=cache_position,
             output_attentions=output_attentions,
             return_dict=return_dict,
             output_hidden_states=output_hidden_states,
