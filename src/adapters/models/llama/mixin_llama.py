@@ -48,4 +48,5 @@ class LlamaModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
 
 class LlamaForQuestionAnsweringAdapterMixin:
     # this is needed because Transformers v4.38.1 is inconsistent with the naming of the base model but didn't change the base_model_prefix
+    # TODO: remove this when the inconsistency is fixed and remove the LlamaForQuestionAnsweringAdapterMixin from `src/adapters/models/__init__.py`
     base_model_prefix = "transformer"
