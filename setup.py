@@ -142,7 +142,7 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="0.1.1",
+    version="0.1.2",
     author="The AdapterHub team and community contributors",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
