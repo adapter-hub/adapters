@@ -135,7 +135,11 @@ class EmbeddingTestMixin:
             all(
                 torch.equal(v1, v2)
                 for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
-                if "test" not in k1 and "embedding" not in k1 and "embed_tokens" not in k1 and "shared" not in k1 and not "wte" in k1
+                if "test" not in k1
+                and "embedding" not in k1
+                and "embed_tokens" not in k1
+                and "shared" not in k1
+                and "wte" not in k1
             )
         )
 
