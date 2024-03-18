@@ -120,4 +120,5 @@ model.delete_adapter(adapter_name)
 
 _We also have a Quickstart Colab notebook for adapter training:_ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/01_Adapter_Training.ipynb)
 
-For more examples on training different adapter setups, refer to the section on [Adapter Training](training.md).
+For more examples of training different adapter setups, refer to the section on [Adapter Training](training.md).
+Further information on using adapters with prediction heads can be found in the [Prediction Heads](prediction_heads.md) section.

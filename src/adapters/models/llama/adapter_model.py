@@ -152,17 +152,3 @@ class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
             }
         )
         return model_inputs
-
-    def _load_pretrained_model(cls, model, state_dict, loaded_keys, *args, **kwargs):
-        # LlamaForQuestionAnswering has inconsistent naming of the base model: it is called "transformer" instead of "model". Changing the variable name would be a breaking change, hence they keep it.
-        # => LlamaForQuestionAnswering's state_dict and model contain keys like 'transformer.embed_tokens.weight', 'transformer.layers.0.self_attn.q_proj.weight', ...
-        # => If the key begins with "transformer" then rename it to "model"
-        state_dict = [
-            key.replace("transformer", "model", 1) if key.startswith("transformer") else key for key in state_dict
-        ]
-        model = {
-            key.replace("transformer", "model", 1) if key.startswith("transformer") else key: value
-            for key, value in model.items()
-        }
-
-        return super()._load_pretrained_model(cls, model, state_dict, loaded_keys, *args, **kwargs)
