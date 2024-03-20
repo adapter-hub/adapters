@@ -467,6 +467,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.set_active_adapters(adapter_setup)
         if train_embeddings:
             self.get_input_embeddings().train()
+            self.get_input_embeddings().weight.requires_grad = True
 
     def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
@@ -1356,7 +1357,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             super().train_adapter(adapter_setup, train_embeddings)
         else:
             self.base_model.train_adapter(adapter_setup, train_embeddings)
-        self.freeze_embeddings()
+        if not train_embeddings:
+            self.freeze_embeddings()
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """
