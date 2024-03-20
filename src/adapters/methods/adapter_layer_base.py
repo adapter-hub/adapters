@@ -163,14 +163,19 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         self._init_mapping()
 
     def _init_mapping(self):
+        # Mapping between composition block types and names of composition functions
         self.composition_to_func_map = {
-            Stack: self.compose_stack,
-            Fuse: self.compose_fuse,
-            Split: self.compose_split,
-            BatchSplit: self.compose_batch_split,
-            Parallel: self.compose_parallel,
-            Average: self.compose_average,
+            Stack: "compose_stack",
+            Fuse: "compose_fuse",
+            Split: "compose_split",
+            BatchSplit: "compose_batch_split",
+            Parallel: "compose_parallel",
+            Average: "compose_average",
         }
+
+    def _get_compose_func(self, composition_type: type) -> callable:
+        """Retrieves the correct composition function based on the mapping in 'composition_to_func_map'."""
+        return getattr(self, self.composition_to_func_map[composition_type])
 
     # START CUSTOMIZABLE METHODS #
     # The following methods should be implemented in derived classes.
@@ -301,7 +306,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         for i, adapter_stack_layer in enumerate(adapter_setup):
             if isinstance(adapter_stack_layer, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, adapter_stack_layer, lvl)
-                composition_func = self.composition_to_func_map[type(adapter_stack_layer)]
+                composition_func = self._get_compose_func(type(adapter_stack_layer))
                 state = composition_func(adapter_stack_layer, state, lvl=lvl + 1)
             elif adapter_stack_layer in self.adapter_modules:
                 state = self.pre_block(adapter_stack_layer, state)
@@ -353,7 +358,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             )
             if isinstance(child, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, child, lvl)
-                composition_func = self.composition_to_func_map[type(child)]
+                composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(
                     child,
                     self.vslice(state, slice(*batch_idx)),
@@ -410,7 +415,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         for i, child in enumerate(adapter_setup):
             if isinstance(child, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, child, lvl)
-                composition_func = self.composition_to_func_map[type(child)]
+                composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(
                     child,
                     self.vslice(state, slice(i * orig_batch_size, (i + 1) * orig_batch_size)),
@@ -442,7 +447,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         for i, child in enumerate(adapter_setup):
             if isinstance(child, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, child, lvl)
-                composition_func = self.composition_to_func_map[type(child)]
+                composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(child, state, lvl=lvl + 1)
                 children_states.append(child_state)
             elif child in self.adapter_modules:
@@ -468,7 +473,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             NamedTuple: The state after forwarding through the adapter setup.
         """
         if isinstance(adapter_setup, AdapterCompositionBlock):
-            composition_func = self.composition_to_func_map[type(adapter_setup)]
+            composition_func = self._get_compose_func(type(adapter_setup))
             state = composition_func(adapter_setup, state, lvl=0)
         elif adapter_setup in self.adapter_modules:
             state = self.compose_single(adapter_setup, state, lvl=0)
