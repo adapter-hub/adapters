@@ -519,10 +519,12 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         value_states = torch.cat([prefix_values, state.value_states], dim=2)
         if state.attention_mask is not None:
             if state.attention_mask.dim() == 2:  # e.g. for DistilBERT, attention_mask has shape (batch_size, seq_len)
-                prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(state.attention_mask.device)
+                prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(
+                    device=state.attention_mask.device, dtype=state.attention_mask.dtype
+                )
             else:
                 prefix_mask = torch.ones(batch_size, 1, state.attention_mask.size(2), prefix_keys.size(2)).to(
-                    state.attention_mask.device
+                    device=state.attention_mask.device, dtype=state.attention_mask.dtype
                 )
             if state.invert_mask:
                 prefix_mask = 1.0 - prefix_mask

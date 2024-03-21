@@ -40,7 +40,9 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
 
     def test_forward_prefix_tuning(self):
         model = self.get_model()
-        self.run_forward_test(model, PrefixTuningConfig(flat=True))
+        for dtype in self.dtypes_to_test:
+            with self.subTest(model_class=model.__class__.__name__, dtype=dtype):
+                self.run_forward_test(model, PrefixTuningConfig(flat=True), dtype=dtype)
 
     def test_load_prefix_tuning(self):
         self.run_load_test(PrefixTuningConfig())
