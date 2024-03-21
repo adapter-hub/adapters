@@ -70,7 +70,8 @@ class PushAdapterToHubMixin:
         metrics: Optional[List[str]] = None,
         **kwargs
     ):
-        all_tags = {"adapter-transformers"}  # TODO: change this tag once changed on HF side
+        # Key remains "adapter-transformers", see: https://github.com/huggingface/huggingface.js/pull/459
+        all_tags = {"adapter-transformers"}
         datasets = set()
         # Dataset/ Task info
         dataset_name = None

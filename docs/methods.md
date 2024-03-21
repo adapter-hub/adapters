@@ -1,7 +1,7 @@
 # Adapter Methods
 
 On this page, we present all adapter methods currently integrated into the `adapters` library.
-A tabular overview of adapter methods is provided [here](overview.html#table-of-adapter-methods). 
+A tabular overview of adapter methods is provided [here](overview.md#table-of-adapter-methods). 
 Additionally, options to combine multiple adapter methods in a single setup are presented [on the next page](method_combinations.md).
 
 ## Bottleneck Adapters

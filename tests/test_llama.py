@@ -61,4 +61,5 @@ class LlamaClassConversionTest(
     LlamaAdapterTestBase,
     unittest.TestCase,
 ):
-    pass
+    def test_conversion_question_answering_model(self):
+        raise self.skipTest("We don't support the Llama QA model.")

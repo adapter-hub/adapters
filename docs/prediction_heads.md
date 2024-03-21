@@ -6,7 +6,7 @@ We will take a look at the `AdapterModel` classes (e.g. `BertAdapterModel`) intr
 ```{eval-rst}
 .. tip::
     We recommend to use the `AdapterModel classes <#adaptermodel-classes>`_ whenever possible. 
-    They have been created specifically for working with adapters and provide more flexibility.
+    These **flexible** models have been created specifically for working with adapters.
 ```
 
 ## AdapterModel classes
@@ -18,16 +18,14 @@ First, we load pre-trained model from the Hugging Face Hub via the [`AutoAdapter
 model = AutoAdapterModel.from_pretrained("bert-base-uncased")
 ```
 
-By default, this model doesn't have any heads yet. We add a new one in the next step:
+By default, this model doesn't have any heads yet, so let's add a new binary sequence classification head on top of our model:
 ```python
 model.add_classification_head("mrpc", num_labels=2)
 ```
-The line above adds a binary sequence classification head on top of our model.
-Because this head is named, we could add multiple other heads with different names to the same model.
-This is especially useful if used together with matching adapter modules.
-To learn more about the different head types and the configuration options, please refer to the class references of the respective model classes, e.g. [`BertAdapterModel`](adapters.BertAdapterModel).
+All heads have a name, we called this new head `"mrpc"`. Since all heads are named, we can add multiple other heads with different names to the same model.
+To see the head types of a model and how they can get configured, please refer to the class references of the respective model classes, e.g. [`BertAdapterModel`](adapters.BertAdapterModel).
 
-Now, of course, we would like to train our classification head together with an adapter, so let's add one:
+A head alone is just one layer with very few parameters. Hence, we want to train our classification head together with an adapter, so let's add one:
 ```python
 model.add_adapter("mrpc", config="seq_bn")
 model.set_active_adapters("mrpc")
