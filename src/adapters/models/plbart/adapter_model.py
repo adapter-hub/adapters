@@ -5,7 +5,7 @@ from transformers.models.plbart.modeling_plbart import (
     PLBART_START_DOCSTRING,
     PLBartConfig,
     PLBartModel,
-    PLBartPretrainedModel,
+    PLBartPreTrainedModel,
     shift_tokens_right,
 )
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
