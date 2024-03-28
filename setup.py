@@ -150,7 +150,7 @@ setup(
     long_description_content_type="text/markdown",
     keywords="NLP deep learning transformer pytorch BERT adapters",
     license="Apache",
-    url="https://github.com/adapter-hub/adapters",
+    url="https://github.com/FahadEbrahim/adapters",
     package_dir={"": "src"},
     packages=find_packages("src"),
     include_package_data=True,
