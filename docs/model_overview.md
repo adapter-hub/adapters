@@ -14,6 +14,7 @@ The table below further shows which model architectures support which adaptation
 | --------------------------------------- | -| - | - | - | - | - | - |- |
 | [ALBERT](classes/models/albert.html)    | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [BART](classes/models/bart.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| [PLBART](classes/models/plbart.html)    | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
 | [BEIT](classes/models/beit.html)        | ✅ | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
 | [BERT-Generation](classes/models/bert-generation.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [BERT](classes/models/bert.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
