@@ -31,7 +31,7 @@ class PLBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
         "seq2seq_lm",
     ]
 
-    def __init__(self, config: BartConfig, **kwargs):
+    def __init__(self, config: PLBartConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.model = BartModel(config)
         init(self.model)
