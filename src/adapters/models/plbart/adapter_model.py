@@ -16,7 +16,7 @@ from ...wrappers import init
 
 
 @add_start_docstrings(
-    "PLBART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
+    "PLBART Model with the option to add multiple flexible prediction heads on top.", PLBART_START_DOCSTRING
 )
 class PLBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, PLBartPretrainedModel):
     _tied_weights_keys = [
