@@ -33,7 +33,7 @@ class PLBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
 
     def __init__(self, config: PLBartConfig, **kwargs):
         super().__init__(config, **kwargs)
-        self.model = BartModel(config)
+        self.model = PLBartModel(config)
         init(self.model)
 
         self._init_head_modules()
@@ -46,7 +46,7 @@ class PLBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
     def get_decoder(self):
         return self.model.get_decoder()
 
-    @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(PLBART_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids=None,
@@ -116,7 +116,7 @@ class PLBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
 
         return head_outputs
 
-    # Copied from BartForConditionalGeneration
+    # Copied from PLBartForConditionalGeneration
     def prepare_inputs_for_generation(
         self,
         decoder_input_ids,
