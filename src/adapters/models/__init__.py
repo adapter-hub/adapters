@@ -5,6 +5,12 @@ from .bart.mixin_bart import (
     BartEncoderAdaptersMixin,
     BartModelAdaptersMixin,
 )
+from .plbart.mixin_plbart import (
+    PLBartDecoderAdaptersMixin,
+    PLBartDecoderWrapperAdaptersMixin,
+    PLBartEncoderAdaptersMixin,
+    PLBartModelAdaptersMixin,
+)
 from .beit.mixin_beit import BeitIntermediateAdaptersMixin, BeitModelAdaptersMixin, BeitOutputAdaptersMixin
 from .bert.mixin_bert import BertLayerAdaptersMixin, BertModelAdaptersMixin
 from .clip.mixin_clip import (
@@ -34,7 +40,11 @@ MODEL_MIXIN_MAPPING = {
     "BartEncoder": BartEncoderAdaptersMixin,
     "BartDecoder": BartDecoderAdaptersMixin,
     "BartModel": BartModelAdaptersMixin,
+    "PLBartEncoder": PLBartEncoderAdaptersMixin,
+    "PLBartDecoder": PLBartDecoderAdaptersMixin,
+    "PLBartModel": PLBartModelAdaptersMixin,
     "BartDecoderWrapper": BartDecoderWrapperAdaptersMixin,
+    "PLBartDecoderWrapper": PLBartDecoderWrapperAdaptersMixin,
     "BeitIntermediate": BeitIntermediateAdaptersMixin,
     "BeitOutput": BeitOutputAdaptersMixin,
     "BeitModel": BeitModelAdaptersMixin,
