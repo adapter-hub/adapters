@@ -18,6 +18,11 @@ from ..composition import AdapterCompositionBlock, Average, BatchSplit, Parallel
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
 
+try:
+    from bitsandbytes.nn import Linear4bit, Linear8bitLt
+    bitsandbytes_available = True
+except ImportError:
+    bitsandbytes_available = False
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +215,7 @@ class LoRALayer(AdapterLayerBase):
                 gating_heads=self.get_n_heads(lora_config),
             )
             lora.train(self.training)
+            lora = lora.to(self.weight.device)
             self.loras[adapter_name] = lora
             return True
 
@@ -283,7 +289,7 @@ class LoRAState(NamedTuple):
     layer_output: torch.Tensor
 
 
-class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
+class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
     """
     LoRA implementation for Linear layer. This layer supports composition.
 
@@ -331,7 +337,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
         **kwargs
     ):
         if isinstance(module, Conv1D):
-            new_module = cls(
+            new_module = LoRALinearTorch(
                 module.weight.shape[0],
                 module.weight.shape[1],
                 location_key,
@@ -341,6 +347,12 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
                 **kwargs,
             )
         else:
+            if bitsandbytes_available and isinstance(module, Linear4bit):
+                cls = LoRALinear4bit
+            elif bitsandbytes_available and isinstance(module, Linear8bitLt):
+                cls = LoRALinear8bitLt
+            else:
+                cls = LoRALinearTorch
             # Make sure that the bias is not added if the original module does not have one
             if "bias" not in kwargs:
                 kwargs["bias"] = hasattr(module, "bias") and module.bias is not None
@@ -353,9 +365,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
                 attn_key=attn_key,
                 **kwargs,
             )
-        new_module.weight.data = module.weight.data
-        if module.bias is not None:
-            new_module.bias.data = module.bias.data
+        new_module.copy_from(module)
 
         return new_module
 
@@ -429,9 +439,12 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
         return state._replace(hidden_states=hidden_states)
 
     def forward(self, input_states: torch.Tensor):
-        weight = torch.transpose(self.weight, -2, -1) if self.fan_in_fan_out else self.weight
-        # result shape: <batch_size> x <seq_len> x <head_dim>
-        layer_output = F.linear(input_states, weight, bias=self.bias)
+        if self.fan_in_fan_out:
+            weight = torch.transpose(self.weight, -2, -1) if self.fan_in_fan_out else self.weight
+            # result shape: <batch_size> x <seq_len> x <head_dim>
+            layer_output = F.linear(input_states, weight, bias=self.bias)
+        else:
+            layer_output = super().forward(input_states)
 
         if not self.merged:
             adapter_setup = self.get_active_setup()
@@ -446,6 +459,33 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
                 )  # scaling already applied in compose
 
         return layer_output
+
+
+class LoRALinearTorch(LoRALinear, nn.Linear):
+    def copy_from(self, module: nn.Linear):
+        self.weight = module.weight
+        if module.bias is not None:
+            self.bias = module.bias
+
+
+if bitsandbytes_available:
+    class LoRALinear4bit(LoRALinear, Linear4bit):
+        def copy_from(self, module: Linear4bit):
+            self.weight = module.weight
+            if module.bias is not None:
+                self.bias = module.bias
+            self.compute_dtype = module.compute_dtype
+            self.compute_type_is_set = module.compute_type_is_set
+            self.quant_state = module.quant_state
+            self.quant_storage = module.quant_storage
+
+    class LoRALinear8bitLt(LoRALinear, Linear8bitLt):
+        def copy_from(self, module: Linear8bitLt):
+            self.weight = module.weight
+            if module.bias is not None:
+                self.bias = module.bias
+            self.state = module.state
+            self.index = module.index
 
 
 class LoRAMergedLinear(LoRALayer, nn.Linear):
@@ -498,9 +538,9 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
             new_module = cls(
                 module.in_features, module.out_features, location_key, model_config, adapters_config, **kwargs
             )
-        new_module.weight.data = module.weight.data
+        new_module.weight = module.weight
         if module.bias is not None:
-            new_module.bias.data = module.bias.data
+            new_module.bias = module.bias
 
         return new_module
 
