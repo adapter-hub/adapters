@@ -17,9 +17,12 @@ from transformers.pytorch_utils import Conv1D
 from ..composition import AdapterCompositionBlock, Average, BatchSplit, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
+from .utils import dequantize_bnb_weight
+
 
 try:
-    from bitsandbytes.nn import Linear4bit, Linear8bitLt
+    from bitsandbytes.nn import Int8Params, Linear4bit, Linear8bitLt, Params4bit
+
     bitsandbytes_available = True
 except ImportError:
     bitsandbytes_available = False
@@ -369,6 +372,11 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
 
         return new_module
 
+    def copy_from(self, module: nn.Linear):
+        self.weight = module.weight
+        if module.bias is not None:
+            self.bias = module.bias
+
     def _check_lora_location(self, config: LoRAConfig):
         return self.attn_key is None or self.attn_key in config.attn_matrices
 
@@ -377,14 +385,6 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
 
     def maybe_t(self, w):
         return torch.t(w) if self.fan_in_fan_out else w
-
-    def reset_adapter(self):
-        if self.merged:
-            lora = self.loras[self.merged]
-            # Make sure that the weights are not merged
-            delta_w = self.maybe_t(lora.delta_w)
-            self.weight.data = lora.com_inv(self.weight.data, delta_w)
-            self.merged = None
 
     def merge_adapter(self, name: str):
         if name in self.loras:
@@ -399,6 +399,14 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 self.merged = name
             elif self.merged != name:
                 raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
+
+    def reset_adapter(self):
+        if self.merged:
+            lora = self.loras[self.merged]
+            # Make sure that the weights are not merged
+            delta_w = self.maybe_t(lora.delta_w)
+            self.weight.data = lora.com_inv(self.weight.data, delta_w)
+            self.merged = None
 
     def vslice(self, state: LoRAState, slice_obj: slice) -> LoRAState:
         return LoRAState(
@@ -462,13 +470,11 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
 
 
 class LoRALinearTorch(LoRALinear, nn.Linear):
-    def copy_from(self, module: nn.Linear):
-        self.weight = module.weight
-        if module.bias is not None:
-            self.bias = module.bias
+    pass
 
 
 if bitsandbytes_available:
+
     class LoRALinear4bit(LoRALinear, Linear4bit):
         def copy_from(self, module: Linear4bit):
             self.weight = module.weight
@@ -479,6 +485,35 @@ if bitsandbytes_available:
             self.quant_state = module.quant_state
             self.quant_storage = module.quant_storage
 
+        def merge_adapter(self, name: str):
+            if name in self.loras:
+                if self.merged == name:
+                    return  # already merged
+                elif not self.merged:
+                    lora = self.loras[name]
+                    if lora.use_gating:
+                        raise ValueError("Cannot merge LoRA layer with gating.")
+                    delta_w = self.maybe_t(lora.delta_w)
+                    layer_weight = dequantize_bnb_weight(self.weight, state=self.quant_state)
+                    kwargs = self.weight.__dict__
+                    merged_weight = lora.com(layer_weight, delta_w)
+                    self.weight = Params4bit(merged_weight.to("cpu"), requires_grad=False, **kwargs).to(
+                        self.weight.device
+                    )
+                    self.merged = name
+                elif self.merged != name:
+                    raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
+
+        def reset_adapter(self):
+            if self.merged:
+                lora = self.loras[self.merged]
+                delta_w = self.maybe_t(lora.delta_w)
+                merged_weight = dequantize_bnb_weight(self.weight, state=self.quant_state)
+                kwargs = self.weight.__dict__
+                layer_weight = lora.com_inv(merged_weight, delta_w)
+                self.weight = Params4bit(layer_weight.to("cpu"), requires_grad=False, **kwargs).to(self.weight.device)
+                self.merged = None
+
     class LoRALinear8bitLt(LoRALinear, Linear8bitLt):
         def copy_from(self, module: Linear8bitLt):
             self.weight = module.weight
@@ -486,6 +521,37 @@ if bitsandbytes_available:
                 self.bias = module.bias
             self.state = module.state
             self.index = module.index
+
+        def merge_adapter(self, name: str):
+            if name in self.loras:
+                if self.merged == name:
+                    return  # already merged
+                elif not self.merged:
+                    lora = self.loras[name]
+                    if lora.use_gating:
+                        raise ValueError("Cannot merge LoRA layer with gating.")
+                    delta_w = self.maybe_t(lora.delta_w)
+                    layer_weight = dequantize_bnb_weight(self.weight, state=self.state)
+                    merged_weight = lora.com(layer_weight, delta_w)
+                    self.weight = Int8Params(
+                        merged_weight.to("cpu"), requires_grad=False, has_fp16_weights=self.weight.has_fp16_weights
+                    ).to(self.weight.device)
+                    self.state.reset_grads()
+                    self.merged = name
+                elif self.merged != name:
+                    raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
+
+        def reset_adapter(self):
+            if self.merged:
+                lora = self.loras[self.merged]
+                delta_w = self.maybe_t(lora.delta_w)
+                merged_weight = dequantize_bnb_weight(self.weight, state=self.state)
+                layer_weight = lora.com_inv(merged_weight, delta_w)
+                self.weight = Int8Params(
+                    layer_weight.to("cpu"), requires_grad=False, has_fp16_weights=self.weight.has_fp16_weights
+                ).to(self.weight.device)
+                self.state.reset_grads()
+                self.merged = None
 
 
 class LoRAMergedLinear(LoRALayer, nn.Linear):
