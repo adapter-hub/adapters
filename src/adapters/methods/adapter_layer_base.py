@@ -312,11 +312,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
                 state = self.pre_block(adapter_stack_layer, state)
                 state = self.compose_single(adapter_stack_layer, state, lvl=lvl + 1)
             else:
-                raise ValueError(
-                    "Invalid adapter setup: {} is not a valid adapter name or composition block.".format(
-                        adapter_stack_layer.__class__.__name__
-                    )
-                )
+                pass
 
         return state
 
@@ -325,6 +321,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         For fusing multiple adapters using adapter fusion. NOTE: This method has no default implementation.
         """
         # Fuse is currently only applicable to bottleneck adapters, thus don't provide a default implementation
+        # If the adapter setup does not contain any of the adapter modules, return without doing anything
+        if set(self.adapter_modules.keys()).isdisjoint(adapter_setup.flatten()):
+            return state
         raise NotImplementedError()
 
     def compose_split(self, adapter_setup: Split, state: NamedTuple, lvl: int = 0):
@@ -333,6 +332,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         implementation.
         """
         # Split is currently only applicable to bottleneck adapters, thus don't provide a default implementation
+        # If the adapter setup does not contain any of the adapter modules, return without doing anything
+        if set(self.adapter_modules.keys()).isdisjoint(adapter_setup.flatten()):
+            return state
         raise NotImplementedError()
 
     def compose_batch_split(self, adapter_setup: BatchSplit, state: NamedTuple, lvl: int = 0):
