@@ -1360,18 +1360,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         if not train_embeddings:
             self.freeze_embeddings()
 
-        # Special preparations for kbit training
-        loaded_in_kbit = getattr(self, "is_loaded_in_8bit", False) or getattr(self, "is_loaded_in_4bit", False)
-        if loaded_in_kbit:
-            # cast all non quantized parameters to fp32
-            for param in self.parameters():
-                if (
-                    (param.dtype == torch.float16) or (param.dtype == torch.bfloat16)
-                ) and param.__class__.__name__ != "Params4bit":
-                    param.data = param.data.to(torch.float32)
-
-            # Hack to prevent HF Trainer from throwing an error due to peft missing.
-            self._hf_peft_config_loaded = True
+        # Hack to prevent HF Trainer from throwing an error due to peft missing.
+        self._hf_peft_config_loaded = True
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """
