@@ -26,7 +26,7 @@ from .t5.mixin_t5 import (
 )
 from .vit.mixin_vit import ViTIntermediateAdaptersMixin, ViTModelAdaptersMixin
 from .xmod.mixin_xmod import XmodModelAdaptersMixin
-
+from .whisper.mixin_whisper import WhisperEncoderAdaptersMixin, WhisperDecoderAdaptersMixin, WhisperModelAdaptersMixin
 
 # IMPORTANT: Only add classes to this mapping that are not copied into the adapters package
 MODEL_MIXIN_MAPPING = {
@@ -78,4 +78,7 @@ MODEL_MIXIN_MAPPING = {
     "BertGenerationEncoder": BertModelAdaptersMixin,
     "BertGenerationLayer": BertLayerAdaptersMixin,
     "LlamaModel": LlamaModelAdapterMixin,
+    "WhisperEncoder": WhisperEncoderAdaptersMixin,
+    "WhisperDecoder": WhisperDecoderAdaptersMixin,
+    "WhisperModel": WhisperModelAdaptersMixin,
 }
