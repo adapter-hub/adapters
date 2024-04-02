@@ -55,3 +55,7 @@ class BeitModelAdaptersMixin(ModelBaseAdaptersMixin):
 
     def set_input_embeddings(self, value):
         self.embeddings.patch_embeddings = value
+
+    def post_embedding_forward(self, module, args, outputs):
+        embedding_output, tup = outputs
+        return super().post_embedding_forward(module, args, embedding_output), tup

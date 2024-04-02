@@ -7,7 +7,7 @@ from transformers.models.bert_generation.modeling_bert_generation import (
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import AdapterSetup
-from ...heads import BertStyleMaskedLMHead, CausalLMHead, ModelWithFlexibleHeadsAdaptersMixin
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -20,6 +20,11 @@ class BertGenerationAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BertGenerationPreTrainedModel
 ):
     _keys_to_ignore_on_load_unexpected = [r"lm_head.bias"]
+
+    head_types = [
+        "masked_lm",
+        "causal_lm",
+    ]
 
     def __init__(self, config):
         super().__init__(config)
@@ -118,34 +123,3 @@ class BertGenerationAdapterModel(
             "past_key_values": past,
             "adapter_input_parallelized": model_kwargs.pop("adapter_input_parallelized", False),
         }
-
-    head_types = {
-        "masked_lm": BertStyleMaskedLMHead,
-        "causal_lm": CausalLMHead,
-    }
-
-    def add_masked_lm_head(self, head_name, activation_function="gelu", overwrite_ok=False):
-        """
-        Adds a masked language modeling head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            activation_function (str, optional): Activation function. Defaults to 'gelu'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = BertStyleMaskedLMHead(self, head_name, activation_function=activation_function)
-        self.add_prediction_head(head, overwrite_ok=overwrite_ok)
-
-    def add_causal_lm_head(self, head_name, activation_function=None, overwrite_ok=False):
-        """
-        Adds a causal language modeling head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            activation_function (str, optional): Activation function. Defaults to 'gelu'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = CausalLMHead(
-            self, head_name, layers=1, activation_function=activation_function, layer_norm=True, bias=True
-        )
-        self.add_prediction_head(head, overwrite_ok=overwrite_ok)

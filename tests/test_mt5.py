@@ -1,6 +1,6 @@
 import unittest
 
-from transformers.models.llama.configuration_llama import LlamaConfig
+from transformers import MT5Config
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -20,23 +20,25 @@ from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
-class LlamaAdapterTestBase(AdapterTestBase):
-    config_class = LlamaConfig
+@require_torch
+class MT5AdapterTestBase(AdapterTestBase):
+    config_class = MT5Config
     config = make_config(
-        LlamaConfig,
-        hidden_size=32,
-        num_hidden_layers=5,
-        num_attention_heads=4,
-        intermediate_size=37,
-        hidden_act="gelu",
-        hidden_dropout_prob=0.1,
-        pad_token_id=0,
+        MT5Config,
+        d_model=16,
+        num_layers=2,
+        num_decoder_layers=2,
+        num_heads=4,
+        d_ff=4,
+        d_kv=16 // 4,
+        tie_word_embeddings=False,
+        decoder_start_token_id=0,
     )
-    tokenizer_name = "openlm-research/open_llama_13b"
+    tokenizer_name = "google/mt5-base"
 
 
 @require_torch
-class LlamaAdapterTest(
+class MT5AdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
@@ -44,21 +46,21 @@ class LlamaAdapterTest(
     PrefixTuningTestMixin,
     UniPELTTestMixin,
     EmbeddingTestMixin,
-    AdapterFusionModelTestMixin,
     CompabilityTestMixin,
-    PredictionHeadModelTestMixin,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
-    LlamaAdapterTestBase,
+    AdapterFusionModelTestMixin,
+    PredictionHeadModelTestMixin,
+    MT5AdapterTestBase,
     unittest.TestCase,
 ):
     pass
 
 
 @require_torch
-class LlamaClassConversionTest(
+class MT5ClassConversionTest(
     ModelClassConversionTestMixin,
-    LlamaAdapterTestBase,
+    MT5AdapterTestBase,
     unittest.TestCase,
 ):
     pass

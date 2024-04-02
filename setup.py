@@ -21,7 +21,8 @@ from setuptools import find_packages, setup
 # We try to follow their general layout wherever sensible.
 
 _deps = [
-    "accelerate>=0.20.3",
+    "accelerate>=0.21.0",
+    "beautifulsoup4",
     "black==22.3",  # after updating to black 2023, also update Python version in pyproject.toml to 3.7
     "datasets!=2.5.0",
     "dill<0.3.5",
@@ -29,7 +30,6 @@ _deps = [
     "evaluate>=0.2.0",
     "flake8>=3.8.3",
     "GitPython<3.1.19",
-    "hf-doc-builder>=0.3.0",
     "isort>=5.5.4",
     "Jinja2==2.11.3",
     "nltk",
@@ -37,9 +37,9 @@ _deps = [
     "onnxruntime>=1.4.0",
     "parameterized",
     "pillow",
-    "protobuf<=3.20.2",
+    "protobuf",
     "psutil",
-    "pytest",
+    "pytest>=7.2.0,<8.0.0",
     "pytest-subtests",
     "pytest-timeout",
     "pytest-xdist",
@@ -49,7 +49,6 @@ _deps = [
     "rouge-score!=0.0.7,!=0.0.8,!=0.1,!=0.1.1",
     "sacrebleu>=1.4.12,<2.0.0",
     "sacremoses",
-    "safetensors>=0.2.1",
     "scikit-learn",
     "sentencepiece>=0.1.91,!=0.1.92",
     "sphinx-copybutton",
@@ -61,8 +60,7 @@ _deps = [
     "sphinx-multiversion",
     "timeout-decorator",
     "torch>=1.10,!=1.12.0",
-    "transformers==4.35.2",
-    "beautifulsoup4",
+    "transformers~=4.36.0",
 ]
 
 
@@ -90,6 +88,7 @@ extras["onnxruntime"] = deps_list("onnxruntime", "onnxruntime-tools")
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = deps_list(
     "pytest",
+    "pytest-subtests",
     "pytest-xdist",
     "timeout-decorator",
     "parameterized",
@@ -103,17 +102,14 @@ extras["testing"] = deps_list(
     "rouge-score",
     "nltk",
     "GitPython",
-    "hf-doc-builder",
-    "protobuf",  # Can be removed once we can unpin protobuf
     "sacremoses",
     "rjieba",
-    "safetensors",
     "beautifulsoup4",
     "pillow",
     "accelerate",
 )
 
-extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython", "hf-doc-builder")
+extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython")
 
 extras["docs"] = deps_list(
     "docutils",
@@ -146,7 +142,7 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="0.1.0",
+    version="0.1.2",
     author="The AdapterHub team and community contributors",
     author_email="pfeiffer@ukp.tu-darmstadt.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",

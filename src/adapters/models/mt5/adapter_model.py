@@ -2,7 +2,12 @@ import logging
 
 import torch
 
-from transformers.models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOCSTRING, T5Model, T5PreTrainedModel
+from transformers.models.mt5.modeling_mt5 import (
+    MT5_INPUTS_DOCSTRING,
+    MT5_START_DOCSTRING,
+    MT5Model,
+    MT5PreTrainedModel,
+)
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...composition import adjust_tensors_for_parallel
@@ -14,8 +19,10 @@ from ...wrappers import init
 logger = logging.getLogger(__name__)
 
 
-@add_start_docstrings("T5 Model with the option to add multiple flexible prediction heads on top.", T5_START_DOCSTRING)
-class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, T5PreTrainedModel):
+@add_start_docstrings(
+    "MT5 Model with the option to add multiple flexible prediction heads on top.", MT5_START_DOCSTRING
+)
+class MT5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MT5PreTrainedModel):
     _tied_weights_keys = [
         "encoder.embed_tokens.weight",
         "decoder.embed_tokens.weight",
@@ -35,7 +42,7 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
     def __init__(self, config):
         super().__init__(config)
 
-        self.transformer = T5Model(config)
+        self.transformer = MT5Model(config)
         init(self.transformer)
 
         self._init_head_modules()
@@ -52,7 +59,7 @@ class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdapte
     def get_decoder(self):
         return self.transformer.decoder
 
-    @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(MT5_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids=None,

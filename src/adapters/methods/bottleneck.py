@@ -255,7 +255,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
         for child in adapter_setup:
             if isinstance(child, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, child, lvl)
-                composition_func = self.composition_to_func_map[type(child)]
+                composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(child, state, lvl=lvl + 1)
                 children_states.append(child_state)
             elif child in self.adapter_modules:
@@ -311,7 +311,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             )
             if isinstance(child, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, child, lvl)
-                composition_func = self.composition_to_func_map[type(child)]
+                composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(child, child_state, lvl=lvl + 1)
                 children_states.append(child_state)
             elif child in self.adapter_modules:
