@@ -58,7 +58,6 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    :caption: Loading and Sharing
 
    loading
-   hub_contributing
    huggingface_hub
 
 .. toctree::
