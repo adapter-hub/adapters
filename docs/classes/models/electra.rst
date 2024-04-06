@@ -1,5 +1,5 @@
 ELECTRA
-======
+=======
 
 The ELECTRA model was proposed in the paper `ELECTRA: Pre-training Text Encoders as Discriminators Rather Than
 Generators <https://openreview.net/pdf?id=r1xMH1BtvB>`__. ELECTRA is a new pretraining approach which trains two

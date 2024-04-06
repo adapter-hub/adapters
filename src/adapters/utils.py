@@ -837,8 +837,8 @@ def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
             The value to use for the prefix_attention_mask. Defaults to 0, however some models, e.g. DistilBert, use
             different values. BERT like models invert their extended_attention_mask, hence they use 0 as value for not
             masked tokens. This inversion is usually done in the forward method of the model in 2 different ways:
-                1) by calling self.invert_attention_mask, as BERT does 2) by doing the inversion manually, e.g. ALBERT
-                does: `extended_attention_mask = (1.0 - extended_attention_mask) * torch.finfo(self.dtype).min`
+            1) by calling self.invert_attention_mask, as BERT does 2) by doing the inversion manually, e.g. ALBERT
+            does: `extended_attention_mask = (1.0 - extended_attention_mask) * torch.finfo(self.dtype).min`
     """
 
     forward_context = ForwardContext.get_context()
