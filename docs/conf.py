@@ -90,7 +90,7 @@ smv_remote_whitelist = None
 
 def skip_head_member(app, what, name, obj, skip, options):
     if type(obj).__name__ == "function" and "inherited-members" in options and (m := re.match(r"add\_(.*)\_head$", name)):
-        cls_name = options["inherited-members"].replace("PreTrainedModel", "AdapterModel").replace("PretrainedModel", "AdapterModel")
+        cls_name = list(options["inherited-members"])[0].replace("PreTrainedModel", "AdapterModel").replace("PretrainedModel", "AdapterModel")
         cls = vars(sys.modules["adapters"])[cls_name]
         # HACK: currently parses head type from name
         head_type_str = m.group(1).replace("qa", "question_answering")
