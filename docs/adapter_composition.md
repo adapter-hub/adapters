@@ -19,7 +19,7 @@ model.active_adapters = "adapter_name"
     - You cannot activate an adapter before previously adding it to the model using either ``add_adapter()`` or ``load_adapter()``.
     - All adapters not mentioned in the ``active_adapters`` setup are ignored, although they might have been loaded into the model. Thus, after adding an adapter, make sure to activate it.
 ```
-Note that we also could have used the [`set_active_adapters`](adapters.) method with `model.set_active_adapters("adapter_name")` which does the same.
+Note that we also could have used the `set_active_adapters` method with `model.set_active_adapters("adapter_name")` which does the same.
 
 Alternatively, the [`AdapterSetup`](adapters.AdapterSetup) context manager allows dynamic configuration of activated setups without changing the model state:
 
@@ -125,7 +125,7 @@ model.active_adapters = ac.Fuse("d", "e", "f")
 
 To learn how training an _AdapterFusion_ layer works, check out [this Colab notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/03_Adapter_Fusion.ipynb) from the `adapters` repo.
 
-#### Retrieving AdapterFusion attentions
+### Retrieving AdapterFusion attentions
 
 Finally, it is possible to retrieve the attention scores computed by each fusion layer in a forward pass of the model.
 These scores can be used for analyzing the fused adapter blocks and can serve as the basis for visualizations similar to those in the AdapterFusion paper.
