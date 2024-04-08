@@ -182,6 +182,7 @@ class BnConfig(AdapterConfig):
             model. Defaults to False.
         leave_out (:obj:`List[int]`, optional):
             The IDs of the layers (starting at 0) where NO adapter modules should be added.
+        dropout (:obj:`float`, optional): The dropout rate used in the adapter layer. Defaults to 0.0.
         phm_layer (:obj:`bool`, optional): If True the down and up projection layers are a PHMLayer.
             Defaults to False
         phm_dim (:obj:`int`, optional): The dimension of the phm matrix.
@@ -234,6 +235,7 @@ class BnConfig(AdapterConfig):
     inv_adapter_reduction_factor: Optional[float] = None
     cross_adapter: bool = False
     leave_out: List[int] = field(default_factory=list)
+    dropout: float = 0.0
     phm_layer: bool = False
     phm_dim: int = 4
     factorized_phm_W: Optional[bool] = True
