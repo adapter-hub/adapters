@@ -37,6 +37,7 @@ from .mixin_t5 import (
     T5StackAdaptersMixin,
 )
 
+
 logger = logging.get_logger(__name__)
 
 
@@ -52,16 +53,16 @@ class T5LayerFFWithAdapters(T5FFLayerAdaptersMixin, T5LayerFF):
 
 class T5AttentionWithAdapters(T5AttentionAdaptersMixin, T5Attention):
     def forward(
-            self,
-            hidden_states,
-            mask=None,
-            key_value_states=None,
-            position_bias=None,
-            past_key_value=None,
-            layer_head_mask=None,
-            query_length=None,
-            use_cache=False,
-            output_attentions=False,
+        self,
+        hidden_states,
+        mask=None,
+        key_value_states=None,
+        position_bias=None,
+        past_key_value=None,
+        layer_head_mask=None,
+        query_length=None,
+        use_cache=False,
+        output_attentions=False,
     ):
         """
         Self-attention (if key_value_states is None) or attention over source sentence (provided by key_value_states).
@@ -75,7 +76,7 @@ class T5AttentionWithAdapters(T5AttentionAdaptersMixin, T5Attention):
 
         if past_key_value is not None:
             assert (
-                    len(past_key_value) == 2
+                len(past_key_value) == 2
             ), f"past_key_value should have 2 past states: keys and values. Got {len(past_key_value)} past states"
             real_seq_length += past_key_value[0].shape[2] if query_length is None else query_length
 
@@ -159,7 +160,7 @@ class T5AttentionWithAdapters(T5AttentionAdaptersMixin, T5Attention):
             # if key and values are already calculated
             # we want only the last query position bias
             if past_key_value is not None:
-                position_bias = position_bias[:, :, -hidden_states.size(1):, :]
+                position_bias = position_bias[:, :, -hidden_states.size(1) :, :]
 
             if mask is not None:
                 position_bias = position_bias + mask  # (batch_size, n_heads, seq_length, key_length)
@@ -195,14 +196,14 @@ class T5AttentionWithAdapters(T5AttentionAdaptersMixin, T5Attention):
 
 class T5LayerSelfAttentionWithAdapters(T5SelfAttentionLayerAdaptersMixin, T5LayerSelfAttention):
     def forward(
-            self,
-            hidden_states,
-            attention_mask=None,
-            position_bias=None,
-            layer_head_mask=None,
-            past_key_value=None,
-            use_cache=False,
-            output_attentions=False,
+        self,
+        hidden_states,
+        attention_mask=None,
+        position_bias=None,
+        layer_head_mask=None,
+        past_key_value=None,
+        use_cache=False,
+        output_attentions=False,
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
         attention_output = self.SelfAttention(
@@ -223,16 +224,16 @@ class T5LayerSelfAttentionWithAdapters(T5SelfAttentionLayerAdaptersMixin, T5Laye
 
 class T5LayerCrossAttentionWithAdapters(T5CrossAttentionLayerAdaptersMixin, T5LayerCrossAttention):
     def forward(
-            self,
-            hidden_states,
-            key_value_states,
-            attention_mask=None,
-            position_bias=None,
-            layer_head_mask=None,
-            past_key_value=None,
-            use_cache=False,
-            query_length=None,
-            output_attentions=False,
+        self,
+        hidden_states,
+        key_value_states,
+        attention_mask=None,
+        position_bias=None,
+        layer_head_mask=None,
+        past_key_value=None,
+        use_cache=False,
+        query_length=None,
+        output_attentions=False,
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
         attention_output = self.EncDecAttention(
@@ -255,19 +256,19 @@ class T5LayerCrossAttentionWithAdapters(T5CrossAttentionLayerAdaptersMixin, T5La
 
 class T5StackWithAdapters(T5StackAdaptersMixin, T5Stack):
     def forward(
-            self,
-            input_ids=None,
-            attention_mask=None,
-            encoder_hidden_states=None,
-            encoder_attention_mask=None,
-            inputs_embeds=None,
-            head_mask=None,
-            cross_attn_head_mask=None,
-            past_key_values=None,
-            use_cache=None,
-            output_attentions=None,
-            output_hidden_states=None,
-            return_dict=None,
+        self,
+        input_ids=None,
+        attention_mask=None,
+        encoder_hidden_states=None,
+        encoder_attention_mask=None,
+        inputs_embeds=None,
+        head_mask=None,
+        cross_attn_head_mask=None,
+        past_key_values=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
     ):
         # Model parallel
         if self.model_parallel:
