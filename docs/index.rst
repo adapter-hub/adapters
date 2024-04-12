@@ -85,6 +85,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/models/roberta
    classes/models/t5
    classes/models/vit
+   classes/models/whisper
    classes/models/xlmroberta
    classes/models/xmod
 

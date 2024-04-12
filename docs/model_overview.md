@@ -31,6 +31,7 @@ The table below further shows which model architectures support which adaptation
 | [RoBERTa](classes/models/roberta.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [T5](classes/models/t5.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
 | [ViT](classes/models/vit.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [Whisper](classes/models/whisper.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [XLM-RoBERTa](classes/models/xlmroberta.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [X-MOD](classes/models/xmod.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
