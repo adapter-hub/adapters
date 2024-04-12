@@ -95,3 +95,14 @@ class WhisperModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrappe
         embedding_output = self.invertible_adapters_forward(embedding_output)
         # Prompt tuning not yet supported
         return embedding_output
+
+
+class WhisperDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBaseAdaptersMixin):
+    """Adds adapters to the WhisperDecoderWrapper class."""
+
+    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
+        for i, layer in enumerate(self.decoder.layers):
+            yield i, layer
+
+    def get_input_embeddings(self):
+        return self.decoder.get_input_embeddings()

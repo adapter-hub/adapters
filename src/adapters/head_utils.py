@@ -5,7 +5,6 @@ import re
 
 logger = logging.getLogger(__name__)
 
-
 # The "layers" attributes in the configs below map from static head module names to flex head module names.
 # In this context, "None" refers to a flex-head layer without weights (e.g. dropout, acts).
 STATIC_TO_FLEX_HEAD_MAP = {
@@ -641,6 +640,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": ["lm_head"],
     },
+    # Electra
     "ElectraForTokenClassification": {
         "config": {
             "head_type": "tagging",
@@ -705,6 +705,13 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "generator_lm_head",
         ],
     },
+    # Whisper
+    "WhisperForConditionalGeneration": {
+        "config": {
+            "head_type": "seq2seq_lm",
+        },
+        "layers": ["lm_head"],
+    },  # TODO: PoC added, check and update!
 }
 
 
