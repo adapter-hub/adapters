@@ -109,6 +109,7 @@ _import_structure = {
     "models.roberta": ["RobertaAdapterModel"],
     "models.t5": ["T5AdapterModel"],
     "models.vit": ["ViTAdapterModel"],
+    "models.whisper": ["WhisperAdapterModel"],
     "models.xlm_roberta": ["XLMRobertaAdapterModel"],
     "models.xmod": ["XmodAdapterModel"],
     "trainer": ["AdapterTrainer", "Seq2SeqAdapterTrainer"],
@@ -212,6 +213,7 @@ if TYPE_CHECKING:
     from .models.roberta import RobertaAdapterModel
     from .models.t5 import T5AdapterModel
     from .models.vit import ViTAdapterModel
+    from .models.whisper import WhisperAdapterModel
     from .models.xlm_roberta import XLMRobertaAdapterModel
     from .models.xmod import XmodAdapterModel
     from .trainer import AdapterTrainer, Seq2SeqAdapterTrainer
