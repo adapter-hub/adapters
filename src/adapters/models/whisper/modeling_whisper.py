@@ -20,6 +20,7 @@ import torch
 from torch import nn
 
 from transformers.models.whisper.modeling_whisper import WhisperAttention, WhisperDecoderLayer, WhisperEncoderLayer
+from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
 from .mixin_whisper import (
@@ -27,6 +28,9 @@ from .mixin_whisper import (
     WhisperDecoderLayerAdaptersMixin,
     WhisperEncoderLayerAdaptersMixin,
 )
+
+
+logger = logging.get_logger(__name__)
 
 
 class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMixin):
