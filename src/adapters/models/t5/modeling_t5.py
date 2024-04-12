@@ -144,10 +144,13 @@ class T5AttentionWithAdapters(T5AttentionAdaptersMixin, T5Attention):
             query_states, key_states.transpose(3, 2)
         )  # equivalent of torch.einsum("bnqd,bnkd->bnqk", query_states, key_states), compatible with onnx op>9
 
-        # For Prefix Tuning, when training with AdapterDrop, we must additionally check if the dimensions of the
-        # position_bias given from previous layers match the dimensions of the scores of the current layer to make
-        # sure that the position_bias is adequately recomputed if previous layers have been skipped.
-        if position_bias is None or position_bias.shape != scores.shape:
+        # For Prefix Tuning, when training with AdapterDrop, we must additionally check that the sequence lengths of
+        # both positional encoding and the scores account for the prefix tokens.
+        # This is because the positional encoding is calculated only once in the beginning and then used for all layers.
+        # However, if the encoding was calculated without the prefix tokens due to AdapterDrop having dropped an
+        # adapter layer in the beginning, the positional encoding will be shorter than the scores, resulting in a
+        # dimension mismatch when adding the positional encoding to the scores.
+        if position_bias is None or position_bias.shape[3] != scores.shape[3]:
             if not self.has_relative_attention_bias:
                 position_bias = torch.zeros(
                     (1, self.n_heads, real_seq_length, key_length), device=scores.device, dtype=scores.dtype
