@@ -66,7 +66,7 @@ class CLIPAttentionWithAdapters(CLIPAttentionAdaptersMixin, CLIPAttention):
         if causal_attention_mask is not None:
             prefix_mask = torch.ones(
                 bsz, 1, causal_attention_mask.size(2), src_len - causal_attention_mask.size(-1)
-            ).to(causal_attention_mask.device)
+            ).to(device=causal_attention_mask.device, dtype=causal_attention_mask.dtype)
             causal_attention_mask = torch.cat([prefix_mask, causal_attention_mask], dim=-1)
             if causal_attention_mask.size() != (bsz, 1, tgt_len, src_len):
                 raise ValueError(

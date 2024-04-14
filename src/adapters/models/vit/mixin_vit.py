@@ -6,6 +6,7 @@ from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import ModelBaseAdaptersMixin
+from ...utils import patch_forward
 
 
 class ViTSelfAttentionAdaptersMixin:
@@ -20,6 +21,7 @@ class ViTSelfAttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
+        patch_forward(self)
 
 
 class ViTIntermediateAdaptersMixin:
@@ -37,6 +39,8 @@ class ViTOutputAdaptersMixin:
         # Wrap layers for LoRA
         self.dense = LoRALinear.wrap(self.dense, "output", model_config, adapters_config)
 
+        patch_forward(self)
+
 
 # Unlike BERT, self attention adapters are added to Layer module in ViT
 class ViTLayerAdaptersMixin:
@@ -44,6 +48,7 @@ class ViTLayerAdaptersMixin:
 
     def init_adapters(self, model_config, adapters_config):
         self.attention_adapters = BottleneckLayer("mh_adapter")
+        patch_forward(self)
 
 
 class ViTModelAdaptersMixin(ModelBaseAdaptersMixin):
