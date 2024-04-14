@@ -13,6 +13,7 @@ from ...model_mixin import (
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
 )
+from ...utils import patch_forward
 
 
 class CLIPAttentionAdaptersMixin:
@@ -27,6 +28,7 @@ class CLIPAttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningLayer(
             "self_prefix", model_config, adapters_config, add_model_type_to_key=True
         )
+        patch_forward(self)
 
 
 class CLIPEncoderLayerAdaptersMixin:
@@ -39,6 +41,8 @@ class CLIPEncoderLayerAdaptersMixin:
 
         self.attention_adapters = BottleneckLayer("mh_adapter")
         self.output_adapters = BottleneckLayer("output_adapter")
+
+        patch_forward(self)
 
 
 class CLIPEncoderAdaptersMixin:
