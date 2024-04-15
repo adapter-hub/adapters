@@ -276,11 +276,13 @@ class LoRAState(NamedTuple):
             The hidden states of the adaptation module. These can be None before passing through the first LoRA/ IA3
             module.
         layer_output (torch.Tensor): The output states of the original layer without adaptation.
+        last (str, optional): Name of the last adapter applied in the composition.
     """
 
     layer_input: torch.Tensor
     hidden_states: Optional[torch.Tensor]
     layer_output: torch.Tensor
+    last: Optional[str]
 
 
 class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
@@ -395,6 +397,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
             state.layer_input[slice_obj],
             state.hidden_states[slice_obj] if state.hidden_states is not None else None,
             state.layer_output[slice_obj],
+            state.last,
         )
 
     def pad_and_concat(self, states: List[LoRAState]) -> LoRAState:
@@ -402,6 +405,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
             torch.cat([s.layer_input for s in states], dim=0),
             torch.cat([s.hidden_states for s in states], dim=0) if states[0].hidden_states is not None else None,
             torch.cat([s.layer_output for s in states], dim=0),
+            states[-1].last,
         )
 
     def repeat(self, state: LoRAState, channels: int) -> LoRAState:
@@ -409,6 +413,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
             state.layer_input.repeat(channels, 1, 1),
             state.hidden_states.repeat(channels, 1, 1) if state.hidden_states is not None else None,
             state.layer_output.repeat(channels, 1, 1),
+            state.last,
         )
 
     def mean(self, states: List[LoRAState], weights: torch.Tensor) -> LoRAState:
@@ -418,6 +423,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
             if states[0].hidden_states is not None
             else None,
             states[0].layer_output,
+            states[-1].last,
         )
 
     def compose_single(self, adapter_setup: str, state: LoRAState, lvl: int = 0) -> LoRAState:
@@ -426,7 +432,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
         if gate is not None:
             self._store_gating_score(adapter_setup, gate)
 
-        return state._replace(hidden_states=hidden_states)
+        return state._replace(hidden_states=hidden_states, last=adapter_setup)
 
     def forward(self, input_states: torch.Tensor):
         weight = torch.transpose(self.weight, -2, -1) if self.fan_in_fan_out else self.weight
@@ -436,11 +442,11 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
         if not self.merged:
             adapter_setup = self.get_active_setup()
             if adapter_setup is not None:
-                state = LoRAState(input_states, None, layer_output)
+                state = LoRAState(input_states, None, layer_output, None)
                 state = self.compose(adapter_setup, state)
-                _, hidden_states, layer_output = state
+                _, hidden_states, layer_output, last = state
 
-                last_lora = self.loras[adapter_setup.last()]
+                last_lora = self.loras[last]
                 layer_output = last_lora.com(
                     layer_output, hidden_states, scaling=1.0
                 )  # scaling already applied in compose
