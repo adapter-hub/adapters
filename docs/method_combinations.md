@@ -92,7 +92,7 @@ which is identical to the following `ConfigUnion`:
 from adapters import ConfigUnion, LoRAConfig, PrefixTuningConfig, SeqBnConfig
 
 config = ConfigUnion(
-    LoRAConfig(r=8, use_gating=True),
+    LoRAConfig(r=8, alpha=2, use_gating=True),
     PrefixTuningConfig(prefix_length=10, use_gating=True),
     SeqBnConfig(reduction_factor=16, use_gating=True),
 )

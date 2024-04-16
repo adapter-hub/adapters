@@ -621,7 +621,7 @@ class UniPELTConfig(ConfigUnion):
         components = [
             prefix_tuning or PrefixTuningConfig(prefix_length=10),
             adapter or SeqBnConfig(reduction_factor=16),
-            lora or LoRAConfig(r=8),
+            lora or LoRAConfig(r=8, alpha=2),
         ]
 
         super().__init__(*[c.replace(use_gating=True) for c in components])
