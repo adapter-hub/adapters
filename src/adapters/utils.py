@@ -719,15 +719,15 @@ def resolve_adapter_path(
         return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
     elif source is None:
         try:
-            logger.info("Attempting to load adapter from source 'ah'...")
-            return pull_from_hub(
-                adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
-            )
-        except EnvironmentError as ex:
-            logger.info(ex)
             logger.info("Attempting to load adapter from source 'hf'...")
+            return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
+        except (EnvironmentError, ValueError) as ex:
+            logger.info(ex)
+            logger.info("Attempting to load adapter from source 'ah'...")
             try:
-                return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
+                return pull_from_hub(
+                    adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
+                )
             except Exception as ex:
                 logger.info(ex)
                 raise EnvironmentError(
