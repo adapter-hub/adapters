@@ -13,11 +13,18 @@ from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
 
-# Copied form src/adapters/models/bart/adapter_model.py
+@add_start_docstrings(
+    "WHISPER Model with the option to add multiple flexible prediction heads on top.", WHISPER_START_DOCSTRING
+)
 class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, WhisperPreTrainedModel):
     _tied_weights_keys = [
         "encoder.embed_tokens.weight",
         "decoder.embed_tokens.weight",
+    ]
+
+    head_types = [
+        "seq2seq_lm",
+        "classification",
     ]
 
     def __init__(self, config: WhisperConfig, **kwargs):
@@ -38,26 +45,26 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        decoder_input_ids=None,
-        decoder_attention_mask=None,
-        head_mask=None,
-        decoder_head_mask=None,
-        cross_attn_head_mask=None,
-        encoder_outputs=None,
-        inputs_embeds=None,
-        decoder_inputs_embeds=None,
-        use_cache=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        past_key_values=None,
-        head=None,
-        output_adapter_gating_scores=False,
-        output_adapter_fusion_attentions=False,
-        **kwargs
+            self,
+            input_ids=None,
+            attention_mask=None,
+            decoder_input_ids=None,
+            decoder_attention_mask=None,
+            head_mask=None,
+            decoder_head_mask=None,
+            cross_attn_head_mask=None,
+            encoder_outputs=None,
+            inputs_embeds=None,
+            decoder_inputs_embeds=None,
+            use_cache=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
+            past_key_values=None,
+            head=None,
+            output_adapter_gating_scores=False,
+            output_adapter_fusion_attentions=False,
+            **kwargs
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):

@@ -1,0 +1,65 @@
+{
+  "citation": "",
+  "description": "",
+  "features": {
+    "client_id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "path": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "audio": {
+      "array": {
+        "feature": {
+          "dtype": "float64",
+          "_type": "Value"
+        },
+        "_type": "Sequence"
+      },
+      "path": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "sampling_rate": {
+        "dtype": "int64",
+        "_type": "Value"
+      }
+    },
+    "sentence": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "up_votes": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "down_votes": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "age": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "gender": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "accent": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "locale": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "segment": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": ""
+}

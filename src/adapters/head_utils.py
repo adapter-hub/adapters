@@ -711,7 +711,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "head_type": "seq2seq_lm",
         },
         "layers": ["lm_head"],
-    },  # TODO: PoC added, check and update!
+    },
 }
 
 

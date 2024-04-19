@@ -8,7 +8,6 @@ from adapters import AutoAdapterModel
 from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
 from transformers.testing_utils import torch_device
 
-
 global_rng = random.Random()
 
 
@@ -129,6 +128,27 @@ class VisionAdapterTestBase(AdapterTestBase):
             "./tests/fixtures/samples/cifar10",
             data_dir="./tests/fixtures/samples/cifar10",
             split="train",
+        )
+        dataset = dataset.with_transform(transform)
+
+        return dataset
+
+
+class SpeechAdapterTestBase(AdapterTestBase):
+
+    def dataset(self, feature_extractor=None):
+        if feature_extractor is None:
+            feature_extractor = AutoFeatureExtractor.from_pretrained(self.feature_extractor_name)
+            print("feature_extractor: ", self.feature_extractor_name)
+
+        def transform(example_batch):
+            inputs = feature_extractor([x for x in example_batch["input_features"]], return_tensors="pt")
+
+            inputs["labels"] = example_batch["label"]
+            return inputs
+
+        dataset = datasets.load_from_disk(
+            dataset_path="./tests/fixtures/samples/common_voice_en",
         )
         dataset = dataset.with_transform(transform)
 

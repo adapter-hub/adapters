@@ -137,7 +137,6 @@ SUPPORTED_MODELS = {
         "llama",
         "electra",
         "xmod",
-        "whisper",
     ],
 }
 
