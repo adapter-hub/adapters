@@ -29,7 +29,6 @@ class LlamaAdapterTestBase(AdapterTestBase):
         num_attention_heads=4,
         intermediate_size=37,
         hidden_act="gelu",
-        hidden_dropout_prob=0.1,
         pad_token_id=0,
     )
     tokenizer_name = "openlm-research/open_llama_13b"
