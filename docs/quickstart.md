@@ -14,7 +14,7 @@ In the following, we will briefly go through some examples to showcase these met
     `the 'Usage' section in Hugging Face's documentation <https://huggingface.co/docs/transformers/main/en/quicktour>`_.
 ```
 
-## Initialize Model with Adapters
+## Initialize a Model with Adapters
 
 The `XAdapterModel` is the recommended model for training and inference of adapters:
 
