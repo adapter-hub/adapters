@@ -14,10 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-> **Note**: This repository holds the codebase of the _Adapters_ library, which has replaced `adapter-transformers`. For the legacy codebase, go to: https://github.com/adapter-hub/adapter-transformers-legacy.
-
 <p align="center">
-<img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapters/main/docs/logo.png" />
+<img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapters/main/docs/img/adapter-bert.png" width="80" />
 </p>
 <h1 align="center">
 <span><i>Adapters</i></span>
@@ -26,12 +24,21 @@ limitations under the License.
 <h3 align="center">
 A Unified Library for Parameter-Efficient and Modular Transfer Learning
 </h3>
+<h3 align="center">
+    <a href="https://adapterhub.ml">Website</a>
+    &nbsp; • &nbsp;
+    <a href="https://docs.adapterhub.ml">Documentation</a>
+    &nbsp; • &nbsp;
+    <a href="https://arxiv.org/abs/2311.11077">Paper</a>
+</h3>
 
 ![Tests](https://github.com/Adapter-Hub/adapters/workflows/Tests/badge.svg?branch=adapters)
 [![GitHub](https://img.shields.io/github/license/adapter-hub/adapters.svg?color=blue)](https://github.com/adapter-hub/adapters/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/adapters)](https://pypi.org/project/adapters/)
 
-`adapters` is an add-on to [HuggingFace's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
+_Adapters_ is an add-on library to [HuggingFace's Transformers](https://github.com/huggingface/transformers), integrating [various adapter methods](https://docs.adapterhub.ml/overview.html) into [state-of-the-art pre-trained language models](https://docs.adapterhub.ml/model_overview.html) with minimal coding overhead for training and inference.
+
+> **Note**: The _Adapters_ library has replaced the `adapter-transformers` package. All previously trained adapters are compatible with the new library. For transitioning, please read: https://docs.adapterhub.ml/transitioning.html.
 
 ## Installation
 
