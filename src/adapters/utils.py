@@ -864,3 +864,12 @@ def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
         attention_mask = torch.cat((prefix_attention_mask, attention_mask), dim=dim)
 
     return attention_mask
+
+
+def patch_forward(module: torch.nn.Module):
+    # HF Accelerate's `add_hook_to_module()` replaces the module forward method with a wrapper
+    # and stores the original forward method in `_old_forward`. For this to work with Adapters' post-hook wrapping,
+    # we need to explicitly set to potentially overriden forward methods on adapter init.
+    # The `add_hook_to_module()` method is e.g. used for `device_map="auto"` in the `PreTrainedModel.from_pretrained()` method.
+    if hasattr(module, "_old_forward"):
+        module._old_forward = module.__class__.forward.__get__(module, module.__class__)

@@ -6,6 +6,7 @@ from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ...utils import patch_forward
 
 
 class DistilBertMultiHeadSelfAttentionMixin:
@@ -18,6 +19,7 @@ class DistilBertMultiHeadSelfAttentionMixin:
         self.v_lin = LoRALinear.wrap(self.v_lin, "selfattn", model_config, adapters_config, attn_key="v")
 
         self.prefix_tuning = PrefixTuningLayer("self", model_config, adapters_config)
+        patch_forward(self)
 
 
 class DistilBertTransfomerBlockAdaptersMixin:
@@ -31,9 +33,14 @@ class DistilBertTransfomerBlockAdaptersMixin:
         self.attention_adapters = BottleneckLayer("mh_adapter")
         self.output_adapters = BottleneckLayer("output_adapter")
 
+        patch_forward(self)
+
 
 class DistilBertTransformerAdaptersMixin:
     """Adds adapters to the Transformer module of DistilBert."""
+
+    def init_adapters(self, model_config, adapters_config):
+        patch_forward(self)
 
     def forward(self, *args, **kwargs):
         if hasattr(self, "pre_forward_fn"):

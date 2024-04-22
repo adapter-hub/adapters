@@ -7,6 +7,7 @@ from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ...utils import patch_forward
 
 
 class AlbertAttentionAdaptersMixin:
@@ -23,6 +24,7 @@ class AlbertAttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
+        patch_forward(self)
 
 
 class AlbertEncoderLayerAdaptersMixin:
@@ -39,6 +41,8 @@ class AlbertEncoderLayerAdaptersMixin:
         self.output_adapters = BottleneckLayer("output_adapter")
 
         self.attention.location_key = "self"
+
+        patch_forward(self)
 
 
 class AlbertModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):

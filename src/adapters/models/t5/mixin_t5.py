@@ -13,6 +13,7 @@ from ...model_mixin import (
     ModelBaseAdaptersMixin,
     ModelWithHeadsAdaptersMixin,
 )
+from ...utils import patch_forward
 
 
 class T5AttentionAdaptersMixin:
@@ -27,6 +28,7 @@ class T5AttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
+        patch_forward(self)
 
 
 class T5SelfAttentionLayerAdaptersMixin(BottleneckLayer):
@@ -36,6 +38,7 @@ class T5SelfAttentionLayerAdaptersMixin(BottleneckLayer):
     def init_adapters(self, model_config, adapters_config):
         self.location_key = "mh_adapter"
         super().init_adapters(model_config, adapters_config)
+        patch_forward(self)
 
 
 class T5CrossAttentionLayerAdaptersMixin(BottleneckLayer):
@@ -46,6 +49,7 @@ class T5CrossAttentionLayerAdaptersMixin(BottleneckLayer):
         self.location_key = "cross_adapter"
         self.EncDecAttention.location_key = "cross"
         super().init_adapters(model_config, adapters_config)
+        patch_forward(self)
 
 
 class T5FFLayerAdaptersMixin(BottleneckLayer):
@@ -82,6 +86,7 @@ class T5StackAdaptersMixin(InvertibleAdaptersMixin):
     def init_adapters(self, model_config, adapters_config):
         if not self.is_decoder:
             InvertibleAdaptersMixin.init_adapters(self, self.config, adapters_config)
+        patch_forward(self)
 
     def post_embedding_forward(self, embedding_output):
         embedding_output = self.invertible_adapters_forward(embedding_output)

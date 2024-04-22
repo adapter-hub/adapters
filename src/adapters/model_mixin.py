@@ -23,7 +23,7 @@ from .methods.lora import LoRALayer
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
-from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc
+from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc, patch_forward
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
 
@@ -1257,6 +1257,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 @inherit_doc
 class ModelBaseAdaptersMixin(ModelAdaptersMixin):
     add_base_adapters = True
+
+    def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
+        super().init_adapters(model_config, adapters_config, add_prefix_tuning_pool)
+
+        patch_forward(self)
 
     def post_embedding_forward(self, module, args, embedding_output):
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
