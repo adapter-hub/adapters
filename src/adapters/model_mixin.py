@@ -1365,6 +1365,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         if not train_embeddings:
             self.freeze_embeddings()
 
+        # Hack to prevent HF Trainer from throwing an error due to peft missing.
+        self._hf_peft_config_loaded = True
+
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """
         Sets the model into mode for training of adapter fusion determined by a list of adapter names. If
