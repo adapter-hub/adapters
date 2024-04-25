@@ -1,11 +1,12 @@
 import random
 
 import datasets
+from datasets import Audio
 import torch
 
 import adapters
 from adapters import AutoAdapterModel
-from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
+from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments, AutoProcessor
 from transformers.testing_utils import torch_device
 
 global_rng = random.Random()
@@ -135,21 +136,42 @@ class VisionAdapterTestBase(AdapterTestBase):
 
 
 class SpeechAdapterTestBase(AdapterTestBase):
+    default_input_samples_shape = (80, 3000)
 
-    def dataset(self, feature_extractor=None):
+    def dataset(self, feature_extractor=None, processor=None):
         if feature_extractor is None:
             feature_extractor = AutoFeatureExtractor.from_pretrained(self.feature_extractor_name)
-            print("feature_extractor: ", self.feature_extractor_name)
+
+        if processor is None:
+            processor = AutoProcessor.from_pretrained(self.processor_name)
 
         def transform(example_batch):
-            inputs = feature_extractor([x for x in example_batch["input_features"]], return_tensors="pt")
+            # Load and resample audio data from 48 kHZ to match the model's expected sampling rate
+            audio = example_batch["audio"]
 
-            inputs["labels"] = example_batch["label"]
-            return inputs
+            # compute log-Mel input features from input audio array
+            example_batch["input_features"] = \
+                feature_extractor(audio["array"], sampling_rate=audio["sampling_rate"]).input_features[0]
 
-        dataset = datasets.load_from_disk(
-            dataset_path="./tests/fixtures/samples/common_voice_en",
-        )
+            # encode target text to label ids
+            example_batch["labels"] = self.tokenizer(example_batch["sentence"]).input_ids
+            return example_batch
+
+        self.disk = datasets.load_from_disk(dataset_path="./tests/fixtures/samples/common_voice_en", )
+        dataset = self.disk
+        # Downsampling audio to macht the model's expected sampling rate;
+        # this is applied when reloading the samples, therefore we reload the samples in the transform method
+        dataset = dataset.cast_column("audio", Audio(sampling_rate=self.sampling_rate))
         dataset = dataset.with_transform(transform)
 
         return dataset
+
+    def get_input_samples(self, shape=None, vocab_size=5000, config=None):
+        shape = shape or self.default_input_samples_shape
+        in_data = super().get_input_samples(shape, vocab_size, config=config)
+        # renmae input_ids to input_features to match the speech model
+        in_data["input_features"] = in_data.pop("input_ids")
+        print(in_data)
+        print(config)
+        return in_data
+

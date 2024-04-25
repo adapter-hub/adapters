@@ -35,6 +35,8 @@ class WhisperAdapterTestBase(SpeechAdapterTestBase):
         vocab_size=51865,
     )
     feature_extractor_name = "openai/whisper-small"
+    processor_name = "openai/whisper-small"
+    sampling_rate = 16000
 
 
 @require_torch
