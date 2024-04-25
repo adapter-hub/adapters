@@ -1,4 +1,4 @@
-# Copyright 2020 The AdapterHub Team. All rights reserved.
+# Copyright 2020-2024 The AdapterHub Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -142,9 +142,9 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="0.1.2",
+    version="0.2.0",
     author="The AdapterHub team and community contributors",
-    author_email="pfeiffer@ukp.tu-darmstadt.de",
+    author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
