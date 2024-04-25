@@ -65,15 +65,23 @@ class PredictionHead(nn.Sequential):
         self.config = {}
         self.name = name
 
-    def build(self, model):
-        model_config = model.config
-        pred_head = []
+    def _get_dropout_prob(self, model_config):
+        # try to infer dropout prob from various sources, default to 0.0
         if "dropout_prob" in self.config and self.config["dropout_prob"] is not None:
             dropout_prob = self.config["dropout_prob"]
         elif hasattr(model_config, "classifier_dropout") and model_config.classifier_dropout is not None:
             dropout_prob = model_config.classifier_dropout
-        else:
+        elif hasattr(model_config, "hidden_dropout_prob") and model_config.hidden_dropout_prob is not None:
             dropout_prob = model_config.hidden_dropout_prob
+        else:
+            dropout_prob = 0.0
+
+        return dropout_prob
+
+    def build(self, model):
+        model_config = model.config
+        pred_head = []
+        dropout_prob = self._get_dropout_prob(model_config)
         bias = self.config.get("bias", True)
         for l_id in range(self.config["layers"]):
             pred_head.append(nn.Dropout(dropout_prob))
