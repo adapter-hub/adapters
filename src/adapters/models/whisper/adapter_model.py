@@ -46,21 +46,20 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
     def forward(
             self,
-            input_ids=None,
-            attention_mask=None,
+            input_features =None,
+            attention_mask =None,
             decoder_input_ids=None,
             decoder_attention_mask=None,
             head_mask=None,
             decoder_head_mask=None,
             cross_attn_head_mask=None,
             encoder_outputs=None,
-            inputs_embeds=None,
-            decoder_inputs_embeds=None,
+            past_key_values =None,
+            decoder_inputs_embeds =None,
             use_cache=None,
             output_attentions=None,
             output_hidden_states=None,
             return_dict=None,
-            past_key_values=None,
             head=None,
             output_adapter_gating_scores=False,
             output_adapter_fusion_attentions=False,
@@ -77,7 +76,7 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
             use_cache = False
 
         outputs, context = self.model(
-            input_ids,
+            input_features=input_features,
             attention_mask=attention_mask,
             decoder_input_ids=decoder_input_ids,
             decoder_attention_mask=decoder_attention_mask,
@@ -85,7 +84,6 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
             decoder_head_mask=decoder_head_mask,
             cross_attn_head_mask=cross_attn_head_mask,
             encoder_outputs=encoder_outputs,
-            inputs_embeds=inputs_embeds,
             decoder_inputs_embeds=decoder_inputs_embeds,
             use_cache=use_cache,
             output_attentions=output_attentions,
@@ -107,7 +105,7 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
             return_dict=return_dict,
             get_cls_from_eos_tokens=True,
             # `get_cls_from_eos_tokens` requires passing eos mask
-            eos_mask=input_ids.eq(self.config.eos_token_id) if input_ids is not None else None,
+            eos_mask=input_features.eq(self.config.eos_token_id) if input_features is not None else None,
             **kwargs,
         )
 
