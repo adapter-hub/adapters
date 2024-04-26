@@ -136,7 +136,7 @@ class VisionAdapterTestBase(AdapterTestBase):
 
 
 class SpeechAdapterTestBase(AdapterTestBase):
-    default_input_samples_shape = (80, 3000)
+    default_input_samples_shape = (1, 80, 3000)
 
     def dataset(self, feature_extractor=None, processor=None):
         if feature_extractor is None:
@@ -166,12 +166,19 @@ class SpeechAdapterTestBase(AdapterTestBase):
 
         return dataset
 
-    def get_input_samples(self, shape=None, vocab_size=5000, config=None):
+    def get_input_samples(self, shape=None, config=None):
+        """ Creates and returns  a dict with the key 'input_features' containing a random tensor of shape `shape`.
+        The method is used for creating a test speech sample for speech models which require the key 'input_features'
+        in the input dict instead of 'input_ids'. """
         shape = shape or self.default_input_samples_shape
-        in_data = super().get_input_samples(shape, vocab_size, config=config)
-        # renmae input_ids to input_features to match the speech model
-        in_data["input_features"] = in_data.pop("input_ids")
-        print(in_data)
-        print(config)
+        total_dims = 1
+        for dim in shape:
+            total_dims *= dim
+        values = []
+        for _ in range(total_dims):
+            values.append(random.random())
+        input_features = torch.tensor(data=values, dtype=torch.float, device=torch_device).view(shape).contiguous()
+        in_data = {"input_features": input_features}
+        if config and config.is_encoder_decoder:
+            in_data["decoder_input_ids"] = ids_tensor((shape[0:2]), config.vocab_size)
         return in_data
-
