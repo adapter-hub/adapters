@@ -71,7 +71,7 @@ class SafetensorsTest(unittest.TestCase):
 
         try:
             temp_dir.cleanup()
-        except:
+        except Exception:
             pass
 
     def test_safetensors_head(self):
@@ -105,7 +105,7 @@ class SafetensorsTest(unittest.TestCase):
 
         try:
             temp_dir.cleanup()
-        except:
+        except Exception:
             pass
 
     def test_safetensors_adapter_fusion(self):
@@ -141,5 +141,5 @@ class SafetensorsTest(unittest.TestCase):
 
         try:
             temp_dir.cleanup()
-        except:
+        except Exception:
             pass
