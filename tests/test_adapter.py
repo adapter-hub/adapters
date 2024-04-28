@@ -1,4 +1,5 @@
 import random
+from typing import List, Dict, Union
 
 import datasets
 from datasets import Audio
@@ -138,31 +139,75 @@ class VisionAdapterTestBase(AdapterTestBase):
 class SpeechAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (1, 80, 3000)
 
-    def dataset(self, feature_extractor=None, processor=None):
+    def dataset(self, feature_extractor=None, processor=None, tokenizer=None):
         if feature_extractor is None:
             feature_extractor = AutoFeatureExtractor.from_pretrained(self.feature_extractor_name)
 
         if processor is None:
             processor = AutoProcessor.from_pretrained(self.processor_name)
 
-        def transform(example_batch):
+        if tokenizer is None:
+            tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
+
+        # Preprocessing functions adapted from this example notebook:
+        # https://github.com/huggingface/peft/blob/main/examples/int8_training/peft_bnb_whisper_large_v2_training.ipynb
+
+        def prepare_dataset(batch):
             # Load and resample audio data from 48 kHZ to match the model's expected sampling rate
-            audio = example_batch["audio"]
+            audio = batch["audio"]
+            raw_speech = [sample["array"] for sample in audio]
+            sampling_rate = audio[0]["sampling_rate"]
 
             # compute log-Mel input features from input audio array
-            example_batch["input_features"] = \
-                feature_extractor(audio["array"], sampling_rate=audio["sampling_rate"]).input_features[0]
+            input_features = feature_extractor(raw_speech=raw_speech, sampling_rate=sampling_rate,
+                                               return_tensors='pt').input_features
 
             # encode target text to label ids
-            example_batch["labels"] = self.tokenizer(example_batch["sentence"]).input_ids
-            return example_batch
+            sentences = batch["sentence"]
+            labels = tokenizer(sentences).input_ids
 
-        self.disk = datasets.load_from_disk(dataset_path="./tests/fixtures/samples/common_voice_en", )
-        dataset = self.disk
-        # Downsampling audio to macht the model's expected sampling rate;
-        # this is applied when reloading the samples, therefore we reload the samples in the transform method
+            # return the batch
+            batch["input_features"] = input_features
+            batch["labels"] = labels
+            return batch
+
+        def convert_features(features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
+            # split inputs and labels since they have to be of different lengths and need different padding methods
+            # first treat the audio inputs by simply returning torch tensors
+            batched_i_f = features["input_features"]
+            input_features = [{"input_features": feature} for feature in batched_i_f]
+            batch = processor.feature_extractor.pad(input_features, return_tensors="pt")
+
+            # get the tokenized label sequences
+            labels_batched = features["labels"]
+            lables = [{"input_ids": label} for label in labels_batched]
+            # pad the labels to max length
+            padded_labels = processor.tokenizer.pad(lables, return_tensors="pt")
+
+            # replace padding with -100 to ignore loss correctly
+            labels = padded_labels["input_ids"].masked_fill(padded_labels.attention_mask.ne(1), -100)
+
+            # if bos token is appended in previous tokenization step,
+            # cut bos token here as it's append later anyways
+            if (labels[:, 0] == processor.tokenizer.bos_token_id).all().cpu().item():
+                labels = labels[:, 1:]
+
+            batch["labels"] = labels
+            batch["decoder_input_ids"] = labels
+
+            return batch
+
+        # Load an extract of 10 samples from the Common Voice dataset
+        dataset = datasets.load_from_disk(dataset_path="./tests/fixtures/samples/common_voice_en", )
+
+        # Resampling audio from 48 kHZ to match the model's expected sampling rate, executed upon reading the dataset
         dataset = dataset.cast_column("audio", Audio(sampling_rate=self.sampling_rate))
-        dataset = dataset.with_transform(transform)
+
+        # Preprocessing the dataset
+        dataset = dataset.map(prepare_dataset, batched=True, remove_columns=dataset.column_names)
+        dataset = dataset.map(convert_features, batched=True)
+        dataset.set_format(type="torch", columns=["input_features", "labels", "decoder_input_ids"])
+        print(dataset)
 
         return dataset
 
