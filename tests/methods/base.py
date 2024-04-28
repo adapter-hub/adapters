@@ -245,6 +245,9 @@ class AdapterMethodBaseTestMixin:
         # setup dataset
         train_dataset = self.dataset()
 
+        print(f"train_dataset: {train_dataset}")
+        print(f"train_dataset[0]: {train_dataset[0]}")
+
         training_args = TrainingArguments(
             output_dir="./examples",
             do_train=True,
