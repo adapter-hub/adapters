@@ -168,7 +168,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
 
             # return the batch
             batch["input_features"] = input_features
-            batch["labels"] = labels
+            batch["input_ids"] = labels
             return batch
 
         def convert_features(features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
@@ -179,7 +179,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
             batch = processor.feature_extractor.pad(input_features, return_tensors="pt")
 
             # get the tokenized label sequences
-            labels_batched = features["labels"]
+            labels_batched = features["input_ids"]
             lables = [{"input_ids": label} for label in labels_batched]
             # pad the labels to max length
             padded_labels = processor.tokenizer.pad(lables, return_tensors="pt")
@@ -192,8 +192,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
             if (labels[:, 0] == processor.tokenizer.bos_token_id).all().cpu().item():
                 labels = labels[:, 1:]
 
-            batch["labels"] = labels
-            batch["decoder_input_ids"] = labels
+            batch["input_ids"] = labels
 
             return batch
 
@@ -206,7 +205,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
         # Preprocessing the dataset
         dataset = dataset.map(prepare_dataset, batched=True, remove_columns=dataset.column_names)
         dataset = dataset.map(convert_features, batched=True)
-        dataset.set_format(type="torch", columns=["input_features", "labels", "decoder_input_ids"])
+        dataset.set_format(type="torch", columns=["input_features", "input_ids"])
         print(dataset)
 
         return dataset
