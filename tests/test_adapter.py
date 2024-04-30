@@ -224,5 +224,5 @@ class SpeechAdapterTestBase(AdapterTestBase):
         input_features = torch.tensor(data=values, dtype=torch.float, device=torch_device).view(shape).contiguous()
         in_data = {"input_features": input_features}
         if config and config.is_encoder_decoder:
-            in_data["decoder_input_ids"] = ids_tensor((shape[0:2]), config.vocab_size)
+            in_data["decoder_input_ids"] = ids_tensor((shape[:-1]), config.vocab_size)
         return in_data
