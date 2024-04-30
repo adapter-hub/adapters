@@ -4,7 +4,7 @@ import torch
 from transformers import AutoFeatureExtractor, AutoProcessor, AutoTokenizer, WhisperProcessor, WhisperModel
 from datasets import load_from_disk, Audio
 
-dataset = load_from_disk("common_voice_en")
+dataset = load_from_disk("../dataset/common_voice_en")
 
 feature_extractor = AutoFeatureExtractor.from_pretrained("openai/whisper-small")
 tokenizer = AutoTokenizer.from_pretrained("openai/whisper-small", language="English", task="transcribe")
@@ -18,10 +18,10 @@ def transform(sample):
 
     # compute log-Mel input features from input audio array
     sample["input_features"] = \
-        feature_extractor(audio["array"], sampling_rate=audio["sampling_rate"], return_tensors='pt').input_features[0]
+        [feature_extractor(audio["array"], sampling_rate=audio["sampling_rate"], return_tensors='pt').input_features[0]]
 
     # encode target text to label ids
-    sample["labels"] = tokenizer(sample["sentence"]).input_ids
+    sample["labels"] = [tokenizer(sample["sentence"]).input_ids]
     return sample
 
 
@@ -51,7 +51,7 @@ def convert_features(features: List[Dict[str, Union[List[int], torch.Tensor]]]) 
     # first treat the audio inputs by simply returning torch tensors
     batched_i_f = features["input_features"]
     input_features = [{"input_features": feature} for feature in batched_i_f]
-    batch = processor.feature_extractor.pad(input_features, return_tensors="pt")
+    batch = processor.feature_extractor.pad(input_features, return_tensors="pt", padding='max_length', max_length=80)
 
     # get the tokenized label sequences
     labels_batched = features["labels"]
@@ -67,7 +67,6 @@ def convert_features(features: List[Dict[str, Union[List[int], torch.Tensor]]]) 
     if (labels[:, 0] == processor.tokenizer.bos_token_id).all().cpu().item():
         labels = labels[:, 1:]
 
-    batch["labels"] = labels
     batch["decoder_input_ids"] = labels
     return batch
 
@@ -84,16 +83,15 @@ def batched(dataset):
     dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
 
     dataset = dataset.map(prepare_dataset, batched=True, remove_columns=dataset.column_names)
-    dataset = dataset.map(convert_features, batched=True)
+    dataset = dataset.map(convert_features, batched=True, remove_columns=["labels"])
 
 
-    dataset.set_format(type="torch", columns=["input_features", "labels", "decoder_input_ids"])
+    dataset.set_format(type="torch", columns=["input_features", "decoder_input_ids"])
     return dataset
 
 
 dataset = batched(dataset)
-print(type(dataset))
-
+print(dataset[0])
 def training(dataset):
     # Training
 
@@ -115,3 +113,5 @@ def training(dataset):
     )
 
     trainer.train()
+
+training(dataset)

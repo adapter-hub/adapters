@@ -27,7 +27,7 @@ def create_samples():
             break
 
     dataset = Dataset.from_list(rows)
-    dataset.save_to_disk(dataset_path=r'C:\Users\Timo\PycharmProjects\adapters\tests\fixtures\samples\common_voice_en')
+    dataset.save_to_disk(dataset_path=r'/tests/fixtures/samples/common_voice_en')
 
     return dataset
 

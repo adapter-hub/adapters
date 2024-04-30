@@ -6,7 +6,7 @@ from datasets import DatasetDict, load_from_disk, Audio
 from transformers import WhisperFeatureExtractor, Seq2SeqTrainingArguments, Seq2SeqTrainer, WhisperTokenizer, \
     WhisperProcessor, WhisperModel, WhisperForConditionalGeneration
 
-dataset_path = r'C:\Users\timoi\PycharmProjects\adapters\tests\fixtures\samples\common_voice_en'
+dataset_path = r'../dataset/common_voice_en'
 model_name_or_path = "openai/whisper-small"
 language = "English"
 task = "transcribe"

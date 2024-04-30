@@ -197,7 +197,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
             return batch
 
         # Load an extract of 10 samples from the Common Voice dataset
-        dataset = datasets.load_from_disk(dataset_path="./tests/fixtures/samples/common_voice_en", )
+        dataset = datasets.load_from_disk(dataset_path="./tests/fixtures/samples/common_voice_en")
 
         # Resampling audio from 48 kHZ to match the model's expected sampling rate, executed upon reading the dataset
         dataset = dataset.cast_column("audio", Audio(sampling_rate=self.sampling_rate))
