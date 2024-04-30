@@ -22,9 +22,9 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         "decoder.embed_tokens.weight",
     ]
 
+    # TODO: Add all compatible head types
     head_types = [
-        "seq2seq_lm",
-        "classification",
+        "causal_lm",
     ]
 
     def __init__(self, config: WhisperConfig, **kwargs):

@@ -38,16 +38,17 @@ class WhisperAdapterTestBase(SpeechAdapterTestBase):
     processor_name = "openai/whisper-small"
     tokenizer_name = "openai/whisper-small"
     sampling_rate = 16000
+    do_run_train_tests = False # TODO: Enable when training is fixed
 
 
 @require_torch
 class WhisperAdapterTest(
     BottleneckAdapterTestMixin,
-    #    CompacterTestMixin,
-    #    IA3TestMixin,
-    #    LoRATestMixin,
-    #    PrefixTuningTestMixin,
-    #    UniPELTTestMixin,
+    CompacterTestMixin,
+    IA3TestMixin,
+    LoRATestMixin,
+    PrefixTuningTestMixin,
+    UniPELTTestMixin,
     #    AdapterFusionModelTestMixin,
     #    CompabilityTestMixin,
     #    EmbeddingTestMixin,

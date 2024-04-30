@@ -706,12 +706,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         ],
     },
     # Whisper
-    "WhisperForConditionalGeneration": {
-        "config": {
-            "head_type": "seq2seq_lm",
-        },
-        "layers": ["lm_head"],
-    },
+    # TODO: Add Whisper heads
 }
 
 
