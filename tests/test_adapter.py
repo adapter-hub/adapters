@@ -1,14 +1,15 @@
 import random
-from typing import List, Dict, Union
+from typing import Dict, List, Union
 
 import datasets
-from datasets import Audio
 import torch
+from datasets import Audio
 
 import adapters
 from adapters import AutoAdapterModel
-from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments, AutoProcessor
+from transformers import AutoFeatureExtractor, AutoProcessor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
 from transformers.testing_utils import torch_device
+
 
 global_rng = random.Random()
 
@@ -159,8 +160,9 @@ class SpeechAdapterTestBase(AdapterTestBase):
             sampling_rate = audio[0]["sampling_rate"]
 
             # compute log-Mel input features from input audio array
-            input_features = feature_extractor(raw_speech=raw_speech, sampling_rate=sampling_rate,
-                                               return_tensors='pt').input_features
+            input_features = feature_extractor(
+                raw_speech=raw_speech, sampling_rate=sampling_rate, return_tensors="pt"
+            ).input_features
 
             # encode target text to label ids
             sentences = batch["sentence"]
@@ -211,9 +213,9 @@ class SpeechAdapterTestBase(AdapterTestBase):
         return dataset
 
     def get_input_samples(self, shape=None, config=None):
-        """ Creates and returns  a dict with the key 'input_features' containing a random tensor of shape `shape`.
+        """Creates and returns  a dict with the key 'input_features' containing a random tensor of shape `shape`.
         The method is used for creating a test speech sample for speech models which require the key 'input_features'
-        in the input dict instead of 'input_ids'. """
+        in the input dict instead of 'input_ids'."""
         shape = shape or self.default_input_samples_shape
         total_dims = 1
         for dim in shape:

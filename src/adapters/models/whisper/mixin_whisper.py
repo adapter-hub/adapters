@@ -66,8 +66,7 @@ class WhisperDecoderAdaptersMixin:
     """Adds adapters to the WhisperDecoder module of WHISPER."""
 
     def forward(
-            self, input_ids: torch.LongTensor = None, encoder_hidden_states: Optional[torch.FloatTensor] = None,
-            **kwargs
+        self, input_ids: torch.LongTensor = None, encoder_hidden_states: Optional[torch.FloatTensor] = None, **kwargs
     ):
         (input_ids,) = adjust_tensors_for_parallel(encoder_hidden_states, input_ids)
         return super().forward(input_ids=input_ids, encoder_hidden_states=encoder_hidden_states, **kwargs)

@@ -29,19 +29,20 @@ from .mixin_whisper import (
     WhisperEncoderLayerAdaptersMixin,
 )
 
+
 logger = logging.get_logger(__name__)
 
 
 class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMixin):
     # Copied from adapters/models/bart/modeling_bart.py
     def forward(
-            self,
-            hidden_states: torch.Tensor,
-            key_value_states: Optional[torch.Tensor] = None,
-            past_key_value: Optional[Tuple[torch.Tensor]] = None,
-            attention_mask: Optional[torch.Tensor] = None,
-            layer_head_mask: Optional[torch.Tensor] = None,
-            output_attentions: bool = False,
+        self,
+        hidden_states: torch.Tensor,
+        key_value_states: Optional[torch.Tensor] = None,
+        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        layer_head_mask: Optional[torch.Tensor] = None,
+        output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
 
@@ -60,9 +61,9 @@ class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMix
         # is checking that the `sequence_length` of the `past_key_value` is the same as
         # the provided `key_value_states` to support prefix tuning
         if (
-                is_cross_attention
-                and past_key_value is not None
-                and past_key_value[0].shape[2] == key_value_states.shape[1]
+            is_cross_attention
+            and past_key_value is not None
+            and past_key_value[0].shape[2] == key_value_states.shape[1]
         ):
             # reuse k,v, cross_attentions
             key_states = past_key_value[0]
@@ -176,13 +177,13 @@ class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMix
 class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperAttention):
     # Copied from adapters/models/bart/modeling_bart.py
     def forward(
-            self,
-            hidden_states: torch.Tensor,
-            key_value_states: Optional[torch.Tensor] = None,
-            past_key_value: Optional[Tuple[torch.Tensor]] = None,
-            attention_mask: Optional[torch.Tensor] = None,
-            layer_head_mask: Optional[torch.Tensor] = None,
-            output_attentions: bool = False,
+        self,
+        hidden_states: torch.Tensor,
+        key_value_states: Optional[torch.Tensor] = None,
+        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        layer_head_mask: Optional[torch.Tensor] = None,
+        output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         # WhisperFlashAttention2 attention does not support output_attentions
         if output_attentions:
@@ -201,9 +202,9 @@ class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperA
         # is checking that the `sequence_length` of the `past_key_value` is the same as
         # the provided `key_value_states` to support prefix tuning
         if (
-                is_cross_attention
-                and past_key_value is not None
-                and past_key_value[0].shape[2] == key_value_states.shape[1]
+            is_cross_attention
+            and past_key_value is not None
+            and past_key_value[0].shape[2] == key_value_states.shape[1]
         ):
             # reuse k,v, cross_attentions
             key_states = past_key_value[0].transpose(1, 2)
@@ -289,20 +290,23 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
     # Copied from adapters/models/bart/modeling_bart.py
     # and transformers/models/whisper/modeling_whisper.py
     def forward(
-            self,
-            hidden_states: torch.Tensor,
-            key_value_states: Optional[torch.Tensor] = None,
-            past_key_value: Optional[Tuple[torch.Tensor]] = None,
-            attention_mask: Optional[torch.Tensor] = None,
-            layer_head_mask: Optional[torch.Tensor] = None,
-            output_attentions: bool = False,
+        self,
+        hidden_states: torch.Tensor,
+        key_value_states: Optional[torch.Tensor] = None,
+        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        layer_head_mask: Optional[torch.Tensor] = None,
+        output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
         if output_attentions or layer_head_mask is not None:
             # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "WhisperModel is using WhisperSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True` or `layer_head_mask` not None. Falling back to the manual attention"
-                ' implementation, but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
+                "WhisperModel is using WhisperSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention`"
+                " does not support `output_attentions=True` or `layer_head_mask` not None. Falling back to the manual"
+                " attention implementation, but specifying the manual implementation will be required from"
+                " Transformers version v5.0.0 onwards. This warning can be removed using the argument"
+                ' `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
                 hidden_states,
@@ -326,9 +330,9 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
         # is checking that the `sequence_length` of the `past_key_value` is the same as
         # the provided `key_value_states` to support prefix tuning
         if (
-                is_cross_attention
-                and past_key_value is not None
-                and past_key_value[0].shape[2] == key_value_states.shape[1]
+            is_cross_attention
+            and past_key_value is not None
+            and past_key_value[0].shape[2] == key_value_states.shape[1]
         ):
             # reuse k,v, cross_attentions
             key_states = past_key_value[0]
@@ -403,11 +407,11 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
 class WhisperEncoderLayerWithAdapters(WhisperEncoderLayer, WhisperEncoderLayerAdaptersMixin):
     # Copied from adapters/models/mbart/modeling_mbart.py
     def forward(
-            self,
-            hidden_states: torch.Tensor,
-            attention_mask: torch.Tensor,
-            layer_head_mask: torch.Tensor,
-            output_attentions: bool = False,
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: torch.Tensor,
+        layer_head_mask: torch.Tensor,
+        output_attentions: bool = False,
     ) -> torch.Tensor:
         """
         Args:
@@ -443,7 +447,7 @@ class WhisperEncoderLayerWithAdapters(WhisperEncoderLayer, WhisperEncoderLayerAd
         hidden_states = self.output_adapters(hidden_states, residual, None)
 
         if hidden_states.dtype == torch.float16 and (
-                torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()
+            torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()
         ):
             clamp_value = torch.finfo(hidden_states.dtype).max - 1000
             hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
@@ -459,16 +463,16 @@ class WhisperEncoderLayerWithAdapters(WhisperEncoderLayer, WhisperEncoderLayerAd
 class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAdaptersMixin):
     # Copied from adapters/models/mbart/modeling_mbart.py
     def forward(
-            self,
-            hidden_states: torch.Tensor,
-            attention_mask: Optional[torch.Tensor] = None,
-            encoder_hidden_states: Optional[torch.Tensor] = None,
-            encoder_attention_mask: Optional[torch.Tensor] = None,
-            layer_head_mask: Optional[torch.Tensor] = None,
-            cross_attn_layer_head_mask: Optional[torch.Tensor] = None,
-            past_key_value: Optional[Tuple[torch.Tensor]] = None,
-            output_attentions: Optional[bool] = False,
-            use_cache: Optional[bool] = True,
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        encoder_hidden_states: Optional[torch.Tensor] = None,
+        encoder_attention_mask: Optional[torch.Tensor] = None,
+        layer_head_mask: Optional[torch.Tensor] = None,
+        cross_attn_layer_head_mask: Optional[torch.Tensor] = None,
+        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        output_attentions: Optional[bool] = False,
+        use_cache: Optional[bool] = True,
     ) -> torch.Tensor:
         """
         Args:

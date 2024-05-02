@@ -229,7 +229,14 @@ class PrefixTuningPool(nn.Module):
         prefix_states = {}
         if adapter_setup is not None:
             # Infer batch size
-            input_tensor_names = ["input_ids", "decoder_input_ids", "attention_mask", "inputs_embeds", "pixel_values", "input_features"]
+            input_tensor_names = [
+                "input_ids",
+                "decoder_input_ids",
+                "attention_mask",
+                "inputs_embeds",
+                "pixel_values",
+                "input_features",
+            ]
             batch_size = None
             for name in input_tensor_names:
                 if kwargs.get(name, None) is not None:

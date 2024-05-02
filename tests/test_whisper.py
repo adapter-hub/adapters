@@ -13,7 +13,7 @@ from .methods import (
     PrefixTuningTestMixin,
     UniPELTTestMixin,
 )
-from .test_adapter import AdapterTestBase, make_config, SpeechAdapterTestBase
+from .test_adapter import AdapterTestBase, SpeechAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
@@ -38,7 +38,7 @@ class WhisperAdapterTestBase(SpeechAdapterTestBase):
     processor_name = "openai/whisper-small"
     tokenizer_name = "openai/whisper-small"
     sampling_rate = 16000
-    do_run_train_tests = False # TODO: Enable when training is fixed
+    do_run_train_tests = False  # TODO: Enable when training is fixed
 
 
 @require_torch

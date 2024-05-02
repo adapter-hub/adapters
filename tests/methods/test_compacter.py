@@ -52,8 +52,8 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
 
     def test_compacter_generate(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING or (
-                "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
-                and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
         ):
             self.skipTest("No seq2seq or causal language model head")
 

@@ -46,25 +46,25 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
     def forward(
-            self,
-            input_features=None,
-            attention_mask=None,
-            decoder_input_ids=None,
-            decoder_attention_mask=None,
-            head_mask=None,
-            decoder_head_mask=None,
-            cross_attn_head_mask=None,
-            encoder_outputs=None,
-            past_key_values=None,
-            decoder_inputs_embeds=None,
-            use_cache=None,
-            output_attentions=None,
-            output_hidden_states=None,
-            return_dict=None,
-            head=None,
-            output_adapter_gating_scores=False,
-            output_adapter_fusion_attentions=False,
-            **kwargs
+        self,
+        input_features=None,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        encoder_outputs=None,
+        past_key_values=None,
+        decoder_inputs_embeds=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        head=None,
+        output_adapter_gating_scores=False,
+        output_adapter_fusion_attentions=False,
+        **kwargs
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -114,13 +114,13 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
     # Copied from WhisperForConditionalGeneration
     def prepare_inputs_for_generation(
-            self,
-            decoder_input_ids,
-            past_key_values=None,
-            use_cache=None,
-            encoder_outputs=None,
-            attention_mask=None,
-            **kwargs,
+        self,
+        decoder_input_ids,
+        past_key_values=None,
+        use_cache=None,
+        encoder_outputs=None,
+        attention_mask=None,
+        **kwargs,
     ):
         if past_key_values is not None:
             past_length = past_key_values[0][0].shape[2]
