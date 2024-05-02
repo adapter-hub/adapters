@@ -287,6 +287,7 @@ class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperA
 
 class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAttention):
     # Copied from adapters/models/bart/modeling_bart.py
+    # and transformers/models/whisper/modeling_whisper.py
     def forward(
             self,
             hidden_states: torch.Tensor,
