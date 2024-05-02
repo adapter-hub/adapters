@@ -24,7 +24,8 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
     # TODO: Add all compatible head types
     head_types = [
-        "causal_lm",
+        "classification",
+        "seq2seq_lm",
     ]
 
     def __init__(self, config: WhisperConfig, **kwargs):
@@ -46,16 +47,16 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
     def forward(
             self,
-            input_features =None,
-            attention_mask =None,
+            input_features=None,
+            attention_mask=None,
             decoder_input_ids=None,
             decoder_attention_mask=None,
             head_mask=None,
             decoder_head_mask=None,
             cross_attn_head_mask=None,
             encoder_outputs=None,
-            past_key_values =None,
-            decoder_inputs_embeds =None,
+            past_key_values=None,
+            decoder_inputs_embeds=None,
             use_cache=None,
             output_attentions=None,
             output_hidden_states=None,
@@ -110,3 +111,34 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         )
 
         return head_outputs
+
+    # Copied from WhisperForConditionalGeneration
+    def prepare_inputs_for_generation(
+            self,
+            decoder_input_ids,
+            past_key_values=None,
+            use_cache=None,
+            encoder_outputs=None,
+            attention_mask=None,
+            **kwargs,
+    ):
+        if past_key_values is not None:
+            past_length = past_key_values[0][0].shape[2]
+
+        return {
+            "encoder_outputs": encoder_outputs,
+            "past_key_values": past_key_values,
+            "decoder_input_ids": decoder_input_ids,
+            "use_cache": use_cache,
+            "decoder_attention_mask": None,
+            "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
+        }
+
+    # Copied from WhisperForConditionalGeneration
+    def _reorder_cache(past_key_values, beam_idx):
+        reordered_past = ()
+        for layer_past in past_key_values:
+            reordered_past += (
+                tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past),
+            )
+        return reordered_past
