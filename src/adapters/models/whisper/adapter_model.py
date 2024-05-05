@@ -24,7 +24,7 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
     # TODO: Add all compatible head types
     head_types = [
-        "classification",
+        "speech_classification",
         "seq2seq_lm",
     ]
 

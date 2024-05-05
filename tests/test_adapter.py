@@ -140,6 +140,9 @@ class VisionAdapterTestBase(AdapterTestBase):
 class SpeechAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (1, 80, 3000)
 
+    def add_head(self, model, name, **kwargs):
+        model.add_speech_classification_head(name, **kwargs)
+
     def dataset(self, feature_extractor=None, processor=None, tokenizer=None):
         if feature_extractor is None:
             feature_extractor = AutoFeatureExtractor.from_pretrained(self.feature_extractor_name)
