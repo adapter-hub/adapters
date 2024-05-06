@@ -815,7 +815,7 @@ def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInf
             return AdapterInfo(
                 source="hf",
                 adapter_id=model_info.modelId,
-                model_name=model_info.config.get("adapters", {}).get("model_name") if model_info.config else None,
+                model_name=model_info.config.get("adapter_transformers", {}).get("model_name") if model_info.config else None,
                 username=model_info.modelId.split("/")[0],
                 sha1_checksum=model_info.sha,
             )
