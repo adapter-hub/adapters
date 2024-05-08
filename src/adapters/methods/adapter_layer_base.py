@@ -91,7 +91,10 @@ class AdapterLayerBase(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+    def average_adapter(
+        self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy: str, **kwargs
+    ) -> bool:
+        # TODO: add combine_strategy to docstring and **kwargs (with e.g.: svd_rank for lora_delta_w_svd)
         """Averages a set of adapter modules into a new adapter module.
 
         Args:

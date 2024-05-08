@@ -162,9 +162,15 @@ class PromptTuningLayer(AdapterLayerBase, nn.Module):
 
         return False
 
-    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+    def average_adapter(
+        self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy: str, **kwargs
+    ) -> bool:
         # add new adapter
         if self.add_adapter(adapter_name, -1):
+            # Prompt Tuning only supports linear combination
+            if combine_strategy != "linear":
+                raise ValueError(f"Combine strategy {combine_strategy} not supported for prompt tuning.")
+
             # average weights
             avg_state_dict = {}
             for name, weight in input_adapters.items():

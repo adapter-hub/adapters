@@ -455,3 +455,7 @@ class PredictionHeadModelTestMixin:
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_all_adapters(tmp_dir, with_head=False)
             self.assertFalse(os.path.isfile(os.path.join(tmp_dir, "test", "head_config.json")))
+
+    def test_average_head():
+        # TODO: include tests on averaging the head weights
+        pass

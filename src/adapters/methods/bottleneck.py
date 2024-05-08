@@ -94,10 +94,15 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
 
         return False
 
-    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+    def average_adapter(
+        self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy: str, **kwargs
+    ) -> bool:
         # add new adapter
         if self.add_adapter(adapter_name, self.layer_idx):
-            # average weights
+            # Bottleneck adapters only support linear combination
+            if combine_strategy != "linear":
+                raise ValueError(f"Combine strategy {combine_strategy} not supported for bottleneck adapters.")
+
             avg_state_dict = {}
             for name, weight in input_adapters.items():
                 if name in self.adapters:
@@ -204,9 +209,11 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             torch.cat([state.input_tensor for state in states], dim=0),
             torch.cat([state.adapter_residual for state in states], dim=0),
             states[0].layer_norm,
-            torch.cat([state.bottleneck_up for state in states], dim=0)
-            if states[0].bottleneck_up is not None
-            else None,
+            (
+                torch.cat([state.bottleneck_up for state in states], dim=0)
+                if states[0].bottleneck_up is not None
+                else None
+            ),
             states[-1].last,
         )
 

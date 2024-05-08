@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import torch
 from torch import nn
 
+from adapters.configuration.adapter_config import LoRAConfig
 from transformers.modeling_outputs import ModelOutput
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
@@ -79,6 +80,7 @@ class InvertibleAdaptersMixin:
         return False
 
     def _average_invertible_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+        # TODO: add combine_strategy & throw error if not linear
         # add new adapter
         if self.add_invertible_adapter(adapter_name):
             # average weights
@@ -171,6 +173,7 @@ class InvertibleAdaptersWrapperMixin:
         return False
 
     def _average_invertible_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+        # TODO: add combine_strategy & throw error if not linear
         if self.invertible_adapters_base is not None:
             return self.invertible_adapters_base._average_invertible_adapter(adapter_name, input_adapters)
         return False
@@ -1083,6 +1086,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             return "\n".join(s)
 
     def _average_shared_parameters(self, adapter_name: str, input_adapters: Dict[str, float]):
+        # TODO: add combine_strategy
         avg_state_dict = {}
         for name, weight in input_adapters.items():
             if name in self.base_model.shared_parameters:
@@ -1096,17 +1100,50 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 raise ValueError(f"Adapter {name} not found in shared parameters.")
         self.base_model.shared_parameters[adapter_name] = nn.ParameterDict(avg_state_dict)
 
+    def _pre_average_adapter_checks(
+        self,
+        adapter_name: str,
+        adapter_list: List[str],
+        combine_strategy: str,
+        valid_combination_strategies: List[str],
+        is_head=False,
+    ):
+        # Check if combine_strategy is valid
+        if combine_strategy not in valid_combination_strategies:
+            raise ValueError(
+                f"Invalid combine_strategy '{combine_strategy}'. Must be one of {valid_combination_strategies}"
+            )
+
+        head_or_adapter = "head" if is_head else "adapter"
+
+        # Provide the user with some information about the adapters to be averaged
+        logging.info(f"Creating new {head_or_adapter} called {adapter_name} by averaging {adapter_list}.")
+        if not is_head:
+            logging.info("In case you want to create a new head as well please use the `average_head` function.")
+
+        if len(adapter_list) == 0:
+            raise ValueError("No adapters to average. Please provide at least one adapter to average.")
+        if len(adapter_list) == 1:
+            logging.info(
+                "You provided only one adapter to average. If you set `normalize_weights` to true, this will result in"
+                " duplicating the adapter. If not this will result in scaling the adapter weights. We will use the"
+                " linear combination strategy for this."
+            )
+
     def average_adapter(
         self,
         adapter_name: str,
         adapter_list: List[str],
         weights: Optional[List[float]] = None,
+        combine_strategy: str = "linear",
         normalize_weights: bool = True,
         overwrite_ok: bool = False,
         set_active: bool = False,
+        svd_rank: int = None,
     ):
+        # TODO: update docstring
         """
-        Adds a new adapter module as weighted average of a set of existing adapter modules.
+        Adds a new adapter module as weighted average of a set of existing adapter modules. See <TODO add link to docs where we explain the different weightings>
 
         Args:
             adapter_name (str): The name of the adapter module to be added.
@@ -1118,6 +1155,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             set_active (bool, optional):
                 Set the adapter to be the active one. By default (False), the adapter is added but not activated.
         """
+
+        valid_combination_strategies = ["linear", "lora_linear_zhang", "lora_delta_w_svd"]
+        self._pre_average_adapter_checks(adapter_name, adapter_list, combine_strategy, valid_combination_strategies)
+
         # To be able to average the weights, all adapter configs must be the same
         config = None
         for name in adapter_list:
@@ -1128,6 +1169,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     "Cannot average adapters with different configurations. "
                     "Please make sure all adapters have the same configuration."
                 )
+
+        # In case svd_rank is set, change the config to use the new rank
+        if svd_rank is not None:
+            if isinstance(config, LoRAConfig):
+                config = config.replace(r=svd_rank)
+            else:
+                logging.warning("SVD rank can only be set when averaging LoRA adapters. Ignoring svd_rank.")
+
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
         if overwrite_ok and adapter_name in self.adapters_config:
             self.delete_adapter(adapter_name)
@@ -1143,22 +1192,35 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 sum_weights = 1.0
             input_adapters = {name: weight / sum_weights for name, weight in zip(adapter_list, weights)}
         try:
-            self.apply_to_adapter_layers(lambda i, layer: layer.average_adapter(adapter_name, input_adapters))
-            self.apply_to_basemodel_childs(lambda i, child: child.average_adapter(adapter_name, input_adapters))
+            self.apply_to_adapter_layers(
+                lambda i, layer: layer.average_adapter(
+                    adapter_name, input_adapters, combine_strategy, svd_rank=svd_rank
+                )
+            )
+            self.apply_to_basemodel_childs(
+                lambda i, child: child.average_adapter(
+                    adapter_name, input_adapters, combine_strategy, svd_rank=svd_rank
+                )
+            )
             # PHM Layer
             if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):
-                self._average_shared_parameters(adapter_name, input_adapters)
+                self._average_shared_parameters(adapter_name, input_adapters, combine_strategy)
             # Prefix Tuning
             for module in self.modules():
                 if isinstance(module, PrefixTuningPool):
-                    module.average_prefix(adapter_name, input_adapters)
+                    module.average_prefix(adapter_name, input_adapters, combine_strategy)
             if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
-                self._average_invertible_adapter(adapter_name, input_adapters)
+                self._average_invertible_adapter(adapter_name, input_adapters, combine_strategy)
         except ValueError as ex:
             self.delete_adapter(adapter_name)
             raise ex
         if set_active:
             self.set_active_adapters(adapter_name)
+
+    def average_head(self, adapter_name: str, adapter_list: List[str], weights: Optional[List[float]] = None):
+        valid_combination_strategies = ["linear"]
+        self._pre_average_adapter_checks(adapter_name, adapter_list, "linear", valid_combination_strategies)
+        # TODO: We need a function to average the head weights.
 
     def eject_prefix_tuning(self, name: str):
         """
