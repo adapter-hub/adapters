@@ -1,3 +1,9 @@
+from typing import Optional, Tuple, Union
+
+import torch
+from torch import nn
+
+from transformers.modeling_outputs import SequenceClassifierOutput
 from transformers.models.whisper.modeling_whisper import (
     WHISPER_INPUTS_DOCSTRING,
     WHISPER_START_DOCSTRING,
@@ -24,7 +30,6 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
     # TODO: Add all compatible head types
     head_types = [
-        "speech_classification",
         "seq2seq_lm",
     ]
 
@@ -76,6 +81,18 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         if "labels" in kwargs or "start_positions" in kwargs and "end_positions" in kwargs:
             use_cache = False
 
+        # Copied from WhisperForConditionalGeneration
+        if "labels" in kwargs:
+            if decoder_input_ids is None and decoder_inputs_embeds is None:
+                decoder_input_ids = shift_tokens_right(
+                    kwargs["labels"], self.config.pad_token_id, self.config.decoder_start_token_id
+                )
+
+        # TODO: discuss if this is a valid option
+        # self.config.is_encoder_decoder as an alternative model
+        # if self.is_classification_for_speech:
+        #    outputs = self._forward_for_speech_classification()
+
         outputs, context = self.model(
             input_features=input_features,
             attention_mask=attention_mask,
@@ -96,6 +113,7 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
             adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
             output_context=True,
         )
+
         # required e.g. for prompt tuning in all models
         kwargs["context"] = context
 
@@ -111,6 +129,53 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         )
 
         return head_outputs
+
+    def _forward_for_speech_classification(
+        self,
+        input_features: Optional[torch.LongTensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        encoder_outputs: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+        labels: Optional[torch.LongTensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[Tuple[torch.Tensor], SequenceClassifierOutput]:
+        """Copied from WhisperForAudioClassification.
+        Necessary for the speech classification head,
+        as only the encoder part of the model is used for speech classification."""
+
+        _HIDDEN_STATES_START_POSITION = 1
+
+        # Copied from WhisperForAudioClassification
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        if self.config.use_weighted_layer_sum:
+            output_hidden_states = True
+        elif output_hidden_states is None:
+            output_hidden_states = self.config.output_hidden_states
+
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if encoder_outputs is None:
+            encoder_outputs = self.encoder(
+                input_features,
+                head_mask=head_mask,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
+
+        if self.config.use_weighted_layer_sum:
+            hidden_states = encoder_outputs[_HIDDEN_STATES_START_POSITION]
+            hidden_states = torch.stack(hidden_states, dim=1)
+            norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
+            hidden_states = (hidden_states * norm_weights.view(-1, 1, 1)).sum(dim=1)
+        else:
+            hidden_states = encoder_outputs[0]
+
+        return hidden_states
 
     # Copied from WhisperForConditionalGeneration
     def prepare_inputs_for_generation(

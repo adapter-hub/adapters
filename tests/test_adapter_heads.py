@@ -18,7 +18,7 @@ class PredictionHeadModelTestMixin:
     seq_length = 128
 
     def run_prediction_head_test(
-            self, model, compare_model, head_name, input_shape=None, output_shape=(1, 2), label_dict=None
+        self, model, compare_model, head_name, input_shape=None, output_shape=(1, 2), label_dict=None
     ):
         # first, check if the head is actually correctly registered as part of the pt module
         self.assertTrue(f"heads.{head_name}" in dict(model.named_modules()))
@@ -174,8 +174,9 @@ class PredictionHeadModelTestMixin:
 
         # Finally, also check if generation works properly
         if isinstance(model1, WhisperAdapterModel):
-            input_ids = self.get_input_samples((self.batch_size, self.seq_length, self.log_mel_features_dim),
-                                               config=model1.config)["input_features"]
+            input_ids = self.get_input_samples(
+                (self.batch_size, self.seq_length, self.log_mel_features_dim), config=model1.config
+            )["input_features"]
         else:
             input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
@@ -204,8 +205,8 @@ class PredictionHeadModelTestMixin:
 
     def test_lm_head_freeze_output_embeddings(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING or (
-                "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
-                and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
         ):
             self.skipTest("No seq2seq or causal language model head")
 
@@ -423,8 +424,9 @@ class PredictionHeadModelTestMixin:
         if isinstance(model, WhisperAdapterModel):
             # TODO: Transfer batch size and sequence length to each model test file and remove hardcoded values
             self.seq_length = 80
-            in_data = self.get_input_samples((self.batch_size, self.seq_length, self.log_mel_features_dim),
-                                             config=model.config)
+            in_data = self.get_input_samples(
+                (self.batch_size, self.seq_length, self.log_mel_features_dim), config=model.config
+            )
         else:
             in_data = self.get_input_samples((self.batch_size, self.seq_length), config=model.config)
         model.to(torch_device)

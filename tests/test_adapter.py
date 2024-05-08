@@ -10,6 +10,7 @@ from adapters import AutoAdapterModel
 from transformers import AutoFeatureExtractor, AutoProcessor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
 from transformers.testing_utils import torch_device
 
+
 global_rng = random.Random()
 
 
@@ -140,7 +141,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (3, 80, 3000)
 
     def get_input_samples(self, shape=None, config=None):
-        """ Creates a dictionary with keys 'input_features' and 'decoder_input_ids' if config.is_encoder_decoder is True.
+        """Creates a dictionary with keys 'input_features' and 'decoder_input_ids' if config.is_encoder_decoder is True.
         The values are random tensors with the specified shape to be used as input to the model."""
         shape = shape or self.default_input_samples_shape
         total_dims = 1
@@ -154,7 +155,6 @@ class SpeechAdapterTestBase(AdapterTestBase):
         if config and config.is_encoder_decoder:
             in_data["decoder_input_ids"] = ids_tensor((shape[:-1]), config.vocab_size)
         return in_data
-
 
     def add_head(self, model, name, **kwargs):
         model.add_seq2seq_lm_head(name, **kwargs)
@@ -175,15 +175,17 @@ class SpeechAdapterTestBase(AdapterTestBase):
             audio = batch["audio"]
 
             # compute log-Mel input features from input audio array
-            batch["input_features"] = \
-                feature_extractor(audio["array"], sampling_rate=audio["sampling_rate"]).input_features[0]
+            batch["input_features"] = feature_extractor(
+                audio["array"], sampling_rate=audio["sampling_rate"]
+            ).input_features[0]
 
             # encode target text to label ids
             batch["labels"] = tokenizer(batch["sentence"]).input_ids
             return batch
 
-        def data_collator_audio_seq2seq_with_padding(features: List[Dict[str, Union[List[int], torch.Tensor]]],
-                                                     processor, decoder_start_token_id: int) -> Dict[str, torch.Tensor]:
+        def data_collator_audio_seq2seq_with_padding(
+            features: List[Dict[str, Union[List[int], torch.Tensor]]], processor, decoder_start_token_id: int
+        ) -> Dict[str, torch.Tensor]:
             # split inputs and labels since they have to be of different lengths and need different padding methods
             # first treat the audio inputs by simply returning torch tensors
             input_features = [{"input_features": feature} for feature in features["input_features"]]
@@ -208,7 +210,8 @@ class SpeechAdapterTestBase(AdapterTestBase):
         # Load an batch of 10 samples from the Common Voice dataset
         dataset = datasets.load_from_disk(dataset_path="./tests/fixtures/samples/common_voice")
         dataset = dataset.remove_columns(
-            ["accent", "age", "client_id", "down_votes", "gender", "locale", "path", "segment", "up_votes"])
+            ["accent", "age", "client_id", "down_votes", "gender", "locale", "path", "segment", "up_votes"]
+        )
 
         # Resampling audio from 48 kHZ to match the model's expected sampling rate, executed upon reading the dataset
         dataset = dataset.cast_column("audio", Audio(sampling_rate=self.sampling_rate))
@@ -216,8 +219,10 @@ class SpeechAdapterTestBase(AdapterTestBase):
         # Preprocessing the dataset
         dataset = dataset.map(prepare_dataset, remove_columns=dataset.column_names["train"])
         dataset = dataset.map(
-            lambda x: data_collator_audio_seq2seq_with_padding(x, processor, self.decoder_start_token_id), batched=True,
-            batch_size=10)
+            lambda x: data_collator_audio_seq2seq_with_padding(x, processor, self.decoder_start_token_id),
+            batched=True,
+            batch_size=10,
+        )
 
         dataset.set_format(type="torch")
 

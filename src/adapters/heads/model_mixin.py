@@ -12,9 +12,9 @@ from ..context import AdapterSetup, ForwardContext
 from ..loading import PredictionHeadLoader
 from ..model_mixin import ModelWithHeadsAdaptersMixin
 from .base import (
+    AudioClassificationHead,
     ClassificationHead,
     ImageClassificationHead,
-    SpeechClassificationHead,
     MultiHeadOutput,
     MultiLabelClassificationHead,
     MultipleChoiceHead,
@@ -24,6 +24,7 @@ from .base import (
 )
 from .dependency_parsing import BiaffineParsingHead
 from .language_modeling import BertStyleMaskedLMHead, CausalLMHead, Seq2SeqLMHead
+
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ MODEL_HEAD_MAP = {
     "causal_lm": CausalLMHead,
     "seq2seq_lm": Seq2SeqLMHead,
     "image_classification": ImageClassificationHead,
-    "speech_classification": SpeechClassificationHead,
+    "speech_classification": AudioClassificationHead,
 }
 
 
@@ -49,6 +50,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     head_types: list = []
     use_pooler: bool = False
+    is_classification_for_speech: bool = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -150,11 +152,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     # Methods for managing prediction heads
 
     def add_prediction_head_from_config(
-            self,
-            head_name: str,
-            config: dict,
-            overwrite_ok: bool = False,
-            set_active: bool = True,
+        self,
+        head_name: str,
+        config: dict,
+        overwrite_ok: bool = False,
+        set_active: bool = True,
     ):
         head_type = config.pop("head_type")
         # handle cases when id2label, label2id or both are available
@@ -224,7 +226,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             self._active_heads = head_name_or_list
 
     def set_active_adapters(
-            self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
+        self, adapter_setup: Union[list, AdapterCompositionBlock], skip_layers: Optional[List[int]] = None
     ):
         """
         Sets the adapter modules to be used by default in every forward pass. This setting can be overriden by passing
@@ -264,10 +266,10 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             )
 
     def add_prediction_head(
-            self,
-            head: PredictionHead,
-            overwrite_ok: bool = False,
-            set_active: bool = True,
+        self,
+        head: PredictionHead,
+        overwrite_ok: bool = False,
+        set_active: bool = True,
     ):
         if head.name not in self.heads or overwrite_ok:
             self.heads[head.name] = head
@@ -295,15 +297,15 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     @head_type("classification")
     def add_classification_head(
-            self,
-            head_name,
-            num_labels=2,
-            layers=2,
-            activation_function="tanh",
-            overwrite_ok=False,
-            multilabel=False,
-            id2label=None,
-            use_pooler=use_pooler,
+        self,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        overwrite_ok=False,
+        multilabel=False,
+        id2label=None,
+        use_pooler=use_pooler,
     ):
         """
         Adds a sequence classification head on top of the model.
@@ -327,15 +329,15 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     @head_type("image_classification")
     def add_image_classification_head(
-            self,
-            head_name,
-            num_labels=2,
-            layers=1,
-            activation_function="tanh",
-            overwrite_ok=False,
-            multilabel=False,
-            id2label=None,
-            use_pooler=use_pooler,
+        self,
+        head_name,
+        num_labels=2,
+        layers=1,
+        activation_function="tanh",
+        overwrite_ok=False,
+        multilabel=False,
+        id2label=None,
+        use_pooler=use_pooler,
     ):
         """
         Adds an image classification head on top of the model.
@@ -363,15 +365,14 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     @head_type("speech_classification")
     def add_speech_classification_head(
-            self,
-            head_name,
-            num_labels=2,
-            layers=1,
-            activation_function="tanh",
-            overwrite_ok=False,
-            multilabel=False,
-            id2label=None,
-            use_pooler=use_pooler,
+        self,
+        head_name,
+        num_labels=2,
+        layers=1,
+        activation_function="tanh",
+        overwrite_ok=False,
+        id2label=None,
+        use_pooler=use_pooler,
     ):
         """
         Adds a speech classification head on top of the model.
@@ -382,16 +383,18 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             layers (int, optional): Number of layers. Defaults to 1.
             activation_function (str, optional): Activation function. Defaults to 'tanh'.
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
         """
 
-        head = SpeechClassificationHead(
+        # Set flag to indicate that this model is used for speech classification, so that the model can adjust the
+        # forward pass accordingly to only use the encoder part of the model.
+        self.is_classification_for_speech = True
+
+        head = AudioClassificationHead(
             self,
             head_name,
             num_labels=num_labels,
             layers=layers,
             activation_function=activation_function,
-            multilabel=multilabel,
             id2label=id2label,
             use_pooler=use_pooler,
         )
@@ -399,14 +402,14 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     @head_type("multiple_choice")
     def add_multiple_choice_head(
-            self,
-            head_name,
-            num_choices=2,
-            layers=2,
-            activation_function="tanh",
-            overwrite_ok=False,
-            id2label=None,
-            use_pooler=use_pooler,
+        self,
+        head_name,
+        num_choices=2,
+        layers=2,
+        activation_function="tanh",
+        overwrite_ok=False,
+        id2label=None,
+        use_pooler=use_pooler,
     ):
         """
         Adds a multiple choice head on top of the model.
@@ -423,7 +426,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     @head_type("tagging")
     def add_tagging_head(
-            self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
+        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         """
         Adds a token classification head on top of the model.
@@ -440,7 +443,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     @head_type("question_answering")
     def add_qa_head(
-            self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
+        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
     ):
         """
         Adds a question answering head on top of the model.
@@ -501,9 +504,9 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     @head_type("seq2seq_lm")
     def add_seq2seq_lm_head(
-            self,
-            head_name,
-            overwrite_ok=False,
+        self,
+        head_name,
+        overwrite_ok=False,
     ):
         """
         Adds a sequence-to-sequence language modeling head on top of the model.
@@ -552,14 +555,14 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         return head_modules
 
     def forward_head(
-            self,
-            all_outputs,
-            head_name=None,
-            cls_output=None,
-            attention_mask=None,
-            return_dict=False,
-            context=None,
-            **kwargs
+        self,
+        all_outputs,
+        head_name=None,
+        cls_output=None,
+        attention_mask=None,
+        return_dict=False,
+        context=None,
+        **kwargs
     ):
         """
         The forward pass through a prediction head configuration. There are three ways to specify the used prediction
@@ -592,7 +595,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 inputs = {}
                 for key, base_output in outputs.items():
                     if torch.is_tensor(base_output):
-                        inputs[key] = base_output[batch[0]: batch[-1] + 1]
+                        inputs[key] = base_output[batch[0] : batch[-1] + 1]
                 inputs = outputs.__class__(**inputs)
             else:
                 inputs = tuple()
@@ -714,12 +717,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     # Override it to inject adapter head logic.
     @classmethod
     def _load_pretrained_model(
-            cls,
-            model,
-            state_dict,
-            loaded_keys,
-            *args,
-            **kwargs,
+        cls,
+        model,
+        state_dict,
+        loaded_keys,
+        *args,
+        **kwargs,
     ):
         # Filter only weights not part of base model
         loader = PredictionHeadLoader(model, error_on_missing=False, convert_to_flex_head=True)
@@ -741,7 +744,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         if new_head_state_dict is not None:
             # Always ensure base_model_prefix is added, otherwise loading head weights does not work.
             if len(model.base_model_prefix) > 0 and not any(
-                    s.startswith(model.base_model_prefix) for s in loaded_keys
+                s.startswith(model.base_model_prefix) for s in loaded_keys
             ):
                 rename_func = lambda x: model.base_model_prefix + "." + x if x not in head_state_dict else x
                 state_dict = {rename_func(k): v for k, v in state_dict.items()}

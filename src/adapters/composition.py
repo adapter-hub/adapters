@@ -136,6 +136,7 @@ SUPPORTED_MODELS = {
         "bert-generation",
         "llama",
         "electra",
+        "whisper",
         "xmod",
     ],
 }

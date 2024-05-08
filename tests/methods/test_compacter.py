@@ -70,7 +70,7 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
 
         # Finally, also check if generation works properly
         if isinstance(model1, WhisperAdapterModel):
-            input_ids = self.get_input_samples((1,80,3000),config=model1.config)["input_features"]
+            input_ids = self.get_input_samples((1, 80, 3000), config=model1.config)["input_features"]
         else:
             input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)

@@ -3,8 +3,14 @@ import random
 
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig, SeqBnConfig, T5AdapterModel, \
-    WhisperAdapterModel
+from adapters import (
+    ADAPTER_MODEL_MAPPING,
+    AutoAdapterModel,
+    PrefixTuningConfig,
+    SeqBnConfig,
+    T5AdapterModel,
+    WhisperAdapterModel,
+)
 from adapters.composition import BatchSplit, Parallel
 from adapters.models.bert_generation.adapter_model import BertGenerationAdapterModel
 from transformers import MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, Trainer, TrainingArguments
