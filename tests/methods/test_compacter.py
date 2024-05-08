@@ -1,4 +1,4 @@
-from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, CompacterPlusPlusConfig
+from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, CompacterPlusPlusConfig, WhisperAdapterModel
 from transformers.testing_utils import require_torch, torch_device
 
 from .base import AdapterMethodBaseTestMixin
@@ -69,10 +69,8 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
         seq_output_length = 32
 
         # Finally, also check if generation works properly
-        # Check if model is a speech model, because they have a different input shape and name
-        # TODO: generalize to similar failing tests
-        if hasattr(model1.config, "num_mel_bins"):
-            input_ids = self.get_input_samples(config=model1.config)["input_features"]
+        if isinstance(model1, WhisperAdapterModel):
+            input_ids = self.get_input_samples((1,80,3000),config=model1.config)["input_features"]
         else:
             input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)

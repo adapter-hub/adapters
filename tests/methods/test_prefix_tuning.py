@@ -1,6 +1,6 @@
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig
+from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig, WhisperAdapterModel
 from transformers import CLIPConfig
 from transformers.testing_utils import require_torch, torch_device
 
@@ -92,7 +92,10 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
         seq_output_length = 32
 
         # Finally, also check if generation works properly
-        input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
+        if isinstance(model1, WhisperAdapterModel):
+            input_ids = self.get_input_samples((1, 80, 3000), config=model1.config)["input_features"]
+        else:
+            input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
         generated = model1.generate(input_ids, max_length=seq_output_length)
         self.assertLessEqual(generated.shape, (1, seq_output_length))

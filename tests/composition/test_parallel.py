@@ -3,7 +3,8 @@ import random
 
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig, SeqBnConfig, T5AdapterModel
+from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig, SeqBnConfig, T5AdapterModel, \
+    WhisperAdapterModel
 from adapters.composition import BatchSplit, Parallel
 from adapters.models.bert_generation.adapter_model import BertGenerationAdapterModel
 from transformers import MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, Trainer, TrainingArguments
@@ -131,7 +132,10 @@ class ParallelAdapterInferenceTestMixin:
         seq_output_length = 32
 
         # Finally, also check if generation works properly
-        input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
+        if isinstance(model1, WhisperAdapterModel):
+            input_ids = self.get_input_samples((1, 80, 3000), config=model1.config)["input_features"]
+        else:
+            input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
         generated = model1.generate(input_ids, max_length=seq_output_length)
         self.assertLessEqual(generated.shape, (2, seq_output_length))
@@ -236,6 +240,9 @@ class ParallelTrainingMixin:
             input_data = self.get_input_samples(config=model.config)
             if isinstance(model, BertGenerationAdapterModel):
                 input_data["labels"] = torch.randint(0, 2, (3, 64))
+            if isinstance(model, WhisperAdapterModel):
+                input_data["labels"] = input_data["decoder_input_ids"]
+                del input_data["decoder_input_ids"]
             else:
                 input_data["labels"] = torch.randint(0, 2, (3, 1))
             dataset.append(input_data)
@@ -293,6 +300,9 @@ class ParallelTrainingMixin:
         input_data = self.get_input_samples(config=model.config)
         if isinstance(model, BertGenerationAdapterModel):
             input_data["labels"] = torch.randint(0, 2, (3, 64), device=torch_device)
+        if isinstance(model, WhisperAdapterModel):
+            input_data["labels"] = input_data["decoder_input_ids"]
+            del input_data["decoder_input_ids"]
         else:
             input_data["labels"] = torch.randint(0, 2, (3, 1), device=torch_device)
 

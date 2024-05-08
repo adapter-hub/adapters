@@ -4,7 +4,7 @@ import tempfile
 import torch
 
 import adapters
-from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel
+from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel, WhisperAdapterModel
 from adapters.composition import BatchSplit, Stack
 from transformers import AutoModelForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
@@ -14,12 +14,11 @@ from .methods import create_twin_models
 
 @require_torch
 class PredictionHeadModelTestMixin:
-
     batch_size = 1
     seq_length = 128
 
     def run_prediction_head_test(
-        self, model, compare_model, head_name, input_shape=None, output_shape=(1, 2), label_dict=None
+            self, model, compare_model, head_name, input_shape=None, output_shape=(1, 2), label_dict=None
     ):
         # first, check if the head is actually correctly registered as part of the pt module
         self.assertTrue(f"heads.{head_name}" in dict(model.named_modules()))
@@ -38,7 +37,11 @@ class PredictionHeadModelTestMixin:
 
         # make a forward pass
         model.active_head = head_name
-        input_shape = input_shape or (self.batch_size, self.seq_length)
+        if isinstance(model, WhisperAdapterModel):
+            self.seq_length = 80
+            input_shape = input_shape or (self.batch_size, self.seq_length, self.log_mel_features_dim)
+        else:
+            input_shape = input_shape or (self.batch_size, self.seq_length)
         in_data = self.get_input_samples(input_shape, config=model.config)
         if label_dict:
             for k, v in label_dict.items():
@@ -150,6 +153,9 @@ class PredictionHeadModelTestMixin:
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
         model1.add_seq2seq_lm_head("dummy")
 
+        if isinstance(model1, WhisperAdapterModel):
+            self.seq_length = 80
+
         label_dict = {}
         label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
 
@@ -167,7 +173,11 @@ class PredictionHeadModelTestMixin:
         )
 
         # Finally, also check if generation works properly
-        input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
+        if isinstance(model1, WhisperAdapterModel):
+            input_ids = self.get_input_samples((self.batch_size, self.seq_length, self.log_mel_features_dim),
+                                               config=model1.config)["input_features"]
+        else:
+            input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
         # Use a different length for the seq2seq output
         seq_output_length = self.seq_length + 30
@@ -194,8 +204,8 @@ class PredictionHeadModelTestMixin:
 
     def test_lm_head_freeze_output_embeddings(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING or (
-            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
-            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+                "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+                and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
         ):
             self.skipTest("No seq2seq or causal language model head")
 
@@ -295,7 +305,10 @@ class PredictionHeadModelTestMixin:
 
     def test_load_full_model(self):
         model = AutoAdapterModel.from_config(self.config())
-        self.add_head(model, "dummy", layers=1)
+        if isinstance(model, WhisperAdapterModel):
+            self.add_head(model, "dummy")
+        else:
+            self.add_head(model, "dummy", layers=1)
 
         true_config = model.get_prediction_heads_config()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -407,7 +420,13 @@ class PredictionHeadModelTestMixin:
         self.assertIsNotNone(inv_adapter)
         inv_adapter.register_forward_pre_hook(forward_pre_hook)
 
-        in_data = self.get_input_samples((self.batch_size, self.seq_length), config=model.config)
+        if isinstance(model, WhisperAdapterModel):
+            # TODO: Transfer batch size and sequence length to each model test file and remove hardcoded values
+            self.seq_length = 80
+            in_data = self.get_input_samples((self.batch_size, self.seq_length, self.log_mel_features_dim),
+                                             config=model.config)
+        else:
+            in_data = self.get_input_samples((self.batch_size, self.seq_length), config=model.config)
         model.to(torch_device)
         out = model(**in_data)
 

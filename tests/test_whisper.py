@@ -38,7 +38,11 @@ class WhisperAdapterTestBase(SpeechAdapterTestBase):
     processor_name = "openai/whisper-small"
     tokenizer_name = "openai/whisper-small"
     sampling_rate = 16000
-    do_run_train_tests = False  # TODO: Enable when training is fixed
+    decoder_start_token_id = 50257
+    # TODO: adjust in all testfiles
+    batch_size = 2
+    seq_length = 80
+    log_mel_features_dim = 3000
 
 
 @require_torch
