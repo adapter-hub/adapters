@@ -212,6 +212,7 @@ class AdapterTrainer(Trainer):
             adapter_dir = os.path.join(self.state.best_model_checkpoint, adapter)
             if os.path.exists(adapter_dir):
                 model.load_adapter(adapter_dir)
+                model.adapter_to(adapter, device=self.args.device)
         if self.train_adapter_fusion:
             logger.info(
                 f"Loading best adapter fusion(s) from {self.state.best_model_checkpoint} (score:"
@@ -222,7 +223,7 @@ class AdapterTrainer(Trainer):
                 fusion_dir = os.path.join(self.state.best_model_checkpoint, fusion)
                 if os.path.exists(fusion_dir):
                     model.load_adapter_fusion(fusion_dir)
-        model.to(self.args.device)
+                    model.adapter_fusion_to(fusion, device=self.args.device)
 
 
 class AdapterTrainerCallback(TrainerCallback):

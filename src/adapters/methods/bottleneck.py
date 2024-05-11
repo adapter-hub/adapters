@@ -176,6 +176,13 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
         else:
             return None
 
+    def get_adapter_fusion(self, adapter_names: Union[List, str]):
+        adapter_names = adapter_names if isinstance(adapter_names, str) else ",".join(adapter_names)
+        if adapter_names in self.adapter_fusion_layer:
+            return self.adapter_fusion_layer[adapter_names]
+        else:
+            return None
+
     def pre_block(self, adapter_setup: Union[AdapterCompositionBlock, str], state: BottleneckState) -> BottleneckState:
         if isinstance(adapter_setup, AdapterCompositionBlock):
             adapter_name = adapter_setup.first()

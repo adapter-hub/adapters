@@ -1035,6 +1035,42 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         return dict(destination)
 
+    def adapter_to(
+        self, name: str, device: Optional[Union[torch.device, str]] = None, dtype: Optional[torch.dtype] = None
+    ):
+        """
+        Moves the adapter with the given name to the specified device and data type.
+
+        Args:
+            name (str): The name of the adapter to be moved.
+            device (torch.device or str, optional): The device on which the adapter should be moved.
+            dtype (torch.dtype, optional): The data type to which the adapter should be cast.
+        """
+        for _, v in self.get_adapter(name).items():
+            for _, module in v.items():
+                module.to(device=device, dtype=dtype)
+
+    def adapter_fusion_to(
+        self,
+        adapter_names: Union[Fuse, list, str],
+        device: Optional[Union[torch.device, str]] = None,
+        dtype: Optional[torch.dtype] = None,
+    ):
+        """
+        Moves the adapter fusion layer with the given name to the specified device and data type.
+
+        Args:
+            adapter_names (Union[Fuse, list, str]): The name of the adapter fusion layer to be moved.
+            device (torch.device or str, optional): The device on which the adapter fusion layer should be moved.
+            dtype (torch.dtype, optional): The data type to which the adapter fusion layer should be cast.
+        """
+        for _, layer in self.iter_layers():
+            for module in layer.modules():
+                if isinstance(module, BottleneckLayer):
+                    fusion = module.get_adapter_fusion(adapter_names)
+                    if fusion is not None:
+                        fusion.to(device=device, dtype=dtype)
+
     def adapter_summary(self, as_dict=False) -> Union[str, dict]:
         """
         Returns a string summary of all adapters currently added to the model. Each entry in the summary table has the
