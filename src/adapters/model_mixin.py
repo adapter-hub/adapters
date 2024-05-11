@@ -20,6 +20,7 @@ from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, W
 from .methods.adapter_layer_base import AdapterLayerBase
 from .methods.bottleneck import BottleneckLayer
 from .methods.lora import LoRALayer
+from .methods.reft import init_reft
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
@@ -387,6 +388,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 continue
             if hasattr(module, "init_adapters"):
                 module.init_adapters(model_config, adapters_config)
+
+        init_reft(self)
 
     def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
         """
@@ -967,6 +970,17 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         if hasattr(self.base_model, "prefix_tuning"):
             context.prefix_states = self.base_model.prefix_tuning(*args, **kwargs)
+
+        # TODO this does not support padding on the left
+        # Read out seqlens from attention mask
+        if "attention_mask" in kwargs:
+            attention_mask = kwargs["attention_mask"]
+        elif len(args) > 1:
+            attention_mask = args[1]
+        else:
+            attention_mask = None
+        if attention_mask is not None:
+            context.seqlens = (attention_mask == 1).sum(dim=-1).squeeze()
 
         # Adapter gating and attention outputs
         context.output_adapter_gating_scores = kwargs.get("output_adapter_gating_scores", False)

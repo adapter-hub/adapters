@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, replace
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Literal
 
 from ..utils import resolve_adapter_config
 
@@ -497,6 +497,40 @@ class IA3Config(LoRAConfig):
     use_gating: bool = False
 
 
+@dataclass(eq=False)
+class ReftConfig(AdapterConfig):
+    layers: Union[Literal["all"], List[int]]
+    prefix_positions: int
+    suffix_positions: int
+    r: int
+    orthogonality: bool = True
+    tied_weights: bool = True
+    dropout: float = 0.05
+    non_linearity: Optional[str] = None
+
+    architecture: str = "reft"
+
+
+@dataclass(eq=False)
+class LoReftConfig(ReftConfig):
+    layers: Union[Literal["all"], List[int]] = "all"
+    prefix_positions: int = 3
+    suffix_positions: int = 0
+    r: int = 1
+    orthogonality: bool = True
+    tied_weights: bool = True
+
+
+@dataclass(eq=False)
+class NoReftConfig(ReftConfig):
+    layers: Union[Literal["all"], List[int]] = "all"
+    prefix_positions: int = 3
+    suffix_positions: int = 0
+    r: int = 1
+    orthogonality: bool = False
+    tied_weights: bool = True
+
+
 class ConfigUnion(AdapterConfig):
     """
     Composes multiple adaptation method configurations into one. This class can be used to define complex adaptation
@@ -650,6 +684,8 @@ ADAPTER_CONFIG_MAP = {
     "prompt_tuning": PromptTuningConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
+    "loreft": LoReftConfig(),
+    "noreft": NoReftConfig(),
     "mam": MAMConfig(),
     "unipelt": UniPELTConfig(),
 }
