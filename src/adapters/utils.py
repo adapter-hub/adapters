@@ -44,10 +44,13 @@ logger = logging.getLogger(__name__)
 
 CONFIG_NAME = "adapter_config.json"
 WEIGHTS_NAME = "pytorch_adapter.bin"
+SAFE_WEIGHTS_NAME = "adapter.safetensors"
 HEAD_CONFIG_NAME = "head_config.json"
 HEAD_WEIGHTS_NAME = "pytorch_model_head.bin"
+SAFE_HEAD_WEIGHTS_NAME = "model_head.safetensors"
 ADAPTERFUSION_CONFIG_NAME = "adapter_fusion_config.json"
 ADAPTERFUSION_WEIGHTS_NAME = "pytorch_model_adapter_fusion.bin"
+SAFE_ADAPTERFUSION_WEIGHTS_NAME = "model_adapter_fusion.safetensors"
 EMBEDDING_FILE = "embedding.pt"
 TOKENIZER_PATH = "tokenizer"
 
@@ -703,7 +706,9 @@ def resolve_adapter_path(
         return resolved_folder
     # path to a local folder saved using save()
     elif isdir(adapter_name_or_path):
-        if isfile(join(adapter_name_or_path, WEIGHTS_NAME)) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
+        if (
+            isfile(join(adapter_name_or_path, WEIGHTS_NAME)) or isfile(join(adapter_name_or_path, SAFE_WEIGHTS_NAME))
+        ) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
             return adapter_name_or_path
         else:
             raise EnvironmentError(
