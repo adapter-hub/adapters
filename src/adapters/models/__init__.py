@@ -25,7 +25,15 @@ from .t5.mixin_t5 import (
     T5ModelAdaptersMixin,
 )
 from .vit.mixin_vit import ViTIntermediateAdaptersMixin, ViTModelAdaptersMixin
-from .whisper.mixin_whisper import WhisperDecoderAdaptersMixin, WhisperEncoderAdaptersMixin, WhisperModelAdaptersMixin
+from .whisper.mixin_whisper import (
+    WhisperDecoderAdaptersMixin,
+    WhisperDecoderWrapperAdaptersMixin,
+    WhisperEncoderAdaptersMixin,
+    WhisperForAudioClassificationAdaptersMixin,
+    WhisperForCausalLMAdaptersMixin,
+    WhisperForConditionalGenerationAdaptersMixin,
+    WhisperModelAdaptersMixin,
+)
 from .xmod.mixin_xmod import XmodModelAdaptersMixin
 
 
@@ -87,4 +95,8 @@ MODEL_MIXIN_MAPPING = {
     "WhisperEncoder": WhisperEncoderAdaptersMixin,
     "WhisperDecoder": WhisperDecoderAdaptersMixin,
     "WhisperModel": WhisperModelAdaptersMixin,
+    "WhisperForAudioClassification": WhisperForAudioClassificationAdaptersMixin,
+    "WhisperForConditionalGeneration": WhisperForConditionalGenerationAdaptersMixin,
+    "WhisperForCausalLM": WhisperForCausalLMAdaptersMixin,
+    "WhisperDecoderWrapper": WhisperDecoderWrapperAdaptersMixin,
 }

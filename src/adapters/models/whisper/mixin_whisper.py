@@ -13,6 +13,7 @@ from ...model_mixin import (
     InvertibleAdaptersMixin,
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
+    ModelWithHeadsAdaptersMixin,
 )
 
 
@@ -82,18 +83,27 @@ class WhisperModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrappe
         super().init_adapters(model_config, adapters_config)
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        if hasattr(self, "encoder"):
+        # The three supported model types (audio classification, conditional generation, causal LM) have different
+        # model structures. Therefore we need this finegrained case distinction to iterate over the layers.
+        if hasattr(self, "encoder") and hasattr(self, "decoder"):
             for i, layer in enumerate(self.encoder.layers):
                 yield i, layer
             for i, layer in enumerate(self.decoder.layers, start=len(self.encoder.layers)):
                 yield i, layer
-        else:
+        elif hasattr(self, "encoder"):
+            for i, layer in enumerate(self.encoder.layers):
+                yield i, layer
+        elif hasattr(self, "decoder"):
             for i, layer in enumerate(self.decoder.layers):
                 yield i, layer
 
 
 class WhisperDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBaseAdaptersMixin):
-    """Adds adapters to the WhisperDecoderWrapper class."""
+    """Adds adapters to the WhisperDecoderWrapper class.
+
+    This wrapper class is a helper class to correctly load
+    pretrained checkpoints when the causal language model is used in combination with the [`EncoderDecoderModel`]
+    framework."""
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.decoder.layers):
@@ -101,3 +111,24 @@ class WhisperDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBas
 
     def get_input_embeddings(self):
         return self.decoder.get_input_embeddings()
+
+
+class WhisperForAudioClassificationAdaptersMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
+    """Adds adapters to the WhisperForAudioClassification class."""
+
+    def forward(self, input_features: Optional[torch.FloatTensor] = None, **kwargs):
+        return super().forward(input_features=input_features, **kwargs)
+
+
+class WhisperForConditionalGenerationAdaptersMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
+    """Adds adapters to the WhisperForConditionalGeneration class."""
+
+    def forward(self, input_features: torch.FloatTensor, **kwargs):
+        return super().forward(input_features=input_features, **kwargs)
+
+
+class WhisperForCausalLMAdaptersMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
+    """Adds adapters to the WhisperForCausalLM class."""
+
+    def forward(self, input_features: torch.FloatTensor, **kwargs):
+        return super().forward(input_features=input_features, **kwargs)

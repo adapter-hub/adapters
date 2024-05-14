@@ -1,7 +1,13 @@
 import unittest
 
 from tests.methods.test_config_union import ConfigUnionAdapterTest
-from transformers import WhisperConfig, WhisperFeatureExtractor
+from transformers import (
+    WhisperConfig,
+    WhisperFeatureExtractor,
+    WhisperForAudioClassification,
+    WhisperForCausalLM,
+    WhisperForConditionalGeneration,
+)
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -45,8 +51,12 @@ class WhisperAdapterTestBase(SpeechAdapterTestBase):
     log_mel_features_dim = 3000
 
 
+class WhisperForConditionalGenerationAdapterTestBase(WhisperAdapterTestBase):
+    model_class = WhisperForConditionalGeneration
+
+
 @require_torch
-class WhisperAdapterTest(
+class WhisperForConditionalGenerationAdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
@@ -60,16 +70,55 @@ class WhisperAdapterTest(
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     ConfigUnionAdapterTest,
-    WhisperAdapterTestBase,
+    WhisperForConditionalGenerationAdapterTestBase,
     unittest.TestCase,
 ):
     pass
 
 
-@require_torch
-class WhisperClassConversionTest(
-    ModelClassConversionTestMixin,
-    WhisperAdapterTestBase,
+class WhisperForCausalLMAdapterTestBase(WhisperAdapterTestBase):
+    model_class = WhisperForCausalLM
+
+
+class WhisperForCausalLMAdapterTest(
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    IA3TestMixin,
+    LoRATestMixin,
+    PrefixTuningTestMixin,
+    UniPELTTestMixin,
+    AdapterFusionModelTestMixin,
+    CompabilityTestMixin,
+    EmbeddingTestMixin,
+    PredictionHeadModelTestMixin,
+    ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
+    ConfigUnionAdapterTest,
+    WhisperForCausalLMAdapterTestBase,
+    unittest.TestCase,
+):
+    pass
+
+
+class WhisperForAudioClassificationAdapterTestBase(WhisperAdapterTestBase):
+    model_class = WhisperForAudioClassification
+
+
+class WhisperForAudioClassificationAdapterTest(
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    IA3TestMixin,
+    LoRATestMixin,
+    PrefixTuningTestMixin,
+    UniPELTTestMixin,
+    AdapterFusionModelTestMixin,
+    CompabilityTestMixin,
+    EmbeddingTestMixin,
+    PredictionHeadModelTestMixin,
+    ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
+    ConfigUnionAdapterTest,
+    WhisperForAudioClassificationAdapterTestBase,
     unittest.TestCase,
 ):
     pass
