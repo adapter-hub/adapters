@@ -259,7 +259,7 @@ class PredictionHeadModelTestMixin:
         self.assertNotEqual(name, model.active_head)
 
     def test_adapter_with_head(self):
-        model1, model2 = create_twin_models(AutoAdapterModel, self.config)
+        model1, model2 = create_twin_models(self.model_class, self.config)
 
         name = "dummy"
         model1.add_adapter(name)
@@ -281,7 +281,7 @@ class PredictionHeadModelTestMixin:
         self.assertEqual(output_size, output1[0].size()[1])
 
     def test_adapter_with_head_load_as(self):
-        model1, model2 = create_twin_models(AutoAdapterModel, self.config)
+        model1, model2 = create_twin_models(self.model_class, self.config)
 
         name = "dummy"
         model1.add_adapter(name)

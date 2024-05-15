@@ -84,7 +84,7 @@ class WhisperModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrappe
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         # The three supported model types (audio classification, conditional generation, causal LM) have different
-        # model structures. Therefore we need this finegrained case distinction to iterate over the layers.
+        # model structures. Therefore, we need this finegrained case distinction to iterate over the layers.
         if hasattr(self, "encoder") and hasattr(self, "decoder"):
             for i, layer in enumerate(self.encoder.layers):
                 yield i, layer

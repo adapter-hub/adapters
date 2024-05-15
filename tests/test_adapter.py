@@ -10,7 +10,6 @@ from adapters import AutoAdapterModel
 from transformers import AutoFeatureExtractor, AutoProcessor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
 from transformers.testing_utils import torch_device
 
-
 global_rng = random.Random()
 
 
@@ -140,6 +139,28 @@ class VisionAdapterTestBase(AdapterTestBase):
 class SpeechAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (3, 80, 3000)
 
+    _STATIC_HEAD_MODEL_MAPPING = {
+        "audio_classification": ["WhisperForAudioClassification"],
+        "causal_lm": ["WhisperForCausalLM"],
+        "conditional_generation": ["WhisperForConditionalGeneration"],
+    }
+    _STATIC_HEAD_OUTPUT_SHAPE_MAPPING = {
+        "audio_classification": 3,
+        "causal_lm": 3,
+        "conditional_generation": 80,
+    }
+
+    def add_head(self, model, name, **kwargs):
+        """ Adds a head to the model. If the model has a static head, we don't need to add a head."""
+        if self.has_static_head:
+            # Check the model type to determine the output shape to return
+            for head_type, static_models in self._STATIC_HEAD_MODEL_MAPPING.items():
+                if model.__class__.__name__ in static_models:
+                    return self._STATIC_HEAD_OUTPUT_SHAPE_MAPPING[head_type]
+
+        # Otherwise, add a head to the adapter model
+        pass
+
     def get_input_samples(self, shape=None, config=None):
         """Creates a dictionary with keys 'input_features' and 'decoder_input_ids' if config.is_encoder_decoder is True.
         The values are random tensors with the specified shape to be used as input to the model."""
@@ -155,9 +176,6 @@ class SpeechAdapterTestBase(AdapterTestBase):
         if config and config.is_encoder_decoder:
             in_data["decoder_input_ids"] = ids_tensor((shape[:-1]), config.vocab_size)
         return in_data
-
-    def add_head(self, model, name, **kwargs):
-        model.add_seq2seq_lm_head(name, **kwargs)
 
     def dataset(self, feature_extractor=None, processor=None, tokenizer=None):
         if feature_extractor is None:
@@ -184,7 +202,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
             return batch
 
         def data_collator_audio_seq2seq_with_padding(
-            features: List[Dict[str, Union[List[int], torch.Tensor]]], processor, decoder_start_token_id: int
+                features: List[Dict[str, Union[List[int], torch.Tensor]]], processor, decoder_start_token_id: int
         ) -> Dict[str, torch.Tensor]:
             # split inputs and labels since they have to be of different lengths and need different padding methods
             # first treat the audio inputs by simply returning torch tensors

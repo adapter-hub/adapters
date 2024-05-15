@@ -50,9 +50,14 @@ class WhisperAdapterTestBase(SpeechAdapterTestBase):
     seq_length = 80
     log_mel_features_dim = 3000
 
+    has_static_head = True
+
+
+
 
 class WhisperForConditionalGenerationAdapterTestBase(WhisperAdapterTestBase):
     model_class = WhisperForConditionalGeneration
+
 
 
 @require_torch
@@ -73,7 +78,9 @@ class WhisperForConditionalGenerationAdapterTest(
     WhisperForConditionalGenerationAdapterTestBase,
     unittest.TestCase,
 ):
-    pass
+    def test_adapter_fusion_save_with_head(self):
+        # This test is not applicable to CLIP
+        self.skipTest("Not applicable to static Whisper model.")
 
 
 class WhisperForCausalLMAdapterTestBase(WhisperAdapterTestBase):
