@@ -29,9 +29,7 @@ from .whisper.mixin_whisper import (
     WhisperDecoderAdaptersMixin,
     WhisperDecoderWrapperAdaptersMixin,
     WhisperEncoderAdaptersMixin,
-    WhisperForAudioClassificationAdaptersMixin,
-    WhisperForCausalLMAdaptersMixin,
-    WhisperForConditionalGenerationAdaptersMixin,
+    WhisperForAudioClassificationWithHeadsMixin,WhisperForConditionalGenerationWithHeadsMixin,WhisperForCausalLMWithHeadsMixin,
     WhisperModelAdaptersMixin,
 )
 from .xmod.mixin_xmod import XmodModelAdaptersMixin
@@ -95,8 +93,8 @@ MODEL_MIXIN_MAPPING = {
     "WhisperEncoder": WhisperEncoderAdaptersMixin,
     "WhisperDecoder": WhisperDecoderAdaptersMixin,
     "WhisperModel": WhisperModelAdaptersMixin,
-    "WhisperForAudioClassification": WhisperForAudioClassificationAdaptersMixin,
-    "WhisperForConditionalGeneration": WhisperForConditionalGenerationAdaptersMixin,
-    "WhisperForCausalLM": WhisperForCausalLMAdaptersMixin,
+    "WhisperForAudioClassification": WhisperForAudioClassificationWithHeadsMixin,
+    "WhisperForConditionalGeneration": WhisperForConditionalGenerationWithHeadsMixin,
+    "WhisperForCausalLM": WhisperForCausalLMWithHeadsMixin,
     "WhisperDecoderWrapper": WhisperDecoderWrapperAdaptersMixin,
 }

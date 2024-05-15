@@ -2,6 +2,7 @@ from typing import Iterable, Optional, Tuple
 
 import torch
 import torch.nn as nn
+from transformers import WhisperForConditionalGeneration, WhisperForCausalLM, WhisperForAudioClassification
 
 from ...composition import adjust_tensors_for_parallel
 from ...methods.bottleneck import BottleneckLayer
@@ -67,7 +68,8 @@ class WhisperDecoderAdaptersMixin:
     """Adds adapters to the WhisperDecoder module of WHISPER."""
 
     def forward(
-        self, input_ids: torch.LongTensor = None, encoder_hidden_states: Optional[torch.FloatTensor] = None, **kwargs
+            self, input_ids: torch.LongTensor = None, encoder_hidden_states: Optional[torch.FloatTensor] = None,
+            **kwargs
     ):
         (input_ids,) = adjust_tensors_for_parallel(encoder_hidden_states, input_ids)
         return super().forward(input_ids=input_ids, encoder_hidden_states=encoder_hidden_states, **kwargs)
@@ -83,18 +85,19 @@ class WhisperModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrappe
         super().init_adapters(model_config, adapters_config)
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        # The three supported model types (audio classification, conditional generation, causal LM) have different
-        # model structures. Therefore, we need this finegrained case distinction to iterate over the layers.
-        if hasattr(self, "encoder") and hasattr(self, "decoder"):
+        # Due to different model object structures, we need to handle the different model types separately
+        # Conditional generation and Causal LM have the actual model object as an attribute
+        if isinstance(self, WhisperForConditionalGeneration):
+            for i, layer in enumerate(self.model.encoder.layers):
+                yield i, layer
+            for i, layer in enumerate(self.model.decoder.layers, start=len(self.model.encoder.layers)):
+                yield i, layer
+        if isinstance(self, WhisperForCausalLM):
+            for i, layer in enumerate(self.model.decoder.layers):
+                yield i, layer
+        # Audio classification model object in comparison is the actual model
+        if isinstance(self, WhisperForAudioClassification):
             for i, layer in enumerate(self.encoder.layers):
-                yield i, layer
-            for i, layer in enumerate(self.decoder.layers, start=len(self.encoder.layers)):
-                yield i, layer
-        elif hasattr(self, "encoder"):
-            for i, layer in enumerate(self.encoder.layers):
-                yield i, layer
-        elif hasattr(self, "decoder"):
-            for i, layer in enumerate(self.decoder.layers):
                 yield i, layer
 
 
@@ -113,21 +116,21 @@ class WhisperDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBas
         return self.decoder.get_input_embeddings()
 
 
-class WhisperForAudioClassificationAdaptersMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
+class WhisperForAudioClassificationWithHeadsMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
     """Adds adapters to the WhisperForAudioClassification class."""
 
     def forward(self, input_features: Optional[torch.FloatTensor] = None, **kwargs):
         return super().forward(input_features=input_features, **kwargs)
 
 
-class WhisperForConditionalGenerationAdaptersMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
+class WhisperForConditionalGenerationWithHeadsMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
     """Adds adapters to the WhisperForConditionalGeneration class."""
 
     def forward(self, input_features: torch.FloatTensor, **kwargs):
         return super().forward(input_features=input_features, **kwargs)
 
 
-class WhisperForCausalLMAdaptersMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
+class WhisperForCausalLMWithHeadsMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
     """Adds adapters to the WhisperForCausalLM class."""
 
     def forward(self, input_features: torch.FloatTensor, **kwargs):
