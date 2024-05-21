@@ -365,7 +365,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
         model = AutoAdapterModel.from_config(self.config())
-        self.add_head(model, "head")
+        self.add_head(model, "head", do_train=True)
 
         # add the adapters to be fused
         model.add_adapter("a")
@@ -443,8 +443,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
         model.add_adapter("mrpc1")
         model.add_adapter("mrpc2")
-        self.add_head(model, "mrpc1")
-        self.add_head(model, "mrpc2")
+        self.add_head(model, "mrpc1", do_train=True)
+        self.add_head(model, "mrpc2", do_train=True)
         adapter_setup = BatchSplit("mrpc1", "mrpc2", batch_sizes=[1, 1])
         model.active_adapters = adapter_setup
         model.train_adapter(adapter_setup)

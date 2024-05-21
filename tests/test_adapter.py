@@ -40,6 +40,7 @@ class AdapterTestBase:
     default_input_samples_shape = (3, 64)
     leave_out_layers = [0, 1]
     do_run_train_tests = True
+    is_speech_model = False  # Flag for tests to determine if the model is a speech model due to input format difference
 
     def get_model(self):
         if self.model_class == AutoAdapterModel:
@@ -96,6 +97,7 @@ class AdapterTestBase:
 
 class VisionAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (3, 3, 224, 224)
+    is_speech_model = False  # Flag for tests to determine if the model is a speech model due to input format difference
 
     def get_input_samples(self, shape=None, config=None):
         shape = shape or self.default_input_samples_shape
@@ -137,33 +139,24 @@ class VisionAdapterTestBase(AdapterTestBase):
 
 
 class SpeechAdapterTestBase(AdapterTestBase):
-    default_input_samples_shape = (3, 80, 3000)
+    """ Base class for speech adapter tests."""
 
-    _STATIC_HEAD_MODEL_MAPPING = {
-        "audio_classification": ["WhisperForAudioClassification"],
-        "causal_lm": ["WhisperForCausalLM"],
-        "conditional_generation": ["WhisperForConditionalGeneration"],
-    }
-    _STATIC_HEAD_OUTPUT_SHAPE_MAPPING = {
-        "audio_classification": 3,
-        "causal_lm": 3,
-        "conditional_generation": 80,
-    }
+    default_input_samples_shape = (3, 80, 3000)  # (batch_size, n_mels, enc_seq_len)
+    is_speech_model = True  # Flag for tests to determine if the model is a speech model due to input format difference
+    time_window = 3000  # Time window for audio samples
 
     def add_head(self, model, name, **kwargs):
-        """ Adds a head to the model. If the model has a static head, we don't need to add a head."""
-        if self.has_static_head:
-            # Check the model type to determine the output shape to return
-            for head_type, static_models in self._STATIC_HEAD_MODEL_MAPPING.items():
-                if model.__class__.__name__ in static_models:
-                    return self._STATIC_HEAD_OUTPUT_SHAPE_MAPPING[head_type]
+        """ Adds a classification head to the model to match the format of the testing suite. """
+        do_train = kwargs.pop("do_train", False)
+        if do_train:
+            model.add_seq2seq_lm_head(name, **kwargs)
+            return None
+        else:
+            model.add_audio_classification_head(name, **kwargs)
+            return model.heads[name].config["num_labels"]
 
-        # Otherwise, add a head to the adapter model
-        pass
-
-    def get_input_samples(self, shape=None, config=None):
-        """Creates a dictionary with keys 'input_features' and 'decoder_input_ids' if config.is_encoder_decoder is True.
-        The values are random tensors with the specified shape to be used as input to the model."""
+    def get_input_samples(self, shape=None, config=None, **kwargs):
+        """ Creates a dummy batch of samples in the format required for speech models."""
         shape = shape or self.default_input_samples_shape
         total_dims = 1
         for dim in shape:
@@ -173,75 +166,40 @@ class SpeechAdapterTestBase(AdapterTestBase):
             values.append(random.random())
         input_features = torch.tensor(data=values, dtype=torch.float, device=torch_device).view(shape).contiguous()
         in_data = {"input_features": input_features}
+        with_labels = kwargs.pop("with_labels", False)
+        if with_labels:
+            in_data["labels"] = ids_tensor((shape[:-1]), config.vocab_size)
         if config and config.is_encoder_decoder:
             in_data["decoder_input_ids"] = ids_tensor((shape[:-1]), config.vocab_size)
         return in_data
 
-    def dataset(self, feature_extractor=None, processor=None, tokenizer=None):
-        if feature_extractor is None:
-            feature_extractor = AutoFeatureExtractor.from_pretrained(self.feature_extractor_name)
-        if processor is None:
-            processor = AutoProcessor.from_pretrained(self.processor_name)
-        if tokenizer is None:
-            tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
+    _TASK_DATASET_MAPPING = {
+        "seq2seq_lm": "./tests/fixtures/audio_datasets/common_voice_encoded",
+    }
 
-        # Preprocessing adapted from this example notebook:
-        # https://github.com/huggingface/peft/blob/main/examples/int8_training/peft_bnb_whisper_large_v2_training.ipynb
+    def dataset(self, feature_extractor=None, processor=None, tokenizer=None, task_type: str = 'seq2seq_lm',
+                **kwargs):
+        """ Returns a dataset to test speech model training. Standard dataset is for seq2seq_lm."""
 
-        def prepare_dataset(batch):
-            # load and resample audio data from 48 to 16kHz
-            audio = batch["audio"]
+        return self._prep_dataset(task_type, **kwargs)
 
-            # compute log-Mel input features from input audio array
-            batch["input_features"] = feature_extractor(
-                audio["array"], sampling_rate=audio["sampling_rate"]
-            ).input_features[0]
+    def _prep_dataset(self, task_type: str, **kwargs):
+        """ Returns the appropriate dataset for the given task type. """
 
-            # encode target text to label ids
-            batch["labels"] = tokenizer(batch["sentence"]).input_ids
-            return batch
+        if task_type == "seq2seq_lm":
+            return self._prep_seq2seq_lm_dataset(task_type, **kwargs)
+        elif task_type == "audio_classification":
+            return self._prep_audio_classification_dataset(task_type, **kwargs)
 
-        def data_collator_audio_seq2seq_with_padding(
-                features: List[Dict[str, Union[List[int], torch.Tensor]]], processor, decoder_start_token_id: int
-        ) -> Dict[str, torch.Tensor]:
-            # split inputs and labels since they have to be of different lengths and need different padding methods
-            # first treat the audio inputs by simply returning torch tensors
-            input_features = [{"input_features": feature} for feature in features["input_features"]]
-            batch = processor.feature_extractor.pad(input_features, return_tensors="pt")
+    def _prep_seq2seq_lm_dataset(self, task_type, **kwargs):
+        """ Prepares a dataset for conditional generation. """
 
-            # get the tokenized label sequences
-            label_features = [{"input_ids": feature} for feature in features["labels"]]
-            # pad the labels to max length
-            labels_batch = processor.tokenizer.pad(label_features, return_tensors="pt")
-
-            # replace padding with -100 to ignore loss correctly
-            labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
-
-            # if bos token is appended in previous tokenization step,
-            # cut bos token here as it's append later anyways
-            if (labels[:, 0] == decoder_start_token_id).all().cpu().item():
-                labels = labels[:, 1:]
-
-            batch["labels"] = labels
-            return batch
-
-        # Load an batch of 10 samples from the Common Voice dataset
-        dataset = datasets.load_from_disk(dataset_path="./tests/fixtures/samples/common_voice")
-        dataset = dataset.remove_columns(
-            ["accent", "age", "client_id", "down_votes", "gender", "locale", "path", "segment", "up_votes"]
-        )
-
-        # Resampling audio from 48 kHZ to match the model's expected sampling rate, executed upon reading the dataset
-        dataset = dataset.cast_column("audio", Audio(sampling_rate=self.sampling_rate))
-
-        # Preprocessing the dataset
-        dataset = dataset.map(prepare_dataset, remove_columns=dataset.column_names["train"])
-        dataset = dataset.map(
-            lambda x: data_collator_audio_seq2seq_with_padding(x, processor, self.decoder_start_token_id),
-            batched=True,
-            batch_size=10,
-        )
-
-        dataset.set_format(type="torch")
-
+        # The dataset is already processed and saved to disk, to save time during testing
+        # Preparation script can be found in tests/fixtures/audio_datasets/prepare_audio_datasets.py
+        dataset_path = self._TASK_DATASET_MAPPING[task_type]
+        dataset = datasets.load_from_disk(dataset_path)
         return dataset["train"]
+
+    def _prep_audio_classification_dataset(self, task_type, **kwargs):
+        """ Prepares a dataset for audio classification. """
+        raise NotImplementedError("Audio classification dataset preparation not implemented yet.")

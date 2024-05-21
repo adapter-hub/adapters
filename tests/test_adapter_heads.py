@@ -37,9 +37,9 @@ class PredictionHeadModelTestMixin:
 
         # make a forward pass
         model.active_head = head_name
-        if isinstance(model, WhisperAdapterModel):
+        if self.is_speech_model:
             self.seq_length = 80
-            input_shape = input_shape or (self.batch_size, self.seq_length, self.log_mel_features_dim)
+            input_shape = input_shape or (self.batch_size, self.seq_length, self.time_window)
         else:
             input_shape = input_shape or (self.batch_size, self.seq_length)
         in_data = self.get_input_samples(input_shape, config=model.config)
@@ -78,6 +78,17 @@ class PredictionHeadModelTestMixin:
         label_dict = {}
         label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
         self.run_prediction_head_test(model1, model2, "dummy", input_shape=(1, 3, 224, 224), label_dict=label_dict)
+
+    def test_audio_classification_head(self):
+        if "audio_classification" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
+            self.skipTest("No audio classification head")
+
+        model1, model2 = create_twin_models(AutoAdapterModel, self.config)
+
+        model1.add_audio_classification_head("dummy")
+        label_dict = {}
+        label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
+        self.run_prediction_head_test(model1, model2, "dummy", input_shape=(3,80,3000), label_dict=label_dict)
 
     def test_multiple_choice_head(self):
         if "multiple_choice" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
@@ -153,7 +164,7 @@ class PredictionHeadModelTestMixin:
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
         model1.add_seq2seq_lm_head("dummy")
 
-        if isinstance(model1, WhisperAdapterModel):
+        if self.is_speech_model:
             self.seq_length = 80
 
         label_dict = {}
@@ -173,9 +184,9 @@ class PredictionHeadModelTestMixin:
         )
 
         # Finally, also check if generation works properly
-        if isinstance(model1, WhisperAdapterModel):
+        if self.is_speech_model:
             input_ids = self.get_input_samples(
-                (self.batch_size, self.seq_length, self.log_mel_features_dim), config=model1.config
+                (self.batch_size, self.seq_length, self.time_window), config=model1.config
             )["input_features"]
         else:
             input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
@@ -421,11 +432,10 @@ class PredictionHeadModelTestMixin:
         self.assertIsNotNone(inv_adapter)
         inv_adapter.register_forward_pre_hook(forward_pre_hook)
 
-        if isinstance(model, WhisperAdapterModel):
-            # TODO: Transfer batch size and sequence length to each model test file and remove hardcoded values
+        if self.is_speech_model:
             self.seq_length = 80
             in_data = self.get_input_samples(
-                (self.batch_size, self.seq_length, self.log_mel_features_dim), config=model.config
+                (self.batch_size, self.seq_length, self.time_window), config=model.config
             )
         else:
             in_data = self.get_input_samples((self.batch_size, self.seq_length), config=model.config)

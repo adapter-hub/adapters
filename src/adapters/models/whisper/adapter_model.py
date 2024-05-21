@@ -2,6 +2,7 @@ from typing import Optional, Tuple, Union
 
 import torch
 from torch import nn
+from transformers import WhisperForAudioClassification
 
 from transformers.modeling_outputs import SequenceClassifierOutput
 from transformers.models.whisper.modeling_whisper import (
@@ -28,9 +29,9 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         "decoder.embed_tokens.weight",
     ]
 
-    # TODO: Add all compatible head types
     head_types = [
-        "seq2seq_lm",
+        'seq2seq_lm',
+        'audio_classification'
     ]
 
     def __init__(self, config: WhisperConfig, **kwargs):
@@ -51,25 +52,25 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_features=None,
-        attention_mask=None,
-        decoder_input_ids=None,
-        decoder_attention_mask=None,
-        head_mask=None,
-        decoder_head_mask=None,
-        cross_attn_head_mask=None,
-        encoder_outputs=None,
-        past_key_values=None,
-        decoder_inputs_embeds=None,
-        use_cache=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        head=None,
-        output_adapter_gating_scores=False,
-        output_adapter_fusion_attentions=False,
-        **kwargs
+            self,
+            input_features=None,
+            attention_mask=None,
+            decoder_input_ids=None,
+            decoder_attention_mask=None,
+            head_mask=None,
+            decoder_head_mask=None,
+            cross_attn_head_mask=None,
+            encoder_outputs=None,
+            past_key_values=None,
+            decoder_inputs_embeds=None,
+            use_cache=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
+            head=None,
+            output_adapter_gating_scores=False,
+            output_adapter_fusion_attentions=False,
+            **kwargs
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -87,11 +88,6 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
                 decoder_input_ids = shift_tokens_right(
                     kwargs["labels"], self.config.pad_token_id, self.config.decoder_start_token_id
                 )
-
-        # TODO: discuss if this is a valid option
-        # self.config.is_encoder_decoder as an alternative model
-        # if self.is_classification_for_speech:
-        #    outputs = self._forward_for_speech_classification()
 
         outputs, context = self.model(
             input_features=input_features,
@@ -130,62 +126,15 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
         return head_outputs
 
-    def _forward_for_speech_classification(
-        self,
-        input_features: Optional[torch.LongTensor] = None,
-        head_mask: Optional[torch.Tensor] = None,
-        encoder_outputs: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
-        labels: Optional[torch.LongTensor] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
-    ) -> Union[Tuple[torch.Tensor], SequenceClassifierOutput]:
-        """Copied from WhisperForAudioClassification.
-        Necessary for the speech classification head,
-        as only the encoder part of the model is used for speech classification."""
-
-        _HIDDEN_STATES_START_POSITION = 1
-
-        # Copied from WhisperForAudioClassification
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
-        )
-        if self.config.use_weighted_layer_sum:
-            output_hidden_states = True
-        elif output_hidden_states is None:
-            output_hidden_states = self.config.output_hidden_states
-
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
-        if encoder_outputs is None:
-            encoder_outputs = self.encoder(
-                input_features,
-                head_mask=head_mask,
-                output_attentions=output_attentions,
-                output_hidden_states=output_hidden_states,
-                return_dict=return_dict,
-            )
-
-        if self.config.use_weighted_layer_sum:
-            hidden_states = encoder_outputs[_HIDDEN_STATES_START_POSITION]
-            hidden_states = torch.stack(hidden_states, dim=1)
-            norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
-            hidden_states = (hidden_states * norm_weights.view(-1, 1, 1)).sum(dim=1)
-        else:
-            hidden_states = encoder_outputs[0]
-
-        return hidden_states
-
     # Copied from WhisperForConditionalGeneration
     def prepare_inputs_for_generation(
-        self,
-        decoder_input_ids,
-        past_key_values=None,
-        use_cache=None,
-        encoder_outputs=None,
-        attention_mask=None,
-        **kwargs,
+            self,
+            decoder_input_ids,
+            past_key_values=None,
+            use_cache=None,
+            encoder_outputs=None,
+            attention_mask=None,
+            **kwargs,
     ):
         if past_key_values is not None:
             past_length = past_key_values[0][0].shape[2]

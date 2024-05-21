@@ -39,7 +39,7 @@ MODEL_HEAD_MAP = {
     "causal_lm": CausalLMHead,
     "seq2seq_lm": Seq2SeqLMHead,
     "image_classification": ImageClassificationHead,
-    "speech_classification": AudioClassificationHead,
+    "audio_classification": AudioClassificationHead,
 }
 
 
@@ -363,8 +363,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         )
         self.add_prediction_head(head, overwrite_ok)
 
-    @head_type("speech_classification")
-    def add_speech_classification_head(
+    @head_type("audio_classification")
+    def add_audio_classification_head(
         self,
         head_name,
         num_labels=2,
@@ -375,7 +375,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         use_pooler=use_pooler,
     ):
         """
-        Adds a speech classification head on top of the model.
+        Adds an audio classification head on top of the model.
 
         Args:
             head_name (str): The name of the head.
@@ -384,10 +384,6 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             activation_function (str, optional): Activation function. Defaults to 'tanh'.
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
         """
-
-        # Set flag to indicate that this model is used for speech classification, so that the model can adjust the
-        # forward pass accordingly to only use the encoder part of the model.
-        self.is_classification_for_speech = True
 
         head = AudioClassificationHead(
             self,

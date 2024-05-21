@@ -3,10 +3,6 @@ import unittest
 from tests.methods.test_config_union import ConfigUnionAdapterTest
 from transformers import (
     WhisperConfig,
-    WhisperFeatureExtractor,
-    WhisperForAudioClassification,
-    WhisperForCausalLM,
-    WhisperForConditionalGeneration,
 )
 from transformers.testing_utils import require_torch
 
@@ -19,9 +15,8 @@ from .methods import (
     PrefixTuningTestMixin,
     UniPELTTestMixin,
 )
-from .test_adapter import AdapterTestBase, SpeechAdapterTestBase, make_config
+from .test_adapter import SpeechAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
-from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
@@ -45,23 +40,9 @@ class WhisperAdapterTestBase(SpeechAdapterTestBase):
     tokenizer_name = "openai/whisper-small"
     sampling_rate = 16000
     decoder_start_token_id = 50257
-    # TODO: adjust in all testfiles
-    batch_size = 2
-    seq_length = 80
-    log_mel_features_dim = 3000
-
-    has_static_head = True
-
-
-
-
-class WhisperForConditionalGenerationAdapterTestBase(WhisperAdapterTestBase):
-    model_class = WhisperForConditionalGeneration
-
-
 
 @require_torch
-class WhisperForConditionalGenerationAdapterTest(
+class WhisperAdapterTest(
     BottleneckAdapterTestMixin,
     CompacterTestMixin,
     IA3TestMixin,
@@ -75,57 +56,7 @@ class WhisperForConditionalGenerationAdapterTest(
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     ConfigUnionAdapterTest,
-    WhisperForConditionalGenerationAdapterTestBase,
-    unittest.TestCase,
-):
-    def test_adapter_fusion_save_with_head(self):
-        # This test is not applicable to CLIP
-        self.skipTest("Not applicable to static Whisper model.")
-
-
-class WhisperForCausalLMAdapterTestBase(WhisperAdapterTestBase):
-    model_class = WhisperForCausalLM
-
-
-class WhisperForCausalLMAdapterTest(
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    UniPELTTestMixin,
-    AdapterFusionModelTestMixin,
-    CompabilityTestMixin,
-    EmbeddingTestMixin,
-    PredictionHeadModelTestMixin,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
-    ConfigUnionAdapterTest,
-    WhisperForCausalLMAdapterTestBase,
-    unittest.TestCase,
-):
-    pass
-
-
-class WhisperForAudioClassificationAdapterTestBase(WhisperAdapterTestBase):
-    model_class = WhisperForAudioClassification
-
-
-class WhisperForAudioClassificationAdapterTest(
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    UniPELTTestMixin,
-    AdapterFusionModelTestMixin,
-    CompabilityTestMixin,
-    EmbeddingTestMixin,
-    PredictionHeadModelTestMixin,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
-    ConfigUnionAdapterTest,
-    WhisperForAudioClassificationAdapterTestBase,
+    WhisperAdapterTestBase,
     unittest.TestCase,
 ):
     pass

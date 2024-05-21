@@ -69,7 +69,7 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
         seq_output_length = 32
 
         # Finally, also check if generation works properly
-        if isinstance(model1, WhisperAdapterModel):
+        if self.is_speech_model:
             input_ids = self.get_input_samples((1, 80, 3000), config=model1.config)["input_features"]
         else:
             input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]

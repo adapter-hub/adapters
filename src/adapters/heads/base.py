@@ -127,16 +127,16 @@ class PredictionHead(nn.Sequential):
 
 class ClassificationHead(PredictionHead):
     def __init__(
-        self,
-        model,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        id2label=None,
-        use_pooler=False,
-        bias=True,
-        dropout_prob=None,
+            self,
+            model,
+            head_name,
+            num_labels=2,
+            layers=2,
+            activation_function="tanh",
+            id2label=None,
+            use_pooler=False,
+            bias=True,
+            dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -195,16 +195,16 @@ class ClassificationHead(PredictionHead):
 
 class MultiLabelClassificationHead(PredictionHead):
     def __init__(
-        self,
-        model,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        id2label=None,
-        use_pooler=False,
-        bias=True,
-        dropout_prob=None,
+            self,
+            model,
+            head_name,
+            num_labels=2,
+            layers=2,
+            activation_function="tanh",
+            id2label=None,
+            use_pooler=False,
+            bias=True,
+            dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -260,15 +260,15 @@ class MultiLabelClassificationHead(PredictionHead):
 
 class MultipleChoiceHead(PredictionHead):
     def __init__(
-        self,
-        model,
-        head_name,
-        num_choices=2,
-        layers=2,
-        activation_function="tanh",
-        id2label=None,
-        use_pooler=False,
-        dropout_prob=None,
+            self,
+            model,
+            head_name,
+            num_choices=2,
+            layers=2,
+            activation_function="tanh",
+            id2label=None,
+            use_pooler=False,
+            dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -309,14 +309,14 @@ class MultipleChoiceHead(PredictionHead):
 
 class TaggingHead(PredictionHead):
     def __init__(
-        self,
-        model,
-        head_name,
-        num_labels=2,
-        layers=1,
-        activation_function="tanh",
-        id2label=None,
-        dropout_prob=None,
+            self,
+            model,
+            head_name,
+            num_labels=2,
+            layers=1,
+            activation_function="tanh",
+            id2label=None,
+            dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -376,14 +376,14 @@ class TaggingHead(PredictionHead):
 
 class QuestionAnsweringHead(PredictionHead):
     def __init__(
-        self,
-        model,
-        head_name,
-        num_labels=2,
-        layers=1,
-        activation_function="tanh",
-        id2label=None,
-        dropout_prob=None,
+            self,
+            model,
+            head_name,
+            num_labels=2,
+            layers=1,
+            activation_function="tanh",
+            id2label=None,
+            dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -445,9 +445,9 @@ class QuestionAnsweringHead(PredictionHead):
                 )
         else:
             outputs = (
-                start_logits,
-                end_logits,
-            ) + outputs[1:]
+                          start_logits,
+                          end_logits,
+                      ) + outputs[1:]
             if total_loss is not None:
                 outputs = (total_loss,) + outputs
             return outputs
@@ -458,17 +458,17 @@ class QuestionAnsweringHead(PredictionHead):
 
 class ImageClassificationHead(PredictionHead):
     def __init__(
-        self,
-        model,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        multilabel=False,
-        id2label=None,
-        use_pooler=False,
-        bias=True,
-        dropout_prob=None,
+            self,
+            model,
+            head_name,
+            num_labels=2,
+            layers=2,
+            activation_function="tanh",
+            multilabel=False,
+            id2label=None,
+            use_pooler=False,
+            bias=True,
+            dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -518,20 +518,20 @@ class ImageClassificationHead(PredictionHead):
 
 class AudioClassificationHead(PredictionHead):
     def __init__(
-        self,
-        model,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        id2label=None,
-        use_pooler=False,
-        bias=True,
-        dropout_prob=None,
+            self,
+            model,
+            head_name,
+            num_labels=2,
+            layers=2,
+            activation_function="tanh",
+            id2label=None,
+            use_pooler=False,
+            bias=True,
+            dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
-            "head_type": "speech_classification",
+            "head_type": "audio_classification",
             "num_labels": num_labels,
             "layers": layers,
             "activation_function": activation_function,
@@ -543,6 +543,8 @@ class AudioClassificationHead(PredictionHead):
         self.build(model)
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
+        # TODO: WIP, finish!
+        last_hidden_state = outputs["last_hidden_state"]
         if cls_output is None:
             cls_output = self._get_cls_output(outputs, **kwargs)
         logits = super().forward(cls_output)
@@ -550,9 +552,8 @@ class AudioClassificationHead(PredictionHead):
         labels = kwargs.pop("labels", None)
         if labels is not None:
             loss_fct = CrossEntropyLoss()
-            # move labels to correct device to enable PP
-            labels = labels.to(logits.device)
-            loss = loss_fct(logits.view(-1, self.config.num_labels), labels.view(-1))
+            labels = labels.to(logits.device)  # move labels to correct device
+            loss = loss_fct(logits.view(-1, self.config["num_labels"]), labels.view(-1))
 
         if not return_dict:
             output = (logits,) + outputs[1:]
