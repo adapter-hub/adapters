@@ -74,7 +74,6 @@ class PredictionHead(nn.Sequential):
             dropout_prob = model_config.classifier_dropout
         elif hasattr(model_config, "dropout") and model_config.dropout is not None:
             dropout_prob = model_config.dropout
-            print(f"dropout_prob: {dropout_prob}")
         else:
             dropout_prob = model_config.hidden_dropout_prob
         bias = self.config.get("bias", True)
@@ -543,11 +542,16 @@ class AudioClassificationHead(PredictionHead):
         self.build(model)
 
     def forward(self, outputs, cls_output=None, attention_mask=None, return_dict=False, **kwargs):
-        # TODO: WIP, finish!
+        # Custom forward method for audio classification head for the AdapterModel
+        # to be able to use the last hidden state of the decoder to match the architecture of the AdapterModel
+
+        # Use the last hidden state of the decoder as base for the classification head
         last_hidden_state = outputs["last_hidden_state"]
-        if cls_output is None:
-            cls_output = self._get_cls_output(outputs, **kwargs)
-        logits = super().forward(cls_output)
+        # Transform last hidden state to a pooled output to match the dimensions of the classification head
+        pooled_output = last_hidden_state.mean(dim=1)
+
+        # Copied from transformers.models.whisper.modeling_whisper.WhisperForAudioClassification.forward
+        logits = super().forward(pooled_output)
         loss = None
         labels = kwargs.pop("labels", None)
         if labels is not None:
@@ -562,6 +566,5 @@ class AudioClassificationHead(PredictionHead):
         return SequenceClassifierOutput(
             loss=loss,
             logits=logits,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
+            hidden_states=last_hidden_state,
         )

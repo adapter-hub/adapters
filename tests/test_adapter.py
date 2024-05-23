@@ -167,8 +167,12 @@ class SpeechAdapterTestBase(AdapterTestBase):
         input_features = torch.tensor(data=values, dtype=torch.float, device=torch_device).view(shape).contiguous()
         in_data = {"input_features": input_features}
         with_labels = kwargs.pop("with_labels", False)
+        num_labels = kwargs.pop("num_labels", None)
         if with_labels:
-            in_data["labels"] = ids_tensor((shape[:-1]), config.vocab_size)
+            if num_labels is not None:
+                in_data["labels"] = torch.tensor(data=[random.randint(0, num_labels - 1) for _ in range(shape[0])])
+            else:
+                in_data["labels"] = ids_tensor((shape[:-1]), config.vocab_size)
         if config and config.is_encoder_decoder:
             in_data["decoder_input_ids"] = ids_tensor((shape[:-1]), config.vocab_size)
         return in_data
