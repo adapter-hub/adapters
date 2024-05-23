@@ -10,6 +10,7 @@ from adapters import AutoAdapterModel
 from transformers import AutoFeatureExtractor, AutoProcessor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
 from transformers.testing_utils import torch_device
 
+
 global_rng = random.Random()
 
 
@@ -40,7 +41,9 @@ class AdapterTestBase:
     default_input_samples_shape = (3, 64)
     leave_out_layers = [0, 1]
     do_run_train_tests = True
-    is_speech_model = False  # Flag for tests to determine if the model is a speech model due to input format difference
+    is_speech_model = (
+        False  # Flag for tests to determine if the model is a speech model due to input format difference
+    )
 
     def get_model(self):
         if self.model_class == AutoAdapterModel:
@@ -97,7 +100,9 @@ class AdapterTestBase:
 
 class VisionAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (3, 3, 224, 224)
-    is_speech_model = False  # Flag for tests to determine if the model is a speech model due to input format difference
+    is_speech_model = (
+        False  # Flag for tests to determine if the model is a speech model due to input format difference
+    )
 
     def get_input_samples(self, shape=None, config=None):
         shape = shape or self.default_input_samples_shape
@@ -139,14 +144,14 @@ class VisionAdapterTestBase(AdapterTestBase):
 
 
 class SpeechAdapterTestBase(AdapterTestBase):
-    """ Base class for speech adapter tests."""
+    """Base class for speech adapter tests."""
 
     default_input_samples_shape = (3, 80, 3000)  # (batch_size, n_mels, enc_seq_len)
     is_speech_model = True  # Flag for tests to determine if the model is a speech model due to input format difference
     time_window = 3000  # Time window for audio samples
 
     def add_head(self, model, name, **kwargs):
-        """ Adds a classification head to the model to match the format of the testing suite. """
+        """Adds a classification head to the model to match the format of the testing suite."""
         do_train = kwargs.pop("do_train", False)
         if do_train:
             model.add_seq2seq_lm_head(name, **kwargs)
@@ -156,7 +161,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
             return model.heads[name].config["num_labels"]
 
     def get_input_samples(self, shape=None, config=None, **kwargs):
-        """ Creates a dummy batch of samples in the format required for speech models."""
+        """Creates a dummy batch of samples in the format required for speech models."""
         shape = shape or self.default_input_samples_shape
         total_dims = 1
         for dim in shape:
@@ -181,14 +186,13 @@ class SpeechAdapterTestBase(AdapterTestBase):
         "seq2seq_lm": "./tests/fixtures/audio_datasets/common_voice_encoded",
     }
 
-    def dataset(self, feature_extractor=None, processor=None, tokenizer=None, task_type: str = 'seq2seq_lm',
-                **kwargs):
-        """ Returns a dataset to test speech model training. Standard dataset is for seq2seq_lm."""
+    def dataset(self, feature_extractor=None, processor=None, tokenizer=None, task_type: str = "seq2seq_lm", **kwargs):
+        """Returns a dataset to test speech model training. Standard dataset is for seq2seq_lm."""
 
         return self._prep_dataset(task_type, **kwargs)
 
     def _prep_dataset(self, task_type: str, **kwargs):
-        """ Returns the appropriate dataset for the given task type. """
+        """Returns the appropriate dataset for the given task type."""
 
         if task_type == "seq2seq_lm":
             return self._prep_seq2seq_lm_dataset(task_type, **kwargs)
@@ -196,7 +200,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
             return self._prep_audio_classification_dataset(task_type, **kwargs)
 
     def _prep_seq2seq_lm_dataset(self, task_type, **kwargs):
-        """ Prepares a dataset for conditional generation. """
+        """Prepares a dataset for conditional generation."""
 
         # The dataset is already processed and saved to disk, to save time during testing
         # Preparation script can be found in tests/fixtures/audio_datasets/prepare_audio_datasets.py
@@ -205,5 +209,5 @@ class SpeechAdapterTestBase(AdapterTestBase):
         return dataset["train"]
 
     def _prep_audio_classification_dataset(self, task_type, **kwargs):
-        """ Prepares a dataset for audio classification. """
+        """Prepares a dataset for audio classification."""
         raise NotImplementedError("Audio classification dataset preparation not implemented yet.")

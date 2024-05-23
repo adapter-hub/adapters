@@ -148,14 +148,14 @@ class ParallelAdapterInferenceTestMixin:
 
 
 class ParallelTrainingMixin:
-    def create_twin_adapters(self, model, name, adapter_config):
+    def create_twin_adapters(self, model, name, adapter_config, do_train=False):
         # create adapter
         adapter1, adapter2 = name + "_1", name + "_2"
         model.add_adapter(adapter1, config=adapter_config)
-        self.add_head(model, adapter1)
+        self.add_head(model, adapter1, do_train=do_train)
         # create a twin initialized with the same random weights
         model.add_adapter(adapter2, config=adapter_config)
-        self.add_head(model, adapter2)
+        self.add_head(model, adapter2, do_train=do_train)
 
         state_dict = model.state_dict()
         for k, v in state_dict.items():
@@ -189,8 +189,8 @@ class ParallelTrainingMixin:
 
         model.add_adapter("mrpc1", config=adapter_config)
         model.add_adapter("mrpc2", config=adapter_config)
-        self.add_head(model, "mrpc1")
-        self.add_head(model, "mrpc2")
+        self.add_head(model, "mrpc1", do_train=True)
+        self.add_head(model, "mrpc2", do_train=True)
         model.active_adapters = Parallel("mrpc1", "mrpc2")
         model.train_adapter(Parallel("mrpc1", "mrpc2"))
         # model.eval()
@@ -238,20 +238,25 @@ class ParallelTrainingMixin:
         model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
-        a1, a2 = self.create_twin_adapters(model, "a", adapter_config)
-        b1, b2 = self.create_twin_adapters(model, "b", adapter_config)
+        a1, a2 = self.create_twin_adapters(model, "a", adapter_config, do_train=True)
+        b1, b2 = self.create_twin_adapters(model, "b", adapter_config, do_train=True)
 
         dataset = []
-        for i in range(3):
-            input_data = self.get_input_samples(config=model.config)
-            if isinstance(model, BertGenerationAdapterModel):
-                input_data["labels"] = torch.randint(0, 2, (3, 64))
-            if isinstance(model, WhisperAdapterModel):
-                input_data["labels"] = input_data["decoder_input_ids"]
-                del input_data["decoder_input_ids"]
-            else:
-                input_data["labels"] = torch.randint(0, 2, (3, 1))
-            dataset.append(input_data)
+        if self.is_speech_model:
+            dataset_batched = self.dataset()
+            dataset = [{} for _ in range(len(dataset_batched))]
+            # As this test uses a non-batched training, we need to wrap the samples by an additional dimension
+            for i in range(len(dataset_batched)):
+                for key, value in dataset_batched[i].items():
+                    dataset[i][key] = torch.unsqueeze(value, 0)
+        else:
+            for i in range(3):
+                input_data = self.get_input_samples(config=model.config)
+                if isinstance(model, BertGenerationAdapterModel):
+                    input_data["labels"] = torch.randint(0, 2, (3, 64))
+                else:
+                    input_data["labels"] = torch.randint(0, 2, (3, 1))
+                dataset.append(input_data)
 
         for adapter in [a1, b1]:
             model.active_head = adapter
@@ -293,8 +298,8 @@ class ParallelTrainingMixin:
         model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
-        a1, a2 = self.create_twin_adapters(model, "a", SeqBnConfig())
-        b1, b2 = self.create_twin_adapters(model, "b", SeqBnConfig())
+        a1, a2 = self.create_twin_adapters(model, "a", SeqBnConfig(), do_train=True)
+        b1, b2 = self.create_twin_adapters(model, "b", SeqBnConfig(), do_train=True)
 
         state_dict = model.state_dict()
         for k, v in state_dict.items():
@@ -303,10 +308,12 @@ class ParallelTrainingMixin:
             if b1 in k:
                 self.assertTrue(torch.equal(v, state_dict[k.replace(b1, b2)]))
 
-        input_data = self.get_input_samples(config=model.config)
+        input_data = self.get_input_samples(
+            config=model.config,
+        )
         if isinstance(model, BertGenerationAdapterModel):
             input_data["labels"] = torch.randint(0, 2, (3, 64), device=torch_device)
-        if isinstance(model, WhisperAdapterModel):
+        if self.is_speech_model:
             input_data["labels"] = input_data["decoder_input_ids"]
             del input_data["decoder_input_ids"]
         else:

@@ -1,17 +1,16 @@
 from typing import Dict, List, Union
+
 import datasets
 import torch
-from datasets import load_dataset, Dataset, load_from_disk, DatasetDict
-from transformers import AutoFeatureExtractor, Trainer, WhisperConfig, AutoProcessor, AutoTokenizer
-from datasets import Audio
+from datasets import Audio, Dataset, DatasetDict, load_dataset, load_from_disk
 
 from adapters import WhisperAdapterModel
+from transformers import AutoFeatureExtractor, AutoProcessor, AutoTokenizer, Trainer, WhisperConfig
 
 
 def create_common_voice():
-    """ Creates a small abstract dataset of 10 samples from the common voice dataset in english."""
-    common_voice = load_dataset("mozilla-foundation/common_voice_11_0", "en", split="validation",
-                                streaming=True)
+    """Creates a small abstract dataset of 10 samples from the common voice dataset in english."""
+    common_voice = load_dataset("mozilla-foundation/common_voice_11_0", "en", split="validation", streaming=True)
     common_voice = iter(common_voice)
 
     rows = []
@@ -26,7 +25,7 @@ def create_common_voice():
 
 
 def create_common_voice_encoded(dataset_path="common_voice_org"):
-    """ Preprocesses the common voice dataset and creates a new encoded version ready for training."""
+    """Preprocesses the common voice dataset and creates a new encoded version ready for training."""
     model_id = "openai/whisper-tiny"
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_id)
     processor = AutoProcessor.from_pretrained(model_id)
@@ -51,7 +50,7 @@ def create_common_voice_encoded(dataset_path="common_voice_org"):
         return batch
 
     def _collate_dataset_with_padding(
-            features: List[Dict[str, Union[List[int], torch.Tensor]]], processor, decoder_start_token_id: int
+        features: List[Dict[str, Union[List[int], torch.Tensor]]], processor, decoder_start_token_id: int
     ) -> Dict[str, torch.Tensor]:
         # split inputs and labels since they have to be of different lengths and need different padding methods
         # first treat the audio inputs by simply returning torch tensors
@@ -92,7 +91,7 @@ def create_common_voice_encoded(dataset_path="common_voice_org"):
 
 
 def create_speech_commands():
-    """ Creates a small abstract dataset of 10 samples from the speech commands dataset. """
+    """Creates a small abstract dataset of 10 samples from the speech commands dataset."""
     dataset = load_dataset("speech_commands", "v0.02")
 
     rows = []
@@ -117,15 +116,30 @@ def create_speech_commands_encoded(dataset_path="speech_commands_org"):
     print(label2id)
 
     # Select classes
-    selected_classes = ["backward", "forward", "on", "off", "stop", "go", "zero", "one", "two", "three", "four", "five",
-                        "marvin", "sheila", "follow", "_silence_", "tree"]
+    selected_classes = [
+        "backward",
+        "forward",
+        "on",
+        "off",
+        "stop",
+        "go",
+        "zero",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "marvin",
+        "sheila",
+        "follow",
+        "_silence_",
+        "tree",
+    ]
     # selected_classes = ["no", "go"]
-    dataset = dataset.filter(lambda example: id2label[str(example['label'])] in selected_classes)
+    dataset = dataset.filter(lambda example: id2label[str(example["label"])] in selected_classes)
 
     model_id = "openai/whisper-tiny"
-    feature_extractor = AutoFeatureExtractor.from_pretrained(
-        model_id, do_normalize=True
-    )
+    feature_extractor = AutoFeatureExtractor.from_pretrained(model_id, do_normalize=True)
 
     sampling_rate = feature_extractor.sampling_rate
     dataset = dataset.cast_column("audio", Audio(sampling_rate=sampling_rate))
@@ -161,5 +175,6 @@ def get_id_and_label():
         label2id[label] = str(i)
         id2label[str(i)] = label
     return label2id, id2label
+
 
 create_speech_commands_encoded()

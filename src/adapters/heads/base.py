@@ -126,16 +126,16 @@ class PredictionHead(nn.Sequential):
 
 class ClassificationHead(PredictionHead):
     def __init__(
-            self,
-            model,
-            head_name,
-            num_labels=2,
-            layers=2,
-            activation_function="tanh",
-            id2label=None,
-            use_pooler=False,
-            bias=True,
-            dropout_prob=None,
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        id2label=None,
+        use_pooler=False,
+        bias=True,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -194,16 +194,16 @@ class ClassificationHead(PredictionHead):
 
 class MultiLabelClassificationHead(PredictionHead):
     def __init__(
-            self,
-            model,
-            head_name,
-            num_labels=2,
-            layers=2,
-            activation_function="tanh",
-            id2label=None,
-            use_pooler=False,
-            bias=True,
-            dropout_prob=None,
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        id2label=None,
+        use_pooler=False,
+        bias=True,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -259,15 +259,15 @@ class MultiLabelClassificationHead(PredictionHead):
 
 class MultipleChoiceHead(PredictionHead):
     def __init__(
-            self,
-            model,
-            head_name,
-            num_choices=2,
-            layers=2,
-            activation_function="tanh",
-            id2label=None,
-            use_pooler=False,
-            dropout_prob=None,
+        self,
+        model,
+        head_name,
+        num_choices=2,
+        layers=2,
+        activation_function="tanh",
+        id2label=None,
+        use_pooler=False,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -308,14 +308,14 @@ class MultipleChoiceHead(PredictionHead):
 
 class TaggingHead(PredictionHead):
     def __init__(
-            self,
-            model,
-            head_name,
-            num_labels=2,
-            layers=1,
-            activation_function="tanh",
-            id2label=None,
-            dropout_prob=None,
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=1,
+        activation_function="tanh",
+        id2label=None,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -375,14 +375,14 @@ class TaggingHead(PredictionHead):
 
 class QuestionAnsweringHead(PredictionHead):
     def __init__(
-            self,
-            model,
-            head_name,
-            num_labels=2,
-            layers=1,
-            activation_function="tanh",
-            id2label=None,
-            dropout_prob=None,
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=1,
+        activation_function="tanh",
+        id2label=None,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -444,9 +444,9 @@ class QuestionAnsweringHead(PredictionHead):
                 )
         else:
             outputs = (
-                          start_logits,
-                          end_logits,
-                      ) + outputs[1:]
+                start_logits,
+                end_logits,
+            ) + outputs[1:]
             if total_loss is not None:
                 outputs = (total_loss,) + outputs
             return outputs
@@ -457,17 +457,17 @@ class QuestionAnsweringHead(PredictionHead):
 
 class ImageClassificationHead(PredictionHead):
     def __init__(
-            self,
-            model,
-            head_name,
-            num_labels=2,
-            layers=2,
-            activation_function="tanh",
-            multilabel=False,
-            id2label=None,
-            use_pooler=False,
-            bias=True,
-            dropout_prob=None,
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        multilabel=False,
+        id2label=None,
+        use_pooler=False,
+        bias=True,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {
@@ -517,16 +517,16 @@ class ImageClassificationHead(PredictionHead):
 
 class AudioClassificationHead(PredictionHead):
     def __init__(
-            self,
-            model,
-            head_name,
-            num_labels=2,
-            layers=2,
-            activation_function="tanh",
-            id2label=None,
-            use_pooler=False,
-            bias=True,
-            dropout_prob=None,
+        self,
+        model,
+        head_name,
+        num_labels=2,
+        layers=2,
+        activation_function="tanh",
+        id2label=None,
+        use_pooler=False,
+        bias=True,
+        dropout_prob=None,
     ):
         super().__init__(head_name)
         self.config = {

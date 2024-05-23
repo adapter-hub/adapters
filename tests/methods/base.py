@@ -3,7 +3,6 @@ import os
 import tempfile
 
 import torch
-from transformers.modeling_outputs import Seq2SeqLMOutput, Seq2SeqModelOutput
 
 import adapters
 from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
@@ -11,6 +10,7 @@ from adapters.heads import CausalLMHead
 from adapters.utils import WEIGHTS_NAME
 from adapters.wrappers import load_model
 from transformers import TrainingArguments
+from transformers.modeling_outputs import Seq2SeqLMOutput, Seq2SeqModelOutput
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -368,7 +368,7 @@ class AdapterMethodBaseTestMixin:
 
 
 def extract_tensor_from_ModelOutput_class(output):
-    """ Extracts the output tensor from a ModelOutput object of Hugging Face. """
+    """Extracts the output tensor from a ModelOutput object of Hugging Face."""
     if isinstance(output, Seq2SeqLMOutput):
         return output.logits
     if isinstance(output, Seq2SeqModelOutput):

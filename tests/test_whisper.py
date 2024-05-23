@@ -1,9 +1,7 @@
 import unittest
 
 from tests.methods.test_config_union import ConfigUnionAdapterTest
-from transformers import (
-    WhisperConfig,
-)
+from transformers import WhisperConfig
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
@@ -40,6 +38,7 @@ class WhisperAdapterTestBase(SpeechAdapterTestBase):
     tokenizer_name = "openai/whisper-small"
     sampling_rate = 16000
     decoder_start_token_id = 50257
+
 
 @require_torch
 class WhisperAdapterTest(

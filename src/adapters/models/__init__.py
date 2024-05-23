@@ -29,7 +29,9 @@ from .whisper.mixin_whisper import (
     WhisperDecoderAdaptersMixin,
     WhisperDecoderWrapperAdaptersMixin,
     WhisperEncoderAdaptersMixin,
-    WhisperForAudioClassificationWithHeadsMixin,WhisperForConditionalGenerationWithHeadsMixin,WhisperForCausalLMWithHeadsMixin,
+    WhisperForAudioClassificationWithHeadsMixin,
+    WhisperForCausalLMWithHeadsMixin,
+    WhisperForConditionalGenerationWithHeadsMixin,
     WhisperModelAdaptersMixin,
 )
 from .xmod.mixin_xmod import XmodModelAdaptersMixin

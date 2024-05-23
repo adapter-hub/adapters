@@ -97,7 +97,7 @@ class EmbeddingTestMixin:
         model.add_embeddings("test", tokenizer)
         self.assertEqual(model.active_embeddings, "test")
         model.add_adapter("test")
-        self.add_head(model, "test")
+        self.add_head(model, "test", do_train=True)
         model.train_adapter("test", train_embeddings=True)
 
         for k, v in filter_parameters(model, "adapters.test.").items():

@@ -57,8 +57,7 @@ def try_T5():
 
 def try_Whisper_training():
     # setup dataset
-    train_dataset = datasets.load_from_disk(
-        r"C:\Users\timoi\PycharmProjects\adapters\tests\fixtures\sample_generation\common_voice_encoded")["train"]
+    train_dataset = datasets.load_from_disk(dataset_path="../tests/fixtures/audio_datasets/common_voice_encoded")["train"]
     print(train_dataset[0])
 
     training_args = TrainingArguments(
@@ -196,4 +195,4 @@ def try_Whisper_classification():
     print(outputs)
 
 
-try_Whisper_classification()
+try_Whisper_training()

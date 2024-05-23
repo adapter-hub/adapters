@@ -19,7 +19,15 @@ class PredictionHeadModelTestMixin:
     seq_length = 128
 
     def run_prediction_head_test(
-        self, model, compare_model, head_name, input_shape=None, output_shape=(1, 2), label_dict=None, num_labels=None, with_labels=False
+        self,
+        model,
+        compare_model,
+        head_name,
+        input_shape=None,
+        output_shape=(1, 2),
+        label_dict=None,
+        num_labels=None,
+        with_labels=False,
     ):
         # first, check if the head is actually correctly registered as part of the pt module
         self.assertTrue(f"heads.{head_name}" in dict(model.named_modules()))
@@ -43,7 +51,9 @@ class PredictionHeadModelTestMixin:
             input_shape = input_shape or (self.batch_size, self.seq_length, self.time_window)
         else:
             input_shape = input_shape or (self.batch_size, self.seq_length)
-        in_data = self.get_input_samples(input_shape, config=model.config, num_labels=num_labels, with_labels=with_labels)
+        in_data = self.get_input_samples(
+            input_shape, config=model.config, num_labels=num_labels, with_labels=with_labels
+        )
         if label_dict:
             for k, v in label_dict.items():
                 in_data[k] = v
@@ -87,12 +97,19 @@ class PredictionHeadModelTestMixin:
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
         model1.add_audio_classification_head("dummy")
 
-        input_shape = (3,80,3000)
+        input_shape = (3, 80, 3000)
         num_labels = 2
 
         label_dict = {}
         label_dict["labels"] = torch.tensor(data=[random.randint(0, num_labels - 1) for _ in range(input_shape[0])])
-        self.run_prediction_head_test(model1, model2, "dummy", input_shape=input_shape, label_dict=label_dict, output_shape=(input_shape[0], num_labels))
+        self.run_prediction_head_test(
+            model1,
+            model2,
+            "dummy",
+            input_shape=input_shape,
+            label_dict=label_dict,
+            output_shape=(input_shape[0], num_labels),
+        )
 
     def test_multiple_choice_head(self):
         if "multiple_choice" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
@@ -438,9 +455,7 @@ class PredictionHeadModelTestMixin:
 
         if self.is_speech_model:
             self.seq_length = 80
-            in_data = self.get_input_samples(
-                (self.batch_size, self.seq_length, self.time_window), config=model.config
-            )
+            in_data = self.get_input_samples((self.batch_size, self.seq_length, self.time_window), config=model.config)
         else:
             in_data = self.get_input_samples((self.batch_size, self.seq_length), config=model.config)
         model.to(torch_device)
