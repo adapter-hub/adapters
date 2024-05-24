@@ -54,7 +54,7 @@ class AdapterTestBase:
         model.to(torch_device)
         return model
 
-    def get_input_samples(self, shape=None, vocab_size=5000, config=None):
+    def get_input_samples(self, shape=None, vocab_size=5000, config=None, **kwargs):
         shape = shape or self.default_input_samples_shape
         total_dims = 1
         for dim in shape:
@@ -75,6 +75,7 @@ class AdapterTestBase:
         return in_data
 
     def add_head(self, model, name, **kwargs):
+        do_train = kwargs.pop("do_train", False)
         model.add_classification_head(name, **kwargs)
         return model.heads[name].config["num_labels"]
 
@@ -104,7 +105,7 @@ class VisionAdapterTestBase(AdapterTestBase):
         False  # Flag for tests to determine if the model is a speech model due to input format difference
     )
 
-    def get_input_samples(self, shape=None, config=None):
+    def get_input_samples(self, shape=None, config=None, **kwargs):
         shape = shape or self.default_input_samples_shape
         total_dims = 1
         for dim in shape:
@@ -118,6 +119,7 @@ class VisionAdapterTestBase(AdapterTestBase):
         return in_data
 
     def add_head(self, model, name, **kwargs):
+        do_train = kwargs.pop("do_train", False)
         if "num_labels" not in kwargs:
             kwargs["num_labels"] = 10
         model.add_image_classification_head(name, **kwargs)

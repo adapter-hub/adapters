@@ -6,7 +6,7 @@ import torch
 from transformers import WhisperForAudioClassification, WhisperForConditionalGeneration, WhisperForCausalLM, \
     T5ForQuestionAnswering, WhisperConfig, T5Config, T5ForConditionalGeneration, T5ForSequenceClassification, \
     TrainingArguments
-from adapters import init, get_adapter_info, SeqBnConfig, WhisperAdapterModel, AdapterTrainer
+from adapters import init, get_adapter_info, SeqBnConfig, WhisperAdapterModel, AdapterTrainer, Parallel
 
 
 def make_config(config_class, **kwargs):
@@ -57,7 +57,8 @@ def try_T5():
 
 def try_Whisper_training():
     # setup dataset
-    train_dataset = datasets.load_from_disk(dataset_path="../tests/fixtures/audio_datasets/common_voice_encoded")["train"]
+    train_dataset = datasets.load_from_disk(dataset_path="../tests/fixtures/audio_datasets/common_voice_encoded")[
+        "train"]
     print(train_dataset[0])
 
     training_args = TrainingArguments(
@@ -124,29 +125,6 @@ def try_Whisper_saving_loading():
         print(model)
 
 
-def try_Whisper_generation():
-    model = WhisperAdapterModel.from_pretrained("openai/whisper-tiny.en")
-    model.add_seq2seq_lm_head("a")
-    import torch
-    from transformers import AutoProcessor, WhisperForConditionalGeneration
-    from datasets import load_dataset, Audio
-    # model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny.en")
-
-    processor = AutoProcessor.from_pretrained("openai/whisper-tiny.en")
-
-    ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
-
-    inputs = processor(ds[0]["audio"]["array"], return_tensors="pt")
-    input_features = inputs.input_features
-    print(f"input_features: {input_features.shape}")
-
-    # transcribe audio to ids
-    generated_ids = model.generate(input_features)
-
-    transcription = processor.batch_decode(generated_ids, skip_special_tokens=True)
-    print(transcription)
-
-
 def ids_tensor(shape, vocab_size, rng=None, name=None):
     #  Creates a random int32 tensor of the shape within the vocab size
     if rng is None:
@@ -195,4 +173,52 @@ def try_Whisper_classification():
     print(outputs)
 
 
-try_Whisper_training()
+def try_Whisper_generation_adapters():
+    model = WhisperAdapterModel.from_pretrained("openai/whisper-tiny.en")
+    model.add_seq2seq_lm_head("a")
+    import torch
+    from transformers import AutoProcessor, WhisperForConditionalGeneration
+    from datasets import load_dataset, Audio
+    # model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny.en")
+
+    processor = AutoProcessor.from_pretrained("openai/whisper-tiny.en")
+
+    ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
+
+    inputs = processor(ds[0]["audio"]["array"], return_tensors="pt")
+    input_features = inputs.input_features
+    print(f"input_features: {input_features.shape}")
+
+    # transcribe audio to ids
+    generated_ids = model.generate(input_features)
+
+    transcription = processor.batch_decode(generated_ids, skip_special_tokens=True)
+    print(transcription)
+
+def try_Whisper_parallel_generate():
+    model1 = WhisperAdapterModel.from_pretrained("openai/whisper-tiny.en")
+    model1.add_adapter("adapter1")
+    model1.add_adapter("adapter2")
+    model1.add_seq2seq_lm_head("adapter1")
+    model1.add_seq2seq_lm_head("adapter2")
+    model1.set_active_adapters(Parallel("adapter1", "adapter2"))
+    seq_output_length = 32
+
+    import torch
+    from transformers import AutoProcessor, WhisperForConditionalGeneration
+    from datasets import load_dataset, Audio
+    # model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny.en")
+
+    processor = AutoProcessor.from_pretrained("openai/whisper-tiny.en")
+
+    ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
+
+    inputs = processor(ds[0]["audio"]["array"], return_tensors="pt")
+    input_features = inputs.input_features
+    print(f"input_features: {input_features.shape}")
+
+    generated_ids = model1.generate(input_features)
+
+try_Whisper_parallel_generate()
+
+#try_Whisper_generation_adapters()
