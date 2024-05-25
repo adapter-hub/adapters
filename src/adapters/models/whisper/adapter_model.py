@@ -151,6 +151,7 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
             "decoder_input_ids": decoder_input_ids,
             "use_cache": use_cache,
             "decoder_attention_mask": None,
+            "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
         }
 
     # Copied from WhisperForConditionalGeneration

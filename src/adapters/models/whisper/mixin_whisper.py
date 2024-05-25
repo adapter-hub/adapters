@@ -83,6 +83,7 @@ class WhisperModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrappe
 
     def init_adapters(self, model_config, adapters_config):
         super().init_adapters(model_config, adapters_config)
+        self.encoder.layer_norm.register_forward_hook(self.post_embedding_forward)
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         if hasattr(self, "encoder"):
@@ -94,6 +95,10 @@ class WhisperModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrappe
             for i, layer in enumerate(self.decoder.layers):
                 yield i, layer
 
+    def post_embedding_forward(self, module, args, embedding_output):
+        embedding_output = self.invertible_adapters_forward(embedding_output)
+        # Prompt tuning not yet supported
+        return embedding_output
 
 class WhisperDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the WhisperDecoderWrapper class.
@@ -108,38 +113,3 @@ class WhisperDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBas
 
     def get_input_embeddings(self):
         return self.decoder.get_input_embeddings()
-
-
-class WhisperForAudioClassificationWithHeadsMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
-    """Adds adapters to the WhisperForAudioClassification class."""
-
-    def forward(self, input_features: Optional[torch.FloatTensor] = None, **kwargs):
-        return super().forward(input_features=input_features, **kwargs)
-
-    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        for i, layer in enumerate(self.encoder.layers):
-            yield i, layer
-
-
-class WhisperForConditionalGenerationWithHeadsMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
-    """Adds adapters to the WhisperForConditionalGeneration class."""
-
-    def forward(self, input_features: torch.FloatTensor, labels: Optional[torch.LongTensor] = None, **kwargs):
-        return super().forward(input_features=input_features, labels=labels, **kwargs)
-
-    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        for i, layer in enumerate(self.model.encoder.layers):
-            yield i, layer
-        for i, layer in enumerate(self.model.decoder.layers, start=len(self.model.encoder.layers)):
-            yield i, layer
-
-
-class WhisperForCausalLMWithHeadsMixin(WhisperModelAdaptersMixin, ModelWithHeadsAdaptersMixin):
-    """Adds adapters to the WhisperForCausalLM class."""
-
-    def forward(self, input_features: torch.FloatTensor, **kwargs):
-        return super().forward(input_features=input_features, **kwargs)
-
-    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        for i, layer in enumerate(self.model.decoder.layers):
-            yield i, layer
