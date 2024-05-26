@@ -73,6 +73,6 @@ make quality
 ```
 This will run checks with `black`, `isort` and `flake8` as well as additional custom checks.
 
-## Contributing Adapters to the Hub
+## Publishing Pre-Trained Adapters
 
-How to make your own trained adapters accessible via AdapterHub is described at [https://docs.adapterhub.ml/hub_contributing.html](https://docs.adapterhub.ml/hub_contributing.html).
+How to make your own trained adapters accessible for the `adapters` library HuggingFace Model Hub is described at [https://docs.adapterhub.ml/huggingface_hub.html](https://docs.adapterhub.ml/huggingface_hub.html).

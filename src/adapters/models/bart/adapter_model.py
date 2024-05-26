@@ -5,7 +5,7 @@ from transformers.models.bart.modeling_bart import (
     BART_START_DOCSTRING,
     BartConfig,
     BartModel,
-    BartPretrainedModel,
+    BartPreTrainedModel,
     shift_tokens_right,
 )
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
@@ -18,7 +18,7 @@ from ...wrappers import init
 @add_start_docstrings(
     "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
 )
-class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel):
+class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BartPreTrainedModel):
     _tied_weights_keys = [
         "encoder.embed_tokens.weight",
         "decoder.embed_tokens.weight",

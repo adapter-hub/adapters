@@ -36,6 +36,9 @@ def create_twin_models(model_class, config_creator=None):
 class AdapterMethodBaseTestMixin:
     """Provides base test running methods for testing an adapter method implementation."""
 
+    # Model weight dtypes to test in forward pass
+    dtypes_to_test = [torch.float32, torch.half] if torch_device == "cuda" else [torch.float32]
+
     def filter_parameters(self, model, filter_keys):
         return {k: v for (k, v) in model.named_parameters() if any([filter_key in k for filter_key in filter_keys])}
 
@@ -152,14 +155,15 @@ class AdapterMethodBaseTestMixin:
 
         model.delete_adapter("first")
 
-    def run_forward_test(self, model, adapter_config):
+    def run_forward_test(self, model, adapter_config, dtype=torch.float32):
         model.eval()
 
         name = adapter_config.__class__.__name__
-        model.add_adapter(name, config=adapter_config)
-        model.to(torch_device)
+        if name not in model.adapters_config:
+            model.add_adapter(name, config=adapter_config)
+        model.to(torch_device).to(dtype)
 
-        input_data = self.get_input_samples(config=model.config)
+        input_data = self.get_input_samples(config=model.config, dtype=dtype)
 
         # pass 1: set adapter via property
         model.set_active_adapters([name])

@@ -105,7 +105,8 @@ class VisionAdapterTestBase(AdapterTestBase):
         False  # Flag for tests to determine if the model is a speech model due to input format difference
     )
 
-    def get_input_samples(self, shape=None, config=None, **kwargs):
+
+    def get_input_samples(self, shape=None, config=None, dtype=torch.float, **kwargs):
         shape = shape or self.default_input_samples_shape
         total_dims = 1
         for dim in shape:
@@ -113,7 +114,7 @@ class VisionAdapterTestBase(AdapterTestBase):
         values = []
         for _ in range(total_dims):
             values.append(random.random())
-        pixel_values = torch.tensor(data=values, dtype=torch.float, device=torch_device).view(shape).contiguous()
+        pixel_values = torch.tensor(data=values, dtype=dtype, device=torch_device).view(shape).contiguous()
         in_data = {"pixel_values": pixel_values}
 
         return in_data

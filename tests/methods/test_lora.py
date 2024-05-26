@@ -29,7 +29,11 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
     def test_forward_lora(self):
         model = self.get_model()
-        self.run_forward_test(model, LoRAConfig(init_weights="bert", intermediate_lora=True, output_lora=True))
+        for dtype in self.dtypes_to_test:
+            with self.subTest(model_class=model.__class__.__name__, dtype=dtype):
+                self.run_forward_test(
+                    model, LoRAConfig(init_weights="bert", intermediate_lora=True, output_lora=True), dtype=dtype
+                )
 
     def test_load_lora(self):
         self.run_load_test(LoRAConfig())

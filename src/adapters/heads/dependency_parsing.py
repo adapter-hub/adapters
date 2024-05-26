@@ -81,7 +81,7 @@ class BiaffineParsingHead(PredictionHead):
             n_in=model.config.hidden_size, n_out=self.config["num_labels"], bias_x=True, bias_y=True
         )
 
-        self.dropout = nn.Dropout(model.config.hidden_dropout_prob)
+        self.dropout = nn.Dropout(self._get_dropout_prob(model.config))
 
         self.loss_fn = CrossEntropyLoss()
 

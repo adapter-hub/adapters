@@ -6,6 +6,7 @@ from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ...utils import patch_forward
 
 
 class LlamaAttentionMixin:
@@ -16,6 +17,8 @@ class LlamaAttentionMixin:
 
         self.prefix_tuning = PrefixTuningLayer("self_prefix", model_config, adapters_config)
 
+        patch_forward(self)
+
 
 class LlamaDecoderLayerMixin:
     def init_adapters(self, model_config, adapters_config):
@@ -25,6 +28,8 @@ class LlamaDecoderLayerMixin:
 
         self.attention_adapters = BottleneckLayer("mh_adapter")
         self.output_adapters = BottleneckLayer("output_adapter")
+
+        patch_forward(self)
 
 
 class LlamaModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
@@ -44,3 +49,9 @@ class LlamaModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, Mo
         embedding_output = self.invertible_adapters_forward(embedding_output)
         # Prompt tuning not yet supported
         return embedding_output
+
+
+class LlamaForQuestionAnsweringAdapterMixin:
+    # this is needed because Transformers v4.38.1 is inconsistent with the naming of the base model but didn't change the base_model_prefix
+    # TODO: remove this when the inconsistency is fixed and remove the LlamaForQuestionAnsweringAdapterMixin from `src/adapters/models/__init__.py`
+    base_model_prefix = "transformer"

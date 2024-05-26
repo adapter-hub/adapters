@@ -108,6 +108,8 @@ class Adapter(nn.Module):
         if self.use_gating:
             self.gate = nn.Linear(self.input_size, 1)
 
+        self.dropout = nn.Dropout(p=config["dropout"])
+
         # if we want to initialize with the bert strategy then this function is called for all the linear layers
         if config["init_weights"] == "bert":
             self.adapter_down.apply(self.init_bert_weights)
@@ -173,7 +175,7 @@ class Adapter(nn.Module):
 
         up = self.adapter_up(down)
         up = up * self.scaling
-        output = up
+        output = self.dropout(up)
 
         if self.use_gating:
             # x.shape = (batch_size, seq_len, hidden_size)
@@ -271,7 +273,7 @@ class ParallelAdapter(Adapter):
         up = self.adapter_up(down)
         up = up * self.scaling
 
-        output = up
+        output = self.dropout(up)
 
         if self.use_gating:
             # x.shape = (batch_size, seq_len, hidden_size)

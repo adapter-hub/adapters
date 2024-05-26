@@ -6,6 +6,7 @@ from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import LoRALinear, LoRAMergedLinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ...utils import patch_forward
 
 
 class GPT2AttentionAdaptersMixin:
@@ -25,6 +26,8 @@ class GPT2AttentionAdaptersMixin:
 
         location_key = "cross_prefix" if self.is_cross_attention else "self_prefix"
         self.prefix_tuning = PrefixTuningLayer(location_key, model_config, adapters_config)
+
+        patch_forward(self)
 
 
 class GPT2DecoderBlockAdaptersMixin:
@@ -51,6 +54,8 @@ class GPT2DecoderBlockAdaptersMixin:
 
         self.attention_adapters = BottleneckLayer("mh_adapter")
         self.output_adapters = BottleneckLayer("output_adapter")
+
+        patch_forward(self)
 
 
 class GPT2ModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):

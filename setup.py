@@ -1,4 +1,4 @@
-# Copyright 2020 The AdapterHub Team. All rights reserved.
+# Copyright 2020-2024 The AdapterHub Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,16 +51,16 @@ _deps = [
     "sacremoses",
     "scikit-learn",
     "sentencepiece>=0.1.91,!=0.1.92",
-    "sphinx-copybutton",
-    "sphinx-markdown-tables",
+    "sphinx-copybutton==0.5.2",
+    "sphinx-markdown-tables==0.0.17",
     "sphinx-rtd-theme==0.4.3",  # sphinx-rtd-theme==0.5.0 introduced big changes in the style.
-    "sphinx==3.2.1",
+    "sphinx==5.0.2",
     "sphinxext-opengraph==0.4.1",
-    "sphinx-intl",
-    "sphinx-multiversion",
+    "sphinx-intl==2.1.0",
+    "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch>=1.10,!=1.12.0",
-    "transformers~=4.36.0",
+    "transformers~=4.39.3",
 ]
 
 
@@ -142,9 +142,9 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="0.1.2",
+    version="0.2.1",
     author="The AdapterHub team and community contributors",
-    author_email="pfeiffer@ukp.tu-darmstadt.de",
+    author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",

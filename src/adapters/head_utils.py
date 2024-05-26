@@ -497,6 +497,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "qa_outputs"],
     },
+    # T5
     "T5ForConditionalGeneration": {
         "config": {
             "head_type": "seq2seq_lm",
@@ -525,6 +526,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "classification_head.out_proj",
         ],
     },
+    # DeBERTaV2
     "DebertaV2ForSequenceClassification": {
         "config": {
             "head_type": "classification",
@@ -574,6 +576,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "pooler.dense", None, None, "classifier"],
     },
+    # DeBERTa
     "DebertaForSequenceClassification": {
         "config": {
             "head_type": "classification",
@@ -639,6 +642,14 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "head_type": "causal_lm",
         },
         "layers": ["lm_head"],
+    },
+    "LlamaForQuestionAnswering": {
+        "config": {
+            "head_type": "question_answering",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "qa_outputs"],
     },
     # Electra
     "ElectraForTokenClassification": {
