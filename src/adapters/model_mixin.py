@@ -795,9 +795,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     saved will be used.
             source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
 
-                - "ah" (default): search on AdapterHub.
-                - "hf": search on HuggingFace model hub.
-                - None: search on all sources
+                - "ah": search on AdapterHub Hub repo.
+                    Note: the Hub repo has been archived and all adapters have been moved to HuggingFace Model Hub.
+                    Loading from this source is deprecated.
+                - "hf": search on HuggingFace Model Hub.
+                - None (default): search on all sources
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
             set_active (bool, optional):
                 Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not

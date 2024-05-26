@@ -611,6 +611,7 @@ def pull_from_hub(
     adapter_config: Optional[Union[dict, str]] = None,
     version: str = None,
     strict: bool = False,
+    redirect_to_hf_hub: bool = False,
     **kwargs
 ) -> str:
     """
@@ -636,13 +637,27 @@ def pull_from_hub(
     hub_entry_url = find_in_index(specifier, model_name, adapter_config=adapter_config, strict=strict)
     if not hub_entry_url:
         raise EnvironmentError("No adapter with name '{}' was found in the adapter index.".format(specifier))
-    hub_entry = http_get_json(hub_entry_url)
 
+    hf_hub_specifier = "AdapterHub/" + os.path.basename(hub_entry_url).split(".")[0]
+    if redirect_to_hf_hub:
+        logger.warning(
+            "Automatic redirect to HF Model Hub repo '{}'. Please switch to the new ID to remove this warning.".format(
+                hf_hub_specifier
+            )
+        )
+        return pull_from_hf_model_hub(hf_hub_specifier, version=version, **kwargs)
+    else:
+        logger.warning(
+            "Loading adapters from this source is deprecated. This adapter has moved to '{}'. Please switch to the new"
+            " ID to remove this warning.".format(hf_hub_specifier)
+        )
+
+    hub_entry = http_get_json(hub_entry_url)
     # set version
     if not version:
         version = hub_entry["default_version"]
     elif version not in hub_entry["files"]:
-        logger.warn("Version '{}' of adapter '{}' not found. Falling back to default.".format(version, specifier))
+        logger.warning("Version '{}' of adapter '{}' not found. Falling back to default.".format(version, specifier))
         version = hub_entry["default_version"]
     file_entry = hub_entry["files"][version]
 
@@ -672,6 +687,7 @@ def resolve_adapter_path(
     adapter_config: Union[dict, str] = None,
     version: str = None,
     source: str = None,
+    redirect_to_hf_hub: bool = False,
     **kwargs
 ) -> str:
     """
@@ -689,7 +705,7 @@ def resolve_adapter_path(
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
         source (str, optional): Identifier of the source(s) from where to get adapters. Can be either:
 
-            - "ah": search on AdapterHub.ml.
+            - "ah": search on AdapterHub.ml. Note: this source is deprecated in favor of "hf".
             - "hf": search on HuggingFace model hub (huggingface.co).
             - None (default): search on all sources
 
@@ -718,7 +734,12 @@ def resolve_adapter_path(
             )
     elif source == "ah":
         return pull_from_hub(
-            adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
+            adapter_name_or_path,
+            model_name,
+            adapter_config=adapter_config,
+            version=version,
+            redirect_to_hf_hub=redirect_to_hf_hub,
+            **kwargs,
         )
     elif source == "hf":
         return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
@@ -731,7 +752,12 @@ def resolve_adapter_path(
             logger.info("Attempting to load adapter from source 'ah'...")
             try:
                 return pull_from_hub(
-                    adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
+                    adapter_name_or_path,
+                    model_name,
+                    adapter_config=adapter_config,
+                    version=version,
+                    redirect_to_hf_hub=True,
+                    **kwargs,
                 )
             except Exception as ex:
                 logger.info(ex)
