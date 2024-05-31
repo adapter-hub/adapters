@@ -1,4 +1,4 @@
-from adapters import LoReftConfig, NoReftConfig
+from adapters import DiReftConfig, LoReftConfig
 from transformers.testing_utils import require_torch
 
 from .base import AdapterMethodBaseTestMixin
@@ -8,7 +8,7 @@ from .base import AdapterMethodBaseTestMixin
 class ReftTestMixin(AdapterMethodBaseTestMixin):
     reft_configs_to_test = [
         (LoReftConfig(), ["refts.{name}."]),
-        (NoReftConfig(tied_weights=True), ["refts.{name}."]),
+        (DiReftConfig(tied_weights=True), ["refts.{name}."]),
     ]
 
     def test_add_reft(self):

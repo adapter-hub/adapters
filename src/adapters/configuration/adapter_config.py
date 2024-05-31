@@ -507,6 +507,7 @@ class ReftConfig(AdapterConfig):
     r: int
     orthogonality: bool = True
     tied_weights: bool = True
+    subtract_projection = True
     dropout: float = 0.05
     non_linearity: Optional[str] = None
 
@@ -531,6 +532,17 @@ class NoReftConfig(ReftConfig):
     r: int = 1
     orthogonality: bool = False
     tied_weights: bool = True
+
+
+@dataclass(eq=False)
+class DiReftConfig(ReftConfig):
+    layers: Union[Literal["all"], List[int]] = "all"
+    prefix_positions: int = 3
+    suffix_positions: int = 0
+    r: int = 1
+    orthogonality: bool = False
+    tied_weights: bool = True
+    subtract_projection = False
 
 
 class ConfigUnion(AdapterConfig):

@@ -11,7 +11,13 @@ from .modeling import Activation_Function_Class
 
 class ReftUnit(nn.Module):
     def __init__(
-        self, in_dim: int, r_dim: int, orthogonal: bool = False, non_linearity: str = None, dropout: float = 0.0
+        self,
+        in_dim: int,
+        r_dim: int,
+        orthogonal: bool = False,
+        subtract_projection: bool = True,
+        non_linearity: str = None,
+        dropout: float = 0.0,
     ):
         super().__init__()
         self.projection = nn.Linear(in_dim, r_dim)
@@ -21,13 +27,16 @@ class ReftUnit(nn.Module):
             nn.init.orthogonal_(self.projection.weight)
             self.projection = nn.utils.parametrizations.orthogonal(self.projection)
 
+        self.subtract_projection = subtract_projection
         self.non_linearity = Activation_Function_Class(non_linearity)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        projected_states = self.projection(x)
         source_states = self.non_linearity(self.learned_source(x))
-        adapted_output = x + torch.matmul(source_states - projected_states, self.projection.weight)
+        if self.subtract_projection:
+            projected_states = self.projection(x)
+            source_states = source_states - projected_states
+        adapted_output = x + torch.matmul(source_states, self.projection.weight)
         adapted_output = self.dropout(adapted_output)
         return adapted_output
 
@@ -41,7 +50,14 @@ class ReftModule(nn.Module):
         n_units = 1 if config.tied_weights else 2
         self.units = nn.ModuleList(
             [
-                ReftUnit(in_features, config.r, config.orthogonality, config.non_linearity, config.dropout)
+                ReftUnit(
+                    in_features,
+                    config.r,
+                    config.orthogonality,
+                    config.subtract_projection,
+                    config.non_linearity,
+                    config.dropout,
+                )
                 for _ in range(n_units)
             ]
         )
