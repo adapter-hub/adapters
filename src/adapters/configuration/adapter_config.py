@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, replace
-from typing import List, Optional, Union, Literal
+from typing import List, Literal, Optional, Union
 
 from ..utils import resolve_adapter_config
 
@@ -86,6 +86,8 @@ class AdapterConfig(Mapping):
             cls_new = ConfigUnion
         elif architecture == "prompt_tuning":
             cls_new = PromptTuningConfig
+        elif architecture == "reft":
+            cls_new = ReftConfig
         else:
             cls_new = BnConfig
 

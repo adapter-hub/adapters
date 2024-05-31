@@ -16,7 +16,7 @@ class Activation_Function_Class(nn.Module):
 
     def __init__(self, hidden_act):
         super().__init__()
-        if hidden_act == None:
+        if hidden_act is None:
             self.f = nn.Identity()
         elif hidden_act.lower() == "leakyrelu":
             self.f = nn.functional.leaky_relu

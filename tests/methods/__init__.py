@@ -23,4 +23,20 @@ from .test_ia3 import IA3TestMixin
 from .test_lora import LoRATestMixin
 from .test_prefix_tuning import PrefixTuningTestMixin
 from .test_prompt_tuning import PromptTuningTestMixin
+from .test_reft import ReftTestMixin
 from .test_unipelt import UniPELTTestMixin
+
+
+class AllMethodsTestMixin(
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    IA3TestMixin,
+    LoRATestMixin,
+    PrefixTuningTestMixin,
+    PromptTuningTestMixin,
+    ReftTestMixin,
+    UniPELTTestMixin,
+):
+    """Shorthand mixin for models which support all adapter methods."""
+
+    pass
