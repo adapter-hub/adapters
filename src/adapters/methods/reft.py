@@ -20,12 +20,14 @@ class ReftUnit(nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
-        self.projection = nn.Linear(in_dim, r_dim)
         self.learned_source = nn.Linear(in_dim, r_dim, bias=True)
 
+        projection = nn.Linear(in_dim, r_dim)
         if orthogonal:
-            nn.init.orthogonal_(self.projection.weight)
-            self.projection = nn.utils.parametrizations.orthogonal(self.projection)
+            nn.init.orthogonal_(projection.weight)
+            self.projection = nn.utils.parametrizations.orthogonal(projection)
+        else:
+            self.projection = projection
 
         self.subtract_projection = subtract_projection
         self.non_linearity = Activation_Function_Class(non_linearity)
@@ -161,7 +163,10 @@ class ReftLayer(AdapterLayerBase, nn.Module):
 
 def init_reft(model):
     def hook_fn(module, args, output):
-        return (module.reft_layer(output[0]),) + output[1:]
+        if isinstance(output, torch.Tensor):
+            return module.reft_layer(output)
+        else:
+            return (module.reft_layer(output[0]),) + output[1:]
 
     for _, layer in model.iter_layers():
         if not hasattr(layer, "reft_layer"):

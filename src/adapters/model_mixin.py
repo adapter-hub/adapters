@@ -389,6 +389,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             if hasattr(module, "init_adapters"):
                 module.init_adapters(model_config, adapters_config)
 
+        # Initialize reft modules
         init_reft(self)
 
     def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
