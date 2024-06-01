@@ -175,6 +175,10 @@ class AdapterLayerBase(metaclass=ABCMeta):
         else:
             return None
 
+    def pre_save_adapters(self):
+        """Called before saving the adapters to disk."""
+        pass
+
 
 class ComposableAdapterLayerBase(AdapterLayerBase):
     """

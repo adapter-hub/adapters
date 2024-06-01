@@ -1322,6 +1322,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     ):
         # Attach adapters_config to model_config to ensure saving with old format.
         self.config.adapters = self.adapters_config.to_dict()
+
+        self.apply_to_adapter_layers(lambda _, layer: layer.pre_save_adapters())
+
         super().save_pretrained(save_directory, **kwargs)
         # Remove adapters config
         del self.config.adapters

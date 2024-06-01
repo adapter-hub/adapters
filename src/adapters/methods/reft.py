@@ -20,6 +20,7 @@ class ReftUnit(nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
+        self.orthogonal = orthogonal
         self.learned_source = nn.Linear(in_dim, r_dim, bias=True)
 
         projection = nn.Linear(in_dim, r_dim)
@@ -159,6 +160,15 @@ class ReftLayer(AdapterLayerBase, nn.Module):
                 hidden_states = self.refts[first_adapter](hidden_states)
 
         return hidden_states
+
+    def pre_save_adapters(self):
+        # Make sure orthogonal parametrizations are contiguous, otherwise saving with safetensors will fail
+        for reft in self.refts.values():
+            for unit in reft.units:
+                if unit.orthogonal:
+                    unit.projection.parametrizations.weight[0].base = unit.projection.parametrizations.weight[
+                        0
+                    ].base.contiguous()
 
 
 def init_reft(model):

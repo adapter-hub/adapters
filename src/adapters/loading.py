@@ -448,6 +448,8 @@ class AdapterLoader(WeightsLoader):
 
         adapter_config = self.model.adapters_config.get(name)
 
+        self.model.apply_to_adapter_layers(lambda _, layer: layer.pre_save_adapters())
+
         config_dict = build_full_config(
             adapter_config,
             self.model.config,
