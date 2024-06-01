@@ -295,3 +295,6 @@ model.add_adapter("dummy", config=config)
 _Papers:_
 - [The Power of Scale for Parameter-Efficient Prompt Tuning](https://aclanthology.org/2021.emnlp-main.243/) (Lester et al., 2021)
 
+## ReFT
+
+todo

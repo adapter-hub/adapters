@@ -501,6 +501,23 @@ class IA3Config(LoRAConfig):
 
 @dataclass(eq=False)
 class ReftConfig(AdapterConfig):
+    """
+    Base class for Representation Fine-Tuning (ReFT) methods proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
+    ReFT methods have in common that they add "interventions" after selected model layers and at selected sequence positions to adapt the representations produced by module outputs.
+
+    Args:
+        layers (Union[Literal["all"], List[int]]): The IDs of the layers where interventions should be added.
+            If "all", interventions are added after all layers (default).
+        prefix_positions (int): The number of prefix positions to add interventions to.
+        suffix_positions (int): The number of suffix positions to add interventions to.
+        r (int): The rank of the intervention layer.
+        orthogonality (bool): If True, enforce an orthogonality constraint for the projection matrix.
+        tied_weights (bool): If True, share intervention parameters between prefix and suffix positions in each layer.
+        subtract_projection (bool): If True, subtract the projection of the input.
+        dropout (float): The dropout rate used in the intervention layer.
+        non_linearity (str): The activation function used in the intervention layer.
+    """
+
     layers: Union[Literal["all"], List[int]]
     prefix_positions: int
     suffix_positions: int
@@ -516,6 +533,10 @@ class ReftConfig(AdapterConfig):
 
 @dataclass(eq=False)
 class LoReftConfig(ReftConfig):
+    """
+    Low-Rank Linear Subspace ReFT method proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
+    """
+
     layers: Union[Literal["all"], List[int]] = "all"
     prefix_positions: int = 3
     suffix_positions: int = 0
@@ -526,6 +547,10 @@ class LoReftConfig(ReftConfig):
 
 @dataclass(eq=False)
 class NoReftConfig(ReftConfig):
+    """
+    Variation of LoReft without orthogonality constraint.
+    """
+
     layers: Union[Literal["all"], List[int]] = "all"
     prefix_positions: int = 3
     suffix_positions: int = 0
@@ -536,6 +561,10 @@ class NoReftConfig(ReftConfig):
 
 @dataclass(eq=False)
 class DiReftConfig(ReftConfig):
+    """
+    Variation of LoReft without orthogonality constraint and projection subtraction as proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
+    """
+
     layers: Union[Literal["all"], List[int]] = "all"
     prefix_positions: int = 3
     suffix_positions: int = 0
@@ -700,6 +729,7 @@ ADAPTER_CONFIG_MAP = {
     "ia3": IA3Config(),
     "loreft": LoReftConfig(),
     "noreft": NoReftConfig(),
+    "direft": DiReftConfig(),
     "mam": MAMConfig(),
     "unipelt": UniPELTConfig(),
 }
