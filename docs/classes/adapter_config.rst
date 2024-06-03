@@ -63,7 +63,7 @@ PromptTuningConfig
     :inherited-members: Mapping
 
 
-ReFT methods
+ReFT
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: adapters.ReftConfig
