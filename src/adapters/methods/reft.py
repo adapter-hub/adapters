@@ -23,7 +23,7 @@ class ReftUnit(nn.Module):
         self.orthogonal = orthogonal
         self.learned_source = nn.Linear(in_dim, r_dim, bias=True)
 
-        projection = nn.Linear(in_dim, r_dim)
+        projection = nn.Linear(in_dim, r_dim, bias=False)
         if orthogonal:
             nn.init.orthogonal_(projection.weight)
             self.projection = nn.utils.parametrizations.orthogonal(projection)

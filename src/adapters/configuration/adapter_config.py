@@ -522,7 +522,7 @@ class ReftConfig(AdapterConfig):
     prefix_positions: int
     suffix_positions: int
     r: int
-    orthogonality: bool = True
+    orthogonality: bool
     tied_weights: bool = True
     subtract_projection = True
     dropout: float = 0.05
