@@ -1,10 +1,5 @@
-from typing import Dict, Optional, Tuple, Union
-
 import torch
-from torch import nn
 
-from transformers import WhisperForAudioClassification
-from transformers.modeling_outputs import SequenceClassifierOutput
 from transformers.models.whisper.modeling_whisper import (
     WHISPER_INPUTS_DOCSTRING,
     WHISPER_START_DOCSTRING,

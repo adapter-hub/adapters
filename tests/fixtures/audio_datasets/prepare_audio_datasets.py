@@ -1,11 +1,9 @@
 from typing import Dict, List, Union
 
-import datasets
 import torch
 from datasets import Audio, Dataset, DatasetDict, load_dataset, load_from_disk
 
-from adapters import WhisperAdapterModel
-from transformers import AutoFeatureExtractor, AutoProcessor, AutoTokenizer, Trainer, WhisperConfig
+from transformers import AutoFeatureExtractor, AutoProcessor, AutoTokenizer
 
 
 def create_common_voice():

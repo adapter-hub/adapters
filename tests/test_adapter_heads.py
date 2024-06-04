@@ -5,7 +5,7 @@ import tempfile
 import torch
 
 import adapters
-from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel, WhisperAdapterModel
+from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel
 from adapters.composition import BatchSplit, Stack
 from transformers import AutoModelForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device

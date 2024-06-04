@@ -1,4 +1,4 @@
-from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, CompacterPlusPlusConfig, WhisperAdapterModel
+from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, CompacterPlusPlusConfig
 from transformers.testing_utils import require_torch, torch_device
 
 from .base import AdapterMethodBaseTestMixin

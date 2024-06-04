@@ -3,8 +3,6 @@ from typing import Iterable, Optional, Tuple
 import torch
 import torch.nn as nn
 
-from transformers import WhisperForAudioClassification, WhisperForCausalLM, WhisperForConditionalGeneration
-
 from ...composition import adjust_tensors_for_parallel
 from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import LoRALinear
@@ -15,7 +13,6 @@ from ...model_mixin import (
     InvertibleAdaptersMixin,
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
-    ModelWithHeadsAdaptersMixin,
 )
 
 
