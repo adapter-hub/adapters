@@ -100,6 +100,7 @@ class WhisperModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrappe
         # Prompt tuning not yet supported
         return embedding_output
 
+
 class WhisperDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the WhisperDecoderWrapper class.
 

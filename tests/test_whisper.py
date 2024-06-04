@@ -33,8 +33,6 @@ class WhisperAdapterTestBase(SpeechAdapterTestBase):
         decoder_ffn_dim=4,
         vocab_size=51865,
     )
-    feature_extractor_name = "openai/whisper-small"
-    processor_name = "openai/whisper-small"
     tokenizer_name = "openai/whisper-small"
     sampling_rate = 16000
     decoder_start_token_id = 50257

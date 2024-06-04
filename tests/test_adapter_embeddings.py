@@ -47,7 +47,7 @@ class EmbeddingTestMixin:
 
     def test_save_load_embedding(self):
         model = self.get_model()
-        if isinstance(model, WhisperAdapterModel):
+        if self.is_speech_model:
             tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
             input_data = self.get_input_samples(config=self.config())
         else:
@@ -75,7 +75,7 @@ class EmbeddingTestMixin:
     def test_back_to_default(self):
         model = self.get_model()
         model.eval()
-        if isinstance(model, WhisperAdapterModel):
+        if self.is_speech_model:
             tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
             input_data = self.get_input_samples(config=self.config())
         else:
@@ -97,7 +97,7 @@ class EmbeddingTestMixin:
         model.add_embeddings("test", tokenizer)
         self.assertEqual(model.active_embeddings, "test")
         model.add_adapter("test")
-        self.add_head(model, "test", do_train=True)
+        self.add_head(model, "test")
         model.train_adapter("test", train_embeddings=True)
 
         for k, v in filter_parameters(model, "adapters.test.").items():

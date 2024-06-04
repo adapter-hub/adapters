@@ -338,10 +338,7 @@ class PredictionHeadModelTestMixin:
 
     def test_load_full_model(self):
         model = AutoAdapterModel.from_config(self.config())
-        if isinstance(model, WhisperAdapterModel):
-            self.add_head(model, "dummy")
-        else:
-            self.add_head(model, "dummy", layers=1)
+        self.add_head(model, "dummy", layers=1)
 
         true_config = model.get_prediction_heads_config()
         with tempfile.TemporaryDirectory() as temp_dir:

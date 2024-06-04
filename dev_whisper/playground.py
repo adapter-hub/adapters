@@ -5,8 +5,9 @@ import datasets
 import torch
 from transformers import WhisperForAudioClassification, WhisperForConditionalGeneration, WhisperForCausalLM, \
     T5ForQuestionAnswering, WhisperConfig, T5Config, T5ForConditionalGeneration, T5ForSequenceClassification, \
-    TrainingArguments
-from adapters import init, get_adapter_info, SeqBnConfig, WhisperAdapterModel, AdapterTrainer, Parallel
+    TrainingArguments, AutoTokenizer, GlueDataTrainingArguments, GlueDataset
+from adapters import init, get_adapter_info, SeqBnConfig, WhisperAdapterModel, AdapterTrainer, Parallel, \
+    BartAdapterModel, BatchSplit
 
 
 def make_config(config_class, **kwargs):
@@ -158,7 +159,7 @@ def get_sample(shape, config, **kwargs):
         else:
             in_data["labels"] = ids_tensor((shape[:-1]), config.vocab_size)
     if config and config.is_encoder_decoder:
-        in_data["decoder_input_ids"] = ids_tensor((shape[:-1]), config.vocab_size)
+        in_data["decoder_input_ids"] = torch.tensor(data=[config.bos_token_id, 57], dtype=torch.long).unsqueeze(0)
 
     return in_data
 
@@ -195,6 +196,7 @@ def try_Whisper_generation_adapters():
     transcription = processor.batch_decode(generated_ids, skip_special_tokens=True)
     print(transcription)
 
+
 def try_Whisper_parallel_generate():
     model1 = WhisperAdapterModel.from_pretrained("openai/whisper-tiny.en")
     model1.add_adapter("adapter1")
@@ -219,6 +221,132 @@ def try_Whisper_parallel_generate():
 
     generated_ids = model1.generate(input_features)
 
-try_Whisper_parallel_generate()
 
-#try_Whisper_generation_adapters()
+def print_structure(model="whisper"):
+    if model == "whisper":
+        model = WhisperAdapterModel.from_pretrained("openai/whisper-tiny.en")
+    else:
+        model = BartAdapterModel.from_pretrained("facebook/bart-base")
+    print(model)
+
+
+def try_Whisper_training_classification(add_decoder_input_ids=True, config=WhisperConfig()):
+    # setup dataset
+    train_dataset = datasets.load_from_disk(dataset_path="../tests/fixtures/audio_datasets/speech_commands_encoded")[
+        "train"]
+    print(train_dataset[0])
+
+
+    if add_decoder_input_ids:
+        new_dataset = [{} for _ in range(len(train_dataset))]
+        for i, sample in enumerate(train_dataset):
+            new_dataset[i]["input_features"] = sample["input_features"]
+            new_dataset[i]["label"] = sample["label"]
+            new_dataset[i]["decoder_input_ids"] = torch.tensor(data=[config.bos_token_id], dtype=torch.long)
+
+        print(new_dataset[0])
+
+    training_args = TrainingArguments(
+        output_dir="./examples",
+        do_train=True,
+        learning_rate=1.0,
+        max_steps=8,
+        no_cuda=True,
+        per_device_train_batch_size=2,
+        remove_unused_columns=False,
+    )
+
+    model = WhisperAdapterModel.from_pretrained("openai/whisper-small")
+    model.add_adapter("a", config=SeqBnConfig(reduction_factor=16))
+    model.add_audio_classification_head("a", num_labels=3)
+    model.train_adapter("a")
+
+    # evaluate
+    trainer = AdapterTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=new_dataset,
+    )
+    trainer.train()
+
+
+def dataset(data_dir, tokenizer_name="", tokenizer=None):
+    # setup tokenizer
+    if tokenizer is None:
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+    data_args = GlueDataTrainingArguments(
+        task_name="mrpc", data_dir=data_dir, overwrite_cache=True
+    )
+    return GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+
+
+def try_Bart_training_classification():
+    # setup dataset
+
+    data_dir = "../hf_transformers/tests/fixtures/tests_samples/MRPC"
+    train_dataset = dataset(data_dir=data_dir,
+                            tokenizer_name="facebook/bart-base")
+    # inspect first sample
+    print(train_dataset[0])
+
+    training_args = TrainingArguments(
+        output_dir="./examples",
+        do_train=True,
+        learning_rate=1.0,
+        max_steps=8,
+        no_cuda=True,
+        per_device_train_batch_size=2,
+        remove_unused_columns=False,
+    )
+
+    model = BartAdapterModel.from_pretrained("facebook/bart-base")
+    model.add_adapter("a", config=SeqBnConfig(reduction_factor=16))
+    model.add_audio_classification_head("a", num_labels=2)
+    model.train_adapter("a")
+
+    # evaluate
+    trainer = AdapterTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+    )
+    # trainer.train()
+
+def try_WhisperAdapterModel_training():
+    # setup dataset
+    train_dataset = datasets.load_from_disk(dataset_path="../tests/fixtures/audio_datasets/common_voice_encoded")[
+        "train"]
+    print(train_dataset[0])
+
+    training_args = TrainingArguments(
+        output_dir="./examples",
+        do_train=True,
+        learning_rate=1.0,
+        max_steps=8,
+        no_cuda=True,
+        per_device_train_batch_size=2,
+        remove_unused_columns=False,
+    )
+
+    model = WhisperAdapterModel.from_pretrained("openai/whisper-small")
+    model.add_adapter("mrpc1")
+    model.add_adapter("mrpc2")
+    model.add_seq2seq_lm_head("mrpc1")
+    model.add_seq2seq_lm_head("mrpc2")
+    adapter_setup = BatchSplit("mrpc1", "mrpc2", batch_sizes=[1, 1])
+    model.active_adapters = adapter_setup
+    model.train_adapter(adapter_setup)
+
+    # evaluate
+    trainer = AdapterTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+    )
+    trainer.train()
+#try_Whisper_training_classification()
+#try_Whisper_classification()
+
+try_WhisperAdapterModel_training()

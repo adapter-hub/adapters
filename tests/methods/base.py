@@ -278,7 +278,7 @@ class AdapterMethodBaseTestMixin:
         # add two adapters: one will be trained and the other should be frozen
         model.add_adapter("mrpc", config=adapter_config)
         model.add_adapter("dummy", config=adapter_config)
-        self.add_head(model, "mrpc", do_train=True)
+        self.add_head(model, "mrpc")
 
         self.assert_adapter_available(model, "mrpc")
         self.assert_adapter_available(model, "dummy")

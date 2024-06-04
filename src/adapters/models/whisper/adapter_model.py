@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -76,15 +76,10 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        if "labels" in kwargs or "start_positions" in kwargs and "end_positions" in kwargs:
-            use_cache = False
-
-        # Copied from WhisperForConditionalGeneration
         if "labels" in kwargs:
+            use_cache = False
             if decoder_input_ids is None and decoder_inputs_embeds is None:
-                decoder_input_ids = shift_tokens_right(
-                    kwargs["labels"], self.config.pad_token_id, self.config.decoder_start_token_id
-                )
+                decoder_input_ids = self.prepare_decoder_input_ids_from_labels(labels=kwargs["labels"])
 
         outputs, context = self.model(
             input_features=input_features,
@@ -153,6 +148,9 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
             "decoder_attention_mask": None,
             "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
         }
+
+    def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
+        return shift_tokens_right(labels, self.config.pad_token_id, self.config.decoder_start_token_id)
 
     # Copied from WhisperForConditionalGeneration
     def _reorder_cache(past_key_values, beam_idx):

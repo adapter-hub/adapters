@@ -92,11 +92,16 @@ def create_common_voice_encoded(dataset_path="common_voice_org"):
 
 def create_speech_commands():
     """Creates a small abstract dataset of 10 samples from the speech commands dataset."""
-    dataset = load_dataset("speech_commands", "v0.02")
+    dataset = load_dataset("speech_commands", "v0.02", streaming=True, split="validation")
+    labels = [1, 2]
 
     rows = []
-    for i in range(10):
-        rows.append(dataset["train"][i])
+    for i, sample in enumerate(dataset):
+        # Assign one of the labels to the sample
+        sample["label"] = [labels[i % len(labels)]]
+        rows.append(sample)
+        if i == 9:
+            break
 
     dataset_dict = DatasetDict({"train": Dataset.from_list(rows)})
     dataset_dict.save_to_disk("speech_commands_org")
@@ -104,39 +109,12 @@ def create_speech_commands():
 
 
 def create_speech_commands_encoded(dataset_path="speech_commands_org"):
+    """Preprocesses the speech commands dataset and creates a new encoded version ready for training."""
     dataset = load_from_disk(dataset_path)
     dataset = dataset.select_columns(["audio", "label"])
 
-    labels = dataset["train"].features["label"].names
-    label2id, id2label = dict(), dict()
-    for i, label in enumerate(labels):
-        label2id[label] = str(i)
-        id2label[str(i)] = label
-
-    print(label2id)
-
-    # Select classes
-    selected_classes = [
-        "backward",
-        "forward",
-        "on",
-        "off",
-        "stop",
-        "go",
-        "zero",
-        "one",
-        "two",
-        "three",
-        "four",
-        "five",
-        "marvin",
-        "sheila",
-        "follow",
-        "_silence_",
-        "tree",
-    ]
-    # selected_classes = ["no", "go"]
-    dataset = dataset.filter(lambda example: id2label[str(example["label"])] in selected_classes)
+    # Preprocessing copied and adapted from:
+    # https://colab.research.google.com/drive/1nU6dlYamT32kfLe2t_AytmOPRjaOxOZn?usp=sharing#scrollTo=GF93pim6eo9e
 
     model_id = "openai/whisper-tiny"
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_id, do_normalize=True)
@@ -163,18 +141,39 @@ def create_speech_commands_encoded(dataset_path="speech_commands_org"):
         batch_size=2,
         num_proc=1,
     )
+    # convert to torch format
+    dataset_encoded.set_format(type="torch")
     dataset_encoded.save_to_disk("speech_commands_encoded")
-    return dataset_encoded, label2id, id2label
+    return dataset_encoded
 
 
-def get_id_and_label():
-    dataset = load_from_disk("speech_commands_org")
-    labels = dataset["train"].features["label"].names
-    label2id, id2label = dict(), dict()
-    for i, label in enumerate(labels):
-        label2id[label] = str(i)
-        id2label[str(i)] = label
-    return label2id, id2label
+if __name__ == "__main__":
 
+    create_seq2seq = False
+    create_classification = False
 
-create_speech_commands_encoded()
+    if create_seq2seq:
+        # Create and preprocess sequence classification dataset
+        create_common_voice()
+        create_common_voice_encoded()
+
+        # Load and inspect the dataset
+        dataset = load_from_disk("common_voice_encoded")
+        for sample in dataset["train"]:
+            print(sample.keys())
+            print(sample["input_features"].shape)
+            print(sample["labels"].shape)
+            break
+
+    if create_classification:
+        # Create and preprocess audio classification dataset
+        create_speech_commands()
+        create_speech_commands_encoded()
+
+        # Load and inspect the dataset
+        dataset = load_from_disk("speech_commands_encoded")
+        for sample in dataset["train"]:
+            print(sample.keys())
+            print(sample["input_features"].shape)
+            print(sample["label"])
+            break

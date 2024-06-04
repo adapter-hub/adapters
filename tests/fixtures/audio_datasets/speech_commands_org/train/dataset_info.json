@@ -24,8 +24,11 @@
       }
     },
     "label": {
-      "dtype": "int64",
-      "_type": "Value"
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
     },
     "is_unknown": {
       "dtype": "bool",
