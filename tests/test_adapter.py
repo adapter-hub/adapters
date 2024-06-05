@@ -154,7 +154,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
             model.add_audio_classification_head(name, **kwargs)
             return model.heads[name].config["num_labels"]
         elif head_type == "seq2seq_lm":
-            kwargs.pop("num_labels")  # Remove num_labels from kwargs
+            kwargs.pop("num_labels", 1)  # Remove num_labels from kwargs if present in the tests
             model.add_seq2seq_lm_head(name, **kwargs)
             return self.default_input_samples_shape[1]  # Return the number of mel features
         else:

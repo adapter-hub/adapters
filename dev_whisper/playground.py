@@ -3,11 +3,11 @@ import tempfile
 
 import datasets
 import torch
-from transformers import WhisperForAudioClassification, WhisperForConditionalGeneration, WhisperForCausalLM, \
-    T5ForQuestionAnswering, WhisperConfig, T5Config, T5ForConditionalGeneration, T5ForSequenceClassification, \
+from transformers import WhisperForConditionalGeneration, WhisperForCausalLM, \
+    WhisperConfig, T5Config, T5ForSequenceClassification, \
     TrainingArguments, AutoTokenizer, GlueDataTrainingArguments, GlueDataset
-from adapters import init, get_adapter_info, SeqBnConfig, WhisperAdapterModel, AdapterTrainer, Parallel, \
-    BartAdapterModel, BatchSplit
+from adapters import init, SeqBnConfig, WhisperAdapterModel, AdapterTrainer, Parallel, \
+    BartAdapterModel, BatchSplit, AutoAdapterModel
 
 
 def make_config(config_class, **kwargs):
@@ -236,7 +236,6 @@ def try_Whisper_training_classification(add_decoder_input_ids=True, config=Whisp
         "train"]
     print(train_dataset[0])
 
-
     if add_decoder_input_ids:
         new_dataset = [{} for _ in range(len(train_dataset))]
         for i, sample in enumerate(train_dataset):
@@ -314,6 +313,7 @@ def try_Bart_training_classification():
     )
     # trainer.train()
 
+
 def try_WhisperAdapterModel_training():
     # setup dataset
     train_dataset = datasets.load_from_disk(dataset_path="../tests/fixtures/audio_datasets/common_voice_encoded")[
@@ -346,7 +346,32 @@ def try_WhisperAdapterModel_training():
         train_dataset=train_dataset,
     )
     trainer.train()
-#try_Whisper_training_classification()
-#try_Whisper_classification()
 
-try_WhisperAdapterModel_training()
+
+def check_dropout_prob():
+    model = AutoAdapterModel.from_pretrained("openai/whisper-tiny.en")
+    print(model.config.dropout)
+
+    model.add_audio_classification_head("a")
+    model.add_adapter("a", config=SeqBnConfig(reduction_factor=16))
+    model.set_active_adapters("a")
+
+    # simulate forward pass
+    input_features = torch.randn(3, 80, 3000)
+    decoder_input_ids = torch.tensor([[model.config.bos_token_id, 57], [model.config.bos_token_id, 57], [model.config.bos_token_id, 57]])
+    outputs = model(input_features=input_features, decoder_input_ids=decoder_input_ids)
+
+
+
+def check_causal_lm_head():
+    model = AutoAdapterModel.from_pretrained("openai/whisper-tiny.en")
+    model.add_adapter("a")
+    model.add_causal_lm_head("a")
+    model.set_active_adapters("a")
+
+    # simulate forward pass
+    input_features = torch.randn(3, 80, 3000)
+    decoder_input_ids = torch.tensor([[model.config.bos_token_id, 57], [model.config.bos_token_id, 57], [model.config.bos_token_id, 57]])
+    outputs = model(input_features=input_features, decoder_input_ids=decoder_input_ids)
+
+check_causal_lm_head()

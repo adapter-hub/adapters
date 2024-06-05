@@ -71,8 +71,6 @@ class PredictionHead(nn.Sequential):
             dropout_prob = self.config["dropout_prob"]
         elif hasattr(model_config, "classifier_dropout") and model_config.classifier_dropout is not None:
             dropout_prob = model_config.classifier_dropout
-        elif hasattr(model_config, "dropout") and model_config.dropout is not None:
-            dropout_prob = model_config.dropout
         elif hasattr(model_config, "hidden_dropout_prob") and model_config.hidden_dropout_prob is not None:
             dropout_prob = model_config.hidden_dropout_prob
         else:

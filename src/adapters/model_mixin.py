@@ -1294,6 +1294,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             and self.adapters_config.active_setup
             and self.adapters_config.active_setup.parallel_channels > 1
         ):
+            # old: input_ids = input_ids.repeat(self.adapters_config.active_setup.parallel_channels, 1)
             input_shape = input_ids.shape
             repeat_shape = [self.adapters_config.active_setup.parallel_channels] + [1] * (len(input_shape) - 1)
             input_ids = input_ids.repeat(repeat_shape)

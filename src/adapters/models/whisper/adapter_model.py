@@ -24,7 +24,7 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         "decoder.embed_tokens.weight",
     ]
 
-    head_types = ["seq2seq_lm", "audio_classification"]
+    head_types = ["seq2seq_lm"]
 
     def __init__(self, config: WhisperConfig, **kwargs):
         super().__init__(config, **kwargs)
@@ -41,6 +41,15 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
     def get_decoder(self):
         return self.model.get_decoder()
+
+    def freeze_encoder(self):
+        """
+        Calling this function will disable the gradient computation for the Whisper encoder so that its parameters will
+        not be updated during training.
+        """
+        # Adapted from WhisperModel in transformers/models/whisper/modeling_whisper.py as the tests in
+        # test_modeling_whisper.py require the functionality to freeze the encoder
+        self.model.encoder._freeze_parameters()
 
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
     def forward(
@@ -113,6 +122,9 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
         return head_outputs
 
+    def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
+        return shift_tokens_right(labels, self.config.pad_token_id, self.config.decoder_start_token_id)
+
     # Copied from WhisperForConditionalGeneration
     def prepare_inputs_for_generation(
         self,
@@ -143,9 +155,6 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
             "decoder_attention_mask": None,
             "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
         }
-
-    def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
-        return shift_tokens_right(labels, self.config.pad_token_id, self.config.decoder_start_token_id)
 
     # Copied from WhisperForConditionalGeneration
     def _reorder_cache(past_key_values, beam_idx):
