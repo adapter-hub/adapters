@@ -25,7 +25,6 @@ class ReftUnit(nn.Module):
 
         projection = nn.Linear(in_dim, r_dim, bias=False)
         if orthogonal:
-            nn.init.orthogonal_(projection.weight)
             self.projection = nn.utils.parametrizations.orthogonal(projection)
         else:
             self.projection = projection
