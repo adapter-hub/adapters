@@ -50,7 +50,6 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     head_types: list = []
     use_pooler: bool = False
-    is_classification_for_speech: bool = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

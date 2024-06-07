@@ -306,7 +306,7 @@ class ParallelTrainingMixin:
         )
         if isinstance(model, BertGenerationAdapterModel):
             input_data["labels"] = torch.randint(0, 2, (3, 64), device=torch_device)
-        if self.is_speech_model:
+        elif self.is_speech_model:
             input_data["labels"] = input_data["decoder_input_ids"]
         else:
             input_data["labels"] = torch.randint(0, 2, (3, 1), device=torch_device)
