@@ -485,14 +485,14 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         self.add_prediction_head(head, overwrite_ok=overwrite_ok)
 
     @head_type("causal_lm")
-    def add_causal_lm_head(self, head_name, activation_function="gelu", layers=1, overwrite_ok=False):
+    def add_causal_lm_head(self, head_name, activation_function="gelu", layers=2, overwrite_ok=False):
         """
         Adds a causal language modeling head on top of the model.
 
         Args:
             head_name (str): The name of the head.
             activation_function (str, optional): Activation function. Defaults to 'gelu'.
-            layers (int, optional): Number of layers. Defaults to 1.
+            layers (int, optional): Number of layers. Defaults to 2.
             overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
         """
         head = CausalLMHead(
