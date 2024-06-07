@@ -19,11 +19,6 @@ from ...wrappers import init
     "WHISPER Model with the option to add multiple flexible prediction heads on top.", WHISPER_START_DOCSTRING
 )
 class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, WhisperPreTrainedModel):
-    _tied_weights_keys = [
-        "encoder.embed_tokens.weight",
-        "decoder.embed_tokens.weight",
-    ]
-
     head_types = ["seq2seq_lm"]
 
     def __init__(self, config: WhisperConfig, **kwargs):
