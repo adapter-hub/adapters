@@ -170,13 +170,14 @@ class ReftLayer(AdapterLayerBase, nn.Module):
                     ].base.contiguous()
 
 
-def init_reft(model):
-    def hook_fn(module, args, output):
-        if isinstance(output, torch.Tensor):
-            return module.reft_layer(output)
-        else:
-            return (module.reft_layer(output[0]),) + output[1:]
+def hook_fn(module, args, output):
+    if isinstance(output, torch.Tensor):
+        return module.reft_layer(output)
+    else:
+        return (module.reft_layer(output[0]),) + output[1:]
 
+
+def init_reft(model):
     for _, layer in model.iter_layers():
         if not hasattr(layer, "reft_layer"):
             layer.reft_layer = ReftLayer(model.config, model.adapters_config)
