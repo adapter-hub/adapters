@@ -159,9 +159,9 @@ class AdapterLayerBase(metaclass=ABCMeta):
             adapter_name (str): The name of the adapter to freeze/ unfreeze.
             freeze (bool, optional): Whether to freeze the adapter. Defaults to True.
         """
-        if adapter_name in self.refts:
-            self.refts[adapter_name].train(not freeze)
-            for param in self.refts[adapter_name].parameters():
+        if adapter_name in self.adapter_modules:
+            self.adapter_modules[adapter_name].train(not freeze)
+            for param in self.adapter_modules[adapter_name].parameters():
                 param.requires_grad = not freeze
 
     def get_adapter(self, adapter_name: str) -> nn.Module:
