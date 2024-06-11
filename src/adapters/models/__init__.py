@@ -29,6 +29,7 @@ from .whisper.mixin_whisper import (
     WhisperDecoderAdaptersMixin,
     WhisperDecoderWrapperAdaptersMixin,
     WhisperEncoderAdaptersMixin,
+    WhisperForAudioClassificationWithHeadsMixin,
     WhisperModelAdaptersMixin,
 )
 from .xmod.mixin_xmod import XmodModelAdaptersMixin
@@ -93,5 +94,6 @@ MODEL_MIXIN_MAPPING = {
     "WhisperDecoder": WhisperDecoderAdaptersMixin,
     "WhisperModel": WhisperModelAdaptersMixin,
     "WhisperDecoderWrapper": WhisperDecoderWrapperAdaptersMixin,
+    "WhisperForAudioClassification": WhisperForAudioClassificationWithHeadsMixin,
     "LlamaForQuestionAnswering": LlamaForQuestionAnsweringAdapterMixin,
 }

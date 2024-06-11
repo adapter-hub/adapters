@@ -13,6 +13,7 @@ from ...model_mixin import (
     InvertibleAdaptersMixin,
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
+    ModelWithHeadsAdaptersMixin,
 )
 from ...utils import patch_forward
 
@@ -85,18 +86,18 @@ class WhisperModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrappe
     invertible_adapters_base_name = "encoder"
     support_prompt_tuning = False
 
-    def init_adapters(self, model_config, adapters_config):
-        super().init_adapters(model_config, adapters_config)
+    def init_adapters(self, model_config, adapters_config, **kwargs):
+        super().init_adapters(model_config, adapters_config, **kwargs)
         self.encoder.layer_norm.register_forward_hook(self.post_embedding_forward)
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        if hasattr(self, "encoder"):
+        if hasattr(self, "decoder"):
             for i, layer in enumerate(self.encoder.layers):
                 yield i, layer
             for i, layer in enumerate(self.decoder.layers, start=len(self.encoder.layers)):
                 yield i, layer
         else:
-            for i, layer in enumerate(self.decoder.layers):
+            for i, layer in enumerate(self.encoder.layers):
                 yield i, layer
 
     def post_embedding_forward(self, module, args, embedding_output):
@@ -118,3 +119,19 @@ class WhisperDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBas
 
     def get_input_embeddings(self):
         return self.decoder.get_input_embeddings()
+
+
+# Stating "input_features" and "labels" explicitly is required for training using Trainer class
+class WhisperForAudioClassificationWithHeadsMixin(ModelWithHeadsAdaptersMixin, WhisperModelAdaptersMixin):
+    """Adds adapters to the WhisperForAudioClassification class.
+    This class is used to enable adapter capabilities for the static WhisperForAudioClassification model from the
+    'transformers' library."""
+
+    def forward(
+        self,
+        *args,
+        input_features: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        **kwargs
+    ):
+        return super().forward(*args, input_features=input_features, labels=labels, **kwargs)

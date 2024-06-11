@@ -15,6 +15,7 @@ from .methods import (
 )
 from .test_adapter import SpeechAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
+from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
@@ -53,6 +54,15 @@ class WhisperAdapterTest(
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     ConfigUnionAdapterTest,
+    WhisperAdapterTestBase,
+    unittest.TestCase,
+):
+    pass
+
+
+@require_torch
+class WhisperClassConversionTest(
+    ModelClassConversionTestMixin,
     WhisperAdapterTestBase,
     unittest.TestCase,
 ):
