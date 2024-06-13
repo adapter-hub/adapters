@@ -972,8 +972,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if hasattr(self.base_model, "prefix_tuning"):
             context.prefix_states = self.base_model.prefix_tuning(*args, **kwargs)
 
-        # TODO this does not support padding on the left
-        # Read out seqlens from attention mask
+        # Read out offsets & seqlens from attention mask
         if "attention_mask" in kwargs:
             attention_mask = kwargs["attention_mask"]
         elif len(args) > 1:
@@ -982,6 +981,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             attention_mask = None
         if attention_mask is not None:
             context.seqlens = (attention_mask == 1).sum(dim=-1).squeeze()
+            # return the first "1" in each row of the attention mask
+            context.offsets = attention_mask.argmax(1)
 
         # Adapter gating and attention outputs
         context.output_adapter_gating_scores = kwargs.get("output_adapter_gating_scores", False)
