@@ -26,8 +26,6 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
     GPTJ_START_DOCSTRING,
 )
 class GPTJAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPTJPreTrainedModel):
-    _tied_weights_keys = []  # needs to be empty since GPT-J does not yet support prompt tuning
-
     head_types = [
         "classification",
         "multilabel_classification",

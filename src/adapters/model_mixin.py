@@ -366,7 +366,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     add_base_adapters = False
     support_prompt_tuning = True  # If False, the prompt tuning layer is not added to the model. If True, the prompt tuning layer is added if add_base_adapters is True.
-    _tied_weights_keys = ["prompt_tuning.base_model_embeddings.*"]
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
@@ -374,6 +373,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def _link_prefix_to_pool(self, layer):
         if isinstance(layer, PrefixTuningLayer):
             layer.set_pool(self.base_model.prefix_tuning)
+
+    def _add_tied_weights_keys(self):
+        """Internal method to add adapter-specific keys to the list of tied weights keys."""
+        if self.base_model.support_prompt_tuning:
+            prompt_tied_weights_keys = ["prompt_tuning.base_model_embeddings.*"]
+            if self._tied_weights_keys is not None:
+                self._tied_weights_keys += prompt_tied_weights_keys
+            else:
+                self._tied_weights_keys = prompt_tied_weights_keys
 
     @property
     def model_name(self):
@@ -418,6 +426,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         if isinstance(self, EmbeddingAdaptersMixin):
             self.loaded_embeddings["default"] = self.get_input_embeddings()
+
+        self._add_tied_weights_keys()
 
     # These methods have to be implemented by every deriving class:
 
@@ -1307,6 +1317,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     ):
         # Attach adapters_config to model_config to ensure saving with old format.
         self.config.adapters = self.adapters_config.to_dict()
+        # Unlink prefix tuning layers to allow safe serialization
+        self.apply_to_adapter_layers(
+            lambda i, layer: layer.set_pool(None) if isinstance(layer, PrefixTuningLayer) else None
+        )
         super().save_pretrained(save_directory, **kwargs)
         # Remove adapters config
         del self.config.adapters
