@@ -88,6 +88,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         for head_name, config in self.config.prediction_heads.items():
             self.add_prediction_head_from_config(head_name, config)
 
+        self._add_tied_weights_keys()
+
     # The following methods are required for handling LM heads
 
     def get_output_embeddings(self) -> Union[nn.Module, List[nn.Module]]:

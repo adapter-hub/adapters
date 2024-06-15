@@ -374,6 +374,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if isinstance(layer, PrefixTuningLayer):
             layer.set_pool(self.base_model.prefix_tuning)
 
+    def _add_tied_weights_keys(self):
+        """Internal method to add adapter-specific keys to the list of tied weights keys."""
+        if self.base_model.support_prompt_tuning:
+            prompt_tied_weights_keys = ["prompt_tuning.base_model_embeddings.*"]
+            if self._tied_weights_keys is not None:
+                self._tied_weights_keys += prompt_tied_weights_keys
+            else:
+                self._tied_weights_keys = prompt_tied_weights_keys
+
     @property
     def model_name(self):
         return self.config.name_or_path
@@ -418,12 +427,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if isinstance(self, EmbeddingAdaptersMixin):
             self.loaded_embeddings["default"] = self.get_input_embeddings()
 
-        if self.support_prompt_tuning:
-            prompt_tied_weights_keys = ["prompt_tuning.base_model_embeddings.*"]
-            if self._tied_weights_keys is not None:
-                self._tied_weights_keys += prompt_tied_weights_keys
-            else:
-                self._tied_weights_keys = prompt_tied_weights_keys
+        self._add_tied_weights_keys()
 
     # These methods have to be implemented by every deriving class:
 
