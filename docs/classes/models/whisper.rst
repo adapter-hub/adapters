@@ -4,6 +4,7 @@ Whisper
 The Whisper model was presented in `Robust Speech Recognition via Large-Scale Weak Supervision
 <https://arxiv.org/abs/2212.04356>`_ by Alec Radford, Jong Wook Kim, Tao Xu, Greg Brockman, Christine
 McLeavey, Ilya Sutskever. 
+
 Whisper is a state-of-the-art speech recognition model trained on 680,000 hours of multilingual and multitask data, presented by OpenAI.
 
 The abstract from the paper is the following:
@@ -19,6 +20,6 @@ a foundation for further work on robust speech processing.*
 WhisperAdapterModel
 ~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: transformers.adapters.WhisperAdapterModel
+.. autoclass:: adapters.WhisperAdapterModel
     :members:
     :inherited-members: WhisperPreTrainedModel
