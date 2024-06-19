@@ -34,6 +34,7 @@ Embeddings can only be trained with an adapter. To freeze all weights except for
 model.train_adapter('adapter_name', train_embeddings=True)
 ```
 Except for the `train_embeddings` flag, the training is the same as for just training an adapter (see [Adapter Training](training.md)).
+
 ## Saving and Loading Embeddings
 You can save the embeddings by calling `save_embeddings('path/to/dir', 'name')` and load them with `load_embeddings('path/to/dir', 'name')`.
 
