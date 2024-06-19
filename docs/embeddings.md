@@ -27,12 +27,14 @@ we want to delete. However, you cannot delete the default embedding.
 model.delete_embeddings('name')
 ```
 Please note, that if the active embedding is deleted the default embedding is set as the active embedding.
+
 ## Training Embeddings
 Embeddings can only be trained with an adapter. To freeze all weights except for the embedding and the adapter:
 ```python
 model.train_adapter('adapter_name', train_embeddings=True)
 ```
 Except for the `train_embeddings` flag, the training is the same as for just training an adapter (see [Adapter Training](training.md)).
+
 ## Saving and Loading Embeddings
 You can save the embeddings by calling `save_embeddings('path/to/dir', 'name')` and load them with `load_embeddings('path/to/dir', 'name')`.
 
