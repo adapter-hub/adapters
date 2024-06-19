@@ -27,6 +27,7 @@ we want to delete. However, you cannot delete the default embedding.
 model.delete_embeddings('name')
 ```
 Please note, that if the active embedding is deleted the default embedding is set as the active embedding.
+
 ## Training Embeddings
 Embeddings can only be trained with an adapter. To freeze all weights except for the embedding and the adapter:
 ```python
