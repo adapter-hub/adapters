@@ -53,8 +53,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._convert_to_flex_head = True
-        if not hasattr(self.config, "custom_heads"):
-            self.config.custom_heads = {}
+        if not hasattr(self, "custom_heads"):
+            self.custom_heads = {}
         self._active_heads = []
 
     def head_type(head_type_str: str):
@@ -176,7 +176,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             head_class = MODEL_HEAD_MAP[head_type]
             head = head_class(self, head_name, **config)
             self.add_prediction_head(head, overwrite_ok=overwrite_ok, set_active=set_active)
-        elif head_type in self.config.custom_heads:
+        elif head_type in self.custom_heads:
             # we have to re-add the head type for custom heads
             self.add_custom_head(head_type, head_name, overwrite_ok=overwrite_ok, **config)
         else:
@@ -193,7 +193,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         return heads
 
     def register_custom_head(self, identifier, head):
-        self.config.custom_heads[identifier] = head
+        self.custom_heads[identifier] = head
 
     @property
     def active_head(self) -> Union[str, List[str]]:
@@ -253,8 +253,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 )
 
     def add_custom_head(self, head_type, head_name, overwrite_ok=False, set_active=True, **kwargs):
-        if head_type in self.config.custom_heads:
-            head = self.config.custom_heads[head_type](self, head_name, **kwargs)
+        if head_type in self.custom_heads:
+            head = self.custom_heads[head_type](self, head_name, **kwargs)
             # When a build-in head is added as a custom head it does not have the head_type property
             if not hasattr(head.config, "head_type"):
                 head.config["head_type"] = head_type
