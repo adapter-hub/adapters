@@ -68,18 +68,13 @@ class ReftModule(nn.Module):
         # get last non-padding token id
         context = ForwardContext.get_context()
         if hasattr(context, "seqlens"):
-            first_non_padding = context.offsets
-            last_non_padding = context.offsets + context.seqlens - 1
+            last_non_padding = context.seqlens - 1
         else:
-            first_non_padding = torch.tensor([0] * hidden_states.size(0))
             last_non_padding = torch.tensor([hidden_states.size(1) - 1] * hidden_states.size(0))
         # extract prefix and suffix of seq len
-        pref_ids = first_non_padding
-        prefix = []
-        for i, pref_id in enumerate(pref_ids):
-            prefix.append(hidden_states[i, pref_id : pref_id + self.prefix_positions, :])
-        prefix = torch.stack(prefix, dim=0)
+        pref_ids = self.prefix_positions
         suff_ids = last_non_padding - self.suffix_positions + 1
+        prefix = hidden_states[:, :pref_ids, :]
         suffix = []
         for i, suff_id in enumerate(suff_ids):
             suffix.append(hidden_states[i, suff_id : suff_id + self.suffix_positions, :])
@@ -89,26 +84,21 @@ class ReftModule(nn.Module):
         else:
             adapted_states = [prefix, suffix]
 
-        return adapted_states, pref_ids, suff_ids
+        return adapted_states, suff_ids
 
     def _scatter_adapted_states(
-        self,
-        hidden_states: torch.Tensor,
-        adapted_states: List[torch.Tensor],
-        pref_ids: List[torch.Tensor],
-        suff_ids: List[torch.Tensor],
+        self, hidden_states: torch.Tensor, adapted_states: List[torch.Tensor], suff_ids: List[torch.Tensor]
     ):
         # merge prefix, suffix and adapted states
         adapted_output = torch.cat(adapted_states, dim=1)
 
         output = []
-        for i, (pref_id, suff_id) in enumerate(zip(pref_ids, suff_ids)):
+        for i, suff_id in enumerate(suff_ids):
             output.append(
                 torch.cat(
                     [
-                        hidden_states[i, :pref_id, :],
                         adapted_output[i, : self.prefix_positions, :],
-                        hidden_states[i, pref_id + self.prefix_positions : suff_id, :],
+                        hidden_states[i, self.prefix_positions : suff_id, :],
                         adapted_output[i, self.prefix_positions :, :],
                         hidden_states[i, suff_id + self.suffix_positions :, :],
                     ],
@@ -122,13 +112,13 @@ class ReftModule(nn.Module):
 
     def forward(self, hidden_states: torch.Tensor):
         # hidden_states shape: (batch_size, seq_len, hidden_size)
-        adapted_states, pref_ids, suff_ids = self._gather_adapted_states(hidden_states)
+        adapted_states, suff_ids = self._gather_adapted_states(hidden_states)
 
         # apply reft
         for i, unit in enumerate(self.units):
             adapted_states[i] = unit(adapted_states[i])
 
-        output = self._scatter_adapted_states(hidden_states, adapted_states, pref_ids, suff_ids)
+        output = self._scatter_adapted_states(hidden_states, adapted_states, suff_ids)
 
         return output
 
