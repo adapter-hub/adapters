@@ -523,7 +523,7 @@ class ReftConfig(AdapterConfig):
     suffix_positions: int
     r: int
     orthogonality: bool
-    tied_weights: bool = True
+    tied_weights: bool = False
     subtract_projection = True
     dropout: float = 0.05
     non_linearity: Optional[str] = None
@@ -542,7 +542,7 @@ class LoReftConfig(ReftConfig):
     suffix_positions: int = 0
     r: int = 1
     orthogonality: bool = True
-    tied_weights: bool = True
+    tied_weights: bool = False
 
 
 @dataclass(eq=False)
@@ -556,7 +556,7 @@ class NoReftConfig(ReftConfig):
     suffix_positions: int = 0
     r: int = 1
     orthogonality: bool = False
-    tied_weights: bool = True
+    tied_weights: bool = False
 
 
 @dataclass(eq=False)
@@ -570,7 +570,7 @@ class DiReftConfig(ReftConfig):
     suffix_positions: int = 0
     r: int = 1
     orthogonality: bool = False
-    tied_weights: bool = True
+    tied_weights: bool = False
     subtract_projection = False
 
 

@@ -66,6 +66,7 @@ class ReftModule(nn.Module):
 
     def _gather_adapted_states(self, hidden_states: torch.Tensor):
         context = ForwardContext.get_context()
+        bsz, _, ddim = hidden_states.size()
         # no cached indexing matrices available -> compute now
         if not hasattr(context, "pref_idx") and not hasattr(context, "suff_idx"):
             # read offsets & lengths from context
@@ -73,10 +74,11 @@ class ReftModule(nn.Module):
                 first_non_padding = context.offsets
                 last_non_padding = context.offsets + context.seqlens
             else:
-                first_non_padding = torch.tensor([0] * hidden_states.size(0))
-                last_non_padding = torch.tensor([hidden_states.size(1)] * hidden_states.size(0))
+                first_non_padding = torch.tensor([0] * hidden_states.size(0)).to(hidden_states.device)
+                last_non_padding = torch.tensor([hidden_states.size(1)] * hidden_states.size(0)).to(
+                    hidden_states.device
+                )
             # create indexing matrices for prefixes & suffixes
-            bsz, _, ddim = hidden_states.size()
             if self.prefix_positions > 0:
                 pref_idx = first_non_padding.view(-1, 1, 1) + (
                     torch.arange(self.prefix_positions)
@@ -99,11 +101,11 @@ class ReftModule(nn.Module):
         if self.prefix_positions > 0:
             prefix = hidden_states.gather(1, context.pref_idx)
         else:
-            prefix = torch.zeros(0, device=hidden_states.device)
+            prefix = torch.zeros(bsz, 0, ddim, device=hidden_states.device)
         if self.suffix_positions > 0:
             suffix = hidden_states.gather(1, context.suff_idx)
         else:
-            suffix = torch.zeros(0, device=hidden_states.device)
+            suffix = torch.zeros(bsz, 0, ddim, device=hidden_states.device)
 
         if self.tied_weights:
             adapted_states = [torch.cat([prefix, suffix], dim=1)]
