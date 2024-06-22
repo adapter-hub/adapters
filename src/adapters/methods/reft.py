@@ -65,60 +65,79 @@ class ReftModule(nn.Module):
         )
 
     def _gather_adapted_states(self, hidden_states: torch.Tensor):
-        # get last non-padding token id
         context = ForwardContext.get_context()
-        if hasattr(context, "seqlens"):
-            last_non_padding = context.seqlens - 1
+        # no cached indexing matrices available -> compute now
+        if not hasattr(context, "pref_idx") and not hasattr(context, "suff_idx"):
+            # read offsets & lengths from context
+            if hasattr(context, "seqlens"):
+                first_non_padding = context.offsets
+                last_non_padding = context.offsets + context.seqlens
+            else:
+                first_non_padding = torch.tensor([0] * hidden_states.size(0))
+                last_non_padding = torch.tensor([hidden_states.size(1)] * hidden_states.size(0))
+            # create indexing matrices for prefixes & suffixes
+            bsz, _, ddim = hidden_states.size()
+            if self.prefix_positions > 0:
+                pref_idx = first_non_padding.view(-1, 1, 1) + (
+                    torch.arange(self.prefix_positions)
+                    .unsqueeze(-1)
+                    .expand(bsz, self.prefix_positions, ddim)
+                    .to(hidden_states.device)
+                )
+                # Cache for next layer
+                context.pref_idx = pref_idx
+            if self.suffix_positions > 0:
+                suff_idx = last_non_padding.view(-1, 1, 1) + (
+                    torch.arange(-self.suffix_positions, 0)
+                    .unsqueeze(-1)
+                    .expand(bsz, self.suffix_positions, ddim)
+                    .to(hidden_states.device)
+                )
+                context.suff_idx = suff_idx
+
+        # gather prefix & suffix states
+        if self.prefix_positions > 0:
+            prefix = hidden_states.gather(1, context.pref_idx)
         else:
-            last_non_padding = torch.tensor([hidden_states.size(1) - 1] * hidden_states.size(0))
-        # extract prefix and suffix of seq len
-        pref_ids = self.prefix_positions
-        suff_ids = last_non_padding - self.suffix_positions + 1
-        prefix = hidden_states[:, :pref_ids, :]
-        suffix = []
-        for i, suff_id in enumerate(suff_ids):
-            suffix.append(hidden_states[i, suff_id : suff_id + self.suffix_positions, :])
-        suffix = torch.stack(suffix, dim=0)
+            prefix = torch.zeros(0, device=hidden_states.device)
+        if self.suffix_positions > 0:
+            suffix = hidden_states.gather(1, context.suff_idx)
+        else:
+            suffix = torch.zeros(0, device=hidden_states.device)
+
         if self.tied_weights:
             adapted_states = [torch.cat([prefix, suffix], dim=1)]
         else:
             adapted_states = [prefix, suffix]
 
-        return adapted_states, suff_ids
+        return adapted_states
 
-    def _scatter_adapted_states(
-        self, hidden_states: torch.Tensor, adapted_states: List[torch.Tensor], suff_ids: List[torch.Tensor]
-    ):
+    def _scatter_adapted_states(self, hidden_states: torch.Tensor, adapted_states: List[torch.Tensor]):
+        context = ForwardContext.get_context()
+
         # merge prefix, suffix and adapted states
         adapted_output = torch.cat(adapted_states, dim=1)
 
-        output = []
-        for i, suff_id in enumerate(suff_ids):
-            output.append(
-                torch.cat(
-                    [
-                        adapted_output[i, : self.prefix_positions, :],
-                        hidden_states[i, self.prefix_positions : suff_id, :],
-                        adapted_output[i, self.prefix_positions :, :],
-                        hidden_states[i, suff_id + self.suffix_positions :, :],
-                    ],
-                    dim=0,
-                )
+        if self.prefix_positions > 0:
+            hidden_states = torch.scatter(
+                hidden_states, 1, context.pref_idx, adapted_output[:, : self.prefix_positions, :]
+            )
+        if self.suffix_positions > 0:
+            hidden_states = torch.scatter(
+                hidden_states, 1, context.suff_idx, adapted_output[:, -self.suffix_positions :, :]
             )
 
-        output = torch.stack(output, dim=0)
-
-        return output
+        return hidden_states
 
     def forward(self, hidden_states: torch.Tensor):
         # hidden_states shape: (batch_size, seq_len, hidden_size)
-        adapted_states, suff_ids = self._gather_adapted_states(hidden_states)
+        adapted_states = self._gather_adapted_states(hidden_states)
 
         # apply reft
         for i, unit in enumerate(self.units):
             adapted_states[i] = unit(adapted_states[i])
 
-        output = self._scatter_adapted_states(hidden_states, adapted_states, suff_ids)
+        output = self._scatter_adapted_states(hidden_states, adapted_states)
 
         return output
 
