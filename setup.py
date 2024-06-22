@@ -60,7 +60,7 @@ _deps = [
     "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch>=1.10,!=1.12.0",
-    "transformers~=4.39.3",
+    "transformers~=4.40.2",
 ]
 
 
