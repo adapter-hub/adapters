@@ -299,7 +299,7 @@ _Papers:_
 
 _Configuration class_: [`ReftConfig`](adapters.ReftConfig)
 
-Representation Fine-Tuning (ReFT) as first proposed by [Wu et al. (2024)](https://arxiv.org/pdf/2404.03592) leverages so-called interventions to adapt the pre-trained representations of a language model.
+Representation Fine-Tuning (ReFT), as first proposed by [Wu et al. (2024)](https://arxiv.org/pdf/2404.03592), leverages so-called interventions to adapt the pre-trained representations of a language model.
 Within the context of ReFT, these interventions can intuitively be thought of as adapter modules placed after each Transformer layer.
 In the general form, an intervention function $\Phi$ can thus be defined as follows:
 
@@ -334,10 +334,10 @@ config = ReftConfig(
 ```
 
 In addition, _Adapters_ supports configuring multiple hyperparameters tuned in the ReFT paper in `ReftConfig`, including:
-- number of prefix positions, via `prefix_positions`
-- number of suffix positions, via `suffix_positions`
-- which layers to intervene on, via `layers`. This can either be `"all"` or a list of layer ids
-- whether to tie parameters between prefixes and suffixes, via `tied_weights`
+- `prefix_positions`: number of prefix positions
+- `suffix_positions`: number of suffix positions
+- `layers`: The layers to intervene on. This can either be `"all"` or a list of layer ids
+- `tied_weights`: whether to tie parameters between prefixes and suffixes
 
 _Papers:_
 
