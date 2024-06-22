@@ -1,7 +1,7 @@
 # https://github.com/google-research/prompt-tuning/blob/main/prompt_tuning/train/prompts.py
 
 import math
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict
 
 import numpy as np
 import torch
@@ -10,7 +10,6 @@ from torch import nn
 from transformers import AutoTokenizer
 from transformers.configuration_utils import PretrainedConfig
 
-from ..composition import AdapterCompositionBlock
 from ..configuration import ModelAdaptersConfig, PromptTuningConfig
 from ..context import ForwardContext
 from .adapter_layer_base import AdapterLayerBase
@@ -183,35 +182,6 @@ class PromptTuningLayer(AdapterLayerBase, nn.Module):
             return True
 
         return False
-
-    def delete_adapter(self, adapter_name: str):
-        if adapter_name in self.prompt_tunings:
-            del self.prompt_tunings[adapter_name]
-
-    def add_fusion_layer(self, adapter_names: Union[List, str]):
-        pass  # not applicable to prompt tuning
-
-    def delete_fusion_layer(self, adapter_names: Union[List, str]):
-        pass  # not applicable to prompt tuning
-
-    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
-        if unfreeze_adapters:
-            for prompt_tuning_name in adapter_setup.flatten():
-                if prompt_tuning_name in self.prompt_tunings:
-                    for param in self.prompt_tunings[prompt_tuning_name].parameters():
-                        param.requires_grad = True
-
-    def freeze_adapter(self, adapter_name: str, freeze: bool = True):
-        if adapter_name in self.prompt_tunings:
-            self.prompt_tunings[adapter_name].train(not freeze)
-            for param in self.prompt_tunings[adapter_name].parameters():
-                param.requires_grad = not freeze
-
-    def get_adapter(self, adapter_name):
-        if adapter_name in self.prompt_tunings:
-            return self.prompt_tunings[adapter_name]
-        else:
-            return None
 
     def forward(self, hidden_states: torch.Tensor):
         prefix_attention_mask_length = None
