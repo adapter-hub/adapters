@@ -1,23 +1,18 @@
-BART
+PLBART
 =====
 
-The Bart model was proposed in `BART: Denoising Sequence-to-Sequence Pre-training for Natural Language Generation,
-Translation, and Comprehension <https://arxiv.org/abs/1910.13461>`__ by Mike Lewis, Yinhan Liu, Naman Goyal, Marjan
-Ghazvininejad, Abdelrahman Mohamed, Omer Levy, Ves Stoyanov and Luke Zettlemoyer on 29 Oct, 2019.
+The PLBART model was proposed in [Unified Pre-training for Program Understanding and Generation](https://arxiv.org/abs/2103.06333) by Wasi Uddin Ahmad, Saikat Chakraborty, Baishakhi Ray, Kai-Wei Chang.
+This is a BART-like model which can be used to perform code-summarization, code-generation, and code-translation tasks. The pre-trained model `plbart-base` has been trained using multilingual denoising task
+on Java, Python and English.
 
 According to the abstract,
 
-- Bart uses a standard seq2seq/machine translation architecture with a bidirectional encoder (like BERT) and a
-  left-to-right decoder (like GPT).
-- The pretraining task involves randomly shuffling the order of the original sentences and a novel in-filling scheme,
-  where spans of text are replaced with a single mask token.
-- BART is particularly effective when fine tuned for text generation but also works well for comprehension tasks. It
-  matches the performance of RoBERTa with comparable training resources on GLUE and SQuAD, achieves new
-  state-of-the-art results on a range of abstractive dialogue, question answering, and summarization tasks, with gains
-  of up to 6 ROUGE.
+- PLBART is a sequence-to-sequence model capable of performing a broad spectrum of program and language understanding and generation tasks
+- PLBART is pre-trained on an extensive collection of Java and Python functions and associated NL text via denoising autoencoding.
+- PLBART learns program syntax, style (e.g., identifier naming convention) and logical flow.
 
 
-BartAdapterModel
+PLBartAdapterModel
 ~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: adapters.PLBartAdapterModel
