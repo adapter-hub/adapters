@@ -109,7 +109,7 @@ jobs:
       - name: Install
         run: |
           pip install torch==2.1.2
-          pip install .[sklearn,testing,sentencepiece]
+          pip install .[sklearn,testing,sentencepiece,seqeval]
           pip install conllu
       - name: Test Examples
         run: |
