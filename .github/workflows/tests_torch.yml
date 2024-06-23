@@ -109,8 +109,8 @@ jobs:
       - name: Install
         run: |
           pip install torch==2.1.2
-          pip install .[sklearn,testing,sentencepiece,seqeval]
-          pip install conllu
+          pip install .[sklearn,testing,sentencepiece]
+          pip install conllu seqeval
       - name: Test Examples
         run: |
           make test-examples
