@@ -1,5 +1,9 @@
-# Transitioning from `adapter_transformers`
+# Transitioning from `adapter-transformers`
 
+```{eval-rst}
+.. important::
+    ``adapters`` is fully compatible to ``adapter-transformers`` in terms of model weights, meaning you can load any adapter trained with any version of ``adapter-transformers`` to the new library without degradation.
+```
 
 The new `adapters` library is the successor to the `adapter-transformers` library. It differs essentially in that `adapters` is now a stand-alone package, i.e., the package is disentangled from the `transformers` package from Hugging Face and is no longer a drop-in replacement.
 
@@ -9,7 +13,7 @@ This results in some breaking changes. To transition your code from `adapter-tra
  To use the library you need to install 
 `transformers` and `adapters` in the same environment (unlike `adapter-transformers` which contained `transformers` and could not be installed in the same environment). 
 
-Run the following to install both (installing `adapters` will automatically trigger the installation of `transformers` if it is not yet installed in th environment):
+Run the following to install both (installing `adapters` will automatically trigger the installation of a compatible `transformers` version):
 
 ```
 pip install adapters
@@ -17,9 +21,9 @@ pip install adapters
 
 This also changes the namespace to `adapters`. For all imports of adapter classes change the import from `transformers` to  `adapters`.
 This mainly affects the following classes:
-- AdapterModel classes, e.g. `AutoAdapterModel`(see [AdapterModels](https://docs.adapterhub.ml/model_overview.html) )
+- AdapterModel classes, e.g. `AutoAdapterModel` (see [AdapterModels](https://docs.adapterhub.ml/model_overview.html) )
 - Adapter configurations e.g. `PrefixTuningConfig` (see [Configurations](https://docs.adapterhub.ml/overview.html) )
-- Adapter composition blocks, e.g. `Stack`(see [Composition Blocks](https://docs.adapterhub.ml/adapter_composition.html) )
+- Adapter composition blocks, e.g. `Stack` (see [Composition Blocks](https://docs.adapterhub.ml/adapter_composition.html) )
 - The `AdapterTrainer` class
 
 ## Model Initialisation
@@ -48,9 +52,9 @@ The `adapters` library supports the configuration of adapters using [config stri
 
 
 For a complete list of config strings and classes see [here](https://docs.adapterhub.ml/overview.html). We strongly recommend using the new config strings, but we will continue to support the old config strings for the time being to make the transition easier.
-Note that with the config strings the coresponding adapter config classes have changed, e.g. `PfeifferConfig` -> `SeqBnConfig`.
+Note that with the config strings the corresponding adapter config classes have changed, e.g. `PfeifferConfig` -> `SeqBnConfig`.
 
-Another consequence of this that the `AdapterConfig` class is now not only for the bottleneck adapters anymore, but the base class of all the configurations (previously `AdapterConfigBase`). Hence the function this class serves has changed. However, you can still load adapter configs with:
+Another consequence of this that the `AdapterConfig` class is now not only for the bottleneck adapters anymore, but the base class of all the configurations (previously `AdapterConfigBase`). Hence, the function this class serves has changed. However, you can still load adapter configs with:
 ```
 adapter_config = AdapterConfig.load("lora")
 ```
@@ -65,7 +69,8 @@ Compared to `adapter-transformers`, there are a few features that are no longer 
 
 ## What has remained the same
 
-The functionality for adding, activating, and training adapters has __not__ changed, except for the renaming of some adapter configs. You still add and activate adapters as follows:
+- The new library is fully backwards compatible in terms of adapter weights, i.e. you can load all adapter modules trained with `adapter-transformers`.
+- The functionality for adding, activating, and training adapters has __not__ changed, except for the renaming of some adapter configs. You still add and activate adapters as follows:
 ```
 # add adapter to the model
 model.add_adapter("adapter_name", config="lora")
@@ -74,4 +79,10 @@ model.set_active_adapters("adapter_name")
 # freeze model weights and activate adapter
 model.train_adapter("adapter_name")
 ```
+
+## Where can I still find `adapter-transformers`?
+
+The codebase of `adapter-transformers` has moved to [https://github.com/adapter-hub/adapter-transformers-legacy](https://github.com/adapter-hub/adapter-transformers-legacy) for archival purposes.
+
+The full documentation of the old library is now hosted at [https://docs-legacy.adapterhub.ml](https://docs-legacy.adapterhub.ml/).
 

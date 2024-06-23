@@ -28,7 +28,7 @@ The framework consists of two main components:
 Currently, we support the PyTorch versions of all models as listed on the `Model Overview <model_overview.html>`_ page.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Getting Started
 
    installation
@@ -58,7 +58,6 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    :caption: Loading and Sharing
 
    loading
-   hub_contributing
    huggingface_hub
 
 .. toctree::
@@ -82,6 +81,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/models/gptj
    classes/models/llama
    classes/models/mbart
+   classes/models/mt5
    classes/models/roberta
    classes/models/t5
    classes/models/vit

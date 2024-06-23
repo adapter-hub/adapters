@@ -24,7 +24,9 @@ class PromptTuningTestMixin(AdapterMethodBaseTestMixin):
 
     def test_forward_prompt_tuning(self):
         model = self.get_model()
-        self.run_forward_test(model, PromptTuningConfig(prompt_length=10))
+        for dtype in self.dtypes_to_test:
+            with self.subTest(model_class=model.__class__.__name__, dtype=dtype):
+                self.run_forward_test(model, PromptTuningConfig(prompt_length=10), dtype=dtype)
 
     def test_load_prompt_tuning(self):
         self.run_load_test(PromptTuningConfig(prompt_length=10))

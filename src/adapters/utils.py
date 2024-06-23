@@ -35,7 +35,6 @@ from huggingface_hub.utils import (
 )
 from requests.exceptions import HTTPError
 from transformers.utils import http_user_agent, is_remote_url
-from transformers.utils.hub import torch_cache_home
 
 from . import __version__
 from .context import ForwardContext
@@ -45,10 +44,13 @@ logger = logging.getLogger(__name__)
 
 CONFIG_NAME = "adapter_config.json"
 WEIGHTS_NAME = "pytorch_adapter.bin"
+SAFE_WEIGHTS_NAME = "adapter.safetensors"
 HEAD_CONFIG_NAME = "head_config.json"
 HEAD_WEIGHTS_NAME = "pytorch_model_head.bin"
+SAFE_HEAD_WEIGHTS_NAME = "model_head.safetensors"
 ADAPTERFUSION_CONFIG_NAME = "adapter_fusion_config.json"
 ADAPTERFUSION_WEIGHTS_NAME = "pytorch_model_adapter_fusion.bin"
+SAFE_ADAPTERFUSION_WEIGHTS_NAME = "model_adapter_fusion.safetensors"
 EMBEDDING_FILE = "embedding.pt"
 TOKENIZER_PATH = "tokenizer"
 
@@ -59,6 +61,9 @@ ADAPTER_HUB_ALL_FILE = ADAPTER_HUB_URL + "all.json"
 ADAPTER_HUB_ADAPTER_ENTRY_JSON = ADAPTER_HUB_URL + "adapters/{}/{}.json"
 
 # the download cache
+torch_cache_home = os.getenv(
+    "TORCH_HOME", os.path.join(os.getenv("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "torch")
+)
 ADAPTER_CACHE = join(torch_cache_home, "adapters")
 
 # these keys are ignored when calculating the config hash
@@ -701,7 +706,9 @@ def resolve_adapter_path(
         return resolved_folder
     # path to a local folder saved using save()
     elif isdir(adapter_name_or_path):
-        if isfile(join(adapter_name_or_path, WEIGHTS_NAME)) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
+        if (
+            isfile(join(adapter_name_or_path, WEIGHTS_NAME)) or isfile(join(adapter_name_or_path, SAFE_WEIGHTS_NAME))
+        ) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
             return adapter_name_or_path
         else:
             raise EnvironmentError(
@@ -717,15 +724,15 @@ def resolve_adapter_path(
         return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
     elif source is None:
         try:
-            logger.info("Attempting to load adapter from source 'ah'...")
-            return pull_from_hub(
-                adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
-            )
-        except EnvironmentError as ex:
-            logger.info(ex)
             logger.info("Attempting to load adapter from source 'hf'...")
+            return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
+        except (EnvironmentError, ValueError) as ex:
+            logger.info(ex)
+            logger.info("Attempting to load adapter from source 'ah'...")
             try:
-                return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
+                return pull_from_hub(
+                    adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
+                )
             except Exception as ex:
                 logger.info(ex)
                 raise EnvironmentError(
@@ -813,7 +820,9 @@ def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInf
             return AdapterInfo(
                 source="hf",
                 adapter_id=model_info.modelId,
-                model_name=model_info.config.get("adapters", {}).get("model_name") if model_info.config else None,
+                model_name=model_info.config.get("adapter_transformers", {}).get("model_name")
+                if model_info.config
+                else None,
                 username=model_info.modelId.split("/")[0],
                 sha1_checksum=model_info.sha,
             )
@@ -837,8 +846,8 @@ def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
             The value to use for the prefix_attention_mask. Defaults to 0, however some models, e.g. DistilBert, use
             different values. BERT like models invert their extended_attention_mask, hence they use 0 as value for not
             masked tokens. This inversion is usually done in the forward method of the model in 2 different ways:
-                1) by calling self.invert_attention_mask, as BERT does 2) by doing the inversion manually, e.g. ALBERT
-                does: `extended_attention_mask = (1.0 - extended_attention_mask) * torch.finfo(self.dtype).min`
+            1) by calling self.invert_attention_mask, as BERT does 2) by doing the inversion manually, e.g. ALBERT
+            does: `extended_attention_mask = (1.0 - extended_attention_mask) * torch.finfo(self.dtype).min`
     """
 
     forward_context = ForwardContext.get_context()
@@ -862,3 +871,12 @@ def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
         attention_mask = torch.cat((prefix_attention_mask, attention_mask), dim=dim)
 
     return attention_mask
+
+
+def patch_forward(module: torch.nn.Module):
+    # HF Accelerate's `add_hook_to_module()` replaces the module forward method with a wrapper
+    # and stores the original forward method in `_old_forward`. For this to work with Adapters' post-hook wrapping,
+    # we need to explicitly set to potentially overriden forward methods on adapter init.
+    # The `add_hook_to_module()` method is e.g. used for `device_map="auto"` in the `PreTrainedModel.from_pretrained()` method.
+    if hasattr(module, "_old_forward"):
+        module._old_forward = module.__class__.forward.__get__(module, module.__class__)

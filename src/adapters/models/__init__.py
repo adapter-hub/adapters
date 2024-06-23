@@ -23,7 +23,7 @@ from .clip.mixin_clip import (
 from .distilbert.mixin_distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .gpt2.mixin_gpt2 import GPT2ModelAdapterMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin, GPTJModelAdapterMixin
-from .llama.mixin_llama import LlamaModelAdapterMixin
+from .llama.mixin_llama import LlamaForQuestionAnsweringAdapterMixin, LlamaModelAdapterMixin
 from .t5.mixin_t5 import (
     T5BlockAdaptersMixin,
     T5ForCondiditionalGenerationWithHeadsMixin,
@@ -93,4 +93,5 @@ MODEL_MIXIN_MAPPING = {
     "BertGenerationEncoder": BertModelAdaptersMixin,
     "BertGenerationLayer": BertLayerAdaptersMixin,
     "LlamaModel": LlamaModelAdapterMixin,
+    "LlamaForQuestionAnswering": LlamaForQuestionAnsweringAdapterMixin,
 }

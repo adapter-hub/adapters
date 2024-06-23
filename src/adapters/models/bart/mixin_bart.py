@@ -14,6 +14,7 @@ from ...model_mixin import (
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
 )
+from ...utils import patch_forward
 
 
 class BartAttentionAdaptersMixin:
@@ -28,6 +29,7 @@ class BartAttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
+        patch_forward(self)
 
 
 class BartEncoderLayerAdaptersMixin:
@@ -43,6 +45,8 @@ class BartEncoderLayerAdaptersMixin:
         self.self_attn.location_key = "encoder"
         self.attention_adapters = BottleneckLayer("mh_adapter")
         self.output_adapters = BottleneckLayer("output_adapter")
+
+        patch_forward(self)
 
 
 class BartDecoderLayerAdaptersMixin(BartEncoderLayerAdaptersMixin):
@@ -64,6 +68,9 @@ class BartEncoderAdaptersMixin(InvertibleAdaptersMixin):
 
 class BartDecoderAdaptersMixin:
     """Adds adapters to the BartDecoder module of BART."""
+
+    def init_adapters(self, model_config, adapters_config):
+        patch_forward(self)
 
     def forward(
         self, input_ids: torch.LongTensor = None, encoder_hidden_states: Optional[torch.FloatTensor] = None, **kwargs
