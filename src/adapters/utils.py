@@ -624,6 +624,9 @@ def pull_from_hub(
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
         strict (bool, optional):
             If set to True, only allow adapters exactly matching the given config to be loaded. Defaults to False.
+        redirect_to_hf_hub (bool, optional):
+            If set to True, the function will redirect to the HuggingFace Model Hub instead of AdapterHub.
+            Defaults to False.
 
     Returns:
         str: The local path to which the adapter has been downloaded.
@@ -708,6 +711,10 @@ def resolve_adapter_path(
             - "ah": search on AdapterHub.ml. Note: this source is deprecated in favor of "hf".
             - "hf": search on HuggingFace model hub (huggingface.co).
             - None (default): search on all sources
+
+        redirect_to_hf_hub (bool, optional):
+            If set to True, the function will redirect to the HuggingFace Model Hub instead of AdapterHub.
+            Defaults to False.
 
     Returns:
         str: The local path from where the adapter module can be loaded.
