@@ -24,7 +24,7 @@ from .test_adapter_heads import PredictionHeadModelTestMixin
 class PLBartAdapterTestBase(AdapterTestBase):
     config_class = PLBartConfig
     config = make_config(
-        BartConfig,
+        PLBartConfig,
         d_model=16,
         encoder_layers=2,
         decoder_layers=2,
