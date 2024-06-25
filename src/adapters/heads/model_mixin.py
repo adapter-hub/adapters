@@ -676,6 +676,22 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         else:
             return list(label_dict.values())
 
+    def adapter_to(
+        self, name: str, device: Optional[Union[torch.device, str]] = None, dtype: Optional[torch.dtype] = None
+    ):
+        """
+        Moves the adapter with the given name to the specified device and data type.
+
+        Args:
+            name (str): The name of the adapter to be moved.
+            device (torch.device or str, optional): The device on which the adapter should be moved.
+            dtype (torch.dtype, optional): The data type to which the adapter should be cast.
+        """
+        super().adapter_to(name, device, dtype)
+        # Move heads to correct device
+        if name in self.heads:
+            self.heads[name].to(device=device, dtype=dtype)
+
     # This method is called during model loading in from_pretrained() to apply the state_dict to the model.
     # Override it to inject adapter head logic.
     @classmethod

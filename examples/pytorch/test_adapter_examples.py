@@ -158,7 +158,7 @@ class AdapterExamplesTests(TestCasePlus):
             --validation_file ./tests/fixtures/samples/swag/sample.json
             --output_dir {tmp_dir}
             --overwrite_output_dir
-            --max_steps=20
+            --max_steps=40
             --warmup_steps=2
             --do_train
             --do_eval
@@ -364,6 +364,7 @@ class AdapterExamplesTests(TestCasePlus):
             self.assertGreaterEqual(result["eval_precision"], 0.75)
             self.assertLess(result["eval_loss"], 0.5)
 
+    @slow
     def test_run_udp_adapter(self):
         stream_handler = logging.StreamHandler(sys.stdout)
         logger.addHandler(stream_handler)
@@ -375,7 +376,6 @@ class AdapterExamplesTests(TestCasePlus):
             --do_train
             --do_eval
             --task_name en_ewt
-            --use_mock_data
             --evaluate_on train
             --per_device_train_batch_size=2
             --per_device_eval_batch_size=1
