@@ -736,9 +736,8 @@ def resolve_adapter_path(
             except Exception as ex:
                 logger.info(ex)
                 raise EnvironmentError(
-                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source.".format(
-                        adapter_name_or_path
-                    )
+                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source."
+                    .format(adapter_name_or_path)
                 )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
