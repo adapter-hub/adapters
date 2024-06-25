@@ -148,7 +148,7 @@ class PLBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
 
     # Copied from PLBartForConditionalGeneration
     def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
-        return shift_tokens_right(labels, self.config.pad_token_id )#, self.config.decoder_start_token_id)
+        return shift_tokens_right(labels, self.config.pad_token_id)  # , self.config.decoder_start_token_id)
 
     # Copied from PLBartForConditionalGeneration
     @staticmethod

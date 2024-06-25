@@ -736,8 +736,9 @@ def resolve_adapter_path(
             except Exception as ex:
                 logger.info(ex)
                 raise EnvironmentError(
-                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source."
-                    .format(adapter_name_or_path)
+                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source.".format(
+                        adapter_name_or_path
+                    )
                 )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
@@ -820,9 +821,9 @@ def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInf
             return AdapterInfo(
                 source="hf",
                 adapter_id=model_info.modelId,
-                model_name=model_info.config.get("adapter_transformers", {}).get("model_name")
-                if model_info.config
-                else None,
+                model_name=(
+                    model_info.config.get("adapter_transformers", {}).get("model_name") if model_info.config else None
+                ),
                 username=model_info.modelId.split("/")[0],
                 sha1_checksum=model_info.sha,
             )

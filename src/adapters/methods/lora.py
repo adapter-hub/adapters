@@ -437,9 +437,11 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
     def mean(self, states: List[LoRAState], weights: torch.Tensor) -> LoRAState:
         return LoRAState(
             states[0].layer_input,
-            torch.mean(torch.stack([s.hidden_states for s in states], dim=0) * weights, dim=0)
-            if states[0].hidden_states is not None
-            else None,
+            (
+                torch.mean(torch.stack([s.hidden_states for s in states], dim=0) * weights, dim=0)
+                if states[0].hidden_states is not None
+                else None
+            ),
             states[0].layer_output,
             states[-1].last,
         )

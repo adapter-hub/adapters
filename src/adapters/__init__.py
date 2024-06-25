@@ -105,6 +105,7 @@ _import_structure = {
     "models.gptj": ["GPTJAdapterModel"],
     "models.llama": ["LlamaAdapterModel"],
     "models.mbart": ["MBartAdapterModel"],
+    "models.plbart": ["PLBartAdapterModel"],
     "models.mt5": ["MT5AdapterModel"],
     "models.roberta": ["RobertaAdapterModel"],
     "models.t5": ["T5AdapterModel"],

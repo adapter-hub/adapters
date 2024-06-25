@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" PyTorch PLBART model."""
+"""PyTorch PLBART model."""
 from typing import Optional, Tuple
 
 import torch
@@ -23,7 +23,11 @@ from transformers.models.plbart.modeling_plbart import PLBartAttention, PLBartDe
 from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
-from .mixin_plbart import PLBartAttentionAdaptersMixin, PLBartDecoderLayerAdaptersMixin, PLBartEncoderLayerAdaptersMixin
+from .mixin_plbart import (
+    PLBartAttentionAdaptersMixin,
+    PLBartDecoderLayerAdaptersMixin,
+    PLBartEncoderLayerAdaptersMixin,
+)
 
 
 logger = logging.get_logger(__name__)
