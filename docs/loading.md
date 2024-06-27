@@ -2,8 +2,13 @@
 
 ## Finding pre-trained adapters
 
-**[AdapterHub.ml](https://adapterhub.ml/explore)** provides a central collection of all pre-trained adapters uploaded via [our Hub repository](https://github.com/adapter-hub/hub) or Hugging Face's [Model Hub](https://huggingface.co/models).
-You can easily find pre-trained adapters for your task of interest along with all relevant information and code snippets to get started (also see below).
+**[AdapterHub.ml](https://adapterhub.ml/explore)** provides a central collection of all pre-trained adapters uploaded via Hugging Face's [Model Hub](https://huggingface.co/models).
+You can easily find pre-trained adapters for your task of interest along with all relevant information and code snippets to get started.
+
+```{eval-rst}
+.. note::
+    The original `Hub repository <https://github.com/adapter-hub/hub>`_ (via ``source="ah"``) has been archived and migrated to the HuggingFace Model Hub. The Adapters library supports automatic redirecting to the HF Model Hub when attempting to load adapters from the original Hub repository.
+```
 
 Alternatively, [`list_adapters()`](adapters.utils.list_adapters) provides a programmatical way of accessing all available pre-trained adapters.
 This will return an [`AdapterInfo`](adapters.utils.AdapterInfo) object for each retrieved adapter.
@@ -12,8 +17,8 @@ E.g., we can use it to retrieve information for all adapters trained for a speci
 ```python
 from adapters import list_adapters
 
-# source can be "ah" (AdapterHub), "hf" (huggingface.co) or None (for both, default)
-adapter_infos = list_adapters(source="ah", model_name="bert-base-uncased")
+# source can be "ah" (archived Hub repo), "hf" (huggingface.co) or None (for both, default)
+adapter_infos = list_adapters(source="hf", model_name="bert-base-uncased")
 
 for adapter_info in adapter_infos:
     print("Id:", adapter_info.adapter_id)
@@ -84,7 +89,7 @@ model.load_adapter(
 
 We will go through the different arguments and their meaning one by one:
 
-- The first argument passed to the method specifies the name of the adapter we want to load from Adapter-Hub. The library will search for an available adapter module with this name that matches the model architecture as well as the adapter type and configuration we requested. As the identifier `sst-2` resolves to a unique entry in the Hub, the corresponding adapter can be successfully loaded based on this information. To get an overview of all available adapter identifiers, please refer to [the Adapter-Hub website](https://adapterhub.ml/explore). The different format options of the identifier string are further described in [How adapter resolving works](#how-adapter-resolving-works).
+- The first argument passed to the method specifies the name of the adapter we want to load from Adapter-Hub. The library will search for an available adapter module with this name that matches the model architecture as well as the adapter type and configuration we requested. As the identifier `sst-2` resolves to a unique entry in the Hub, the corresponding adapter can be successfully loaded based on this information. To get an overview of all available adapter identifiers, please refer to [the Adapter-Hub website](https://adapterhub.ml/explore).
 
 - The `config` argument defines the adapter architecture the loaded adapter should have.
 The value of this parameter can be either a string identifier for one of the predefined architectures, the identifier of an architecture available in the Hub or a dictionary representing a full adapter configuration.
@@ -101,34 +106,3 @@ To load the adapter using a custom name, we can use the `load_as` parameter.
 
 - Finally the `source` parameter provides the possibility to load adapters from alternative adapter repositories.
 Besides the default value `ah`, referring to AdapterHub, it's also possible to pass `hf` to [load adapters from Hugging Face's Model Hub](huggingface_hub.md).
-
-## How adapter resolving works
-
-As described in the previous section, the methods for loading adapters are able to resolve the correct adapter weights
-based on the given identifier string, the model name and the adapter configuration.
-Using this information, the `adapters` library searches for a matching entry in the index of the [Hub GitHub repo](https://github.com/adapter-hub/hub).
-
-The identifier string used to find a matching adapter follows a format consisting of three components:
-```
-<task>/<subtask>@<username>
-```
-
-- `<task>`: A generic task identifier referring to a category of similar tasked (e.g. `sentiment`, `nli`)
-- `<subtask>`: A dataset or domain, on which the adapter was trained (e.g. `multinli`, `wiki`)
-- `<username>`: The name of the user or organization that uploaded the pre-trained adapter
-
-An example of a full identifier following this format might look like `qa/squad1.1@example-org`.
-
-```{eval-rst}
-.. important::
-    In many cases, you don't have to give the full string identifier with all three components to successfully load an adapter from the Hub. You can drop the `<username>` you don't care about the uploader of the adapter.  Also, if the resulting identifier is still unique, you can drop the ``<task>`` or the ``<subtask>``. So, ``qa/squad1.1``, ``squad1.1`` or ``squad1.1@example-org`` all may be valid identifiers.
-```
-
-An alternative adapter identifier format is given by:
-
-```
-@<username>/<filename>
-```
-
-where `<filename>` refers to the name of a adapter file in the [Hub repo](https://github.com/adapter-hub/hub).
-In contrast to the previous three-component identifier, this identifier is guaranteed to be unique.
