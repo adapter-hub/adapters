@@ -210,6 +210,7 @@ if TYPE_CHECKING:
     from .models.llama import LlamaAdapterModel
     from .models.mbart import MBartAdapterModel
     from .models.mt5 import MT5AdapterModel
+    from .models.plbart import PLBartAdapterModel
     from .models.roberta import RobertaAdapterModel
     from .models.t5 import T5AdapterModel
     from .models.vit import ViTAdapterModel
