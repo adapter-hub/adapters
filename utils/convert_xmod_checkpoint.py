@@ -1,6 +1,7 @@
 """
 This script can be used to convert an Xmod checkpoints (including adapters) from the HF format to the Adapters format.
 """
+
 import argparse
 import os
 import re

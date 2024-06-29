@@ -12,24 +12,28 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyTorch BART model."""
+"""PyTorch PLBART model."""
 from typing import Optional, Tuple
 
 import torch
 import torch.utils.checkpoint
 from torch import nn
 
-from transformers.models.bart.modeling_bart import BartAttention, BartDecoderLayer, BartEncoderLayer
+from transformers.models.plbart.modeling_plbart import PLBartAttention, PLBartDecoderLayer, PLBartEncoderLayer
 from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
-from .mixin_bart import BartAttentionAdaptersMixin, BartDecoderLayerAdaptersMixin, BartEncoderLayerAdaptersMixin
+from .mixin_plbart import (
+    PLBartAttentionAdaptersMixin,
+    PLBartDecoderLayerAdaptersMixin,
+    PLBartEncoderLayerAdaptersMixin,
+)
 
 
 logger = logging.get_logger(__name__)
 
 
-class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
+class PLBartAttentionWithAdapters(PLBartAttentionAdaptersMixin, PLBartAttention):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
     def forward(
@@ -164,7 +168,7 @@ class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartAttention):
+class PLBartFlashAttention2WithAdapters(PLBartAttentionAdaptersMixin, PLBartAttention):
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -174,9 +178,9 @@ class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartAttention)
         layer_head_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-        # BartFlashAttention2 attention does not support output_attentions
+        # PLBartFlashAttention2 attention does not support output_attentions
         if output_attentions:
-            raise ValueError("BartFlashAttention2 attention does not support output_attentions")
+            raise ValueError("PLBartFlashAttention2 attention does not support output_attentions")
 
         # if key_value_states are provided this layer is used as a cross-attention layer
         # for the decoder
@@ -275,7 +279,7 @@ class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartAttention)
         return attn_output, attn_weights, past_key_value
 
 
-class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
+class PLBartSdpaAttentionWithAdapters(PLBartAttentionAdaptersMixin, PLBartAttention):
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -289,11 +293,11 @@ class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
         if output_attentions or layer_head_mask is not None:
             # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "BartModel is using BartSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not"
-                " support `output_attentions=True` or `layer_head_mask` not None. Falling back to the manual attention"
-                " implementation, but specifying the manual implementation will be required from Transformers version"
-                ' v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when'
-                " loading the model."
+                "PLBartModel is using PLBartSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does"
+                " not support `output_attentions=True` or `layer_head_mask` not None. Falling back to the manual"
+                " attention implementation, but specifying the manual implementation will be required from"
+                " Transformers version v5.0.0 onwards. This warning can be removed using the argument"
+                ' `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
                 hidden_states,
@@ -391,7 +395,7 @@ class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
         return attn_output, None, past_key_value
 
 
-class BartEncoderLayerWithAdapters(BartEncoderLayerAdaptersMixin, BartEncoderLayer):
+class PLBartEncoderLayerWithAdapters(PLBartEncoderLayerAdaptersMixin, PLBartEncoderLayer):
     def forward(
         self,
         hidden_states: torch.FloatTensor,
@@ -443,7 +447,7 @@ class BartEncoderLayerWithAdapters(BartEncoderLayerAdaptersMixin, BartEncoderLay
         return outputs
 
 
-class BartDecoderLayerWithAdapters(BartDecoderLayerAdaptersMixin, BartDecoderLayer):
+class PLBartDecoderLayerWithAdapters(PLBartDecoderLayerAdaptersMixin, PLBartDecoderLayer):
     def forward(
         self,
         hidden_states: torch.Tensor,

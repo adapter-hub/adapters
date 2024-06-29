@@ -1,6 +1,7 @@
 """
 CIFAR-10 demo data, adapted from https://huggingface.co/datasets/cifar10.
 """
+
 import os
 import pickle
 
