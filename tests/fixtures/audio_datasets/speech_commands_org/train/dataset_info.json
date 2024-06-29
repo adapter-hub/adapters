@@ -1,0 +1,48 @@
+{
+  "citation": "",
+  "description": "",
+  "features": {
+    "file": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "audio": {
+      "array": {
+        "feature": {
+          "dtype": "float64",
+          "_type": "Value"
+        },
+        "_type": "Sequence"
+      },
+      "path": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "sampling_rate": {
+        "dtype": "int64",
+        "_type": "Value"
+      }
+    },
+    "label": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "is_unknown": {
+      "dtype": "bool",
+      "_type": "Value"
+    },
+    "speaker_id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "utterance_id": {
+      "dtype": "int64",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": ""
+}

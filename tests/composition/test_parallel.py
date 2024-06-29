@@ -131,7 +131,10 @@ class ParallelAdapterInferenceTestMixin:
         seq_output_length = 32
 
         # Finally, also check if generation works properly
-        input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
+        if self.is_speech_model:
+            input_ids = self.get_input_samples((1, 80, 3000), config=model1.config)["input_features"]
+        else:
+            input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
         generated = model1.generate(input_ids, max_length=seq_output_length)
         self.assertLessEqual(generated.shape, (2, seq_output_length))
@@ -232,13 +235,21 @@ class ParallelTrainingMixin:
         b1, b2 = self.create_twin_adapters(model, "b", adapter_config)
 
         dataset = []
-        for i in range(3):
-            input_data = self.get_input_samples(config=model.config)
-            if isinstance(model, BertGenerationAdapterModel):
-                input_data["labels"] = torch.randint(0, 2, (3, 64))
-            else:
-                input_data["labels"] = torch.randint(0, 2, (3, 1))
-            dataset.append(input_data)
+        if self.is_speech_model:
+            dataset_batched = self.dataset()
+            dataset = [{} for _ in range(len(dataset_batched))]
+            # As this test uses a non-batched training, we need to wrap the samples by an additional dimension
+            for i in range(len(dataset_batched)):
+                for key, value in dataset_batched[i].items():
+                    dataset[i][key] = torch.unsqueeze(value, 0)
+        else:
+            for i in range(3):
+                input_data = self.get_input_samples(config=model.config)
+                if isinstance(model, BertGenerationAdapterModel):
+                    input_data["labels"] = torch.randint(0, 2, (3, 64))
+                else:
+                    input_data["labels"] = torch.randint(0, 2, (3, 1))
+                dataset.append(input_data)
 
         for adapter in [a1, b1]:
             model.active_head = adapter
@@ -290,9 +301,13 @@ class ParallelTrainingMixin:
             if b1 in k:
                 self.assertTrue(torch.equal(v, state_dict[k.replace(b1, b2)]))
 
-        input_data = self.get_input_samples(config=model.config)
+        input_data = self.get_input_samples(
+            config=model.config,
+        )
         if isinstance(model, BertGenerationAdapterModel):
             input_data["labels"] = torch.randint(0, 2, (3, 64), device=torch_device)
+        elif self.is_speech_model:
+            input_data["labels"] = input_data["decoder_input_ids"]
         else:
             input_data["labels"] = torch.randint(0, 2, (3, 1), device=torch_device)
 

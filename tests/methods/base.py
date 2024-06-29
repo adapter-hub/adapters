@@ -10,6 +10,7 @@ from adapters.heads import CausalLMHead
 from adapters.utils import WEIGHTS_NAME
 from adapters.wrappers import load_model
 from transformers import TrainingArguments
+from transformers.modeling_outputs import Seq2SeqLMOutput, Seq2SeqModelOutput
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -315,6 +316,8 @@ class AdapterMethodBaseTestMixin:
             return tied_embeddings and is_tied_layer
 
         for (k1, v1), (k2, v2) in zip(state_dict_pre.items(), model.state_dict().items()):
+            # move both to the same device to avoid device mismatch errors
+            v1, v2 = v1.to(v2.device), v2
             if "mrpc" in k1 and not has_tied_embeddings(k1):
                 adapters_with_change |= not torch.equal(v1, v2)
             else:
@@ -366,3 +369,11 @@ class AdapterMethodBaseTestMixin:
         # check forward pass
         self.assertEqual(len(output_1), len(output_2))
         self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))
+
+
+def extract_tensor_from_ModelOutput_class(output):
+    """Extracts the output tensor from a ModelOutput object of Hugging Face."""
+    if isinstance(output, Seq2SeqLMOutput):
+        return output.logits
+    if isinstance(output, Seq2SeqModelOutput):
+        return output.logits
