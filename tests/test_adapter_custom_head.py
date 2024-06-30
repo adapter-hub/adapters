@@ -48,9 +48,10 @@ class AdapterCustomHeadTest(unittest.TestCase):
     def test_save_load_custom_head(self):
         model_name = "bert-base-uncased"
         model_config = AutoConfig.from_pretrained(model_name)
-        model_config.custom_heads = {"tag": CustomHead}
         model1 = AutoAdapterModel.from_pretrained(model_name, config=model_config)
         model2 = AutoAdapterModel.from_pretrained(model_name, config=model_config)
+        model1.custom_heads = {"tag": CustomHead}
+        model2.custom_heads = {"tag": CustomHead}
         config = {"num_labels": 3, "layers": 2, "activation_function": "tanh"}
         model1.add_custom_head(head_type="tag", head_name="custom_head", **config)
 

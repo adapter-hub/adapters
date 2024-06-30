@@ -44,10 +44,13 @@ logger = logging.getLogger(__name__)
 
 CONFIG_NAME = "adapter_config.json"
 WEIGHTS_NAME = "pytorch_adapter.bin"
+SAFE_WEIGHTS_NAME = "adapter.safetensors"
 HEAD_CONFIG_NAME = "head_config.json"
 HEAD_WEIGHTS_NAME = "pytorch_model_head.bin"
+SAFE_HEAD_WEIGHTS_NAME = "model_head.safetensors"
 ADAPTERFUSION_CONFIG_NAME = "adapter_fusion_config.json"
 ADAPTERFUSION_WEIGHTS_NAME = "pytorch_model_adapter_fusion.bin"
+SAFE_ADAPTERFUSION_WEIGHTS_NAME = "model_adapter_fusion.safetensors"
 EMBEDDING_FILE = "embedding.pt"
 TOKENIZER_PATH = "tokenizer"
 
@@ -610,7 +613,8 @@ def pull_from_hub(
     adapter_config: Optional[Union[dict, str]] = None,
     version: str = None,
     strict: bool = False,
-    **kwargs,
+    redirect_to_hf_hub: bool = False,
+    **kwargs
 ) -> str:
     """
     Downloads a pre-trained adapter module from Adapter-Hub
@@ -622,6 +626,9 @@ def pull_from_hub(
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
         strict (bool, optional):
             If set to True, only allow adapters exactly matching the given config to be loaded. Defaults to False.
+        redirect_to_hf_hub (bool, optional):
+            If set to True, the function will redirect to the HuggingFace Model Hub instead of AdapterHub.
+            Defaults to False.
 
     Returns:
         str: The local path to which the adapter has been downloaded.
@@ -635,13 +642,27 @@ def pull_from_hub(
     hub_entry_url = find_in_index(specifier, model_name, adapter_config=adapter_config, strict=strict)
     if not hub_entry_url:
         raise EnvironmentError("No adapter with name '{}' was found in the adapter index.".format(specifier))
-    hub_entry = http_get_json(hub_entry_url)
 
+    hf_hub_specifier = "AdapterHub/" + os.path.basename(hub_entry_url).split(".")[0]
+    if redirect_to_hf_hub:
+        logger.warning(
+            "Automatic redirect to HF Model Hub repo '{}'. Please switch to the new ID to remove this warning.".format(
+                hf_hub_specifier
+            )
+        )
+        return pull_from_hf_model_hub(hf_hub_specifier, version=version, **kwargs)
+    else:
+        logger.warning(
+            "Loading adapters from this source is deprecated. This adapter has moved to '{}'. Please switch to the new"
+            " ID to remove this warning.".format(hf_hub_specifier)
+        )
+
+    hub_entry = http_get_json(hub_entry_url)
     # set version
     if not version:
         version = hub_entry["default_version"]
     elif version not in hub_entry["files"]:
-        logger.warn("Version '{}' of adapter '{}' not found. Falling back to default.".format(version, specifier))
+        logger.warning("Version '{}' of adapter '{}' not found. Falling back to default.".format(version, specifier))
         version = hub_entry["default_version"]
     file_entry = hub_entry["files"][version]
 
@@ -671,7 +692,8 @@ def resolve_adapter_path(
     adapter_config: Union[dict, str] = None,
     version: str = None,
     source: str = None,
-    **kwargs,
+    redirect_to_hf_hub: bool = False,
+    **kwargs
 ) -> str:
     """
     Resolves the path to a pre-trained adapter module. Note: If attempting to resolve an adapter from the Hub,
@@ -688,9 +710,13 @@ def resolve_adapter_path(
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
         source (str, optional): Identifier of the source(s) from where to get adapters. Can be either:
 
-            - "ah": search on AdapterHub.ml.
+            - "ah": search on AdapterHub.ml. Note: this source is deprecated in favor of "hf".
             - "hf": search on HuggingFace model hub (huggingface.co).
             - None (default): search on all sources
+
+        redirect_to_hf_hub (bool, optional):
+            If set to True, the function will redirect to the HuggingFace Model Hub instead of AdapterHub.
+            Defaults to False.
 
     Returns:
         str: The local path from where the adapter module can be loaded.
@@ -705,7 +731,9 @@ def resolve_adapter_path(
         return resolved_folder
     # path to a local folder saved using save()
     elif isdir(adapter_name_or_path):
-        if isfile(join(adapter_name_or_path, WEIGHTS_NAME)) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
+        if (
+            isfile(join(adapter_name_or_path, WEIGHTS_NAME)) or isfile(join(adapter_name_or_path, SAFE_WEIGHTS_NAME))
+        ) and isfile(join(adapter_name_or_path, CONFIG_NAME)):
             return adapter_name_or_path
         else:
             raise EnvironmentError(
@@ -715,7 +743,12 @@ def resolve_adapter_path(
             )
     elif source == "ah":
         return pull_from_hub(
-            adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
+            adapter_name_or_path,
+            model_name,
+            adapter_config=adapter_config,
+            version=version,
+            redirect_to_hf_hub=redirect_to_hf_hub,
+            **kwargs,
         )
     elif source == "hf":
         return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
@@ -728,13 +761,19 @@ def resolve_adapter_path(
             logger.info("Attempting to load adapter from source 'ah'...")
             try:
                 return pull_from_hub(
-                    adapter_name_or_path, model_name, adapter_config=adapter_config, version=version, **kwargs
+                    adapter_name_or_path,
+                    model_name,
+                    adapter_config=adapter_config,
+                    version=version,
+                    redirect_to_hf_hub=True,
+                    **kwargs,
                 )
             except Exception as ex:
                 logger.info(ex)
                 raise EnvironmentError(
-                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source."
-                    .format(adapter_name_or_path)
+                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source.".format(
+                        adapter_name_or_path
+                    )
                 )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
@@ -817,7 +856,9 @@ def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInf
             return AdapterInfo(
                 source="hf",
                 adapter_id=model_info.modelId,
-                model_name=model_info.config.get("adapters", {}).get("model_name") if model_info.config else None,
+                model_name=(
+                    model_info.config.get("adapter_transformers", {}).get("model_name") if model_info.config else None
+                ),
                 username=model_info.modelId.split("/")[0],
                 sha1_checksum=model_info.sha,
             )
