@@ -265,7 +265,7 @@ class LoRALayer(AdapterLayerBase):
                                 zhang_weight = abs(weight)
                             else:
                                 # This should never happen as we only have lora_A and lora_B in the state_dict
-                                raise ValueError(f"Key must either contain 'lora_A' or 'lora_B' but is {k}.")
+                                raise ValueError(f"Key must either contain 'lora_A' or 'lora_B' but is {k}. This should never happen. Please open an issue on GitHub if you encounter this error.")
 
                             if k in avg_state_dict:
                                 avg_state_dict[k] += zhang_weight * v
