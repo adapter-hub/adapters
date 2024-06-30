@@ -81,16 +81,6 @@ class AdapterMethodBaseTestMixin:
 
         model.delete_adapter(name)
 
-    def run_combine_average_test():
-        # TODO: write tests for behaviour when we add only one adapter with weight 1:
-        #   - if normalize_weights is set to true, this should result in the same output as adding the adapter without averaging
-        #   - if normalize_weights is set to false, this should result in a different output (i.e. we check that this indeed scales the weights)
-        # TODO: Write a test where we add multiple different adapters but all with weight of 0 except one. Should result in the same as adding only the one with weight 1
-
-        # TODO: does this even make sense here? In case that LoRA is the only adapter with other combine strategies, we should include this only in LoRA test.
-
-        pass
-
     def run_linear_average_test(self, model, adapter_config, filter_keys):
         model.eval()
 

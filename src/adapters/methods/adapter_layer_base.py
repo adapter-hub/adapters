@@ -90,23 +90,43 @@ class AdapterLayerBase(metaclass=ABCMeta):
         """
         raise NotImplementedError()
 
-    @abstractmethod
-    def average_adapter(
-        self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy: str, **kwargs
-    ) -> bool:
-        # TODO: add combine_strategy to docstring and **kwargs (with e.g.: svd_rank for lora_delta_w_svd)
+    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy, **kwargs) -> bool:
         """Averages a set of adapter modules into a new adapter module.
 
         Args:
             adapter_name (str): The name of the new (averaged) adapter module to add.
-            input_adapters (Dict[str, float]): Either:
-                - a list of adapter names (with equal weighting).
-                - a dictionary of adapter names and their corresponding weights.
+            input_adapters (Dict[str, float]): Dictionary of adapter names and their corresponding weights.
+            combine_strategy (str): The strategy to combine the adapters. Available strategies depend on the used adapter method, see: #TODO insert link
+            **kwargs: Additional arguments that are specific to the combine_strategy. E.g. svd_rank for LoRA.
 
         Returns:
             bool: True if the adapter was added, False otherwise.
         """
-        raise NotImplementedError()
+        # add new adapter
+        if self.add_adapter(adapter_name, self.layer_idx):
+            if combine_strategy != "linear":
+                # You get the adapter type from the input adapters
+                raise ValueError(f"Combine strategy {combine_strategy} not supported for the chosen adapter methods.")
+
+            # average weights linearly
+            avg_state_dict = {}
+            for name, weight in input_adapters.items():
+                if name in self.adapter_modules:
+                    module = self.adapter_modules[name]
+                    for k, v in module.state_dict().items():
+                        if k in avg_state_dict:
+                            avg_state_dict[k] += weight * v
+                        else:
+                            avg_state_dict[k] = weight * v
+                else:
+                    self.delete_adapter(adapter_name)  # clean up before raising error
+                    raise ValueError("Adapter {} not found.".format(name))
+
+            # load averaged weights
+            self.adapter_modules[adapter_name].load_state_dict(avg_state_dict)  # TODO
+            return True
+
+        return False
 
     @abstractmethod
     def delete_adapter(self, adapter_name: str):

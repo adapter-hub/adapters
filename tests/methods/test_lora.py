@@ -1,6 +1,10 @@
+import random
+from typing import Dict
+
 import torch
 
 from adapters import LoRAConfig
+from adapters.methods.lora import LoRALayer
 from transformers.testing_utils import require_torch
 
 from .base import AdapterMethodBaseTestMixin
@@ -44,7 +48,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_linear_average_test(model, LoRAConfig(), ["loras.{name}."])
 
-    def test_linear_zhang_average_lora(self):
+    def test_linear_average_only_negate_b_lora(self):
         # This method tests that the linear average following the Zhang et al. 2023 paper works as expected.
         # Paper: https://proceedings.neurips.cc/paper_files/paper/2023/hash/299a08ee712d4752c890938da99a77c6-Abstract-Conference.html
         # This method is an adapted version of the `run_linear_average_test` method.
@@ -55,13 +59,19 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
         # add adapters to average
         name = "test_adapter_" + LoRAConfig().__class__.__name__
         for i in range(len(weights)):
-            model.add_adapter(name + f"_{i}", config=LoRAConfig())
+            model.add_adapter(
+                f"{name}_{i}",
+                config=LoRAConfig(
+                    dropout=random.random(),
+                    init_weights=["bert", "lora"][i % 2],
+                ),
+            )
 
         averaged_weights = {}
         for i, w in enumerate(weights):
-            this_filter_keys = [k.format(name=name + f"_{i}") for k in ["loras.{name}."]]
+            this_filter_keys = [k.format(name=f"{name}_{i}") for k in ["loras.{name}."]]
             for k, v in self.filter_parameters(model, this_filter_keys).items():
-                base_k = k.replace(name + f"_{i}", name)
+                base_k = k.replace(f"{name}_{i}", name)
                 # Only negate the lora_B weights and use the absolute value of the weight for lora_A weights.
                 weight = abs(w) if "lora_A" in k else w
                 if base_k not in averaged_weights:
@@ -71,12 +81,16 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
         # average adapters
         model.average_adapter(
-            name, [name + f"_{i}" for i in range(len(weights))], weights=weights, combine_strategy="lora_linear_zhang"
+            name,
+            [f"{name}_{i}" for i in range(len(weights))],
+            weights=weights,
+            combine_strategy="lora_linear_only_negate_b",
         )
 
         # adapter is correctly added to config
         self.assertTrue(name in model.adapters_config)
-        self.assertEqual(LoRAConfig(), model.adapters_config.get(name))
+        config = model.adapters_config.get(name)
+        self.assertEqual(LoRAConfig(dropout=config.dropout, init_weights=config.init_weights), config)
 
         # compare averaged weights to collected weights
         this_filter_keys = [k.format(name=name) for k in ["loras.{name}."]]
@@ -86,32 +100,182 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
     def test_linear_delta_w_svd_average_lora(self):
         model = self.get_model()
         model.eval()
+        model_supports_lora_delta_w_svd = model.base_model.support_lora_delta_w_svd
         weights = [-1, 1.5, 0.5]
 
         # add adapters to average
         name = "test_adapter_" + LoRAConfig().__class__.__name__
         for i in range(len(weights)):
-            model.add_adapter(name + f"_{i}", config=LoRAConfig())
+            model.add_adapter(
+                f"{name}_{i}",
+                config=LoRAConfig(
+                    dropout=random.random(),
+                    init_weights=["bert", "lora"][i % 2],
+                ),
+            )
+
+        if not model_supports_lora_delta_w_svd:
+            # Some models (GPT2, Deberta) don't support this merging method
+            with self.assertRaises(ValueError):
+                model.average_adapter(
+                    "averaged_adapter",
+                    [f"{name}_{i}" for i in range(len(weights))],
+                    weights=weights,
+                    combine_strategy="lora_delta_w_svd",
+                )
+
+            return
 
         # average adapters
         svd_rank = 16
         model.average_adapter(
-            name,
-            [name + f"_{i}" for i in range(len(weights))],
+            "averaged_adapter",
+            [f"{name}_{i}" for i in range(len(weights))],
             weights=weights,
             combine_strategy="lora_delta_w_svd",
             svd_rank=svd_rank,
         )
 
         # adapter is correctly added to config
-        self.assertTrue(name in model.adapters_config)
-        self.assertEqual(LoRAConfig(r=svd_rank), model.adapters_config.get(name))
+        self.assertTrue("averaged_adapter" in model.adapters_config)
+        config = model.adapters_config.get("averaged_adapter")
+        self.assertEqual(LoRAConfig(dropout=config.dropout, init_weights=config.init_weights, r=svd_rank), config)
 
-        # TODO: calculate averaged weights
-        # compare averaged weights to collected weights
-        # this_filter_keys = [k.format(name=name) for k in ["loras.{name}."]]
-        # for k, v in self.filter_parameters(model, this_filter_keys).items():
-        #     self.assertTrue(torch.allclose(v, averaged_weights[k]), k)
+        # Calculate the new weights: Matrix A and B are SVD of all the weighted delta_w matrices of the adapters.
+        for i, layer in model.iter_layers():
+            for module in layer.modules():
+                if isinstance(module, LoRALayer):
+                    # Check if this layer has the LoRA adapters
+                    if not (
+                        f"{name}_0" in module.loras
+                        and f"{name}_1" in module.loras
+                        and f"{name}_2" in module.loras
+                        and name in module.loras
+                    ):
+                        continue
+
+                    # Calculate the new weights
+                    delta_w_1 = module.loras[name + "_0"].delta_w
+                    delta_w_2 = module.loras[name + "_1"].delta_w
+                    delta_w_3 = module.loras[name + "_2"].delta_w
+                    delta_w = weights[0] * delta_w_1 + weights[1] * delta_w_2 + weights[2] * delta_w_3
+                    u, s, v = torch.svd(delta_w)
+                    u = u[:, :svd_rank]
+                    s = s[:svd_rank]
+                    v = v[:svd_rank, :]
+                    expected_lora_A = v
+                    expected_lora_B = u @ torch.diag(s)
+
+                    # Compare if the new weights are equal to the weights of the averaged adapter
+                    self.assertTrue(torch.allclose(expected_lora_A, module.loras["averaged_adapter"].lora_A))
+                    self.assertTrue(torch.allclose(expected_lora_B, module.loras["averaged_adapter"].lora_B))
+
+    def test_edge_case_average_adapters(self):
+        model = self.get_model()
+        model.eval()
+        model_supports_lora_delta_w_svd = model.base_model.support_lora_delta_w_svd
+
+        # add adapters to average
+        name = "test_adapter_" + LoRAConfig().__class__.__name__
+        for i in range(3):
+            model.add_adapter(
+                f"{name}_{i}",
+                config=LoRAConfig(
+                    dropout=random.random(),
+                    init_weights=["bert", "lora"][i % 2],
+                ),
+            )
+
+        # collect weights of the first adapter so we can compare them to the newly created adapters in the subsequent tests
+        filter_keys_adapter_0 = [k.format(name=f"{name}_0") for k in ["loras.{name}."]]
+        adapter_0 = self.filter_parameters(model, filter_keys_adapter_0)
+
+        # Run tests for every combine strategy
+        for combine_strategy in ["linear", "lora_linear_only_negate_b", "lora_delta_w_svd"]:
+            if not model_supports_lora_delta_w_svd and combine_strategy == "lora_delta_w_svd":
+                continue
+
+            with self.subTest(combine_strategy=combine_strategy):
+                # 1. if we merge only one adapter, the weights of the new adapter should be the same as the original adapter
+                svd_rank = LoRAConfig().r if combine_strategy == "lora_delta_w_svd" else None
+                model.average_adapter(
+                    adapter_name=f"{combine_strategy}_case1",
+                    adapter_list=[f"{name}_0"],
+                    weights=[1],
+                    combine_strategy=combine_strategy,
+                    svd_rank=svd_rank,
+                )
+
+                filter_keys = [k.format(name=f"{combine_strategy}_case1") for k in ["loras.{name}."]]
+
+                if combine_strategy != "lora_delta_w_svd":
+                    for k, v in self.filter_parameters(model, filter_keys).items():
+                        adapter_0_key = k.replace(f"{combine_strategy}_case1", f"{name}_0")
+                        self.assertTrue(torch.allclose(v, adapter_0[adapter_0_key]))
+                else:
+                    # For lora_delta_w_svd, we need to calculate the expected weights since lora_delta_w_svd performs an SVD
+                    for i, layer in model.iter_layers():
+                        for module in layer.modules():
+                            if isinstance(module, LoRALayer):
+                                if f"{name}_0" in module.loras and f"{combine_strategy}_case1" in module.loras:
+                                    original_lora = module.loras[f"{name}_0"]
+                                    merged_lora = module.loras[f"{combine_strategy}_case1"]
+
+                                    # Compute SVD of the original delta_w
+                                    u, s, v = torch.svd(original_lora.delta_w)
+                                    u = u[:, :svd_rank]
+                                    s = s[:svd_rank]
+                                    v = v[:, :svd_rank]
+
+                                    # Reconstruct A and B matrices
+                                    expected_A = v.t()
+                                    expected_B = u @ torch.diag(s)
+
+                                    # Compare with merged adapter
+                                    self.assertTrue(torch.allclose(expected_A, merged_lora.lora_A, atol=1e-5))
+                                    self.assertTrue(torch.allclose(expected_B, merged_lora.lora_B, atol=1e-5))
+
+                # 2. if we merge multiple adapters with weight 0 except one adapter with weight 1, the resulting adapter should be the same as the adapter with weight 1
+                model.average_adapter(
+                    adapter_name=f"{combine_strategy}_case2",
+                    adapter_list=[f"{name}_0", f"{name}_1", f"{name}_2"],
+                    weights=[
+                        0.5,
+                        0,
+                        0,
+                    ],  # since normalize_weights is True, this should result in only the first adapter being used with a weight of 1
+                    combine_strategy=combine_strategy,
+                    svd_rank=svd_rank,
+                )
+
+                filter_keys = [k.format(name=f"{combine_strategy}_case2") for k in ["loras.{name}."]]
+
+                if combine_strategy != "lora_delta_w_svd":
+                    for k, v in self.filter_parameters(model, filter_keys).items():
+                        adapter_1_key = k.replace(f"{combine_strategy}_case2", f"{name}_0")
+                        self.assertTrue(torch.allclose(v, adapter_0[adapter_1_key]))
+                else:
+                    # For lora_delta_w_svd, we need to calculate the expected weights since lora_delta_w_svd performs an SVD
+                    for i, layer in model.iter_layers():
+                        for module in layer.modules():
+                            if isinstance(module, LoRALayer):
+                                if f"{name}_0" in module.loras and f"{combine_strategy}_case2" in module.loras:
+                                    original_lora = module.loras[f"{name}_0"]
+                                    merged_lora = module.loras[f"{combine_strategy}_case2"]
+
+                                    # Compute SVD of the original delta_w
+                                    u, s, v = torch.svd(original_lora.delta_w)
+                                    u = u[:, :svd_rank]
+                                    s = s[:svd_rank]
+                                    v = v[:, :svd_rank]
+
+                                    # Reconstruct A and B matrices
+                                    expected_A = v.t()
+                                    expected_B = u @ torch.diag(s)
+
+                                    # Compare with merged adapter
+                                    self.assertTrue(torch.allclose(expected_A, merged_lora.lora_A, atol=1e-5))
+                                    self.assertTrue(torch.allclose(expected_B, merged_lora.lora_B, atol=1e-5))
 
     def test_delete_lora(self):
         model = self.get_model()
