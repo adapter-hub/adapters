@@ -1,7 +1,7 @@
 # https://github.com/google-research/prompt-tuning/blob/main/prompt_tuning/train/prompts.py
 
 import math
-from typing import Callable, Dict, List, Union
+from typing import Callable, List, Union
 
 import numpy as np
 import torch

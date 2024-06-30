@@ -14,8 +14,8 @@ from .clip.mixin_clip import (
     CLIPTextTransformerAdaptersMixin,
     CLIPVisionModelAdaptersMixin,
 )
-from .distilbert.mixin_distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .deberta.mixin_deberta import DebertaModelAdaptersMixin
+from .distilbert.mixin_distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .gpt2.mixin_gpt2 import GPT2ModelAdapterMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin, GPTJModelAdapterMixin
 from .llama.mixin_llama import LlamaForQuestionAnsweringAdapterMixin, LlamaModelAdapterMixin

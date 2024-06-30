@@ -523,7 +523,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         attention_mask=None,
         return_dict=False,
         context=None,
-        **kwargs
+        **kwargs,
     ):
         """
         The forward pass through a prediction head configuration. There are three ways to specify the used prediction

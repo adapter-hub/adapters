@@ -1,7 +1,7 @@
-from ..bert.mixin_bert import BertModelAdaptersMixin
 from ...methods.lora import LoRAMergedLinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...utils import patch_forward
+from ..bert.mixin_bert import BertModelAdaptersMixin
 
 
 class DebertaSelfAttentionAdaptersMixin:

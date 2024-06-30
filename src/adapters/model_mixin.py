@@ -2,9 +2,9 @@ import inspect
 import logging
 import os
 import warnings
-from copy import deepcopy
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from copy import deepcopy
 from os.path import join
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -785,7 +785,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         leave_out: Optional[List[int]] = None,
         id2label=None,
         set_active: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.
@@ -847,7 +847,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         load_as: str = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         set_active: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Loads a pre-trained AdapterFusion layer from the local file system.
@@ -1607,7 +1607,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         leave_out: Optional[List[int]] = None,
         id2label=None,
         set_active: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:
@@ -1707,7 +1707,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         set_active: bool = False,
         with_head: bool = True,
-        **kwargs
+        **kwargs,
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:

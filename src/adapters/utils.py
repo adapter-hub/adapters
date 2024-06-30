@@ -610,7 +610,7 @@ def pull_from_hub(
     adapter_config: Optional[Union[dict, str]] = None,
     version: str = None,
     strict: bool = False,
-    **kwargs
+    **kwargs,
 ) -> str:
     """
     Downloads a pre-trained adapter module from Adapter-Hub
@@ -671,7 +671,7 @@ def resolve_adapter_path(
     adapter_config: Union[dict, str] = None,
     version: str = None,
     source: str = None,
-    **kwargs
+    **kwargs,
 ) -> str:
     """
     Resolves the path to a pre-trained adapter module. Note: If attempting to resolve an adapter from the Hub,
@@ -733,9 +733,8 @@ def resolve_adapter_path(
             except Exception as ex:
                 logger.info(ex)
                 raise EnvironmentError(
-                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source.".format(
-                        adapter_name_or_path
-                    )
+                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source."
+                    .format(adapter_name_or_path)
                 )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
