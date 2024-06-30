@@ -141,14 +141,16 @@ def _minimize_dict(d):
         return d
 
 
-def get_adapter_config_hash(config, length=16):
+def get_adapter_config_hash(config, length=16, ignore_params=[]):
     """
     Calculates the hash of a given adapter configuration which is used to identify this configuration.
 
     Returns:
         str: The resulting hash of the given config dict.
     """
-    minimized_config = _minimize_dict({k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE})
+    minimized_config = _minimize_dict(
+        {k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE + ignore_params}
+    )
     # ensure hash is kept consistent to previous versions
     for name, default in ADAPTER_CONFIG_HASH_IGNORE_DEFAULT.items():
         if minimized_config.get(name, None) == default:
@@ -612,7 +614,7 @@ def pull_from_hub(
     version: str = None,
     strict: bool = False,
     redirect_to_hf_hub: bool = False,
-    **kwargs
+    **kwargs,
 ) -> str:
     """
     Downloads a pre-trained adapter module from Adapter-Hub
@@ -691,7 +693,7 @@ def resolve_adapter_path(
     version: str = None,
     source: str = None,
     redirect_to_hf_hub: bool = False,
-    **kwargs
+    **kwargs,
 ) -> str:
     """
     Resolves the path to a pre-trained adapter module. Note: If attempting to resolve an adapter from the Hub,
@@ -853,9 +855,9 @@ def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInf
             return AdapterInfo(
                 source="hf",
                 adapter_id=model_info.modelId,
-                model_name=model_info.config.get("adapter_transformers", {}).get("model_name")
-                if model_info.config
-                else None,
+                model_name=(
+                    model_info.config.get("adapter_transformers", {}).get("model_name") if model_info.config else None
+                ),
                 username=model_info.modelId.split("/")[0],
                 sha1_checksum=model_info.sha,
             )

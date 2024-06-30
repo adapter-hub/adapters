@@ -19,9 +19,9 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_leave_out_test(model, PrefixTuningConfig(flat=True), self.leave_out_layers)
 
-    def test_average_prefix_tuning(self):
+    def test_linear_average_prefix_tuning(self):
         model = self.get_model()
-        self.run_average_test(model, PrefixTuningConfig(flat=True), ["prefix_tunings.{name}."])
+        self.run_linear_average_test(model, PrefixTuningConfig(flat=True), ["prefix_tunings.{name}."])
 
     def test_delete_prefix_tuning(self):
         model = self.get_model()

@@ -60,6 +60,7 @@ class GPT2DecoderBlockAdaptersMixin:
 
 class GPT2ModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
     support_prompt_tuning = False
+    support_lora_delta_w_svd = False
 
     def init_adapters(self, model_config, adapters_config):
         super().init_adapters(model_config, adapters_config)

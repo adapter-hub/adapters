@@ -68,7 +68,7 @@ class PushAdapterToHubMixin:
         language: Optional[str] = None,
         license: Optional[str] = None,
         metrics: Optional[List[str]] = None,
-        **kwargs
+        **kwargs,
     ):
         # Key remains "adapter-transformers", see: https://github.com/huggingface/huggingface.js/pull/459
         all_tags = {"adapter-transformers"}

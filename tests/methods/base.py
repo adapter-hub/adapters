@@ -81,10 +81,10 @@ class AdapterMethodBaseTestMixin:
 
         model.delete_adapter(name)
 
-    def run_average_test(self, model, adapter_config, filter_keys):
+    def run_linear_average_test(self, model, adapter_config, filter_keys):
         model.eval()
 
-        weights = [0.1, 0.6, 0.3]
+        weights = [-0.2, 0.9, 0.3]
 
         # add adapters to average
         name = "test_adapter_" + adapter_config.__class__.__name__
@@ -103,7 +103,9 @@ class AdapterMethodBaseTestMixin:
                     averaged_weights[base_k] += w * v
 
         # average adapters
-        model.average_adapter(name, [name + f"_{i}" for i in range(len(weights))], weights=weights)
+        model.average_adapter(
+            name, [name + f"_{i}" for i in range(len(weights))], weights=weights, combine_strategy="linear"
+        )
 
         # adapter is correctly added to config
         self.assertTrue(name in model.adapters_config)

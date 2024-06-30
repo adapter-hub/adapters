@@ -53,13 +53,13 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 self.run_leave_out_test(model, adapter_config, self.leave_out_layers)
 
-    def test_average_adapter(self):
+    def test_linear_average_adapter(self):
         model = self.get_model()
         model.eval()
 
         for adapter_config, filter_keys in self.adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-                self.run_average_test(model, adapter_config, filter_keys)
+                self.run_linear_average_test(model, adapter_config, filter_keys)
 
     def test_delete_adapter(self):
         model = self.get_model()

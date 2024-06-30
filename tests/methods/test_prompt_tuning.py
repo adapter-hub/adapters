@@ -10,9 +10,9 @@ class PromptTuningTestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_add_test(model, PromptTuningConfig(prompt_length=10), ["prompt_tunings.{name}."])
 
-    def test_average_prompt_tuning(self):
+    def test_linear_average_prompt_tuning(self):
         model = self.get_model()
-        self.run_average_test(model, PromptTuningConfig(prompt_length=10), ["prompt_tunings.{name}."])
+        self.run_linear_average_test(model, PromptTuningConfig(prompt_length=10), ["prompt_tunings.{name}."])
 
     def test_delete_prompt_tuning(self):
         model = self.get_model()

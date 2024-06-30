@@ -8,7 +8,7 @@ check_dirs := examples tests src utils
 # this target runs checks on all files
 
 quality:
-	black --check --preview $(check_dirs)
+	black --check --preview $(check_dirs) -t py310
 	isort --check-only $(check_dirs)
 	python utils/custom_init_isort.py --check_only
 	python utils/sort_auto_mappings.py --check_only
@@ -24,7 +24,7 @@ extra_style_checks:
 # this target runs checks on all files and potentially modifies some of them
 
 style:
-	black --preview $(check_dirs)
+	black --preview $(check_dirs) -t py310
 	isort $(check_dirs)
 	${MAKE} extra_style_checks
 
