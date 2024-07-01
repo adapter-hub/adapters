@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
-from ..composition import AdapterCompositionBlock, Average, BatchSplit, Parallel, Stack
+from ..composition import Average, BatchSplit, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
 from .utils import dequantize_bnb_weight
@@ -245,35 +245,6 @@ class LoRALayer(AdapterLayerBase):
             return True
 
         return False
-
-    def delete_adapter(self, adapter_name: str):
-        if adapter_name in self.loras:
-            del self.loras[adapter_name]
-
-    def add_fusion_layer(self, adapter_names: Union[List, str]):
-        pass  # not applicable to lora
-
-    def delete_fusion_layer(self, adapter_names: Union[List, str]):
-        pass  # not applicable to lora
-
-    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
-        if unfreeze_adapters:
-            for name in adapter_setup.flatten():
-                if name in self.loras:
-                    for param in self.loras[name].parameters():
-                        param.requires_grad = True
-
-    def freeze_adapter(self, adapter_name: str, freeze: bool = True):
-        if adapter_name in self.loras:
-            self.loras[adapter_name].train(not freeze)
-            for param in self.loras[adapter_name].parameters():
-                param.requires_grad = not freeze
-
-    def get_adapter(self, adapter_name: str) -> nn.Module:
-        if adapter_name in self.loras:
-            return self.loras[adapter_name]
-        else:
-            return None
 
 
 class LoRAState(NamedTuple):

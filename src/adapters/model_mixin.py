@@ -23,6 +23,7 @@ from .methods.lora import LoRALayer
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
+from .methods.reft import init_reft
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc, patch_forward
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
@@ -395,6 +396,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 continue
             if hasattr(module, "init_adapters"):
                 module.init_adapters(model_config, adapters_config)
+
+        # Initialize reft modules
+        init_reft(self)
 
     def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
         """
@@ -980,6 +984,18 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if hasattr(self.base_model, "prefix_tuning"):
             context.prefix_states = self.base_model.prefix_tuning(*args, **kwargs)
 
+        # Read out offsets & seqlens from attention mask
+        if "attention_mask" in kwargs:
+            attention_mask = kwargs["attention_mask"]
+        elif len(args) > 1:
+            attention_mask = args[1]
+        else:
+            attention_mask = None
+        if attention_mask is not None:
+            context.seqlens = (attention_mask == 1).sum(dim=-1).squeeze()
+            # return the first "1" in each row of the attention mask
+            context.offsets = attention_mask.argmax(1)
+
         # Adapter gating and attention outputs
         context.output_adapter_gating_scores = kwargs.get("output_adapter_gating_scores", False)
         context.output_adapter_fusion_attentions = kwargs.get("output_adapter_fusion_attentions", False)
@@ -1319,10 +1335,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     ):
         # Attach adapters_config to model_config to ensure saving with old format.
         self.config.adapters = self.adapters_config.to_dict()
+
+        self.apply_to_adapter_layers(lambda _, layer: layer.pre_save_adapters())
         # Unlink prefix tuning layers to allow safe serialization
         self.apply_to_adapter_layers(
             lambda i, layer: layer.set_pool(None) if isinstance(layer, PrefixTuningLayer) else None
         )
+
         super().save_pretrained(save_directory, **kwargs)
         # Remove adapters config
         del self.config.adapters
