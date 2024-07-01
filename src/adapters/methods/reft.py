@@ -147,9 +147,9 @@ class ReftModule(nn.Module):
 class ReftLayer(AdapterLayerBase, nn.Module):
     adapter_modules_name = "refts"
 
-    def __init__(self, model_config, adapters_config):
+    def __init__(self, location_key: str, model_config, adapters_config):
         super().__init__()
-        self.location_key = "reft"
+        self.location_key = location_key + "_reft"
         self.model_config = model_config
         self.adapters_config = adapters_config
         self.refts = nn.ModuleDict()
@@ -160,6 +160,7 @@ class ReftLayer(AdapterLayerBase, nn.Module):
             adapter_name,
             config_type=ReftConfig,
             layer_idx=self.layer_idx,
+            location_key=self.location_key,
         )
         if reft_config is not None and (reft_config.layers == "all" or self.layer_idx in reft_config.layers):
             reft = ReftModule(
@@ -201,5 +202,5 @@ def hook_fn(module, args, output):
 def init_reft(model):
     for _, layer in model.iter_layers():
         if not hasattr(layer, "reft_layer"):
-            layer.reft_layer = ReftLayer(model.config, model.adapters_config)
+            layer.reft_layer = ReftLayer("output", model.config, model.adapters_config)
             layer.register_forward_hook(hook_fn)

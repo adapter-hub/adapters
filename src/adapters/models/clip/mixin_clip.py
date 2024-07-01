@@ -122,9 +122,9 @@ class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWr
         # Patch for ReFT initialization
         for layer in self.text_model.encoder.layers:
             if not hasattr(layer, "reft_layer"):
-                layer.reft_layer = ReftLayer(model_config.text_config, adapters_config)
+                layer.reft_layer = ReftLayer("output", model_config.text_config, adapters_config)
                 layer.register_forward_hook(hook_fn)
         for layer in self.vision_model.encoder.layers:
             if not hasattr(layer, "reft_layer"):
-                layer.reft_layer = ReftLayer(model_config.vision_config, adapters_config)
+                layer.reft_layer = ReftLayer("output", model_config.vision_config, adapters_config)
                 layer.register_forward_hook(hook_fn)

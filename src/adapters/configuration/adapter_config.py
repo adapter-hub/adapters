@@ -530,6 +530,8 @@ class ReftConfig(AdapterConfig):
 
     architecture: str = "reft"
 
+    output_reft: bool = True
+
 
 @dataclass(eq=False)
 class LoReftConfig(ReftConfig):
