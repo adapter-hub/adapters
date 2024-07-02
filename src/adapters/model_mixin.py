@@ -1235,7 +1235,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def average_adapter(
         self,
         adapter_name: str,
-        adapter_list: List[str] | Dict[str, float],
+        adapter_list: Union[List[str], Dict[str, float]],
         weights: Optional[List[float]] = None,
         combine_strategy: str = "linear",
         normalize_weights: bool = True,
@@ -1334,7 +1334,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def average_head(
         self,
         head_name: str,
-        head_list: List[str] | Dict[str, float],
+        head_list: Union[List[str], Dict[str, float]],
         weights: Optional[List[float]] = None,
         normalize_weights: bool = True,
         overwrite_ok: bool = False,
