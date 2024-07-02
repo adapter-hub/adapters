@@ -47,7 +47,7 @@ class ReftTestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         for adapter_config, filter_keys in self.reft_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-                self.run_average_test(model, adapter_config, filter_keys)
+                self.run_linear_average_test(model, adapter_config, filter_keys)
 
     def test_delete_reft(self):
         model = self.get_model()
