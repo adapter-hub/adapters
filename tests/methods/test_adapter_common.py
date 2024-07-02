@@ -79,7 +79,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
-                model.set_active_adapters([name])
+                model.set_active_adapters(name)
 
                 # adapter is correctly added to config
                 self.assertTrue(name in model.adapters_config)
@@ -128,7 +128,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
-                model.set_active_adapters([name])
+                model.set_active_adapters(name)
 
                 # check if adapter is correctly added to config
                 self.assert_adapter_available(model, name)
@@ -178,7 +178,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
-                model.set_active_adapters([name])
+                model.set_active_adapters(name)
 
                 # adapter is correctly added to config
                 self.assertTrue(name in model.adapters_config)

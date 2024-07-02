@@ -178,13 +178,10 @@ def parse_composition(adapter_composition, level=0, model_type=None) -> AdapterC
         else:
             return adapter_composition
     elif isinstance(adapter_composition, Sequence):
-        # for backwards compatibility
-        if level == 1:
-            block_class = Fuse
-        else:
-            block_class = Stack
-        level = level + 1 if level is not None else None
-        return block_class(*[parse_composition(b, level) for b in adapter_composition])
+        # Functionality of adapter-transformers v1.x
+        raise ValueError(
+            "Passing list objects for adapter activation is no longer supported. Please use Stack or Fuse explicitly."
+        )
     else:
         raise TypeError(adapter_composition)
 

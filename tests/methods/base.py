@@ -46,7 +46,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "test_adapter_" + adapter_config.__class__.__name__
         model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters([name])
+        model.set_active_adapters(name)
         model.to(torch_device)
 
         # adapter is correctly added to config
@@ -67,7 +67,7 @@ class AdapterMethodBaseTestMixin:
         adapter_config = adapter_config.replace(leave_out=leave_out)
         name = "test_adapter_" + adapter_config.__class__.__name__
         model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters([name])
+        model.set_active_adapters(name)
 
         # adapter is correctly added to config
         self.assert_adapter_available(model, name)
@@ -119,7 +119,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "test_adapter_" + adapter_config.__class__.__name__
         model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters([name])
+        model.set_active_adapters(name)
         model.to(torch_device)
 
         # adapter is correctly added to config
@@ -140,7 +140,7 @@ class AdapterMethodBaseTestMixin:
         model.eval()
 
         model.add_adapter("first", config=adapter_config)
-        model.set_active_adapters(["first"])
+        model.set_active_adapters("first")
 
         # adapter is correctly added to config
         name = "first"
@@ -165,7 +165,7 @@ class AdapterMethodBaseTestMixin:
         input_data = self.get_input_samples(config=model.config, dtype=dtype)
 
         # pass 1: set adapter via property
-        model.set_active_adapters([name])
+        model.set_active_adapters(name)
         output_1 = model(**input_data)
 
         # pass 2: set via context
@@ -189,7 +189,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "dummy_adapter"
         model1.add_adapter(name, config=adapter_config)
-        model1.set_active_adapters([name])
+        model1.set_active_adapters(name)
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
 
@@ -331,7 +331,7 @@ class AdapterMethodBaseTestMixin:
         input_data = self.get_input_samples(config=model.config)
 
         # forward in training mode
-        model.set_active_adapters(["test_lora"])
+        model.set_active_adapters("test_lora")
         output_1 = model(**input_data)
 
         # forward in merged mode
