@@ -14,7 +14,7 @@ class CompabilityTestMixin:
         config = SeqBnConfig(non_linearity="gelu")
         name = "dummy"
         model1.add_adapter(name, config=config)
-        model1.set_active_adapters([name])
+        model1.set_active_adapters(name)
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
 
@@ -39,7 +39,7 @@ class CompabilityTestMixin:
         config = SeqBnConfig(non_linearity="gelu")
         name = "dummy"
         model.add_adapter(name, config=config)
-        model.set_active_adapters([name])
+        model.set_active_adapters(name)
         with tempfile.TemporaryDirectory() as temp_dir:
             model.save_adapter(temp_dir, name)
 
