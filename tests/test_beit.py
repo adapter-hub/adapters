@@ -3,15 +3,7 @@ import unittest
 from transformers import BeitConfig
 from transformers.testing_utils import require_torch
 
-from .methods import (
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    PromptTuningTestMixin,
-    UniPELTTestMixin,
-)
+from .methods import AllMethodsTestMixin
 from .test_adapter import VisionAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
@@ -34,13 +26,7 @@ class BeitAdapterTestBase(VisionAdapterTestBase):
 
 @require_torch
 class BeitAdapterTest(
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    PromptTuningTestMixin,
-    UniPELTTestMixin,
+    AllMethodsTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
     PredictionHeadModelTestMixin,

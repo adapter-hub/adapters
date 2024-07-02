@@ -94,10 +94,6 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
 
         return False
 
-    def delete_adapter(self, adapter_name: str):
-        if adapter_name in self.adapters:
-            del self.adapters[adapter_name]
-
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
@@ -141,18 +137,6 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
                     if sub_setup.name in self.adapter_fusion_layer:
                         for param in self.adapter_fusion_layer[sub_setup.name].parameters():
                             param.requires_grad = True
-
-    def freeze_adapter(self, adapter_name: str, freeze: bool = True):
-        if adapter_name in self.adapters:
-            self.adapters[adapter_name].train(not freeze)
-            for param in self.adapters[adapter_name].parameters():
-                param.requires_grad = not freeze
-
-    def get_adapter(self, adapter_name: str):
-        if adapter_name in self.adapters:
-            return self.adapters[adapter_name]
-        else:
-            return None
 
     def get_adapter_fusion(self, adapter_names: Union[List, str]):
         adapter_names = adapter_names if isinstance(adapter_names, str) else ",".join(adapter_names)

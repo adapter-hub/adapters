@@ -123,31 +123,27 @@ class AdapterLayerBase(metaclass=ABCMeta):
                     raise ValueError("Adapter {} not found.".format(name))
 
             # load averaged weights
-            self.adapter_modules[adapter_name].load_state_dict(avg_state_dict)  # TODO
+            self.adapter_modules[adapter_name].load_state_dict(avg_state_dict)
+
             return True
 
         return False
 
-    @abstractmethod
     def delete_adapter(self, adapter_name: str):
         """Deletes an adapter module from the layer.
 
         Args:
             adapter_name (str): The name of the adapter to delete.
         """
-        raise NotImplementedError()
+        if adapter_name in self.adapter_modules:
+            del self.adapter_modules[adapter_name]
 
-    @abstractmethod
     def add_fusion_layer(self, adapter_names: Union[List, str]):
-        # TODO remove this method from the base class
-        raise NotImplementedError()
+        pass  # default implementation does nothing as fusion is not applicable to all methods
 
-    @abstractmethod
     def delete_fusion_layer(self, adapter_names: Union[List, str]):
-        # TODO remove this method from the base class
-        raise NotImplementedError()
+        pass  # default implementation does nothing as fusion is not applicable to all methods
 
-    @abstractmethod
     def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
         """Enables/ disables a set of adapter modules within the layer.
 
@@ -156,16 +152,38 @@ class AdapterLayerBase(metaclass=ABCMeta):
             unfreeze_adapters (bool): Whether to unfreeze the adapters.
             unfreeze_fusion (bool): Whether to unfreeze the fusion layers.
         """
-        raise NotImplementedError()
+        if unfreeze_adapters:
+            for name in adapter_setup.flatten():
+                if name in self.adapter_modules:
+                    for param in self.adapter_modules[name].parameters():
+                        param.requires_grad = True
 
-    @abstractmethod
+    def freeze_adapter(self, adapter_name: str, freeze: bool = True):
+        """Freezes/ unfreezes an adapter module.
+
+        Args:
+            adapter_name (str): The name of the adapter to freeze/ unfreeze.
+            freeze (bool, optional): Whether to freeze the adapter. Defaults to True.
+        """
+        if adapter_name in self.adapter_modules:
+            self.adapter_modules[adapter_name].train(not freeze)
+            for param in self.adapter_modules[adapter_name].parameters():
+                param.requires_grad = not freeze
+
     def get_adapter(self, adapter_name: str) -> nn.Module:
         """Returns the adapter module with the given name.
 
         Args:
             adapter_name (str): The name of the adapter module.
         """
-        raise NotImplementedError()
+        if adapter_name in self.adapter_modules:
+            return self.adapter_modules[adapter_name]
+        else:
+            return None
+
+    def pre_save_adapters(self):
+        """Called before saving the adapters to disk."""
+        pass
 
 
 class ComposableAdapterLayerBase(AdapterLayerBase):
