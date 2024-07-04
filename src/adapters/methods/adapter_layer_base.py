@@ -96,7 +96,7 @@ class AdapterLayerBase(metaclass=ABCMeta):
         Args:
             adapter_name (str): The name of the new (averaged) adapter module to add.
             input_adapters (Dict[str, float]): Dictionary of adapter names and their corresponding weights.
-            combine_strategy (str): The strategy to combine the adapters. Available strategies depend on the used adapter method, see: #TODO insert link
+            combine_strategy (str): The strategy to combine the adapters. Available strategies depend on the used adapter method, see: https://docs.adapterhub.ml/adapter_composition.html#merging-adapters
             **kwargs: Additional arguments that are specific to the combine_strategy. E.g. svd_rank for LoRA.
 
         Returns:
