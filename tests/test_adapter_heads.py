@@ -494,6 +494,37 @@ class PredictionHeadModelTestMixin:
         # Check that the new head was added
         self.assertIn("new_head", model.heads)
 
-        # Compare the weights of the new head with the expected weights
+        # Now, check that the actual weights are the same as the expected weights.
+        # Problem: Some heads might have tied weights. These weights therefore are the same as the embedding weights and are NOT the same as the expected weights dictionary.
+
+        # 1. Identify if a layer has tied weights
+        head1 = model.heads["adapter_0"]
+        tied_weight_keys = set()
+        if head1.get_output_embeddings() and model.config.tie_word_embeddings:
+            output_embeddings = head1.get_output_embeddings()
+
+            # Depending on the head, the tied layer has a different number: Find the layer number of the output embeddings
+            for name, module in head1.named_modules():
+                if module is output_embeddings:
+                    layer_prefix = name + "."
+                    break
+
+            for k, _ in output_embeddings.named_parameters():
+                tied_weight_keys.add(f"{layer_prefix}{k}")
+
+        print(f"tied_weight_keys: {tied_weight_keys}")
+
+        # 2. Compare the weights of the new head with the expected weights
         for k, v in model.heads["new_head"].named_parameters():
-            self.assertTrue(torch.allclose(v, expected_new_head_weights[k]), k)
+            if k not in tied_weight_keys:
+                self.assertTrue(torch.allclose(v, expected_new_head_weights[k]), k)
+
+        # 3. Last check: Ensure that tied weights are actually tied
+        if model.config.tie_word_embeddings:
+            input_embeddings = model.get_input_embeddings()
+            output_embeddings = model.heads["new_head"].get_output_embeddings()
+            if output_embeddings is not None:
+                self.assertTrue(
+                    torch.allclose(input_embeddings.weight, output_embeddings.weight),
+                    "Input and output embeddings are not properly tied",
+                )
