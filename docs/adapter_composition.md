@@ -273,32 +273,34 @@ model.average_adapter(adapter_name="avg", adapter_list=["bottleneck_1", "bottlen
 In this example, the parameters of the three added bottleneck adapters are merged (with weights `-1`, `1.2` and `0.8`, respectively) to create a new adapter `avg`.
 Note that for this to succeed, all averaged adapters must use the same adapter configuration. Compared to output averaging, parameter averaging of adapters has the advantage of not inducing any additional inference time relative to using a single adapter.
 
-All [adapter methods](https://docs.adapterhub.ml/overview.html#table-of-adapter-methods) support linear merging. The weights of the trained adapters are linearly combined: Let us have *n* adapters and let $\Phi_i$ be all the parameters of adapter *i*, and $\lambda_i$ be the corresponding weight. The merged adapter parameters $\Phi_{merged}$ are calculated as:
+All [adapter methods](https://docs.adapterhub.ml/overview.html#table-of-adapter-methods) support linear merging. In linear merging, the weights of the trained adapters are linearly combined: Let us have *n* adapters and let $\Phi_i$ be all the parameters of adapter *i*, and $\lambda_i$ be the corresponding weight. The merged adapter parameters $\Phi_{merged}$ are calculated as:
 
 $$
 \Phi_{merged} = \sum_{i=0}^{N} \lambda_i \Phi_i
 $$
 
-The `average_adapter` method only merges the weights of the adapters but not the heads. To average the weights of the heads, use the `average_head` method.
+The `average_adapter` method only merges the weights of the adapters but does not create a new head. To average the weights of heads, use the `average_head` method.
 
 #### Merging LoRA Adapters
 LoRA introduces $A$ and $B$ matrixes with $\Delta W = BA$. Since the B and A matrices are strongly dependent on each other, there are several ways to merge the weights of LoRA adapters. You can choose the combination method by passing the `combine_strategy` parameter to the `average_adapter` method:
 
 1. `combine_strategy = "linear"`: Linear Combination (default). This has been proposed for LoRA by [Chronopoulou et al. (2023)](https://arxiv.org/abs/2311.09344). With $\Phi = \{A, B\}$:
-$$
-\Phi_{merged} = \sum_{i=0}^{N} \lambda_i \Phi_i
-$$
+    
+    $$
+    \Phi_{merged} = \sum_{i=0}^{N} \lambda_i \Phi_i
+    $$
+
 2. `combine_strategy = "lora_linear_only_negate_b"` Following [Zhang et al. (2023)](https://proceedings.neurips.cc/paper_files/paper/2023/hash/299a08ee712d4752c890938da99a77c6-Abstract-Conference.html), this method only uses negative weights for the B-matrix if the weight is negative:
- $$
-   A_{merged} = \sum_{i=0}^{N} |\lambda_i| A_i
-   $$
- $$
-   B_{merged} = \sum_{i=0}^{N} \lambda_i B_i
-   $$
+
+    $$
+    A_{merged} &= \sum_{i=0}^{N} |\lambda_i| A_i\\
+    B_{merged} &= \sum_{i=0}^{N} \lambda_i B_i
+    $$
+
 3. `combine_strategy = "lora_delta_w_svd"`: This method merges the $\Delta W_i$ of each adapter and then performs a singular value decomposition (SVD) to obtain the *A* and *B* LoRA matrices:
-   1. For every adapter *i* we calculate: $\Delta W_i = B_i \cdot A_i$
-   2. $\Delta W_{new} = \sum_{i=0}^N \lambda_i \cdot W_i$ 
-   3. Perform SVD on $\text{SVD}(\Delta W_{new})$ to obtain $A_{new}$ and $B_{new}$
+    1. For every adapter *i* we calculate: $\Delta W_i = B_i \cdot A_i$
+    2. $\Delta W_{new} = \sum_{i=0}^N \lambda_i \cdot W_i$ 
+    3. Perform SVD on $\text{SVD}(\Delta W_{new})$ to obtain $A_{new}$ and $B_{new}$
 
 `lora_delta_w_svd` is not supported by Deberta and GPT-2. Example usage of these LoRA-specific merging strategies:
 
@@ -319,6 +321,12 @@ model.average_adapter(
 
 For both output and parameter averaging, passed weights are normalized by default. To disable normalization, pass `normalize_weights=False`.
 For more detailed examples and explanations, refer to our [Task Arithmetic notebook](https://github.com/adapter-hub/adapters/tree/main/notebooks/task_arithmetics_in_adapter.ipynb).
+
+
+```{eval-rst}
+.. tip::
+    Adding more adapter merging methods is easy: You have to simply modify the ``average_adapter`` method. Most adapter-methods use the default implementation that only supports linear merging in `model_mixin.py <https://github.com/adapter-hub/adapters/blob/main/src/adapters/model_mixin.py>`_. Others like LoRA overwrite this method to add new merging methods like "lora_delta_w_svd", have a look at `lora.py <https://github.com/adapter-hub/adapters/blob/main/src/adapters/methods/lora.py>`_.
+```
 
 
 ## Nesting composition blocks
