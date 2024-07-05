@@ -143,7 +143,7 @@ class TestAdapterTrainer(unittest.TestCase):
             model.add_adapter("additional_adapter")
             model.add_adapter_fusion(Fuse("adapter", "additional_adapter"))
             model.set_active_adapters(Fuse("adapter", "additional_adapter"))
-            model.train_fusion(Fuse("adapter", "additional_adapter"))
+            model.train_adapter_fusion(Fuse("adapter", "additional_adapter"))
 
             training_args = TrainingArguments(
                 output_dir=tmpdirname,

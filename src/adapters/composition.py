@@ -1,4 +1,5 @@
 import itertools
+import warnings
 from collections.abc import Sequence
 from typing import List, Optional, Set, Tuple, Union
 
@@ -179,9 +180,17 @@ def parse_composition(adapter_composition, level=0, model_type=None) -> AdapterC
             return adapter_composition
     elif isinstance(adapter_composition, Sequence):
         # Functionality of adapter-transformers v1.x
-        raise ValueError(
-            "Passing list objects for adapter activation is no longer supported. Please use Stack or Fuse explicitly."
+        warnings.warn(
+            "Passing list objects for adapter activation is deprecated. Please use Stack or Fuse explicitly.",
+            category=FutureWarning,
         )
+        # for backwards compatibility
+        if level == 1:
+            block_class = Fuse
+        else:
+            block_class = Stack
+        level = level + 1 if level is not None else None
+        return block_class(*[parse_composition(b, level) for b in adapter_composition])
     else:
         raise TypeError(adapter_composition)
 
