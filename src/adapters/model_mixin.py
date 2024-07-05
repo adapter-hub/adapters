@@ -1320,6 +1320,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.config.adapters = self.adapters_config.to_dict()
 
         self.apply_to_adapter_layers(lambda _, layer: layer.pre_save_adapters())
+        # Unlink prefix tuning layers to allow safe serialization
+        self.apply_to_adapter_layers(
+            lambda i, layer: layer.set_pool(None) if isinstance(layer, PrefixTuningLayer) else None
+        )
 
         super().save_pretrained(save_directory, **kwargs)
         # Remove adapters config

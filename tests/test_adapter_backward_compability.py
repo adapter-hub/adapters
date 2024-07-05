@@ -45,4 +45,4 @@ class CompabilityTestMixin:
 
             with open(os.path.join(temp_dir, "adapter_config.json"), "r") as file:
                 data = json.load(file)
-                self.assertEqual(__version__, data["version"])
+                self.assertEqual(__version__, data["version"].replace("adapters.", ""))

@@ -398,11 +398,6 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
 
         return None
 
-    def pre_save_adapters(self):
-        """Called before saving the adapters to disk."""
-        # Unlink prefix tuning layers to allow safe serialization
-        self.set_pool(None)
-
     def vslice(self, state: PrefixTuningState, slice_obj: slice) -> PrefixTuningState:
         if state.idx_slice is None:
             split_idx_slice = slice_obj
