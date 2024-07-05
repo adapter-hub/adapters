@@ -1,7 +1,6 @@
 import inspect
 import logging
 import os
-import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from os.path import join
@@ -483,14 +482,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             self.get_input_embeddings().train()
             self.get_input_embeddings().weight.requires_grad = True
 
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        warnings.warn(
-            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
-            FutureWarning,
-        )
-        self.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
-
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
         self.train()
@@ -610,14 +601,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 module.confirm_prefix(adapter_name)
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.add_invertible_adapter(adapter_name)
-
-    def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
-        warnings.warn(
-            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
-            FutureWarning,
-        )
-        adapter_fusion_config = AdapterFusionConfig.from_dict(adapter_fusion_config).replace(**override_kwargs)
-        self.add_adapter_fusion(adapter_names, adapter_fusion_config)
 
     def add_adapter_fusion(
         self,

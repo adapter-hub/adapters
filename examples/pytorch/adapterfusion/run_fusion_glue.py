@@ -27,7 +27,7 @@ from typing import Dict, Optional
 import numpy as np
 
 import adapters
-from adapters import AdapterArguments, AdapterTrainer
+from adapters import AdapterArguments, AdapterTrainer, Fuse
 from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer, EvalPrediction, GlueDataset
 from transformers import GlueDataTrainingArguments as DataTrainingArguments
 from transformers import (
@@ -162,28 +162,26 @@ def main():
     model.load_adapter("qa/boolq@ukp", config=SeqBnConfig(), with_head=False)
     model.load_adapter("sentiment/imdb@ukp", config=SeqBnConfig(), with_head=False)
 
-    adapter_setup = [
-        [
-            "sst-2",
-            "mnli",
-            "rte",
-            "mrpc",
-            "qqp",
-            "cosmosqa",
-            "csqa",
-            "hellaswag",
-            "socialiqa",
-            "winogrande",
-            "cb",
-            "sick",
-            "scitail",
-            "boolq",
-            "imdb",
-        ]
-    ]
+    adapter_setup = Fuse(
+        "sst-2",
+        "mnli",
+        "rte",
+        "mrpc",
+        "qqp",
+        "cosmosqa",
+        "csqa",
+        "hellaswag",
+        "socialiqa",
+        "winogrande",
+        "cb",
+        "sick",
+        "scitail",
+        "boolq",
+        "imdb",
+    )
 
     # Add a fusion layer and tell the model to train fusion
-    model.add_adapter_fusion(adapter_setup[0], "dynamic")
+    model.add_adapter_fusion(adapter_setup, "dynamic")
     model.train_adapter_fusion(adapter_setup)
 
     # ~~~~~ Rest is again same as in standard training setup ~~~~~
