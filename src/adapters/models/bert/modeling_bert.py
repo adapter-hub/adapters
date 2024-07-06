@@ -213,6 +213,7 @@ class BertSdpaSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, BertSdpa
             key_layer, value_layer, hidden_states, attention_mask
         )
         (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
+        bsz = query_layer.size(0)
 
         # SDPA with memory-efficient backend is broken in torch==2.1.2 when using non-contiguous inputs and a custom
         # attn_mask, so we need to call `.contiguous()` here. This was fixed in torch==2.2.0.
