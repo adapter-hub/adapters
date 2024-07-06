@@ -157,6 +157,8 @@ class BertSdpaSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, BertSdpa
         past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
+        attention_mask = prefix_attention_mask(attention_mask, [2, 3])  # type: ignore
+
         if self.position_embedding_type != "absolute" or output_attentions or head_mask is not None:
             # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"` once implemented.
             logger.warning_once(

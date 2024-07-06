@@ -865,7 +865,7 @@ def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInf
         raise ValueError("Please specify either 'ah' or 'hf' as source.")
 
 
-def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
+def prefix_attention_mask(attention_mask, dim: Union[int, List[int]] = 3, prefix_value: int = 0):
     """
     Adds a prefix to an attention mask. The length of the prefix is determined by the `prefix_attention_mask_length`
     attribute in the ForwardContext.
@@ -890,18 +890,21 @@ def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
         and forward_context is not None
         and getattr(forward_context, "prompt_tokens_length", None) is not None
     ):
-        # Create a tensor of ones with the desired shape
-        ones_shape = list(attention_mask.shape)
-        ones_shape[dim] = forward_context.prompt_tokens_length
+        if isinstance(dim, int):
+            dim = [dim]
+        for d in dim:
+            # Create a tensor of ones with the desired shape
+            ones_shape = list(attention_mask.shape)
+            ones_shape[d] = forward_context.prompt_tokens_length
 
-        prefix_attention_mask = torch.full(
-            ones_shape,
-            prefix_value,
-            dtype=attention_mask.dtype,
-        ).to(attention_mask.device)
+            prefix_attention_mask = torch.full(
+                ones_shape,
+                prefix_value,
+                dtype=attention_mask.dtype,
+            ).to(attention_mask.device)
 
-        # Concatenate the prefix_attention_mask along the specified dimension
-        attention_mask = torch.cat((prefix_attention_mask, attention_mask), dim=dim)
+            # Concatenate the prefix_attention_mask along the specified dimension
+            attention_mask = torch.cat((prefix_attention_mask, attention_mask), dim=d)
 
     return attention_mask
 
