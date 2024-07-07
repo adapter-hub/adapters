@@ -4,15 +4,7 @@ from transformers import ViTConfig
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
-from .methods import (
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    PromptTuningTestMixin,
-    UniPELTTestMixin,
-)
+from .methods import AllMethodsTestMixin
 from .test_adapter import VisionAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
@@ -35,13 +27,7 @@ class ViTAdapterTestBase(VisionAdapterTestBase):
 
 @require_torch
 class ViTAdapterTest(
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    PromptTuningTestMixin,
-    UniPELTTestMixin,
+    AllMethodsTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
     PredictionHeadModelTestMixin,

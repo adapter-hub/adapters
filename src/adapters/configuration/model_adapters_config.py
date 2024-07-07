@@ -237,5 +237,6 @@ def build_full_config(adapter_config, model_config, save_id2label=False, **kwarg
         config_dict["config"] = adapter_config.to_dict()
     else:
         config_dict["config"] = adapter_config
-    config_dict["version"] = __version__
+    # add lib name before version to distinguish from adapter-transformers
+    config_dict["version"] = "adapters." + __version__
     return config_dict

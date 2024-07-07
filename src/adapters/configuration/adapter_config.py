@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, replace
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from ..utils import resolve_adapter_config
 
@@ -86,6 +86,8 @@ class AdapterConfig(Mapping):
             cls_new = ConfigUnion
         elif architecture == "prompt_tuning":
             cls_new = PromptTuningConfig
+        elif architecture == "reft":
+            cls_new = ReftConfig
         else:
             cls_new = BnConfig
 
@@ -497,6 +499,83 @@ class IA3Config(LoRAConfig):
     use_gating: bool = False
 
 
+@dataclass(eq=False)
+class ReftConfig(AdapterConfig):
+    """
+    Base class for Representation Fine-Tuning (ReFT) methods proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
+    ReFT methods have in common that they add "interventions" after selected model layers and at selected sequence positions to adapt the representations produced by module outputs.
+
+    Args:
+        layers (Union[Literal["all"], List[int]]): The IDs of the layers where interventions should be added.
+            If "all", interventions are added after all layers (default).
+        prefix_positions (int): The number of prefix positions to add interventions to.
+        suffix_positions (int): The number of suffix positions to add interventions to.
+        r (int): The rank of the intervention layer.
+        orthogonality (bool): If True, enforce an orthogonality constraint for the projection matrix.
+        tied_weights (bool): If True, share intervention parameters between prefix and suffix positions in each layer.
+        subtract_projection (bool): If True, subtract the projection of the input.
+        dropout (float): The dropout rate used in the intervention layer.
+        non_linearity (str): The activation function used in the intervention layer.
+    """
+
+    layers: Union[Literal["all"], List[int]]
+    prefix_positions: int
+    suffix_positions: int
+    r: int
+    orthogonality: bool
+    tied_weights: bool = False
+    subtract_projection = True
+    dropout: float = 0.05
+    non_linearity: Optional[str] = None
+
+    architecture: str = "reft"
+
+    output_reft: bool = True
+
+
+@dataclass(eq=False)
+class LoReftConfig(ReftConfig):
+    """
+    Low-Rank Linear Subspace ReFT method proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
+    """
+
+    layers: Union[Literal["all"], List[int]] = "all"
+    prefix_positions: int = 3
+    suffix_positions: int = 0
+    r: int = 1
+    orthogonality: bool = True
+    tied_weights: bool = False
+
+
+@dataclass(eq=False)
+class NoReftConfig(ReftConfig):
+    """
+    Variation of LoReft without orthogonality constraint.
+    """
+
+    layers: Union[Literal["all"], List[int]] = "all"
+    prefix_positions: int = 3
+    suffix_positions: int = 0
+    r: int = 1
+    orthogonality: bool = False
+    tied_weights: bool = False
+
+
+@dataclass(eq=False)
+class DiReftConfig(ReftConfig):
+    """
+    Variation of LoReft without orthogonality constraint and projection subtraction as proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
+    """
+
+    layers: Union[Literal["all"], List[int]] = "all"
+    prefix_positions: int = 3
+    suffix_positions: int = 0
+    r: int = 1
+    orthogonality: bool = False
+    tied_weights: bool = False
+    subtract_projection = False
+
+
 class ConfigUnion(AdapterConfig):
     """
     Composes multiple adaptation method configurations into one. This class can be used to define complex adaptation
@@ -650,6 +729,9 @@ ADAPTER_CONFIG_MAP = {
     "prompt_tuning": PromptTuningConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
+    "loreft": LoReftConfig(),
+    "noreft": NoReftConfig(),
+    "direft": DiReftConfig(),
     "mam": MAMConfig(),
     "unipelt": UniPELTConfig(),
 }
