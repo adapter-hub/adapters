@@ -1,4 +1,4 @@
-from typing import Dict, List, NamedTuple, Optional, Union
+from typing import Dict, List, NamedTuple, Optional
 
 import torch
 import torch.nn.functional as F
@@ -373,12 +373,6 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
             del self.prefixes[adapter_name]
         if adapter_name in self.prefix_gates:
             del self.prefix_gates[adapter_name]
-
-    def add_fusion_layer(self, adapter_names: Union[List, str]):
-        pass  # not applicable to prefix tuning
-
-    def delete_fusion_layer(self, adapter_names: Union[List, str]):
-        pass  # not applicable to prefix tuning
 
     def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
         if unfreeze_adapters:

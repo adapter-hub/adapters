@@ -132,6 +132,7 @@ class VisionAdapterTestBase(AdapterTestBase):
             "./tests/fixtures/samples/cifar10",
             data_dir="./tests/fixtures/samples/cifar10",
             split="train",
+            trust_remote_code=True,
         )
         dataset = dataset.with_transform(transform)
 

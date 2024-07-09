@@ -13,6 +13,15 @@
 Encoder Decoder Models
 -----------------------------------------------------------------------------------------------------------------------
 
+.. note::
+    Adapter implementation notes:
+        - Unlike other models, an explicit EncoderDecoderAdapterModel for the EncoderDecoderModel has not been implemented. This decision was made due to the lack of support for the EncoderDecoderModel in Hugging Face Transformers' ``AutoModel`` class. As a result, our ``AutoAdapterModel`` class would not support the EncoderDecoderAdapterModel either. Thus, to use an EncoderDecoderModel with *Adapters*, follow these steps:
+
+            1. First, create an :class:`~transformers.EncoderDecoderModel` instance, for example, using ``model = EncoderDecoderModel.from_encoder_decoder_pretrained("bert-base-uncased", "bert-base-uncased")``.
+            2. Next, convert this model to an adapter model using the ``adapters.init(model)`` function.
+
+        - Adapters can be added to both the encoder and the decoder. As usual, the ``leave_out`` parameter can be used to specify the layers where adapters are to be added. For the EncoderDecoderModel the layer IDs are counted seperately over the encoder and decoder starting from 0. Thus, specifying ``leave_out=[0,1]`` will leave out the first and second layer of the encoder and the first and second layer of the decoder.
+
 The :class:`~transformers.EncoderDecoderModel` can be used to initialize a sequence-to-sequence model with any
 pretrained autoencoding model as the encoder and any pretrained autoregressive model as the decoder.
 
@@ -26,20 +35,6 @@ any other models (see the examples for more information).
 An application of this architecture could be to leverage two pretrained :class:`~transformers.BertModel` as the encoder
 and decoder for a summarization model as was shown in: `Text Summarization with Pretrained Encoders
 <https://arxiv.org/abs/1908.08345>`__ by Yang Liu and Mirella Lapata.
-
-.. note::
-    Adapter implementation notes:
-        - Unlike other models, an explicit EncoderDecoderAdapterModel for the EncoderDecoderModel has not been implemented. This decision was made due to the lack of support for the EncoderDecoderModel in Hugging Face Transformers' ``AutoModel`` class. As a result, our ``AutoAdapterModel`` class would not support the EncoderDecoderAdapterModel either. Thus, to use an EncoderDecoderModel with *Adapters*, follow these steps:
-
-            1. First, create an :class:`~transformers.EncoderDecoderModel` instance, for example, using ``model = EncoderDecoderModel.from_encoder_decoder_pretrained("bert-base-uncased", "bert-base-uncased")``.
-            2. Next, convert this model to an adapter model using the ``adapters.init(model)`` function.
-
-        - Adapters can be added to both the encoder and the decoder. As usual, the ``leave_out`` parameter can be used to specify the layers where adapters are to be added. For the EncoderDecoderModel the layer IDs are counted seperately over the encoder and decoder starting from 0. Thus, specifying ``leave_out=[0,1]`` will leave out the first and second layer of the encoder and the first and second layer of the decoder.
-
-.. note::
-    This class is nearly identical to the PyTorch implementation of DistilBERT in Huggingface Transformers.
-    For more information, visit `the corresponding section in their documentation <https://huggingface.co/docs/transformers/model_doc/distilbert>`_.
-
 
 EncoderDecoderModel
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

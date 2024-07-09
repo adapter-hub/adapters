@@ -8,6 +8,8 @@ from .base import PredictionHead
 
 
 class CausalLMHead(PredictionHead):
+    _tied_weights_keys = []
+
     def __init__(
         self,
         model,
@@ -66,6 +68,7 @@ class CausalLMHead(PredictionHead):
                 bias=self.config["bias"],
             ),
         )
+        self._tied_weights_keys.append(f"{len(pred_head)}.*")
 
         self.apply(model._init_weights)
         self.train(model.training)  # make sure training mode is consistent

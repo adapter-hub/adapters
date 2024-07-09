@@ -7,10 +7,9 @@ import adapters
 from adapters import ADAPTER_CONFIG_MAP, AdapterConfig, BertAdapterModel, get_adapter_config_hash
 from adapters.trainer import AdapterTrainer as Trainer
 from adapters.utils import find_in_index
-from transformers import (  # get_adapter_config_hash,
+from transformers import (
     AutoModel,
     AutoTokenizer,
-    BertForSequenceClassification,
     GlueDataset,
     GlueDataTrainingArguments,
     TrainingArguments,
@@ -50,7 +49,7 @@ class AdapterHubTest(unittest.TestCase):
         for config in ["pfeiffer", "houlsby"]:
             with self.subTest(config=config):
                 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-                model = BertForSequenceClassification.from_pretrained("bert-base-uncased")
+                model = BertAdapterModel.from_pretrained("bert-base-uncased")
                 adapters.init(model)
 
                 loading_info = {}
@@ -85,7 +84,7 @@ class AdapterHubTest(unittest.TestCase):
                     args=training_args,
                     eval_dataset=eval_dataset,
                     compute_metrics=self._compute_glue_metrics("mrpc"),
-                    adapter_names=["mrpc"],
+                    adapter_names="mrpc",
                 )
                 result = trainer.evaluate()
                 self.assertGreater(result["eval_acc"], 0.9)

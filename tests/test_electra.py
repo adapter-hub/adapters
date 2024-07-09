@@ -5,15 +5,7 @@ from transformers import ElectraConfig
 from transformers.testing_utils import require_torch
 
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
-from .methods import (
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    PromptTuningTestMixin,
-    UniPELTTestMixin,
-)
+from .methods import AllMethodsTestMixin
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
@@ -37,13 +29,7 @@ class ElectraAdapterTestBase(AdapterTestBase):
 
 @require_torch
 class ElectraAdapterTest(
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    PromptTuningTestMixin,
-    UniPELTTestMixin,
+    AllMethodsTestMixin,
     EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,

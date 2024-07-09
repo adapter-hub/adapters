@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.2.1"
+__version__ = "1.0.0.dev0"
 
 from typing import TYPE_CHECKING
 
@@ -45,16 +45,20 @@ _import_structure = {
         "CompacterConfig",
         "CompacterPlusPlusConfig",
         "ConfigUnion",
+        "DiReftConfig",
         "DoubleSeqBnConfig",
         "DoubleSeqBnInvConfig",
         "DynamicAdapterFusionConfig",
         "IA3Config",
         "LoRAConfig",
+        "LoReftConfig",
         "MAMConfig",
         "ModelAdaptersConfig",
+        "NoReftConfig",
         "ParBnConfig",
         "PrefixTuningConfig",
         "PromptTuningConfig",
+        "ReftConfig",
         "SeqBnConfig",
         "SeqBnInvConfig",
         "StaticAdapterFusionConfig",
@@ -155,16 +159,20 @@ if TYPE_CHECKING:
         CompacterConfig,
         CompacterPlusPlusConfig,
         ConfigUnion,
+        DiReftConfig,
         DoubleSeqBnConfig,
         DoubleSeqBnInvConfig,
         DynamicAdapterFusionConfig,
         IA3Config,
         LoRAConfig,
+        LoReftConfig,
         MAMConfig,
         ModelAdaptersConfig,
+        NoReftConfig,
         ParBnConfig,
         PrefixTuningConfig,
         PromptTuningConfig,
+        ReftConfig,
         SeqBnConfig,
         SeqBnInvConfig,
         StaticAdapterFusionConfig,

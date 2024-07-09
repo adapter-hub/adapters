@@ -1,7 +1,6 @@
 import inspect
 import logging
 import os
-import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from os.path import join
@@ -23,6 +22,7 @@ from .methods.lora import LoRALayer
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
+from .methods.reft import init_reft
 from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc, patch_forward
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
@@ -366,7 +366,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     add_base_adapters = False
     support_prompt_tuning = True  # If False, the prompt tuning layer is not added to the model. If True, the prompt tuning layer is added if add_base_adapters is True.
-    _tied_weights_keys = ["prompt_tuning.base_model_embeddings.*"]
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
@@ -374,6 +373,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def _link_prefix_to_pool(self, layer):
         if isinstance(layer, PrefixTuningLayer):
             layer.set_pool(self.base_model.prefix_tuning)
+
+    def _add_tied_weights_keys(self):
+        """Internal method to add adapter-specific keys to the list of tied weights keys."""
+        if self.base_model.support_prompt_tuning:
+            prompt_tied_weights_keys = ["prompt_tuning.base_model_embeddings.*"]
+            if self._tied_weights_keys is not None:
+                self._tied_weights_keys += prompt_tied_weights_keys
+            else:
+                self._tied_weights_keys = prompt_tied_weights_keys
 
     @property
     def model_name(self):
@@ -387,6 +395,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 continue
             if hasattr(module, "init_adapters"):
                 module.init_adapters(model_config, adapters_config)
+
+        # Initialize reft modules
+        init_reft(self)
 
     def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
         """
@@ -418,6 +429,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         if isinstance(self, EmbeddingAdaptersMixin):
             self.loaded_embeddings["default"] = self.get_input_embeddings()
+
+        self._add_tied_weights_keys()
 
     # These methods have to be implemented by every deriving class:
 
@@ -468,14 +481,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if train_embeddings:
             self.get_input_embeddings().train()
             self.get_input_embeddings().weight.requires_grad = True
-
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        warnings.warn(
-            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
-            FutureWarning,
-        )
-        self.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
@@ -596,14 +601,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 module.confirm_prefix(adapter_name)
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.add_invertible_adapter(adapter_name)
-
-    def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
-        warnings.warn(
-            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
-            FutureWarning,
-        )
-        adapter_fusion_config = AdapterFusionConfig.from_dict(adapter_fusion_config).replace(**override_kwargs)
-        self.add_adapter_fusion(adapter_names, adapter_fusion_config)
 
     def add_adapter_fusion(
         self,
@@ -795,9 +792,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     saved will be used.
             source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
 
-                - "ah" (default): search on AdapterHub.
-                - "hf": search on HuggingFace model hub.
-                - None: search on all sources
+                - "ah": search on AdapterHub Hub repo.
+                    Note: the Hub repo has been archived and all adapters have been moved to HuggingFace Model Hub.
+                    Loading from this source is deprecated.
+                - "hf": search on HuggingFace Model Hub.
+                - None (default): search on all sources
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
             set_active (bool, optional):
                 Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not
@@ -967,6 +966,18 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         if hasattr(self.base_model, "prefix_tuning"):
             context.prefix_states = self.base_model.prefix_tuning(*args, **kwargs)
+
+        # Read out offsets & seqlens from attention mask
+        if "attention_mask" in kwargs:
+            attention_mask = kwargs["attention_mask"]
+        elif len(args) > 1:
+            attention_mask = args[1]
+        else:
+            attention_mask = None
+        if attention_mask is not None:
+            context.seqlens = (attention_mask == 1).sum(dim=-1).squeeze()
+            # return the first "1" in each row of the attention mask
+            context.offsets = attention_mask.argmax(1)
 
         # Adapter gating and attention outputs
         context.output_adapter_gating_scores = kwargs.get("output_adapter_gating_scores", False)
@@ -1309,6 +1320,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     ):
         # Attach adapters_config to model_config to ensure saving with old format.
         self.config.adapters = self.adapters_config.to_dict()
+
+        self.apply_to_adapter_layers(lambda _, layer: layer.pre_save_adapters())
+        # Unlink prefix tuning layers to allow safe serialization
+        self.apply_to_adapter_layers(
+            lambda i, layer: layer.set_pool(None) if isinstance(layer, PrefixTuningLayer) else None
+        )
+
         super().save_pretrained(save_directory, **kwargs)
         # Remove adapters config
         del self.config.adapters

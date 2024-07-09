@@ -60,7 +60,7 @@ _deps = [
     "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch>=1.10,!=1.12.0",
-    "transformers~=4.39.3",
+    "transformers~=4.40.2",
 ]
 
 
@@ -142,7 +142,7 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="0.2.1",
+    version="1.0.0.dev0",
     author="The AdapterHub team and community contributors",
     author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",

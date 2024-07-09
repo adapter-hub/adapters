@@ -62,6 +62,23 @@ PromptTuningConfig
     :members:
     :inherited-members: Mapping
 
+
+ReFT
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.ReftConfig
+    :members:
+    :inherited-members: Mapping
+
+.. autoclass:: adapters.LoReftConfig
+    :members:
+
+.. autoclass:: adapters.NoReftConfig
+    :members:
+
+.. autoclass:: adapters.DiReftConfig
+    :members:
+
 Combined configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
