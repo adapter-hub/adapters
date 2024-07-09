@@ -47,12 +47,7 @@ class EmbeddingTestMixin:
 
     def test_save_load_embedding(self):
         model = self.get_model()
-        if self.is_speech_model:
-            tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
-            input_data = self.get_input_samples(config=self.config())
-        else:
-            tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
-            input_data = self.get_input_samples((1, 128), vocab_size=tokenizer.vocab_size, config=model.config)
+        tokenizer, input_data = self._instantiate_tokenizer(model)
         model.add_embeddings("test", tokenizer)
         model.eval()
         model.to(torch_device)
@@ -75,12 +70,7 @@ class EmbeddingTestMixin:
     def test_back_to_default(self):
         model = self.get_model()
         model.eval()
-        if self.is_speech_model:
-            tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
-            input_data = self.get_input_samples(config=self.config())
-        else:
-            input_data = self.get_input_samples((1, 128), config=model.config)
-            tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
+        tokenizer, input_data = self._instantiate_tokenizer(model)
         output1 = model(**input_data)
         model.add_embeddings("test", tokenizer)
         self.assertEqual(model.active_embeddings, "test")
@@ -184,3 +174,14 @@ class EmbeddingTestMixin:
         # activate for training
         model.add_adapter("test")
         model.train_adapter("test", train_embeddings=True)
+
+    def _instantiate_tokenizer(self, model):
+        """Depending on the model type, instantiate a tokenizer and input data.
+        Speech models require a different tokenizer and sample size."""
+        if self.is_speech_model:
+            tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
+            input_data = self.get_input_samples(config=self.config())
+        else:
+            tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
+            input_data = self.get_input_samples((1, 128), vocab_size=tokenizer.vocab_size, config=model.config)
+        return tokenizer, input_data

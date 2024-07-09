@@ -98,9 +98,6 @@ class AdapterTestBase:
 
 class VisionAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (3, 3, 224, 224)
-    is_speech_model = (
-        False  # Flag for tests to determine if the model is a speech model due to input format difference
-    )
 
     def get_input_samples(self, shape=None, config=None, dtype=torch.float, **kwargs):
         shape = shape or self.default_input_samples_shape
@@ -147,6 +144,7 @@ class SpeechAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (3, 80, 3000)  # (batch_size, n_mels, enc_seq_len)
     is_speech_model = True  # Flag for tests to determine if the model is a speech model due to input format difference
     time_window = 3000  # Time window for audio samples
+    seq_length = 80
 
     def add_head(self, model, name, head_type="seq2seq_lm", **kwargs):
         """Adds a head to the model."""
@@ -186,10 +184,6 @@ class SpeechAdapterTestBase(AdapterTestBase):
 
     def dataset(self, feature_extractor=None, processor=None, tokenizer=None, task_type: str = "seq2seq_lm", **kwargs):
         """Returns a dataset to test speech model training. Standard dataset is for seq2seq_lm."""
-        return self._prep_dataset(task_type, **kwargs)
-
-    def _prep_dataset(self, task_type: str, **kwargs):
-        """Returns the appropriate dataset for the given task type."""
         if task_type == "seq2seq_lm":
             return self._prep_seq2seq_lm_dataset(task_type, **kwargs)
         elif task_type == "audio_classification":

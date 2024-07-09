@@ -716,8 +716,26 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "generator_lm_head",
         ],
     },
-    # Whisper
-    # TODO: Add Whisper heads
+    "WhisperForConditionalGeneration": {
+        "config": {
+            "head_type": "seq2seq_lm",
+            "layers": 1,
+            "activation_function": None,
+            "layer_norm": False,
+            "bias": True,
+        },
+        "layers": ["proj_out "],
+    },
+    "WhisperForCausalLM": {
+        "config": {
+            "head_type": "causal_lm",
+            "layers": 1,
+            "activation_function": None,
+            "layer_norm": False,
+            "bias": True,
+        },
+        "layers": ["proj_out "],
+    },
 }
 
 

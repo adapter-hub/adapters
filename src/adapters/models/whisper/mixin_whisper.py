@@ -121,7 +121,6 @@ class WhisperDecoderWrapperAdaptersMixin(EmbeddingAdaptersWrapperMixin, ModelBas
         return self.decoder.get_input_embeddings()
 
 
-# Stating "input_features" and "labels" explicitly is required for training using Trainer class
 class WhisperForAudioClassificationWithHeadsMixin(ModelWithHeadsAdaptersMixin, WhisperModelAdaptersMixin):
     """Adds adapters to the WhisperForAudioClassification class.
     This class is used to enable adapter capabilities for the static WhisperForAudioClassification model from the
@@ -134,4 +133,5 @@ class WhisperForAudioClassificationWithHeadsMixin(ModelWithHeadsAdaptersMixin, W
         labels: Optional[torch.LongTensor] = None,
         **kwargs
     ):
+        # Stating "input_features" and "labels" explicitly is required for training using Trainer class
         return super().forward(*args, input_features=input_features, labels=labels, **kwargs)

@@ -47,7 +47,6 @@ class PredictionHeadModelTestMixin:
         # make a forward pass
         model.active_head = head_name
         if self.is_speech_model:
-            self.seq_length = 80
             input_shape = input_shape or (self.batch_size, self.seq_length, self.time_window)
         else:
             input_shape = input_shape or (self.batch_size, self.seq_length)
@@ -184,9 +183,6 @@ class PredictionHeadModelTestMixin:
 
         model1, model2 = create_twin_models(AutoAdapterModel, self.config)
         model1.add_seq2seq_lm_head("dummy")
-
-        if self.is_speech_model:
-            self.seq_length = 80
 
         label_dict = {}
         label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)

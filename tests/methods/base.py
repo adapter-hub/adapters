@@ -10,7 +10,6 @@ from adapters.heads import CausalLMHead
 from adapters.utils import WEIGHTS_NAME
 from adapters.wrappers import load_model
 from transformers import TrainingArguments
-from transformers.modeling_outputs import Seq2SeqLMOutput, Seq2SeqModelOutput
 from transformers.testing_utils import require_torch, torch_device
 
 
@@ -369,11 +368,3 @@ class AdapterMethodBaseTestMixin:
         # check forward pass
         self.assertEqual(len(output_1), len(output_2))
         self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))
-
-
-def extract_tensor_from_ModelOutput_class(output):
-    """Extracts the output tensor from a ModelOutput object of Hugging Face."""
-    if isinstance(output, Seq2SeqLMOutput):
-        return output.logits
-    if isinstance(output, Seq2SeqModelOutput):
-        return output.logits

@@ -1,5 +1,3 @@
-import torch
-
 from transformers.models.whisper.modeling_whisper import (
     WHISPER_INPUTS_DOCSTRING,
     WHISPER_START_DOCSTRING,
@@ -79,7 +77,9 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         if "labels" in kwargs:
             use_cache = False
             if decoder_input_ids is None and decoder_inputs_embeds is None:
-                decoder_input_ids = self.prepare_decoder_input_ids_from_labels(labels=kwargs["labels"])
+                decoder_input_ids = shift_tokens_right(
+                    kwargs["labels"], self.config.pad_token_id, self.config.decoder_start_token_id
+                )
 
         outputs, context = self.model(
             input_features=input_features,
@@ -117,9 +117,6 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         )
 
         return head_outputs
-
-    def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
-        return shift_tokens_right(labels, self.config.pad_token_id, self.config.decoder_start_token_id)
 
     # Copied from WhisperForConditionalGeneration
     def prepare_inputs_for_generation(
