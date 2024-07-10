@@ -16,7 +16,6 @@ from .methods import create_twin_models
 @require_torch
 class PredictionHeadModelTestMixin:
     batch_size = 1
-    seq_length = 128
 
     def run_prediction_head_test(
         self,
@@ -46,10 +45,7 @@ class PredictionHeadModelTestMixin:
 
         # make a forward pass
         model.active_head = head_name
-        if self.is_speech_model:
-            input_shape = input_shape or (self.batch_size, self.seq_length, self.time_window)
-        else:
-            input_shape = input_shape or (self.batch_size, self.seq_length)
+        input_shape = input_shape if input_shape is not None else self._get_input_shape()
         in_data = self.get_input_samples(
             input_shape, config=model.config, num_labels=num_labels, with_labels=with_labels
         )
@@ -201,12 +197,11 @@ class PredictionHeadModelTestMixin:
         )
 
         # Finally, also check if generation works properly
+        input_shape = self._get_input_shape()
         if self.is_speech_model:
-            input_ids = self.get_input_samples(
-                (self.batch_size, self.seq_length, self.time_window), config=model1.config
-            )["input_features"]
+            input_ids = self.get_input_samples(input_shape, config=model1.config)["input_features"]
         else:
-            input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
+            input_ids = self.get_input_samples(input_shape, config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
         # Use a different length for the seq2seq output
         seq_output_length = self.seq_length + 30
@@ -446,11 +441,8 @@ class PredictionHeadModelTestMixin:
         self.assertIsNotNone(inv_adapter)
         inv_adapter.register_forward_pre_hook(forward_pre_hook)
 
-        if self.is_speech_model:
-            self.seq_length = 80
-            in_data = self.get_input_samples((self.batch_size, self.seq_length, self.time_window), config=model.config)
-        else:
-            in_data = self.get_input_samples((self.batch_size, self.seq_length), config=model.config)
+        input_shape = self._get_input_shape()
+        in_data = self.get_input_samples(input_shape, config=model.config)
         model.to(torch_device)
         out = model(**in_data)
 
@@ -498,3 +490,14 @@ class PredictionHeadModelTestMixin:
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_all_adapters(tmp_dir, with_head=False)
             self.assertFalse(os.path.isfile(os.path.join(tmp_dir, "test", "head_config.json")))
+
+    def _get_input_shape(self):
+        # default seq length if not specified otherwise
+        if self.seq_length is None:
+            self.seq_length = 128
+        # speech models require a different input dimensions compared to text models
+        if self.is_speech_model:
+            input_shape = (self.batch_size, self.seq_length, self.time_window)
+        else:
+            input_shape = (self.batch_size, self.seq_length)
+        return input_shape
