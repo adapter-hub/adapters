@@ -528,3 +528,23 @@ class PredictionHeadModelTestMixin:
                     torch.allclose(input_embeddings.weight, output_embeddings.weight),
                     "Input and output embeddings are not properly tied",
                 )
+
+    def test_tied_head_weights(self):
+        # Some heads tie the weights of the last layer to the input embeddings. This test checks that these weights are not trained, except when setting train_embeddings=True
+        model = AutoAdapterModel.from_config(self.config())
+        model.eval()
+
+        # Check if model has add_masked_lm_head method
+        if "masked_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
+            self.skipTest("Model does not have masked language model head, skip test")
+
+        model.add_adapter("mlm")
+        model.add_masked_lm_head("mlm")
+
+        # 1. No training of embeddings => weights should not change
+        model.train_adapter("mlm")
+        self.assertFalse(model.heads["mlm"].get_output_embeddings().weight.requires_grad)
+
+        # 2. Training of embeddings => weights should change
+        model.train_adapter("mlm", train_embeddings=True)
+        self.assertTrue(model.heads["mlm"].get_output_embeddings().weight.requires_grad)

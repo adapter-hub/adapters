@@ -1645,6 +1645,9 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             super().train_adapter(adapter_setup, train_embeddings)
         else:
             self.base_model.train_adapter(adapter_setup, train_embeddings)
+
+        # If the head has tied weights with the embedding layer (e.g. masked language modeling head), the last layer is
+        # only trained when train_embeddings is set to True
         if not train_embeddings:
             self.freeze_embeddings()
 
