@@ -39,6 +39,9 @@ class AdapterTestBase:
     default_input_samples_shape = (3, 64)
     leave_out_layers = [0, 1]
     do_run_train_tests = True
+    # default arguments for test_adapter_heads
+    batch_size = 1
+    seq_length = 128
     is_speech_model = (
         False  # Flag for tests to determine if the model is a speech model due to input format difference
     )

@@ -15,8 +15,6 @@ from .methods import create_twin_models
 
 @require_torch
 class PredictionHeadModelTestMixin:
-    batch_size = 1
-    seq_length = 128
 
     def run_prediction_head_test(
         self,
@@ -495,7 +493,6 @@ class PredictionHeadModelTestMixin:
     def _get_input_shape(self):
         # speech models require a different input dimensions compared to text models
         if self.is_speech_model:
-            self.seq_length = 80
             input_shape = (self.batch_size, self.seq_length, self.time_window)
         else:
             input_shape = (self.batch_size, self.seq_length)
