@@ -15,7 +15,6 @@ from .methods import create_twin_models
 
 @require_torch
 class PredictionHeadModelTestMixin:
-
     def run_prediction_head_test(
         self,
         model,
