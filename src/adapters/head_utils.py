@@ -384,14 +384,6 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "classification_head.out_proj",
         ],
     },
-    "PLBartForQuestionAnswering": {
-        "config": {
-            "head_type": "question_answering",
-            "layers": 1,
-            "activation_function": None,
-        },
-        "layers": [None, "qa_outputs"],
-    },
     "PLBartForConditionalGeneration": {
         "config": {
             "head_type": "seq2seq_lm",
