@@ -45,7 +45,7 @@ from transformers import BertModel
 import adapters
 
 model = BertModel.from_pretrained('bert-base-uncased')
-adaptrers.init(model)
+adapters.init(model)
 ```
 
 We can now easily load a pre-trained adapter module from Adapter Hub by its identifier using the [`load_adapter()`](adapters.ModelWithHeadsAdaptersMixin.load_adapter) method:
