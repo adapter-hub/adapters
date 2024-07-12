@@ -23,7 +23,7 @@ import torch.utils.checkpoint
 from torch import nn
 
 from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
-from transformers.models.vit.modeling_vit import ViTLayer, ViTOutput, ViTSelfAttention
+from transformers.models.vit.modeling_vit import ViTLayer, ViTOutput, ViTSdpaSelfAttention, ViTSelfAttention
 
 from .mixin_vit import ViTLayerAdaptersMixin, ViTOutputAdaptersMixin, ViTSelfAttentionAdaptersMixin
 
@@ -68,6 +68,38 @@ class ViTSelfAttentionWithAdapters(ViTSelfAttentionAdaptersMixin, ViTSelfAttenti
         outputs = (context_layer, attention_probs) if output_attentions else (context_layer,)
 
         return outputs
+
+
+class ViTSdpaSelfAttentionWithAdapters(ViTSelfAttentionAdaptersMixin, ViTSdpaSelfAttention):
+    def forward(
+        self, hidden_states, head_mask: Optional[torch.Tensor] = None, output_attentions: bool = False
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
+        mixed_query_layer = self.query(hidden_states)
+
+        key_layer = self.transpose_for_scores(self.key(hidden_states))
+        value_layer = self.transpose_for_scores(self.value(hidden_states))
+        query_layer = self.transpose_for_scores(mixed_query_layer)
+
+        query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
+
+        key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer, hidden_states)
+        (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
+
+        context_layer = torch.nn.functional.scaled_dot_product_attention(
+            query_layer,
+            key_layer,
+            value_layer,
+            head_mask,
+            self.attention_probs_dropout_prob if self.training else 0.0,
+            is_causal=False,
+            scale=None,
+        )
+
+        context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
+        new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
+        context_layer = context_layer.view(new_context_layer_shape)
+
+        return context_layer, None
 
 
 class ViTOutputWithAdapters(ViTOutputAdaptersMixin, ViTOutput):
