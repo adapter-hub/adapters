@@ -33,7 +33,7 @@ class MistralAdapterTestBase(AdapterTestBase):
         hidden_dropout_prob=0.1,
         pad_token_id=0,
     )
-    tokenizer_name = "mistralai/Mistral-7B-v0.1"
+    tokenizer_name = "HuggingFaceH4/zephyr-7b-beta"
 
 
 @require_torch
