@@ -17,7 +17,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" PyTorch Mistral model."""
+"""PyTorch Mistral model."""
 import math
 from typing import Optional, Tuple
 
@@ -35,6 +35,7 @@ from transformers.utils import logging
 
 from .mixin_mistral import MistralAttentionMixin, MistralDecoderLayerMixin
 
+
 logger = logging.get_logger(__name__)
 
 
@@ -42,13 +43,13 @@ class MistralAttentionWithAdapters(nn.Module, MistralAttentionMixin):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
     def forward(
-            self,
-            hidden_states: torch.Tensor,
-            attention_mask: Optional[torch.Tensor] = None,
-            position_ids: Optional[torch.LongTensor] = None,
-            past_key_value: Optional[Tuple[torch.Tensor]] = None,
-            output_attentions: bool = False,
-            use_cache: bool = False,
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
+        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        output_attentions: bool = False,
+        use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
 
         bsz, q_len, _ = hidden_states.size()
@@ -131,13 +132,13 @@ class MistralAttentionWithAdapters(nn.Module, MistralAttentionMixin):
 
 class MistralDecoderLayerWithAdapters(nn.Module, MistralDecoderLayerMixin):
     def forward(
-            self,
-            hidden_states: torch.Tensor,
-            attention_mask: Optional[torch.Tensor] = None,
-            position_ids: Optional[torch.LongTensor] = None,
-            past_key_value: Optional[Tuple[torch.Tensor]] = None,
-            output_attentions: Optional[bool] = False,
-            use_cache: Optional[bool] = False,
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
+        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        output_attentions: Optional[bool] = False,
+        use_cache: Optional[bool] = False,
     ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
         """
         Args:
