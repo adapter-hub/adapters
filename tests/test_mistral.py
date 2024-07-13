@@ -10,6 +10,7 @@ from .methods import (
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
 )
 from .test_adapter import AdapterTestBase, make_config
@@ -26,7 +27,7 @@ class MistralAdapterTestBase(AdapterTestBase):
         MistralConfig,
         hidden_size=32,
         num_hidden_layers=5,
-        num_attention_heads=8,
+        num_attention_heads=4,
         intermediate_size=37,
         hidden_act="gelu",
         hidden_dropout_prob=0.1,
@@ -42,6 +43,7 @@ class MistralAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
     EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
@@ -56,7 +58,7 @@ class MistralAdapterTest(
 
 
 @require_torch
-class BertClassConversionTest(
+class MistralClassConversionTest(
     ModelClassConversionTestMixin,
     MistralAdapterTestBase,
     unittest.TestCase,
