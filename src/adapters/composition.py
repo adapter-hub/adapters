@@ -129,6 +129,7 @@ SUPPORTED_MODELS = {
         "bart",
         "mbart",
         "mt5",
+        "plbart",
         "gpt2",
         "gptj",
         "t5",

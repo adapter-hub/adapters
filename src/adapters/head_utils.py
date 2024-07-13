@@ -369,6 +369,27 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": ["lm_head"],
     },
+    # PLBART
+    "PLBartForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 2,
+            "activation_function": "tanh",
+        },
+        "layers": [
+            None,
+            "classification_head.dense",
+            None,
+            None,
+            "classification_head.out_proj",
+        ],
+    },
+    "PLBartForConditionalGeneration": {
+        "config": {
+            "head_type": "seq2seq_lm",
+        },
+        "layers": ["lm_head"],
+    },
     # MT5
     "MT5ForConditionalGeneration": {
         "config": {
