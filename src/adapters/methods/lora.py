@@ -289,7 +289,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
         attn_key: str = None,
         fan_in_fan_out: bool = False,
         no_init_bias: bool = False,
-        **kwargs
+        **kwargs,
     ):
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
@@ -310,7 +310,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
         model_config: PretrainedConfig,
         adapters_config: ModelAdaptersConfig,
         attn_key: str = None,
-        **kwargs
+        **kwargs,
     ):
         if isinstance(module, Conv1D):
             new_module = LoRALinearTorch(
@@ -554,7 +554,7 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
         adapters_config: ModelAdaptersConfig,
         fan_in_fan_out: bool = False,
         no_init_bias: bool = False,
-        **kwargs
+        **kwargs,
     ):
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
@@ -573,7 +573,7 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
         location_key: str,
         model_config: PretrainedConfig,
         adapters_config: ModelAdaptersConfig,
-        **kwargs
+        **kwargs,
     ):
         if isinstance(module, Conv1D):
             new_module = cls(

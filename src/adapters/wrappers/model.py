@@ -95,7 +95,7 @@ def load_model(
     model_name_or_path: Optional[Union[str, os.PathLike]],
     model_class: Type[PreTrainedModel],
     *model_args: Any,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> PreTrainedModel:
     """
     Loads a pretrained model with adapters from the given path or url.

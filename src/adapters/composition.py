@@ -92,7 +92,7 @@ class Average(AdapterCompositionBlock):
         self,
         *average_adapters: List[Union[AdapterCompositionBlock, str]],
         weights: Optional[List[float]] = None,
-        normalize_weights: bool = True
+        normalize_weights: bool = True,
     ):
         super().__init__(*average_adapters)
         if weights is not None:
