@@ -6,13 +6,7 @@ from transformers.models.mistral.modeling_mistral import MISTRAL_START_DOCSTRING
 from transformers.utils import add_start_docstrings
 
 from ...composition import adjust_tensors_for_parallel
-from ...heads import (
-    CausalLMHead,
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    TaggingHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -22,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @add_start_docstrings(
     """
-The Mistal Model that allows the loading of different heads dor different tasks. This enables a flexible use of the
+The Mistal Model that allows the loading of different heads for different tasks. This enables a flexible use of the
 models and adpters. Since this class does classification on the last token, it requires to know the position of the
 last token. If a :obj:`pad_token_id` is defined in the configuration, it finds the last token that is not a padding
 token in each row. If no :obj:`pad_token_id` is defined, it simply takes the last value in each row of the batch. Since
@@ -32,7 +26,13 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
     MISTRAL_START_DOCSTRING,
 )
 class MistralAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MistralPreTrainedModel):
-    _tied_weights_keys = []  # needs to be empty since Mistral does not yet support prompt tuning
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "tagging",
+        "question_answering",
+        "causal_lm",
+    ]
 
     def __init__(self, config):
         super().__init__(config)
@@ -116,71 +116,6 @@ class MistralAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         )
 
         return outputs
-
-    head_types = {
-        "causal_lm": CausalLMHead,
-        "tagging": TaggingHead,
-        "classification": ClassificationHead,
-    }
-
-    def add_causal_lm_head(self, head_name, overwrite_ok=False):
-        """
-        Adds a causal language modeling head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = CausalLMHead(self, head_name)
-        self.add_prediction_head(head, overwrite_ok=overwrite_ok)
-
-    def add_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        overwrite_ok=False,
-        multilabel=False,
-        id2label=None,
-        use_pooler=False,
-        dropout_prob=0,
-    ):
-        """
-        Adds a sequence classification head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            num_labels (int, optional): Number of classification labels. Defaults to 2.
-            layers (int, optional): Number of layers. Defaults to 2.
-            activation_function (str, optional): Activation function. Defaults to 'tanh'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
-        """
-
-        if multilabel:
-            head = MultiLabelClassificationHead(
-                self,
-                head_name,
-                num_labels,
-                layers,
-                activation_function,
-                id2label,
-                use_pooler,
-                dropout_prob=dropout_prob,
-            )
-        else:
-            head = ClassificationHead(
-                self,
-                head_name,
-                num_labels,
-                layers,
-                activation_function,
-                id2label,
-                use_pooler,
-                dropout_prob=dropout_prob,
-            )
-        self.add_prediction_head(head, overwrite_ok)
 
     def prepare_inputs_for_generation(
         self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
