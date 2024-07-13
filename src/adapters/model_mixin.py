@@ -1,7 +1,6 @@
 import inspect
 import logging
 import os
-import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from os.path import join
@@ -10,7 +9,9 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import torch
 from torch import nn
 
+from transformers import GenerationConfig
 from transformers.modeling_outputs import ModelOutput
+from transformers.utils import is_accelerate_available
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
@@ -23,11 +24,15 @@ from .methods.lora import LoRALayer
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
-from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc
+from .methods.reft import init_reft
+from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc, patch_forward
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
 
 logger = logging.getLogger(__name__)
+
+if is_accelerate_available():
+    from accelerate.hooks import AlignDevicesHook, add_hook_to_module
 
 
 class InvertibleAdaptersMixin:
@@ -134,10 +139,7 @@ class InvertibleAdaptersMixin:
                 adapter_setup = self.adapters_config.active_setup
         else:
             adapter_setup = None
-        skip_adapters = adapter_setup is None or (
-            self.adapters_config.skip_layers is not None and self.layer_idx in self.adapters_config.skip_layers
-        )
-        if not skip_adapters and (len(adapter_setup.flatten()) > 0):
+        if adapter_setup is not None and (len(adapter_setup.flatten()) > 0):
             return adapter_setup
         else:
             return None
@@ -369,7 +371,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     add_base_adapters = False
     support_prompt_tuning = True  # If False, the prompt tuning layer is not added to the model. If True, the prompt tuning layer is added if add_base_adapters is True.
-    _tied_weights_keys = ["prompt_tuning.base_model_embeddings.*"]
 
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
@@ -377,6 +378,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def _link_prefix_to_pool(self, layer):
         if isinstance(layer, PrefixTuningLayer):
             layer.set_pool(self.base_model.prefix_tuning)
+
+    def _add_tied_weights_keys(self):
+        """Internal method to add adapter-specific keys to the list of tied weights keys."""
+        if self.base_model.support_prompt_tuning:
+            prompt_tied_weights_keys = ["prompt_tuning.base_model_embeddings.*"]
+            if self._tied_weights_keys is not None:
+                self._tied_weights_keys += prompt_tied_weights_keys
+            else:
+                self._tied_weights_keys = prompt_tied_weights_keys
 
     @property
     def model_name(self):
@@ -390,6 +400,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 continue
             if hasattr(module, "init_adapters"):
                 module.init_adapters(model_config, adapters_config)
+
+        # Initialize reft modules
+        init_reft(self)
 
     def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
         """
@@ -421,6 +434,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         if isinstance(self, EmbeddingAdaptersMixin):
             self.loaded_embeddings["default"] = self.get_input_embeddings()
+
+        self._add_tied_weights_keys()
 
     # These methods have to be implemented by every deriving class:
 
@@ -470,14 +485,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.set_active_adapters(adapter_setup)
         if train_embeddings:
             self.get_input_embeddings().train()
-
-    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
-        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
-        warnings.warn(
-            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
-            FutureWarning,
-        )
-        self.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
+            self.get_input_embeddings().weight.requires_grad = True
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
@@ -573,10 +581,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         # PHM Layer
         if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):
-            adapter_module = list(self.get_adapter(adapter_name)[0].values())[0]
-            # if multiple adapters with same location key exist they are returned as a modulelist
-            if isinstance(adapter_module, nn.ModuleList):
-                adapter_module = adapter_module[0]
             adapter_config = self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer")
             if adapter_config["shared_phm_rule"] or adapter_config["shared_W_phm"]:
                 if self.config.model_type in SUBMODEL_NAMES:
@@ -602,14 +606,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 module.confirm_prefix(adapter_name)
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.add_invertible_adapter(adapter_name)
-
-    def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
-        warnings.warn(
-            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
-            FutureWarning,
-        )
-        adapter_fusion_config = AdapterFusionConfig.from_dict(adapter_fusion_config).replace(**override_kwargs)
-        self.add_adapter_fusion(adapter_names, adapter_fusion_config)
 
     def add_adapter_fusion(
         self,
@@ -711,6 +707,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         adapter_name: str,
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
     ):
         """
         Saves an adapter and its configuration file to a directory so that it can be shared or reloaded using
@@ -719,11 +716,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             save_directory (str): Path to a directory where the adapter should be saved.
             adapter_name (str): Name of the adapter to be saved.
+            use_safetensors (bool, optional): If True, weights are saved via `safetensors`. Otherwise, the regular torch save method is used.
 
         Raises:
             ValueError: If the given adapter name is invalid.
         """
-        loader = AdapterLoader(self)
+        loader = AdapterLoader(self, use_safetensors=use_safetensors)
         loader.save(save_directory, adapter_name, meta_dict)
         # save additional custom weights
         if custom_weights_loaders:
@@ -736,6 +734,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         adapter_names: Union[Fuse, list, str],
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
     ):
         """
         Saves an AdapterFusion layer and its configuration file to a directory so that it can be shared or reloaded
@@ -744,6 +743,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             save_directory (str): Path to a directory where the AdapterFusion should be saved.
             adapter_names (Union[Fuse, list, str]): AdapterFusion to be saved.
+            use_safetensors (bool, optional): If True, weights are saved via `safetensors`. Otherwise, the regular torch save method is used.
 
         Raises:
             ValueError: If the given AdapterFusion name is invalid.
@@ -757,7 +757,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         else:
             raise ValueError("Invalid AdapterFusion definition: {}".format(adapter_names))
 
-        loader = AdapterFusionLoader(self)
+        loader = AdapterFusionLoader(self, use_safetensors=use_safetensors)
         loader.save(save_directory, adapter_fusion_name, meta_dict)
         # save additional custom weights
         if custom_weights_loaders:
@@ -776,7 +776,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         leave_out: Optional[List[int]] = None,
         id2label=None,
         set_active: bool = False,
-        **kwargs
+        use_safetensors: bool = False,
+        **kwargs,
     ) -> str:
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.
@@ -796,18 +797,21 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     saved will be used.
             source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
 
-                - "ah" (default): search on AdapterHub.
-                - "hf": search on HuggingFace model hub.
-                - None: search on all sources
+                - "ah": search on AdapterHub Hub repo.
+                    Note: the Hub repo has been archived and all adapters have been moved to HuggingFace Model Hub.
+                    Loading from this source is deprecated.
+                - "hf": search on HuggingFace Model Hub.
+                - None (default): search on all sources
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
             set_active (bool, optional):
                 Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not
                 activated.
+            use_safetensors (bool, optional): If True, weights are loaded via `safetensors` if safetensors checkpoint is available. Otherwise, the regular torch save method is used.
 
         Returns:
             str: The name with which the adapter was added to the model.
         """
-        loader = AdapterLoader(self)
+        loader = AdapterLoader(self, use_safetensors=use_safetensors)
         load_dir, load_name = loader.load(
             adapter_name_or_path,
             config,
@@ -838,7 +842,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         load_as: str = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         set_active: bool = False,
-        **kwargs
+        use_safetensors: bool = False,
+        **kwargs,
     ) -> str:
         """
         Loads a pre-trained AdapterFusion layer from the local file system.
@@ -850,12 +855,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     By default, the name with which the AdapterFusion layer was saved will be used.
             set_active (bool, optional):
                 Activate the loaded AdapterFusion. By default (False), the AdapterFusion is loaded but not activated.
+            use_safetensors (bool, optional): If True, weights are loaded via `safetensors` if safetensors checkpoint is available. Otherwise, the regular torch save method is used.
 
         Returns:
             str: The name with which the AdapterFusion was added to the model.
         """
 
-        loader = AdapterFusionLoader(self)
+        loader = AdapterFusionLoader(self, use_safetensors=use_safetensors)
         load_dir, load_name = loader.load(adapter_fusion_name_or_path, load_as, set_active=set_active)
         # load additional custom weights
         if custom_weights_loaders:
@@ -874,12 +880,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         save_directory: str,
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
     ):
         """
         Saves all adapters of this model together with their configuration to subfolders of the given location.
 
         Args:
             save_directory (str): Path to a directory where the adapters should be saved.
+            use_safetensors (bool, optional): If True, weights are saved via `safetensors`. Otherwise, the regular torch save method is used.
         """
         os.makedirs(save_directory, exist_ok=True)
         for name in self.adapters_config:
@@ -890,13 +898,20 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 meta_dict.update({"config_id": h})
             else:
                 meta_dict = {"config_id": h}
-            self.save_adapter(save_path, name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders)
+            self.save_adapter(
+                save_path,
+                name,
+                meta_dict=meta_dict,
+                custom_weights_loaders=custom_weights_loaders,
+                use_safetensors=use_safetensors,
+            )
 
     def save_all_adapter_fusions(
         self,
         save_directory: str,
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
     ):
         """
         Saves all AdapterFusion layers of this model together with their configuration to subfolders of the given
@@ -904,6 +919,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         Args:
             save_directory (str): Path to a directory where the AdapterFusion layers should be saved.
+            use_safetensors (bool, optional): If True, weights are saved via `safetensors`. Otherwise, the regular torch save method is used.
         """
         os.makedirs(save_directory, exist_ok=True)
         for name in self.adapters_config.fusions:
@@ -915,7 +931,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             else:
                 meta_dict = {"config_id": h}
             self.save_adapter_fusion(
-                save_path, name, meta_dict=meta_dict, custom_weights_loaders=custom_weights_loaders
+                save_path,
+                name,
+                meta_dict=meta_dict,
+                custom_weights_loaders=custom_weights_loaders,
+                use_safetensors=use_safetensors,
             )
 
     def freeze_model(self, freeze=True):
@@ -951,6 +971,18 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         if hasattr(self.base_model, "prefix_tuning"):
             context.prefix_states = self.base_model.prefix_tuning(*args, **kwargs)
+
+        # Read out offsets & seqlens from attention mask
+        if "attention_mask" in kwargs:
+            attention_mask = kwargs["attention_mask"]
+        elif len(args) > 1:
+            attention_mask = args[1]
+        else:
+            attention_mask = None
+        if attention_mask is not None:
+            context.seqlens = (attention_mask == 1).sum(dim=-1).squeeze()
+            # return the first "1" in each row of the attention mask
+            context.offsets = attention_mask.argmax(1)
 
         # Adapter gating and attention outputs
         context.output_adapter_gating_scores = kwargs.get("output_adapter_gating_scores", False)
@@ -1018,6 +1050,42 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                             destination[i][module.location_key] = adapter_module
 
         return dict(destination)
+
+    def adapter_to(
+        self, name: str, device: Optional[Union[torch.device, str]] = None, dtype: Optional[torch.dtype] = None
+    ):
+        """
+        Moves the adapter with the given name to the specified device and data type.
+
+        Args:
+            name (str): The name of the adapter to be moved.
+            device (torch.device or str, optional): The device on which the adapter should be moved.
+            dtype (torch.dtype, optional): The data type to which the adapter should be cast.
+        """
+        for _, v in self.get_adapter(name).items():
+            for _, module in v.items():
+                module.to(device=device, dtype=dtype)
+
+    def adapter_fusion_to(
+        self,
+        adapter_names: Union[Fuse, list, str],
+        device: Optional[Union[torch.device, str]] = None,
+        dtype: Optional[torch.dtype] = None,
+    ):
+        """
+        Moves the adapter fusion layer with the given name to the specified device and data type.
+
+        Args:
+            adapter_names (Union[Fuse, list, str]): The name of the adapter fusion layer to be moved.
+            device (torch.device or str, optional): The device on which the adapter fusion layer should be moved.
+            dtype (torch.dtype, optional): The data type to which the adapter fusion layer should be cast.
+        """
+        for _, layer in self.iter_layers():
+            for module in layer.modules():
+                if isinstance(module, BottleneckLayer):
+                    fusion = module.get_adapter_fusion(adapter_names)
+                    if fusion is not None:
+                        fusion.to(device=device, dtype=dtype)
 
     def adapter_summary(self, as_dict=False) -> Union[str, dict]:
         """
@@ -1200,10 +1268,21 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     # HACK Copied from transformers/generation/utils.py
     def _prepare_encoder_decoder_kwargs_for_generation(
-        self, inputs_tensor: torch.Tensor, model_kwargs, model_input_name: Optional[str] = None
+        self,
+        inputs_tensor: torch.Tensor,
+        model_kwargs,
+        model_input_name: Optional[str],
+        generation_config: GenerationConfig,
     ) -> Dict[str, Any]:
         # 1. get encoder
         encoder = self.get_encoder()
+        # Compatibility with Accelerate big model inference: we need the encoder to outputs stuff on the same device
+        # as the inputs.
+        if hasattr(self, "hf_device_map"):
+            if hasattr(encoder, "_hf_hook"):
+                encoder._hf_hook.io_same_device = True
+            else:
+                add_hook_to_module(encoder, AlignDevicesHook(io_same_device=True))
 
         # 2. prepare encoder args and encoder kwargs from model kwargs
         irrelevant_prefix = ["decoder_", "cross_attn", "use_cache"]
@@ -1212,7 +1291,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             for argument, value in model_kwargs.items()
             if not any(argument.startswith(p) for p in irrelevant_prefix)
         }
-
         encoder_signature = set(inspect.signature(encoder.forward).parameters)
         encoder_accepts_wildcard = "kwargs" in encoder_signature or "model_kwargs" in encoder_signature
         if not encoder_accepts_wildcard:
@@ -1221,6 +1299,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 for argument, value in encoder_kwargs.items()
                 if argument in encoder_signature or argument == "adapter_input_parallelized"
             }
+        encoder_kwargs["output_attentions"] = generation_config.output_attentions
+        encoder_kwargs["output_hidden_states"] = generation_config.output_hidden_states
 
         # 3. make sure that encoder returns `ModelOutput`
         model_input_name = model_input_name if model_input_name is not None else self.main_input_name
@@ -1255,6 +1335,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     ):
         # Attach adapters_config to model_config to ensure saving with old format.
         self.config.adapters = self.adapters_config.to_dict()
+
+        self.apply_to_adapter_layers(lambda _, layer: layer.pre_save_adapters())
+        # Unlink prefix tuning layers to allow safe serialization
+        self.apply_to_adapter_layers(
+            lambda i, layer: layer.set_pool(None) if isinstance(layer, PrefixTuningLayer) else None
+        )
+
         super().save_pretrained(save_directory, **kwargs)
         # Remove adapters config
         del self.config.adapters
@@ -1263,6 +1350,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 @inherit_doc
 class ModelBaseAdaptersMixin(ModelAdaptersMixin):
     add_base_adapters = True
+
+    def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
+        super().init_adapters(model_config, adapters_config, add_prefix_tuning_pool)
+
+        patch_forward(self)
 
     def post_embedding_forward(self, module, args, embedding_output):
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
@@ -1363,7 +1455,11 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             super().train_adapter(adapter_setup, train_embeddings)
         else:
             self.base_model.train_adapter(adapter_setup, train_embeddings)
-        self.freeze_embeddings()
+        if not train_embeddings:
+            self.freeze_embeddings()
+
+        # Hack to prevent HF Trainer from throwing an error due to peft missing.
+        self._hf_peft_config_loaded = True
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """
@@ -1376,12 +1472,40 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
         self.freeze_embeddings()
 
-    def save_head(self, save_directory: str, head_name: str = None):
-        loader = PredictionHeadLoader(self)
+    def save_head(self, save_directory: str, head_name: str = None, use_safetensors: bool = False) -> None:
+        """Saves a model prediction head to a directory such that it can be reloaded using `load_head()`.
+
+        Args:
+            save_directory (str): Path to the directory where the prediction head should be saved.
+            head_name (str, optional): Name of the head to save. Set to None if model only has one head. Defaults to None.
+            use_safetensors (bool, optional): If True, weights are saved via `safetensors`. Otherwise, the regular torch save method is used.
+        """
+        loader = PredictionHeadLoader(self, use_safetensors=use_safetensors)
         loader.save(save_directory, name=head_name)
 
-    def load_head(self, save_directory, load_as=None, id2label=None, **kwargs):
-        loader = PredictionHeadLoader(self, convert_to_flex_head=self._convert_to_flex_head)
+    def load_head(
+        self,
+        save_directory: str,
+        load_as: str = None,
+        id2label: Dict[int, str] = None,
+        use_safetensors: bool = False,
+        **kwargs,
+    ) -> str:
+        """Loads a model prediction head from a directory where it was saved using `save_head()`.
+
+        Args:
+            save_directory (str): Path to the directory where the prediction head is saved.
+            load_as (str, optional): Load the AdapterFusion using this name.
+                    By default, the name with which the AdapterFusion layer was saved will be used.
+            id2label (Dict[int, str], optional): Provide a custom mapping from class ids to class labels. Defaults to None.
+            use_safetensors (bool, optional): If True, weights are loaded via `safetensors` if safetensors checkpoint is available. Otherwise, the regular torch save method is used.
+
+        Returns:
+            str: The name with which the prediction head was added to the model.
+        """
+        loader = PredictionHeadLoader(
+            self, convert_to_flex_head=self._convert_to_flex_head, use_safetensors=use_safetensors
+        )
         return loader.load(save_directory, load_as=load_as, id2label=id2label, **kwargs)
 
     def save_adapter(
@@ -1391,16 +1515,20 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         with_head: bool = True,
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
     ):
         if with_head:
             if custom_weights_loaders is None:
                 custom_weights_loaders = []
-            custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
+            custom_weights_loaders.append(
+                PredictionHeadLoader(self, error_on_missing=False, use_safetensors=use_safetensors)
+            )
         super().save_adapter(
             save_directory,
             adapter_name,
             meta_dict=meta_dict,
             custom_weights_loaders=custom_weights_loaders,
+            use_safetensors=use_safetensors,
         )
 
     def load_adapter(
@@ -1416,7 +1544,8 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         leave_out: Optional[List[int]] = None,
         id2label=None,
         set_active: bool = False,
-        **kwargs
+        use_safetensors: bool = False,
+        **kwargs,
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:
@@ -1426,6 +1555,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                     self,
                     error_on_missing=False,
                     convert_to_flex_head=self._convert_to_flex_head,
+                    use_safetensors=use_safetensors,
                 )
             )
         # Support passing a num_labels for compatibility reasons. Convert to label map here.
@@ -1443,6 +1573,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             leave_out=leave_out,
             id2label=id2label,
             set_active=set_active,
+            use_safetensors=use_safetensors,
             **kwargs,
         )
 
@@ -1452,6 +1583,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         with_head: bool = True,
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
     ):
         os.makedirs(save_directory, exist_ok=True)
         for name in self.adapters_config:
@@ -1468,6 +1600,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 meta_dict=meta_dict,
                 with_head=with_head,
                 custom_weights_loaders=custom_weights_loaders,
+                use_safetensors=use_safetensors,
             )
 
     def save_adapter_fusion(
@@ -1477,6 +1610,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         with_head: Union[bool, str] = False,
+        use_safetensors: bool = False,
     ):
         """
         Saves an AdapterFusion layer and its configuration file to a directory so that it can be shared or reloaded
@@ -1488,11 +1622,14 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             with_head (Union[bool, str]):
                 If True, will save a head with the same name as the AdapterFusionLayer. If a string, this will be used
                 as the name of the head to be saved.
+            use_safetensors (bool, optional): If True, weights are saved via `safetensors`. Otherwise, the regular torch save method is used.
 
         Raises:
             ValueError: If the given AdapterFusion name is invalid.
         """
-        super().save_adapter_fusion(save_directory, adapter_names, meta_dict, custom_weights_loaders)
+        super().save_adapter_fusion(
+            save_directory, adapter_names, meta_dict, custom_weights_loaders, use_safetensors=use_safetensors
+        )
 
         if with_head:
             # Make sure to cover the different options for adapter_names
@@ -1506,7 +1643,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 head_name = adapter_names
             if head_name not in self.heads:
                 raise ValueError("No head with name {} found".format(head_name))
-            loader = PredictionHeadLoader(self)
+            loader = PredictionHeadLoader(self, use_safetensors=use_safetensors)
             loader.save(save_directory, head_name)
 
     def load_adapter_fusion(
@@ -1516,19 +1653,35 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         set_active: bool = False,
         with_head: bool = True,
-        **kwargs
+        use_safetensors: bool = False,
+        **kwargs,
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:
                 custom_weights_loaders = []
-            custom_weights_loaders.append(PredictionHeadLoader(self, error_on_missing=False))
-        super().load_adapter_fusion(adapter_fusion_name_or_path, load_as, custom_weights_loaders, set_active)
+            custom_weights_loaders.append(
+                PredictionHeadLoader(self, error_on_missing=False, use_safetensors=use_safetensors)
+            )
+        super().load_adapter_fusion(
+            adapter_fusion_name_or_path,
+            load_as,
+            custom_weights_loaders,
+            set_active,
+            use_safetensors=use_safetensors,
+            **kwargs,
+        )
 
-    def save_all_heads(self, save_directory):
+    def save_all_heads(self, save_directory: str, use_safetensors: bool = False):
+        """Saves all prediction heads of this model to subfolders of the given location.
+
+        Args:
+            save_directory (str): Path to the base directory where prediction heads should be saved.
+            use_safetensors (bool, optional): If True, weights are saved via `safetensors`. Otherwise, the regular torch save method is used.
+        """
         os.makedirs(save_directory, exist_ok=True)
         for head_name in self.heads:
             save_path = join(save_directory, head_name)
-            self.save_head(save_path, head_name)
+            self.save_head(save_path, head_name, use_safetensors=use_safetensors)
 
     def get_labels(self):
         return list(self.config.id2label.values())

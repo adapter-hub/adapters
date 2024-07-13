@@ -2,6 +2,7 @@
 Code taken and modified from: https://github.com/Adapter-Hub/hgiyt. Credits: "How Good is Your Tokenizer? On the
 Monolingual Performance of Multilingual Language Models" (Rust et al., 2021) https://arxiv.org/abs/2012.15613
 """
+
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -81,7 +82,7 @@ class BiaffineParsingHead(PredictionHead):
             n_in=model.config.hidden_size, n_out=self.config["num_labels"], bias_x=True, bias_y=True
         )
 
-        self.dropout = nn.Dropout(model.config.hidden_dropout_prob)
+        self.dropout = nn.Dropout(self._get_dropout_prob(model.config))
 
         self.loss_fn = CrossEntropyLoss()
 
@@ -96,7 +97,7 @@ class BiaffineParsingHead(PredictionHead):
         word_starts=None,
         labels_arcs=None,
         labels_rels=None,
-        **kwargs
+        **kwargs,
     ):
         outs = self.dropout(outputs[0])
         word_outputs_deps = self._merge_subword_tokens(outs, word_starts)

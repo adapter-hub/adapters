@@ -1,4 +1,4 @@
-# Copyright 2020 The AdapterHub Team. All rights reserved.
+# Copyright 2020-2024 The AdapterHub Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,25 +21,23 @@ from setuptools import find_packages, setup
 # We try to follow their general layout wherever sensible.
 
 _deps = [
-    "accelerate>=0.20.3",
-    "black==22.3",  # after updating to black 2023, also update Python version in pyproject.toml to 3.7
+    "accelerate>=0.21.0",
+    "beautifulsoup4",
+    "black~=24.4.0",
     "datasets!=2.5.0",
     "dill<0.3.5",
     "docutils==0.16.0",
     "evaluate>=0.2.0",
     "flake8>=3.8.3",
     "GitPython<3.1.19",
-    "hf-doc-builder>=0.3.0",
     "isort>=5.5.4",
     "Jinja2==2.11.3",
     "nltk",
-    "onnxruntime-tools>=1.4.2",
-    "onnxruntime>=1.4.0",
     "parameterized",
     "pillow",
-    "protobuf<=3.20.2",
+    "protobuf",
     "psutil",
-    "pytest",
+    "pytest>=7.2.0,<8.0.0",
     "pytest-subtests",
     "pytest-timeout",
     "pytest-xdist",
@@ -49,20 +47,18 @@ _deps = [
     "rouge-score!=0.0.7,!=0.0.8,!=0.1,!=0.1.1",
     "sacrebleu>=1.4.12,<2.0.0",
     "sacremoses",
-    "safetensors>=0.2.1",
     "scikit-learn",
     "sentencepiece>=0.1.91,!=0.1.92",
-    "sphinx-copybutton",
-    "sphinx-markdown-tables",
+    "sphinx-copybutton==0.5.2",
+    "sphinx-markdown-tables==0.0.17",
     "sphinx-rtd-theme==0.4.3",  # sphinx-rtd-theme==0.5.0 introduced big changes in the style.
-    "sphinx==3.2.1",
+    "sphinx==5.0.2",
     "sphinxext-opengraph==0.4.1",
-    "sphinx-intl",
-    "sphinx-multiversion",
+    "sphinx-intl==2.1.0",
+    "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch>=1.10,!=1.12.0",
-    "transformers==4.35.2",
-    "beautifulsoup4",
+    "transformers~=4.41.2",
 ]
 
 
@@ -85,11 +81,10 @@ extras["sklearn"] = deps_list("scikit-learn")
 
 extras["torch"] = deps_list("torch", "accelerate")
 
-extras["onnxruntime"] = deps_list("onnxruntime", "onnxruntime-tools")
-
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = deps_list(
     "pytest",
+    "pytest-subtests",
     "pytest-xdist",
     "timeout-decorator",
     "parameterized",
@@ -103,17 +98,14 @@ extras["testing"] = deps_list(
     "rouge-score",
     "nltk",
     "GitPython",
-    "hf-doc-builder",
-    "protobuf",  # Can be removed once we can unpin protobuf
     "sacremoses",
     "rjieba",
-    "safetensors",
     "beautifulsoup4",
     "pillow",
     "accelerate",
 )
 
-extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython", "hf-doc-builder")
+extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython")
 
 extras["docs"] = deps_list(
     "docutils",
@@ -136,7 +128,6 @@ extras["dev"] = (
     + extras["quality"]
     + extras["docs"]
     + extras["sklearn"]
-    + extras["onnxruntime"]
 )
 
 # when modifying the following list, make sure to update src/transformers/dependency_versions_check.py
@@ -146,9 +137,9 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="0.1.0",
+    version="1.0.0.dev0",
     author="The AdapterHub team and community contributors",
-    author_email="pfeiffer@ukp.tu-darmstadt.de",
+    author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",

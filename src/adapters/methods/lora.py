@@ -14,10 +14,18 @@ import torch.nn.functional as F
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
-from ..composition import AdapterCompositionBlock, Average, BatchSplit, Parallel, Stack
+from ..composition import Average, BatchSplit, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
+from .utils import dequantize_bnb_weight
 
+
+try:
+    from bitsandbytes.nn import Int8Params, Linear4bit, Linear8bitLt, Params4bit
+
+    bitsandbytes_available = True
+except ImportError:
+    bitsandbytes_available = False
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +218,7 @@ class LoRALayer(AdapterLayerBase):
                 gating_heads=self.get_n_heads(lora_config),
             )
             lora.train(self.training)
+            lora = lora.to(self.weight.device)
             self.loras[adapter_name] = lora
             return True
 
@@ -237,35 +246,6 @@ class LoRALayer(AdapterLayerBase):
 
         return False
 
-    def delete_adapter(self, adapter_name: str):
-        if adapter_name in self.loras:
-            del self.loras[adapter_name]
-
-    def add_fusion_layer(self, adapter_names: Union[List, str]):
-        pass  # not applicable to lora
-
-    def delete_fusion_layer(self, adapter_names: Union[List, str]):
-        pass  # not applicable to lora
-
-    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
-        if unfreeze_adapters:
-            for name in adapter_setup.flatten():
-                if name in self.loras:
-                    for param in self.loras[name].parameters():
-                        param.requires_grad = True
-
-    def freeze_adapter(self, adapter_name: str, freeze: bool = True):
-        if adapter_name in self.loras:
-            self.loras[adapter_name].train(not freeze)
-            for param in self.loras[adapter_name].parameters():
-                param.requires_grad = not freeze
-
-    def get_adapter(self, adapter_name: str) -> nn.Module:
-        if adapter_name in self.loras:
-            return self.loras[adapter_name]
-        else:
-            return None
-
 
 class LoRAState(NamedTuple):
     """Models the input and output states of a LoRA layer.
@@ -276,14 +256,16 @@ class LoRAState(NamedTuple):
             The hidden states of the adaptation module. These can be None before passing through the first LoRA/ IA3
             module.
         layer_output (torch.Tensor): The output states of the original layer without adaptation.
+        last (str, optional): Name of the last adapter applied in the composition.
     """
 
     layer_input: torch.Tensor
     hidden_states: Optional[torch.Tensor]
     layer_output: torch.Tensor
+    last: Optional[str]
 
 
-class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
+class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
     """
     LoRA implementation for Linear layer. This layer supports composition.
 
@@ -307,7 +289,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
         attn_key: str = None,
         fan_in_fan_out: bool = False,
         no_init_bias: bool = False,
-        **kwargs
+        **kwargs,
     ):
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
@@ -328,10 +310,10 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
         model_config: PretrainedConfig,
         adapters_config: ModelAdaptersConfig,
         attn_key: str = None,
-        **kwargs
+        **kwargs,
     ):
         if isinstance(module, Conv1D):
-            new_module = cls(
+            new_module = LoRALinearTorch(
                 module.weight.shape[0],
                 module.weight.shape[1],
                 location_key,
@@ -341,6 +323,12 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
                 **kwargs,
             )
         else:
+            if bitsandbytes_available and isinstance(module, Linear4bit):
+                cls = LoRALinear4bit
+            elif bitsandbytes_available and isinstance(module, Linear8bitLt):
+                cls = LoRALinear8bitLt
+            else:
+                cls = LoRALinearTorch
             # Make sure that the bias is not added if the original module does not have one
             if "bias" not in kwargs:
                 kwargs["bias"] = hasattr(module, "bias") and module.bias is not None
@@ -353,11 +341,14 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
                 attn_key=attn_key,
                 **kwargs,
             )
-        new_module.weight.data = module.weight.data
-        if module.bias is not None:
-            new_module.bias.data = module.bias.data
+        new_module.copy_from(module)
 
         return new_module
+
+    def copy_from(self, module: nn.Linear):
+        self.weight = module.weight
+        if module.bias is not None:
+            self.bias = module.bias
 
     def _check_lora_location(self, config: LoRAConfig):
         return self.attn_key is None or self.attn_key in config.attn_matrices
@@ -367,14 +358,6 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
 
     def maybe_t(self, w):
         return torch.t(w) if self.fan_in_fan_out else w
-
-    def reset_adapter(self):
-        if self.merged:
-            lora = self.loras[self.merged]
-            # Make sure that the weights are not merged
-            delta_w = self.maybe_t(lora.delta_w)
-            self.weight.data = lora.com_inv(self.weight.data, delta_w)
-            self.merged = None
 
     def merge_adapter(self, name: str):
         if name in self.loras:
@@ -390,11 +373,20 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
             elif self.merged != name:
                 raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
 
+    def reset_adapter(self):
+        if self.merged:
+            lora = self.loras[self.merged]
+            # Make sure that the weights are not merged
+            delta_w = self.maybe_t(lora.delta_w)
+            self.weight.data = lora.com_inv(self.weight.data, delta_w)
+            self.merged = None
+
     def vslice(self, state: LoRAState, slice_obj: slice) -> LoRAState:
         return LoRAState(
             state.layer_input[slice_obj],
             state.hidden_states[slice_obj] if state.hidden_states is not None else None,
             state.layer_output[slice_obj],
+            state.last,
         )
 
     def pad_and_concat(self, states: List[LoRAState]) -> LoRAState:
@@ -402,6 +394,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
             torch.cat([s.layer_input for s in states], dim=0),
             torch.cat([s.hidden_states for s in states], dim=0) if states[0].hidden_states is not None else None,
             torch.cat([s.layer_output for s in states], dim=0),
+            states[-1].last,
         )
 
     def repeat(self, state: LoRAState, channels: int) -> LoRAState:
@@ -409,15 +402,19 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
             state.layer_input.repeat(channels, 1, 1),
             state.hidden_states.repeat(channels, 1, 1) if state.hidden_states is not None else None,
             state.layer_output.repeat(channels, 1, 1),
+            state.last,
         )
 
     def mean(self, states: List[LoRAState], weights: torch.Tensor) -> LoRAState:
         return LoRAState(
             states[0].layer_input,
-            torch.mean(torch.stack([s.hidden_states for s in states], dim=0) * weights, dim=0)
-            if states[0].hidden_states is not None
-            else None,
+            (
+                torch.mean(torch.stack([s.hidden_states for s in states], dim=0) * weights, dim=0)
+                if states[0].hidden_states is not None
+                else None
+            ),
             states[0].layer_output,
+            states[-1].last,
         )
 
     def compose_single(self, adapter_setup: str, state: LoRAState, lvl: int = 0) -> LoRAState:
@@ -426,26 +423,114 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase, nn.Linear):
         if gate is not None:
             self._store_gating_score(adapter_setup, gate)
 
-        return state._replace(hidden_states=hidden_states)
+        return state._replace(hidden_states=hidden_states, last=adapter_setup)
 
     def forward(self, input_states: torch.Tensor):
-        weight = torch.transpose(self.weight, -2, -1) if self.fan_in_fan_out else self.weight
-        # result shape: <batch_size> x <seq_len> x <head_dim>
-        layer_output = F.linear(input_states, weight, bias=self.bias)
+        if self.fan_in_fan_out:
+            weight = torch.transpose(self.weight, -2, -1) if self.fan_in_fan_out else self.weight
+            # result shape: <batch_size> x <seq_len> x <head_dim>
+            layer_output = F.linear(input_states, weight, bias=self.bias)
+        else:
+            layer_output = super().forward(input_states)
 
         if not self.merged:
             adapter_setup = self.get_active_setup()
             if adapter_setup is not None:
-                state = LoRAState(input_states, None, layer_output)
+                state = LoRAState(input_states, None, layer_output, None)
                 state = self.compose(adapter_setup, state)
-                _, hidden_states, layer_output = state
+                _, hidden_states, layer_output, last = state
 
-                last_lora = self.loras[adapter_setup.last()]
+                last_lora = self.loras[last]
                 layer_output = last_lora.com(
                     layer_output, hidden_states, scaling=1.0
                 )  # scaling already applied in compose
 
         return layer_output
+
+
+class LoRALinearTorch(LoRALinear, nn.Linear):
+    pass
+
+
+if bitsandbytes_available:
+
+    class LoRALinear4bit(LoRALinear, Linear4bit):
+        def copy_from(self, module: Linear4bit):
+            self.weight = module.weight
+            if module.bias is not None:
+                self.bias = module.bias
+            self.compute_dtype = module.compute_dtype
+            self.compute_type_is_set = module.compute_type_is_set
+            self.quant_state = module.quant_state
+            self.quant_storage = module.quant_storage
+
+        def merge_adapter(self, name: str):
+            if name in self.loras:
+                if self.merged == name:
+                    return  # already merged
+                elif not self.merged:
+                    lora = self.loras[name]
+                    if lora.use_gating:
+                        raise ValueError("Cannot merge LoRA layer with gating.")
+                    delta_w = self.maybe_t(lora.delta_w)
+                    layer_weight = dequantize_bnb_weight(self.weight, state=self.quant_state)
+                    kwargs = self.weight.__dict__
+                    merged_weight = lora.com(layer_weight, delta_w)
+                    self.weight = Params4bit(merged_weight.to("cpu"), requires_grad=False, **kwargs).to(
+                        self.weight.device
+                    )
+                    self.merged = name
+                elif self.merged != name:
+                    raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
+
+        def reset_adapter(self):
+            if self.merged:
+                lora = self.loras[self.merged]
+                delta_w = self.maybe_t(lora.delta_w)
+                merged_weight = dequantize_bnb_weight(self.weight, state=self.quant_state)
+                kwargs = self.weight.__dict__
+                layer_weight = lora.com_inv(merged_weight, delta_w)
+                self.weight = Params4bit(layer_weight.to("cpu"), requires_grad=False, **kwargs).to(self.weight.device)
+                self.merged = None
+
+    class LoRALinear8bitLt(LoRALinear, Linear8bitLt):
+        def copy_from(self, module: Linear8bitLt):
+            self.weight = module.weight
+            if module.bias is not None:
+                self.bias = module.bias
+            self.state = module.state
+            self.index = module.index
+
+        def merge_adapter(self, name: str):
+            if name in self.loras:
+                if self.merged == name:
+                    return  # already merged
+                elif not self.merged:
+                    lora = self.loras[name]
+                    if lora.use_gating:
+                        raise ValueError("Cannot merge LoRA layer with gating.")
+                    delta_w = self.maybe_t(lora.delta_w)
+                    layer_weight = dequantize_bnb_weight(self.weight, state=self.state)
+                    merged_weight = lora.com(layer_weight, delta_w)
+                    self.weight = Int8Params(
+                        merged_weight.to("cpu"), requires_grad=False, has_fp16_weights=self.weight.has_fp16_weights
+                    ).to(self.weight.device)
+                    self.state.reset_grads()
+                    self.merged = name
+                elif self.merged != name:
+                    raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
+
+        def reset_adapter(self):
+            if self.merged:
+                lora = self.loras[self.merged]
+                delta_w = self.maybe_t(lora.delta_w)
+                merged_weight = dequantize_bnb_weight(self.weight, state=self.state)
+                layer_weight = lora.com_inv(merged_weight, delta_w)
+                self.weight = Int8Params(
+                    layer_weight.to("cpu"), requires_grad=False, has_fp16_weights=self.weight.has_fp16_weights
+                ).to(self.weight.device)
+                self.state.reset_grads()
+                self.merged = None
 
 
 class LoRAMergedLinear(LoRALayer, nn.Linear):
@@ -469,7 +554,7 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
         adapters_config: ModelAdaptersConfig,
         fan_in_fan_out: bool = False,
         no_init_bias: bool = False,
-        **kwargs
+        **kwargs,
     ):
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
@@ -488,7 +573,7 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
         location_key: str,
         model_config: PretrainedConfig,
         adapters_config: ModelAdaptersConfig,
-        **kwargs
+        **kwargs,
     ):
         if isinstance(module, Conv1D):
             new_module = cls(
@@ -498,9 +583,9 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
             new_module = cls(
                 module.in_features, module.out_features, location_key, model_config, adapters_config, **kwargs
             )
-        new_module.weight.data = module.weight.data
+        new_module.weight = module.weight
         if module.bias is not None:
-            new_module.bias.data = module.bias.data
+            new_module.bias = module.bias
 
         return new_module
 

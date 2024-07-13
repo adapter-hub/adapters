@@ -3,9 +3,17 @@ import logging
 from abc import ABC, abstractmethod
 from os import mkdir
 from os.path import exists, isdir, isfile, join
-from typing import Callable, Mapping, Sequence, Tuple
+from typing import Callable, Mapping, Optional, Sequence, Tuple
 
 import torch
+
+
+try:
+    from safetensors.torch import load_file, save_file
+
+    safetensors_available = True
+except ImportError:
+    safetensors_available = False
 
 from .configuration import AdapterConfig, build_full_config
 from .head_utils import STATIC_TO_FLEX_HEAD_MAP, get_head_config_and_rename_list
@@ -16,6 +24,9 @@ from .utils import (
     CONFIG_NAME,
     HEAD_CONFIG_NAME,
     HEAD_WEIGHTS_NAME,
+    SAFE_ADAPTERFUSION_WEIGHTS_NAME,
+    SAFE_HEAD_WEIGHTS_NAME,
+    SAFE_WEIGHTS_NAME,
     WEIGHTS_NAME,
     AdapterType,
     resolve_adapter_path,
@@ -30,10 +41,16 @@ class WeightsLoaderHelper:
     A class providing helper methods for saving and loading module weights.
     """
 
-    def __init__(self, model, weights_name, config_name):
+    def __init__(
+        self, model, weights_name, config_name, use_safetensors: bool = False, safe_weights_name: Optional[str] = None
+    ):
         self.model = model
         self.weights_name = weights_name
         self.config_name = config_name
+        self.use_safetensors = use_safetensors
+        if use_safetensors and not safetensors_available:
+            raise ValueError("Safetensors package not available. Please install via `pip install safetensors`.")
+        self.safe_weights_name = safe_weights_name or weights_name
 
     def state_dict(self, filter_func):
         return {k: v for (k, v) in self.model.state_dict().items() if filter_func(k)}
@@ -68,8 +85,12 @@ class WeightsLoaderHelper:
         # Get the state of all adapter modules for this task
         state_dict = self.state_dict(filter_func)
         # Save the adapter weights
-        output_file = join(save_directory, self.weights_name)
-        torch.save(state_dict, output_file)
+        if self.use_safetensors:
+            output_file = join(save_directory, self.safe_weights_name)
+            save_file(state_dict, output_file)
+        else:
+            output_file = join(save_directory, self.weights_name)
+            torch.save(state_dict, output_file)
         logger.info("Module weights saved in {}".format(output_file))
 
     def load_weights_config(self, save_directory):
@@ -129,13 +150,30 @@ class WeightsLoaderHelper:
         loading_info=None,
         in_base_model=False,
     ):
-        weights_file = join(save_directory, self.weights_name)
         # Load the weights of the adapter
         try:
-            state_dict = torch.load(weights_file, map_location="cpu")
+            if self.use_safetensors:
+                weights_file = join(save_directory, self.safe_weights_name)
+                if exists(weights_file):
+                    state_dict = load_file(weights_file, device="cpu")
+                else:
+                    logger.info(f"No safetensors file found in {save_directory}. Falling back to torch.load...")
+                    weights_file = join(save_directory, self.weights_name)
+                    state_dict = torch.load(weights_file, map_location="cpu")
+            else:
+                weights_file = join(save_directory, self.weights_name)
+                state_dict = torch.load(weights_file, map_location="cpu")
         except Exception:
             raise OSError("Unable to load weights from pytorch checkpoint file. ")
+        logger.info("Loading module weights from {}".format(weights_file))
 
+        return self.load_weights_from_state_dict(
+            state_dict, filter_func, rename_func=rename_func, loading_info=loading_info, in_base_model=in_base_model
+        )
+
+    def load_weights_from_state_dict(
+        self, state_dict, filter_func, rename_func=None, loading_info=None, in_base_model=False, start_prefix=""
+    ):
         # Rename weights if needed
         if rename_func:
             if isinstance(rename_func, Sequence):
@@ -143,14 +181,11 @@ class WeightsLoaderHelper:
             else:
                 state_dict = self.rename_state_dict(state_dict, rename_func)
 
-        logger.info("Loading module weights from {}".format(weights_file))
-
         # Add the weights to the model
         # Make sure we are able to load base models as well as derived models (with heads)
-        start_prefix = ""
         model_to_load = self.model
         has_prefix_module = any(s.startswith(self.model.base_model_prefix) for s in state_dict.keys())
-        if not hasattr(self.model, self.model.base_model_prefix) and has_prefix_module:
+        if not start_prefix and not hasattr(self.model, self.model.base_model_prefix) and has_prefix_module:
             start_prefix = self.model.base_model_prefix + "."
         if in_base_model and hasattr(self.model, self.model.base_model_prefix) and not has_prefix_module:
             model_to_load = self.model.base_model
@@ -188,9 +223,13 @@ class WeightsLoader(ABC):
     custom module weight loaders.
     """
 
-    def __init__(self, model, weights_name, config_name):
+    def __init__(
+        self, model, weights_name, config_name, use_safetensors: bool = False, safe_weights_name: Optional[str] = None
+    ):
         self.model = model
-        self.weights_helper = WeightsLoaderHelper(model, weights_name, config_name)
+        self.weights_helper = WeightsLoaderHelper(
+            model, weights_name, config_name, use_safetensors=use_safetensors, safe_weights_name=safe_weights_name
+        )
 
     @abstractmethod
     def filter_func(self, name: str) -> Callable[[str], bool]:
@@ -294,8 +333,10 @@ class AdapterLoader(WeightsLoader):
     Model classes passed to this loader must implement the `ModelAdaptersMixin` class.
     """
 
-    def __init__(self, model, adapter_type=None):
-        super().__init__(model, WEIGHTS_NAME, CONFIG_NAME)
+    def __init__(self, model, adapter_type=None, use_safetensors: bool = False):
+        super().__init__(
+            model, WEIGHTS_NAME, CONFIG_NAME, use_safetensors=use_safetensors, safe_weights_name=SAFE_WEIGHTS_NAME
+        )
         self.adapter_type = adapter_type
         if adapter_type and not AdapterType.has(self.adapter_type):
             raise ValueError("Invalid adapter type {}".format(self.adapter_type))
@@ -307,6 +348,7 @@ class AdapterLoader(WeightsLoader):
             or ".prefix_tunings.{}.".format(adapter_name) in x
             or ".prefix_gates.{}.".format(adapter_name) in x
             or ".loras.{}.".format(adapter_name) in x
+            or ".refts.{}.".format(adapter_name) in x
             or ".prompt_tunings.{}.".format(adapter_name) in x
         )
 
@@ -352,7 +394,38 @@ class AdapterLoader(WeightsLoader):
             .replace(".prefix_tunings.{}.".format(old_name), ".prefix_tunings.{}.".format(new_name))
             .replace(".prefix_gates.{}.".format(old_name), ".prefix_gates.{}.".format(new_name))
             .replace(".loras.{}.".format(old_name), ".loras.{}.".format(new_name))
+            .replace(".refts.{}.".format(old_name), ".refts.{}.".format(new_name))
         )
+
+    def save_to_state_dict(self, name: str):
+        """
+        Extracts the weights of a given adapter from the model and returns them as a state dict.
+
+        Args:
+            name (str): The name of the adapter to be saved.
+
+        Returns:
+            Tuple[dict, dict]: A tuple consisting of the state dict containing the adapter weights and the adapter
+            configuration.
+        """
+        if name not in self.model.adapters_config.adapters:
+            raise ValueError("No adapter of this type with the given name is part of this model.")
+
+        adapter_config = self.model.adapters_config.get(name)
+
+        config_dict = build_full_config(
+            adapter_config,
+            self.model.config,
+            model_name=self.model.model_name,
+            name=name,
+            model_class=self.model.__class__.__name__,
+        )
+
+        # Save adapter weights
+        filter_func = self.filter_func(config_dict["name"])
+        state_dict = self.weights_helper.state_dict(filter_func)
+
+        return state_dict, config_dict
 
     def save(self, save_directory, name, meta_dict=None):
         """
@@ -375,6 +448,8 @@ class AdapterLoader(WeightsLoader):
 
         adapter_config = self.model.adapters_config.get(name)
 
+        self.model.apply_to_adapter_layers(lambda _, layer: layer.pre_save_adapters())
+
         config_dict = build_full_config(
             adapter_config,
             self.model.config,
@@ -390,6 +465,38 @@ class AdapterLoader(WeightsLoader):
         filter_func = self.filter_func(config_dict["name"])
         self.weights_helper.save_weights(save_directory, filter_func)
 
+    def load_from_state_dict(self, state_dict, name, load_as=None, loading_info=None, start_prefix=""):
+        """
+        Loads the weights of a given adapter from a state dict into the model.
+
+        Args:
+            state_dict (dict): The state dict from which to load the adapter weights.
+            name (str): The name of the adapter to be loaded.
+            load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
+                saved will be used.
+            loading_info (dict, optional):
+                A dictionary to which loading information (missing and unexpected keys) will be added.
+            start_prefix (str, optional): A custom prefix to be ignored in the given state dict.
+        """
+        new_adapter_name = load_as or name
+        if new_adapter_name not in self.model.adapters_config.adapters:
+            raise ValueError("No adapter of this type with the given name is part of this model.")
+
+        # Load adapter weights
+        filter_func = self.filter_func(name)
+        rename_func = self.rename_func(name, new_adapter_name)
+        missing_keys, _ = self.weights_helper.load_weights_from_state_dict(
+            state_dict,
+            filter_func,
+            rename_func=rename_func,
+            loading_info=loading_info,
+            in_base_model=True,
+            start_prefix=start_prefix,
+        )
+        missing_keys = self._fix_legacy_config(new_adapter_name, missing_keys)
+        if isinstance(loading_info, Mapping):
+            loading_info["missing_keys"] = missing_keys
+
     def load(
         self,
         adapter_name_or_path,
@@ -400,7 +507,7 @@ class AdapterLoader(WeightsLoader):
         loading_info=None,
         leave_out=None,
         set_active=False,
-        **kwargs
+        **kwargs,
     ):
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.
@@ -473,8 +580,14 @@ class AdapterFusionLoader(WeightsLoader):
 
     """
 
-    def __init__(self, model, error_on_missing=True):
-        super().__init__(model, ADAPTERFUSION_WEIGHTS_NAME, ADAPTERFUSION_CONFIG_NAME)
+    def __init__(self, model, error_on_missing=True, use_safetensors: bool = False):
+        super().__init__(
+            model,
+            ADAPTERFUSION_WEIGHTS_NAME,
+            ADAPTERFUSION_CONFIG_NAME,
+            use_safetensors=use_safetensors,
+            safe_weights_name=SAFE_ADAPTERFUSION_WEIGHTS_NAME,
+        )
         self.error_on_missing = error_on_missing
 
     def filter_func(self, adapter_fusion_name):
@@ -484,6 +597,36 @@ class AdapterFusionLoader(WeightsLoader):
         return lambda k: k.replace(
             "adapter_fusion_layer.{}".format(old_name), "adapter_fusion_layer.{}".format(new_name)
         )
+
+    def save_to_state_dict(self, name: str):
+        """
+        Extracts the weights of a given AdapterFusion from the model and returns them as a state dict.
+
+        Args:
+            name (str): The name of the AdapterFusion to be saved.
+
+        Returns:
+            Tuple[dict, dict]: A tuple consisting of the state dict containing the AdapterFusion weights and the
+            AdapterFusion configuration.
+        """
+        if name not in self.model.adapters_config.fusions:
+            raise ValueError(f"No AdapterFusion with name '{name}' available.")
+
+        adapter_fusion_config = self.model.adapters_config.get_fusion(name)
+
+        config_dict = build_full_config(
+            adapter_fusion_config,
+            self.model.config,
+            model_name=self.model.model_name,
+            name=name,
+            model_class=self.model.__class__.__name__,
+        )
+
+        # Save adapter weights
+        filter_func = self.filter_func(name)
+        state_dict = self.weights_helper.state_dict(filter_func)
+
+        return state_dict, config_dict
 
     def save(self, save_directory: str, name: str, meta_dict=None):
         """
@@ -522,6 +665,36 @@ class AdapterFusionLoader(WeightsLoader):
         filter_func = self.filter_func(name)
         self.weights_helper.save_weights(save_directory, filter_func)
 
+    def load_from_state_dict(self, state_dict, name, load_as=None, loading_info=None, start_prefix=""):
+        """
+        Loads the weights of a given AdapterFusion module from a state dict into the model.
+
+        Args:
+            state_dict (dict): The state dict from which to load the AdapterFusion weights.
+            name (str): The name of the AdapterFusion to be loaded.
+            load_as (str, optional):
+                Load the AdapterFusion using this name. By default, the name with which the AdapterFusion was saved
+                will be used.
+            loading_info (dict, optional):
+                A dictionary to which loading information (missing and unexpected keys) will be added.
+            start_prefix (str, optional): A custom prefix to be ignored in the given state dict.
+        """
+        new_adapter_fusion_name = load_as or name
+        if new_adapter_fusion_name not in self.model.adapters_config.fusions:
+            raise ValueError(f"No AdapterFusion with name '{new_adapter_fusion_name}' available.")
+
+        # Load adapter weights
+        filter_func = self.filter_func(name)
+        rename_func = self.rename_func(name, new_adapter_fusion_name)
+        self.weights_helper.load_weights_from_state_dict(
+            state_dict,
+            filter_func,
+            rename_func=rename_func,
+            loading_info=loading_info,
+            in_base_model=True,
+            start_prefix=start_prefix,
+        )
+
     def load(self, save_directory, load_as=None, loading_info=None, **kwargs):
         """
         Loads a AdapterFusion module from the given directory.
@@ -534,7 +707,9 @@ class AdapterFusionLoader(WeightsLoader):
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
             and the name of the loaded weights.
         """
-        if not exists(join(save_directory, ADAPTERFUSION_WEIGHTS_NAME)):
+        if not exists(join(save_directory, ADAPTERFUSION_WEIGHTS_NAME)) and not exists(
+            join(save_directory, SAFE_ADAPTERFUSION_WEIGHTS_NAME)
+        ):
             if self.error_on_missing:
                 raise ValueError("Loading path should be a directory where AdapterFusion is saved.")
             else:
@@ -572,14 +747,20 @@ class PredictionHeadLoader(WeightsLoader):
     `model.heads` and a method `add_prediction_head(head_name, config)`.
     """
 
-    def __init__(self, model, error_on_missing=True, convert_to_flex_head=False):
-        super().__init__(model, HEAD_WEIGHTS_NAME, HEAD_CONFIG_NAME)
+    def __init__(self, model, error_on_missing=True, convert_to_flex_head=False, use_safetensors: bool = False):
+        super().__init__(
+            model,
+            HEAD_WEIGHTS_NAME,
+            HEAD_CONFIG_NAME,
+            use_safetensors=use_safetensors,
+            safe_weights_name=SAFE_HEAD_WEIGHTS_NAME,
+        )
         self.error_on_missing = error_on_missing
         self.convert_to_flex_head = convert_to_flex_head
 
     def filter_func(self, head_name):
         # ToDo remove this workaround
-        if self.model.__class__.__name__ in ["T5ForConditionalGeneration", "T5ForQuestionAnswering"]:
+        if self.model.config.model_type in ["t5", "mt5"]:
             if head_name:
                 return (
                     lambda x: not x.startswith("encoder")
@@ -668,7 +849,9 @@ class PredictionHeadLoader(WeightsLoader):
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
             and the name of the loaded weights.
         """
-        if not exists(join(save_directory, HEAD_WEIGHTS_NAME)):
+        if not exists(join(save_directory, HEAD_WEIGHTS_NAME)) and not exists(
+            join(save_directory, SAFE_HEAD_WEIGHTS_NAME)
+        ):
             if self.error_on_missing:
                 raise ValueError("Loading path should be a directory where the head is saved.")
             else:
@@ -781,6 +964,9 @@ class PredictionHeadLoader(WeightsLoader):
         """
         assert self.convert_to_flex_head, "load_from_state_dict() can only be used with convert_to_flex_head=True."
         assert hasattr(self.model, "heads"), "load_from_state_dict() can only be used with flex heads model class."
+
+        if state_dict is None:
+            return None, None
 
         conversion_rename_func = None
 

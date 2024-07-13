@@ -83,7 +83,7 @@ def setup_adapter_training(
         else:
             lang_adapter_name = None
         # Freeze all model weights except of those of this adapter
-        model.train_adapter([adapter_name])
+        model.train_adapter(adapter_name)
         # Set the adapters to be used in every forward pass
         if lang_adapter_name:
             model.set_active_adapters(Stack(lang_adapter_name, adapter_name))

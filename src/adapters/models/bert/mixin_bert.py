@@ -8,6 +8,7 @@ from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ...utils import patch_forward
 
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ class BertSelfAttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
+        patch_forward(self)
 
 
 # For backwards compatibility, BertSelfOutput inherits directly from BottleneckLayer
@@ -37,6 +39,7 @@ class BertSelfOutputAdaptersMixin(BottleneckLayer):
     def init_adapters(self, model_config, adapters_config):
         self.location_key = "mh_adapter"
         super().init_adapters(model_config, adapters_config)
+        patch_forward(self)
 
 
 # For backwards compatibility, BertOutput inherits directly from BottleneckLayer
@@ -49,6 +52,7 @@ class BertOutputAdaptersMixin(BottleneckLayer):
     def init_adapters(self, model_config, adapters_config):
         self.location_key = "output_adapter"
         super().init_adapters(model_config, adapters_config)
+        patch_forward(self)
 
 
 class BertLayerAdaptersMixin:

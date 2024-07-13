@@ -10,6 +10,7 @@ from .methods import (
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
 )
 from .test_adapter import AdapterTestBase, make_config
@@ -29,7 +30,6 @@ class LlamaAdapterTestBase(AdapterTestBase):
         num_attention_heads=4,
         intermediate_size=37,
         hidden_act="gelu",
-        hidden_dropout_prob=0.1,
         pad_token_id=0,
     )
     tokenizer_name = "openlm-research/open_llama_13b"
@@ -42,6 +42,7 @@ class LlamaAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
     EmbeddingTestMixin,
     AdapterFusionModelTestMixin,
@@ -56,9 +57,10 @@ class LlamaAdapterTest(
 
 
 @require_torch
-class BertClassConversionTest(
+class LlamaClassConversionTest(
     ModelClassConversionTestMixin,
     LlamaAdapterTestBase,
     unittest.TestCase,
 ):
-    pass
+    def test_conversion_question_answering_model(self):
+        raise self.skipTest("We don't support the Llama QA model.")

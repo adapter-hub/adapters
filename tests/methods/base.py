@@ -35,6 +35,9 @@ def create_twin_models(model_class, config_creator=None):
 class AdapterMethodBaseTestMixin:
     """Provides base test running methods for testing an adapter method implementation."""
 
+    # Model weight dtypes to test in forward pass
+    dtypes_to_test = [torch.float32, torch.half] if torch_device == "cuda" else [torch.float32]
+
     def filter_parameters(self, model, filter_keys):
         return {k: v for (k, v) in model.named_parameters() if any([filter_key in k for filter_key in filter_keys])}
 
@@ -43,7 +46,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "test_adapter_" + adapter_config.__class__.__name__
         model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters([name])
+        model.set_active_adapters(name)
         model.to(torch_device)
 
         # adapter is correctly added to config
@@ -57,6 +60,26 @@ class AdapterMethodBaseTestMixin:
             has_weights = True
             self.assertTrue(v.requires_grad, k)
         self.assertTrue(has_weights)
+
+    def run_leave_out_test(self, model, adapter_config, leave_out):
+        model.eval()
+
+        adapter_config = adapter_config.replace(leave_out=leave_out)
+        name = "test_adapter_" + adapter_config.__class__.__name__
+        model.add_adapter(name, config=adapter_config)
+        model.set_active_adapters(name)
+
+        # adapter is correctly added to config
+        self.assert_adapter_available(model, name)
+
+        adapter = model.get_adapter(name)
+
+        self.assertNotEqual(len(adapter), 0)
+        found_layers = list(adapter.keys())
+        for layer in leave_out:
+            self.assertNotIn(layer, found_layers)
+
+        model.delete_adapter(name)
 
     def run_average_test(self, model, adapter_config, filter_keys):
         model.eval()
@@ -96,7 +119,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "test_adapter_" + adapter_config.__class__.__name__
         model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters([name])
+        model.set_active_adapters(name)
         model.to(torch_device)
 
         # adapter is correctly added to config
@@ -117,7 +140,7 @@ class AdapterMethodBaseTestMixin:
         model.eval()
 
         model.add_adapter("first", config=adapter_config)
-        model.set_active_adapters(["first"])
+        model.set_active_adapters("first")
 
         # adapter is correctly added to config
         name = "first"
@@ -131,17 +154,18 @@ class AdapterMethodBaseTestMixin:
 
         model.delete_adapter("first")
 
-    def run_forward_test(self, model, adapter_config):
+    def run_forward_test(self, model, adapter_config, dtype=torch.float32):
         model.eval()
 
         name = adapter_config.__class__.__name__
-        model.add_adapter(name, config=adapter_config)
-        model.to(torch_device)
+        if name not in model.adapters_config:
+            model.add_adapter(name, config=adapter_config)
+        model.to(torch_device).to(dtype)
 
-        input_data = self.get_input_samples(config=model.config)
+        input_data = self.get_input_samples(config=model.config, dtype=dtype)
 
         # pass 1: set adapter via property
-        model.set_active_adapters([name])
+        model.set_active_adapters(name)
         output_1 = model(**input_data)
 
         # pass 2: set via context
@@ -165,7 +189,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "dummy_adapter"
         model1.add_adapter(name, config=adapter_config)
-        model1.set_active_adapters([name])
+        model1.set_active_adapters(name)
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
 
@@ -307,7 +331,7 @@ class AdapterMethodBaseTestMixin:
         input_data = self.get_input_samples(config=model.config)
 
         # forward in training mode
-        model.set_active_adapters(["test_lora"])
+        model.set_active_adapters("test_lora")
         output_1 = model(**input_data)
 
         # forward in merged mode

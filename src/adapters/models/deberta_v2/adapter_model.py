@@ -2,15 +2,7 @@ from transformers.file_utils import add_start_docstrings
 from transformers.models.deberta_v2.modeling_deberta_v2 import DebertaV2Model, DebertaV2PreTrainedModel
 
 from ...context import AdapterSetup
-from ...heads import (
-    BertStyleMaskedLMHead,
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    MultipleChoiceHead,
-    QuestionAnsweringHead,
-    TaggingHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -22,6 +14,15 @@ class DebertaV2AdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, DebertaV2PreTrainedModel
 ):
     _keys_to_ignore_on_load_unexpected = [r"cls.predictions.bias"]
+
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "tagging",
+        "question_answering",
+        "multiple_choice",
+        "masked_lm",
+    ]
 
     def __init__(self, config):
         super().__init__(config)
@@ -46,7 +47,7 @@ class DebertaV2AdapterModel(
         head=None,
         output_adapter_gating_scores=False,
         output_adapter_fusion_attentions=False,
-        **kwargs
+        **kwargs,
     ):
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
         position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
@@ -96,100 +97,3 @@ class DebertaV2AdapterModel(
         else:
             # in case no head is used just return the output of the base model (including pooler output)
             return outputs
-
-    head_types = {
-        "classification": ClassificationHead,
-        # "multilabel_classification": MultiLabelClassificationHead,
-        "tagging": TaggingHead,
-        "question_answering": QuestionAnsweringHead,
-        "multiple_choice": MultipleChoiceHead,
-        "masked_lm": BertStyleMaskedLMHead,
-    }
-
-    def add_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        overwrite_ok=False,
-        multilabel=False,
-        id2label=None,
-        use_pooler=False,
-    ):
-        """
-        Adds a sequence classification head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            num_labels (int, optional): Number of classification labels. Defaults to 2.
-            layers (int, optional): Number of layers. Defaults to 2.
-            activation_function (str, optional): Activation function. Defaults to 'tanh'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
-        """
-
-        if multilabel:
-            head = MultiLabelClassificationHead(
-                self, head_name, num_labels, layers, activation_function, id2label, use_pooler
-            )
-        else:
-            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label, use_pooler)
-        self.add_prediction_head(head, overwrite_ok)
-
-    def add_multiple_choice_head(
-        self,
-        head_name,
-        num_choices=2,
-        layers=2,
-        activation_function="tanh",
-        overwrite_ok=False,
-        id2label=None,
-        use_pooler=False,
-    ):
-        """
-        Adds a multiple choice head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            num_choices (int, optional): Number of choices. Defaults to 2.
-            layers (int, optional): Number of layers. Defaults to 2.
-            activation_function (str, optional): Activation function. Defaults to 'tanh'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = MultipleChoiceHead(self, head_name, num_choices, layers, activation_function, id2label, use_pooler)
-        self.add_prediction_head(head, overwrite_ok)
-
-    def add_tagging_head(
-        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
-    ):
-        """
-        Adds a token classification head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            num_labels (int, optional): Number of classification labels. Defaults to 2.
-            layers (int, optional): Number of layers. Defaults to 1.
-            activation_function (str, optional): Activation function. Defaults to 'tanh'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = TaggingHead(self, head_name, num_labels, layers, activation_function, id2label)
-        self.add_prediction_head(head, overwrite_ok)
-
-    def add_qa_head(
-        self, head_name, num_labels=2, layers=1, activation_function="tanh", overwrite_ok=False, id2label=None
-    ):
-        head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
-        self.add_prediction_head(head, overwrite_ok)
-
-    def add_masked_lm_head(self, head_name, activation_function="gelu", overwrite_ok=False):
-        """
-        Adds a masked language modeling head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            activation_function (str, optional): Activation function. Defaults to 'gelu'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = BertStyleMaskedLMHead(self, head_name, activation_function=activation_function)
-        self.add_prediction_head(head, overwrite_ok=overwrite_ok)

@@ -1,4 +1,4 @@
-from typing import Dict, List, NamedTuple, Optional, Union
+from typing import Dict, List, NamedTuple, Optional
 
 import torch
 import torch.nn.functional as F
@@ -21,19 +21,20 @@ class PrefixTuning(nn.Module, ModuleUtilsMixin):
         n_heads: int,
         input_size: int,
         config: PrefixTuningConfig,
+        n_embd_per_head: Optional[int] = None,
     ):
         super().__init__()
         self.n_layers = n_layers
         self.n_heads = n_heads
         self.input_size = input_size
-        self.n_embd_per_head = self.input_size // self.n_heads
+        self.n_embd_per_head = n_embd_per_head or self.input_size // self.n_heads
         self.config = config
 
         self.wte = nn.Embedding(self.config.prefix_length, self.input_size)
         self.control_trans = nn.Sequential(
             nn.Linear(self.input_size, self.config.bottleneck_size),
             Activation_Function_Class(self.config.non_linearity.lower()),
-            nn.Linear(self.config.bottleneck_size, self.n_layers * 2 * self.input_size),
+            nn.Linear(self.config.bottleneck_size, self.n_layers * 2 * self.n_heads * self.n_embd_per_head),
         )
         self.dropout = nn.Dropout(self.config.dropout)
 
@@ -70,15 +71,18 @@ class FlatPrefixTuning(nn.Module, ModuleUtilsMixin):
         n_heads: int,
         input_size: int,
         config: PrefixTuningConfig,
+        n_embd_per_head: Optional[int] = None,
     ):
         super().__init__()
         self.n_layers = n_layers
         self.n_heads = n_heads
         self.input_size = input_size
-        self.n_embd_per_head = self.input_size // self.n_heads
+        self.n_embd_per_head = n_embd_per_head or self.input_size // self.n_heads
         self.config = config
 
-        self.control_trans = nn.Parameter(torch.randn(self.config.prefix_length * self.n_layers * 2 * self.input_size))
+        self.control_trans = nn.Parameter(
+            torch.randn(self.config.prefix_length * self.n_layers * 2 * self.n_heads * self.n_embd_per_head)
+        )
 
         self.dropout = nn.Dropout(self.config.dropout)
 
@@ -174,6 +178,7 @@ class PrefixTuningPool(nn.Module):
                 "n_layers": location_config["count"],
                 "n_heads": location_config["n_heads"],
                 "input_size": location_config["input_size"],
+                "n_embd_per_head": location_config["n_embd_per_head"],
             }
         prefix_tuning = PrefixTuningGroup(module_configs, prefix_tuning_config)
         prefix_tuning.train(self.training)  # make sure training mode is consistent
@@ -319,6 +324,7 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
                 self.location_key,
                 n_heads=self.model_config.num_attention_heads,
                 input_size=self.model_config.hidden_size,
+                n_embd_per_head=getattr(self.model_config, "d_kv", None),  # this is currently specific to T5-3B
             )
             self.prefixes[adapter_name] = prefix_id
 
@@ -360,12 +366,6 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
             del self.prefixes[adapter_name]
         if adapter_name in self.prefix_gates:
             del self.prefix_gates[adapter_name]
-
-    def add_fusion_layer(self, adapter_names: Union[List, str]):
-        pass  # not applicable to prefix tuning
-
-    def delete_fusion_layer(self, adapter_names: Union[List, str]):
-        pass  # not applicable to prefix tuning
 
     def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
         if unfreeze_adapters:
@@ -430,10 +430,8 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
             value_states = F.pad(value_states, pad_size, "constant", self.model_config.pad_token_id)
 
             # pad attention mask
-            if pad_length > 0:
+            if pad_length > 0 and attention_mask is not None:
                 # Masking the padded tokens only works correctly if attention_mask is set
-                # We assume this to be the case at this point
-                assert attention_mask is not None, "Attention mask must be set for prefix tuning"
                 attention_mask = F.pad(
                     attention_mask,
                     (max_prefix_length - attention_mask.shape[-1], 0),
@@ -513,10 +511,12 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         value_states = torch.cat([prefix_values, state.value_states], dim=2)
         if state.attention_mask is not None:
             if state.attention_mask.dim() == 2:  # e.g. for DistilBERT, attention_mask has shape (batch_size, seq_len)
-                prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(state.attention_mask.device)
+                prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(
+                    device=state.attention_mask.device, dtype=state.attention_mask.dtype
+                )
             else:
                 prefix_mask = torch.ones(batch_size, 1, state.attention_mask.size(2), prefix_keys.size(2)).to(
-                    state.attention_mask.device
+                    device=state.attention_mask.device, dtype=state.attention_mask.dtype
                 )
             if state.invert_mask:
                 prefix_mask = 1.0 - prefix_mask

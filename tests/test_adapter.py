@@ -37,6 +37,7 @@ class AdapterTestBase:
     model_class = AutoAdapterModel
     # Default shape of inputs to use
     default_input_samples_shape = (3, 64)
+    leave_out_layers = [0, 1]
     do_run_train_tests = True
 
     def get_model(self):
@@ -48,7 +49,7 @@ class AdapterTestBase:
         model.to(torch_device)
         return model
 
-    def get_input_samples(self, shape=None, vocab_size=5000, config=None):
+    def get_input_samples(self, shape=None, vocab_size=5000, config=None, **kwargs):
         shape = shape or self.default_input_samples_shape
         total_dims = 1
         for dim in shape:
@@ -95,7 +96,7 @@ class AdapterTestBase:
 class VisionAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (3, 3, 224, 224)
 
-    def get_input_samples(self, shape=None, config=None):
+    def get_input_samples(self, shape=None, config=None, dtype=torch.float, **kwargs):
         shape = shape or self.default_input_samples_shape
         total_dims = 1
         for dim in shape:
@@ -103,7 +104,7 @@ class VisionAdapterTestBase(AdapterTestBase):
         values = []
         for _ in range(total_dims):
             values.append(random.random())
-        pixel_values = torch.tensor(data=values, dtype=torch.float, device=torch_device).view(shape).contiguous()
+        pixel_values = torch.tensor(data=values, dtype=dtype, device=torch_device).view(shape).contiguous()
         in_data = {"pixel_values": pixel_values}
 
         return in_data
@@ -128,6 +129,7 @@ class VisionAdapterTestBase(AdapterTestBase):
             "./tests/fixtures/samples/cifar10",
             data_dir="./tests/fixtures/samples/cifar10",
             split="train",
+            trust_remote_code=True,
         )
         dataset = dataset.with_transform(transform)
 

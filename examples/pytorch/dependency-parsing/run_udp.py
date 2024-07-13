@@ -3,6 +3,7 @@ Code taken and modified from: https://github.com/Adapter-Hub/hgiyt.
 Credits: "How Good is Your Tokenizer? On the Monolingual Performance of Multilingual Language Models" (Rust et al., 2021)
 https://arxiv.org/abs/2012.15613
 """
+
 import logging
 import os
 import sys
@@ -80,7 +81,6 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "Overwrite the cached training and evaluation sets."},
     )
-    use_mock_data: bool = field(default=False)
     evaluate_on: str = field(default="validation")
 
 
@@ -157,9 +157,11 @@ def main():
         use_fast=model_args.use_fast,
         do_lower_case=model_args.do_lower_case,
         add_prefix_space=True,  # Used e.g. for RoBERTa
-        mecab_kwargs={"mecab_option": f"-r {model_args.mecab_dir} -d {model_args.mecab_dic_dir}"}
-        if model_args.is_japanese
-        else None,
+        mecab_kwargs=(
+            {"mecab_option": f"-r {model_args.mecab_dir} -d {model_args.mecab_dic_dir}"}
+            if model_args.is_japanese
+            else None
+        ),
     )
 
     # The task name (with prefix)
@@ -180,16 +182,7 @@ def main():
     )
 
     # Load and preprocess dataset
-    if data_args.use_mock_data:
-        from datasets import Version, load_dataset_builder
-        from datasets.commands.dummy_data import MockDownloadManager
-
-        dataset_builder = load_dataset_builder("universal_dependencies", data_args.task_name)
-        mock_dl_manager = MockDownloadManager("universal_dependencies", dataset_builder.config, Version("2.7.0"))
-        dataset_builder.download_and_prepare(dl_manager=mock_dl_manager, ignore_verifications=True)
-        dataset = dataset_builder.as_dataset()
-    else:
-        dataset = load_dataset("universal_dependencies", data_args.task_name)
+    dataset = load_dataset("universal_dependencies", data_args.task_name, trust_remote_code=True)
     dataset = preprocess_dataset(dataset, tokenizer, labels, data_args, pad_token_id=-1)
 
     # Setup adapters
@@ -254,9 +247,11 @@ def main():
             if adapter_args.train_adapter:
                 adapter_config = AdapterConfig.load(adapter_args.adapter_config, **adapter_config_kwargs)
                 model.load_adapter(
-                    os.path.join(training_args.output_dir, "best_model", task_name)
-                    if training_args.do_train
-                    else adapter_args.load_adapter,
+                    (
+                        os.path.join(training_args.output_dir, "best_model", task_name)
+                        if training_args.do_train
+                        else adapter_args.load_adapter
+                    ),
                     config=adapter_config,
                     load_as=task_name,
                     **adapter_load_kwargs,
@@ -264,9 +259,11 @@ def main():
                 if adapter_args.load_lang_adapter:
                     lang_adapter_config = AdapterConfig.load(adapter_args.lang_adapter_config, **adapter_config_kwargs)
                     lang_adapter_name = model.load_adapter(
-                        os.path.join(training_args.output_dir, "best_model", lang_adapter_name)
-                        if training_args.do_train
-                        else adapter_args.load_lang_adapter,
+                        (
+                            os.path.join(training_args.output_dir, "best_model", lang_adapter_name)
+                            if training_args.do_train
+                            else adapter_args.load_lang_adapter
+                        ),
                         config=lang_adapter_config,
                         load_as=lang_adapter_name,
                         **adapter_load_kwargs,

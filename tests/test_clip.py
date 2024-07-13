@@ -20,6 +20,7 @@ from .methods import (
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
 )
 from .test_adapter import AdapterTestBase, VisionAdapterTestBase, make_config
@@ -48,6 +49,7 @@ class CLIPVisionAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
@@ -78,6 +80,7 @@ class CLIPVisionWithProjectionAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
@@ -107,6 +110,7 @@ class CLIPTextAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
@@ -136,6 +140,7 @@ class CLIPTextWithProjectionAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
@@ -170,7 +175,7 @@ class CLIPAdapterTestBase(AdapterTestBase):
     default_vision_input_samples_shape = (3, 3, 224, 224)
     do_run_train_tests = False
 
-    def get_input_samples(self, vocab_size=5000, config=None):
+    def get_input_samples(self, vocab_size=5000, config=None, dtype=torch.float, **kwargs):
         # text inputs
         shape = self.default_text_input_samples_shape
         total_dims = 1
@@ -194,7 +199,7 @@ class CLIPAdapterTestBase(AdapterTestBase):
         values = []
         for _ in range(total_dims):
             values.append(random.random())
-        pixel_values = torch.tensor(data=values, dtype=torch.float, device=torch_device).view(shape).contiguous()
+        pixel_values = torch.tensor(data=values, dtype=dtype, device=torch_device).view(shape).contiguous()
         in_data["pixel_values"] = pixel_values
 
         return in_data
@@ -210,6 +215,7 @@ class CLIPAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,

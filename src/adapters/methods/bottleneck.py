@@ -30,6 +30,7 @@ class BottleneckState(NamedTuple):
         layer_norm (torch.nn.Module, optional): The Transformer layer norm module.
         bottleneck_up (torch.Tensor, optional):
             The up-projected bottleneck MLP output. This is only for Fuse compositions.
+        last (str, optional): Name of the last adapter applied in the composition.
     """
 
     hidden_states: torch.Tensor
@@ -37,6 +38,7 @@ class BottleneckState(NamedTuple):
     adapter_residual: torch.Tensor
     layer_norm: Optional[torch.nn.Module]
     bottleneck_up: Optional[torch.Tensor] = None
+    last: Optional[str] = None
 
 
 class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
@@ -114,10 +116,6 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
 
         return False
 
-    def delete_adapter(self, adapter_name: str):
-        if adapter_name in self.adapters:
-            del self.adapters[adapter_name]
-
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
@@ -162,15 +160,10 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
                         for param in self.adapter_fusion_layer[sub_setup.name].parameters():
                             param.requires_grad = True
 
-    def freeze_adapter(self, adapter_name: str, freeze: bool = True):
-        if adapter_name in self.adapters:
-            self.adapters[adapter_name].train(not freeze)
-            for param in self.adapters[adapter_name].parameters():
-                param.requires_grad = not freeze
-
-    def get_adapter(self, adapter_name: str):
-        if adapter_name in self.adapters:
-            return self.adapters[adapter_name]
+    def get_adapter_fusion(self, adapter_names: Union[List, str]):
+        adapter_names = adapter_names if isinstance(adapter_names, str) else ",".join(adapter_names)
+        if adapter_names in self.adapter_fusion_layer:
+            return self.adapter_fusion_layer[adapter_names]
         else:
             return None
 
@@ -193,6 +186,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             state.adapter_residual[slice_obj],
             state.layer_norm,
             state.bottleneck_up[slice_obj] if state.bottleneck_up is not None else None,
+            state.last,
         )
 
     def pad_and_concat(self, states: List[BottleneckState]) -> BottleneckState:
@@ -201,9 +195,12 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             torch.cat([state.input_tensor for state in states], dim=0),
             torch.cat([state.adapter_residual for state in states], dim=0),
             states[0].layer_norm,
-            torch.cat([state.bottleneck_up for state in states], dim=0)
-            if states[0].bottleneck_up is not None
-            else None,
+            (
+                torch.cat([state.bottleneck_up for state in states], dim=0)
+                if states[0].bottleneck_up is not None
+                else None
+            ),
+            states[-1].last,
         )
 
     def repeat(self, state: BottleneckState, channels: int) -> BottleneckState:
@@ -213,6 +210,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             state.adapter_residual.repeat(channels, 1, 1),
             state.layer_norm,
             state.bottleneck_up.repeat(channels, 1, 1) if state.bottleneck_up is not None else None,
+            state.last,
         )
 
     def mean(self, states: List[BottleneckState], weights: torch.Tensor) -> BottleneckState:
@@ -222,6 +220,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             states[0].adapter_residual,
             states[0].layer_norm,
             states[0].bottleneck_up,
+            states[-1].last,
         )
 
     def compose_single(self, adapter_setup: str, state: BottleneckState, lvl: int = 0) -> BottleneckState:
@@ -235,7 +234,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
         hidden_states, up = layer_output[0], layer_output[2]
         self._store_gating_score(adapter_setup, layer_output[-1])
 
-        return BottleneckState(hidden_states, state.input_tensor, state.adapter_residual, state.layer_norm, up)
+        return state._replace(hidden_states=hidden_states, bottleneck_up=up, last=adapter_setup)
 
     def compose_fuse(self, adapter_setup: Fuse, state: BottleneckState, lvl: int = 0):
         """
@@ -245,7 +244,8 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
 
         # config of _last_ fused adapter is significant
         fusion_config = self.adapters_config.get_fusion(adapter_setup.name)
-        last_adapter = self.adapters[adapter_setup.last()]
+        last = adapter_setup.last()
+        last_adapter = self.adapters[last]
         hidden_states, query, residual = last_adapter.pre_forward(
             state.hidden_states, state.input_tensor, state.layer_norm, fusion_config=fusion_config
         )
@@ -255,7 +255,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
         for child in adapter_setup:
             if isinstance(child, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, child, lvl)
-                composition_func = self.composition_to_func_map[type(child)]
+                composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(child, state, lvl=lvl + 1)
                 children_states.append(child_state)
             elif child in self.adapter_modules:
@@ -281,7 +281,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             else:
                 hidden_states = fusion_output
 
-        return state._replace(hidden_states=hidden_states)
+        return state._replace(hidden_states=hidden_states, last=last)
 
     def compose_split(self, adapter_setup: Split, state: BottleneckState, lvl: int = 0):
         """
@@ -297,6 +297,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
         state = self.pre_block(adapter_setup, state)
 
         children_states = []
+        last = None
         for i, child in enumerate(adapter_setup):
             batch_idx = (
                 sum(adapter_setup.splits[:i]),
@@ -311,17 +312,19 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             )
             if isinstance(child, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, child, lvl)
-                composition_func = self.composition_to_func_map[type(child)]
+                composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(child, child_state, lvl=lvl + 1)
                 children_states.append(child_state)
+                last = child_state.last or last
             elif child in self.adapter_modules:
                 child_state = self.compose_single(child, child_state, lvl=lvl + 1)
                 children_states.append(child_state)
+                last = child_state.last or last
             else:
                 pass
 
         hidden_states = torch.cat([child.hidden_states for child in children_states], dim=1)
-        return state._replace(hidden_states=hidden_states)
+        return state._replace(hidden_states=hidden_states, last=last)
 
     def bottleneck_layer_forward(self, hidden_states, residual_input, layer_norm):
         """Forward pass through the adapter layer.
@@ -346,9 +349,9 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
 
             state = BottleneckState(hidden_states, residual_input, residual_input, layer_norm)
             state = self.compose(adapter_setup, state)
-            hidden_states, residual_input, _, _, _ = state
+            hidden_states, residual_input, _, _, _, last = state
 
-            last_adapter = self.adapters[adapter_setup.last()]
+            last_adapter = self.adapters[last]
             hidden_states = last_adapter.post_forward(hidden_states, input_hidden_states, residual_input, layer_norm)
 
         elif layer_norm:

@@ -14,10 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-> **Note**: This repository holds the codebase of the _Adapters_ library, which has replaced `adapter-transformers`. For the legacy codebase, go to: https://github.com/adapter-hub/adapter-transformers-legacy.
-
 <p align="center">
-<img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapters/main/docs/logo.png" />
+<img style="vertical-align:middle" src="https://raw.githubusercontent.com/Adapter-Hub/adapters/main/docs/img/adapter-bert.png" width="80" />
 </p>
 <h1 align="center">
 <span><i>Adapters</i></span>
@@ -26,12 +24,21 @@ limitations under the License.
 <h3 align="center">
 A Unified Library for Parameter-Efficient and Modular Transfer Learning
 </h3>
+<h3 align="center">
+    <a href="https://adapterhub.ml">Website</a>
+    &nbsp; • &nbsp;
+    <a href="https://docs.adapterhub.ml">Documentation</a>
+    &nbsp; • &nbsp;
+    <a href="https://arxiv.org/abs/2311.11077">Paper</a>
+</h3>
 
 ![Tests](https://github.com/Adapter-Hub/adapters/workflows/Tests/badge.svg?branch=adapters)
 [![GitHub](https://img.shields.io/github/license/adapter-hub/adapters.svg?color=blue)](https://github.com/adapter-hub/adapters/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/adapters)](https://pypi.org/project/adapters/)
 
-`adapters` is an add-on to [HuggingFace's Transformers](https://github.com/huggingface/transformers) library, integrating adapters into state-of-the-art language models by incorporating **[AdapterHub](https://adapterhub.ml)**, a central repository for pre-trained adapter modules.
+_Adapters_ is an add-on library to [HuggingFace's Transformers](https://github.com/huggingface/transformers), integrating [various adapter methods](https://docs.adapterhub.ml/overview.html) into [state-of-the-art pre-trained language models](https://docs.adapterhub.ml/model_overview.html) with minimal coding overhead for training and inference.
+
+> **Note**: The _Adapters_ library has replaced the `adapter-transformers` package. All previously trained adapters are compatible with the new library. For transitioning, please read: https://docs.adapterhub.ml/transitioning.html.
 
 ## Installation
 
@@ -46,7 +53,6 @@ pip install -U adapters
 
 ```
 git clone https://github.com/adapter-hub/adapters.git
-git checkout adapters
 cd adapters
 pip install .
 ```
@@ -142,12 +148,15 @@ Currently, adapters integrates all architectures and methods listed below:
 | MAD-X,<br> Invertible adapters | [Pfeiffer et al. (2020)](https://aclanthology.org/2020.emnlp-main.617/) | [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/04_Cross_Lingual_Transfer.ipynb) |
 | AdapterDrop | [Rücklé et al. (2021)](https://arxiv.org/pdf/2010.11918.pdf) | [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/05_Adapter_Drop_Training.ipynb) |
 | MAD-X 2.0,<br> Embedding training | [Pfeiffer et al. (2021)](https://arxiv.org/pdf/2012.15562.pdf) | [Docs: Embeddings](https://docs.adapterhub.ml/embeddings.html), [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/08_NER_Wikiann.ipynb) |
-| Prefix Tuning | [Li and Liang (2021)](https://arxiv.org/pdf/2101.00190.pdf) | [Docs](https://docs.adapterhub.ml/overview.html#prefix-tuning) |
-| Parallel adapters,<br> Mix-and-Match adapters | [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) | [Docs](https://docs.adapterhub.ml/overview.html#mix-and-match-adapters) |
-| Compacter | [Mahabadi et al. (2021)](https://arxiv.org/pdf/2106.04647.pdf) | [Docs](https://docs.adapterhub.ml/overview.html#compacter) |
-| LoRA | [Hu et al. (2021)](https://arxiv.org/pdf/2106.09685.pdf) | [Docs](https://docs.adapterhub.ml/overview.html#lora) |
-| (IA)^3 | [Liu et al. (2022)](https://arxiv.org/pdf/2205.05638.pdf) | [Docs](https://docs.adapterhub.ml/overview.html#ia-3) |
-| UniPELT | [Mao et al. (2022)](https://arxiv.org/pdf/2110.07577.pdf) | [Docs](https://docs.adapterhub.ml/overview.html#unipelt) |
+| Prefix Tuning | [Li and Liang (2021)](https://arxiv.org/pdf/2101.00190.pdf) | [Docs](https://docs.adapterhub.ml/methods.html#prefix-tuning) |
+| Parallel adapters,<br> Mix-and-Match adapters | [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) | [Docs](https://docs.adapterhub.ml/method_combinations.html#mix-and-match-adapters) |
+| Compacter | [Mahabadi et al. (2021)](https://arxiv.org/pdf/2106.04647.pdf) | [Docs](https://docs.adapterhub.ml/methods.html#compacter) |
+| LoRA | [Hu et al. (2021)](https://arxiv.org/pdf/2106.09685.pdf) | [Docs](https://docs.adapterhub.ml/methods.html#lora) |
+| (IA)^3 | [Liu et al. (2022)](https://arxiv.org/pdf/2205.05638.pdf) | [Docs](https://docs.adapterhub.ml/methods.html#ia-3) |
+| UniPELT | [Mao et al. (2022)](https://arxiv.org/pdf/2110.07577.pdf) | [Docs](https://docs.adapterhub.ml/method_combinations.html#unipelt) |
+| Prompt Tuning | [Lester et al. (2021)](https://aclanthology.org/2021.emnlp-main.243/) | [Docs](https://docs.adapterhub.ml/methods.html#prompt-tuning) |
+| QLoRA | [Dettmers et al. (2023)](https://arxiv.org/pdf/2305.14314.pdf) | [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/QLoRA_Llama_Finetuning.ipynb) |
+| ReFT | [Wu et al. (2024)](https://arxiv.org/pdf/2404.03592) | [Docs](https://docs.adapterhub.ml/methods.html#reft) |
 
 ## Supported Models
 
@@ -159,7 +168,32 @@ To get started with developing on _Adapters_ yourself and learn more about ways 
 
 ## Citation
 
-If you use this library for your work, please consider citing our paper [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779):
+If you use _Adapters_ in your work, please consider citing our library paper: [Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning](https://arxiv.org/abs/2311.11077)
+
+```
+@inproceedings{poth-etal-2023-adapters,
+    title = "Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning",
+    author = {Poth, Clifton  and
+      Sterz, Hannah  and
+      Paul, Indraneil  and
+      Purkayastha, Sukannya  and
+      Engl{\"a}nder, Leon  and
+      Imhof, Timo  and
+      Vuli{\'c}, Ivan  and
+      Ruder, Sebastian  and
+      Gurevych, Iryna  and
+      Pfeiffer, Jonas},
+    booktitle = "Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing: System Demonstrations",
+    month = dec,
+    year = "2023",
+    address = "Singapore",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2023.emnlp-demo.13",
+    pages = "149--160",
+}
+```
+
+Alternatively, for the predecessor `adapter-transformers`, the Hub infrastructure and adapters uploaded by the AdapterHub team, please consider citing our initial paper: [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/abs/2007.07779)
 
 ```
 @inproceedings{pfeiffer2020AdapterHub,

@@ -5,6 +5,7 @@
 # https://www.sphinx-doc.org/en/main/usage/configuration.html
 import os
 import sys
+import re
 
 
 # -- Path setup --------------------------------------------------------------
@@ -20,7 +21,7 @@ sys.path.insert(0, rootdir)
 # -- Project information -----------------------------------------------------
 
 project = "AdapterHub"
-copyright = "2020-2023, AdapterHub Team"
+copyright = "2020-2024, AdapterHub Team"
 author = "AdapterHub Team"
 
 docs_versions = [
@@ -87,6 +88,21 @@ smv_branch_whitelist = r"^main$"
 smv_remote_whitelist = None
 
 
+def skip_head_member(app, what, name, obj, skip, options):
+    if type(obj).__name__ == "function" and "inherited-members" in options and (m := re.match(r"add\_(.*)\_head$", name)):
+        cls_name = list(options["inherited-members"])[0].replace("PreTrainedModel", "AdapterModel").replace("PretrainedModel", "AdapterModel")
+        cls = vars(sys.modules["adapters"])[cls_name]
+        # HACK: currently parses head type from name
+        head_type_str = m.group(1).replace("qa", "question_answering")
+        if head_type_str in cls.head_types:
+            return False
+        else:
+            return True
+
+    return skip
+
+
 def setup(app):
+    app.connect('autodoc-skip-member', skip_head_member)
     app.add_config_value("recommonmark_config", {"enable_eval_rst": True}, True)
     app.add_css_file("custom.css")

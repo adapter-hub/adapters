@@ -18,8 +18,6 @@ from ...wrappers import init
 
 @add_start_docstrings(CLIP_START_DOCSTRING)
 class CLIPAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, CLIPPreTrainedModel):
-    _tied_weights_keys = []  # needs to be empty since CLIP does not yet support prompt tuning
-
     def __init__(self, config):
         super().__init__(config)
 
@@ -44,7 +42,7 @@ class CLIPAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         head=None,
         output_adapter_gating_scores=False,
         output_adapter_fusion_attentions=False,
-        **kwargs
+        **kwargs,
     ):
         outputs, context = self.clip(
             input_ids=input_ids,

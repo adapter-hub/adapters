@@ -2,18 +2,11 @@ import logging
 
 import torch
 
-from adapters.heads.base import QuestionAnsweringHead
 from transformers.models.gpt2.modeling_gpt2 import GPT2_START_DOCSTRING, GPT2Model, GPT2PreTrainedModel
 from transformers.utils import add_start_docstrings
 
 from ...composition import adjust_tensors_for_parallel
-from ...heads import (
-    CausalLMHead,
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    TaggingHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -33,7 +26,13 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
     GPT2_START_DOCSTRING,
 )
 class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel):
-    _tied_weights_keys = []  # needs to be empty since GPT2 does not yet support prompt tuning
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "tagging",
+        "question_answering",
+        "causal_lm",
+    ]
 
     def __init__(self, config):
         super().__init__(config)
@@ -66,7 +65,7 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         head=None,
         output_adapter_gating_scores=False,
         output_adapter_fusion_attentions=False,
-        **kwargs
+        **kwargs,
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
@@ -150,62 +149,3 @@ class GPT2AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
             "token_type_ids": token_type_ids,
             "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
         }
-
-    head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "causal_lm": CausalLMHead,
-        "tagging": TaggingHead,
-        "question_answering": QuestionAnsweringHead,
-    }
-
-    def add_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        overwrite_ok=False,
-        multilabel=False,
-        id2label=None,
-    ):
-        """
-        Adds a sequence classification head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            num_labels (int, optional): Number of classification labels. Defaults to 2.
-            layers (int, optional): Number of layers. Defaults to 2.
-            activation_function (str, optional): Activation function. Defaults to 'tanh'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
-        """
-
-        if multilabel:
-            head = MultiLabelClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
-        else:
-            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
-        self.add_prediction_head(head, overwrite_ok)
-
-    def add_causal_lm_head(self, head_name, overwrite_ok=False):
-        """
-        Adds a causal language modeling head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = CausalLMHead(self, head_name)
-        self.add_prediction_head(head, overwrite_ok=overwrite_ok)
-
-    def add_qa_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=1,
-        activation_function=None,
-        overwrite_ok=False,
-        id2label=None,
-    ):
-        head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
-        self.add_prediction_head(head, overwrite_ok)

@@ -1,7 +1,7 @@
 # Adapter Methods
 
 On this page, we present all adapter methods currently integrated into the `adapters` library.
-A tabular overview of adapter methods is provided [here](overview.html#table-of-adapter-methods). 
+A tabular overview of adapter methods is provided [here](overview.md#table-of-adapter-methods). 
 Additionally, options to combine multiple adapter methods in a single setup are presented [on the next page](method_combinations.md).
 
 ## Bottleneck Adapters
@@ -295,3 +295,50 @@ model.add_adapter("dummy", config=config)
 _Papers:_
 - [The Power of Scale for Parameter-Efficient Prompt Tuning](https://aclanthology.org/2021.emnlp-main.243/) (Lester et al., 2021)
 
+## ReFT
+
+_Configuration class_: [`ReftConfig`](adapters.ReftConfig)
+
+Representation Fine-Tuning (ReFT), as first proposed by [Wu et al. (2024)](https://arxiv.org/pdf/2404.03592), leverages so-called interventions to adapt the pre-trained representations of a language model.
+Within the context of ReFT, these interventions can intuitively be thought of as adapter modules placed after each Transformer layer.
+In the general form, an intervention function $\Phi$ can thus be defined as follows:
+
+$$
+\Phi(h) = h + R^T (W h + b - R h)
+$$
+
+Here, $R \in \mathbb{R}^{r \times d}$ and $W \in \mathbb{R}^{r \times d}$ are low-rank matrices of rank $r$.
+$h$ is the layer output hidden state at a single sequence position, i.e. interventions can be applied independently at each position.
+
+Based on this general form, the ReFT paper proposes multiple instantiations of ReFT methods supported by _Adapters_:
+
+- **LoReFT** enforces orthogonality of rows in $R$. Defined via [`LoReftConfig`](adapters.LoReftConfig) or via the `orthogonality` attribute as in the following example:
+```python
+config = ReftConfig(
+    layers="all", prefix_positions=3, suffix_positions=0, r=1, orthogonality=True
+)  # equivalent to LoreftConfig()
+```
+
+- **NoReFT** does not enforce orthogonality in $R$. Defined via [`NoReftConfig`](adapters.NoReftConfig) or equivalently:
+```python
+config = ReftConfig(
+    layers="all", prefix_positions=3, suffix_positions=0, r=1, orthogonality=False
+)  # equivalent to NoreftConfig()
+```
+
+- **DiReFT** does not enforce orthogonality in $R$ and additionally removes subtraction of $R h$ in the intervention, Defined via [`DiReftConfig`](adapters.DiReftConfig) or equivalently:
+```python
+config = ReftConfig(
+    layers="all", prefix_positions=3, suffix_positions=0, r=1, orthogonality=False, subtract_projection=False
+)  # equivalent to DireftConfig()
+```
+
+In addition, _Adapters_ supports configuring multiple hyperparameters tuned in the ReFT paper in `ReftConfig`, including:
+- `prefix_positions`: number of prefix positions
+- `suffix_positions`: number of suffix positions
+- `layers`: The layers to intervene on. This can either be `"all"` or a list of layer ids
+- `tied_weights`: whether to tie parameters between prefixes and suffixes
+
+_Papers:_
+
+* [ReFT: Representation Finetuning for Language Models](https://arxiv.org/pdf/2404.03592) (Wu et al., 2024)

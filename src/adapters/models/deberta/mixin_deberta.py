@@ -1,5 +1,6 @@
 from ...methods.lora import LoRAMergedLinear
 from ...methods.prefix_tuning import PrefixTuningLayer
+from ...utils import patch_forward
 
 
 class DebertaSelfAttentionAdaptersMixin:
@@ -12,3 +13,4 @@ class DebertaSelfAttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
+        patch_forward(self)

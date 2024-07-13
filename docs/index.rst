@@ -28,7 +28,7 @@ The framework consists of two main components:
 Currently, we support the PyTorch versions of all models as listed on the `Model Overview <model_overview.html>`_ page.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Getting Started
 
    installation
@@ -58,7 +58,6 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    :caption: Loading and Sharing
 
    loading
-   hub_contributing
    huggingface_hub
 
 .. toctree::
@@ -82,6 +81,8 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/models/gptj
    classes/models/llama
    classes/models/mbart
+   classes/models/mt5
+   classes/models/plbart
    classes/models/roberta
    classes/models/t5
    classes/models/vit
@@ -109,6 +110,36 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
 
 Citation
 ========
+
+If you use _Adapters_ in your work, please consider citing our library paper `Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning <https://arxiv.org/abs/2311.11077)>`
+
+
+.. code-block:: bibtex
+
+   @inproceedings{poth-etal-2023-adapters,
+      title = "Adapters: A Unified Library for Parameter-Efficient and Modular Transfer Learning",
+      author = {Poth, Clifton  and
+         Sterz, Hannah  and
+         Paul, Indraneil  and
+         Purkayastha, Sukannya  and
+         Engl{\"a}nder, Leon  and
+         Imhof, Timo  and
+         Vuli{\'c}, Ivan  and
+         Ruder, Sebastian  and
+         Gurevych, Iryna  and
+         Pfeiffer, Jonas},
+      booktitle = "Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing: System Demonstrations",
+      month = dec,
+      year = "2023",
+      address = "Singapore",
+      publisher = "Association for Computational Linguistics",
+      url = "https://aclanthology.org/2023.emnlp-demo.13",
+      pages = "149--160",
+   }
+
+
+Alternatively, for the predecessor `adapter-transformers`, the Hub infrastructure and adapters uploaded by the AdapterHub team, please consider citing our initial paper: `AdapterHub: A Framework for Adapting Transformers <https://arxiv.org/abs/2007.07779>`_
+
 
 .. code-block:: bibtex
 

@@ -10,6 +10,10 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_add_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8), ["adapters.{name}."])
 
+    def test_leave_out_compacter(self):
+        model = self.get_model()
+        self.run_leave_out_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8), self.leave_out_layers)
+
     def test_average_compacter(self):
         model = self.get_model()
         self.run_average_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8), ["adapters.{name}."])
@@ -48,14 +52,14 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
 
     def test_compacter_generate(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING or (
-            not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head")
-            and not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head")
+            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
         ):
             self.skipTest("No seq2seq or causal language model head")
 
         model1 = AutoAdapterModel.from_config(self.config())
         model1.add_adapter("dummy", config=CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8))
-        if hasattr(model1, "add_seq2seq_lm_head"):
+        if "seq2seq_lm" in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             model1.add_seq2seq_lm_head("dummy")
         else:
             model1.add_causal_lm_head("dummy")

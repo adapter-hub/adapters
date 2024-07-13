@@ -6,6 +6,7 @@ from ...composition import adjust_tensors_for_parallel_
 from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
+from ...methods.reft import ReftLayer, hook_fn
 from ...model_mixin import (
     EmbeddingAdaptersMixin,
     EmbeddingAdaptersWrapperMixin,
@@ -13,6 +14,7 @@ from ...model_mixin import (
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
 )
+from ...utils import patch_forward
 
 
 class CLIPAttentionAdaptersMixin:
@@ -27,6 +29,7 @@ class CLIPAttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningLayer(
             "self_prefix", model_config, adapters_config, add_model_type_to_key=True
         )
+        patch_forward(self)
 
 
 class CLIPEncoderLayerAdaptersMixin:
@@ -39,6 +42,8 @@ class CLIPEncoderLayerAdaptersMixin:
 
         self.attention_adapters = BottleneckLayer("mh_adapter")
         self.output_adapters = BottleneckLayer("output_adapter")
+
+        patch_forward(self)
 
 
 class CLIPEncoderAdaptersMixin:
@@ -113,3 +118,13 @@ class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWr
         for module in self.vision_model.modules():
             if hasattr(module, "init_adapters"):
                 module.init_adapters(model_config.vision_config, adapters_config)
+
+        # Patch for ReFT initialization
+        for layer in self.text_model.encoder.layers:
+            if not hasattr(layer, "reft_layer"):
+                layer.reft_layer = ReftLayer("output", model_config.text_config, adapters_config)
+                layer.register_forward_hook(hook_fn)
+        for layer in self.vision_model.encoder.layers:
+            if not hasattr(layer, "reft_layer"):
+                layer.reft_layer = ReftLayer("output", model_config.vision_config, adapters_config)
+                layer.register_forward_hook(hook_fn)

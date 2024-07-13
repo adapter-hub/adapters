@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.1.0"
+__version__ = "1.0.0.dev0"
 
 from typing import TYPE_CHECKING
 
@@ -45,16 +45,20 @@ _import_structure = {
         "CompacterConfig",
         "CompacterPlusPlusConfig",
         "ConfigUnion",
+        "DiReftConfig",
         "DoubleSeqBnConfig",
         "DoubleSeqBnInvConfig",
         "DynamicAdapterFusionConfig",
         "IA3Config",
         "LoRAConfig",
+        "LoReftConfig",
         "MAMConfig",
         "ModelAdaptersConfig",
+        "NoReftConfig",
         "ParBnConfig",
         "PrefixTuningConfig",
         "PromptTuningConfig",
+        "ReftConfig",
         "SeqBnConfig",
         "SeqBnInvConfig",
         "StaticAdapterFusionConfig",
@@ -106,6 +110,8 @@ _import_structure = {
     "models.llama": ["LlamaAdapterModel"],
     "models.mbart": ["MBartAdapterModel"],
     "models.mistral": ["MistralAdapterModel"],
+    "models.mt5": ["MT5AdapterModel"],
+    "models.plbart": ["PLBartAdapterModel"],
     "models.roberta": ["RobertaAdapterModel"],
     "models.t5": ["T5AdapterModel"],
     "models.vit": ["ViTAdapterModel"],
@@ -154,16 +160,20 @@ if TYPE_CHECKING:
         CompacterConfig,
         CompacterPlusPlusConfig,
         ConfigUnion,
+        DiReftConfig,
         DoubleSeqBnConfig,
         DoubleSeqBnInvConfig,
         DynamicAdapterFusionConfig,
         IA3Config,
         LoRAConfig,
+        LoReftConfig,
         MAMConfig,
         ModelAdaptersConfig,
+        NoReftConfig,
         ParBnConfig,
         PrefixTuningConfig,
         PromptTuningConfig,
+        ReftConfig,
         SeqBnConfig,
         SeqBnInvConfig,
         StaticAdapterFusionConfig,
@@ -209,6 +219,8 @@ if TYPE_CHECKING:
     from .models.llama import LlamaAdapterModel
     from .models.mbart import MBartAdapterModel
     from .models.mistral import MistralAdapterModel
+    from .models.mt5 import MT5AdapterModel
+    from .models.plbart import PLBartAdapterModel
     from .models.roberta import RobertaAdapterModel
     from .models.t5 import T5AdapterModel
     from .models.vit import ViTAdapterModel

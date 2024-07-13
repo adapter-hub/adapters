@@ -369,6 +369,56 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": ["lm_head"],
     },
+    # PLBART
+    "PLBartForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 2,
+            "activation_function": "tanh",
+        },
+        "layers": [
+            None,
+            "classification_head.dense",
+            None,
+            None,
+            "classification_head.out_proj",
+        ],
+    },
+    "PLBartForConditionalGeneration": {
+        "config": {
+            "head_type": "seq2seq_lm",
+        },
+        "layers": ["lm_head"],
+    },
+    # MT5
+    "MT5ForConditionalGeneration": {
+        "config": {
+            "head_type": "seq2seq_lm",
+        },
+        "layers": ["lm_head"],
+    },
+    "MT5ForQuestionAnswering": {
+        "config": {
+            "head_type": "question_answering",
+            "activation_function": None,
+            "layers": 1,
+        },
+        "layers": [None, "qa_outputs"],
+    },
+    "MT5ForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 2,
+            "activation_function": "tanh",
+        },
+        "layers": [
+            None,
+            "classification_head.dense",
+            None,
+            None,
+            "classification_head.out_proj",
+        ],
+    },
     # DistilBERT
     "DistilBertForSequenceClassification": {
         "config": {
@@ -469,6 +519,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "qa_outputs"],
     },
+    # T5
     "T5ForConditionalGeneration": {
         "config": {
             "head_type": "seq2seq_lm",
@@ -497,6 +548,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "classification_head.out_proj",
         ],
     },
+    # DeBERTaV2
     "DebertaV2ForSequenceClassification": {
         "config": {
             "head_type": "classification",
@@ -546,6 +598,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "pooler.dense", None, None, "classifier"],
     },
+    # DeBERTa
     "DebertaForSequenceClassification": {
         "config": {
             "head_type": "classification",
@@ -612,6 +665,14 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": ["lm_head"],
     },
+    "LlamaForQuestionAnswering": {
+        "config": {
+            "head_type": "question_answering",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "qa_outputs"],
+    },
     # Mistral
     "MistralForSequenceClassification": {
         "config": {
@@ -629,6 +690,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": ["lm_head"],
     },
+    # Electra
     "ElectraForTokenClassification": {
         "config": {
             "head_type": "tagging",

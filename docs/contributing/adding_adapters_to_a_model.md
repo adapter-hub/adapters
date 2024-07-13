@@ -36,6 +36,7 @@ Now that we have discussed the purpose of every file in `src/adapters/models/<mo
     - Create a new class in `src/adapters/models/<model_type>/modeling_<model_type>.py` with the name `<class>WithAdapters`. This class should derive from the corresponding mixin and HF class.
     - Copy the function you want to change into this class and modify it.
         - e.g., the `forward` method of the `BertSelfAttention` class must be adapted to support prefix tuning. We therefore create a class `BertSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, BertSelfAttention)`, copy the forward method into it and modify it.
+        - if the `forward` method of a module is copied and modified, make sure to call `adapters.utils.patch_forward()` in the module's `init_adapters()` method. This ensures adapters work correctly with the `accelerate` package.
 4. **Modify MODEL_MIXIN_MAPPING**
     - For each mixin whose class was not copied into `modeling_<model_type>.py`, add the mixin/class combination into `MODEL_MIXIN_MAPPING` in the file `src/adapters/models/__init__.py`.
 5. **Create the adapter model:**

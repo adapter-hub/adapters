@@ -84,7 +84,7 @@ model.set_active_adapters(task_name)
 
 ### Step D - Switch to `AdapterTrainer` class
 
-Finally, we exchange the `Trainer` class built into Transformers for the [`AdapterTrainer`](transformers.adapters.AdapterTrainer) class that is optimized for training adapter methods.
+Finally, we exchange the `Trainer` class built into Transformers for the [`AdapterTrainer`](adapters.trainer.AdapterTrainer) class that is optimized for training adapter methods.
 See [below for more information](#adaptertrainer).
 
 Technically, this change is not required as no changes to the training loop are required for training adapters.
@@ -193,10 +193,12 @@ intended for training adapters. The `Trainer` class should still be used to full
 class, simply initialize it the same way you would initialize the `Trainer` class, e.g.: 
 
 ```python
+from transformers.training_args import TrainingArguments 
+
 model.add_adapter(task_name)
 model.train_adapter(task_name)
 
-trainings_args =  TrainingsArguments(
+training_args =  TrainingArguments(
     learning_rate=1e-4,
     num_train_epochs=6,
 )
@@ -215,3 +217,9 @@ trainer = AdapterTrainer(
     When you migrate from the previous versions, which use the Trainer class for adapter training and fully fine-tuning, note that the 
     specialized AdapterTrainer class does not have the parameters `do_save_full_model`, `do_save_adapters` and `do_save_adapter_fusion`.
 ```
+
+## Quantized Model Training
+
+_Adapters_ supports fine-tuning of quantized language models similar to [QLoRA (Dettmers et al., 2023)](https://arxiv.org/pdf/2305.14314.pdf) via the `bitsandbytes` library integrated into Transformers.
+Quantized training is supported for LoRA-based adapters as well as bottleneck adapters and prefix tuning.
+Please refer to [this notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/QLoRA_Llama_Finetuning.ipynb) for a hands-on guide.

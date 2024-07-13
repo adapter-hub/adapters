@@ -90,7 +90,6 @@ class AdapterLayerBase(metaclass=ABCMeta):
         """
         raise NotImplementedError()
 
-    @abstractmethod
     def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
         """Averages a set of adapter modules into a new adapter module.
 
@@ -103,28 +102,42 @@ class AdapterLayerBase(metaclass=ABCMeta):
         Returns:
             bool: True if the adapter was added, False otherwise.
         """
-        raise NotImplementedError()
+        # add new adapter
+        if self.add_adapter(adapter_name, self.layer_idx):
+            # average weights
+            avg_state_dict = {}
+            for name, weight in input_adapters.items():
+                if name in self.adapter_modules:
+                    module = self.adapter_modules[name]
+                    for k, v in module.state_dict().items():
+                        if k in avg_state_dict:
+                            avg_state_dict[k] += weight * v
+                        else:
+                            avg_state_dict[k] = weight * v
+                else:
+                    self.delete_adapter(adapter_name)  # clean up before raising error
+                    raise ValueError("Adapter {} not found.".format(name))
+            # load averaged weights
+            self.adapter_modules[adapter_name].load_state_dict(avg_state_dict)
+            return True
 
-    @abstractmethod
+        return False
+
     def delete_adapter(self, adapter_name: str):
         """Deletes an adapter module from the layer.
 
         Args:
             adapter_name (str): The name of the adapter to delete.
         """
-        raise NotImplementedError()
+        if adapter_name in self.adapter_modules:
+            del self.adapter_modules[adapter_name]
 
-    @abstractmethod
     def add_fusion_layer(self, adapter_names: Union[List, str]):
-        # TODO remove this method from the base class
-        raise NotImplementedError()
+        pass  # default implementation does nothing as fusion is not applicable to all methods
 
-    @abstractmethod
     def delete_fusion_layer(self, adapter_names: Union[List, str]):
-        # TODO remove this method from the base class
-        raise NotImplementedError()
+        pass  # default implementation does nothing as fusion is not applicable to all methods
 
-    @abstractmethod
     def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
         """Enables/ disables a set of adapter modules within the layer.
 
@@ -133,16 +146,38 @@ class AdapterLayerBase(metaclass=ABCMeta):
             unfreeze_adapters (bool): Whether to unfreeze the adapters.
             unfreeze_fusion (bool): Whether to unfreeze the fusion layers.
         """
-        raise NotImplementedError()
+        if unfreeze_adapters:
+            for name in adapter_setup.flatten():
+                if name in self.adapter_modules:
+                    for param in self.adapter_modules[name].parameters():
+                        param.requires_grad = True
 
-    @abstractmethod
+    def freeze_adapter(self, adapter_name: str, freeze: bool = True):
+        """Freezes/ unfreezes an adapter module.
+
+        Args:
+            adapter_name (str): The name of the adapter to freeze/ unfreeze.
+            freeze (bool, optional): Whether to freeze the adapter. Defaults to True.
+        """
+        if adapter_name in self.adapter_modules:
+            self.adapter_modules[adapter_name].train(not freeze)
+            for param in self.adapter_modules[adapter_name].parameters():
+                param.requires_grad = not freeze
+
     def get_adapter(self, adapter_name: str) -> nn.Module:
         """Returns the adapter module with the given name.
 
         Args:
             adapter_name (str): The name of the adapter module.
         """
-        raise NotImplementedError()
+        if adapter_name in self.adapter_modules:
+            return self.adapter_modules[adapter_name]
+        else:
+            return None
+
+    def pre_save_adapters(self):
+        """Called before saving the adapters to disk."""
+        pass
 
 
 class ComposableAdapterLayerBase(AdapterLayerBase):
@@ -163,14 +198,19 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         self._init_mapping()
 
     def _init_mapping(self):
+        # Mapping between composition block types and names of composition functions
         self.composition_to_func_map = {
-            Stack: self.compose_stack,
-            Fuse: self.compose_fuse,
-            Split: self.compose_split,
-            BatchSplit: self.compose_batch_split,
-            Parallel: self.compose_parallel,
-            Average: self.compose_average,
+            Stack: "compose_stack",
+            Fuse: "compose_fuse",
+            Split: "compose_split",
+            BatchSplit: "compose_batch_split",
+            Parallel: "compose_parallel",
+            Average: "compose_average",
         }
+
+    def _get_compose_func(self, composition_type: type) -> callable:
+        """Retrieves the correct composition function based on the mapping in 'composition_to_func_map'."""
+        return getattr(self, self.composition_to_func_map[composition_type])
 
     # START CUSTOMIZABLE METHODS #
     # The following methods should be implemented in derived classes.
@@ -301,17 +341,13 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         for i, adapter_stack_layer in enumerate(adapter_setup):
             if isinstance(adapter_stack_layer, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, adapter_stack_layer, lvl)
-                composition_func = self.composition_to_func_map[type(adapter_stack_layer)]
+                composition_func = self._get_compose_func(type(adapter_stack_layer))
                 state = composition_func(adapter_stack_layer, state, lvl=lvl + 1)
             elif adapter_stack_layer in self.adapter_modules:
                 state = self.pre_block(adapter_stack_layer, state)
                 state = self.compose_single(adapter_stack_layer, state, lvl=lvl + 1)
             else:
-                raise ValueError(
-                    "Invalid adapter setup: {} is not a valid adapter name or composition block.".format(
-                        adapter_stack_layer.__class__.__name__
-                    )
-                )
+                pass
 
         return state
 
@@ -320,6 +356,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         For fusing multiple adapters using adapter fusion. NOTE: This method has no default implementation.
         """
         # Fuse is currently only applicable to bottleneck adapters, thus don't provide a default implementation
+        # If the adapter setup does not contain any of the adapter modules, return without doing anything
+        if set(self.adapter_modules.keys()).isdisjoint(adapter_setup.flatten()):
+            return state
         raise NotImplementedError()
 
     def compose_split(self, adapter_setup: Split, state: NamedTuple, lvl: int = 0):
@@ -328,6 +367,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         implementation.
         """
         # Split is currently only applicable to bottleneck adapters, thus don't provide a default implementation
+        # If the adapter setup does not contain any of the adapter modules, return without doing anything
+        if set(self.adapter_modules.keys()).isdisjoint(adapter_setup.flatten()):
+            return state
         raise NotImplementedError()
 
     def compose_batch_split(self, adapter_setup: BatchSplit, state: NamedTuple, lvl: int = 0):
@@ -353,7 +395,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             )
             if isinstance(child, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, child, lvl)
-                composition_func = self.composition_to_func_map[type(child)]
+                composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(
                     child,
                     self.vslice(state, slice(*batch_idx)),
@@ -410,7 +452,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         for i, child in enumerate(adapter_setup):
             if isinstance(child, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, child, lvl)
-                composition_func = self.composition_to_func_map[type(child)]
+                composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(
                     child,
                     self.vslice(state, slice(i * orig_batch_size, (i + 1) * orig_batch_size)),
@@ -442,7 +484,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         for i, child in enumerate(adapter_setup):
             if isinstance(child, AdapterCompositionBlock):
                 self.check_composition_valid(adapter_setup, child, lvl)
-                composition_func = self.composition_to_func_map[type(child)]
+                composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(child, state, lvl=lvl + 1)
                 children_states.append(child_state)
             elif child in self.adapter_modules:
@@ -468,7 +510,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             NamedTuple: The state after forwarding through the adapter setup.
         """
         if isinstance(adapter_setup, AdapterCompositionBlock):
-            composition_func = self.composition_to_func_map[type(adapter_setup)]
+            composition_func = self._get_compose_func(type(adapter_setup))
             state = composition_func(adapter_setup, state, lvl=0)
         elif adapter_setup in self.adapter_modules:
             state = self.compose_single(adapter_setup, state, lvl=0)

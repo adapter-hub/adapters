@@ -6,6 +6,7 @@ from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ...utils import patch_forward
 
 
 class GPTJAttentionAdaptersMixin:
@@ -20,6 +21,7 @@ class GPTJAttentionAdaptersMixin:
         self.prefix_tuning = PrefixTuningLayer(
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
+        patch_forward(self)
 
 
 class GPTJMLPAdaptersMixin:
@@ -35,6 +37,8 @@ class GPTJDecoderBlockAdaptersMixin:
     def init_adapters(self, model_config, adapters_config):
         self.attention_adapters = BottleneckLayer("mh_adapter")
         self.output_adapters = BottleneckLayer("output_adapter")
+
+        patch_forward(self)
 
 
 class GPTJModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):

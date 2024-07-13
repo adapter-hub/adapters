@@ -5,19 +5,12 @@ from transformers.models.bart.modeling_bart import (
     BART_START_DOCSTRING,
     BartConfig,
     BartModel,
-    BartPretrainedModel,
+    BartPreTrainedModel,
     shift_tokens_right,
 )
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
-from ...composition import adjust_tensors_for_parallel
-from ...heads import (
-    ClassificationHead,
-    ModelWithFlexibleHeadsAdaptersMixin,
-    MultiLabelClassificationHead,
-    QuestionAnsweringHead,
-    Seq2SeqLMHead,
-)
+from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
 
@@ -25,10 +18,17 @@ from ...wrappers import init
 @add_start_docstrings(
     "BART Model with the option to add multiple flexible prediction heads on top.", BART_START_DOCSTRING
 )
-class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BartPretrainedModel):
+class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BartPreTrainedModel):
     _tied_weights_keys = [
         "encoder.embed_tokens.weight",
         "decoder.embed_tokens.weight",
+    ]
+
+    head_types = [
+        "classification",
+        "multilabel_classification",
+        "question_answering",
+        "seq2seq_lm",
     ]
 
     def __init__(self, config: BartConfig, **kwargs):
@@ -67,7 +67,7 @@ class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         head=None,
         output_adapter_gating_scores=False,
         output_adapter_fusion_attentions=False,
-        **kwargs
+        **kwargs,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
@@ -102,23 +102,15 @@ class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         )
         # required e.g. for prompt tuning in all models
         kwargs["context"] = context
-        # sequence classification based on last token in sequence
-        x = outputs[0]  # last hidden state
-        if input_ids is not None and x.shape[1] == input_ids.shape[1]:
-            eos_mask = input_ids.eq(self.config.eos_token_id)
-            (eos_mask,) = adjust_tensors_for_parallel(x, eos_mask)
-            if len(torch.unique(eos_mask.sum(1))) > 1:
-                raise ValueError("All examples must have the same number of <eos> tokens.")
-            cls_representation = x[eos_mask, :].view(x.size(0), -1, x.size(-1))[:, -1, :]
-        else:
-            cls_representation = x
 
         head_outputs = self.forward_head(
             outputs,
             head_name=head,
-            cls_output=cls_representation,
             attention_mask=attention_mask,
             return_dict=return_dict,
+            get_cls_from_eos_tokens=True,
+            # `get_cls_from_eos_tokens` requires passing eos mask
+            eos_mask=input_ids.eq(self.config.eos_token_id) if input_ids is not None else None,
             **kwargs,
         )
 
@@ -135,7 +127,7 @@ class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         cross_attn_head_mask=None,
         use_cache=None,
         encoder_outputs=None,
-        **kwargs
+        **kwargs,
     ):
         # cut decoder_input_ids if past is used
         if past is not None:
@@ -168,65 +160,3 @@ class BartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
                 tuple(past_state.index_select(0, beam_idx) for past_state in layer_past[:2]) + layer_past[2:],
             )
         return reordered_past
-
-    head_types = {
-        "classification": ClassificationHead,
-        "multilabel_classification": MultiLabelClassificationHead,
-        "question_answering": QuestionAnsweringHead,
-        "seq2seq_lm": Seq2SeqLMHead,
-    }
-
-    def add_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=2,
-        activation_function="tanh",
-        overwrite_ok=False,
-        multilabel=False,
-        id2label=None,
-    ):
-        """
-        Adds a sequence classification head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            num_labels (int, optional): Number of classification labels. Defaults to 2.
-            layers (int, optional): Number of layers. Defaults to 2.
-            activation_function (str, optional): Activation function. Defaults to 'tanh'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-            multilabel (bool, optional): Enable multilabel classification setup. Defaults to False.
-        """
-
-        if multilabel:
-            head = MultiLabelClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
-        else:
-            head = ClassificationHead(self, head_name, num_labels, layers, activation_function, id2label)
-        self.add_prediction_head(head, overwrite_ok)
-
-    def add_qa_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=1,
-        activation_function="tanh",
-        overwrite_ok=False,
-        id2label=None,
-    ):
-        head = QuestionAnsweringHead(self, head_name, num_labels, layers, activation_function, id2label)
-        self.add_prediction_head(head, overwrite_ok)
-
-    def add_seq2seq_lm_head(
-        self,
-        head_name,
-        overwrite_ok=False,
-    ):
-        """
-        Adds a sequence-to-sequence language modeling head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-        head = Seq2SeqLMHead(self, head_name)
-        self.add_prediction_head(head, overwrite_ok=overwrite_ok)

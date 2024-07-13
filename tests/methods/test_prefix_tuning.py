@@ -13,6 +13,12 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_add_test(model, PrefixTuningConfig(flat=True), ["prefix_tunings.{name}."])
 
+    def test_leave_out_prefix_tuning(self):
+        # Note: for prefix tuning, this test is a little weird as the prefix tuning weights are only returned for the first layer with a prefix and not all.
+        # It still kind of tests the right thing as we prune layers from the end, which will move the returned layer to the next layer with a prefix.
+        model = self.get_model()
+        self.run_leave_out_test(model, PrefixTuningConfig(flat=True), self.leave_out_layers)
+
     def test_average_prefix_tuning(self):
         model = self.get_model()
         self.run_average_test(model, PrefixTuningConfig(flat=True), ["prefix_tunings.{name}."])
@@ -34,7 +40,9 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
 
     def test_forward_prefix_tuning(self):
         model = self.get_model()
-        self.run_forward_test(model, PrefixTuningConfig(flat=True))
+        for dtype in self.dtypes_to_test:
+            with self.subTest(model_class=model.__class__.__name__, dtype=dtype):
+                self.run_forward_test(model, PrefixTuningConfig(flat=True), dtype=dtype)
 
     def test_load_prefix_tuning(self):
         self.run_load_test(PrefixTuningConfig())
@@ -54,7 +62,7 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
         input_data = self.get_input_samples(config=model.config)
 
         # user reparamterized prefix
-        model.set_active_adapters(["test_prefix"])
+        model.set_active_adapters("test_prefix")
         output_1 = model(**input_data)
 
         # eject prefix
@@ -69,14 +77,14 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
 
     def test_prefix_tuning_generate(self):
         if self.config_class not in ADAPTER_MODEL_MAPPING or (
-            not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_seq2seq_lm_head")
-            and not hasattr(ADAPTER_MODEL_MAPPING[self.config_class], "add_causal_lm_head")
+            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
         ):
             self.skipTest("No seq2seq or causal language model head")
 
         model1 = AutoAdapterModel.from_config(self.config())
         model1.add_adapter("dummy", config="prefix_tuning")
-        if hasattr(model1, "add_seq2seq_lm_head"):
+        if "seq2seq_lm" in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
             model1.add_seq2seq_lm_head("dummy")
         else:
             model1.add_causal_lm_head("dummy")

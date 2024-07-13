@@ -22,4 +22,4 @@ BartAdapterModel
 
 .. autoclass:: adapters.BartAdapterModel
     :members:
-    :inherited-members: BartPretrainedModel
+    :inherited-members: BartPreTrainedModel

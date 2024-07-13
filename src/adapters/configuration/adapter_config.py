@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, replace
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from ..utils import resolve_adapter_config
 
@@ -86,6 +86,8 @@ class AdapterConfig(Mapping):
             cls_new = ConfigUnion
         elif architecture == "prompt_tuning":
             cls_new = PromptTuningConfig
+        elif architecture == "reft":
+            cls_new = ReftConfig
         else:
             cls_new = BnConfig
 
@@ -182,6 +184,7 @@ class BnConfig(AdapterConfig):
             model. Defaults to False.
         leave_out (:obj:`List[int]`, optional):
             The IDs of the layers (starting at 0) where NO adapter modules should be added.
+        dropout (:obj:`float`, optional): The dropout rate used in the adapter layer. Defaults to 0.0.
         phm_layer (:obj:`bool`, optional): If True the down and up projection layers are a PHMLayer.
             Defaults to False
         phm_dim (:obj:`int`, optional): The dimension of the phm matrix.
@@ -234,6 +237,7 @@ class BnConfig(AdapterConfig):
     inv_adapter_reduction_factor: Optional[float] = None
     cross_adapter: bool = False
     leave_out: List[int] = field(default_factory=list)
+    dropout: float = 0.0
     phm_layer: bool = False
     phm_dim: int = 4
     factorized_phm_W: Optional[bool] = True
@@ -438,6 +442,8 @@ class LoRAConfig(AdapterConfig):
             Defaults to False.
         output_lora (bool, optional): If True, add LoRA to the output MLP weights of a model.
             Defaults to False.
+        leave_out (:obj:`List[int]`, optional):
+            The IDs of the layers (starting at 0) where NO adapter modules should be added.
         r (int, optional): The rank of the LoRA layer. Defaults to 8.
         alpha (int, optional): The hyperparameter used for scaling the LoRA reparametrization. Defaults to 8.
         dropout (float, optional): The dropout rate used in the LoRA layer. Defaults to 0.0.
@@ -460,6 +466,7 @@ class LoRAConfig(AdapterConfig):
     selfattn_lora: bool = True
     intermediate_lora: bool = False
     output_lora: bool = False
+    leave_out: List[int] = field(default_factory=list)
 
     r: int = 8
     alpha: int = 8
@@ -481,6 +488,7 @@ class IA3Config(LoRAConfig):
     selfattn_lora: bool = True
     intermediate_lora: bool = True
     output_lora: bool = False
+    leave_out: List[int] = field(default_factory=list)
 
     r: int = 1
     alpha: int = 1
@@ -489,6 +497,83 @@ class IA3Config(LoRAConfig):
     composition_mode: str = "scale"
     init_weights: str = "ia3"
     use_gating: bool = False
+
+
+@dataclass(eq=False)
+class ReftConfig(AdapterConfig):
+    """
+    Base class for Representation Fine-Tuning (ReFT) methods proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
+    ReFT methods have in common that they add "interventions" after selected model layers and at selected sequence positions to adapt the representations produced by module outputs.
+
+    Args:
+        layers (Union[Literal["all"], List[int]]): The IDs of the layers where interventions should be added.
+            If "all", interventions are added after all layers (default).
+        prefix_positions (int): The number of prefix positions to add interventions to.
+        suffix_positions (int): The number of suffix positions to add interventions to.
+        r (int): The rank of the intervention layer.
+        orthogonality (bool): If True, enforce an orthogonality constraint for the projection matrix.
+        tied_weights (bool): If True, share intervention parameters between prefix and suffix positions in each layer.
+        subtract_projection (bool): If True, subtract the projection of the input.
+        dropout (float): The dropout rate used in the intervention layer.
+        non_linearity (str): The activation function used in the intervention layer.
+    """
+
+    layers: Union[Literal["all"], List[int]]
+    prefix_positions: int
+    suffix_positions: int
+    r: int
+    orthogonality: bool
+    tied_weights: bool = False
+    subtract_projection = True
+    dropout: float = 0.05
+    non_linearity: Optional[str] = None
+
+    architecture: str = "reft"
+
+    output_reft: bool = True
+
+
+@dataclass(eq=False)
+class LoReftConfig(ReftConfig):
+    """
+    Low-Rank Linear Subspace ReFT method proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
+    """
+
+    layers: Union[Literal["all"], List[int]] = "all"
+    prefix_positions: int = 3
+    suffix_positions: int = 0
+    r: int = 1
+    orthogonality: bool = True
+    tied_weights: bool = False
+
+
+@dataclass(eq=False)
+class NoReftConfig(ReftConfig):
+    """
+    Variation of LoReft without orthogonality constraint.
+    """
+
+    layers: Union[Literal["all"], List[int]] = "all"
+    prefix_positions: int = 3
+    suffix_positions: int = 0
+    r: int = 1
+    orthogonality: bool = False
+    tied_weights: bool = False
+
+
+@dataclass(eq=False)
+class DiReftConfig(ReftConfig):
+    """
+    Variation of LoReft without orthogonality constraint and projection subtraction as proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
+    """
+
+    layers: Union[Literal["all"], List[int]] = "all"
+    prefix_positions: int = 3
+    suffix_positions: int = 0
+    r: int = 1
+    orthogonality: bool = False
+    tied_weights: bool = False
+    subtract_projection = False
 
 
 class ConfigUnion(AdapterConfig):
@@ -615,7 +700,7 @@ class UniPELTConfig(ConfigUnion):
         components = [
             prefix_tuning or PrefixTuningConfig(prefix_length=10),
             adapter or SeqBnConfig(reduction_factor=16),
-            lora or LoRAConfig(r=8),
+            lora or LoRAConfig(r=8, alpha=2),
         ]
 
         super().__init__(*[c.replace(use_gating=True) for c in components])
@@ -644,6 +729,9 @@ ADAPTER_CONFIG_MAP = {
     "prompt_tuning": PromptTuningConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
+    "loreft": LoReftConfig(),
+    "noreft": NoReftConfig(),
+    "direft": DiReftConfig(),
     "mam": MAMConfig(),
     "unipelt": UniPELTConfig(),
 }

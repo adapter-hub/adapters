@@ -68,9 +68,10 @@ class PushAdapterToHubMixin:
         language: Optional[str] = None,
         license: Optional[str] = None,
         metrics: Optional[List[str]] = None,
-        **kwargs
+        **kwargs,
     ):
-        all_tags = {"adapter-transformers"}  # TODO: change this tag once changed on HF side
+        # Key remains "adapter-transformers", see: https://github.com/huggingface/huggingface.js/pull/459
+        all_tags = {"adapter-transformers"}
         datasets = set()
         # Dataset/ Task info
         dataset_name = None
@@ -130,10 +131,13 @@ class PushAdapterToHubMixin:
         local_path: Optional[str] = None,
         commit_message: Optional[str] = None,
         private: Optional[bool] = None,
-        use_auth_token: Union[bool, str] = True,
+        token: Optional[Union[bool, str]] = None,
         overwrite_adapter_card: bool = False,
         create_pr: bool = False,
+        revision: str = None,
+        commit_description: str = None,
         adapter_card_kwargs: Optional[dict] = None,
+        **deprecated_kwargs,
     ):
         """Upload an adapter to HuggingFace's Model Hub.
 
@@ -156,22 +160,39 @@ class PushAdapterToHubMixin:
                 :obj:`"add model"` depending on the type of the class.
             private (:obj:`bool`, `optional`):
                 Whether or not the repository created should be private (requires a paying subscription).
-            use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
-                The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
-                generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`). Defaults to
-                True.
+            token (`bool` or `str`, *optional*):
+                The token to use as HTTP bearer authorization for remote files. If `True`, will use the token generated
+                when running `huggingface-cli login` (stored in `~/.huggingface`). Will default to `True` if `repo_url`
+                is not specified.
             overwrite_adapter_card (bool, optional): Overwrite an existing adapter card with a newly generated one.
                 If set to `False`, will only generate an adapter card, if none exists. Defaults to False.
             create_pr (bool, optional):
                 Whether or not to create a PR with the uploaded files or directly commit.
+            revision (`str`, *optional*):
+                Branch to push the uploaded files to.
+            commit_description (`str`, *optional*):
+                The description of the commit that will be created
 
         Returns:
             str: The url of the adapter repository on the model hub.
         """
+        use_auth_token = deprecated_kwargs.pop("use_auth_token", None)
+        if use_auth_token is not None:
+            warnings.warn(
+                "The `use_auth_token` argument is deprecated and will be removed in future versions of Adapters."
+                " Please use `token` instead.",
+                FutureWarning,
+            )
+            if token is not None:
+                raise ValueError(
+                    "`token` and `use_auth_token` are both specified. Please set only the argument `token`."
+                )
+            token = use_auth_token
+
         if organization is not None and not repo_name.startswith(organization):
             warnings.warn(
                 "The `organization` argument is deprecated and will be removed in future versions of"
-                " adapters. Set your organization directly in the `repo_id` passed instead"
+                " Adapters. Set your organization directly in the `repo_id` passed instead"
                 " (`repo_id={organization}/{model_id}`)."
             )
             if "/" in repo_name:
@@ -183,7 +204,7 @@ class PushAdapterToHubMixin:
         use_temp_dir = not os.path.isdir(local_path) if local_path else True
 
         # Create repo or get retrieve an existing repo
-        repo_id = self._create_repo(repo_id, private=private, use_auth_token=use_auth_token)
+        repo_id = self._create_repo(repo_id, private=private, token=token)
 
         # Commit and push
         logger.info('Pushing adapter "%s" to model hub at %s ...', adapter_name, repo_id)
@@ -206,6 +227,8 @@ class PushAdapterToHubMixin:
                 repo_id,
                 files_timestamps,
                 commit_message=commit_message,
-                token=use_auth_token,
+                token=token,
                 create_pr=create_pr,
+                revision=revision,
+                commit_description=commit_description,
             )

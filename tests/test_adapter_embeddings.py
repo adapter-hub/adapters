@@ -96,8 +96,10 @@ class EmbeddingTestMixin:
             self.assertTrue(v.requires_grad, k)
 
         self.assertTrue(model.get_input_embeddings().train)
+        self.assertTrue(model.get_input_embeddings().weight.requires_grad)
 
         state_dict_pre = copy.deepcopy(model.state_dict())
+        initial_embedding = model.get_input_embeddings().weight.clone()
 
         train_dataset = self.dataset()
         training_args = TrainingArguments(
@@ -118,6 +120,10 @@ class EmbeddingTestMixin:
         )
         trainer.train()
 
+        trained_embedding = model.get_input_embeddings().weight.clone()
+
+        self.assertFalse(torch.equal(initial_embedding, trained_embedding))
+
         self.assertFalse(
             all(
                 torch.equal(v1, v2)
@@ -130,6 +136,10 @@ class EmbeddingTestMixin:
                 torch.equal(v1, v2)
                 for ((k1, v1), (k2, v2)) in zip(state_dict_pre.items(), model.state_dict().items())
                 if "test" not in k1
+                and "embedding" not in k1
+                and "embed_tokens" not in k1
+                and "shared" not in k1
+                and "wte" not in k1
             )
         )
 

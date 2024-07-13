@@ -14,8 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Conditional text generation with the auto-regressive models of the library (GPT/GPT-2/CTRL/Transformer-XL/XLNet)
-"""
+"""Conditional text generation with the auto-regressive models of the library (GPT/GPT-2/CTRL/Transformer-XL/XLNet)"""
 
 
 import argparse
@@ -225,7 +224,7 @@ def main():
     # Setup adapters
     if args.load_adapter:
         model.load_adapter(args.load_adapter, load_as="generation")
-        model.set_active_adapters(["generation"])
+        model.set_active_adapters("generation")
 
     if args.fp16:
         model.half()
