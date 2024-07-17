@@ -28,7 +28,7 @@ import torch.utils.checkpoint
 from torch import nn
 
 from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
-from transformers.cache_utils import Cache
+from transformers.cache_utils import Cache, StaticCache
 from transformers.models.llama.modeling_llama import (
     LlamaAttention,
     LlamaDecoderLayer,
