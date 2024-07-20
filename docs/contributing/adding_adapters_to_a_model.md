@@ -48,7 +48,7 @@ Now that we have discussed the purpose of every file in `src/adapters/models/<mo
     - Add `<model_type>AdapterModel` to the `ADAPTER_MODEL_MAPPING_NAMES` mapping in `src/adapters/models/auto/adapter_model.py` and to `src/adapters/__init__.py`.
     - Define the classes to be added to Python's import structure in `src/adapters/models/<model_type>/__init__.py`. This will likely only be the `<model_type>AdapterModel`.
 6. **Adapt the config classes:**
-    - Adapt the config class to the requirements of adapters in `src/transformers/adapters/wrappers/configuration.py`.
+    - Adapt the config class to the requirements of adapters in `src/adapters/wrappers/configuration.py`.
     - There are some naming differences in the config attributes of different model architectures. The adapter implementation requires some additional attributes with a specific name to be available. These currently are `num_attention_heads`, `hidden_size`, `hidden_dropout_prob` and `attention_probs_dropout_prob` as in the `BertConfig` class.
     If your model config does not provide these, add corresponding mappings to `CONFIG_CLASS_KEYS_MAPPING`.
 

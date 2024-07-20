@@ -27,6 +27,7 @@ The table below further shows which model architectures support which adaptation
 | [GPT-J](classes/models/gptj.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [Llama](classes/models/llama.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [MBart](classes/models/mbart.html)      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
+| [Mistral](classes/models/mistral.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [MT5](classes/models/mt5.html)          | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [PLBart](classes/models/plbart.html)      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [RoBERTa](classes/models/roberta.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |

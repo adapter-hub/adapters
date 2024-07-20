@@ -673,6 +673,23 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "qa_outputs"],
     },
+    # Mistral
+    "MistralForSequenceClassification": {
+        "config": {
+            "head_type": "classification",
+            "layers": 1,
+            "dropout_prob": 0,
+            "activation_function": None,
+            "bias": False,
+        },
+        "layers": [None, "score"],
+    },
+    "MistralForCausalLM": {
+        "config": {
+            "head_type": "causal_lm",
+        },
+        "layers": ["lm_head"],
+    },
     # Electra
     "ElectraForTokenClassification": {
         "config": {

@@ -1,9 +1,8 @@
 import logging
-from typing import Optional
 
 import torch
 
-from transformers.models.llama.modeling_llama import LLAMA_START_DOCSTRING, LlamaModel, LlamaPreTrainedModel
+from transformers.models.mistral.modeling_mistral import MISTRAL_START_DOCSTRING, MistralModel, MistralPreTrainedModel
 from transformers.utils import add_start_docstrings
 
 from ...composition import adjust_tensors_for_parallel
@@ -17,16 +16,16 @@ logger = logging.getLogger(__name__)
 
 @add_start_docstrings(
     """
-The Llama Model that allows the loading of different heads for different tasks. This enables a flexible use of the
+The Mistal Model that allows the loading of different heads for different tasks. This enables a flexible use of the
 models and adpters. Since this class does classification on the last token, it requires to know the position of the
 last token. If a :obj:`pad_token_id` is defined in the configuration, it finds the last token that is not a padding
 token in each row. If no :obj:`pad_token_id` is defined, it simply takes the last value in each row of the batch. Since
 it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead of :obj:`input_ids`, it does the same
 (take the last value in each row of the batch).
 """,
-    LLAMA_START_DOCSTRING,
+    MISTRAL_START_DOCSTRING,
 )
-class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, LlamaPreTrainedModel):
+class MistralAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MistralPreTrainedModel):
     head_types = [
         "classification",
         "multilabel_classification",
@@ -37,7 +36,7 @@ class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
 
     def __init__(self, config):
         super().__init__(config)
-        self.model = LlamaModel(config)
+        self.model = MistralModel(config)
         init(self.model)
 
         self._init_head_modules()
@@ -57,7 +56,6 @@ class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
         past_key_values=None,
         inputs_embeds=None,
         use_cache=None,
-        cache_position: Optional[torch.LongTensor] = None,
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
@@ -79,7 +77,6 @@ class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAda
             position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             use_cache=use_cache,
-            cache_position=cache_position,
             output_attentions=output_attentions,
             return_dict=return_dict,
             output_hidden_states=output_hidden_states,

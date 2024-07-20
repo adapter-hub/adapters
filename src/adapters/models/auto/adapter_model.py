@@ -23,6 +23,7 @@ ADAPTER_MODEL_MAPPING_NAMES = OrderedDict(
         ("gptj", "GPTJAdapterModel"),
         ("llama", "LlamaAdapterModel"),
         ("mbart", "MBartAdapterModel"),
+        ("mistral", "MistralAdapterModel"),
         ("mt5", "MT5AdapterModel"),
         ("plbart", "PLBartAdapterModel"),
         ("roberta", "RobertaAdapterModel"),
