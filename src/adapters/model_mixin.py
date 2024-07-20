@@ -777,7 +777,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         id2label=None,
         set_active: bool = False,
         use_safetensors: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.
@@ -843,7 +843,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         set_active: bool = False,
         use_safetensors: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Loads a pre-trained AdapterFusion layer from the local file system.
@@ -1486,7 +1486,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         load_as: str = None,
         id2label: Dict[int, str] = None,
         use_safetensors: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         """Loads a model prediction head from a directory where it was saved using `save_head()`.
 
@@ -1542,7 +1542,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         id2label=None,
         set_active: bool = False,
         use_safetensors: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:
@@ -1651,7 +1651,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         set_active: bool = False,
         with_head: bool = True,
         use_safetensors: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:

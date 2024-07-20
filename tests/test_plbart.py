@@ -32,6 +32,7 @@ class PLBartAdapterTestBase(AdapterTestBase):
         decoder_attention_heads=4,
         encoder_ffn_dim=4,
         decoder_ffn_dim=4,
+        scale_embedding=False,  # Required for embedding tests
     )
     tokenizer_name = "uclanlp/plbart-base"
 

@@ -97,7 +97,7 @@ class BiaffineParsingHead(PredictionHead):
         word_starts=None,
         labels_arcs=None,
         labels_rels=None,
-        **kwargs
+        **kwargs,
     ):
         outs = self.dropout(outputs[0])
         word_outputs_deps = self._merge_subword_tokens(outs, word_starts)

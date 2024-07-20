@@ -23,7 +23,7 @@ from setuptools import find_packages, setup
 _deps = [
     "accelerate>=0.21.0",
     "beautifulsoup4",
-    "black==22.3",  # after updating to black 2023, also update Python version in pyproject.toml to 3.7
+    "black~=24.4.0",
     "datasets!=2.5.0",
     "dill<0.3.5",
     "docutils==0.16.0",
