@@ -26,6 +26,7 @@ from transformers.utils import logging
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_
 from .mixin_gpt2 import GPT2AttentionAdaptersMixin, GPT2DecoderBlockAdaptersMixin
 
+
 logger = logging.get_logger(__name__)
 
 
@@ -68,8 +69,10 @@ class GPT2AttentionWithAdapters(GPT2AttentionAdaptersMixin, GPT2Attention):
         else:
             present = None
 
+        # >>> START AH Changes <<<
         key, value, attention_mask = self.prefix_tuning(key, value, hidden_states, attention_mask)
         (query,) = adjust_tensors_for_parallel(key, query)
+        # >>> END AH Changes <<<
 
         if self.reorder_and_upcast_attn:
             attn_output, attn_weights = self._upcast_and_reordered_attn(query, key, value, attention_mask, head_mask)
@@ -149,8 +152,11 @@ class GPT2SdpaAttentionWithAdapters(GPT2AttentionAdaptersMixin, GPT2SdpaAttentio
         if use_cache is True:
             present = (key, value)
 
+        # >>> START AH Changes <<<
         key, value, attention_mask = self.prefix_tuning(key, value, hidden_states, attention_mask)
         (query,) = adjust_tensors_for_parallel(key, query)
+        bsz = key.shape[0]
+        # >>> END AH Changes <<<
 
         # Avoid torch==2.1.2 specific bug for the memory-efficient backend in SDPA
         if self.require_contiguous_qkv and query.device.type == "cuda" and attention_mask is not None:
