@@ -220,7 +220,7 @@ class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaFlashAttention2
         # in fp32. (LlamaRMSNorm handles it correctly)
 
         input_dtype = query_states.dtype
-        if input_dtype == torch.float32:
+        if input_dtype == torch.float32 or key_states.dtype == torch.float32:
             if torch.is_autocast_enabled():
                 target_dtype = torch.get_autocast_gpu_dtype()
             # Handle the case where the model is quantized
