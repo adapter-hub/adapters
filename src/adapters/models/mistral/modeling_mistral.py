@@ -17,71 +17,55 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyTorch LLaMA model."""
+"""PyTorch Mistral model."""
 import math
-import warnings
 from typing import Optional, Tuple
 
 import torch
-import torch.nn.functional as F
 import torch.utils.checkpoint
 from torch import nn
 
-from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
-from transformers.cache_utils import Cache, StaticCache
-from transformers.models.llama.modeling_llama import (
-    LlamaAttention,
-    LlamaDecoderLayer,
-    LlamaFlashAttention2,
-    LlamaSdpaAttention,
+from adapters.composition import (
+    adjust_tensors_for_parallel,
+    adjust_tensors_for_parallel_,
+    match_attn_matrices_for_parallel,
+)
+from transformers.cache_utils import Cache
+from transformers.models.mistral.modeling_mistral import (
+    MistralAttention,
+    MistralDecoderLayer,
+    MistralFlashAttention2,
+    MistralSdpaAttention,
     apply_rotary_pos_emb,
     repeat_kv,
 )
-from transformers.utils import logging
+from transformers.utils import is_flash_attn_2_available, logging
 
-from .mixin_llama import LlamaAttentionMixin, LlamaDecoderLayerMixin
+from .mixin_mistral import MistralAttentionMixin, MistralDecoderLayerMixin
+
+
+if is_flash_attn_2_available():
+    from transformers.models.mistral.modeling_mistral import _flash_supports_window_size
 
 
 logger = logging.get_logger(__name__)
 
 
-class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
-    """Multi-headed attention from 'Attention Is All You Need' paper"""
-
+class MistralAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
     def forward(
         self,
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[Cache] = None,
+        past_key_value: Optional[Tuple[torch.Tensor]] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
-        cache_position: Optional[torch.LongTensor] = None,
-        **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         bsz, q_len, _ = hidden_states.size()
 
-        if self.config.pretraining_tp > 1:
-            key_value_slicing = (self.num_key_value_heads * self.head_dim) // self.config.pretraining_tp
-            query_slices = self.q_proj.weight.split(
-                (self.num_heads * self.head_dim) // self.config.pretraining_tp, dim=0
-            )
-            key_slices = self.k_proj.weight.split(key_value_slicing, dim=0)
-            value_slices = self.v_proj.weight.split(key_value_slicing, dim=0)
-
-            query_states = [F.linear(hidden_states, query_slices[i]) for i in range(self.config.pretraining_tp)]
-            query_states = torch.cat(query_states, dim=-1)
-
-            key_states = [F.linear(hidden_states, key_slices[i]) for i in range(self.config.pretraining_tp)]
-            key_states = torch.cat(key_states, dim=-1)
-
-            value_states = [F.linear(hidden_states, value_slices[i]) for i in range(self.config.pretraining_tp)]
-            value_states = torch.cat(value_states, dim=-1)
-
-        else:
-            query_states = self.q_proj(hidden_states)
-            key_states = self.k_proj(hidden_states)
-            value_states = self.v_proj(hidden_states)
+        query_states = self.q_proj(hidden_states)
+        key_states = self.k_proj(hidden_states)
+        value_states = self.v_proj(hidden_states)
 
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -94,15 +78,23 @@ class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
         (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
         # >>> END AH Changes <<<
 
-        past_key_value = getattr(self, "past_key_value", past_key_value)
-        cos, sin = self.rotary_emb(value_states, position_ids)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+        kv_seq_len = key_states.shape[-2]
+        if past_key_value is not None:
+            if self.layer_idx is None:
+                raise ValueError(
+                    f"The cache structure has changed since version v4.36. If you are using {self.__class__.__name__} "
+                    "for auto-regressive decoding with k/v caching, please make sure to initialize the attention class "
+                    "with a layer index."
+                )
+            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
+        cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
 
         if past_key_value is not None:
-            # sin and cos are specific to RoPE models; cache_position needed for the static cache
-            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+            cache_kwargs = {"sin": sin, "cos": cos}  # Specific to RoPE models
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
+        # repeat k/v heads if n_kv_heads < n_heads
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
@@ -111,14 +103,26 @@ class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
             key_states, value_states, hidden_states, attention_mask
         )
         (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
+        # Make adjustments since (parallel) prefix tuning changes the attention mask
+        kv_seq_len = key_states.shape[-2]
         bsz = key_states.shape[0]
         # >>> END AH Changes <<<
 
         attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
-        if attention_mask is not None:  # no matter the length, we just slice it
-            causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
-            attn_weights = attn_weights + causal_mask
+        if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
+            raise ValueError(
+                f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"
+                f" {attn_weights.size()}"
+            )
+
+        if attention_mask is not None:
+            if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
+                raise ValueError(
+                    f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
+                )
+
+            attn_weights = attn_weights + attention_mask
 
         # upcast attention to fp32
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
@@ -132,15 +136,9 @@ class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
             )
 
         attn_output = attn_output.transpose(1, 2).contiguous()
-
         attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
 
-        if self.config.pretraining_tp > 1:
-            attn_output = attn_output.split(self.hidden_size // self.config.pretraining_tp, dim=2)
-            o_proj_slices = self.o_proj.weight.split(self.hidden_size // self.config.pretraining_tp, dim=1)
-            attn_output = sum([F.linear(attn_output[i], o_proj_slices[i]) for i in range(self.config.pretraining_tp)])
-        else:
-            attn_output = self.o_proj(attn_output)
+        attn_output = self.o_proj(attn_output)
 
         if not output_attentions:
             attn_weights = None
@@ -148,35 +146,22 @@ class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
         return attn_output, attn_weights, past_key_value
 
 
-class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaFlashAttention2):
+class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAttention2):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         past_key_value: Optional[Cache] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
-        cache_position: Optional[torch.LongTensor] = None,
-        **kwargs,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-        if isinstance(past_key_value, StaticCache):
-            raise ValueError(
-                "`static` cache implementation is not compatible with `attn_implementation==flash_attention_2` "
-                "make sure to use `sdpa` in the mean time, and open an issue at https://github.com/huggingface/transformers"
-            )
-
-        output_attentions = False
-
+    ):
         bsz, q_len, _ = hidden_states.size()
 
         query_states = self.q_proj(hidden_states)
         key_states = self.k_proj(hidden_states)
         value_states = self.v_proj(hidden_states)
 
-        # Flash attention requires the input to have the shape
-        # batch_size x seq_length x head_dim x hidden_dim
-        # therefore we just need to keep the original shape
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -188,13 +173,67 @@ class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaFlashAttention2
         (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
         # >>> END AH Changes <<<
 
-        cos, sin = self.rotary_emb(value_states, position_ids)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+        kv_seq_len = key_states.shape[-2]
+        if past_key_value is not None:
+            if self.layer_idx is None:
+                raise ValueError(
+                    f"The cache structure has changed since version v4.36. If you are using {self.__class__.__name__} "
+                    "for auto-regressive decoding with k/v caching, please make sure to initialize the attention class "
+                    "with a layer index."
+                )
+            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
+
+        # Because the input can be padded, the absolute sequence length depends on the max position id.
+        rotary_seq_len = max(kv_seq_len, position_ids[:, -1].max().item()) + 1
+        cos, sin = self.rotary_emb(value_states, seq_len=rotary_seq_len)
+
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+
+        use_sliding_windows = (
+            _flash_supports_window_size
+            and getattr(self.config, "sliding_window", None) is not None
+            and kv_seq_len > self.config.sliding_window
+        )
+
+        if not _flash_supports_window_size:
+            logger.warning_once(
+                "The current flash attention version does not support sliding window attention, for a more memory efficient implementation"
+                " make sure to upgrade flash-attn library."
+            )
 
         if past_key_value is not None:
-            # sin and cos are specific to RoPE models; cache_position needed for the static cache
-            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+            # Activate slicing cache only if the config has a value `sliding_windows` attribute
+            cache_has_contents = past_key_value.get_seq_length(self.layer_idx) > 0
+            if (
+                getattr(self.config, "sliding_window", None) is not None
+                and kv_seq_len > self.config.sliding_window
+                and cache_has_contents
+            ):
+                slicing_tokens = 1 - self.config.sliding_window
+
+                past_key = past_key_value[self.layer_idx][0]
+                past_value = past_key_value[self.layer_idx][1]
+
+                past_key = past_key[:, :, slicing_tokens:, :].contiguous()
+                past_value = past_value[:, :, slicing_tokens:, :].contiguous()
+
+                if past_key.shape[-2] != self.config.sliding_window - 1:
+                    raise ValueError(
+                        f"past key must have a shape of (`batch_size, num_heads, self.config.sliding_window-1, head_dim`), got"
+                        f" {past_key.shape}"
+                    )
+
+                if attention_mask is not None:
+                    attention_mask = attention_mask[:, slicing_tokens:]
+                    attention_mask = torch.cat([attention_mask, torch.ones_like(attention_mask[:, -1:])], dim=-1)
+
+            cache_kwargs = {"sin": sin, "cos": cos}  # Specific to RoPE models
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+
+        # repeat k/v heads if n_kv_heads < n_heads
+        key_states = repeat_kv(key_states, self.num_key_value_groups)
+        value_states = repeat_kv(value_states, self.num_key_value_groups)
+        dropout_rate = 0.0 if not self.training else self.attention_dropout
 
         # >>> START AH Changes <<<
         key_states, value_states, attention_mask = self.prefix_tuning(
@@ -202,25 +241,15 @@ class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaFlashAttention2
         )
         (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
         # Make adjustments since (parallel) prefix tuning changes the attention mask
+        kv_seq_len = key_states.shape[-2]
         bsz = key_states.shape[0]
         # >>> END AH Changes <<<
 
-        # TODO: These transpose are quite inefficient but Flash Attention requires the layout [batch_size, sequence_length, num_heads, head_dim]. We would need to refactor the KV cache
-        # to be able to avoid many of these transpose/reshape/view.
-        query_states = query_states.transpose(1, 2)
-        key_states = key_states.transpose(1, 2)
-        value_states = value_states.transpose(1, 2)
-
-        dropout_rate = self.attention_dropout if self.training else 0.0
-
         # In PEFT, usually we cast the layer norms in float32 for training stability reasons
         # therefore the input hidden states gets silently casted in float32. Hence, we need
-        # cast them back in the correct dtype just to be sure everything works as expected.
-        # This might slowdown training & inference so it is recommended to not cast the LayerNorms
-        # in fp32. (LlamaRMSNorm handles it correctly)
-
+        # cast them back in float16 just to be sure everything works as expected.
         input_dtype = query_states.dtype
-        if input_dtype == torch.float32 or key_states.dtype == torch.float32:
+        if input_dtype == torch.float32:
             if torch.is_autocast_enabled():
                 target_dtype = torch.get_autocast_gpu_dtype()
             # Handle the case where the model is quantized
@@ -239,8 +268,19 @@ class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaFlashAttention2
             key_states = key_states.to(target_dtype)
             value_states = value_states.to(target_dtype)
 
+        # Reashape to the expected shape for Flash Attention
+        query_states = query_states.transpose(1, 2)
+        key_states = key_states.transpose(1, 2)
+        value_states = value_states.transpose(1, 2)
+
         attn_output = self._flash_attention_forward(
-            query_states, key_states, value_states, attention_mask, q_len, dropout=dropout_rate
+            query_states,
+            key_states,
+            value_states,
+            attention_mask,
+            q_len,
+            dropout=dropout_rate,
+            use_sliding_windows=use_sliding_windows,
         )
 
         attn_output = attn_output.reshape(bsz, q_len, self.hidden_size).contiguous()
@@ -252,9 +292,7 @@ class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaFlashAttention2
         return attn_output, attn_weights, past_key_value
 
 
-class LlamaSdpaAttentionWithAdapters(LlamaAttentionMixin, LlamaSdpaAttention):
-
-    # Adapted from LlamaAttention.forward
+class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralSdpaAttention):
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -263,12 +301,11 @@ class LlamaSdpaAttentionWithAdapters(LlamaAttentionMixin, LlamaSdpaAttention):
         past_key_value: Optional[Cache] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
-        cache_position: Optional[torch.LongTensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         if output_attentions:
             # TODO: Improve this warning with e.g. `model.config.attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "LlamaModel is using LlamaSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention implementation, "
+                "MistralModel is using MistralSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention implementation, "
                 'but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
@@ -278,7 +315,6 @@ class LlamaSdpaAttentionWithAdapters(LlamaAttentionMixin, LlamaSdpaAttention):
                 past_key_value=past_key_value,
                 output_attentions=output_attentions,
                 use_cache=use_cache,
-                cache_position=cache_position,
             )
 
         bsz, q_len, _ = hidden_states.size()
@@ -298,12 +334,15 @@ class LlamaSdpaAttentionWithAdapters(LlamaAttentionMixin, LlamaSdpaAttention):
         (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
         # >>> END AH Changes <<<
 
-        cos, sin = self.rotary_emb(value_states, position_ids)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+        kv_seq_len = key_states.shape[-2]
+        if past_key_value is not None:
+            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
+        cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
+
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
 
         if past_key_value is not None:
-            # sin and cos are specific to RoPE models; cache_position needed for the static cache
-            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+            cache_kwargs = {"sin": sin, "cos": cos}  # Specific to RoPE models
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
         key_states = repeat_kv(key_states, self.num_key_value_groups)
@@ -314,32 +353,32 @@ class LlamaSdpaAttentionWithAdapters(LlamaAttentionMixin, LlamaSdpaAttention):
             key_states, value_states, hidden_states, attention_mask
         )
         (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
+        # Make adjustments since (parallel) prefix tuning changes the attention mask
+        kv_seq_len = key_states.shape[-2]
+        bsz = key_states.shape[0]
         # >>> END AH Changes <<<
 
-        bsz = key_states.shape[0]
-
-        causal_mask = attention_mask
         if attention_mask is not None:
-            causal_mask = causal_mask[:, :, :, : key_states.shape[-2]]
+            if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
+                raise ValueError(
+                    f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
+                )
 
         # SDPA with memory-efficient backend is currently (torch==2.1.2) bugged with non-contiguous inputs with custom attn_mask,
         # Reference: https://github.com/pytorch/pytorch/issues/112577.
-        if query_states.device.type == "cuda" and causal_mask is not None:
+        if query_states.device.type == "cuda" and attention_mask is not None:
             query_states = query_states.contiguous()
             key_states = key_states.contiguous()
             value_states = value_states.contiguous()
-
-        # We dispatch to SDPA's Flash Attention or Efficient kernels via this if statement instead of an
-        # inline conditional assignment to support both torch.compile's `dynamic=True` and `fullgraph=True`
-        is_causal = True if causal_mask is None and q_len > 1 else False
 
         attn_output = torch.nn.functional.scaled_dot_product_attention(
             query_states,
             key_states,
             value_states,
-            attn_mask=causal_mask,
+            attn_mask=attention_mask,
             dropout_p=self.attention_dropout if self.training else 0.0,
-            is_causal=is_causal,
+            # The q_len > 1 is necessary to match with AttentionMaskConverter.to_causal_4d that does not create a causal mask in case q_len == 1.
+            is_causal=self.is_causal and attention_mask is None and q_len > 1,
         )
 
         attn_output = attn_output.transpose(1, 2).contiguous()
@@ -350,7 +389,7 @@ class LlamaSdpaAttentionWithAdapters(LlamaAttentionMixin, LlamaSdpaAttention):
         return attn_output, None, past_key_value
 
 
-class LlamaDecoderLayerWithAdapters(LlamaDecoderLayerMixin, LlamaDecoderLayer):
+class MistralDecoderLayerWithAdapters(MistralDecoderLayerMixin, MistralDecoderLayer):
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -359,15 +398,12 @@ class LlamaDecoderLayerWithAdapters(LlamaDecoderLayerMixin, LlamaDecoderLayer):
         past_key_value: Optional[Tuple[torch.Tensor]] = None,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
-        cache_position: Optional[torch.LongTensor] = None,
-        **kwargs,
     ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
         """
         Args:
             hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
-            attention_mask (`torch.FloatTensor`, *optional*):
-                attention mask of size `(batch_size, sequence_length)` if flash attention is used or `(batch_size, 1,
-                query_sequence_length, key_sequence_length)` if default attention is used.
+            attention_mask (`torch.FloatTensor`, *optional*): attention mask of size
+                `(batch, 1, tgt_len, src_len)` where padding elements are indicated by very large negative values.
             output_attentions (`bool`, *optional*):
                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
                 returned tensors for more detail.
@@ -376,12 +412,8 @@ class LlamaDecoderLayerWithAdapters(LlamaDecoderLayerMixin, LlamaDecoderLayer):
                 (see `past_key_values`).
             past_key_value (`Tuple(torch.FloatTensor)`, *optional*): cached past key and value projection states
         """
-        if "padding_mask" in kwargs:
-            warnings.warn(
-                "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use"
-                " `attention_mask` instead.`"
-            )
 
+        adjust_tensors_for_parallel_(hidden_states, attention_mask, position_ids)
         residual = hidden_states
 
         hidden_states = self.input_layernorm(hidden_states)
@@ -394,8 +426,6 @@ class LlamaDecoderLayerWithAdapters(LlamaDecoderLayerMixin, LlamaDecoderLayer):
             past_key_value=past_key_value,
             output_attentions=output_attentions,
             use_cache=use_cache,
-            cache_position=cache_position,
-            **kwargs,
         )
         hidden_states = self.attention_adapters(hidden_states, residual, None)
 
