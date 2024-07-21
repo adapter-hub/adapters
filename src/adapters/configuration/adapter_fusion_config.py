@@ -36,7 +36,7 @@ class AdapterFusionConfig(AdapterConfig):
             dict: The resolved adapter fusion configuration dictionary.
         """
         # currently storing AdapterFusion weights on AdapterHub is not supported.
-        config_dict = resolve_adapter_config(config, local_map=ADAPTERFUSION_CONFIG_MAP, try_loading_from_hub=False)
+        config_dict = resolve_adapter_config(config, local_map=ADAPTERFUSION_CONFIG_MAP)
         # convert back to dict to allow attr overrides
         if isinstance(config_dict, AdapterFusionConfig):
             config_dict = config_dict.to_dict()

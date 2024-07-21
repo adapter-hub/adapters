@@ -36,7 +36,7 @@ Now, the adapter can be loaded and activated like this:
 from adapters import AutoAdapterModel
 
 model = AutoAdapterModel.from_pretrained("{model_name}")
-adapter_name = model.load_adapter("{adapter_repo_name}", source="hf", set_active=True)
+adapter_name = model.load_adapter("{adapter_repo_name}", set_active=True)
 ```
 
 ## Architecture & Training

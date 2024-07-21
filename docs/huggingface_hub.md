@@ -63,7 +63,7 @@ For more options and information, e.g. for managing models via the CLI and Git, 
 Voilà! Your first adapter is on the Hugging Face Model Hub.
 Anyone can now run:
 ```
-model.load_adapter("<your_username>/my-awesome-adapter", source="hf")
+model.load_adapter("<your_username>/my-awesome-adapter")
 ```
 
 To update your adapter, simply run `push_adapter_to_hub()` with the same repository name again. This will push a new commit to the existing repository.

@@ -771,7 +771,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
-        source: str = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
         id2label=None,
@@ -788,20 +787,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
                 - a path to a directory containing adapter weights saved using `model.saved_adapter()`
                 - a URL pointing to a zip folder containing a saved adapter module
-            config (dict or str, optional): The requested configuration of the adapter.
-                If not specified, will be either: - the default adapter config for the requested adapter if specified -
-                the global default adapter config
+            config (dict or str, optional): Deprecated.
             version (str, optional): The version of the adapter to be loaded.
-            model_name (str, optional): The string identifier of the pre-trained model.
+            model_name (str, optional): Deprecated.
             load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
                     saved will be used.
-            source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
-
-                - "ah": search on AdapterHub Hub repo.
-                    Note: the Hub repo has been archived and all adapters have been moved to HuggingFace Model Hub.
-                    Loading from this source is deprecated.
-                - "hf": search on HuggingFace Model Hub.
-                - None (default): search on all sources
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
             set_active (bool, optional):
                 Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not
@@ -818,7 +808,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             version,
             model_name,
             load_as,
-            source=source,
             leave_out=leave_out,
             set_active=set_active,
             **kwargs,
@@ -1538,7 +1527,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
-        source: str = None,
         with_head: bool = True,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
@@ -1568,7 +1556,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             version=version,
             model_name=model_name,
             load_as=load_as,
-            source=source,
             custom_weights_loaders=custom_weights_loaders,
             leave_out=leave_out,
             id2label=id2label,
