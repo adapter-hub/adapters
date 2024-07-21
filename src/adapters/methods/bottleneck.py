@@ -195,9 +195,11 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             torch.cat([state.input_tensor for state in states], dim=0),
             torch.cat([state.adapter_residual for state in states], dim=0),
             states[0].layer_norm,
-            torch.cat([state.bottleneck_up for state in states], dim=0)
-            if states[0].bottleneck_up is not None
-            else None,
+            (
+                torch.cat([state.bottleneck_up for state in states], dim=0)
+                if states[0].bottleneck_up is not None
+                else None
+            ),
             states[-1].last,
         )
 

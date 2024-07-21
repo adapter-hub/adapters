@@ -193,10 +193,12 @@ intended for training adapters. The `Trainer` class should still be used to full
 class, simply initialize it the same way you would initialize the `Trainer` class, e.g.: 
 
 ```python
+from transformers.training_args import TrainingArguments 
+
 model.add_adapter(task_name)
 model.train_adapter(task_name)
 
-trainings_args =  TrainingsArguments(
+training_args =  TrainingArguments(
     learning_rate=1e-4,
     num_train_epochs=6,
 )

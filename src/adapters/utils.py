@@ -612,7 +612,7 @@ def pull_from_hub(
     version: str = None,
     strict: bool = False,
     redirect_to_hf_hub: bool = False,
-    **kwargs
+    **kwargs,
 ) -> str:
     """
     Downloads a pre-trained adapter module from Adapter-Hub
@@ -691,7 +691,7 @@ def resolve_adapter_path(
     version: str = None,
     source: str = None,
     redirect_to_hf_hub: bool = False,
-    **kwargs
+    **kwargs,
 ) -> str:
     """
     Resolves the path to a pre-trained adapter module. Note: If attempting to resolve an adapter from the Hub,
@@ -769,8 +769,9 @@ def resolve_adapter_path(
             except Exception as ex:
                 logger.info(ex)
                 raise EnvironmentError(
-                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source."
-                    .format(adapter_name_or_path)
+                    "Unable to load adapter {} from any source. Please check the name of the adapter or the source.".format(
+                        adapter_name_or_path
+                    )
                 )
     else:
         raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
@@ -853,9 +854,9 @@ def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInf
             return AdapterInfo(
                 source="hf",
                 adapter_id=model_info.modelId,
-                model_name=model_info.config.get("adapter_transformers", {}).get("model_name")
-                if model_info.config
-                else None,
+                model_name=(
+                    model_info.config.get("adapter_transformers", {}).get("model_name") if model_info.config else None
+                ),
                 username=model_info.modelId.split("/")[0],
                 sha1_checksum=model_info.sha,
             )
@@ -865,7 +866,7 @@ def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInf
         raise ValueError("Please specify either 'ah' or 'hf' as source.")
 
 
-def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
+def prefix_attention_mask(attention_mask, dim: Union[int, List[int]] = 3, prefix_value: int = 0):
     """
     Adds a prefix to an attention mask. The length of the prefix is determined by the `prefix_attention_mask_length`
     attribute in the ForwardContext.
@@ -890,18 +891,21 @@ def prefix_attention_mask(attention_mask, dim: int = 3, prefix_value: int = 0):
         and forward_context is not None
         and getattr(forward_context, "prompt_tokens_length", None) is not None
     ):
-        # Create a tensor of ones with the desired shape
-        ones_shape = list(attention_mask.shape)
-        ones_shape[dim] = forward_context.prompt_tokens_length
+        if isinstance(dim, int):
+            dim = [dim]
+        for d in dim:
+            # Create a tensor of ones with the desired shape
+            ones_shape = list(attention_mask.shape)
+            ones_shape[d] = forward_context.prompt_tokens_length
 
-        prefix_attention_mask = torch.full(
-            ones_shape,
-            prefix_value,
-            dtype=attention_mask.dtype,
-        ).to(attention_mask.device)
+            prefix_attention_mask = torch.full(
+                ones_shape,
+                prefix_value,
+                dtype=attention_mask.dtype,
+            ).to(attention_mask.device)
 
-        # Concatenate the prefix_attention_mask along the specified dimension
-        attention_mask = torch.cat((prefix_attention_mask, attention_mask), dim=dim)
+            # Concatenate the prefix_attention_mask along the specified dimension
+            attention_mask = torch.cat((prefix_attention_mask, attention_mask), dim=d)
 
     return attention_mask
 

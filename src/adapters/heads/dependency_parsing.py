@@ -2,6 +2,7 @@
 Code taken and modified from: https://github.com/Adapter-Hub/hgiyt. Credits: "How Good is Your Tokenizer? On the
 Monolingual Performance of Multilingual Language Models" (Rust et al., 2021) https://arxiv.org/abs/2012.15613
 """
+
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -96,7 +97,7 @@ class BiaffineParsingHead(PredictionHead):
         word_starts=None,
         labels_arcs=None,
         labels_rels=None,
-        **kwargs
+        **kwargs,
     ):
         outs = self.dropout(outputs[0])
         word_outputs_deps = self._merge_subword_tokens(outs, word_starts)
