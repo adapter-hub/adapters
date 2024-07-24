@@ -532,7 +532,7 @@ class AdapterLoader(WeightsLoader):
         if config is not None or model_name is not None:
             logger.warning(
                 "The 'config' and 'model_name' arguments are specific to the now unsupported legacy Hub repo and will"
-                " be removed.",
+                " be removed."
                 "Please switch to only providing the HF Model Hub identifier.",
             )
         requested_config = AdapterConfig.load(config) if config else None
