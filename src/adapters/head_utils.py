@@ -722,19 +722,9 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "layers": 1,
             "activation_function": None,
             "layer_norm": False,
-            "bias": True,
+            "bias": False,
         },
-        "layers": ["proj_out "],
-    },
-    "WhisperForCausalLM": {
-        "config": {
-            "head_type": "causal_lm",
-            "layers": 1,
-            "activation_function": None,
-            "layer_norm": False,
-            "bias": True,
-        },
-        "layers": ["proj_out "],
+        "layers": ["proj_out"],
     },
 }
 

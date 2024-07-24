@@ -14,6 +14,7 @@ from transformers import (
     MODEL_FOR_QUESTION_ANSWERING_MAPPING,
     MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
     MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
+    MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING,
     MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
     AlbertPreTrainedModel,
     BertPreTrainedModel,
@@ -26,10 +27,6 @@ from transformers.testing_utils import require_torch, torch_device
 
 @require_torch
 class ModelClassConversionTestMixin:
-
-    batch_size = 1
-    seq_length = 128
-
     def run_test(self, static_model, input_shape=None, label_dict=None):
         flex_model = AutoAdapterModel.from_pretrained(None, config=self.config(), state_dict=static_model.state_dict())
         static_model.eval()
@@ -107,14 +104,30 @@ class ModelClassConversionTestMixin:
         self.run_test(model, label_dict=label_dict)
 
     def test_conversion_seq2seq_lm_model(self):
-        if self.config_class not in MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING:
+        if (
+            self.config_class not in MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING
+            and self.config_class not in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING
+        ):
             self.skipTest("No seq2seq language modeling class.")
 
-        model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
-        adapters.init(model)
         label_dict = {}
-        label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
-        label_dict["decoder_input_ids"] = label_dict["labels"].clone()
+        if self.is_speech_model:
+            # speech models require input_features
+            model = MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING[self.config_class](self.config())
+            label_dict["input_features"] = torch.randn(
+                (self.default_input_samples_shape), dtype=torch.float32, device=torch_device
+            )
+            label_dict["decoder_input_ids"] = torch.randint(
+                0, model.config.vocab_size, size=self.default_input_samples_shape[:-1], device=torch_device
+            )
+            label_dict["labels"] = label_dict["decoder_input_ids"]
+        else:
+            model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
+            label_dict["labels"] = torch.zeros(
+                (self.batch_size, self.seq_length), dtype=torch.long, device=torch_device
+            )
+            label_dict["decoder_input_ids"] = label_dict["labels"].clone()
+        adapters.init(model)
         self.run_test(model, label_dict=label_dict)
 
     def test_conversion_classification_model(self):

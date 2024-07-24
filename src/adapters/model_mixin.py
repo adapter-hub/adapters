@@ -1305,8 +1305,17 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             and self.adapters_config.active_setup
             and self.adapters_config.active_setup.parallel_channels > 1
         ):
+            # Extract original shape
             input_shape = input_ids.shape
-            repeat_shape = [self.adapters_config.active_setup.parallel_channels] + [1] * (len(input_shape) - 1)
+            # Replicate input_ids to match the number of parallel channels
+            # Also works for inputs with more than 2 dimensions
+            repeat_shape = [
+                self.adapters_config.active_setup.parallel_channels
+            ] + [  # first dimension is parallel channels
+                1
+            ] * (
+                len(input_shape) - 1
+            )  # residual dims should be replicated parallel_channels times
             input_ids = input_ids.repeat(repeat_shape)
             model_kwargs["adapter_input_parallelized"] = True
 
