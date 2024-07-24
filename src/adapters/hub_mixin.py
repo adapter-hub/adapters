@@ -1,6 +1,5 @@
 import logging
 import os
-import warnings
 from typing import List, Optional, Union
 
 from transformers.utils.generic import working_or_temp_dir
