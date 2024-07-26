@@ -698,6 +698,14 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": ["lm_head"],
     },
+    "MistralForTokenClassification": {
+        "config": {
+            "head_type": "tagging",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "score"],
+    },
     # Electra
     "ElectraForTokenClassification": {
         "config": {
