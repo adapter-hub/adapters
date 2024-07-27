@@ -51,7 +51,6 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         input_features=None,
         attention_mask=None,
         decoder_input_ids=None,
-        labels=None,
         decoder_attention_mask=None,
         head_mask=None,
         decoder_head_mask=None,
@@ -75,16 +74,12 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        if labels is not None:
+        if "labels" in kwargs:
             use_cache = False
             if decoder_input_ids is None and decoder_inputs_embeds is None:
                 decoder_input_ids = shift_tokens_right(
-                    labels, self.config.pad_token_id, self.config.decoder_start_token_id
+                    kwargs["labels"], self.config.pad_token_id, self.config.decoder_start_token_id
                 )
-            # The Seq2SeqAdapterTrainer requires `labels` as argument to correctly read the signature of the forward method
-            # However the forward_head function expects `labels` as keyword argument, so we need to add them to kwargs
-            # to make them still accessible for the heads
-            kwargs["labels"] = labels
 
         outputs, context = self.model(
             input_features=input_features,
