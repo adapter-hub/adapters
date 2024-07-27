@@ -673,6 +673,14 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "qa_outputs"],
     },
+    "LlamaForTokenClassification": {
+        "config": {
+            "head_type": "tagging",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "score"],
+    },
     # Mistral
     "MistralForSequenceClassification": {
         "config": {
@@ -689,6 +697,14 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "head_type": "causal_lm",
         },
         "layers": ["lm_head"],
+    },
+    "MistralForTokenClassification": {
+        "config": {
+            "head_type": "tagging",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "score"],
     },
     # Electra
     "ElectraForTokenClassification": {
