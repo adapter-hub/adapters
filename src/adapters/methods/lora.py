@@ -275,44 +275,8 @@ class LoRALayer(AdapterLayerBase):
                             avg_state_dict[k] = zhang_weight * v
 
             elif combine_strategy == "lora_delta_w_svd":
-                # Weight the delta_w matrices by the input weights and then use Singular Value Decomposition to split them into A and B matrices.
-                if svd_rank is None:
-                    raise ValueError("svd_rank must be set when using 'lora_delta_w_svd'.")
-
-                # Collect delta_w matrices. Shape of every delta_w matrix in the list: d×k
-                delta_w = [self.loras[adapter_name].delta_w for adapter_name in input_adapters.keys()]
-
-                # If the lora has fan_in_fan_out, we need to transpose the matrices
-                if self.fan_in_fan_out:
-                    delta_w = [torch.t(delta_w) for delta_w in delta_w]
-
-                delta_w = torch.stack(delta_w, dim=0)  # shape: n×d×k
-
-                # Weight the delta_w matrices
-                weights = torch.tensor(list(input_adapters.values()), device=delta_w.device)  # shape: n
-                weights = weights.view(-1, 1, 1)  # shape: n×1×1
-                delta_w = delta_w * weights  # shape: n×d×k
-
-                # Now bring down to d×k matrix
-                delta_w = delta_w.sum(dim=0)  # shape: d×k
-
-                # Perform SVD to split delta_w into A and B matrices
-                U, S_diag, V = torch.linalg.svd(delta_w)
-
-                # Reduce rank
-                U = U[:, :svd_rank]  # U is 2D
-                S_diag = S_diag[:svd_rank]  # S_diag is 1D
-                V = V[:svd_rank, :]  # V is 2D
-
-                # The SVD has decomposed delta_w into U, S, and V such that: delta_w = U @ S_diag @ V
-                # In LoRA we have: delta_w = B @ A
-                # Hence, we can set: A = V and B = U @ S_diag
-                if self.fan_in_fan_out:
-                    avg_state_dict["lora_A"] = torch.t(V)
-                    avg_state_dict["lora_B"] = torch.t(U @ torch.diag(S_diag))
-                else:
-                    avg_state_dict["lora_A"] = V
-                    avg_state_dict["lora_B"] = U @ torch.diag(S_diag)
+                # Weight the delta_w matrices by the input weights and then use Singular Value Decomposition (SVD) to split them into A and B matrices.
+                self._average_adapter_lora_delta_w_svd(input_adapters, avg_state_dict, svd_rank)
 
             else:
                 raise ValueError(f"The combine_strategy '{combine_strategy}' is not supported for LoRA.")
@@ -322,6 +286,46 @@ class LoRALayer(AdapterLayerBase):
             return True
 
         return False
+
+    def _average_adapter_lora_delta_w_svd(self, input_adapters: Dict[str, float], avg_state_dict, svd_rank):
+        # Weight the delta_w matrices by the input weights and then use Singular Value Decomposition to split them into A and B matrices.
+        if svd_rank is None:
+            raise ValueError("svd_rank must be set when using 'lora_delta_w_svd'.")
+
+        # Collect delta_w matrices. Shape of every delta_w matrix in the list: d×k
+        delta_w = [self.loras[adapter_name].delta_w for adapter_name in input_adapters.keys()]
+
+        # If the lora has fan_in_fan_out, we need to transpose the matrices
+        if self.fan_in_fan_out:
+            delta_w = [torch.t(delta_w) for delta_w in delta_w]
+
+        delta_w = torch.stack(delta_w, dim=0)  # shape: n×d×k
+
+        # Weight the delta_w matrices
+        weights = torch.tensor(list(input_adapters.values()), device=delta_w.device)  # shape: n
+        weights = weights.view(-1, 1, 1)  # shape: n×1×1
+        delta_w = delta_w * weights  # shape: n×d×k
+
+        # Now bring down to d×k matrix
+        delta_w = delta_w.sum(dim=0)  # shape: d×k
+
+        # Perform SVD to split delta_w into A and B matrices
+        U, S_diag, V = torch.linalg.svd(delta_w)
+
+        # Reduce rank
+        U = U[:, :svd_rank]  # U is 2D
+        S_diag = S_diag[:svd_rank]  # S_diag is 1D
+        V = V[:svd_rank, :]  # V is 2D
+
+        # The SVD has decomposed delta_w into U, S, and V such that: delta_w = U @ S_diag @ V
+        # In LoRA we have: delta_w = B @ A
+        # Hence, we can set: A = V and B = U @ S_diag
+        if self.fan_in_fan_out:
+            avg_state_dict["lora_A"] = torch.t(V)
+            avg_state_dict["lora_B"] = torch.t(U @ torch.diag(S_diag))
+        else:
+            avg_state_dict["lora_A"] = V
+            avg_state_dict["lora_B"] = U @ torch.diag(S_diag)
 
 
 class LoRAState(NamedTuple):

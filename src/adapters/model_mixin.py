@@ -1347,95 +1347,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if set_active:
             self.set_active_adapters(adapter_name)
 
-    def average_head(
-        self,
-        head_name: str,
-        head_list: Union[List[str], Dict[str, float]],
-        weights: Optional[List[float]] = None,
-        normalize_weights: bool = True,
-        overwrite_ok: bool = False,
-        set_active: bool = False,
-    ):
-        """
-        Adds a new prediction head as a weighted average of a set of existing prediction heads.
-
-        Args:
-            head_name (str): The name of the new prediction head to be added.
-            head_list (List[str] or Dict[str, float]):
-                Specifies the existing heads whose weights should be averaged. Can either be a list of head names
-                or a dictionary mapping head names to weights.
-            weights (Optional[List[float]], optional): The weights corresponding to each head in the list.
-                If not provided, equal weights will be assigned to each head.
-            normalize_weights (bool, optional): Whether to normalize the weights.
-                If True, the weights will be normalized to sum up to 1.
-                Defaults to True.
-            overwrite_ok (bool, optional):
-                Overwrite a head with the same name if it exists. By default (False), an exception is thrown.
-            set_active (bool, optional):
-                Set the head to be the active one. By default (False), the head is added but not activated.
-        """
-
-        self._pre_average_adapter_checks(
-            head_name, head_list, "linear", ["linear"], is_head=True
-        )  # Currently, only linear averaging is supported for heads
-
-        # Ensure all heads to be averaged are of the same class
-        head_class = type(self.heads[head_list[0]])
-        for name in head_list:
-            if not isinstance(self.heads[name], head_class):
-                raise ValueError(
-                    f"Cannot average heads of different classes. All heads must be of type {head_class.__name__}."
-                )
-
-        # Ensure that all heads have the same configuration
-        head_config = self.heads[head_list[0]].config
-        keys_to_ignore = ["dropout_prob"]
-
-        def _get_head_config_hash(config):
-            return get_adapter_config_hash({k: v for k, v in config.items() if k not in keys_to_ignore})
-
-        for name in head_list:
-            if _get_head_config_hash(head_config) != _get_head_config_hash(self.heads[name].config):
-                raise ValueError(
-                    "Cannot average heads with different configurations. "
-                    "Please make sure all heads have the same configuration."
-                )
-
-        # In case the head already exists and we allow overwriting, explicitly delete the existing one first
-        if overwrite_ok and head_name in self.heads:
-            self.delete_head(head_name)
-
-        # Now that we have ensured that all heads are of the same class and have the same configuration,
-        # we can add the new head by copy one of the existing heads and then replacing the weights
-        new_head = deepcopy(self.heads[head_list[0]])  # This is a PredictionHead
-        new_head.name = head_name
-
-        if weights is None:
-            eq_weight = 1.0 / len(head_list)
-            input_heads = {name: eq_weight for name in head_list}
-        else:
-            # Normalize weights if specified
-            if normalize_weights:
-                sum_weights = sum(weights)
-            else:
-                sum_weights = 1.0
-            input_heads = {name: weight / sum_weights for name, weight in zip(head_list, weights)}
-
-        # Average the state dictionaries of the heads
-        avg_state_dict = {}
-        for name, weight in input_heads.items():
-            for k, v in self.heads[name].state_dict().items():
-                if k in avg_state_dict:
-                    avg_state_dict[k] += weight * v
-                else:
-                    avg_state_dict[k] = weight * v
-
-        # Load the averaged state dictionary into the new head
-        new_head.load_state_dict(avg_state_dict)
-
-        # Add the new head to the model
-        self.add_prediction_head(new_head, set_active=set_active)
-
     def eject_prefix_tuning(self, name: str):
         """
         Converts the prefix tuning with the given name from the reparameterized form into the flat form.
@@ -1664,6 +1575,93 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         else:
             self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
         self.freeze_embeddings()
+
+    def average_head(
+        self,
+        head_name: str,
+        head_list: Union[List[str], Dict[str, float]],
+        weights: Optional[List[float]] = None,
+        normalize_weights: bool = True,
+        overwrite_ok: bool = False,
+        set_active: bool = False,
+    ):
+        """
+        Adds a new prediction head as a weighted average of a set of existing prediction heads.
+
+        Args:
+            head_name (str): The name of the new prediction head to be added.
+            head_list (List[str] or Dict[str, float]):
+                Specifies the existing heads whose weights should be averaged. Can either be a list of head names
+                or a dictionary mapping head names to weights.
+            weights (Optional[List[float]], optional): The weights corresponding to each head in the list.
+                If not provided, equal weights will be assigned to each head.
+            normalize_weights (bool, optional): Whether to normalize the weights.
+                If True, the weights will be normalized to sum up to 1.
+                Defaults to True.
+            overwrite_ok (bool, optional):
+                Overwrite a head with the same name if it exists. By default (False), an exception is thrown.
+            set_active (bool, optional):
+                Set the head to be the active one. By default (False), the head is added but not activated.
+        """
+
+        self._pre_average_adapter_checks(
+            head_name, head_list, "linear", ["linear"], is_head=True
+        )  # Currently, only linear averaging is supported for heads
+
+        # Ensure all heads to be averaged are of the same class
+        head_class = type(self.heads[head_list[0]])
+        for name in head_list:
+            if not isinstance(self.heads[name], head_class):
+                raise ValueError(
+                    f"Cannot average heads of different classes. All heads must be of type {head_class.__name__}."
+                )
+
+        # Ensure that all heads have the same configuration
+        head_config = self.heads[head_list[0]].config
+
+        for name in head_list:
+            if get_adapter_config_hash(head_config, ignore_params=["dropout_prob"]) != get_adapter_config_hash(
+                self.heads[name].config, ignore_params=["dropout_prob"]
+            ):
+                raise ValueError(
+                    "Cannot average heads with different configurations. "
+                    "Please make sure all heads have the same configuration."
+                )
+
+        # In case the head already exists and we allow overwriting, explicitly delete the existing one first
+        if overwrite_ok and head_name in self.heads:
+            self.delete_head(head_name)
+
+        # Now that we have ensured that all heads are of the same class and have the same configuration,
+        # we can add the new head by copy one of the existing heads and then replacing the weights
+        new_head = deepcopy(self.heads[head_list[0]])  # This is a PredictionHead
+        new_head.name = head_name
+
+        if weights is None:
+            eq_weight = 1.0 / len(head_list)
+            input_heads = {name: eq_weight for name in head_list}
+        else:
+            # Normalize weights if specified
+            if normalize_weights:
+                sum_weights = sum(weights)
+            else:
+                sum_weights = 1.0
+            input_heads = {name: weight / sum_weights for name, weight in zip(head_list, weights)}
+
+        # Average the state dictionaries of the heads
+        avg_state_dict = {}
+        for name, weight in input_heads.items():
+            for k, v in self.heads[name].state_dict().items():
+                if k in avg_state_dict:
+                    avg_state_dict[k] += weight * v
+                else:
+                    avg_state_dict[k] = weight * v
+
+        # Load the averaged state dictionary into the new head
+        new_head.load_state_dict(avg_state_dict)
+
+        # Add the new head to the model
+        self.add_prediction_head(new_head, set_active=set_active)
 
     def save_head(self, save_directory: str, head_name: str = None, use_safetensors: bool = False) -> None:
         """Saves a model prediction head to a directory such that it can be reloaded using `load_head()`.
