@@ -23,7 +23,7 @@ from setuptools import find_packages, setup
 _deps = [
     "accelerate>=0.21.0",
     "beautifulsoup4",
-    "black==22.3",  # after updating to black 2023, also update Python version in pyproject.toml to 3.7
+    "black~=24.4.0",
     "datasets!=2.5.0",
     "dill<0.3.5",
     "docutils==0.16.0",
@@ -33,8 +33,6 @@ _deps = [
     "isort>=5.5.4",
     "Jinja2==2.11.3",
     "nltk",
-    "onnxruntime-tools>=1.4.2",
-    "onnxruntime>=1.4.0",
     "parameterized",
     "pillow",
     "protobuf",
@@ -60,7 +58,7 @@ _deps = [
     "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch>=1.10,!=1.12.0",
-    "transformers~=4.40.2",
+    "transformers~=4.42.4",
 ]
 
 
@@ -82,8 +80,6 @@ extras = {}
 extras["sklearn"] = deps_list("scikit-learn")
 
 extras["torch"] = deps_list("torch", "accelerate")
-
-extras["onnxruntime"] = deps_list("onnxruntime", "onnxruntime-tools")
 
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = deps_list(
@@ -132,7 +128,6 @@ extras["dev"] = (
     + extras["quality"]
     + extras["docs"]
     + extras["sklearn"]
-    + extras["onnxruntime"]
 )
 
 # when modifying the following list, make sure to update src/transformers/dependency_versions_check.py
@@ -142,19 +137,17 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="0.2.2",
+    version="1.0.0.dev0",
     author="The AdapterHub team and community contributors",
     author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    keywords="NLP deep learning transformer pytorch BERT adapters",
+    keywords="NLP deep learning transformer pytorch BERT adapters PEFT LoRA",
     license="Apache",
     url="https://github.com/adapter-hub/adapters",
     package_dir={"": "src"},
     packages=find_packages("src"),
-    include_package_data=True,
-    package_data={"transformers": ["*.cu", "*.cpp", "*.cuh", "*.h", "*.pyx"]},
     zip_safe=False,
     extras_require=extras,
     python_requires=">=3.8.0",

@@ -53,7 +53,7 @@ class UniPELTTestMixin(AdapterMethodBaseTestMixin):
 
         input_data = self.get_input_samples(config=model.config)
 
-        model.set_active_adapters([name])
+        model.set_active_adapters(name)
         output_1 = model(**input_data, output_adapter_gating_scores=True)
 
         self.assertEqual(len(output_1[0]), self.default_input_samples_shape[0])

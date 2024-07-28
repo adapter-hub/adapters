@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 @add_start_docstrings(
     """
-The Llama Model that allows the loading of different heads dor different tasks. This enables a flexible use of the
+The Llama Model that allows the loading of different heads for different tasks. This enables a flexible use of the
 models and adpters. Since this class does classification on the last token, it requires to know the position of the
 last token. If a :obj:`pad_token_id` is defined in the configuration, it finds the last token that is not a padding
 token in each row. If no :obj:`pad_token_id` is defined, it simply takes the last value in each row of the batch. Since

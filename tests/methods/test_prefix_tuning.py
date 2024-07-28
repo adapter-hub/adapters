@@ -62,7 +62,7 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
         input_data = self.get_input_samples(config=model.config)
 
         # user reparamterized prefix
-        model.set_active_adapters(["test_prefix"])
+        model.set_active_adapters("test_prefix")
         output_1 = model(**input_data)
 
         # eject prefix

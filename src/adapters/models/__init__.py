@@ -19,6 +19,13 @@ from .distilbert.mixin_distilbert import DistilBertModelAdaptersMixin, DistilBer
 from .gpt2.mixin_gpt2 import GPT2ModelAdapterMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin, GPTJModelAdapterMixin
 from .llama.mixin_llama import LlamaForQuestionAnsweringAdapterMixin, LlamaModelAdapterMixin
+from .mistral.mixin_mistral import MistralModelAdapterMixin
+from .plbart.mixin_plbart import (
+    PLBartDecoderAdaptersMixin,
+    PLBartDecoderWrapperAdaptersMixin,
+    PLBartEncoderAdaptersMixin,
+    PLBartModelAdaptersMixin,
+)
 from .t5.mixin_t5 import (
     T5BlockAdaptersMixin,
     T5ForCondiditionalGenerationWithHeadsMixin,
@@ -34,8 +41,8 @@ MODEL_MIXIN_MAPPING = {
     "AlbertModel": AlbertModelAdaptersMixin,
     "BartEncoder": BartEncoderAdaptersMixin,
     "BartDecoder": BartDecoderAdaptersMixin,
-    "BartModel": BartModelAdaptersMixin,
     "BartDecoderWrapper": BartDecoderWrapperAdaptersMixin,
+    "BartModel": BartModelAdaptersMixin,
     "BeitIntermediate": BeitIntermediateAdaptersMixin,
     "BeitOutput": BeitOutputAdaptersMixin,
     "BeitModel": BeitModelAdaptersMixin,
@@ -61,6 +68,10 @@ MODEL_MIXIN_MAPPING = {
     "MT5ForConditionalGeneration": T5ForCondiditionalGenerationWithHeadsMixin,
     "MT5ForQuestionAnswering": T5ForQuestionAnsweringWithHeadsMixin,
     "MT5EncoderModel": T5ModelAdaptersMixin,
+    "PLBartEncoder": PLBartEncoderAdaptersMixin,
+    "PLBartDecoder": PLBartDecoderAdaptersMixin,
+    "PLBartModel": PLBartModelAdaptersMixin,
+    "PLBartDecoderWrapper": PLBartDecoderWrapperAdaptersMixin,
     "GPT2Model": GPT2ModelAdapterMixin,
     "GPTJMLP": GPTJMLPAdaptersMixin,
     "GPTJModel": GPTJModelAdapterMixin,
@@ -85,4 +96,5 @@ MODEL_MIXIN_MAPPING = {
     "BertGenerationLayer": BertLayerAdaptersMixin,
     "LlamaModel": LlamaModelAdapterMixin,
     "LlamaForQuestionAnswering": LlamaForQuestionAnsweringAdapterMixin,
+    "MistralModel": MistralModelAdapterMixin,
 }
