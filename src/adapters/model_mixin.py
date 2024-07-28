@@ -1188,7 +1188,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def _average_shared_parameters(self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy: str):
         if combine_strategy != "linear":
             raise ValueError(
-                f"Combine strategy {combine_strategy} not supported for Compacter. Only 'linear' is supported."
+                f"Combine strategy {combine_strategy} not supported for shared parameters. Only 'linear' is supported."
             )
 
         avg_state_dict = {}
