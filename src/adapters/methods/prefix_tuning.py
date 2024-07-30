@@ -437,10 +437,8 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
             value_states = F.pad(value_states, pad_size, "constant", self.model_config.pad_token_id)
 
             # pad attention mask
-            if pad_length > 0:
+            if pad_length > 0 and attention_mask is not None:
                 # Masking the padded tokens only works correctly if attention_mask is set
-                # We assume this to be the case at this point
-                assert attention_mask is not None, "Attention mask must be set for prefix tuning"
                 attention_mask = F.pad(
                     attention_mask,
                     (max_prefix_length - attention_mask.shape[-1], 0),

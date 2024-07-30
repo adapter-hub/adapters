@@ -92,7 +92,7 @@ class Average(AdapterCompositionBlock):
         self,
         *average_adapters: List[Union[AdapterCompositionBlock, str]],
         weights: Optional[List[float]] = None,
-        normalize_weights: bool = True
+        normalize_weights: bool = True,
     ):
         super().__init__(*average_adapters)
         if weights is not None:
@@ -129,6 +129,7 @@ SUPPORTED_MODELS = {
         "bart",
         "mbart",
         "mt5",
+        "plbart",
         "gpt2",
         "gptj",
         "t5",
@@ -136,6 +137,7 @@ SUPPORTED_MODELS = {
         "xlm-roberta",
         "bert-generation",
         "llama",
+        "mistral",
         "electra",
         "whisper",
         "xmod",

@@ -80,8 +80,10 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/models/gpt2
    classes/models/gptj
    classes/models/llama
+   classes/models/mistral
    classes/models/mbart
    classes/models/mt5
+   classes/models/plbart
    classes/models/roberta
    classes/models/t5
    classes/models/vit

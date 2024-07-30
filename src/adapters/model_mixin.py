@@ -9,7 +9,9 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import torch
 from torch import nn
 
+from transformers import GenerationConfig
 from transformers.modeling_outputs import ModelOutput
+from transformers.utils import is_accelerate_available
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
@@ -28,6 +30,9 @@ from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
 
 logger = logging.getLogger(__name__)
+
+if is_accelerate_available():
+    from accelerate.hooks import AlignDevicesHook, add_hook_to_module
 
 
 class InvertibleAdaptersMixin:
@@ -766,13 +771,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
-        source: str = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
         id2label=None,
         set_active: bool = False,
         use_safetensors: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.
@@ -783,20 +787,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
                 - a path to a directory containing adapter weights saved using `model.saved_adapter()`
                 - a URL pointing to a zip folder containing a saved adapter module
-            config (dict or str, optional): The requested configuration of the adapter.
-                If not specified, will be either: - the default adapter config for the requested adapter if specified -
-                the global default adapter config
+            config (dict or str, optional): Deprecated.
             version (str, optional): The version of the adapter to be loaded.
-            model_name (str, optional): The string identifier of the pre-trained model.
+            model_name (str, optional): Deprecated.
             load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
                     saved will be used.
-            source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
-
-                - "ah": search on AdapterHub Hub repo.
-                    Note: the Hub repo has been archived and all adapters have been moved to HuggingFace Model Hub.
-                    Loading from this source is deprecated.
-                - "hf": search on HuggingFace Model Hub.
-                - None (default): search on all sources
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
             set_active (bool, optional):
                 Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not
@@ -813,7 +808,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             version,
             model_name,
             load_as,
-            source=source,
             leave_out=leave_out,
             set_active=set_active,
             **kwargs,
@@ -838,7 +832,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         set_active: bool = False,
         use_safetensors: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Loads a pre-trained AdapterFusion layer from the local file system.
@@ -1263,10 +1257,21 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     # HACK Copied from transformers/generation/utils.py
     def _prepare_encoder_decoder_kwargs_for_generation(
-        self, inputs_tensor: torch.Tensor, model_kwargs, model_input_name: Optional[str] = None
+        self,
+        inputs_tensor: torch.Tensor,
+        model_kwargs,
+        model_input_name: Optional[str],
+        generation_config: GenerationConfig,
     ) -> Dict[str, Any]:
         # 1. get encoder
         encoder = self.get_encoder()
+        # Compatibility with Accelerate big model inference: we need the encoder to outputs stuff on the same device
+        # as the inputs.
+        if hasattr(self, "hf_device_map"):
+            if hasattr(encoder, "_hf_hook"):
+                encoder._hf_hook.io_same_device = True
+            else:
+                add_hook_to_module(encoder, AlignDevicesHook(io_same_device=True))
 
         # 2. prepare encoder args and encoder kwargs from model kwargs
         irrelevant_prefix = ["decoder_", "cross_attn", "use_cache"]
@@ -1275,7 +1280,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             for argument, value in model_kwargs.items()
             if not any(argument.startswith(p) for p in irrelevant_prefix)
         }
-
         encoder_signature = set(inspect.signature(encoder.forward).parameters)
         encoder_accepts_wildcard = "kwargs" in encoder_signature or "model_kwargs" in encoder_signature
         if not encoder_accepts_wildcard:
@@ -1284,6 +1288,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 for argument, value in encoder_kwargs.items()
                 if argument in encoder_signature or argument == "adapter_input_parallelized"
             }
+        encoder_kwargs["output_attentions"] = generation_config.output_attentions
+        encoder_kwargs["output_hidden_states"] = generation_config.output_hidden_states
 
         # 3. make sure that encoder returns `ModelOutput`
         model_input_name = model_input_name if model_input_name is not None else self.main_input_name
@@ -1452,9 +1458,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         if not train_embeddings:
             self.freeze_embeddings()
 
-        # Hack to prevent HF Trainer from throwing an error due to peft missing.
-        self._hf_peft_config_loaded = True
-
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """
         Sets the model into mode for training of adapter fusion determined by a list of adapter names. If
@@ -1483,7 +1486,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         load_as: str = None,
         id2label: Dict[int, str] = None,
         use_safetensors: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         """Loads a model prediction head from a directory where it was saved using `save_head()`.
 
@@ -1532,14 +1535,13 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
-        source: str = None,
         with_head: bool = True,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
         id2label=None,
         set_active: bool = False,
         use_safetensors: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:
@@ -1562,7 +1564,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             version=version,
             model_name=model_name,
             load_as=load_as,
-            source=source,
             custom_weights_loaders=custom_weights_loaders,
             leave_out=leave_out,
             id2label=id2label,
@@ -1648,7 +1649,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         set_active: bool = False,
         with_head: bool = True,
         use_safetensors: bool = False,
-        **kwargs
+        **kwargs,
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:
