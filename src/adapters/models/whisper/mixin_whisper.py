@@ -131,7 +131,7 @@ class WhisperForAudioClassificationWithHeadsMixin(ModelWithHeadsAdaptersMixin, W
         *args,
         input_features: Optional[torch.FloatTensor] = None,
         labels: Optional[torch.LongTensor] = None,
-        **kwargs
+        **kwargs,
     ):
         # Stating "input_features" and "labels" explicitly is required for training using Trainer class
         return super().forward(*args, input_features=input_features, labels=labels, **kwargs)
