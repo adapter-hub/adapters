@@ -1,5 +1,4 @@
 import os
-import random
 import tempfile
 
 import torch
@@ -82,27 +81,6 @@ class PredictionHeadModelTestMixin:
         label_dict = {}
         label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
         self.run_prediction_head_test(model1, model2, "dummy", input_shape=(1, 3, 224, 224), label_dict=label_dict)
-
-    def test_audio_classification_head(self):
-        if "audio_classification" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
-            self.skipTest("No audio classification head")
-
-        model1, model2 = create_twin_models(AutoAdapterModel, self.config)
-        model1.add_audio_classification_head("dummy")
-
-        input_shape = (3, 80, 3000)
-        num_labels = 2
-
-        label_dict = {}
-        label_dict["labels"] = torch.tensor(data=[random.randint(0, num_labels - 1) for _ in range(input_shape[0])])
-        self.run_prediction_head_test(
-            model1,
-            model2,
-            "dummy",
-            input_shape=input_shape,
-            label_dict=label_dict,
-            output_shape=(input_shape[0], num_labels),
-        )
 
     def test_multiple_choice_head(self):
         if "multiple_choice" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:

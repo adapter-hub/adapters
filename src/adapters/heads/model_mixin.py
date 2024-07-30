@@ -12,7 +12,6 @@ from ..context import AdapterSetup, ForwardContext
 from ..loading import PredictionHeadLoader
 from ..model_mixin import ModelWithHeadsAdaptersMixin
 from .base import (
-    AudioClassificationHead,
     ClassificationHead,
     ImageClassificationHead,
     MultiHeadOutput,
@@ -39,7 +38,6 @@ MODEL_HEAD_MAP = {
     "causal_lm": CausalLMHead,
     "seq2seq_lm": Seq2SeqLMHead,
     "image_classification": ImageClassificationHead,
-    "audio_classification": AudioClassificationHead,
 }
 
 
@@ -359,39 +357,6 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             layers=layers,
             activation_function=activation_function,
             multilabel=multilabel,
-            id2label=id2label,
-            use_pooler=use_pooler,
-        )
-        self.add_prediction_head(head, overwrite_ok)
-
-    @head_type("audio_classification")
-    def add_audio_classification_head(
-        self,
-        head_name,
-        num_labels=2,
-        layers=1,
-        activation_function="tanh",
-        overwrite_ok=False,
-        id2label=None,
-        use_pooler=use_pooler,
-    ):
-        """
-        Adds an audio classification head on top of the model.
-
-        Args:
-            head_name (str): The name of the head.
-            num_labels (int, optional): Number of classification labels. Defaults to 2.
-            layers (int, optional): Number of layers. Defaults to 1.
-            activation_function (str, optional): Activation function. Defaults to 'tanh'.
-            overwrite_ok (bool, optional): Force overwrite if a head with the same name exists. Defaults to False.
-        """
-
-        head = AudioClassificationHead(
-            self,
-            head_name,
-            num_labels=num_labels,
-            layers=layers,
-            activation_function=activation_function,
             id2label=id2label,
             use_pooler=use_pooler,
         )
