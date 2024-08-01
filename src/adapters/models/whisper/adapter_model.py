@@ -81,6 +81,13 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
                     kwargs["labels"], self.config.pad_token_id, self.config.decoder_start_token_id
                 )
 
+        # Future TODO:
+        # the seq2seqtrainer has the parameter `predict_with_generate`
+        # If set to True, we get the following error:
+        # transformers\generation\utils.py", line 1130, in _validate_model_kwargs">
+        # raise ValueError(ValueError: The following model_kwargs are not used by the model: ['labels']
+        # This is because we do not specify labels as parameter in the forward method
+
         outputs, context = self.model(
             input_features=input_features,
             attention_mask=attention_mask,
