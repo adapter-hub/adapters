@@ -30,7 +30,7 @@ model.average_head(head_name="avg_head", head_list=["head_1", "head_2"], weights
 ```
 
 #### Merging LoRA Adapters
-LoRA introduces $A$ and $B$ matrixes with $\Delta W = BA$. Since the B and A matrices are strongly dependent on each other, there are several ways to merge the weights of LoRA adapters. You can choose the combination method by passing the `combine_strategy` parameter to the `average_adapter` method:
+LoRA introduces $A$ and $B$ matrices with $\Delta W = BA$. Since the B and A matrices are strongly dependent on each other, there are several ways to merge the weights of LoRA adapters. You can choose the combination method by passing the `combine_strategy` parameter to the `average_adapter` method:
 
 1. `combine_strategy = "linear"`: Linear Combination (default). This has been proposed for LoRA by [Chronopoulou et al. (2023)](https://arxiv.org/abs/2311.09344). With $\Phi = \{A, B\}$:
     

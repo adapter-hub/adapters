@@ -161,7 +161,7 @@ Currently, adapters integrates all architectures and methods listed below:
 | Prompt Tuning | [Lester et al. (2021)](https://aclanthology.org/2021.emnlp-main.243/) | [Docs](https://docs.adapterhub.ml/methods.html#prompt-tuning) |
 | QLoRA | [Dettmers et al. (2023)](https://arxiv.org/pdf/2305.14314.pdf) | [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/QLoRA_Llama_Finetuning.ipynb) |
 | ReFT | [Wu et al. (2024)](https://arxiv.org/pdf/2404.03592) | [Docs](https://docs.adapterhub.ml/methods.html#reft) |
-| Adapter Task Arithmetics | [Chronopoulou et al. (2023)](https://arxiv.org/abs/2311.09344) and [Zhang et al. (2023)](https://proceedings.neurips.cc/paper_files/paper/2023/hash/299a08ee712d4752c890938da99a77c6-Abstract-Conference.html) | [Docs](TODO)|
+| Adapter Task Arithmetics | [Chronopoulou et al. (2023)](https://arxiv.org/abs/2311.09344) and [Zhang et al. (2023)](https://proceedings.neurips.cc/paper_files/paper/2023/hash/299a08ee712d4752c890938da99a77c6-Abstract-Conference.html) | [Docs](https://docs.adapterhub.ml/merging_adapters.html), [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/06_Task_Arithmetics.ipynb)|
 
 
 ## Supported Models
