@@ -49,6 +49,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    :caption: Advanced
 
    adapter_composition
+   merging_adapters
    prediction_heads
    embeddings
    extending

@@ -40,17 +40,17 @@ The basic building blocks of the more advanced setups are objects derived from `
 each representing a different possibility to combine single adapters.
 The following table gives an overview on the supported composition blocks and their support by different adapter methods.
 
-| Block | Bottleneck<br> Adapters | Prefix<br> Tuning | Compacter | LoRA | (IA)³ | Prompt Tuning |
-| --- | --- | --- | --- | --- | --- | --- |
-| [`Stack`](#stack) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |  |
-| [`Fuse`](#fuse) | ✅ |  | ✅ |  |  |  |
-| [`Split`](#split) | ✅ |  | ✅ |  |  |  |
-| [`BatchSplit`](#batchsplit) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |  |
-| [`Parallel`](#parallel) | ✅ | ✅ | ✅ | ✅(*) | ✅(*) |  |
-| [Output averaging](#output-averaging) | ✅ |  | ✅ | ✅(*) | ✅(*) |  |
-| [Parameter averaging](#parameter-averaging) | ✅ | ✅ | ✅ | ✅ | ✅ |  |
+| Block                                       | Bottleneck<br> Adapters | Prefix<br> Tuning | Compacter | LoRA | (IA)³ | Prompt Tuning |
+| ------------------------------------------- | ----------------------- | ----------------- | --------- | ---- | ----- | ------------- |
+| [`Stack`](#stack)                           | ✅                       | ✅                 | ✅         | ✅(*) | ✅(*)  |               |
+| [`Fuse`](#fuse)                             | ✅                       |                   | ✅         |      |       |               |
+| [`Split`](#split)                           | ✅                       |                   | ✅         |      |       |               |
+| [`BatchSplit`](#batchsplit)                 | ✅                       | ✅                 | ✅         | ✅(*) | ✅(*)  |               |
+| [`Parallel`](#parallel)                     | ✅                       | ✅                 | ✅         | ✅(*) | ✅(*)  |               |
+| [Output averaging](#output-averaging)       | ✅                       |                   | ✅         | ✅(*) | ✅(*)  |               |
+| [Parameter averaging](#parameter-averaging) | ✅                       | ✅                 | ✅         | ✅    | ✅     | ✅             |
 
-(*) except for Deberta-v1, GPT-2.
+(*) except for Deberta and GPT-2.
 
 Next, we present all composition blocks in more detail.
 
@@ -236,16 +236,12 @@ print("STS-B adapter output:", output1[0].item())
 print("MRPC adapter output:", bool(torch.argmax(output2[0]).item()))
 ```
 
-## Averaging Outputs or Parameters
+## Output averaging
 
-Following approaches of ensembling full models at inference time for better generalization, recent work on adapters has explored methods of averaging pre-trained adapters.
-This includes averaging output representations of adapters ([Wang et al., 2021](https://arxiv.org/pdf/2109.04877.pdf)) as well as averaging adapter parameters ([Wang et al., 2022](https://arxiv.org/pdf/2205.12410.pdf), [Chronopoulou et al., 2023](https://aclanthology.org/2023.findings-eacl.153.pdf)).
-`adapters` provides built-in support for both types of inference time averaging methods.
+Recent work on adapters has explored methods to ensemble models for better generalization. 
+This includes averaging output representations of adapters ([Wang et al., 2021](https://aclanthology.org/2021.findings-emnlp.63)) as well as averaging adapter parameters ([Wang et al., 2022](https://aclanthology.org/2022.emnlp-main.388/), [Chronopoulou et al., 2023](https://aclanthology.org/2023.findings-eacl.153.pdf)). _Adapters_ provides built-in support for both types of inference-time averaging methods. The output averaging composition block is described below and merging adapter parameters is explained in the [Merging Adapters](merging_adapters.md) documentation page.
 
-### Output averaging
-
-Output averaging allows to dynamically aggregate the output representations of multiple adapters in a model forward pass via weighted averaging.
-This is realized via the `Average` composition block that works similar to other composition blocks.
+Output averaging allows the dynamic aggregation of output representations of multiple adapters in a model forward pass via weighted averaging. This is realized via the `Average` composition block, which works similarly to other composition blocks.
 In the example below, the three adapters are averaged with the weights `0.1` for `m`, `0.6` for `n` and `0.3` for `o`.
 
 ```python
@@ -260,25 +256,6 @@ model.add_adapter("o")
 model.active_adapters = ac.Average("m", "n", "o", weights=[0.1, 0.6, 0.3])
 ```
 
-### Parameter averaging
-
-Parameter averaging enables creating a new adapter via weighted averaging of the parameters of multiple pre-trained adapters.
-As this process is typically not done dynamically at runtime, `adapters` provides `average_adapter()` as a dedicated method for parameter averaging.
-In the example below, the parameters of the adapters `m`, `n` and `o` are averaged (with weights `0.1` `0.6` and `0.3`, respectively) to create a new adapter `avg`.
-Note that for this to succeed, all averaged adapters must use the same adapter configuration.
-
-```python
-model.add_adapter("m")
-model.add_adapter("n")
-model.add_adapter("o")
-
-model.average_adapter("avg", ["m", "n", "o"], weights=[0.1, 0.6, 0.3])
-```
-
-Compared to output averaging, parameter averaging of adapters has the advantage of not inducing any additional inference time relative to using a single adapter.
-
-For both output and parameter averaging, passed weights are normalized by default.
-To disable normalization, pass `normalize_weights=False`.
 
 ## Nesting composition blocks
 
@@ -293,13 +270,13 @@ model.active_adapters = ac.Stack("a", ac.Split("b", "c", splits=60))
 
 However, combinations of adapter composition blocks cannot be arbitrarily deep. All currently supported possibilities are visualized in the table below.
 
-|Block|Supported Nesting|
-|---|---|
-| [`Stack`](#stack)|[str, Fuse, Split, Parallel, BatchSplit, Average]|
-| [`Fuse`](#fuse)|[str, Stack]|
-|[`Split`](#split)|[str, Split, Stack, BatchSplit, Average]|
-|[`Parallel`](#parallel)|[str, Stack, BatchSplit, Average]|
-|[`BatchSplit`](#batchsplit)|[str, Stack, Split, BatchSplit, Average]|
-|[`Average`](#output-averaging)|[str, Stack, Split, BatchSplit]|
+| Block                          | Supported Nesting                                 |
+| ------------------------------ | ------------------------------------------------- |
+| [`Stack`](#stack)              | [str, Fuse, Split, Parallel, BatchSplit, Average] |
+| [`Fuse`](#fuse)                | [str, Stack]                                      |
+| [`Split`](#split)              | [str, Split, Stack, BatchSplit, Average]          |
+| [`Parallel`](#parallel)        | [str, Stack, BatchSplit, Average]                 |
+| [`BatchSplit`](#batchsplit)    | [str, Stack, Split, BatchSplit, Average]          |
+| [`Average`](#output-averaging) | [str, Stack, Split, BatchSplit]                   |
 
 In the table, `str` represents an adapter, e.g. adapter "a" in the nesting example above. Depending on the individual model, some nested compositions might not be possible.
