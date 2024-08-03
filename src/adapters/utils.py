@@ -18,7 +18,6 @@ from functools import partial
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
-from urllib.parse import urlparse
 from zipfile import ZipFile, is_zipfile
 
 import torch
@@ -111,11 +110,11 @@ class AdapterType(str, Enum):
 @dataclass
 class AdapterInfo:
     """
-    Holds information about an adapter publicly available on AdapterHub or huggingface.co. Returned by
+    Holds information about an adapter publicly available on the Hub. Returned by
     :func:`list_adapters()`.
 
     Args:
-        source (str): The source repository of this adapter. Can be either "ah" (AdapterHub) or "hf" (huggingface.co).
+        source (str): The source repository of this adapter. Always 'hf' for adapters available on HF Model Hub.
         adapter_id (str): The unique identifier of this adapter.
         model_name (str, optional): The identifier of the model this adapter was trained for.
         task (str, optional): The task this adapter was trained for.
@@ -141,14 +140,16 @@ def _minimize_dict(d):
         return d
 
 
-def get_adapter_config_hash(config, length=16):
+def get_adapter_config_hash(config, length=16, ignore_params=[]):
     """
     Calculates the hash of a given adapter configuration which is used to identify this configuration.
 
     Returns:
         str: The resulting hash of the given config dict.
     """
-    minimized_config = _minimize_dict({k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE})
+    minimized_config = _minimize_dict(
+        {k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE + ignore_params}
+    )
     # ensure hash is kept consistent to previous versions
     for name, default in ADAPTER_CONFIG_HASH_IGNORE_DEFAULT.items():
         if minimized_config.get(name, None) == default:
@@ -434,7 +435,7 @@ def parse_adapter_config_string(config_string: str) -> List[Tuple[str, dict]]:
     return adapter_configs
 
 
-def resolve_adapter_config(config: Union[dict, str], local_map=None, try_loading_from_hub=True, **kwargs) -> dict:
+def resolve_adapter_config(config: Union[dict, str], local_map=None, **kwargs) -> dict:
     """
     Resolves a given adapter configuration specifier to a full configuration dictionary.
 
@@ -444,7 +445,6 @@ def resolve_adapter_config(config: Union[dict, str], local_map=None, try_loading
             - a dictionary: returned without further action
             - an identifier string available in local_map
             - the path to a file containing a full adapter configuration
-            - an identifier string available in Adapter-Hub
 
     Returns:
         dict: The resolved adapter configuration dictionary.
@@ -464,13 +464,6 @@ def resolve_adapter_config(config: Union[dict, str], local_map=None, try_loading
                 return loaded_config["config"]
             else:
                 return loaded_config
-    # download hub index file
-    if try_loading_from_hub:
-        index_file = download_cached(ADAPTER_HUB_CONFIG_FILE, **kwargs)
-        if not index_file:
-            raise EnvironmentError("Unable to load adapter hub index file. The file might be temporarily unavailable.")
-        with open(index_file, "r") as f:
-            config_index = json.load(f)
     # parse the config string
     config_pairs = parse_adapter_config_string(config)
     if len(config_pairs) > 0:
@@ -480,11 +473,6 @@ def resolve_adapter_config(config: Union[dict, str], local_map=None, try_loading
             if local_map and name in local_map:
                 config_obj = local_map[name]
                 full_configs.append(config_obj.replace(**config_kwargs))
-            # now, try to find in hub index
-            elif try_loading_from_hub and name in config_index:
-                config_obj = config_index[name]
-                config_obj.update(**config_kwargs)
-                full_configs.append(config_obj)
             else:
                 raise ValueError("Could not identify '{}' as a valid adapter configuration.".format(name))
         # Case 1: only one config, return it directly
@@ -588,34 +576,16 @@ def _get_matching_version(config_entry, org):
         raise ValueError("Multiple adapters with this name are available for this config.")
 
 
-def http_get_json(url):
-    # check if it's a relative url
-    if not urlparse(url).netloc:
-        url = urljoin(ADAPTER_HUB_URL, url)
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        raise EnvironmentError("Failed to get file {}".format(url))
-
-
-def get_checksum(file_entry: dict):
-    for algo in hashlib.algorithms_guaranteed:
-        if algo in file_entry:
-            return algo, file_entry[algo]
-
-
 def pull_from_hub(
     specifier: str,
     model_name: str,
     adapter_config: Optional[Union[dict, str]] = None,
     version: str = None,
     strict: bool = False,
-    redirect_to_hf_hub: bool = False,
     **kwargs,
 ) -> str:
     """
-    Downloads a pre-trained adapter module from Adapter-Hub
+    Redirects loading from the archived Hub repository to HuggingFace Model Hub.
 
     Args:
         specifier (str): A string specifying the adapter to be loaded.
@@ -624,9 +594,6 @@ def pull_from_hub(
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
         strict (bool, optional):
             If set to True, only allow adapters exactly matching the given config to be loaded. Defaults to False.
-        redirect_to_hf_hub (bool, optional):
-            If set to True, the function will redirect to the HuggingFace Model Hub instead of AdapterHub.
-            Defaults to False.
 
     Returns:
         str: The local path to which the adapter has been downloaded.
@@ -642,35 +609,12 @@ def pull_from_hub(
         raise EnvironmentError("No adapter with name '{}' was found in the adapter index.".format(specifier))
 
     hf_hub_specifier = "AdapterHub/" + os.path.basename(hub_entry_url).split(".")[0]
-    if redirect_to_hf_hub:
-        logger.warning(
-            "Automatic redirect to HF Model Hub repo '{}'. Please switch to the new ID to remove this warning.".format(
-                hf_hub_specifier
-            )
+    logger.warning(
+        "Automatic redirect to HF Model Hub repo '{}'. Please switch to the new ID to remove this warning.".format(
+            hf_hub_specifier
         )
-        return pull_from_hf_model_hub(hf_hub_specifier, version=version, **kwargs)
-    else:
-        logger.warning(
-            "Loading adapters from this source is deprecated. This adapter has moved to '{}'. Please switch to the new"
-            " ID to remove this warning.".format(hf_hub_specifier)
-        )
-
-    hub_entry = http_get_json(hub_entry_url)
-    # set version
-    if not version:
-        version = hub_entry["default_version"]
-    elif version not in hub_entry["files"]:
-        logger.warning("Version '{}' of adapter '{}' not found. Falling back to default.".format(version, specifier))
-        version = hub_entry["default_version"]
-    file_entry = hub_entry["files"][version]
-
-    # start downloading
-    logger.info("Resolved adapter files at {}.".format(file_entry["url"]))
-    checksum_algo, checksum = get_checksum(file_entry)
-    download_path = download_cached(file_entry["url"], checksum=checksum, checksum_algo=checksum_algo, **kwargs)
-    if not download_path:
-        raise EnvironmentError("Unable to load file from {}. The file might be unavailable.".format(file_entry["url"]))
-    return download_path
+    )
+    return pull_from_hf_model_hub(hf_hub_specifier, version=version, **kwargs)
 
 
 def pull_from_hf_model_hub(specifier: str, version: str = None, **kwargs) -> str:
@@ -689,8 +633,6 @@ def resolve_adapter_path(
     model_name: str = None,
     adapter_config: Union[dict, str] = None,
     version: str = None,
-    source: str = None,
-    redirect_to_hf_hub: bool = False,
     **kwargs,
 ) -> str:
     """
@@ -706,15 +648,6 @@ def resolve_adapter_path(
         model_name (str, optional): The identifier of the pre-trained model for which to load an adapter.
         adapter_config (Union[dict, str], optional): The configuration of the adapter to be loaded.
         version (str, optional): The version of the adapter to be loaded. Defaults to None.
-        source (str, optional): Identifier of the source(s) from where to get adapters. Can be either:
-
-            - "ah": search on AdapterHub.ml. Note: this source is deprecated in favor of "hf".
-            - "hf": search on HuggingFace model hub (huggingface.co).
-            - None (default): search on all sources
-
-        redirect_to_hf_hub (bool, optional):
-            If set to True, the function will redirect to the HuggingFace Model Hub instead of AdapterHub.
-            Defaults to False.
 
     Returns:
         str: The local path from where the adapter module can be loaded.
@@ -739,24 +672,13 @@ def resolve_adapter_path(
                     WEIGHTS_NAME, CONFIG_NAME, adapter_name_or_path
                 )
             )
-    elif source == "ah":
-        return pull_from_hub(
-            adapter_name_or_path,
-            model_name,
-            adapter_config=adapter_config,
-            version=version,
-            redirect_to_hf_hub=redirect_to_hf_hub,
-            **kwargs,
-        )
-    elif source == "hf":
-        return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
-    elif source is None:
+    else:
         try:
-            logger.info("Attempting to load adapter from source 'hf'...")
+            logger.info("Attempting to load adapter from HF Model Hub...")
             return pull_from_hf_model_hub(adapter_name_or_path, version=version, **kwargs)
         except (EnvironmentError, ValueError) as ex:
             logger.info(ex)
-            logger.info("Attempting to load adapter from source 'ah'...")
+            logger.info("Attempting to redirect from archived Hub repo...")
             try:
                 return pull_from_hub(
                     adapter_name_or_path,
@@ -773,97 +695,63 @@ def resolve_adapter_path(
                         adapter_name_or_path
                     )
                 )
-    else:
-        raise ValueError("Unable to identify {} as a valid module location.".format(adapter_name_or_path))
 
 
-def list_adapters(source: str = None, model_name: str = None) -> List[AdapterInfo]:
+def list_adapters(model_name: str = None) -> List[AdapterInfo]:
     """
     Retrieves a list of all publicly available adapters on AdapterHub.ml or on huggingface.co.
 
     Args:
-        source (str, optional): Identifier of the source(s) from where to get adapters. Can be either:
-
-            - "ah": search on AdapterHub.ml.
-            - "hf": search on HuggingFace model hub (huggingface.co).
-            - None (default): search on all sources
-
         model_name (str, optional): If specified, only returns adapters trained for the model with this identifier.
     """
     adapters = []
-    if source == "ah" or source is None:
-        try:
-            all_ah_adapters_file = download_cached(ADAPTER_HUB_ALL_FILE)
-        except requests.exceptions.HTTPError:
-            raise EnvironmentError(
-                "Unable to load list of adapters from AdapterHub.ml. The service might be temporarily unavailable."
-            )
-        with open(all_ah_adapters_file, "r") as f:
-            all_ah_adapters_data = json.load(f)
-        adapters += [AdapterInfo(**info) for info in all_ah_adapters_data]
-    if source == "hf" or source is None:
-        if "fetch_config" in inspect.signature(HfApi.list_models).parameters:
-            kwargs = {"full": True, "fetch_config": True}
-        else:
-            logger.warning(
-                "Using old version of huggingface-hub package for fetching. Please upgrade to latest version for"
-                " accurate results."
-            )
-            kwargs = {"full": True}
-        all_hf_adapters_data = HfApi().list_models(filter="adapters", **kwargs)
-        for model_info in all_hf_adapters_data:
-            adapter_info = AdapterInfo(
-                source="hf",
-                adapter_id=model_info.modelId,
-                model_name=model_info.config.get("adapters", {}).get("model_name") if model_info.config else None,
-                username=model_info.modelId.split("/")[0],
-                sha1_checksum=model_info.sha,
-            )
-            adapters.append(adapter_info)
+    if "fetch_config" in inspect.signature(HfApi.list_models).parameters:
+        kwargs = {"full": True, "fetch_config": True}
+    else:
+        logger.warning(
+            "Using old version of huggingface-hub package for fetching. Please upgrade to latest version for"
+            " accurate results."
+        )
+        kwargs = {"full": True}
+    all_hf_adapters_data = HfApi().list_models(filter="adapters", **kwargs)
+    for model_info in all_hf_adapters_data:
+        adapter_info = AdapterInfo(
+            source="hf",
+            adapter_id=model_info.modelId,
+            model_name=model_info.config.get("adapters", {}).get("model_name") if model_info.config else None,
+            username=model_info.modelId.split("/")[0],
+            sha1_checksum=model_info.sha,
+        )
+        adapters.append(adapter_info)
 
     if model_name is not None:
         adapters = [adapter for adapter in adapters if adapter.model_name == model_name]
     return adapters
 
 
-def get_adapter_info(adapter_id: str, source: str = "ah") -> Optional[AdapterInfo]:
+def get_adapter_info(adapter_id: str) -> Optional[AdapterInfo]:
     """
     Retrieves information about a specific adapter.
 
     Args:
         adapter_id (str): The identifier of the adapter to retrieve.
-        source (str, optional): Identifier of the source(s) from where to get adapters. Can be either:
-
-            - "ah": search on AdapterHub.ml.
-            - "hf": search on HuggingFace model hub (huggingface.co).
 
     Returns:
         AdapterInfo: The adapter information or None if the adapter was not found.
     """
-    if source == "ah":
-        if adapter_id.startswith("@"):
-            adapter_id = adapter_id[1:]
-        try:
-            data = http_get_json(f"/adapters/{adapter_id}.json")
-            return AdapterInfo(**data["info"])
-        except EnvironmentError:
-            return None
-    elif source == "hf":
-        try:
-            model_info = HfApi().model_info(adapter_id)
-            return AdapterInfo(
-                source="hf",
-                adapter_id=model_info.modelId,
-                model_name=(
-                    model_info.config.get("adapter_transformers", {}).get("model_name") if model_info.config else None
-                ),
-                username=model_info.modelId.split("/")[0],
-                sha1_checksum=model_info.sha,
-            )
-        except requests.exceptions.HTTPError:
-            return None
-    else:
-        raise ValueError("Please specify either 'ah' or 'hf' as source.")
+    try:
+        model_info = HfApi().model_info(adapter_id)
+        return AdapterInfo(
+            source="hf",
+            adapter_id=model_info.modelId,
+            model_name=(
+                model_info.config.get("adapter_transformers", {}).get("model_name") if model_info.config else None
+            ),
+            username=model_info.modelId.split("/")[0],
+            sha1_checksum=model_info.sha,
+        )
+    except requests.exceptions.HTTPError:
+        return None
 
 
 def prefix_attention_mask(attention_mask, dim: Union[int, List[int]] = 3, prefix_value: int = 0):

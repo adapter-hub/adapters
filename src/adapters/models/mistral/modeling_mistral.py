@@ -30,7 +30,7 @@ from adapters.composition import (
     adjust_tensors_for_parallel_,
     match_attn_matrices_for_parallel,
 )
-from transformers.cache_utils import Cache
+from transformers.cache_utils import Cache, StaticCache
 from transformers.models.mistral.modeling_mistral import (
     MistralAttention,
     MistralDecoderLayer,
@@ -57,9 +57,10 @@ class MistralAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        past_key_value: Optional[Cache] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
+        cache_position: Optional[torch.LongTensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         bsz, q_len, _ = hidden_states.size()
 
@@ -78,23 +79,14 @@ class MistralAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
         (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
         # >>> END AH Changes <<<
 
-        kv_seq_len = key_states.shape[-2]
-        if past_key_value is not None:
-            if self.layer_idx is None:
-                raise ValueError(
-                    f"The cache structure has changed since version v4.36. If you are using {self.__class__.__name__} "
-                    "for auto-regressive decoding with k/v caching, please make sure to initialize the attention class "
-                    "with a layer index."
-                )
-            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
-        cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        cos, sin = self.rotary_emb(value_states, position_ids)
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
         if past_key_value is not None:
-            cache_kwargs = {"sin": sin, "cos": cos}  # Specific to RoPE models
+            # sin and cos are specific to RoPE models; cache_position needed for the static cache
+            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
-        # repeat k/v heads if n_kv_heads < n_heads
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
@@ -104,25 +96,14 @@ class MistralAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
         )
         (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
         # Make adjustments since (parallel) prefix tuning changes the attention mask
-        kv_seq_len = key_states.shape[-2]
         bsz = key_states.shape[0]
         # >>> END AH Changes <<<
 
         attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
-        if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
-            raise ValueError(
-                f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"
-                f" {attn_weights.size()}"
-            )
-
-        if attention_mask is not None:
-            if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
-                raise ValueError(
-                    f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
-                )
-
-            attn_weights = attn_weights + attention_mask
+        if attention_mask is not None:  # no matter the length, we just slice it
+            causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
+            attn_weights = attn_weights + causal_mask
 
         # upcast attention to fp32
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
@@ -136,8 +117,8 @@ class MistralAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
             )
 
         attn_output = attn_output.transpose(1, 2).contiguous()
-        attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
 
+        attn_output = attn_output.view(bsz, q_len, -1)
         attn_output = self.o_proj(attn_output)
 
         if not output_attentions:
@@ -155,7 +136,17 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
         past_key_value: Optional[Cache] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
+        cache_position: Optional[torch.LongTensor] = None,
     ):
+        if isinstance(past_key_value, StaticCache):
+            raise ValueError(
+                "`static` cache implementation is not compatible with `attn_implementation==flash_attention_2` make"
+                " sure to use `sdpa` in the mean time, and open an issue at"
+                " https://github.com/huggingface/transformers"
+            )
+
+        output_attentions = False
+
         bsz, q_len, _ = hidden_states.size()
 
         query_states = self.q_proj(hidden_states)
@@ -175,19 +166,10 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
 
         kv_seq_len = key_states.shape[-2]
         if past_key_value is not None:
-            if self.layer_idx is None:
-                raise ValueError(
-                    f"The cache structure has changed since version v4.36. If you are using {self.__class__.__name__} "
-                    "for auto-regressive decoding with k/v caching, please make sure to initialize the attention class "
-                    "with a layer index."
-                )
-            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
+            kv_seq_len += cache_position[0]
 
-        # Because the input can be padded, the absolute sequence length depends on the max position id.
-        rotary_seq_len = max(kv_seq_len, position_ids[:, -1].max().item()) + 1
-        cos, sin = self.rotary_emb(value_states, seq_len=rotary_seq_len)
-
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        cos, sin = self.rotary_emb(value_states, position_ids)
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
         use_sliding_windows = (
             _flash_supports_window_size
@@ -197,8 +179,8 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
 
         if not _flash_supports_window_size:
             logger.warning_once(
-                "The current flash attention version does not support sliding window attention, for a more memory efficient implementation"
-                " make sure to upgrade flash-attn library."
+                "The current flash attention version does not support sliding window attention, for a more memory"
+                " efficient implementation make sure to upgrade flash-attn library."
             )
 
         if past_key_value is not None:
@@ -219,8 +201,8 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
 
                 if past_key.shape[-2] != self.config.sliding_window - 1:
                     raise ValueError(
-                        f"past key must have a shape of (`batch_size, num_heads, self.config.sliding_window-1, head_dim`), got"
-                        f" {past_key.shape}"
+                        "past key must have a shape of (`batch_size, num_heads, self.config.sliding_window-1,"
+                        f" head_dim`), got {past_key.shape}"
                     )
 
                 if attention_mask is not None:
@@ -259,8 +241,8 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
                 target_dtype = self.q_proj.weight.dtype
 
             logger.warning_once(
-                f"The input hidden states seems to be silently casted in float32, this might be related to"
-                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
+                "The input hidden states seems to be silently casted in float32, this might be related to the fact"
+                " you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
                 f" {target_dtype}."
             )
 
@@ -301,12 +283,16 @@ class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralSdpaAttenti
         past_key_value: Optional[Cache] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
+        cache_position: Optional[torch.LongTensor] = None,
+        **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         if output_attentions:
             # TODO: Improve this warning with e.g. `model.config.attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "MistralModel is using MistralSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention implementation, "
-                'but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
+                "MistralModel is using MistralSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention`"
+                " does not support `output_attentions=True`. Falling back to the manual attention implementation, but"
+                " specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This"
+                ' warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
                 hidden_states=hidden_states,
@@ -315,6 +301,7 @@ class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralSdpaAttenti
                 past_key_value=past_key_value,
                 output_attentions=output_attentions,
                 use_cache=use_cache,
+                cache_position=cache_position,
             )
 
         bsz, q_len, _ = hidden_states.size()
@@ -334,15 +321,12 @@ class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralSdpaAttenti
         (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
         # >>> END AH Changes <<<
 
-        kv_seq_len = key_states.shape[-2]
-        if past_key_value is not None:
-            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
-        cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
-
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        cos, sin = self.rotary_emb(value_states, position_ids)
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
         if past_key_value is not None:
-            cache_kwargs = {"sin": sin, "cos": cos}  # Specific to RoPE models
+            # sin and cos are specific to RoPE models; cache_position needed for the static cache
+            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
         key_states = repeat_kv(key_states, self.num_key_value_groups)
@@ -354,35 +338,35 @@ class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralSdpaAttenti
         )
         (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
         # Make adjustments since (parallel) prefix tuning changes the attention mask
-        kv_seq_len = key_states.shape[-2]
         bsz = key_states.shape[0]
         # >>> END AH Changes <<<
 
+        causal_mask = attention_mask
         if attention_mask is not None:
-            if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
-                raise ValueError(
-                    f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
-                )
+            causal_mask = causal_mask[:, :, :, : key_states.shape[-2]]
 
         # SDPA with memory-efficient backend is currently (torch==2.1.2) bugged with non-contiguous inputs with custom attn_mask,
         # Reference: https://github.com/pytorch/pytorch/issues/112577.
-        if query_states.device.type == "cuda" and attention_mask is not None:
+        if query_states.device.type == "cuda" and causal_mask is not None:
             query_states = query_states.contiguous()
             key_states = key_states.contiguous()
             value_states = value_states.contiguous()
+
+        # We dispatch to SDPA's Flash Attention or Efficient kernels via this `is_causal` if statement instead of an inline conditional assignment
+        # in SDPA to support both torch.compile's dynamic shapes and full graph options. An inline conditional prevents dynamic shapes from compiling.
+        is_causal = True if causal_mask is None and q_len > 1 else False
 
         attn_output = torch.nn.functional.scaled_dot_product_attention(
             query_states,
             key_states,
             value_states,
-            attn_mask=attention_mask,
+            attn_mask=causal_mask,
             dropout_p=self.attention_dropout if self.training else 0.0,
-            # The q_len > 1 is necessary to match with AttentionMaskConverter.to_causal_4d that does not create a causal mask in case q_len == 1.
-            is_causal=self.is_causal and attention_mask is None and q_len > 1,
+            is_causal=is_causal,
         )
 
         attn_output = attn_output.transpose(1, 2).contiguous()
-        attn_output = attn_output.view(bsz, q_len, self.hidden_size)
+        attn_output = attn_output.view(bsz, q_len, -1)
 
         attn_output = self.o_proj(attn_output)
 
@@ -398,12 +382,15 @@ class MistralDecoderLayerWithAdapters(MistralDecoderLayerMixin, MistralDecoderLa
         past_key_value: Optional[Tuple[torch.Tensor]] = None,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
+        cache_position: Optional[torch.LongTensor] = None,
+        **kwargs,
     ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
         """
         Args:
             hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
-            attention_mask (`torch.FloatTensor`, *optional*): attention mask of size
-                `(batch, 1, tgt_len, src_len)` where padding elements are indicated by very large negative values.
+            attention_mask (`torch.FloatTensor`, *optional*):
+                attention mask of size `(batch_size, sequence_length)` if flash attention is used or `(batch_size, 1,
+                query_sequence_length, key_sequence_length)` if default attention is used.
             output_attentions (`bool`, *optional*):
                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
                 returned tensors for more detail.
@@ -411,6 +398,11 @@ class MistralDecoderLayerWithAdapters(MistralDecoderLayerMixin, MistralDecoderLa
                 If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding
                 (see `past_key_values`).
             past_key_value (`Tuple(torch.FloatTensor)`, *optional*): cached past key and value projection states
+            cache_position (`torch.LongTensor` of shape `(sequence_length)`, *optional*):
+                Indices depicting the position of the input sequence tokens in the sequence
+            kwargs (`dict`, *optional*):
+                Arbitrary kwargs to be ignored, used for FSDP and other methods that injects code
+                into the model
         """
 
         adjust_tensors_for_parallel_(hidden_states, attention_mask, position_ids)
@@ -426,6 +418,7 @@ class MistralDecoderLayerWithAdapters(MistralDecoderLayerMixin, MistralDecoderLa
             past_key_value=past_key_value,
             output_attentions=output_attentions,
             use_cache=use_cache,
+            cache_position=cache_position,
         )
         hidden_states = self.attention_adapters(hidden_states, residual, None)
 

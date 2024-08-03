@@ -10,9 +10,11 @@ class UniPELTTestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_add_test(model, UniPELTConfig(), ["loras.{name}.", "adapters.{name}.", "prefix_tunings.{name}."])
 
-    def test_average_unipelt(self):
+    def test_linear_average_unipelt(self):
         model = self.get_model()
-        self.run_average_test(model, UniPELTConfig(), ["loras.{name}.", "adapters.{name}.", "prefix_tunings.{name}."])
+        self.run_linear_average_test(
+            model, UniPELTConfig(), ["loras.{name}.", "adapters.{name}.", "prefix_tunings.{name}."]
+        )
 
     def test_delete_unipelt(self):
         model = self.get_model()

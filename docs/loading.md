@@ -17,8 +17,7 @@ E.g., we can use it to retrieve information for all adapters trained for a speci
 ```python
 from adapters import list_adapters
 
-# source can be "ah" (archived Hub repo), "hf" (huggingface.co) or None (for both, default)
-adapter_infos = list_adapters(source="hf", model_name="bert-base-uncased")
+adapter_infos = list_adapters(model_name="bert-base-uncased")
 
 for adapter_info in adapter_infos:
     print("Id:", adapter_info.adapter_id)
@@ -29,7 +28,7 @@ for adapter_info in adapter_infos:
 In case the adapter ID is known, information for a single adapter can also be retrieved via [`get_adapter_info()`](adapters.utils.get_adapter_info):
 
 ```python
-adapter_info = get_adapter_info("@ukp/bert-base-uncased_sentiment_sst-2_pfeiffer", source="ah")
+adapter_info = get_adapter_info("AdapterHub/roberta-base-pf-imdb")
 
 print("Id:", adapter_info.adapter_id)
 print("Model name:", adapter_info.model_name)
@@ -62,14 +61,14 @@ model.set_active_adapters(adapter_name)
 
 As the second example, let's have a look at how to load an adapter based on the [`AdapterInfo`](adapters.utils.AdapterInfo) returned by the [`list_adapters()`](adapters.utils.list_adapters) method from [above](#finding-pre-trained-adapters):
 ```python
-from adapters import AutoAdapterModel, list_available_adapters
+from adapters import AutoAdapterModel, list_adapters
 
-adapter_infos = list_available_adapters(source="ah")
+adapter_infos = list_adapters()
 # Take the first adapter info as an example
 adapter_info = adapter_infos[0]
 
 model = AutoAdapterModel.from_pretrained(adapter_info.model_name)
-model.load_adapter(adapter_info.adapter_id, source=adapter_info.source)
+model.load_adapter(adapter_info.adapter_id)
 ```
 
 ### Advanced usage of `load_adapter()`
@@ -78,31 +77,20 @@ To examine what's happening underneath in a bit more detail, let's first write o
 
 ```python
 model.load_adapter(
-    'sst-2',
-    config='pfeiffer',
-    model_name='bert-base-uncased',
-    version=1,
-    load_as='sst',
-    source='ah'
+    "AdapterHub/roberta-base-pf-imdb",
+    version="main",
+    load_as="sentiment_adapter",
+    set_active=True,
 )
 ```
 
 We will go through the different arguments and their meaning one by one:
 
-- The first argument passed to the method specifies the name of the adapter we want to load from Adapter-Hub. The library will search for an available adapter module with this name that matches the model architecture as well as the adapter type and configuration we requested. As the identifier `sst-2` resolves to a unique entry in the Hub, the corresponding adapter can be successfully loaded based on this information. To get an overview of all available adapter identifiers, please refer to [the Adapter-Hub website](https://adapterhub.ml/explore).
+- The first argument passed to the method specifies the name or path from where to load the adapter. This can be the name of a repository on the [HuggingFace Model Hub](https://huggingface.co/models), a local path or a URL. To get an overview of all available adapters on the Hub, please refer to [the Adapter-Hub website](https://adapterhub.ml/explore).
 
-- The `config` argument defines the adapter architecture the loaded adapter should have.
-The value of this parameter can be either a string identifier for one of the predefined architectures, the identifier of an architecture available in the Hub or a dictionary representing a full adapter configuration.
-Based on this information, the library will only search for pre-trained adapter modules having the same configuration.
-
-- Adapter modules trained on different pre-trained language models in general can not be used interchangeably.
-Therefore, we need to make sure to load an adapter matching the language model we are using.
-If possible, the library will infer the name of the pre-trained model automatically (e.g. when we use `from_pretrained('identifier')` to load a model from Hugging Face). However, if this is not the case, we must specify the name of the host model in the `model_name` parameter.
-
-- There could be multiple versions of the same adapter available. To load a specific version, use the `version` parameter.
+- There could be multiple versions of the same adapter available as revisions in a Model Hub repository. To load a specific revision, use the `version` parameter.
 
 - By default, the `load_adapter()` method will add the loaded adapter using the identifier string given as the first argument.
 To load the adapter using a custom name, we can use the `load_as` parameter.
 
-- Finally the `source` parameter provides the possibility to load adapters from alternative adapter repositories.
-Besides the default value `ah`, referring to AdapterHub, it's also possible to pass `hf` to [load adapters from Hugging Face's Model Hub](huggingface_hub.md).
+- Finally, `set_active` will directly activate the loaded adapter for usage in each model forward pass. Otherwise, you have to manually activate the adapter via `set_active_adapters()`.

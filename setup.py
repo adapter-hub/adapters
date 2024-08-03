@@ -58,7 +58,7 @@ _deps = [
     "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch>=1.10,!=1.12.0",
-    "transformers~=4.41.2",
+    "transformers~=4.42.4",
 ]
 
 
@@ -143,13 +143,11 @@ setup(
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    keywords="NLP deep learning transformer pytorch BERT adapters",
+    keywords="NLP deep learning transformer pytorch BERT adapters PEFT LoRA",
     license="Apache",
     url="https://github.com/adapter-hub/adapters",
     package_dir={"": "src"},
     packages=find_packages("src"),
-    include_package_data=True,
-    package_data={"transformers": ["*.cu", "*.cpp", "*.cuh", "*.h", "*.pyx"]},
     zip_safe=False,
     extras_require=extras,
     python_requires=">=3.8.0",
