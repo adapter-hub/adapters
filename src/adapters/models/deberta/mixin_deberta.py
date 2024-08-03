@@ -1,6 +1,7 @@
 from ...methods.lora import LoRAMergedLinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...utils import patch_forward
+from ..bert.mixin_bert import BertModelAdaptersMixin
 
 
 class DebertaSelfAttentionAdaptersMixin:
@@ -14,3 +15,8 @@ class DebertaSelfAttentionAdaptersMixin:
             self.location_key + "_prefix" if self.location_key else None, model_config, adapters_config
         )
         patch_forward(self)
+
+
+class DebertaModelAdaptersMixin(BertModelAdaptersMixin):
+    # Same as BERT, except that Deberta does not support the "lora_delta_w_svd" combine_strategy
+    support_lora_delta_w_svd = False

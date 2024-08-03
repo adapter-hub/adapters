@@ -36,9 +36,12 @@ A Unified Library for Parameter-Efficient and Modular Transfer Learning
 [![GitHub](https://img.shields.io/github/license/adapter-hub/adapters.svg?color=blue)](https://github.com/adapter-hub/adapters/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/adapters)](https://pypi.org/project/adapters/)
 
-_Adapters_ is an add-on library to [HuggingFace's Transformers](https://github.com/huggingface/transformers), integrating [various adapter methods](https://docs.adapterhub.ml/overview.html) into [state-of-the-art pre-trained language models](https://docs.adapterhub.ml/model_overview.html) with minimal coding overhead for training and inference.
+_Adapters_ is an add-on library to [HuggingFace's Transformers](https://github.com/huggingface/transformers), integrating [10+ adapter methods](https://docs.adapterhub.ml/overview.html) into [20+ state-of-the-art Transformer models](https://docs.adapterhub.ml/model_overview.html) with minimal coding overhead for training and inference.
 
-> **Note**: The _Adapters_ library has replaced the `adapter-transformers` package. All previously trained adapters are compatible with the new library. For transitioning, please read: https://docs.adapterhub.ml/transitioning.html.
+_Adapters_ provides a unified interface for efficient fine-tuning and modular transfer learning, supporting a myriad of features like full-precision or quantized training (e.g. [Q-LoRA, Q-Bottleneck Adapters, or Q-PrefixTuning](https://github.com/Adapter-Hub/adapters/blob/main/notebooks/QLoRA_Llama_Finetuning.ipynb)), [adapter merging via task arithmetics](https://docs.adapterhub.ml/adapter_composition.html#merging-adapters) or the composition of multiple adapters via [composition blocks](https://docs.adapterhub.ml/adapter_composition.html), allowing advanced research in parameter-efficient transfer learning for NLP tasks.
+
+> **Note**: The _Adapters_ library has replaced the [`adapter-transformers`](https://github.com/adapter-hub/adapter-transformers-legacy) package. All previously trained adapters are compatible with the new library. For transitioning, please read: https://docs.adapterhub.ml/transitioning.html.
+
 
 ## Installation
 
@@ -56,6 +59,7 @@ git clone https://github.com/adapter-hub/adapters.git
 cd adapters
 pip install .
 ```
+
 
 ## Quick Tour
 
@@ -157,6 +161,8 @@ Currently, adapters integrates all architectures and methods listed below:
 | Prompt Tuning | [Lester et al. (2021)](https://aclanthology.org/2021.emnlp-main.243/) | [Docs](https://docs.adapterhub.ml/methods.html#prompt-tuning) |
 | QLoRA | [Dettmers et al. (2023)](https://arxiv.org/pdf/2305.14314.pdf) | [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/QLoRA_Llama_Finetuning.ipynb) |
 | ReFT | [Wu et al. (2024)](https://arxiv.org/pdf/2404.03592) | [Docs](https://docs.adapterhub.ml/methods.html#reft) |
+| Adapter Task Arithmetics | [Chronopoulou et al. (2023)](https://arxiv.org/abs/2311.09344) and [Zhang et al. (2023)](https://proceedings.neurips.cc/paper_files/paper/2023/hash/299a08ee712d4752c890938da99a77c6-Abstract-Conference.html) | [Docs](https://docs.adapterhub.ml/merging_adapters.html), [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/06_Task_Arithmetics.ipynb)|
+
 
 ## Supported Models
 

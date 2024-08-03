@@ -14,6 +14,7 @@ from .clip.mixin_clip import (
     CLIPTextTransformerAdaptersMixin,
     CLIPVisionModelAdaptersMixin,
 )
+from .deberta.mixin_deberta import DebertaModelAdaptersMixin
 from .distilbert.mixin_distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .gpt2.mixin_gpt2 import GPT2ModelAdapterMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin, GPTJModelAdapterMixin
@@ -94,9 +95,9 @@ MODEL_MIXIN_MAPPING = {
     "XLMRobertaModel": BertModelAdaptersMixin,
     "XmodLayer": BertLayerAdaptersMixin,
     "XmodModel": XmodModelAdaptersMixin,
-    "DebertaModel": BertModelAdaptersMixin,
+    "DebertaModel": DebertaModelAdaptersMixin,
     "DebertaLayer": BertLayerAdaptersMixin,
-    "DebertaV2Model": BertModelAdaptersMixin,
+    "DebertaV2Model": DebertaModelAdaptersMixin,
     "DebertaV2Layer": BertLayerAdaptersMixin,
     "BertGenerationEncoder": BertModelAdaptersMixin,
     "BertGenerationLayer": BertLayerAdaptersMixin,

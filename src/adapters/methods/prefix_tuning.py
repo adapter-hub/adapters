@@ -186,8 +186,14 @@ class PrefixTuningPool(nn.Module):
         del self.prefix_counts[prefix_name]
         return True
 
-    def average_prefix(self, prefix_name: str, input_adapters: Dict[str, float]) -> bool:
+    def average_prefix(
+        self, prefix_name: str, input_adapters: Dict[str, float], combine_strategy: str, **kwargs
+    ) -> bool:
         if self.confirm_prefix(prefix_name):
+            # Prefix Tuning only support linear combination
+            if combine_strategy != "linear":
+                raise ValueError(f"Combine strategy {combine_strategy} not supported for prefix tuning.")
+
             # average weights
             avg_state_dict = {}
             for name, weight in input_adapters.items():
@@ -344,9 +350,15 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
 
         return False
 
-    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+    def average_adapter(
+        self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy: str, **kwargs
+    ) -> bool:
         # add new adapter
         if self.add_adapter(adapter_name, self.layer_idx):
+            # Prefix Tuning only support linear combination
+            if combine_strategy != "linear":
+                raise ValueError(f"Combine strategy {combine_strategy} not supported for prefix tuning.")
+
             # prefix averaging is handled in pool, only average gates here
             if adapter_name in self.prefix_gates:
                 avg_state_dict = {}

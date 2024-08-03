@@ -140,14 +140,16 @@ def _minimize_dict(d):
         return d
 
 
-def get_adapter_config_hash(config, length=16):
+def get_adapter_config_hash(config, length=16, ignore_params=[]):
     """
     Calculates the hash of a given adapter configuration which is used to identify this configuration.
 
     Returns:
         str: The resulting hash of the given config dict.
     """
-    minimized_config = _minimize_dict({k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE})
+    minimized_config = _minimize_dict(
+        {k: v for (k, v) in config.items() if k not in ADAPTER_CONFIG_HASH_IGNORE + ignore_params}
+    )
     # ensure hash is kept consistent to previous versions
     for name, default in ADAPTER_CONFIG_HASH_IGNORE_DEFAULT.items():
         if minimized_config.get(name, None) == default:
