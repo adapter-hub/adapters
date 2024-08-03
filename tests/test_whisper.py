@@ -11,6 +11,7 @@ from .methods import (
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
 )
 from .test_adapter import SpeechAdapterTestBase, make_config
@@ -46,6 +47,7 @@ class WhisperAdapterTest(
     IA3TestMixin,
     LoRATestMixin,
     PrefixTuningTestMixin,
+    ReftTestMixin,
     UniPELTTestMixin,
     AdapterFusionModelTestMixin,
     CompabilityTestMixin,
