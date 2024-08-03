@@ -66,9 +66,15 @@ class ReftModule(nn.Module):
 
     def _gather_adapted_states(self, hidden_states: torch.Tensor):
         context = ForwardContext.get_context()
-        bsz, _, ddim = hidden_states.size()
+        bsz, seq_len, ddim = hidden_states.size()
+
+        # if cached indexing matrices are computed for different hidden_states size -> recompute
+        cache_invalidated = False
+        if hasattr(context, "pref_idx") and hasattr(context, "suff_idx"):
+            cache_invalidated = context.suff_idx.size(1) != seq_len
+
         # no cached indexing matrices available -> compute now
-        if not hasattr(context, "pref_idx") and not hasattr(context, "suff_idx"):
+        if not hasattr(context, "pref_idx") and not hasattr(context, "suff_idx") or cache_invalidated:
             # read offsets & lengths from context
             if hasattr(context, "seqlens"):
                 first_non_padding = context.offsets
