@@ -23,7 +23,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from transformers.testing_utils import require_ray, slow, torch_device
+from transformers.testing_utils import require_bitsandbytes, require_ray, slow, torch_device
 
 
 class TestAdapterTrainer(unittest.TestCase):
@@ -541,6 +541,7 @@ class TestAdapterTrainer(unittest.TestCase):
 
             trainer.hyperparameter_search(direction="minimize", hp_space=hp_space, backend="ray", n_trials=2)
 
+    @require_bitsandbytes
     @parameterized.expand(["lora", "seq_bn"])
     def test_quantized_training(self, config):
         model_name = "HuggingFaceM4/tiny-random-LlamaForCausalLM"
