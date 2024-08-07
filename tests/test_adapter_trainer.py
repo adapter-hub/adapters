@@ -541,8 +541,8 @@ class TestAdapterTrainer(unittest.TestCase):
 
             trainer.hyperparameter_search(direction="minimize", hp_space=hp_space, backend="ray", n_trials=2)
 
-    @require_bitsandbytes
     @parameterized.expand(["lora", "seq_bn"])
+    @require_bitsandbytes
     def test_quantized_training(self, config):
         model_name = "HuggingFaceM4/tiny-random-LlamaForCausalLM"
 
