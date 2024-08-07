@@ -1,3 +1,6 @@
+import torch
+
+from transformers import EncoderDecoderCache, StaticCache
 from transformers.models.whisper.modeling_whisper import (
     WHISPER_INPUTS_DOCSTRING,
     WHISPER_START_DOCSTRING,
@@ -133,10 +136,20 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         use_cache=None,
         encoder_outputs=None,
         attention_mask=None,
+        decoder_attention_mask=None,
+        cache_position=None,
         **kwargs,
     ):
+        decoder_position_ids = None
+        if decoder_attention_mask is not None:
+            decoder_position_ids = (decoder_attention_mask.cumsum(-1) - 1).clamp(min=0)
+
+        past_length = 0
         if past_key_values is not None:
-            past_length = past_key_values[0][0].shape[2]
+            if isinstance(past_key_values, EncoderDecoderCache):
+                past_length = cache_position[0] if cache_position is not None else past_key_values.get_seq_length()
+            else:
+                past_length = past_key_values[0][0].shape[2]
 
             # Some generation methods already pass only the last input ID
             if decoder_input_ids.shape[1] > past_length:
@@ -147,13 +160,59 @@ class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
             decoder_input_ids = decoder_input_ids[:, remove_prefix_length:]
 
+            if decoder_position_ids is not None:
+                decoder_position_ids = decoder_position_ids[:, remove_prefix_length:]
+                # This `clone` call is needed to avoid recapturing cuda graphs with `torch.compile`'s  `mode="reduce-overhead`, as otherwise the input `position_ids` would have various stride during the decoding. Here, simply using `.contiguous()` is not sufficient as in the batch size = 1 case, `position_ids` is already contiguous but with varying stride which retriggers a capture.
+                decoder_position_ids = decoder_position_ids.clone(memory_format=torch.contiguous_format)
+
+        if cache_position is None:
+            cache_position = torch.arange(
+                past_length, past_length + decoder_input_ids.shape[1], device=decoder_input_ids.device
+            )
+        elif use_cache:
+            cache_position = cache_position[-decoder_input_ids.shape[1] :]
+
+        # The `contiguous()` here is necessary to have a static stride during decoding. torchdynamo otherwise
+        # recompiles graphs as the stride of the inputs is a guard. Ref: https://github.com/huggingface/transformers/pull/29114
+        decoder_input_ids = decoder_input_ids.contiguous()
+
+        if (
+            isinstance(past_key_values, EncoderDecoderCache)
+            and (
+                isinstance(past_key_values.self_attention_cache, StaticCache)
+                or isinstance(past_key_values.cross_attention_cache, StaticCache)
+            )
+            and decoder_attention_mask is not None
+            and decoder_attention_mask.ndim == 2
+        ):
+            batch_size, sequence_length = decoder_input_ids.shape
+            device = decoder_input_ids.device
+
+            dtype = self.proj_out.weight.dtype
+            min_dtype = torch.finfo(dtype).min
+
+            decoder_attention_mask = self._prepare_4d_causal_attention_mask_with_cache_position(
+                decoder_attention_mask,
+                sequence_length=sequence_length,
+                target_length=past_key_values.self_attention_cache.get_max_length(),
+                dtype=dtype,
+                device=device,
+                min_dtype=min_dtype,
+                cache_position=cache_position,
+                batch_size=batch_size,
+            )
+
         return {
             "encoder_outputs": encoder_outputs,
             "past_key_values": past_key_values,
             "decoder_input_ids": decoder_input_ids,
             "use_cache": use_cache,
-            "decoder_attention_mask": None,
+            "decoder_attention_mask": decoder_attention_mask,
+            "decoder_position_ids": decoder_position_ids,
+            "cache_position": cache_position,
+            # >>> START AH Changes <<<
             "adapter_input_parallelized": kwargs.pop("adapter_input_parallelized", False),
+            # >>> END AH Changes <<<
         }
 
     # Copied from WhisperForConditionalGeneration
