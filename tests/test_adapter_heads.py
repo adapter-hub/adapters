@@ -15,12 +15,16 @@ from .methods import create_twin_models
 
 @require_torch
 class PredictionHeadModelTestMixin:
-
-    batch_size = 1
-    seq_length = 128
-
     def run_prediction_head_test(
-        self, model, compare_model, head_name, input_shape=None, output_shape=(1, 2), label_dict=None
+        self,
+        model,
+        compare_model,
+        head_name,
+        input_shape=None,
+        output_shape=(1, 2),
+        label_dict=None,
+        num_labels=None,
+        with_labels=False,
     ):
         # first, check if the head is actually correctly registered as part of the pt module
         self.assertTrue(f"heads.{head_name}" in dict(model.named_modules()))
@@ -39,8 +43,10 @@ class PredictionHeadModelTestMixin:
 
         # make a forward pass
         model.active_head = head_name
-        input_shape = input_shape or (self.batch_size, self.seq_length)
-        in_data = self.get_input_samples(input_shape, config=model.config)
+        input_shape = input_shape if input_shape is not None else self._get_input_shape()
+        in_data = self.get_input_samples(
+            input_shape, config=model.config, num_labels=num_labels, with_labels=with_labels
+        )
         if label_dict:
             for k, v in label_dict.items():
                 in_data[k] = v
@@ -168,7 +174,11 @@ class PredictionHeadModelTestMixin:
         )
 
         # Finally, also check if generation works properly
-        input_ids = self.get_input_samples((1, self.seq_length), config=model1.config)["input_ids"]
+        input_shape = self._get_input_shape()
+        if self.is_speech_model:
+            input_ids = self.get_input_samples(input_shape, config=model1.config)["input_features"]
+        else:
+            input_ids = self.get_input_samples(input_shape, config=model1.config)["input_ids"]
         input_ids = input_ids.to(torch_device)
         # Use a different length for the seq2seq output
         seq_output_length = self.seq_length + 30
@@ -249,7 +259,7 @@ class PredictionHeadModelTestMixin:
         self.assertNotEqual(name, model.active_head)
 
     def test_adapter_with_head(self):
-        model1, model2 = create_twin_models(AutoAdapterModel, self.config)
+        model1, model2 = create_twin_models(self.model_class, self.config)
 
         name = "dummy"
         model1.add_adapter(name)
@@ -271,7 +281,7 @@ class PredictionHeadModelTestMixin:
         self.assertEqual(output_size, output1[0].size()[1])
 
     def test_adapter_with_head_load_as(self):
-        model1, model2 = create_twin_models(AutoAdapterModel, self.config)
+        model1, model2 = create_twin_models(self.model_class, self.config)
 
         name = "dummy"
         model1.add_adapter(name)
@@ -408,7 +418,8 @@ class PredictionHeadModelTestMixin:
         self.assertIsNotNone(inv_adapter)
         inv_adapter.register_forward_pre_hook(forward_pre_hook)
 
-        in_data = self.get_input_samples((self.batch_size, self.seq_length), config=model.config)
+        input_shape = self._get_input_shape()
+        in_data = self.get_input_samples(input_shape, config=model.config)
         model.to(torch_device)
         out = model(**in_data)
 
@@ -456,6 +467,14 @@ class PredictionHeadModelTestMixin:
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_all_adapters(tmp_dir, with_head=False)
             self.assertFalse(os.path.isfile(os.path.join(tmp_dir, "test", "head_config.json")))
+
+    def _get_input_shape(self):
+        # speech models require a different input dimensions compared to text models
+        if self.is_speech_model:
+            input_shape = (self.batch_size, self.seq_length, self.time_window)
+        else:
+            input_shape = (self.batch_size, self.seq_length)
+        return input_shape
 
     def test_average_head(self):
         # Test the average_head method

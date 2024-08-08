@@ -131,7 +131,7 @@ class CausalLMHead(PredictionHead):
                 )
                 labels = torch.cat((prompt_labels, labels), dim=-1)
 
-            loss = loss_fct(logits_for_loss.view(-1, self.config["vocab_size"]), labels.view(-1))
+            loss = loss_fct(logits_for_loss.reshape(-1, self.config["vocab_size"]), labels.reshape(-1))
 
         if return_dict:
             return self._create_model_output(loss, lm_logits, outputs)

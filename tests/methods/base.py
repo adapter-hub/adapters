@@ -317,6 +317,8 @@ class AdapterMethodBaseTestMixin:
             return tied_embeddings and is_tied_layer
 
         for (k1, v1), (k2, v2) in zip(state_dict_pre.items(), model.state_dict().items()):
+            # move both to the same device to avoid device mismatch errors
+            v1, v2 = v1.to(v2.device), v2
             if "mrpc" in k1 and not has_tied_embeddings(k1):
                 adapters_with_change |= not torch.equal(v1, v2)
             else:

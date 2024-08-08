@@ -39,6 +39,12 @@ class AdapterTestBase:
     default_input_samples_shape = (3, 64)
     leave_out_layers = [0, 1]
     do_run_train_tests = True
+    # default arguments for test_adapter_heads
+    batch_size = 1
+    seq_length = 128
+    is_speech_model = (
+        False  # Flag for tests to determine if the model is a speech model due to input format difference
+    )
 
     def get_model(self):
         if self.model_class == AutoAdapterModel:
@@ -134,3 +140,71 @@ class VisionAdapterTestBase(AdapterTestBase):
         dataset = dataset.with_transform(transform)
 
         return dataset
+
+
+class SpeechAdapterTestBase(AdapterTestBase):
+    """Base class for speech adapter tests."""
+
+    default_input_samples_shape = (3, 80, 3000)  # (batch_size, n_mels, enc_seq_len)
+    is_speech_model = True  # Flag for tests to determine if the model is a speech model due to input format difference
+    time_window = 3000  # Time window for audio samples
+    seq_length = 80
+
+    def add_head(self, model, name, head_type="seq2seq_lm", **kwargs):
+        """Adds a head to the model."""
+        if head_type == "audio_classification":
+            model.add_audio_classification_head(name, **kwargs)
+            return model.heads[name].config["num_labels"]
+        elif head_type == "seq2seq_lm":
+            kwargs.pop("num_labels", 1)  # Remove num_labels from kwargs if present in the tests
+            model.add_seq2seq_lm_head(name, **kwargs)
+            return self.default_input_samples_shape[1]  # Return the number of mel features
+        else:
+            raise ValueError(f"Head type {head_type} not supported.")
+
+    def get_input_samples(self, shape=None, config=None, **kwargs):
+        """Creates a dummy batch of samples in the format required for speech models."""
+        shape = shape or self.default_input_samples_shape
+
+        # Input features
+        total_dims = 1
+        for dim in shape:
+            total_dims *= dim
+        values = []
+        for _ in range(total_dims):
+            values.append(random.random())
+        input_features = torch.tensor(data=values, dtype=torch.float, device=torch_device).view(shape).contiguous()
+        in_data = {"input_features": input_features}
+
+        # Decoder input ids
+        if config and config.is_encoder_decoder:
+            in_data["decoder_input_ids"] = ids_tensor((shape[:-1]), config.vocab_size)
+        return in_data
+
+    _TASK_DATASET_MAPPING = {
+        "seq2seq_lm": "./tests/fixtures/audio_datasets/common_voice_encoded",
+        "audio_classification": "./tests/fixtures/audio_datasets/speech_commands_encoded",
+    }
+
+    def dataset(self, feature_extractor=None, processor=None, tokenizer=None, task_type: str = "seq2seq_lm", **kwargs):
+        """Returns a dataset to test speech model training. Standard dataset is for seq2seq_lm."""
+        if task_type == "seq2seq_lm":
+            return self._prep_seq2seq_lm_dataset(task_type, **kwargs)
+        elif task_type == "audio_classification":
+            return self._prep_audio_classification_dataset(task_type, **kwargs)
+
+    def _prep_seq2seq_lm_dataset(self, task_type, **kwargs):
+        """Prepares a dataset for conditional generation."""
+        # The dataset is already processed and saved to disk, to save time during testing
+        # Preparation script can be found in tests/fixtures/audio_datasets/prepare_audio_datasets.py
+        dataset_path = self._TASK_DATASET_MAPPING[task_type]
+        dataset = datasets.load_from_disk(dataset_path)
+        return dataset["train"]
+
+    def _prep_audio_classification_dataset(self, task_type, **kwargs):
+        """Prepares a dataset for audio classification."""
+        # The dataset is already processed and saved to disk, to save time during testing
+        # Preparation script can be found in tests/fixtures/audio_datasets/prepare_audio_datasets.py
+        dataset_path = self._TASK_DATASET_MAPPING[task_type]
+        dataset = datasets.load_from_disk(dataset_path)
+        return dataset["train"]
