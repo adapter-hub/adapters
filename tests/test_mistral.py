@@ -3,6 +3,8 @@ import unittest
 from transformers.models.mistral.configuration_mistral import MistralConfig
 from transformers.testing_utils import require_torch
 
+from transformers.testing_utils import require_torch
+
 from .composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from .methods import (
     BottleneckAdapterTestMixin,
@@ -27,13 +29,12 @@ class MistralAdapterTestBase(AdapterTestBase):
         MistralConfig,
         hidden_size=32,
         num_hidden_layers=5,
-        num_attention_heads=8,
+        num_attention_heads=4,
         intermediate_size=37,
         hidden_act="gelu",
-        hidden_dropout_prob=0.1,
         pad_token_id=0,
     )
-    tokenizer_name = "HuggingFaceH4/zephyr-7b-beta"
+    tokenizer_name = "mistralai/Mistral-7B-v0.1"
 
 
 @require_torch
@@ -63,4 +64,5 @@ class MistralClassConversionTest(
     MistralAdapterTestBase,
     unittest.TestCase,
 ):
-    pass
+    def test_conversion_question_answering_model(self):
+        raise self.skipTest("We don't support the Mistral QA model.")

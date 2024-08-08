@@ -46,7 +46,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "test_adapter_" + adapter_config.__class__.__name__
         model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters(name)
+        model.set_active_adapters([name])
         model.to(torch_device)
 
         # adapter is correctly added to config
@@ -67,7 +67,7 @@ class AdapterMethodBaseTestMixin:
         adapter_config = adapter_config.replace(leave_out=leave_out)
         name = "test_adapter_" + adapter_config.__class__.__name__
         model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters(name)
+        model.set_active_adapters([name])
 
         # adapter is correctly added to config
         self.assert_adapter_available(model, name)
@@ -81,10 +81,10 @@ class AdapterMethodBaseTestMixin:
 
         model.delete_adapter(name)
 
-    def run_linear_average_test(self, model, adapter_config, filter_keys):
+    def run_average_test(self, model, adapter_config, filter_keys):
         model.eval()
 
-        weights = [-0.2, 0.9, 0.3]
+        weights = [0.1, 0.6, 0.3]
 
         # add adapters to average
         name = "test_adapter_" + adapter_config.__class__.__name__
@@ -103,9 +103,7 @@ class AdapterMethodBaseTestMixin:
                     averaged_weights[base_k] += w * v
 
         # average adapters
-        model.average_adapter(
-            name, [name + f"_{i}" for i in range(len(weights))], weights=weights, combine_strategy="linear"
-        )
+        model.average_adapter(name, [name + f"_{i}" for i in range(len(weights))], weights=weights)
 
         # adapter is correctly added to config
         self.assertTrue(name in model.adapters_config)
@@ -121,7 +119,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "test_adapter_" + adapter_config.__class__.__name__
         model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters(name)
+        model.set_active_adapters([name])
         model.to(torch_device)
 
         # adapter is correctly added to config
@@ -142,7 +140,7 @@ class AdapterMethodBaseTestMixin:
         model.eval()
 
         model.add_adapter("first", config=adapter_config)
-        model.set_active_adapters("first")
+        model.set_active_adapters(["first"])
 
         # adapter is correctly added to config
         name = "first"
@@ -167,7 +165,7 @@ class AdapterMethodBaseTestMixin:
         input_data = self.get_input_samples(config=model.config, dtype=dtype)
 
         # pass 1: set adapter via property
-        model.set_active_adapters(name)
+        model.set_active_adapters([name])
         output_1 = model(**input_data)
 
         # pass 2: set via context
@@ -191,7 +189,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "dummy_adapter"
         model1.add_adapter(name, config=adapter_config)
-        model1.set_active_adapters(name)
+        model1.set_active_adapters([name])
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_adapter(temp_dir, name)
 
@@ -245,7 +243,7 @@ class AdapterMethodBaseTestMixin:
             output1 = model1(**input_data)
             output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
+        self.assertTrue(torch.equal(output1[0], output2[0]))
 
     def trainings_run(self, model, lr=1.0, steps=8):
         # setup dataset
@@ -333,7 +331,7 @@ class AdapterMethodBaseTestMixin:
         input_data = self.get_input_samples(config=model.config)
 
         # forward in training mode
-        model.set_active_adapters("test_lora")
+        model.set_active_adapters(["test_lora"])
         output_1 = model(**input_data)
 
         # forward in merged mode

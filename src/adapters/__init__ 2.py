@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "1.0.0.dev0"
+__version__ = "0.2.2"
 
 from typing import TYPE_CHECKING
 
@@ -111,7 +111,6 @@ _import_structure = {
     "models.mbart": ["MBartAdapterModel"],
     "models.mistral": ["MistralAdapterModel"],
     "models.mt5": ["MT5AdapterModel"],
-    "models.plbart": ["PLBartAdapterModel"],
     "models.roberta": ["RobertaAdapterModel"],
     "models.t5": ["T5AdapterModel"],
     "models.vit": ["ViTAdapterModel"],
@@ -217,10 +216,9 @@ if TYPE_CHECKING:
     from .models.gpt2 import GPT2AdapterModel
     from .models.gptj import GPTJAdapterModel
     from .models.llama import LlamaAdapterModel
-    from .models.mbart import MBartAdapterModel
     from .models.mistral import MistralAdapterModel
+    from .models.mbart import MBartAdapterModel
     from .models.mt5 import MT5AdapterModel
-    from .models.plbart import PLBartAdapterModel
     from .models.roberta import RobertaAdapterModel
     from .models.t5 import T5AdapterModel
     from .models.vit import ViTAdapterModel

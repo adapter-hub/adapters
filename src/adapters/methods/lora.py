@@ -224,108 +224,27 @@ class LoRALayer(AdapterLayerBase):
 
         return False
 
-    def average_adapter(
-        self,
-        adapter_name: str,
-        input_adapters: Dict[str, float],
-        combine_strategy: str,
-        svd_rank: int = None,
-        **kwargs,
-    ) -> bool:
+    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
         # add new adapter
         if self.add_adapter(adapter_name, self.layer_idx):
+            # average weights
             avg_state_dict = {}
-
-            # First, check if all input adapters are present
-            for name in input_adapters.keys():
-                if name not in self.loras:
-                    self.delete_adapter(adapter_name)  # clean up before raising error
-                    raise ValueError("Adapter {} not found.".format(name))
-
-            # Now, combine the weights according to the strategy
-            if combine_strategy == "linear":
-                for name, weight in input_adapters.items():
+            for name, weight in input_adapters.items():
+                if name in self.loras:
                     module = self.loras[name]
                     for k, v in module.state_dict().items():
                         if k in avg_state_dict:
                             avg_state_dict[k] += weight * v
                         else:
                             avg_state_dict[k] = weight * v
-
-            elif combine_strategy == "lora_linear_only_negate_b":
-                # Same as linear but for negative weights only negate the B matrix and leave A positive
-                # See Zhang et al. (2023) https://proceedings.neurips.cc/paper_files/paper/2023/hash/299a08ee712d4752c890938da99a77c6-Abstract-Conference.html
-                for name, weight in input_adapters.items():
-                    module = self.loras[name]
-                    for k, v in module.state_dict().items():
-                        if "lora_B" in k:
-                            zhang_weight = weight
-                        elif "lora_A" in k:
-                            zhang_weight = abs(weight)
-                        else:
-                            # This should never happen as we only have lora_A and lora_B in the state_dict
-                            raise ValueError(
-                                f"Key must either contain 'lora_A' or 'lora_B' but is {k}. This should never"
-                                " happen. Please open an issue on GitHub if you encounter this error."
-                            )
-
-                        if k in avg_state_dict:
-                            avg_state_dict[k] += zhang_weight * v
-                        else:
-                            avg_state_dict[k] = zhang_weight * v
-
-            elif combine_strategy == "lora_delta_w_svd":
-                # Weight the delta_w matrices by the input weights and then use Singular Value Decomposition (SVD) to split them into A and B matrices.
-                self._average_adapter_lora_delta_w_svd(input_adapters, avg_state_dict, svd_rank)
-
-            else:
-                raise ValueError(f"The combine_strategy '{combine_strategy}' is not supported for LoRA.")
-
+                else:
+                    self.delete_adapter(adapter_name)  # clean up before raising error
+                    raise ValueError("Adapter {} not found.".format(name))
             # load averaged weights
             self.loras[adapter_name].load_state_dict(avg_state_dict)
             return True
 
         return False
-
-    def _average_adapter_lora_delta_w_svd(self, input_adapters: Dict[str, float], avg_state_dict, svd_rank):
-        # Weight the delta_w matrices by the input weights and then use Singular Value Decomposition to split them into A and B matrices.
-        if svd_rank is None:
-            raise ValueError("svd_rank must be set when using 'lora_delta_w_svd'.")
-
-        # Collect delta_w matrices. Shape of every delta_w matrix in the list: d×k
-        delta_w = [self.loras[adapter_name].delta_w for adapter_name in input_adapters.keys()]
-
-        # If the lora has fan_in_fan_out, we need to transpose the matrices
-        if self.fan_in_fan_out:
-            delta_w = [torch.t(delta_w) for delta_w in delta_w]
-
-        delta_w = torch.stack(delta_w, dim=0)  # shape: n×d×k
-
-        # Weight the delta_w matrices
-        weights = torch.tensor(list(input_adapters.values()), device=delta_w.device)  # shape: n
-        weights = weights.view(-1, 1, 1)  # shape: n×1×1
-        delta_w = delta_w * weights  # shape: n×d×k
-
-        # Now bring down to d×k matrix
-        delta_w = delta_w.sum(dim=0)  # shape: d×k
-
-        # Perform SVD to split delta_w into A and B matrices
-        U, S_diag, V = torch.linalg.svd(delta_w)
-
-        # Reduce rank
-        U = U[:, :svd_rank]  # U is 2D
-        S_diag = S_diag[:svd_rank]  # S_diag is 1D
-        V = V[:svd_rank, :]  # V is 2D
-
-        # The SVD has decomposed delta_w into U, S, and V such that: delta_w = U @ S_diag @ V
-        # In LoRA we have: delta_w = B @ A
-        # Hence, we can set: A = V and B = U @ S_diag
-        if self.fan_in_fan_out:
-            avg_state_dict["lora_A"] = torch.t(V)
-            avg_state_dict["lora_B"] = torch.t(U @ torch.diag(S_diag))
-        else:
-            avg_state_dict["lora_A"] = V
-            avg_state_dict["lora_B"] = U @ torch.diag(S_diag)
 
 
 class LoRAState(NamedTuple):
@@ -370,7 +289,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
         attn_key: str = None,
         fan_in_fan_out: bool = False,
         no_init_bias: bool = False,
-        **kwargs,
+        **kwargs
     ):
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
@@ -391,7 +310,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
         model_config: PretrainedConfig,
         adapters_config: ModelAdaptersConfig,
         attn_key: str = None,
-        **kwargs,
+        **kwargs
     ):
         if isinstance(module, Conv1D):
             new_module = LoRALinearTorch(
@@ -489,11 +408,9 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
     def mean(self, states: List[LoRAState], weights: torch.Tensor) -> LoRAState:
         return LoRAState(
             states[0].layer_input,
-            (
-                torch.mean(torch.stack([s.hidden_states for s in states], dim=0) * weights, dim=0)
-                if states[0].hidden_states is not None
-                else None
-            ),
+            torch.mean(torch.stack([s.hidden_states for s in states], dim=0) * weights, dim=0)
+            if states[0].hidden_states is not None
+            else None,
             states[0].layer_output,
             states[-1].last,
         )
@@ -635,7 +552,7 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
         adapters_config: ModelAdaptersConfig,
         fan_in_fan_out: bool = False,
         no_init_bias: bool = False,
-        **kwargs,
+        **kwargs
     ):
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
@@ -654,7 +571,7 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
         location_key: str,
         model_config: PretrainedConfig,
         adapters_config: ModelAdaptersConfig,
-        **kwargs,
+        **kwargs
     ):
         if isinstance(module, Conv1D):
             new_module = cls(

@@ -29,7 +29,6 @@ from transformers import (
     GPT2Config,
     GPTJConfig,
     MBartConfig,
-    PLBartConfig,
     RobertaConfig,
     T5Config,
     ViTConfig,
@@ -131,7 +130,6 @@ def get_model_names():
         "gpt2",
         "gptj",
         "mbart",
-        "plbart",
         "roberta",
         "t5",
         "vit",
@@ -284,19 +282,6 @@ def create_model(model_name: str, model_class: Any) -> Any:
             vocab_size=250027,
         )
         model = model_class.from_config(mbart_config)
-
-    elif model_name == "plbart":
-        plbart_config = PLBartConfig(
-            d_model=16,
-            encoder_layers=2,
-            decoder_layers=2,
-            encoder_attention_heads=4,
-            decoder_attention_heads=4,
-            encoder_ffn_dim=4,
-            decoder_ffn_dim=4,
-            vocab_size=50005,
-        )
-        model = model_class.from_config(plbart_config)
 
     elif model_name == "roberta":
         roberta_config = RobertaConfig(

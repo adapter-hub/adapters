@@ -43,7 +43,7 @@ class SafetensorsTest(unittest.TestCase):
         name = "test_adapter"
         model1.add_adapter(name)
         model1.add_classification_head(name, num_labels=2)
-        model1.set_active_adapters(name)
+        model1.set_active_adapters([name])
         temp_dir = tempfile.TemporaryDirectory()
 
         # Save & reload adapter
@@ -58,7 +58,7 @@ class SafetensorsTest(unittest.TestCase):
         self.assertEqual(0, len(loading_info["unexpected_keys"]))
         # check if adapter was correctly loaded
         self.assertTrue(name in model2.adapters_config)
-        model2.set_active_adapters(name)
+        model2.set_active_adapters([name])
 
         # check equal output
         input_data = self.get_input_samples((2, 32))

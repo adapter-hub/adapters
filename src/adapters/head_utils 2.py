@@ -369,27 +369,6 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": ["lm_head"],
     },
-    # PLBART
-    "PLBartForSequenceClassification": {
-        "config": {
-            "head_type": "classification",
-            "layers": 2,
-            "activation_function": "tanh",
-        },
-        "layers": [
-            None,
-            "classification_head.dense",
-            None,
-            None,
-            "classification_head.out_proj",
-        ],
-    },
-    "PLBartForConditionalGeneration": {
-        "config": {
-            "head_type": "seq2seq_lm",
-        },
-        "layers": ["lm_head"],
-    },
     # MT5
     "MT5ForConditionalGeneration": {
         "config": {
@@ -673,15 +652,7 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "qa_outputs"],
     },
-    "LlamaForTokenClassification": {
-        "config": {
-            "head_type": "tagging",
-            "layers": 1,
-            "activation_function": None,
-        },
-        "layers": [None, "score"],
-    },
-    # Mistral
+    #Mistral
     "MistralForSequenceClassification": {
         "config": {
             "head_type": "classification",
@@ -697,14 +668,6 @@ STATIC_TO_FLEX_HEAD_MAP = {
             "head_type": "causal_lm",
         },
         "layers": ["lm_head"],
-    },
-    "MistralForTokenClassification": {
-        "config": {
-            "head_type": "tagging",
-            "layers": 1,
-            "activation_function": None,
-        },
-        "layers": [None, "score"],
     },
     # Electra
     "ElectraForTokenClassification": {

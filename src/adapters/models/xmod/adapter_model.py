@@ -59,7 +59,7 @@ class XmodAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         head: Optional[str] = None,
         output_adapter_gating_scores: Optional[bool] = False,
         output_adapter_fusion_attentions: Optional[bool] = False,
-        **kwargs,
+        **kwargs
     ):
         # Flatten for multiple choice tasks
         input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None

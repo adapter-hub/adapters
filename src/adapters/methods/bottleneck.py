@@ -1,4 +1,4 @@
-from typing import List, Mapping, NamedTuple, Optional, Union
+from typing import Dict, List, Mapping, NamedTuple, Optional, Union
 
 import torch
 from torch import nn
@@ -94,6 +94,28 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
 
         return False
 
+    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
+        # add new adapter
+        if self.add_adapter(adapter_name, self.layer_idx):
+            # average weights
+            avg_state_dict = {}
+            for name, weight in input_adapters.items():
+                if name in self.adapters:
+                    module = self.adapters[name]
+                    for k, v in module.state_dict().items():
+                        if k in avg_state_dict:
+                            avg_state_dict[k] += weight * v
+                        else:
+                            avg_state_dict[k] = weight * v
+                else:
+                    self.delete_adapter(adapter_name)  # clean up before raising error
+                    raise ValueError("Adapter {} not found.".format(name))
+            # load averaged weights
+            self.adapters[adapter_name].load_state_dict(avg_state_dict)
+            return True
+
+        return False
+
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         """See BertModel.add_fusion_layer"""
         adapter_names = adapter_names if isinstance(adapter_names, list) else adapter_names.split(",")
@@ -173,11 +195,9 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             torch.cat([state.input_tensor for state in states], dim=0),
             torch.cat([state.adapter_residual for state in states], dim=0),
             states[0].layer_norm,
-            (
-                torch.cat([state.bottleneck_up for state in states], dim=0)
-                if states[0].bottleneck_up is not None
-                else None
-            ),
+            torch.cat([state.bottleneck_up for state in states], dim=0)
+            if states[0].bottleneck_up is not None
+            else None,
             states[-1].last,
         )
 

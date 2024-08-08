@@ -38,7 +38,7 @@ class AdapterFusionModelTestMixin:
 
                 # check forward pass
                 input_data = self.get_input_samples(config=model.config)
-                model.set_active_adapters(Fuse(name1, name2))
+                model.set_active_adapters([[name1, name2]])
                 model.to(torch_device)
                 adapter_output = model(**input_data)
                 model.set_active_adapters(None)
@@ -93,7 +93,7 @@ class AdapterFusionModelTestMixin:
                 model2.eval()
 
                 model1.add_adapter_fusion([name1, name2], adater_fusion_config_name)
-                model1.set_active_adapters(Fuse(name1, name2))
+                model1.set_active_adapters([[name1, name2]])
 
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_adapter_fusion(temp_dir, ",".join([name1, name2]))
@@ -136,8 +136,8 @@ class AdapterFusionModelTestMixin:
 
         # check equal output
         input_data = self.get_input_samples(config=model1.config)
-        model1.set_active_adapters(Fuse(name1, name2))
-        model2.set_active_adapters(Fuse(name1, name2))
+        model1.set_active_adapters([[name1, name2]])
+        model2.set_active_adapters([[name1, name2]])
         model1.to(torch_device)
         model2.to(torch_device)
         output1 = model1(**input_data)

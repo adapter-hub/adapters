@@ -1,5 +1,4 @@
 import itertools
-import warnings
 from collections.abc import Sequence
 from typing import List, Optional, Set, Tuple, Union
 
@@ -92,7 +91,7 @@ class Average(AdapterCompositionBlock):
         self,
         *average_adapters: List[Union[AdapterCompositionBlock, str]],
         weights: Optional[List[float]] = None,
-        normalize_weights: bool = True,
+        normalize_weights: bool = True
     ):
         super().__init__(*average_adapters)
         if weights is not None:
@@ -129,7 +128,6 @@ SUPPORTED_MODELS = {
         "bart",
         "mbart",
         "mt5",
-        "plbart",
         "gpt2",
         "gptj",
         "t5",
@@ -155,7 +153,7 @@ def validate_composition(adapter_composition: AdapterCompositionBlock, level=0, 
                     f"Models of type {model_type} don't support adapter composition using {block_type.__name__}."
                 )
         for child in adapter_composition:
-            if not type(child) in ALLOWED_NESTINGS[type(adapter_composition)]:
+            if type(child) not in ALLOWED_NESTINGS[type(adapter_composition)]:
                 raise ValueError(f"Adapter setup is invalid. Cannot nest {child} in {adapter_composition}")
             # recursively validate children
             validate_composition(child, level=level + 1)
@@ -181,11 +179,6 @@ def parse_composition(adapter_composition, level=0, model_type=None) -> AdapterC
         else:
             return adapter_composition
     elif isinstance(adapter_composition, Sequence):
-        # Functionality of adapter-transformers v1.x
-        warnings.warn(
-            "Passing list objects for adapter activation is deprecated. Please use Stack or Fuse explicitly.",
-            category=FutureWarning,
-        )
         # for backwards compatibility
         if level == 1:
             block_class = Fuse

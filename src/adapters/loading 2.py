@@ -507,7 +507,7 @@ class AdapterLoader(WeightsLoader):
         loading_info=None,
         leave_out=None,
         set_active=False,
-        **kwargs,
+        **kwargs
     ):
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.
@@ -518,9 +518,9 @@ class AdapterLoader(WeightsLoader):
                 - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
                 - a path to a directory containing adapter weights saved using `model.saved_adapter()`
                 - a URL pointing to a zip folder containing a saved adapter module
-            config (str, optional): Deprecated.
+            config (str, optional): The requested configuration of the adapter.
             version (str, optional): The version of the adapter to be loaded.
-            model_name (str, optional): Deprecated.
+            model_name (str, optional): The string identifier of the pre-trained model.
             load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
              saved will be used.
 
@@ -528,13 +528,6 @@ class AdapterLoader(WeightsLoader):
             Tuple[str, str]: A tuple consisting of the local file system directory from which the weights where loaded
             and the name of the loaded weights.
         """
-        # Warn about deprecated arguments
-        if config is not None or model_name is not None:
-            logger.warning(
-                "The 'config' and 'model_name' arguments are specific to the now unsupported legacy Hub repo and will"
-                " be removed."
-                "Please switch to only providing the HF Model Hub identifier.",
-            )
         requested_config = AdapterConfig.load(config) if config else None
         # Resolve the weights to be loaded based on the given identifier and the current adapter config
         model_name = self.model.model_name or model_name
