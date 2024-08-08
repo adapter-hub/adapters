@@ -14,18 +14,11 @@ from .clip.mixin_clip import (
     CLIPTextTransformerAdaptersMixin,
     CLIPVisionModelAdaptersMixin,
 )
-from .deberta.mixin_deberta import DebertaModelAdaptersMixin
 from .distilbert.mixin_distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .gpt2.mixin_gpt2 import GPT2ModelAdapterMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin, GPTJModelAdapterMixin
 from .llama.mixin_llama import LlamaForQuestionAnsweringAdapterMixin, LlamaModelAdapterMixin
 from .mistral.mixin_mistral import MistralModelAdapterMixin
-from .plbart.mixin_plbart import (
-    PLBartDecoderAdaptersMixin,
-    PLBartDecoderWrapperAdaptersMixin,
-    PLBartEncoderAdaptersMixin,
-    PLBartModelAdaptersMixin,
-)
 from .t5.mixin_t5 import (
     T5BlockAdaptersMixin,
     T5ForCondiditionalGenerationWithHeadsMixin,
@@ -41,8 +34,8 @@ MODEL_MIXIN_MAPPING = {
     "AlbertModel": AlbertModelAdaptersMixin,
     "BartEncoder": BartEncoderAdaptersMixin,
     "BartDecoder": BartDecoderAdaptersMixin,
-    "BartDecoderWrapper": BartDecoderWrapperAdaptersMixin,
     "BartModel": BartModelAdaptersMixin,
+    "BartDecoderWrapper": BartDecoderWrapperAdaptersMixin,
     "BeitIntermediate": BeitIntermediateAdaptersMixin,
     "BeitOutput": BeitOutputAdaptersMixin,
     "BeitModel": BeitModelAdaptersMixin,
@@ -68,10 +61,6 @@ MODEL_MIXIN_MAPPING = {
     "MT5ForConditionalGeneration": T5ForCondiditionalGenerationWithHeadsMixin,
     "MT5ForQuestionAnswering": T5ForQuestionAnsweringWithHeadsMixin,
     "MT5EncoderModel": T5ModelAdaptersMixin,
-    "PLBartEncoder": PLBartEncoderAdaptersMixin,
-    "PLBartDecoder": PLBartDecoderAdaptersMixin,
-    "PLBartModel": PLBartModelAdaptersMixin,
-    "PLBartDecoderWrapper": PLBartDecoderWrapperAdaptersMixin,
     "GPT2Model": GPT2ModelAdapterMixin,
     "GPTJMLP": GPTJMLPAdaptersMixin,
     "GPTJModel": GPTJModelAdapterMixin,
@@ -88,9 +77,9 @@ MODEL_MIXIN_MAPPING = {
     "XLMRobertaModel": BertModelAdaptersMixin,
     "XmodLayer": BertLayerAdaptersMixin,
     "XmodModel": XmodModelAdaptersMixin,
-    "DebertaModel": DebertaModelAdaptersMixin,
+    "DebertaModel": BertModelAdaptersMixin,
     "DebertaLayer": BertLayerAdaptersMixin,
-    "DebertaV2Model": DebertaModelAdaptersMixin,
+    "DebertaV2Model": BertModelAdaptersMixin,
     "DebertaV2Layer": BertLayerAdaptersMixin,
     "BertGenerationEncoder": BertModelAdaptersMixin,
     "BertGenerationLayer": BertLayerAdaptersMixin,

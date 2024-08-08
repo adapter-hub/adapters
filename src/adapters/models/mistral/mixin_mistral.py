@@ -6,6 +6,7 @@ from ...methods.bottleneck import BottleneckLayer
 from ...methods.lora import LoRALinear
 from ...methods.prefix_tuning import PrefixTuningLayer
 from ...model_mixin import EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin
+from ...utils import patch_forward
 
 
 class MistralAttentionMixin:
@@ -16,6 +17,8 @@ class MistralAttentionMixin:
 
         self.prefix_tuning = PrefixTuningLayer("self_prefix", model_config, adapters_config)
 
+        patch_forward(self)
+
 
 class MistralDecoderLayerMixin:
     def init_adapters(self, model_config, adapters_config):
@@ -25,6 +28,8 @@ class MistralDecoderLayerMixin:
 
         self.attention_adapters = BottleneckLayer("mh_adapter")
         self.output_adapters = BottleneckLayer("output_adapter")
+
+        patch_forward(self)
 
 
 class MistralModelAdapterMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):

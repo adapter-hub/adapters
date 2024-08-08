@@ -84,7 +84,7 @@ class AdapterHubTest(unittest.TestCase):
                     args=training_args,
                     eval_dataset=eval_dataset,
                     compute_metrics=self._compute_glue_metrics("mrpc"),
-                    adapter_names="mrpc",
+                    adapter_names=["mrpc"],
                 )
                 result = trainer.evaluate()
                 self.assertGreater(result["eval_acc"], 0.9)

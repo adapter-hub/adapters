@@ -17,7 +17,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyTorch Mistral model."""
+""" PyTorch Mistral model."""
+import inspect
 import math
 from typing import Optional, Tuple
 
@@ -25,17 +26,11 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 
-from adapters.composition import (
-    adjust_tensors_for_parallel,
-    adjust_tensors_for_parallel_,
-    match_attn_matrices_for_parallel,
-)
+from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
 from transformers.cache_utils import Cache, StaticCache
 from transformers.models.mistral.modeling_mistral import (
     MistralAttention,
     MistralDecoderLayer,
-    MistralFlashAttention2,
-    MistralSdpaAttention,
     apply_rotary_pos_emb,
     repeat_kv,
 )
@@ -43,15 +38,18 @@ from transformers.utils import is_flash_attn_2_available, logging
 
 from .mixin_mistral import MistralAttentionMixin, MistralDecoderLayerMixin
 
-
 if is_flash_attn_2_available():
-    from transformers.models.mistral.modeling_mistral import _flash_supports_window_size
+    from flash_attn import flash_attn_func
+    from flash_attn.bert_padding import index_first_axis, pad_input, unpad_input  # noqa
 
+    _flash_supports_window_size = "window_size" in list(inspect.signature(flash_attn_func).parameters)
 
 logger = logging.get_logger(__name__)
 
 
 class MistralAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
+    """Multi-headed attention from 'Attention Is All You Need' paper"""
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -72,13 +70,12 @@ class MistralAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-        # >>> START AH Changes <<<
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
         (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
-        # >>> END AH Changes <<<
 
+        past_key_value = getattr(self, "past_key_value", past_key_value)
         cos, sin = self.rotary_emb(value_states, position_ids)
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
@@ -90,16 +87,14 @@ class MistralAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-        # >>> START AH Changes <<<
         key_states, value_states, attention_mask = self.prefix_tuning(
             key_states, value_states, hidden_states, attention_mask
         )
         (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
-        # Make adjustments since (parallel) prefix tuning changes the attention mask
-        bsz = key_states.shape[0]
-        # >>> END AH Changes <<<
 
         attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
+
+        bsz = key_states.shape[0]
 
         if attention_mask is not None:  # no matter the length, we just slice it
             causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
@@ -127,7 +122,13 @@ class MistralAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
         return attn_output, attn_weights, past_key_value
 
 
-class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAttention2):
+class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralAttention):
+    """
+    Mistral flash attention module. This module inherits from `MistralAttention` as the weights of the module stays
+    untouched. The only required change would be on the forward pass where it needs to correctly call the public API of
+    flash attention and deal with padding tokens in case the input contains any of them.
+    """
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -140,11 +141,9 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
     ):
         if isinstance(past_key_value, StaticCache):
             raise ValueError(
-                "`static` cache implementation is not compatible with `attn_implementation==flash_attention_2` make"
-                " sure to use `sdpa` in the mean time, and open an issue at"
-                " https://github.com/huggingface/transformers"
+                "`static` cache implementation is not compatible with `attn_implementation==flash_attention_2` "
+                "make sure to use `sdpa` in the mean time, and open an issue at https://github.com/huggingface/transformers"
             )
-
         output_attentions = False
 
         bsz, q_len, _ = hidden_states.size()
@@ -157,12 +156,10 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-        # >>> START AH Changes <<<
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
         (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
-        # >>> END AH Changes <<<
 
         kv_seq_len = key_states.shape[-2]
         if past_key_value is not None:
@@ -170,6 +167,13 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
 
         cos, sin = self.rotary_emb(value_states, position_ids)
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+
+        key_states, value_states, attention_mask = self.prefix_tuning(
+            key_states, value_states, hidden_states, attention_mask
+        )
+        (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
+
+        bsz = key_states.shape[0]
 
         use_sliding_windows = (
             _flash_supports_window_size
@@ -179,9 +183,11 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
 
         if not _flash_supports_window_size:
             logger.warning_once(
-                "The current flash attention version does not support sliding window attention, for a more memory"
-                " efficient implementation make sure to upgrade flash-attn library."
+                "The current flash attention version does not support sliding window attention, for a more memory efficient implementation"
+                " make sure to upgrade flash-attn library."
             )
+
+        past_key_value = getattr(self, "past_key_value", past_key_value)
 
         if past_key_value is not None:
             # Activate slicing cache only if the config has a value `sliding_windows` attribute
@@ -201,8 +207,8 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
 
                 if past_key.shape[-2] != self.config.sliding_window - 1:
                     raise ValueError(
-                        "past key must have a shape of (`batch_size, num_heads, self.config.sliding_window-1,"
-                        f" head_dim`), got {past_key.shape}"
+                        f"past key must have a shape of (`batch_size, num_heads, self.config.sliding_window-1, head_dim`), got"
+                        f" {past_key.shape}"
                     )
 
                 if attention_mask is not None:
@@ -216,16 +222,6 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
         dropout_rate = 0.0 if not self.training else self.attention_dropout
-
-        # >>> START AH Changes <<<
-        key_states, value_states, attention_mask = self.prefix_tuning(
-            key_states, value_states, hidden_states, attention_mask
-        )
-        (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
-        # Make adjustments since (parallel) prefix tuning changes the attention mask
-        kv_seq_len = key_states.shape[-2]
-        bsz = key_states.shape[0]
-        # >>> END AH Changes <<<
 
         # In PEFT, usually we cast the layer norms in float32 for training stability reasons
         # therefore the input hidden states gets silently casted in float32. Hence, we need
@@ -241,8 +237,8 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
                 target_dtype = self.q_proj.weight.dtype
 
             logger.warning_once(
-                "The input hidden states seems to be silently casted in float32, this might be related to the fact"
-                " you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
+                f"The input hidden states seems to be silently casted in float32, this might be related to"
+                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
                 f" {target_dtype}."
             )
 
@@ -274,7 +270,15 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
         return attn_output, attn_weights, past_key_value
 
 
-class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralSdpaAttention):
+# Adapted from transformers.models.llama.modeling_llama.LlamaSdpaAttention with Llama->Mistral
+class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
+    """
+    Mistral attention module using torch.nn.functional.scaled_dot_product_attention. This module inherits from
+    `MistralAttention` as the weights of the module stays untouched. The only changes are on the forward pass to adapt to
+    SDPA API.
+    """
+
+    # Adapted from MistralAttention.forward
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -289,10 +293,8 @@ class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralSdpaAttenti
         if output_attentions:
             # TODO: Improve this warning with e.g. `model.config.attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "MistralModel is using MistralSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention`"
-                " does not support `output_attentions=True`. Falling back to the manual attention implementation, but"
-                " specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This"
-                ' warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
+                "MistralModel is using MistralSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention implementation, "
+                'but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
                 hidden_states=hidden_states,
@@ -314,12 +316,10 @@ class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralSdpaAttenti
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-        # >>> START AH Changes <<<
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
         (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
-        # >>> END AH Changes <<<
 
         cos, sin = self.rotary_emb(value_states, position_ids)
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
@@ -332,14 +332,10 @@ class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralSdpaAttenti
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-        # >>> START AH Changes <<<
         key_states, value_states, attention_mask = self.prefix_tuning(
             key_states, value_states, hidden_states, attention_mask
         )
         (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
-        # Make adjustments since (parallel) prefix tuning changes the attention mask
-        bsz = key_states.shape[0]
-        # >>> END AH Changes <<<
 
         causal_mask = attention_mask
         if attention_mask is not None:
@@ -379,7 +375,7 @@ class MistralDecoderLayerWithAdapters(MistralDecoderLayerMixin, MistralDecoderLa
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        past_key_value: Optional[Cache] = None,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
@@ -403,9 +399,7 @@ class MistralDecoderLayerWithAdapters(MistralDecoderLayerMixin, MistralDecoderLa
             kwargs (`dict`, *optional*):
                 Arbitrary kwargs to be ignored, used for FSDP and other methods that injects code
                 into the model
-        """
-
-        adjust_tensors_for_parallel_(hidden_states, attention_mask, position_ids)
+        """  # adjust_tensors_for_parallel(hidden_states, attention_mask, position_ids)
         residual = hidden_states
 
         hidden_states = self.input_layernorm(hidden_states)

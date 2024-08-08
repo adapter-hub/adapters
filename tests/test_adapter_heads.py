@@ -6,7 +6,6 @@ import torch
 import adapters
 from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel
 from adapters.composition import BatchSplit, Stack
-from adapters.heads import PredictionHead
 from transformers import AutoModelForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
 
@@ -456,95 +455,3 @@ class PredictionHeadModelTestMixin:
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_all_adapters(tmp_dir, with_head=False)
             self.assertFalse(os.path.isfile(os.path.join(tmp_dir, "test", "head_config.json")))
-
-    def test_average_head(self):
-        # Test the average_head method
-        model = AutoAdapterModel.from_config(self.config())
-        model.eval()
-
-        # Add adapters (this is just to see if the method also works if some heads are associated with an adapter while others are not)
-        for i in range(2):
-            model.add_adapter(f"adapter_{i}")
-
-        # Add heads
-        for i in range(3):
-            self.add_head(model, f"adapter_{i}")
-
-        # Calculate the expected weights of the new head
-        weights = [0.75, 0.25, -0.25]
-        expected_new_head_weights = {}
-
-        for i, weight in enumerate(weights):
-            current_head: PredictionHead = model.heads[f"adapter_{i}"]
-            for k, v in current_head.named_parameters():
-                base_k = k.replace(f"adapter_{i}", "new_head")
-                if base_k not in expected_new_head_weights:
-                    expected_new_head_weights[base_k] = weight * v
-                else:
-                    expected_new_head_weights[base_k] += weight * v
-
-        # Average the heads
-        model.average_head(
-            head_name="new_head",
-            head_list=["adapter_0", "adapter_1", "adapter_2"],
-            weights=weights,
-            normalize_weights=False,
-        )
-
-        # Check that the new head was added
-        self.assertIn("new_head", model.heads)
-
-        # Now, check that the actual weights are the same as the expected weights.
-        # Problem: Some heads might have tied weights. These weights therefore are the same as the embedding weights and are NOT the same as the expected weights dictionary.
-
-        # 1. Identify if a layer has tied weights
-        head1 = model.heads["adapter_0"]
-        tied_weight_keys = set()
-        if head1.get_output_embeddings() and model.config.tie_word_embeddings:
-            output_embeddings = head1.get_output_embeddings()
-
-            # Depending on the head, the tied layer has a different number: Find the layer number of the output embeddings
-            for name, module in head1.named_modules():
-                if module is output_embeddings:
-                    layer_prefix = name + "."
-                    break
-
-            for k, _ in output_embeddings.named_parameters():
-                tied_weight_keys.add(f"{layer_prefix}{k}")
-
-        print(f"tied_weight_keys: {tied_weight_keys}")
-
-        # 2. Compare the weights of the new head with the expected weights
-        for k, v in model.heads["new_head"].named_parameters():
-            if k not in tied_weight_keys:
-                self.assertTrue(torch.allclose(v, expected_new_head_weights[k]), k)
-
-        # 3. Last check: Ensure that tied weights are actually tied
-        if model.config.tie_word_embeddings:
-            input_embeddings = model.get_input_embeddings()
-            output_embeddings = model.heads["new_head"].get_output_embeddings()
-            if output_embeddings is not None:
-                self.assertTrue(
-                    torch.allclose(input_embeddings.weight, output_embeddings.weight),
-                    "Input and output embeddings are not properly tied",
-                )
-
-    def test_tied_head_weights(self):
-        # Some heads tie the weights of the last layer to the input embeddings. This test checks that these weights are not trained, except when setting train_embeddings=True
-        model = AutoAdapterModel.from_config(self.config())
-        model.eval()
-
-        # Check if model has add_masked_lm_head method
-        if "masked_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
-            self.skipTest("Model does not have masked language model head, skip test")
-
-        model.add_adapter("mlm")
-        model.add_masked_lm_head("mlm")
-
-        # 1. No training of embeddings => weights should not change
-        model.train_adapter("mlm")
-        self.assertFalse(model.heads["mlm"].get_output_embeddings().weight.requires_grad)
-
-        # 2. Training of embeddings => weights should change
-        model.train_adapter("mlm", train_embeddings=True)
-        self.assertTrue(model.heads["mlm"].get_output_embeddings().weight.requires_grad)

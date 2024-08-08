@@ -1,19 +1,16 @@
 import inspect
 import logging
 import os
+import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from copy import deepcopy
 from os.path import join
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch import nn
 
-from adapters.configuration.adapter_config import ConfigUnion, LoRAConfig
-from transformers import GenerationConfig
 from transformers.modeling_outputs import ModelOutput
-from transformers.utils import is_accelerate_available
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
@@ -32,9 +29,6 @@ from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
 
 logger = logging.getLogger(__name__)
-
-if is_accelerate_available():
-    from accelerate.hooks import AlignDevicesHook, add_hook_to_module
 
 
 class InvertibleAdaptersMixin:
@@ -85,17 +79,9 @@ class InvertibleAdaptersMixin:
 
         return False
 
-    def _average_invertible_adapter(
-        self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy: str
-    ) -> bool:
+    def _average_invertible_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
         # add new adapter
         if self.add_invertible_adapter(adapter_name):
-            if combine_strategy != "linear":
-                raise ValueError(
-                    f"Combine strategy {combine_strategy} not supported for invertible adapters. Only 'linear' is"
-                    " supported."
-                )
-
             # average weights
             avg_state_dict = {}
             for name, weight in input_adapters.items():
@@ -185,13 +171,9 @@ class InvertibleAdaptersWrapperMixin:
             return self.invertible_adapters_base.add_invertible_adapter(adapter_name)
         return False
 
-    def _average_invertible_adapter(
-        self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy: str
-    ) -> bool:
+    def _average_invertible_adapter(self, adapter_name: str, input_adapters: Dict[str, float]) -> bool:
         if self.invertible_adapters_base is not None:
-            return self.invertible_adapters_base._average_invertible_adapter(
-                adapter_name, input_adapters, combine_strategy
-            )
+            return self.invertible_adapters_base._average_invertible_adapter(adapter_name, input_adapters)
         return False
 
     def delete_invertible_adapter(self, adapter_name: str):
@@ -384,9 +366,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
     add_base_adapters = False
-    support_lora_delta_w_svd = (
-        True  # If True, the model supports the "lora_delta_w_svd" combine_strategy to merge adapter weights.
-    )
     support_prompt_tuning = True  # If False, the prompt tuning layer is not added to the model. If True, the prompt tuning layer is added if add_base_adapters is True.
 
     def __init__(self, config, *args, **kwargs):
@@ -503,6 +482,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if train_embeddings:
             self.get_input_embeddings().train()
             self.get_input_embeddings().weight.requires_grad = True
+
+    def train_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
+        """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
+        warnings.warn(
+            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
+            FutureWarning,
+        )
+        self.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """Sets the model into mode for training of adapter fusion determined by a list of adapter names."""
@@ -623,6 +610,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 module.confirm_prefix(adapter_name)
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.add_invertible_adapter(adapter_name)
+
+    def add_fusion(self, adapter_names: Union[Fuse, list], adapter_fusion_config=None, override_kwargs=None):
+        warnings.warn(
+            "add_fusion() has been deprecated in favor of add_adapter_fusion(). Please use the newer method instead.",
+            FutureWarning,
+        )
+        adapter_fusion_config = AdapterFusionConfig.from_dict(adapter_fusion_config).replace(**override_kwargs)
+        self.add_adapter_fusion(adapter_names, adapter_fusion_config)
 
     def add_adapter_fusion(
         self,
@@ -788,12 +783,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
+        source: str = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
         id2label=None,
         set_active: bool = False,
         use_safetensors: bool = False,
-        **kwargs,
+        **kwargs
     ) -> str:
         """
         Loads a pre-trained pytorch adapter module from the local file system or a remote location.
@@ -804,11 +800,20 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
                 - a path to a directory containing adapter weights saved using `model.saved_adapter()`
                 - a URL pointing to a zip folder containing a saved adapter module
-            config (dict or str, optional): Deprecated.
+            config (dict or str, optional): The requested configuration of the adapter.
+                If not specified, will be either: - the default adapter config for the requested adapter if specified -
+                the global default adapter config
             version (str, optional): The version of the adapter to be loaded.
-            model_name (str, optional): Deprecated.
+            model_name (str, optional): The string identifier of the pre-trained model.
             load_as (str, optional): Load the adapter using this name. By default, the name with which the adapter was
                     saved will be used.
+            source (str, optional): Identifier of the source(s) from where to load the adapter. Can be:
+
+                - "ah": search on AdapterHub Hub repo.
+                    Note: the Hub repo has been archived and all adapters have been moved to HuggingFace Model Hub.
+                    Loading from this source is deprecated.
+                - "hf": search on HuggingFace Model Hub.
+                - None (default): search on all sources
             leave_out: Dynamically drop adapter modules in the specified Transformer layers when loading the adapter.
             set_active (bool, optional):
                 Set the loaded adapter to be the active one. By default (False), the adapter is loaded but not
@@ -825,6 +830,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             version,
             model_name,
             load_as,
+            source=source,
             leave_out=leave_out,
             set_active=set_active,
             **kwargs,
@@ -849,7 +855,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         set_active: bool = False,
         use_safetensors: bool = False,
-        **kwargs,
+        **kwargs
     ) -> str:
         """
         Loads a pre-trained AdapterFusion layer from the local file system.
@@ -1162,12 +1168,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             s.append("=" * total_length)
             return "\n".join(s)
 
-    def _average_shared_parameters(self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy: str):
-        if combine_strategy != "linear":
-            raise ValueError(
-                f"Combine strategy {combine_strategy} not supported for shared parameters. Only 'linear' is supported."
-            )
-
+    def _average_shared_parameters(self, adapter_name: str, input_adapters: Dict[str, float]):
         avg_state_dict = {}
         for name, weight in input_adapters.items():
             if name in self.base_model.shared_parameters:
@@ -1181,109 +1182,38 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 raise ValueError(f"Adapter {name} not found in shared parameters.")
         self.base_model.shared_parameters[adapter_name] = nn.ParameterDict(avg_state_dict)
 
-    def _pre_average_adapter_checks(
-        self,
-        adapter_name: str,
-        adapter_list: List[str],
-        combine_strategy: str,
-        valid_combination_strategies: List[str],
-        is_head=False,
-    ):
-        # Check if combine_strategy is valid
-        if combine_strategy not in valid_combination_strategies:
-            raise ValueError(
-                f"Invalid combine_strategy '{combine_strategy}'. Must be one of {valid_combination_strategies}"
-            )
-
-        # Some strategies are not supported by all models
-        if combine_strategy == "lora_delta_w_svd" and not self.base_model.support_lora_delta_w_svd:
-            raise ValueError(
-                "This model specifically does not support 'lora_delta_w_svd' as a merging method. Please use a"
-                " different combine_strategy or a different model."
-            )
-
-        head_or_adapter = "head" if is_head else "adapter"
-
-        # Provide the user with some information about the adapters to be averaged
-        logging.info(f"Creating new {head_or_adapter} called {adapter_name} by averaging {adapter_list}.")
-        if not is_head:
-            logging.info("In case you want to create a new head as well please use the `average_head` function.")
-
-        if len(adapter_list) == 0:
-            raise ValueError("No adapters to average. Please provide at least one adapter to average.")
-        if len(adapter_list) == 1:
-            logging.info(
-                "You provided only one adapter to average. If you set `normalize_weights` to true, this will result in"
-                " duplicating the adapter. If not this will result in scaling the adapter weights. We will use the"
-                " linear combination strategy for this."
-            )
-
-        # For ConfigUnion, only support linear combination
-        if isinstance(self.adapters_config.get(adapter_list[0]), ConfigUnion):
-            if combine_strategy != "linear":
-                raise ValueError(
-                    "Combining adapters with ConfigUnion is only supported with the 'linear' combine_strategy."
-                )
-
     def average_adapter(
         self,
         adapter_name: str,
-        adapter_list: Union[List[str], Dict[str, float]],
+        adapter_list: List[str],
         weights: Optional[List[float]] = None,
-        combine_strategy: str = "linear",
         normalize_weights: bool = True,
         overwrite_ok: bool = False,
         set_active: bool = False,
-        svd_rank: int = None,  # if other combination strategies are implemented that need new parameters, this should be moved to **kwargs
     ):
         """
         Adds a new adapter module as weighted average of a set of existing adapter modules.
 
         Args:
             adapter_name (str): The name of the adapter module to be added.
-            adapter_list (List[str] or Dict[str, float]):
+            input_adapters (List[str] or Dict[str, float]):
                 Specifies the existing adapters whose weights should be averaged. Can either be a list of adapter names
                 or a dictionary mapping adapter names to weights.
-            weights (Optional[List[float]], optional): The weights corresponding to each adapter module in the list.
-                If not provided, equal weights will be assigned to each adapter.
-            combine_strategy (str, optional): The strategy to combine the adapter modules.
-                Available options are "linear", "lora_linear_only_negate_b", and "lora_delta_w_svd".
-                See https://docs.adapterhub.ml/adapter_composition.html#merging-adapters
-                Defaults to "linear".
-            normalize_weights (bool, optional): Whether to normalize the weights.
-                If True, the weights will be normalized to sum up to 1.
-                Defaults to True.
             overwrite_ok (bool, optional):
                 Overwrite an adapter with the same name if it exists. By default (False), an exception is thrown.
             set_active (bool, optional):
                 Set the adapter to be the active one. By default (False), the adapter is added but not activated.
-            svd_rank (int, optional): The rank to be used for Singular Value Decomposition (SVD) when averaging LoRA adapters.
-                This parameter is only applicable when the combine_strategy is set to "lora_delta_w_svd".
-                Defaults to None.
         """
-
-        valid_combination_strategies = ["linear", "lora_linear_only_negate_b", "lora_delta_w_svd"]
-        self._pre_average_adapter_checks(adapter_name, adapter_list, combine_strategy, valid_combination_strategies)
-
+        # To be able to average the weights, all adapter configs must be the same
         config = None
         for name in adapter_list:
             if config is None:
                 config = self.adapters_config.get(name)
-            elif get_adapter_config_hash(config, ignore_params=["dropout", "init_weights"]) != get_adapter_config_hash(
-                self.adapters_config.get(name), ignore_params=["dropout", "init_weights"]
-            ):
+            elif get_adapter_config_hash(config) != get_adapter_config_hash(self.adapters_config.get(name)):
                 raise ValueError(
                     "Cannot average adapters with different configurations. "
                     "Please make sure all adapters have the same configuration."
                 )
-
-        # In case svd_rank is set, change the config to use the new rank
-        if svd_rank is not None:
-            if isinstance(config, LoRAConfig):
-                config = config.replace(r=svd_rank)
-            else:
-                logging.warning("SVD rank can only be set when averaging LoRA adapters. Ignoring svd_rank.")
-
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
         if overwrite_ok and adapter_name in self.adapters_config:
             self.delete_adapter(adapter_name)
@@ -1299,25 +1229,17 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 sum_weights = 1.0
             input_adapters = {name: weight / sum_weights for name, weight in zip(adapter_list, weights)}
         try:
-            self.apply_to_adapter_layers(
-                lambda i, layer: layer.average_adapter(
-                    adapter_name, input_adapters, combine_strategy, svd_rank=svd_rank
-                )
-            )
-            self.apply_to_basemodel_childs(
-                lambda i, child: child.average_adapter(
-                    adapter_name, input_adapters, combine_strategy, svd_rank=svd_rank
-                )
-            )
+            self.apply_to_adapter_layers(lambda i, layer: layer.average_adapter(adapter_name, input_adapters))
+            self.apply_to_basemodel_childs(lambda i, child: child.average_adapter(adapter_name, input_adapters))
             # PHM Layer
             if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):
-                self._average_shared_parameters(adapter_name, input_adapters, combine_strategy)
+                self._average_shared_parameters(adapter_name, input_adapters)
             # Prefix Tuning
             for module in self.modules():
                 if isinstance(module, PrefixTuningPool):
-                    module.average_prefix(adapter_name, input_adapters, combine_strategy)
+                    module.average_prefix(adapter_name, input_adapters)
             if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
-                self._average_invertible_adapter(adapter_name, input_adapters, combine_strategy)
+                self._average_invertible_adapter(adapter_name, input_adapters)
         except ValueError as ex:
             self.delete_adapter(adapter_name)
             raise ex
@@ -1358,21 +1280,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
     # HACK Copied from transformers/generation/utils.py
     def _prepare_encoder_decoder_kwargs_for_generation(
-        self,
-        inputs_tensor: torch.Tensor,
-        model_kwargs,
-        model_input_name: Optional[str],
-        generation_config: GenerationConfig,
+        self, inputs_tensor: torch.Tensor, model_kwargs, model_input_name: Optional[str] = None
     ) -> Dict[str, Any]:
         # 1. get encoder
         encoder = self.get_encoder()
-        # Compatibility with Accelerate big model inference: we need the encoder to outputs stuff on the same device
-        # as the inputs.
-        if hasattr(self, "hf_device_map"):
-            if hasattr(encoder, "_hf_hook"):
-                encoder._hf_hook.io_same_device = True
-            else:
-                add_hook_to_module(encoder, AlignDevicesHook(io_same_device=True))
 
         # 2. prepare encoder args and encoder kwargs from model kwargs
         irrelevant_prefix = ["decoder_", "cross_attn", "use_cache"]
@@ -1381,6 +1292,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             for argument, value in model_kwargs.items()
             if not any(argument.startswith(p) for p in irrelevant_prefix)
         }
+
         encoder_signature = set(inspect.signature(encoder.forward).parameters)
         encoder_accepts_wildcard = "kwargs" in encoder_signature or "model_kwargs" in encoder_signature
         if not encoder_accepts_wildcard:
@@ -1389,8 +1301,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 for argument, value in encoder_kwargs.items()
                 if argument in encoder_signature or argument == "adapter_input_parallelized"
             }
-        encoder_kwargs["output_attentions"] = generation_config.output_attentions
-        encoder_kwargs["output_hidden_states"] = generation_config.output_hidden_states
 
         # 3. make sure that encoder returns `ModelOutput`
         model_input_name = model_input_name if model_input_name is not None else self.main_input_name
@@ -1545,11 +1455,11 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             super().train_adapter(adapter_setup, train_embeddings)
         else:
             self.base_model.train_adapter(adapter_setup, train_embeddings)
-
-        # If the head has tied weights with the embedding layer (e.g. masked language modeling head), the last layer is
-        # only trained when train_embeddings is set to True
         if not train_embeddings:
             self.freeze_embeddings()
+
+        # Hack to prevent HF Trainer from throwing an error due to peft missing.
+        self._hf_peft_config_loaded = True
 
     def train_adapter_fusion(self, adapter_setup: Union[list, AdapterCompositionBlock], unfreeze_adapters=False):
         """
@@ -1561,93 +1471,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         else:
             self.base_model.train_adapter_fusion(adapter_setup, unfreeze_adapters=unfreeze_adapters)
         self.freeze_embeddings()
-
-    def average_head(
-        self,
-        head_name: str,
-        head_list: Union[List[str], Dict[str, float]],
-        weights: Optional[List[float]] = None,
-        normalize_weights: bool = True,
-        overwrite_ok: bool = False,
-        set_active: bool = False,
-    ):
-        """
-        Adds a new prediction head as a weighted average of a set of existing prediction heads.
-
-        Args:
-            head_name (str): The name of the new prediction head to be added.
-            head_list (List[str] or Dict[str, float]):
-                Specifies the existing heads whose weights should be averaged. Can either be a list of head names
-                or a dictionary mapping head names to weights.
-            weights (Optional[List[float]], optional): The weights corresponding to each head in the list.
-                If not provided, equal weights will be assigned to each head.
-            normalize_weights (bool, optional): Whether to normalize the weights.
-                If True, the weights will be normalized to sum up to 1.
-                Defaults to True.
-            overwrite_ok (bool, optional):
-                Overwrite a head with the same name if it exists. By default (False), an exception is thrown.
-            set_active (bool, optional):
-                Set the head to be the active one. By default (False), the head is added but not activated.
-        """
-
-        self._pre_average_adapter_checks(
-            head_name, head_list, "linear", ["linear"], is_head=True
-        )  # Currently, only linear averaging is supported for heads
-
-        # Ensure all heads to be averaged are of the same class
-        head_class = type(self.heads[head_list[0]])
-        for name in head_list:
-            if not isinstance(self.heads[name], head_class):
-                raise ValueError(
-                    f"Cannot average heads of different classes. All heads must be of type {head_class.__name__}."
-                )
-
-        # Ensure that all heads have the same configuration
-        head_config = self.heads[head_list[0]].config
-
-        for name in head_list:
-            if get_adapter_config_hash(head_config, ignore_params=["dropout_prob"]) != get_adapter_config_hash(
-                self.heads[name].config, ignore_params=["dropout_prob"]
-            ):
-                raise ValueError(
-                    "Cannot average heads with different configurations. "
-                    "Please make sure all heads have the same configuration."
-                )
-
-        # In case the head already exists and we allow overwriting, explicitly delete the existing one first
-        if overwrite_ok and head_name in self.heads:
-            self.delete_head(head_name)
-
-        # Now that we have ensured that all heads are of the same class and have the same configuration,
-        # we can add the new head by copy one of the existing heads and then replacing the weights
-        new_head = deepcopy(self.heads[head_list[0]])  # This is a PredictionHead
-        new_head.name = head_name
-
-        if weights is None:
-            eq_weight = 1.0 / len(head_list)
-            input_heads = {name: eq_weight for name in head_list}
-        else:
-            # Normalize weights if specified
-            if normalize_weights:
-                sum_weights = sum(weights)
-            else:
-                sum_weights = 1.0
-            input_heads = {name: weight / sum_weights for name, weight in zip(head_list, weights)}
-
-        # Average the state dictionaries of the heads
-        avg_state_dict = {}
-        for name, weight in input_heads.items():
-            for k, v in self.heads[name].state_dict().items():
-                if k in avg_state_dict:
-                    avg_state_dict[k] += weight * v
-                else:
-                    avg_state_dict[k] = weight * v
-
-        # Load the averaged state dictionary into the new head
-        new_head.load_state_dict(avg_state_dict)
-
-        # Add the new head to the model
-        self.add_prediction_head(new_head, set_active=set_active)
 
     def save_head(self, save_directory: str, head_name: str = None, use_safetensors: bool = False) -> None:
         """Saves a model prediction head to a directory such that it can be reloaded using `load_head()`.
@@ -1666,7 +1489,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         load_as: str = None,
         id2label: Dict[int, str] = None,
         use_safetensors: bool = False,
-        **kwargs,
+        **kwargs
     ) -> str:
         """Loads a model prediction head from a directory where it was saved using `save_head()`.
 
@@ -1715,13 +1538,14 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         version: str = None,
         model_name: str = None,
         load_as: str = None,
+        source: str = None,
         with_head: bool = True,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         leave_out: Optional[List[int]] = None,
         id2label=None,
         set_active: bool = False,
         use_safetensors: bool = False,
-        **kwargs,
+        **kwargs
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:
@@ -1744,6 +1568,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             version=version,
             model_name=model_name,
             load_as=load_as,
+            source=source,
             custom_weights_loaders=custom_weights_loaders,
             leave_out=leave_out,
             id2label=id2label,
@@ -1829,7 +1654,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
         set_active: bool = False,
         with_head: bool = True,
         use_safetensors: bool = False,
-        **kwargs,
+        **kwargs
     ) -> str:
         if with_head:
             if custom_weights_loaders is None:
