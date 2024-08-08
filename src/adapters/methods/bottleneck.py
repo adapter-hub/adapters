@@ -204,13 +204,15 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
     def compose_single(self, adapter_setup: str, state: BottleneckState, lvl: int = 0) -> BottleneckState:
         adapter_layer = self.adapters[adapter_setup]
         context = ForwardContext.get_context()
+        output_gating = context.output_adapter_gating_scores if context is not None else False
         layer_output = adapter_layer(
             state.hidden_states,
             residual_input=state.adapter_residual,
-            output_gating=context.output_adapter_gating_scores,
+            output_gating=output_gating,
         )
         hidden_states, up = layer_output[0], layer_output[2]
-        self._store_gating_score(adapter_setup, layer_output[-1])
+        if output_gating:
+            self._store_gating_score(adapter_setup, layer_output[-1])
 
         return state._replace(hidden_states=hidden_states, bottleneck_up=up, last=adapter_setup)
 
@@ -246,14 +248,15 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             up_list = torch.stack([state.bottleneck_up for state in children_states])
             up_list = up_list.permute(1, 2, 0, 3)
 
+            output_fusion_attns = context.output_adapter_fusion_attentions if context is not None else False
             fusion_output = self.adapter_fusion_layer[adapter_setup.name](
                 query,
                 up_list,
                 up_list,
                 state.adapter_residual,
-                output_attentions=context.output_adapter_fusion_attentions,
+                output_attentions=output_fusion_attns,
             )
-            if context.output_adapter_fusion_attentions:
+            if output_fusion_attns:
                 hidden_states = fusion_output[0]
                 self._store_fusion_attentions(adapter_setup.name, fusion_output[-1])
             else:
