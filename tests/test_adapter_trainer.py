@@ -575,7 +575,7 @@ class TestAdapterTrainer(unittest.TestCase):
         model.config.use_cache = False
 
         adapters.init(model)
-        model.add_adapter("task")
+        model.add_adapter("task", config=config)
         model.train_adapter("task")
 
         model.adapter_to("task", device=torch_device)
