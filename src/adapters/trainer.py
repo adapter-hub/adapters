@@ -42,6 +42,9 @@ class AdapterTrainer(Trainer):
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
         preprocess_logits_for_metrics: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] = None,
     ):
+        if model is not None:
+            model_quantized = getattr(model, "is_quantized", False)
+            model.is_quantized = False
         super().__init__(
             model,
             args,
@@ -55,6 +58,8 @@ class AdapterTrainer(Trainer):
             optimizers=optimizers,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
         )
+        if model is not None:
+            model.is_quantized = model_quantized
 
         if adapter_names is not None:
             self.model.set_active_adapters(adapter_names)

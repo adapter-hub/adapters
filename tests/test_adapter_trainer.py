@@ -3,22 +3,27 @@ import unittest
 from tempfile import TemporaryDirectory
 
 import torch
+from datasets import Dataset
 
 import adapters
 from adapters import AutoAdapterModel
 from adapters.composition import Fuse, Stack
 from adapters.trainer import AdapterTrainer, logger
+from parameterized import parameterized
 from transformers import (
+    AutoModelForCausalLM,
     AutoModelForSequenceClassification,
     AutoTokenizer,
     BertConfig,
     BertForSequenceClassification,
+    BitsAndBytesConfig,
+    DataCollatorForLanguageModeling,
     GlueDataset,
     GlueDataTrainingArguments,
     Trainer,
     TrainingArguments,
 )
-from transformers.testing_utils import require_ray, slow
+from transformers.testing_utils import require_bitsandbytes, require_ray, slow, torch_device
 
 
 class TestAdapterTrainer(unittest.TestCase):
@@ -535,6 +540,85 @@ class TestAdapterTrainer(unittest.TestCase):
             )
 
             trainer.hyperparameter_search(direction="minimize", hp_space=hp_space, backend="ray", n_trials=2)
+
+    @parameterized.expand(["lora", "seq_bn"])
+    @require_bitsandbytes
+    def test_quantized_training(self, config):
+        model_name = "HuggingFaceM4/tiny-random-LlamaForCausalLM"
+
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer.pad_token = tokenizer.eos_token
+
+        dataset = Dataset.from_dict({"text": ["Hello, I'm a single sentence!", "This is another sentence."]})
+
+        def tokenize(element):
+            return tokenizer(
+                element["text"],
+                truncation=True,
+                max_length=512,  # can set to longer values such as 2048
+                add_special_tokens=False,
+            )
+
+        dataset_tokenized = dataset.map(tokenize, batched=True, remove_columns=["text"])
+
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            device_map="auto",
+            quantization_config=BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_compute_dtype=torch.bfloat16,
+            ),
+            torch_dtype=torch.bfloat16,
+        )
+        model.config.use_cache = False
+
+        adapters.init(model)
+        model.add_adapter("task")
+        model.train_adapter("task")
+
+        model.adapter_to("task", device=torch_device)
+
+        for param in model.parameters():
+            if param.ndim == 1:
+                # cast the small parameters (e.g. layernorm) to fp32 for stability
+                param.data = param.data.to(torch.float32)
+
+        model.gradient_checkpointing_enable()
+        model.enable_input_require_grads()
+
+        class CastOutputToFloat(torch.nn.Sequential):
+            def forward(self, x):
+                return super().forward(x).to(torch.float32)
+
+        model.lm_head = CastOutputToFloat(model.lm_head)
+
+        self.assertEqual(Stack("task"), model.active_adapters)
+        with TemporaryDirectory() as tempdir:
+            training_args = TrainingArguments(
+                output_dir=tempdir,
+                per_device_train_batch_size=1,
+                per_device_eval_batch_size=1,
+                evaluation_strategy="steps",
+                logging_steps=10,
+                max_steps=5,
+                lr_scheduler_type="constant",
+                optim="paged_adamw_32bit",
+                learning_rate=0.0002,
+                group_by_length=True,
+                bf16=True,
+                max_grad_norm=0.3,
+            )
+            trainer = AdapterTrainer(
+                model=model,
+                tokenizer=tokenizer,
+                data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
+                train_dataset=dataset_tokenized,
+                args=training_args,
+            )
+
+            trainer.train()
 
 
 if __name__ == "__main__":
