@@ -111,7 +111,6 @@ jobs:
           pip install torch==2.3
           pip install .[sklearn,testing,sentencepiece]
           pip install conllu seqeval
-          python -m nltk.downloader wordnet punkt
       - name: Test Examples
         run: |
           make test-examples
