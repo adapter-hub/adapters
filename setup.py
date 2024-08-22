@@ -51,7 +51,7 @@ _deps = [
     "sentencepiece>=0.1.91,!=0.1.92",
     "sphinx-copybutton==0.5.2",
     "sphinx-markdown-tables==0.0.17",
-    "sphinx-rtd-theme==0.4.3",  # sphinx-rtd-theme==0.5.0 introduced big changes in the style.
+    "sphinx-rtd-theme==2.0.0",
     "sphinx==5.0.2",
     "sphinxext-opengraph==0.4.1",
     "sphinx-intl==2.1.0",
