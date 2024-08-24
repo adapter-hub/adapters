@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from copy import deepcopy
 from os.path import join
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -19,7 +19,9 @@ from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
+from .interface import AdapterModelInterface
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
+from .methods import METHOD_INIT_MAPPING
 from .methods.adapter_layer_base import AdapterLayerBase
 from .methods.bottleneck import BottleneckLayer
 from .methods.lora import LoRALayer
@@ -418,9 +420,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             if hasattr(module, "init_adapters"):
                 module.init_adapters(model_config, adapters_config)
 
-        # Initialize reft modules
-        init_reft(self)
-
     def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
         """
         This method initializes adapter modules and fusion modules from the model config.
@@ -429,6 +428,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         # Initialize adapters config
         init_adapters_config(self, model_config, adapters_config)
+
+        # Initialize adapter types defined in interface
+        if self.base_model.adapter_interface is not None:
+            for adapter_type in self.base_model.adapter_interface.adapter_types:
+                init_func = METHOD_INIT_MAPPING[adapter_type]
+                init_func(self.base_model)
+        else:
+            init_reft(self.base_model)
+
         # Initialize adapters in all submodules
         self._init_adapters_submodules(self.config, self.adapters_config)
 
@@ -1450,12 +1458,36 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
 @inherit_doc
 class ModelBaseAdaptersMixin(ModelAdaptersMixin):
+    adapter_interface: AdapterModelInterface = None
     add_base_adapters = True
 
     def init_adapters(self, model_config, adapters_config, add_prefix_tuning_pool=True):
         super().init_adapters(model_config, adapters_config, add_prefix_tuning_pool)
 
         patch_forward(self)
+
+    # Adapter Interface Methods
+
+    def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
+        for i, layer in enumerate(getattr(self, self.adapter_interface.model_layers)):
+            yield i, layer
+
+    def get_layer(self, idx: int) -> nn.Module:
+        return getattr(self, self.adapter_interface.model_layers)[idx]
+
+    def iter_attentions(self) -> Iterable[Tuple[int, Literal["self", "cross"], nn.Module]]:
+        for i, layer in self.iter_layers():
+            if hasattr(layer, self.adapter_interface.layer_self_attn or ""):
+                yield i, "self", getattr(layer, self.adapter_interface.layer_self_attn)
+            if hasattr(layer, self.adapter_interface.layer_cross_attn or ""):
+                yield i, "cross", getattr(layer, self.adapter_interface.layer_cross_attn)
+
+    def iter_layer_ffns(self) -> Iterable[Tuple[int, Literal["intermediate", "output"], nn.Module]]:
+        for i, layer in self.iter_layers():
+            if hasattr(layer, self.adapter_interface.layer_intermediate_proj or ""):
+                yield i, "intermediate", getattr(layer, self.adapter_interface.layer_intermediate_proj)
+            if hasattr(layer, self.adapter_interface.layer_output or ""):
+                yield i, "output", getattr(layer, self.adapter_interface.layer_output_proj)
 
     def post_embedding_forward(self, module, args, embedding_output):
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):

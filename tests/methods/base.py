@@ -13,7 +13,7 @@ from transformers import TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
 
 
-def create_twin_models(model_class, config_creator=None):
+def create_twin_models(model_class, config_creator=None, interface=None):
     if config_creator and model_class.__name__.startswith("Auto"):
         model_config = config_creator()
         model1 = model_class.from_config(model_config)
@@ -23,7 +23,7 @@ def create_twin_models(model_class, config_creator=None):
     else:
         model_config = model_class.config_class()
         model1 = model_class(model_config)
-    adapters.init(model1)
+    adapters.init(model1, interface=interface)
     model1.eval()
     # create a twin initialized with the same random weights
     model2 = copy.deepcopy(model1)
@@ -186,8 +186,11 @@ class AdapterMethodBaseTestMixin:
         self.assertGreaterEqual(len(output_1), len(base_output))
         self.assertFalse(torch.equal(output_1[0], base_output[0]))
 
+    def create_twin_models(self):
+        return create_twin_models(self.model_class, self.config)
+
     def run_load_test(self, adapter_config):
-        model1, model2 = create_twin_models(self.model_class, self.config)
+        model1, model2 = self.create_twin_models()
 
         name = "dummy_adapter"
         model1.add_adapter(name, config=adapter_config)
