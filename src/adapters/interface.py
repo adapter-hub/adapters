@@ -6,6 +6,7 @@ class AdapterType:
     """
     Enum for the different adapter types.
     """
+
     bottleneck = "bottleneck"
     prefix_tuning = "prefix_tuning"
     lora = "lora"
@@ -31,6 +32,7 @@ class AdapterModelInterface:
         layer_intermediate_proj (str): Name of the intermediate projection layer in a transformer layer.
         layer_output_proj (str): Name of the output projection layer in a transformer layer.
     """
+
     adapter_types: List[str]
 
     model_embeddings: str

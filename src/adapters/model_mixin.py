@@ -29,7 +29,7 @@ from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, ini
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
 from .methods.reft import init_reft
-from .utils import EMBEDDING_FILE, TOKENIZER_PATH, multigetattr, get_adapter_config_hash, inherit_doc, patch_forward
+from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc, multigetattr, patch_forward
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
 
