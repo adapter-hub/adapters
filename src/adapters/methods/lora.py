@@ -16,6 +16,7 @@ from transformers.pytorch_utils import Conv1D
 
 from ..composition import Average, BatchSplit, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
+from ..utils import multigetattr, multisetattr
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
 from .utils import dequantize_bnb_weight
 
@@ -818,9 +819,9 @@ def init_lora(model):
             setattr(attention, model.adapter_interface.attn_v_proj, lora_proj)
 
     for _, layer in model.iter_layers():
-        if intermediate_proj := getattr(layer, model.adapter_interface.layer_intermediate_proj, None):
+        if intermediate_proj := multigetattr(layer, model.adapter_interface.layer_intermediate_proj):
             lora_proj = LoRALinear.wrap(intermediate_proj, "intermediate", model.config, model.adapters_config)
-            setattr(layer, model.adapter_interface.intermediate_proj, lora_proj)
-        if output_proj := getattr(layer, model.adapter_interface.layer_output_proj, None):
+            multisetattr(layer, model.adapter_interface.layer_intermediate_proj, lora_proj)
+        if output_proj := multigetattr(layer, model.adapter_interface.layer_output_proj):
             lora_proj = LoRALinear.wrap(output_proj, "output", model.config, model.adapters_config)
-            setattr(layer, model.adapter_interface.output_proj, lora_proj)
+            multisetattr(layer, model.adapter_interface.layer_output_proj, lora_proj)

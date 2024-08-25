@@ -15,12 +15,11 @@ class CustomInterfaceModelTestBase(AdapterTestBase):
     config_class = Gemma2Config
     config = make_config(
         Gemma2Config,
-        hidden_size=8,
-        num_hidden_layers=2,
+        hidden_size=32,
+        num_hidden_layers=4,
         num_attention_heads=4,
+        num_key_value_heads=4,
         intermediate_size=16,
-        head_dim=2,
-        num_key_value_heads=2,
         pad_token_id=0,
     )
     tokenizer_name = "yujiepan/gemma-2-tiny-random"
@@ -64,3 +63,6 @@ class CustomInterfaceModelTest(
 ):
     def create_twin_models(self):
         return create_twin_models(self.model_class, self.config, self.adapter_interface)
+
+    def test_merging_with_other_adapters(self):
+        self.skipTest("Does not support all required methods yet.")

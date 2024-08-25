@@ -83,9 +83,7 @@ _import_structure = {
         "Seq2SeqLMHead",
         "TaggingHead",
     ],
-    "interface": [
-        "AdapterModelInterface"
-    ],
+    "interface": ["AdapterModelInterface"],
     "methods.adapter_layer_base": ["AdapterLayerBase", "ComposableAdapterLayerBase"],
     "model_mixin": [
         "EmbeddingAdaptersMixin",
