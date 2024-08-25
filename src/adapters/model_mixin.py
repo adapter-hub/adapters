@@ -29,7 +29,7 @@ from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, ini
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
 from .methods.reft import init_reft
-from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc, patch_forward
+from .utils import EMBEDDING_FILE, TOKENIZER_PATH, multigetattr, get_adapter_config_hash, inherit_doc, patch_forward
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
 
@@ -1484,10 +1484,10 @@ class ModelBaseAdaptersMixin(ModelAdaptersMixin):
 
     def iter_layer_ffns(self) -> Iterable[Tuple[int, Literal["intermediate", "output"], nn.Module]]:
         for i, layer in self.iter_layers():
-            if hasattr(layer, self.adapter_interface.layer_intermediate_proj or ""):
-                yield i, "intermediate", getattr(layer, self.adapter_interface.layer_intermediate_proj)
-            if hasattr(layer, self.adapter_interface.layer_output or ""):
-                yield i, "output", getattr(layer, self.adapter_interface.layer_output_proj)
+            if intermediate_proj := multigetattr(layer, self.adapter_interface.layer_intermediate_proj):
+                yield i, "intermediate", intermediate_proj
+            if output_proj := multigetattr(layer, self.adapter_interface.layer_output_proj):
+                yield i, "output", output_proj
 
     def post_embedding_forward(self, module, args, embedding_output):
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
