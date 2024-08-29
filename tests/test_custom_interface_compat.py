@@ -2,12 +2,14 @@ import os
 import tempfile
 import unittest
 
+from parameterized import parameterized
+
 import torch
 
 import adapters
 from adapters import AdapterModelInterface, AutoAdapterModel
 from adapters.utils import WEIGHTS_NAME
-from transformers import AutoModelForCausalLM, LlamaConfig
+from transformers import AutoModel, AutoModelForCausalLM, BertConfig, LlamaConfig
 from transformers.testing_utils import require_torch, torch_device
 
 from .test_adapter import ids_tensor, make_config
@@ -15,7 +17,9 @@ from .test_adapter import ids_tensor, make_config
 
 @require_torch
 class CustomInterfaceCompatTest(unittest.TestCase):
-    config = make_config(
+    # This test is to check if the custom interface produces the same results as the AdapterModel implementation.
+
+    llama_config = make_config(
         LlamaConfig,
         hidden_size=32,
         num_hidden_layers=5,
@@ -24,7 +28,16 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         hidden_act="gelu",
         pad_token_id=0,
     )
-    adapter_interface = AdapterModelInterface(
+    bert_config = make_config(
+        BertConfig,
+        hidden_size=32,
+        num_hidden_layers=5,
+        num_attention_heads=4,
+        intermediate_size=37,
+        hidden_act="gelu",
+        pad_token_id=0,
+    )
+    llama_adapter_interface = AdapterModelInterface(
         adapter_types=["lora", "reft"],
         model_embeddings="embed_tokens",
         model_layers="layers",
@@ -36,18 +49,30 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         layer_intermediate_proj="mlp.up_proj",
         layer_output_proj="mlp.down_proj",
     )
+    bert_adapter_interface = AdapterModelInterface(
+        adapter_types=["lora", "reft"],
+        model_embeddings="embeddings",
+        model_layers="encoder.layer",
+        layer_self_attn="attention.self",
+        layer_cross_attn=None,
+        attn_k_proj="key",
+        attn_q_proj="query",
+        attn_v_proj="value",
+        layer_intermediate_proj="intermediate.dense",
+        layer_output_proj="output.dense",
+    )
 
-    def create_twin_models(self):
-        model1 = AutoModelForCausalLM.from_config(self.config())
-        adapters.init(model1, interface=self.adapter_interface)
+    def create_twin_models(self, config, adapter_interface, hf_auto_model_class):
+        model1 = hf_auto_model_class.from_config(config())
+        adapters.init(model1, interface=adapter_interface)
         model1.eval()
         # create a twin initialized with the same random weights
-        model2 = AutoAdapterModel.from_pretrained(None, config=self.config(), state_dict=model1.state_dict())
+        model2 = AutoAdapterModel.from_pretrained(None, config=config(), state_dict=model1.state_dict())
         model2.eval()
         return model1, model2
 
-    def run_load_test(self, adapter_config):
-        custom_model, auto_model = self.create_twin_models()
+    def run_load_test(self, adapter_config, config, adapter_interface, hf_auto_model_class):
+        custom_model, auto_model = self.create_twin_models(config, adapter_interface, hf_auto_model_class)
 
         name = "dummy_adapter"
         custom_model.add_adapter(name, config=adapter_config)
@@ -79,8 +104,13 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
 
-    def test_load_lora(self):
-        self.run_load_test(adapters.LoRAConfig())
-
-    def test_load_reft(self):
-        self.run_load_test(adapters.LoReftConfig())
+    @parameterized.expand(
+        [
+            ("LoRA_Llama", adapters.LoRAConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
+            ("LoRA_BERT", adapters.LoRAConfig(), bert_config, bert_adapter_interface, AutoModel),
+            ("LoReft_Llama", adapters.LoReftConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
+            ("LoReft_BERT", adapters.LoReftConfig(), bert_config, bert_adapter_interface, AutoModel),
+        ]
+    )
+    def test_load_adapter(self, name, adapter_config, config, adapter_interface, hf_auto_model_class):
+        self.run_load_test(adapter_config, config, adapter_interface, hf_auto_model_class)

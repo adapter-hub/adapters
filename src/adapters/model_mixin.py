@@ -29,7 +29,15 @@ from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, ini
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
 from .methods.reft import init_reft
-from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc, multigetattr, patch_forward
+from .utils import (
+    EMBEDDING_FILE,
+    TOKENIZER_PATH,
+    get_adapter_config_hash,
+    inherit_doc,
+    multigetattr,
+    multihasattr,
+    patch_forward,
+)
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
 
@@ -1469,18 +1477,18 @@ class ModelBaseAdaptersMixin(ModelAdaptersMixin):
     # Adapter Interface Methods
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        for i, layer in enumerate(getattr(self, self.adapter_interface.model_layers)):
+        for i, layer in enumerate(multigetattr(self, self.adapter_interface.model_layers)):
             yield i, layer
 
     def get_layer(self, idx: int) -> nn.Module:
-        return getattr(self, self.adapter_interface.model_layers)[idx]
+        return multigetattr(self, self.adapter_interface.model_layers)[idx]
 
     def iter_attentions(self) -> Iterable[Tuple[int, Literal["self", "cross"], nn.Module]]:
         for i, layer in self.iter_layers():
-            if hasattr(layer, self.adapter_interface.layer_self_attn or ""):
-                yield i, "self", getattr(layer, self.adapter_interface.layer_self_attn)
-            if hasattr(layer, self.adapter_interface.layer_cross_attn or ""):
-                yield i, "cross", getattr(layer, self.adapter_interface.layer_cross_attn)
+            if multihasattr(layer, self.adapter_interface.layer_self_attn or ""):
+                yield i, "self", multigetattr(layer, self.adapter_interface.layer_self_attn)
+            if multihasattr(layer, self.adapter_interface.layer_cross_attn or ""):
+                yield i, "cross", multigetattr(layer, self.adapter_interface.layer_cross_attn)
 
     def iter_layer_ffns(self) -> Iterable[Tuple[int, Literal["intermediate", "output"], nn.Module]]:
         for i, layer in self.iter_layers():

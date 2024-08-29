@@ -180,6 +180,16 @@ def multigetattr(o: object, name: str, default=None) -> Optional[object]:
     return o
 
 
+def multihasattr(o: object, name: str) -> bool:
+    parts = name.split(".")
+    for n in parts:
+        if hasattr(o, n):
+            o = getattr(o, n)
+        else:
+            return False
+    return True
+
+
 def multisetattr(o: object, name: str, value: object):
     parts = name.split(".")
     for n in parts[:-1]:
