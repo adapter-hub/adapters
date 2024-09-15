@@ -2,13 +2,12 @@ import os
 import tempfile
 import unittest
 
-from parameterized import parameterized
-
 import torch
 
 import adapters
 from adapters import AdapterModelInterface, AutoAdapterModel
 from adapters.utils import WEIGHTS_NAME
+from parameterized import parameterized
 from transformers import AutoModel, AutoModelForCausalLM, BertConfig, LlamaConfig
 from transformers.testing_utils import require_torch, torch_device
 

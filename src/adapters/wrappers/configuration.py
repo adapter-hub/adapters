@@ -94,7 +94,7 @@ def init_adapters_config(
         model.adapters_config = ModelAdaptersConfig()
     elif model_config.adapters is not None and not isinstance(model_config.adapters, ModelAdaptersConfig):
         model.adapters_config = ModelAdaptersConfig(**model_config.adapters)
-    if model.base_model is not model:
+    if hasattr(model, "base_model") and model.base_model is not model:
         model.base_model.adapters_config = model.adapters_config
 
     # Convert AdapterFusions from old format for backwards compatibility
