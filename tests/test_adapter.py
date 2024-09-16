@@ -35,8 +35,10 @@ def ids_tensor(shape, vocab_size, rng=None, name=None):
 class AdapterTestBase:
     # If not overriden by subclass, AutoModel should be used.
     model_class = AutoAdapterModel
+    tokenizer_name = "tests/fixtures/SiBERT"
     # Default shape of inputs to use
     default_input_samples_shape = (3, 64)
+    generate_input_samples_shape = (1, 4)
     leave_out_layers = [0, 1]
     do_run_train_tests = True
     # default arguments for test_adapter_heads
@@ -98,6 +100,9 @@ class AdapterTestBase:
         self.assertFalse(adapter_name in model.adapters_config)
         self.assertEqual(len(model.get_adapter(adapter_name)), 0)
 
+    def extract_input_ids(self, inputs):
+        return inputs["input_ids"]
+
 
 class VisionAdapterTestBase(AdapterTestBase):
     default_input_samples_shape = (3, 3, 224, 224)
@@ -146,9 +151,13 @@ class SpeechAdapterTestBase(AdapterTestBase):
     """Base class for speech adapter tests."""
 
     default_input_samples_shape = (3, 80, 3000)  # (batch_size, n_mels, enc_seq_len)
+    generate_input_samples_shape = (1, 80, 3000)
     is_speech_model = True  # Flag for tests to determine if the model is a speech model due to input format difference
     time_window = 3000  # Time window for audio samples
     seq_length = 80
+
+    def extract_input_ids(self, inputs):
+        return inputs["input_features"]
 
     def add_head(self, model, name, head_type="seq2seq_lm", **kwargs):
         """Adds a head to the model."""

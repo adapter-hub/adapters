@@ -182,6 +182,6 @@ class EmbeddingTestMixin:
             tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
             input_data = self.get_input_samples(config=self.config())
         else:
-            tokenizer = AutoTokenizer.from_pretrained("tests/fixtures/SiBERT")
+            tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
             input_data = self.get_input_samples((1, 128), vocab_size=tokenizer.vocab_size, config=model.config)
         return tokenizer, input_data

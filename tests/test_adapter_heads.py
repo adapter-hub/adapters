@@ -175,10 +175,8 @@ class PredictionHeadModelTestMixin:
 
         # Finally, also check if generation works properly
         input_shape = self._get_input_shape()
-        if self.is_speech_model:
-            input_ids = self.get_input_samples(input_shape, config=model1.config)["input_features"]
-        else:
-            input_ids = self.get_input_samples(input_shape, config=model1.config)["input_ids"]
+        input_ids = self.extract_input_ids(self.get_input_samples(input_shape, config=model1.config))
+
         input_ids = input_ids.to(torch_device)
         # Use a different length for the seq2seq output
         seq_output_length = self.seq_length + 30
