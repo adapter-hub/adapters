@@ -131,10 +131,10 @@ class ParallelAdapterInferenceTestMixin:
         seq_output_length = 32
 
         # Finally, also check if generation works properly
-        if self.is_speech_model:
-            input_ids = self.get_input_samples((1, 80, 3000), config=model1.config)["input_features"]
-        else:
-            input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
+        input_ids = self.extract_input_ids(
+            self.get_input_samples(self.generate_input_samples_shape, config=model1.config)
+        )
+
         input_ids = input_ids.to(torch_device)
         generated = model1.generate(input_ids, max_length=seq_output_length)
         self.assertLessEqual(generated.shape, (2, seq_output_length))
