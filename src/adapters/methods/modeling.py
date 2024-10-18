@@ -99,6 +99,8 @@ class Adapter(nn.Module):
             self.scaling = config["scaling"]
         elif config["scaling"] == "learned":
             self.scaling = nn.Parameter(torch.ones(1))
+        elif config["scaling"] == "channel":
+            self.scaling = nn.Parameter(torch.ones(input_size))
         else:
             raise ValueError("Unknown scaling type: {}".format(config["scaling"]))
 

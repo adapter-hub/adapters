@@ -161,8 +161,9 @@ class BnConfig(AdapterConfig):
             By default (False), sequential application is used.
         scaling (:obj:`float` or :obj:`str`, optional):
             Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021). Can be either a
-            constant factor (float) or the string "learned", in which case the scaling factor is learned. Defaults to
-            1.0.
+            constant factor (float), or the string "learned", in which case the scaling factor is learned, or the string 
+            "channel", in which case we initialize a scaling vector of the channel shape that is then learned.
+            Defaults to 1.0.
         use_gating (:obj:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False.
