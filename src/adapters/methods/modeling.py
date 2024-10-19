@@ -128,6 +128,14 @@ class Adapter(nn.Module):
                 nn.init.zeros_(self.adapter_up.bias)
                 if self.use_gating:
                     self.gate.apply(self.init_bert_weights)
+        elif config["init_weights"] == "houlsby":
+            for layer in self.adapter_down:
+                if isinstance(layer, nn.Linear) or isinstance(layer, PHMLayer):
+                    nn.init.trunc_normal_(layer.weight, mean = 0, std = 1e-2, a = -2*1e-2, b = 2*1e-2)
+                    nn.init.zeros_(layer.bias)
+                    
+            nn.init.trunc_normal_(self.adapter_up.weight, mean = 0, std = 1e-2, a = -2*1e-2, b = 2*1e-2)
+            nn.init.zeros_(self.adapter_up.bias)
         else:
             raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
 

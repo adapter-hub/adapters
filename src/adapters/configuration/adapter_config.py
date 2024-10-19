@@ -156,7 +156,7 @@ class BnConfig(AdapterConfig):
         ln_after (:obj:`bool`, optional): If True, add a new layer normalization after the adapter bottleneck.
             Defaults to False.
         init_weights (:obj:`str`, optional): Initialization method for the weights of the adapter modules.
-            Currently, this can be either "bert" (default) or "mam_adapter".
+            Currently, this can be either "bert" (default) or "mam_adapter" or "houlsby".
         is_parallel (:obj:`bool`, optional): If True, apply adapter transformations in parallel.
             By default (False), sequential application is used.
         scaling (:obj:`float` or :obj:`str`, optional):
@@ -364,6 +364,18 @@ class ParBnConfig(BnConfig):
     is_parallel: bool = True
     scaling: Union[float, str] = 4.0
 
+
+@dataclass(eq = False)
+class AdapterPlusConfig(BnConfig):
+    """
+    The AdapterPlus config architecture proposed by Jan-Martin O, Steitz and Stefan Roth. See https://arxiv.org/pdf/2406.06820
+    """
+    original_ln_after = False
+    non_linearity = "gelu"
+    init_weights = "houlsby"
+    scaling = "channel"
+    output_adapter = True
+    residual_before_ln = True
 
 @dataclass(eq=False)
 class PrefixTuningConfig(AdapterConfig):
