@@ -21,7 +21,9 @@ class AdapterConfig(Mapping):
     architecture: Optional[str] = None
 
     def __init__(self):
-        raise TypeError("AdapterConfig is an abstract class and cannot be instantiated.")
+        raise TypeError(
+            "AdapterConfig is an abstract class and cannot be instantiated."
+        )
 
     # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
     # Therefore, we don't allow changing attribute values if set once.
@@ -117,7 +119,9 @@ class AdapterConfig(Mapping):
         else:
             local_map = ADAPTER_CONFIG_MAP
         if download_kwargs:
-            config_dict = resolve_adapter_config(config, local_map=local_map, **download_kwargs)
+            config_dict = resolve_adapter_config(
+                config, local_map=local_map, **download_kwargs
+            )
         else:
             config_dict = resolve_adapter_config(config, local_map=local_map)
         # convert back to dict to allow attr overrides
@@ -161,7 +165,7 @@ class BnConfig(AdapterConfig):
             By default (False), sequential application is used.
         scaling (:obj:`float` or :obj:`str`, optional):
             Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021). Can be either a
-            constant factor (float), or the string "learned", in which case the scaling factor is learned, or the string 
+            constant factor (float), or the string "learned", in which case the scaling factor is learned, or the string
             "channel", in which case we initialize a scaling vector of the channel shape that is then learned.
             Defaults to 1.0.
         use_gating (:obj:`bool`, optional):
@@ -262,7 +266,9 @@ class BnConfig(AdapterConfig):
             # Now, we have two config keys directly in the adapter config.
             if value:
                 object.__setattr__(self, "inv_adapter", value["block_type"])
-                object.__setattr__(self, "inv_adapter_reduction_factor", value["reduction_factor"])
+                object.__setattr__(
+                    self, "inv_adapter_reduction_factor", value["reduction_factor"]
+                )
         else:
             object.__setattr__(self, name, value)
 
@@ -365,17 +371,20 @@ class ParBnConfig(BnConfig):
     scaling: Union[float, str] = 4.0
 
 
-@dataclass(eq = False)
+@dataclass(eq=False)
 class AdapterPlusConfig(BnConfig):
     """
     The AdapterPlus config architecture proposed by Jan-Martin O, Steitz and Stefan Roth. See https://arxiv.org/pdf/2406.06820
     """
+
     original_ln_after = False
     non_linearity = "gelu"
     init_weights = "houlsby"
     scaling = "channel"
     output_adapter = True
     residual_before_ln = True
+    drop_path = 0.1
+
 
 @dataclass(eq=False)
 class PrefixTuningConfig(AdapterConfig):
@@ -621,22 +630,34 @@ class ConfigUnion(AdapterConfig):
             if not isinstance(config, AdapterConfig):
                 raise TypeError(f"{config} is not an instance of AdapterConfig")
             elif isinstance(config, ConfigUnion):
-                raise TypeError(f"{config} of type {type(config)} is not supported in a config union.")
+                raise TypeError(
+                    f"{config} of type {type(config)} is not supported in a config union."
+                )
         # perform pairwise check
-        for c_a, c_b in [(c_a, c_b) for i, c_a in enumerate(configs) for j, c_b in enumerate(configs) if i > j]:
+        for c_a, c_b in [
+            (c_a, c_b)
+            for i, c_a in enumerate(configs)
+            for j, c_b in enumerate(configs)
+            if i > j
+        ]:
             if c_a.architecture != c_b.architecture:
                 continue
             # if at least one config specifies a leave_out, we cannot make a final decision at this point
             elif c_a.get("leave_out", []) or c_b.get("leave_out", []):
                 continue
             elif c_a.architecture is None or c_a.architecture == "bottleneck":
-                is_valid = c_a.mh_adapter != c_b.mh_adapter and c_a.output_adapter != c_b.output_adapter
+                is_valid = (
+                    c_a.mh_adapter != c_b.mh_adapter
+                    and c_a.output_adapter != c_b.output_adapter
+                )
                 if not is_valid:
                     raise ValueError(f"{c_a} and {c_b} cannot be combined.")
                 else:
                     continue
             # at this point, we know that the architectures are the same
-            raise ValueError(f"{c_a} and {c_b} have the same adapter architecture and cannot be combined.")
+            raise ValueError(
+                f"{c_a} and {c_b} have the same adapter architecture and cannot be combined."
+            )
 
     def __getitem__(self, key):
         if isinstance(key, int):
@@ -659,7 +680,10 @@ class ConfigUnion(AdapterConfig):
         return all([c_a == c_b for c_a, c_b in zip(self.configs, other.configs)])
 
     def to_dict(self):
-        return {"architecture": self.architecture, "configs": [c.to_dict() for c in self.configs]}
+        return {
+            "architecture": self.architecture,
+            "configs": [c.to_dict() for c in self.configs],
+        }
 
     def replace(self, **changes):
         return ConfigUnion(*[c.replace(**changes) for c in self.configs])
@@ -682,7 +706,11 @@ class MAMConfig(ConfigUnion):
     The Mix-And-Match adapter architecture proposed by He et al. (2021). See https://arxiv.org/pdf/2110.04366.pdf.
     """
 
-    def __init__(self, prefix_tuning: Optional[PrefixTuningConfig] = None, adapter: Optional[BnConfig] = None):
+    def __init__(
+        self,
+        prefix_tuning: Optional[PrefixTuningConfig] = None,
+        adapter: Optional[BnConfig] = None,
+    ):
         prefix_tuning = prefix_tuning or PrefixTuningConfig(bottleneck_size=800)
         adapter = adapter or ParBnConfig()
 
