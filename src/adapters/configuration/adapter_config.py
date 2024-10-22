@@ -639,7 +639,7 @@ class ConfigUnion(AdapterConfig):
             elif c_a.get("leave_out", []) or c_b.get("leave_out", []):
                 continue
             elif c_a.architecture is None or c_a.architecture == "bottleneck":
-                is_valid = (c_a.mh_adapter != c_b.mh_adapter and c_a.output_adapter != c_b.output_adapter)
+                is_valid = c_a.mh_adapter != c_b.mh_adapter and c_a.output_adapter != c_b.output_adapter
                 if not is_valid:
                     raise ValueError(f"{c_a} and {c_b} cannot be combined.")
                 else:
