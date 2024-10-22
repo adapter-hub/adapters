@@ -668,7 +668,7 @@ class ConfigUnion(AdapterConfig):
         return all([c_a == c_b for c_a, c_b in zip(self.configs, other.configs)])
 
     def to_dict(self):
-        return {"architecture": self.architecture, "configs": [c.to_dict() for c in self.configs],}
+        return {"architecture": self.architecture, "configs": [c.to_dict() for c in self.configs]}
 
     def replace(self, **changes):
         return ConfigUnion(*[c.replace(**changes) for c in self.configs])
