@@ -218,6 +218,10 @@ class BnConfig(AdapterConfig):
         phm_bias (:obj:`bool`, optional):
             If True the down and up projection PHMLayer has a bias term. If `phm_layer` is False this is ignored.
             Defaults to True
+        stochastic_depth (:obj:`float`, optional):
+            This value specifies the probability of the model dropping entire layers during
+            training. This parameter should be only used for vision based tasks involving
+            residual networks.
     """
 
     # Required options
@@ -255,6 +259,7 @@ class BnConfig(AdapterConfig):
     hypercomplex_nonlinearity: Optional[str] = "glorot-uniform"
     phm_rank: Optional[int] = 1
     phm_bias: Optional[bool] = True
+    stochastic_depth: Optional[float] = 0.0
 
     # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
     # Therefore, we don't allow changing attribute values if set once.
@@ -381,7 +386,7 @@ class AdapterPlusConfig(BnConfig):
     original_ln_after = False
     residual_before_ln = True
 
-    drop_path = 0.1
+    stochastic_depth = 0.1
     init_weights = "houlsby"
     non_linearity = "gelu"
     scaling = "channel"
