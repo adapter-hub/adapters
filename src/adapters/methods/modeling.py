@@ -384,7 +384,6 @@ class BertFusion(nn.Module):
         self.reduction = self.T / 1000.0
 
     def forward(self, query, key, value, residual, output_attentions: bool = False):
-        
         if self.config["residual_before"]:
             value += residual[:, :, None, :].repeat(1, 1, value.size(2), 1)
 
@@ -413,9 +412,7 @@ class BertFusion(nn.Module):
         attention_probs = nn.Softmax(dim=-1)(attention_scores / self.T)
         self.T = max(self.T - self.reduction, 1.0)
 
-        context_layer = torch.squeeze(
-            torch.matmul(attention_probs.unsqueeze(2), value_layer), dim=2
-        )
+        context_layer = torch.squeeze(torch.matmul(attention_probs.unsqueeze(2), value_layer), dim=2)
 
         if self.config["value"] and not self.config["value_before_softmax"]:
             # key/value have dims => batch, toks, number-of-adapters, feats
@@ -548,9 +545,9 @@ class GLOWCouplingBlock(nn.Module):
             r2 = self.s2(torch.cat([y2, *c], 1) if self.conditional else y2)
             s2, t2 = r2[:, : self.split_len1], r2[:, self.split_len1 :]
             y1 = (x1 - t2) / self.e(s2)
-            self.last_jac = -torch.sum(
-                self.log_e(s1), dim=tuple(range(1, self.ndims + 1))
-            ) - torch.sum(self.log_e(s2), dim=tuple(range(1, self.ndims + 1)))
+            self.last_jac = -torch.sum(self.log_e(s1), dim=tuple(range(1, self.ndims + 1))) - torch.sum(
+                self.log_e(s2), dim=tuple(range(1, self.ndims + 1))
+            )
 
         return [torch.cat((y1, y2), 1)]
 
@@ -630,16 +627,14 @@ class PHMLayer(nn.Module):
         if not self.shared_W_phm:
             if self.factorized_phm_W:
                 self.W_left = nn.Parameter(
-                    torch.Tensor(size=(self.phm_dim, self.phm_rank, self._out_feats_per_axis)), requires_grad=True
+                    torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self.phm_rank)), requires_grad=True
                 )
                 self.W_right = nn.Parameter(
-                    torch.Tensor(
-                        size=(self.phm_dim, self.phm_rank, self._out_feats_per_axis)
-                    ),
-                    requires_grad=True,
+                    torch.Tensor(size=(self.phm_dim, self.phm_rank, self._out_feats_per_axis)), requires_grad=True
                 )
             else:
-                torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self._out_feats_per_axis)),
+                self.W = nn.Parameter(
+                    torch.Tensor(size=(self.phm_dim, self._in_feats_per_axis, self._out_feats_per_axis)),
                     requires_grad=True,
                 )
         if self.bias_flag:
@@ -782,6 +777,7 @@ def init_shared_parameters(config, in_features, device):
         else:
             phm_rule = nn.Parameter(
                 torch.FloatTensor(config["phm_dim"], config["phm_dim"], config["phm_dim"]),
+                requires_grad=config["learn_phm"],
             )
             if config["phm_c_init"] == "normal":
                 phm_rule.data.normal_(mean=0, std=config["phm_init_range"])
