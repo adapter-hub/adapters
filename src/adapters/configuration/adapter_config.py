@@ -377,13 +377,14 @@ class AdapterPlusConfig(BnConfig):
     The AdapterPlus config architecture proposed by Jan-Martin O, Steitz and Stefan Roth. See https://arxiv.org/pdf/2406.06820
     """
 
-    original_ln_after = False
-    non_linearity = "gelu"
-    init_weights = "houlsby"
-    scaling = "channel"
     output_adapter = True
+    original_ln_after = False
     residual_before_ln = True
+
     drop_path = 0.1
+    init_weights = "houlsby"
+    non_linearity = "gelu"
+    scaling = "channel"
 
 
 @dataclass(eq=False)
