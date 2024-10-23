@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
+from hashlib import sha256
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -25,7 +26,7 @@ import torch
 import requests
 from filelock import FileLock
 from huggingface_hub import HfApi, HfFolder, snapshot_download
-from huggingface_hub.file_download import http_get, url_to_filename
+from huggingface_hub.file_download import http_get
 from huggingface_hub.utils import (
     EntryNotFoundError,
     RepositoryNotFoundError,
@@ -178,6 +179,38 @@ def urljoin(*args):
 def remote_file_exists(url):
     r = requests.head(url)
     return r.status_code == 200
+
+
+# Copied from here: https://github.com/huggingface/huggingface_hub/blob/v0.25.0/src/huggingface_hub/file_download.py#L266
+def url_to_filename(url: str, etag: Optional[str] = None) -> str:
+    """Generate a local filename from a url.
+
+    Convert `url` into a hashed filename in a reproducible way. If `etag` is
+    specified, append its hash to the url's, delimited by a period. If the url
+    ends with .h5 (Keras HDF5 weights) adds '.h5' to the name so that TF 2.0 can
+    identify it as a HDF5 file (see
+    https://github.com/tensorflow/tensorflow/blob/00fad90125b18b80fe054de1055770cfb8fe4ba3/tensorflow/python/keras/engine/network.py#L1380)
+
+    Args:
+        url (`str`):
+            The address to the file.
+        etag (`str`, *optional*):
+            The ETag of the file.
+
+    Returns:
+        The generated filename.
+    """
+    url_bytes = url.encode("utf-8")
+    filename = sha256(url_bytes).hexdigest()
+
+    if etag:
+        etag_bytes = etag.encode("utf-8")
+        filename += "." + sha256(etag_bytes).hexdigest()
+
+    if url.endswith(".h5"):
+        filename += ".h5"
+
+    return filename
 
 
 # Copied from last version of this method in HF codebase:
