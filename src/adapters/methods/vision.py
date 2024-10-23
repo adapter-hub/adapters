@@ -20,7 +20,7 @@ class StochasticDepth(nn.Module):
     def __init__(self, drop_prob: float = 0.0, keep_prob_scaling: bool = True):
         super().__init__()
         self.drop_prob = drop_prob
-        self.drop_prob_scaling = keep_prob_scaling
+        self.keep_prob_scaling = keep_prob_scaling
 
     def forward(self, x):
         return stochastic_depth(
@@ -61,7 +61,7 @@ def stochastic_depth(
 
     keep_prob = 1.0 - drop_prob
     # get the number of samples in the batch i.e input.shape[0]
-    sample_shape = [input.shape[0]] + [1] * (input.ndim - 1)
+    sample_shape = [x.shape[0]] + [1] * (x.ndim - 1)
 
     bernoulli_tensor = x.new_empty(
         sample_shape, dtype=x.dtype, device=x.device
