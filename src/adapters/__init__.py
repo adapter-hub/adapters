@@ -40,6 +40,7 @@ _import_structure = {
         "DEFAULT_ADAPTER_CONFIG",
         "DEFAULT_ADAPTERFUSION_CONFIG",
         "AdapterConfig",
+        "AdapterPlusConfig",
         "AdapterFusionConfig",
         "BnConfig",
         "CompacterConfig",
