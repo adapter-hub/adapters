@@ -376,14 +376,16 @@ class AdapterPlusConfig(BnConfig):
     The AdapterPlus config architecture proposed by Jan-Martin O, Steitz and Stefan Roth. See https://arxiv.org/pdf/2406.06820
     """
 
-    output_adapter = True
-    original_ln_after = False
-    residual_before_ln = True
+    original_ln_after: bool = False
+    residual_before_ln: bool = True
+    stochastic_depth: float = 0.1
+    init_weights: str = "houlsby"
+    scaling: Union[float, str] = "channel"
 
-    stochastic_depth = 0.1
-    init_weights = "houlsby"
-    non_linearity = "gelu"
-    scaling = "channel"
+    mh_adapter: bool = False
+    output_adapter: bool = True
+    reduction_factor: Union[float, Mapping] = 2
+    non_linearity: str = "gelu"
 
 
 @dataclass(eq=False)
