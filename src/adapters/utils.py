@@ -382,6 +382,11 @@ def get_from_cache(
 
 
 def download_cached(url, checksum=None, checksum_algo="sha1", cache_dir=None, force_extract=False, **kwargs):
+    """
+    This method downloads a file and caches it.
+
+    For more information on why this is needed, refer to the explanation in this Pull Request: https://github.com/adapter-hub/adapters/pull/750
+    """
     if isinstance(url, Path):
         url = str(url)
 
