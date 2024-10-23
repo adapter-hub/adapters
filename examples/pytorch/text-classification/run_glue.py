@@ -27,7 +27,6 @@ import datasets
 import numpy as np
 from datasets import load_dataset
 
-import adapters
 import evaluate
 import transformers
 from adapters import AdapterArguments, AdapterTrainer, AutoAdapterModel, setup_adapter_training
