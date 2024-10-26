@@ -3,7 +3,14 @@ import random
 
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig, SeqBnConfig, T5AdapterModel
+from adapters import (
+    ADAPTER_MODEL_MAPPING,
+    AutoAdapterModel,
+    LoRAConfig,
+    PrefixTuningConfig,
+    SeqBnConfig,
+    T5AdapterModel,
+)
 from adapters.composition import BatchSplit, Parallel
 from adapters.models.bert_generation.adapter_model import BertGenerationAdapterModel
 from transformers import MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, Trainer, TrainingArguments
@@ -277,6 +284,9 @@ class ParallelTrainingMixin:
 
     def test_parallel_training_bottleneck(self):
         self.run_parallel_training_test(SeqBnConfig(), "adapters.{}")
+
+    def test_parallel_training_lora(self):
+        self.run_parallel_training_test(LoRAConfig(), "loras.{}")
 
     def test_parallel_training_prefix_tuning(self):
         self.run_parallel_training_test(PrefixTuningConfig(), "prefix_tunings.{}")

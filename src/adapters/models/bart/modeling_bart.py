@@ -19,7 +19,13 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 
-from transformers.models.bart.modeling_bart import BartAttention, BartDecoderLayer, BartEncoderLayer
+from transformers.models.bart.modeling_bart import (
+    BartAttention,
+    BartDecoderLayer,
+    BartEncoderLayer,
+    BartFlashAttention2,
+    BartSdpaAttention,
+)
 from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
@@ -31,6 +37,10 @@ logger = logging.get_logger(__name__)
 
 class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
+
+    # Loosen constraint on batch_size to allow parallel adapter composition
+    def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
+        return tensor.view(tensor.shape[0], seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
 
     def forward(
         self,
@@ -164,7 +174,12 @@ class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartAttention):
+class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartFlashAttention2):
+
+    # Loosen constraint on batch_size to allow parallel adapter composition
+    def _reshape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
+        return tensor.view(tensor.shape[0], seq_len, self.num_heads, self.head_dim)
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -275,7 +290,12 @@ class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartAttention)
         return attn_output, attn_weights, past_key_value
 
 
-class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
+class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartSdpaAttention):
+
+    # Loosen constraint on batch_size to allow parallel adapter composition
+    def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
+        return tensor.view(tensor.shape[0], seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
+
     def forward(
         self,
         hidden_states: torch.Tensor,
