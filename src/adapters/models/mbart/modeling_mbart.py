@@ -30,7 +30,7 @@ class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):
 
     # Loosen constraint on batch_size to allow parallel adapter composition
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
-        return tensor.view(-1, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
+        return tensor.view(tensor.shape[0], seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
 
     def forward(
         self,
