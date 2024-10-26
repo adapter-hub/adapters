@@ -283,16 +283,16 @@ class ParallelTrainingMixin:
                 self.assertTrue(torch.allclose(v, state_dict[k.replace(b1, b2)], atol=1e-5))
 
     def test_parallel_training_bottleneck(self):
-        self.run_parallel_training_test(SeqBnConfig(), "adapters.{}")
+        self.run_parallel_training_test(SeqBnConfig(reduction_factor=48), "adapters.{}")
 
     def test_parallel_training_lora(self):
-        self.run_parallel_training_test(LoRAConfig(), "loras.{}")
+        self.run_parallel_training_test(LoRAConfig(r=1), "loras.{}")
 
     def test_parallel_training_prefix_tuning(self):
         self.run_parallel_training_test(PrefixTuningConfig(), "prefix_tunings.{}")
 
     def test_parallel_training_equivalent_to_single_bottleneck(self):
-        self.run_parallel_training_equivalent_to_single(SeqBnConfig())
+        self.run_parallel_training_equivalent_to_single(SeqBnConfig(reduction_factor=48))
 
     def test_parallel_training_equivalent_to_single_prefix_tuning(self):
         self.run_parallel_training_equivalent_to_single(PrefixTuningConfig())
@@ -301,8 +301,8 @@ class ParallelTrainingMixin:
         model = AutoAdapterModel.from_config(self.config())
         model.eval()
 
-        a1, a2 = self.create_twin_adapters(model, "a", SeqBnConfig())
-        b1, b2 = self.create_twin_adapters(model, "b", SeqBnConfig())
+        a1, a2 = self.create_twin_adapters(model, "a", SeqBnConfig(reduction_factor=48))
+        b1, b2 = self.create_twin_adapters(model, "b", SeqBnConfig(reduction_factor=48))
 
         state_dict = model.state_dict()
         for k, v in state_dict.items():
