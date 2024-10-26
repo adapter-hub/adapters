@@ -34,24 +34,18 @@ def stochastic_depth(
     """
     Applies stochastic_depth to a batch.
 
-    Parameters
-    ----------
-
-    x: torch.Tensor of size (batch_size, ...)
-        A residual block
-
-    drop_prob: float between 0.0 <= drop_prob <= 1.0
-        The probability of dropping the sample inside the batch
-
-    keep_prob_scaling: bool, optional
-        Boolean parameter to specify whether to scale samples by keep_prob if
-        they are kept
-
-    training: bool, optional
-        Boolean parameter to specify whether or not the model is in training
-        or inference mode. Stochastic Depth is not applied during inference
-        similar to Dropout.
-
+    Args:
+        x: torch.Tensor of size (batch_size, ...)
+            A residual block
+        drop_prob: float between 0.0 <= drop_prob <= 1.0
+            The probability of dropping the sample inside the batch
+        keep_prob_scaling: bool, optional
+            Boolean parameter to specify whether to scale samples by keep_prob if
+            they are kept
+        training: bool, optional
+            Boolean parameter to specify whether or not the model is in training
+            or inference mode. Stochastic Depth is not applied during inference
+            similar to Dropout.
     """
     if drop_prob >= 1.0 or drop_prob < 0.0:
         raise ValueError("drop_prob must be between 0.0 and 1.0")
