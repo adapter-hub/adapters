@@ -194,7 +194,7 @@ class Adapter(nn.Module):
         down = self.adapter_down(x)
 
         up = self.adapter_up(down)
-        if self.DropPath:
+        if hasattr(self, "DropPath"):
             up = self.DropPath(up)
         up = up * self.scaling
         output = self.dropout(up)
