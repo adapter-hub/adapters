@@ -113,6 +113,10 @@ class AlbertSdpaAttentionWithAdapters(AlbertAttentionAdaptersMixin, AlbertSdpaAt
         head_mask: Optional[torch.FloatTensor] = None,
         output_attentions: bool = False,
     ) -> Union[Tuple[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
+        # >>> START AH Changes <<<
+        attention_mask = prefix_attention_mask(attention_mask, [2, 3])  # type: ignore
+        # >>> END AH Changes <<<
+
         if self.position_embedding_type != "absolute" or output_attentions or head_mask is not None:
             logger.warning(
                 "AlbertSdpaAttention is used but `torch.nn.functional.scaled_dot_product_attention` does not support "
@@ -123,13 +127,12 @@ class AlbertSdpaAttentionWithAdapters(AlbertAttentionAdaptersMixin, AlbertSdpaAt
             )
             return super().forward(hidden_states, attention_mask, head_mask, output_attentions)
 
-        attention_mask = prefix_attention_mask(attention_mask)  # type: ignore
-
         batch_size, seq_len, _ = hidden_states.size()
         query_layer = self.transpose_for_scores(self.query(hidden_states))
         key_layer = self.transpose_for_scores(self.key(hidden_states))
         value_layer = self.transpose_for_scores(self.value(hidden_states))
 
+        # >>> START AH Changes <<<
         query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
         (attention_mask,) = adjust_tensors_for_parallel(query_layer, attention_mask)
 
@@ -137,6 +140,8 @@ class AlbertSdpaAttentionWithAdapters(AlbertAttentionAdaptersMixin, AlbertSdpaAt
             key_layer, value_layer, hidden_states, attention_mask
         )
         (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
+        batch_size = query_layer.size(0)
+        # >>> END AH Changes <<<
 
         # SDPA with memory-efficient backend is broken in torch==2.1.2 when using non-contiguous inputs and a custom
         # attn_mask, so we need to call `.contiguous()` here. This was fixed in torch==2.2.0.

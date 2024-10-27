@@ -166,6 +166,10 @@ class XLMRobertaSdpaSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, XL
         past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
+        # >>> START AH Changes <<<
+        attention_mask = prefix_attention_mask(attention_mask, [2, 3])  # type: ignore
+        # >>> END AH Changes <<<
+
         if self.position_embedding_type != "absolute" or output_attentions or head_mask is not None:
             # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"` once implemented.
             logger.warning_once(
@@ -226,6 +230,7 @@ class XLMRobertaSdpaSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, XL
             key_layer, value_layer, hidden_states, attention_mask
         )
         (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
+        bsz = query_layer.size(0)
         # >>> END AH Changes <<<
 
         # SDPA with memory-efficient backend is broken in torch==2.1.2 when using non-contiguous inputs and a custom
