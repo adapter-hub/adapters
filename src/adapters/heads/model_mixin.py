@@ -94,6 +94,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     def get_output_embeddings(self) -> Union[nn.Module, List[nn.Module]]:
         # Only gets the output embeddings for the currently active head
         embeddings = []
+        if not self._active_heads:
+            return None
         for head_name in self._active_heads:
             if head_name in self.heads:
                 head = self.heads[head_name]
@@ -109,6 +111,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
     def set_output_embeddings(self, new_embeddings: Union[nn.Module, List[nn.Module]]):
         # Only sets the output embeddings for the currently active head
+        if not self._active_heads:
+            return
         if not isinstance(new_embeddings, list):
             new_embeddings = [new_embeddings] * len(self._active_heads)
         for head_name, emb in zip(self._active_heads, new_embeddings):
