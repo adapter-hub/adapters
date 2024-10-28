@@ -7,7 +7,7 @@ from transformers.activations import get_activation
 
 from ..configuration import AdapterFusionConfig, BnConfig
 from ..context import ForwardContext
-from .vision import StochasticDepth
+from torchvision.ops.stochastic_depth import StochasticDepth
 
 
 class Activation_Function_Class(nn.Module):
@@ -145,7 +145,7 @@ class Adapter(nn.Module):
             raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
 
         if config["stochastic_depth"] > 0.0:
-            self.DropPath = StochasticDepth(drop_prob=config["stochastic_depth"])
+            self.DropPath = StochasticDepth(p=config["stochastic_depth"], mode = "row")
 
     def pre_forward(
         self,
