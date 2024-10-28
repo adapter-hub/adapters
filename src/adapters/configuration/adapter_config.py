@@ -384,7 +384,7 @@ class AdapterPlusConfig(BnConfig):
 
     mh_adapter: bool = False
     output_adapter: bool = True
-    reduction_factor: Union[float, Mapping] = 2
+    reduction_factor: Union[float, Mapping] = 96
     non_linearity: str = "gelu"
 
 
