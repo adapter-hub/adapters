@@ -34,6 +34,9 @@ Single (bottleneck) adapters
 .. autoclass:: adapters.CompacterPlusPlusConfig
     :members:
 
+.. autoclass:: adapters.AdapterPlusConfig
+    :members:
+
 Prefix Tuning
 ~~~~~~~~~~~~~~~~~~~~~~~
 
