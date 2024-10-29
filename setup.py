@@ -39,7 +39,7 @@ _deps = [
     "protobuf",
     "psutil",
     "pytest>=7.2.0,<8.0.0",
-    "pytest-subtests",
+    "pytest-rich",
     "pytest-timeout",
     "pytest-xdist",
     "markupsafe==2.0.1",
