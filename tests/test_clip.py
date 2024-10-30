@@ -23,7 +23,7 @@ from .methods import (
     ReftTestMixin,
     UniPELTTestMixin,
 )
-from .test_adapter import AdapterTestBase, VisionAdapterTestBase, make_config
+from .test_adapter import TextAdapterTestBase, VisionAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 
@@ -90,7 +90,7 @@ class CLIPVisionWithProjectionAdapterTest(
     pass
 
 
-class CLIPTextAdapterTestBase(AdapterTestBase):
+class CLIPTextAdapterTestBase(TextAdapterTestBase):
     model_class = CLIPTextModel
     config_class = CLIPTextConfig
     config = make_config(
@@ -120,7 +120,7 @@ class CLIPTextAdapterTest(
     pass
 
 
-class CLIPTextWithProjectionAdapterTestBase(AdapterTestBase):
+class CLIPTextWithProjectionAdapterTestBase(TextAdapterTestBase):
     model_class = CLIPTextModelWithProjection
     config_class = CLIPTextConfig
     config = make_config(
@@ -150,7 +150,7 @@ class CLIPTextWithProjectionAdapterTest(
     pass
 
 
-class CLIPAdapterTestBase(AdapterTestBase):
+class CLIPAdapterTestBase(TextAdapterTestBase):
     config_class = CLIPConfig
     config = staticmethod(
         lambda: CLIPConfig.from_text_vision_configs(

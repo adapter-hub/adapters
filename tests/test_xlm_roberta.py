@@ -4,12 +4,12 @@ from transformers import XLMRobertaConfig
 from transformers.testing_utils import require_torch
 
 from .methods import AllMethodsTestMixin
-from .test_adapter import AdapterTestBase, make_config
+from .test_adapter import TextAdapterTestBase, make_config
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 
 
-class XLMRobertaAdapterTestBase(AdapterTestBase):
+class XLMRobertaAdapterTestBase(TextAdapterTestBase):
     config_class = XLMRobertaConfig
     config = make_config(
         XLMRobertaConfig,

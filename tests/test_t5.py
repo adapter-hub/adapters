@@ -13,7 +13,7 @@ from .methods import (
     ReftTestMixin,
     UniPELTTestMixin,
 )
-from .test_adapter import AdapterTestBase, make_config
+from .test_adapter import TextAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
@@ -22,7 +22,7 @@ from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
 @require_torch
-class T5AdapterTestBase(AdapterTestBase):
+class T5AdapterTestBase(TextAdapterTestBase):
     config_class = T5Config
     config = make_config(
         T5Config,

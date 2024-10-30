@@ -14,7 +14,7 @@ from .methods import (
     ReftTestMixin,
     UniPELTTestMixin,
 )
-from .test_adapter import AdapterTestBase, make_config
+from .test_adapter import TextAdapterTestBase, make_config
 from .test_adapter_backward_compability import CompabilityTestMixin
 from .test_adapter_conversion import ModelClassConversionTestMixin
 from .test_adapter_embeddings import EmbeddingTestMixin
@@ -22,7 +22,7 @@ from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .test_adapter_heads import PredictionHeadModelTestMixin
 
 
-class GPT2AdapterTestBase(AdapterTestBase):
+class GPT2AdapterTestBase(TextAdapterTestBase):
     config_class = GPT2Config
     config = make_config(
         GPT2Config,

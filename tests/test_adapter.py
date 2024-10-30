@@ -41,7 +41,7 @@ class AbstractAdapterTestBase:
         """Loads a dummy dataset for the model."""
         raise NotImplementedError("get_dataset() must be implemented in the subclass.")
 
-    def build_model(self):
+    def get_model(self):
         """Builds a model instance for testing based on the provied model configuration."""
         if self.model_class == AutoAdapterModel:
             model = AutoAdapterModel.from_config(self.config())
@@ -146,7 +146,7 @@ class VisionAdapterTestBase(AbstractAdapterTestBase):
         )
         if feature_extractor is None:
             feature_extractor = AutoFeatureExtractor.from_pretrained(self.feature_extractor_name)
-            
+
         def transform(example_batch):
             inputs = feature_extractor([x for x in example_batch["img"]], return_tensors="pt")
             inputs["labels"] = example_batch["label"]

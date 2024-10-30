@@ -14,11 +14,11 @@ from .methods import (
     PrefixTuningTestMixin,
     UniPELTTestMixin,
 )
-from .test_adapter import AdapterTestBase
+from .test_adapter import TextAdapterTestBase
 from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 
 
-class EncoderDecoderAdapterTestBase(AdapterTestBase):
+class EncoderDecoderAdapterTestBase(TextAdapterTestBase):
     model_class = EncoderDecoderModel
     config_class = EncoderDecoderConfig
     config = staticmethod(
