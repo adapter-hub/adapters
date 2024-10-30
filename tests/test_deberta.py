@@ -42,7 +42,8 @@ class DebertaAdapterTest(
     DebertaAdapterTestBase,
     unittest.TestCase,
 ):
-    pass
+    def test_parallel_training_lora(self):
+        self.skipTest("Not supported for DeBERTa")
 
 
 @require_torch
