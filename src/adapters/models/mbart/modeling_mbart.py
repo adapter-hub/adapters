@@ -28,6 +28,10 @@ from ..bart.mixin_bart import BartAttentionAdaptersMixin, BartDecoderLayerAdapte
 class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
+    # Loosen constraint on batch_size to allow parallel adapter composition
+    def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
+        return tensor.view(tensor.shape[0], seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
+
     def forward(
         self,
         hidden_states: torch.Tensor,

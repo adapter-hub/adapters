@@ -258,6 +258,12 @@ class PredictionHeadModelTestMixin:
         self.assertFalse(name in model.config.prediction_heads)
         self.assertNotEqual(name, model.active_head)
 
+        # add head again
+        self.add_head(model, name)
+        self.assertTrue(name in model.heads)
+        self.assertTrue(name in model.config.prediction_heads)
+        self.assertEqual(name, model.active_head)
+
     def test_adapter_with_head(self):
         model1, model2 = create_twin_models(self.model_class, self.config)
 

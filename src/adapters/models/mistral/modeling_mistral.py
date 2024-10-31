@@ -68,15 +68,16 @@ class MistralAttentionWithAdapters(MistralAttentionMixin, MistralAttention):
         key_states = self.k_proj(hidden_states)
         value_states = self.v_proj(hidden_states)
 
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-
         # >>> START AH Changes <<<
+        # Loosen constraint on batch_size to allow parallel adapter composition
+        query_states = query_states.view(-1, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        key_states = key_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        value_states = value_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
-        (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
+        (attention_mask, position_ids) = adjust_tensors_for_parallel(query_states, attention_mask, position_ids)
         # >>> END AH Changes <<<
 
         cos, sin = self.rotary_emb(value_states, position_ids)
@@ -153,15 +154,16 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
         key_states = self.k_proj(hidden_states)
         value_states = self.v_proj(hidden_states)
 
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-
         # >>> START AH Changes <<<
+        # Loosen constraint on batch_size to allow parallel adapter composition
+        query_states = query_states.view(-1, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        key_states = key_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        value_states = value_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
-        (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
+        (attention_mask, position_ids) = adjust_tensors_for_parallel(query_states, attention_mask, position_ids)
         # >>> END AH Changes <<<
 
         kv_seq_len = key_states.shape[-2]
@@ -310,15 +312,16 @@ class MistralSdpaAttentionWithAdapters(MistralAttentionMixin, MistralSdpaAttenti
         key_states = self.k_proj(hidden_states)
         value_states = self.v_proj(hidden_states)
 
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-
         # >>> START AH Changes <<<
+        # Loosen constraint on batch_size to allow parallel adapter composition
+        query_states = query_states.view(-1, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        key_states = key_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        value_states = value_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
-        (attention_mask,) = adjust_tensors_for_parallel(query_states, attention_mask)
+        (attention_mask, position_ids) = adjust_tensors_for_parallel(query_states, attention_mask, position_ids)
         # >>> END AH Changes <<<
 
         cos, sin = self.rotary_emb(value_states, position_ids)
