@@ -28,18 +28,72 @@ style:
 	isort $(check_dirs)
 	${MAKE} extra_style_checks
 
-# Run tests for the library
+# Library Tests
 
+# run all tests in the library
 test:
 	python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
+# run tests for the adapter methods
 test-adapter-methods:
-	python -m pytest --ignore ./tests/models -n auto --dist=loadfile -s -v ./tests/
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/
 
+# run tests for the adapter models
 test-adapter-models:
-	python -m pytest -n auto --dist=loadfile -s -v ./tests/models
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_models/
+
+# run the core tests for all models
+test-adapter-core:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m core
+
+# run the adapter composition tests for all models
+test-adapter-composition:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m composition
+
+# run the head tests for all models
+test-adapter-heads:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m heads
+
+# run the embedding teasts for all models
+test-adapter-embeddings:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m embeddings
+
+# run the class conversion tests for all models
+test-adapter-class_conversion:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m class_conversion
+
+# run the prefix tuning tests for all models
+test-adapter-prefix_tuning:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m prefix_tuning
+
+# run the prompt tuning tests for all models
+test-adapter-prompt_tuning:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m prompt_tuning
+
+# run the reft tests for all models
+test-adapter-reft:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m reft
+
+# run the unipelt tests for all models
+test-adapter-unipelt:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m unipelt
+
+# run the compacter tests for all models
+test-adapter-compacter:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m compacter
+
+# run the bottleneck tests for all models
+test-adapter-bottleneck:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m bottleneck
+
+# run the ia3 tests for all models
+test-adapter-ia3:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m ia3
+
+# run the lora tests for all models
+test-adapter-lora:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m lora
 
 # Run tests for examples
-
 test-examples:
 	python -m pytest -n auto --dist=loadfile -s -v ./examples/pytorch/

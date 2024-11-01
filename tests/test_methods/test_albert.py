@@ -21,6 +21,7 @@ class AlbertAdapterTestBase(TextAdapterTestBase):
 
 
 @require_torch
+@pytest.mark.core
 class Core(
     AlbertAdapterTestBase,
     ModelClassConversionTestMixin,
@@ -34,6 +35,7 @@ class Core(
 
 
 @require_torch
+@pytest.mark.composition
 class Composition(
     AlbertAdapterTestBase,
     ParallelAdapterInferenceTestMixin,
@@ -44,6 +46,7 @@ class Composition(
 
 
 @require_torch
+@pytest.mark.heads
 class Heads(
     AlbertAdapterTestBase,
     PredictionHeadModelTestMixin,
@@ -53,6 +56,7 @@ class Heads(
 
 
 @require_torch
+@pytest.mark.embeddings
 class Embeddings(
     AlbertAdapterTestBase,
     EmbeddingTestMixin,
@@ -62,6 +66,7 @@ class Embeddings(
 
 
 @require_torch
+@pytest.mark.class_conversion
 class ClassConversion(
     ModelClassConversionTestMixin,
     AlbertAdapterTestBase,
@@ -71,6 +76,7 @@ class ClassConversion(
 
 
 @require_torch
+@pytest.mark.prefix_tuning
 class PrefixTuning(
     AlbertAdapterTestBase,
     PrefixTuningTestMixin,
@@ -80,6 +86,7 @@ class PrefixTuning(
 
 
 @require_torch
+@pytest.mark.prompt_tuning
 class PromptTuning(
     AlbertAdapterTestBase,
     PromptTuningTestMixin,
@@ -89,6 +96,7 @@ class PromptTuning(
 
 
 @require_torch
+@pytest.mark.reft
 class ReFT(
     AlbertAdapterTestBase,
     ReftTestMixin,
@@ -98,6 +106,7 @@ class ReFT(
 
 
 @require_torch
+@pytest.mark.unipelt
 class UniPELT(
     AlbertAdapterTestBase,
     UniPELTTestMixin,
@@ -107,6 +116,7 @@ class UniPELT(
 
 
 @require_torch
+@pytest.mark.compacter
 class Compacter(
     AlbertAdapterTestBase,
     CompacterTestMixin,
@@ -116,6 +126,7 @@ class Compacter(
 
 
 @require_torch
+@pytest.mark.bottleneck
 class Bottleneck(
     AlbertAdapterTestBase,
     BottleneckAdapterTestMixin,
@@ -125,6 +136,7 @@ class Bottleneck(
 
 
 @require_torch
+@pytest.mark.ia3
 class IA3(
     AlbertAdapterTestBase,
     IA3TestMixin,
@@ -134,6 +146,7 @@ class IA3(
 
 
 @require_torch
+@pytest.mark.lora
 class LoRA(
     AlbertAdapterTestBase,
     LoRATestMixin,
