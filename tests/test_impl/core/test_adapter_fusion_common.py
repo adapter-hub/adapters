@@ -3,7 +3,6 @@ import os
 import tempfile
 from dataclasses import asdict
 
-import pytest
 import torch
 
 from adapters import ADAPTER_MODEL_MAPPING, ADAPTERFUSION_CONFIG_MAP, AdapterConfig, AutoAdapterModel, SeqBnConfig

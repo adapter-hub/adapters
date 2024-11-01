@@ -4,7 +4,6 @@ import random
 import tempfile
 import unittest
 
-import pytest
 import torch
 
 from adapters import BertAdapterModel, Fuse

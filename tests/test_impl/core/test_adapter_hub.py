@@ -2,7 +2,6 @@ import os
 import unittest
 
 import numpy as np
-import pytest
 
 import adapters
 from adapters import ADAPTER_CONFIG_MAP, AdapterConfig, BertAdapterModel, get_adapter_config_hash

@@ -2,7 +2,6 @@ import inspect
 import re
 import tempfile
 
-import pytest
 import torch
 
 import adapters

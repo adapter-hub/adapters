@@ -1,7 +1,6 @@
 import copy
 import random
 
-import pytest
 import torch
 
 from adapters import (

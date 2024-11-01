@@ -2,8 +2,6 @@ import unittest
 from tempfile import TemporaryDirectory
 from typing import Dict
 
-import pytest
-
 import adapters
 from adapters import BertAdapterModel
 from transformers import BertConfig, BertForSequenceClassification

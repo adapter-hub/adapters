@@ -1,8 +1,6 @@
 import unittest
 from dataclasses import FrozenInstanceError
 
-import pytest
-
 from adapters import ADAPTERFUSION_CONFIG_MAP, AdapterFusionConfig
 from transformers.testing_utils import require_torch
 

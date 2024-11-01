@@ -2,8 +2,6 @@ import json
 import unittest
 from dataclasses import FrozenInstanceError, dataclass
 
-import pytest
-
 from adapters import (
     ADAPTER_CONFIG_MAP,
     AdapterConfig,

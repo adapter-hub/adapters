@@ -1,7 +1,6 @@
 import copy
 import tempfile
 
-import pytest
 import torch
 
 import adapters

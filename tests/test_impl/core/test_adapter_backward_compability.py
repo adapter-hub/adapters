@@ -2,8 +2,6 @@ import json
 import os
 import tempfile
 
-import pytest
-
 from adapters import SeqBnConfig, __version__
 from tests.test_impl.base import create_twin_models
 from transformers.testing_utils import require_torch

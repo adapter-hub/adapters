@@ -1,6 +1,5 @@
 import unittest
 
-import pytest
 import torch
 
 import adapters
