@@ -138,7 +138,7 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="1.0.0",
+    version="1.0.1",
     author="The AdapterHub team and community contributors",
     author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
@@ -154,7 +154,7 @@ setup(
     python_requires=">=3.8.0",
     install_requires=install_requires,
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "Intended Audience :: Education",
         "Intended Audience :: Science/Research",
