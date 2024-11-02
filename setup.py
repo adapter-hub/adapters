@@ -21,9 +21,10 @@ from setuptools import find_packages, setup
 # We try to follow their general layout wherever sensible.
 
 _deps = [
-    "accelerate>=0.21.0",
+    "accelerate>=0.26.0",
     "beautifulsoup4",
     "black~=24.4.0",
+    "dataclasses",
     "datasets!=2.5.0",
     "dill<0.3.5",
     "docutils==0.16.0",
@@ -38,7 +39,7 @@ _deps = [
     "protobuf",
     "psutil",
     "pytest>=7.2.0,<8.0.0",
-    "pytest-subtests",
+    "pytest-rich",
     "pytest-timeout",
     "pytest-xdist",
     "markupsafe==2.0.1",
@@ -58,7 +59,7 @@ _deps = [
     "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch",
-    "transformers~=4.44.0",
+    "transformers~=4.45.2",
 ]
 
 
@@ -84,7 +85,7 @@ extras["torch"] = deps_list("torch", "accelerate")
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = deps_list(
     "pytest",
-    "pytest-subtests",
+    "pytest-rich",
     "pytest-xdist",
     "timeout-decorator",
     "parameterized",
