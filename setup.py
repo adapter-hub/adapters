@@ -58,6 +58,7 @@ _deps = [
     "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch",
+    "torchvision",
     "transformers~=4.44.0",
 ]
 
