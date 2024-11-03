@@ -145,7 +145,7 @@ class Adapter(nn.Module):
             raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
 
         if config["stochastic_depth"] > 0.0:
-            if is_torchvision_available:
+            if is_torchvision_available():
                 from torchvision.ops.stochastic_depth import StochasticDepth
                 self.DropPath = StochasticDepth(p=config["stochastic_depth"], mode = "row")
             else:
