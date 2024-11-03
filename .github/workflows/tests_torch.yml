@@ -63,7 +63,7 @@ jobs:
       - name: Install
         run: |
           pip install torch==2.3
-          pip install .[sklearn,testing,sentencepiece,torch-vision]
+          pip install .[sklearn,testing,sentencepiece,torchvision]
       - name: Test
         run: |
           make test-adapter-methods
@@ -86,7 +86,7 @@ jobs:
       - name: Install
         run: |
           pip install torch==2.3
-          pip install .[sklearn,testing,sentencepiece,torch-vision]
+          pip install .[sklearn,testing,sentencepiece,torchvision]
       - name: Test
         run: |
           make test-adapter-models
@@ -109,7 +109,7 @@ jobs:
       - name: Install
         run: |
           pip install torch==2.3
-          pip install .[sklearn,testing,sentencepiece,torch-vision]
+          pip install .[sklearn,testing,sentencepiece,torchvision]
           pip install conllu seqeval
       - name: Test Examples
         run: |

@@ -59,6 +59,7 @@ _deps = [
     "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch",
+    "torchvision",
     "transformers~=4.45.2",
 ]
 
@@ -82,6 +83,7 @@ extras["sklearn"] = deps_list("scikit-learn")
 
 extras["torch"] = deps_list("torch", "accelerate")
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
+extras["torchvision"] = deps_list("torchvision")
 extras["testing"] = deps_list(
     "pytest",
     "pytest-rich",
