@@ -80,7 +80,7 @@ extras = {}
 extras["sklearn"] = deps_list("scikit-learn")
 
 extras["torch"] = deps_list("torch", "accelerate")
-
+extras["torchvision"] = deps_list("torchvision")
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = deps_list(
     "pytest",
