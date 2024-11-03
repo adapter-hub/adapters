@@ -81,8 +81,6 @@ extras = {}
 extras["sklearn"] = deps_list("scikit-learn")
 
 extras["torch"] = deps_list("torch", "accelerate")
-extras["vision"] = deps_list("Pillow")
-extras["torch-vision"] = deps_list("torchvision") + extras["vision"]
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["testing"] = deps_list(
     "pytest",
@@ -105,6 +103,7 @@ extras["testing"] = deps_list(
     "beautifulsoup4",
     "pillow",
     "accelerate",
+    "torchvision",
 )
 
 extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython")
