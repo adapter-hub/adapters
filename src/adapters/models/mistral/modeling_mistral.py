@@ -173,7 +173,6 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
         cos, sin = self.rotary_emb(value_states, position_ids)
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
-
         if past_key_value is not None:
             # Activate slicing cache only if the config has a value `sliding_windows` attribute
             cache_has_contents = past_key_value.get_seq_length(self.layer_idx) > 0
@@ -258,7 +257,6 @@ class MistralFlashAttention2WithAdapters(MistralAttentionMixin, MistralFlashAtte
             use_top_left_mask=self._flash_attn_uses_top_left_mask,
             is_causal=self.is_causal,
         )
-
 
         attn_output = attn_output.reshape(bsz, q_len, self.hidden_size).contiguous()
         attn_output = self.o_proj(attn_output)
