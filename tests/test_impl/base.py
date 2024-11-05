@@ -4,7 +4,6 @@ import tempfile
 
 import torch
 
-import adapters
 from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
 from adapters.heads import CausalLMHead
 from adapters.utils import WEIGHTS_NAME
@@ -12,33 +11,26 @@ from adapters.wrappers import load_model
 from transformers import TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
 
-
-def create_twin_models(model_class, config_creator=None):
-    if config_creator and model_class.__name__.startswith("Auto"):
-        model_config = config_creator()
-        model1 = model_class.from_config(model_config)
-    elif config_creator:
-        model_config = config_creator()
-        model1 = model_class(model_config)
-    else:
-        model_config = model_class.config_class()
-        model1 = model_class(model_config)
-    adapters.init(model1)
-    model1.eval()
-    # create a twin initialized with the same random weights
-    model2 = copy.deepcopy(model1)
-    model2.eval()
-    return model1, model2
+from .utils import add_lm_head, create_twin_models
 
 
 @require_torch
 class AdapterMethodBaseTestMixin:
-    """Provides base test running methods for testing an adapter method implementation."""
+    """Implements base test running methods for testing adapter method implementations."""
 
-    # Model weight dtypes to test in forward pass
     dtypes_to_test = [torch.float32, torch.half] if torch_device == "cuda" else [torch.float32]
 
-    def filter_parameters(self, model, filter_keys):
+    def _assert_adapter_available(self, model, adapter_name):
+        """Check wether the adapter name is present in the model's adapter config and has been created."""
+        self.assertTrue(adapter_name in model.adapters_config)
+        self.assertGreater(len(model.get_adapter(adapter_name)), 0)
+
+    def _assert_adapter_unavailable(self, model, adapter_name):
+        """Check wether the adapter name is not present in the model's adapter config and has not been created."""
+        self.assertFalse(adapter_name in model.adapters_config)
+        self.assertEqual(len(model.get_adapter(adapter_name)), 0)
+
+    def _filter_parameters(self, model, filter_keys):
         return {k: v for (k, v) in model.named_parameters() if any([filter_key in k for filter_key in filter_keys])}
 
     def run_add_test(self, model, adapter_config, filter_keys):
@@ -56,7 +48,7 @@ class AdapterMethodBaseTestMixin:
         # check that weights are available and active
         has_weights = False
         filter_keys = [k.format(name=name) for k in filter_keys]
-        for k, v in self.filter_parameters(model, filter_keys).items():
+        for k, v in self._filter_parameters(model, filter_keys).items():
             has_weights = True
             self.assertTrue(v.requires_grad, k)
         self.assertTrue(has_weights)
@@ -70,7 +62,7 @@ class AdapterMethodBaseTestMixin:
         model.set_active_adapters(name)
 
         # adapter is correctly added to config
-        self.assert_adapter_available(model, name)
+        self._assert_adapter_available(model, name)
 
         adapter = model.get_adapter(name)
 
@@ -95,7 +87,7 @@ class AdapterMethodBaseTestMixin:
         averaged_weights = {}
         for i, w in enumerate(weights):
             this_filter_keys = [k.format(name=name + f"_{i}") for k in filter_keys]
-            for k, v in self.filter_parameters(model, this_filter_keys).items():
+            for k, v in self._filter_parameters(model, this_filter_keys).items():
                 base_k = k.replace(name + f"_{i}", name)
                 if base_k not in averaged_weights:
                     averaged_weights[base_k] = w * v
@@ -113,7 +105,7 @@ class AdapterMethodBaseTestMixin:
 
         # compare averaged weights to collected weights
         this_filter_keys = [k.format(name=name) for k in filter_keys]
-        for k, v in self.filter_parameters(model, this_filter_keys).items():
+        for k, v in self._filter_parameters(model, this_filter_keys).items():
             self.assertTrue(torch.allclose(v, averaged_weights[k]), k)
 
     def run_delete_test(self, model, adapter_config, filter_keys):
@@ -125,16 +117,16 @@ class AdapterMethodBaseTestMixin:
         model.to(torch_device)
 
         # adapter is correctly added to config
-        self.assert_adapter_available(model, name)
+        self._assert_adapter_available(model, name)
 
         # remove the adapter again
         model.delete_adapter(name)
-        self.assert_adapter_unavailable(model, name)
+        self._assert_adapter_unavailable(model, name)
 
         # check that weights are available and active
         has_weights = False
         filter_keys = [k.format(name=name) for k in filter_keys]
-        for k, v in self.filter_parameters(model, filter_keys).items():
+        for k, v in self._filter_parameters(model, filter_keys).items():
             has_weights = True
         self.assertFalse(has_weights)
 
@@ -146,7 +138,7 @@ class AdapterMethodBaseTestMixin:
 
         # adapter is correctly added to config
         name = "first"
-        self.assert_adapter_available(model, name)
+        self._assert_adapter_available(model, name)
 
         adapter = model.get_adapter("first")
 
@@ -249,7 +241,7 @@ class AdapterMethodBaseTestMixin:
 
     def trainings_run(self, model, lr=1.0, steps=8):
         # setup dataset
-        train_dataset = self.dataset()
+        train_dataset = self.get_dataset()
 
         training_args = TrainingArguments(
             output_dir="./examples",
@@ -281,8 +273,8 @@ class AdapterMethodBaseTestMixin:
         model.add_adapter("dummy", config=adapter_config)
         self.add_head(model, "mrpc")
 
-        self.assert_adapter_available(model, "mrpc")
-        self.assert_adapter_available(model, "dummy")
+        self._assert_adapter_available(model, "mrpc")
+        self._assert_adapter_available(model, "dummy")
 
         # train the mrpc adapter -> should be activated & unfreezed
         model.train_adapter("mrpc")
@@ -291,13 +283,13 @@ class AdapterMethodBaseTestMixin:
         # all weights of the adapter should be activated
         has_weights = False
         filter_keys_trained = [k.format(name="mrpc") for k in filter_keys]
-        for k, v in self.filter_parameters(model, filter_keys_trained).items():
+        for k, v in self._filter_parameters(model, filter_keys_trained).items():
             has_weights = True
             self.assertTrue(v.requires_grad, k)
         self.assertTrue(has_weights)
         # all weights of the adapter not used for training should be frozen
         filter_keys_untrained = [k.format(name="dummy") for k in filter_keys]
-        for k, v in self.filter_parameters(model, filter_keys_untrained).items():
+        for k, v in self._filter_parameters(model, filter_keys_untrained).items():
             self.assertFalse(v.requires_grad, k)
 
         state_dict_pre = copy.deepcopy(model.state_dict())
@@ -370,3 +362,14 @@ class AdapterMethodBaseTestMixin:
         # check forward pass
         self.assertEqual(len(output_1), len(output_2))
         self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))
+
+    def run_generate_test(self, adapter_config, max_new_tokens=32):
+
+        model = self.get_model()
+        model.add_adapter("generate", config=adapter_config)
+        add_lm_head(self.config_class, model, "generate")
+        model.set_active_adapters("generate")
+        model.to(torch_device)
+        input_ids = self.build_rand_ids_tensor(self.input_shape).to(torch_device)
+        generated = model.generate(input_ids, max_new_tokens=max_new_tokens)
+        self.assertLessEqual(generated.shape, (self.input_shape[0], self.input_shape[1] + max_new_tokens))

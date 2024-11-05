@@ -68,7 +68,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
         averaged_weights = {}
         for i, w in enumerate(weights):
             this_filter_keys = [k.format(name=f"{name}_{i}") for k in ["loras.{name}."]]
-            for k, v in self.filter_parameters(model, this_filter_keys).items():
+            for k, v in self._filter_parameters(model, this_filter_keys).items():
                 base_k = k.replace(f"{name}_{i}", name)
                 # Only negate the lora_B weights and use the absolute value of the weight for lora_A weights.
                 weight = abs(w) if "lora_A" in k else w
@@ -92,7 +92,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
         # compare averaged weights to collected weights
         this_filter_keys = [k.format(name=name) for k in ["loras.{name}."]]
-        for k, v in self.filter_parameters(model, this_filter_keys).items():
+        for k, v in self._filter_parameters(model, this_filter_keys).items():
             self.assertTrue(torch.allclose(v, averaged_weights[k]), k)
 
     def _check_svd_weights(self, delta_w, merged_lora, svd_rank, atol=1e-5):
@@ -194,7 +194,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
         # collect weights of the first adapter so we can compare them to the newly created adapters in the subsequent tests
         filter_keys_adapter_0 = [k.format(name=f"{name}_0") for k in ["loras.{name}."]]
-        adapter_0 = self.filter_parameters(model, filter_keys_adapter_0)
+        adapter_0 = self._filter_parameters(model, filter_keys_adapter_0)
 
         # Run tests for every combine strategy
         for combine_strategy in ["linear", "lora_linear_only_negate_b", "lora_delta_w_svd"]:
@@ -214,7 +214,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
                 filter_keys = [k.format(name=f"{combine_strategy}_merged") for k in ["loras.{name}."]]
 
                 if combine_strategy != "lora_delta_w_svd":
-                    for k, v in self.filter_parameters(model, filter_keys).items():
+                    for k, v in self._filter_parameters(model, filter_keys).items():
                         adapter_0_key = k.replace(f"{combine_strategy}_merged", f"{name}_0")
                         self.assertTrue(torch.allclose(v, adapter_0[adapter_0_key]))
                 else:
@@ -246,7 +246,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
         # collect weights of the first adapter so we can compare them to the newly created adapters in the subsequent tests
         filter_keys_adapter_0 = [k.format(name=f"{name}_0") for k in ["loras.{name}."]]
-        adapter_0 = self.filter_parameters(model, filter_keys_adapter_0)
+        adapter_0 = self._filter_parameters(model, filter_keys_adapter_0)
 
         # Run tests for every combine strategy
         for combine_strategy in ["linear", "lora_linear_only_negate_b", "lora_delta_w_svd"]:
@@ -268,7 +268,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
                 filter_keys = [k.format(name=f"{combine_strategy}_merged") for k in ["loras.{name}."]]
 
                 if combine_strategy != "lora_delta_w_svd":
-                    for k, v in self.filter_parameters(model, filter_keys).items():
+                    for k, v in self._filter_parameters(model, filter_keys).items():
                         adapter_1_key = k.replace(f"{combine_strategy}_merged", f"{name}_0")
                         self.assertTrue(torch.allclose(v, adapter_0[adapter_1_key]))
                 else:

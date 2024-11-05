@@ -206,11 +206,11 @@ class AdapterFusionModelTestMixin:
         model.set_active_adapters(Fuse("a", "b"))
         output_1 = model(**input_data, output_adapter_fusion_attentions=True)
 
-        self.assertEqual(len(output_1[0]), self.default_input_samples_shape[0])
+        self.assertEqual(len(output_1[0]), self.input_shape[0])
         self.assertTrue(hasattr(output_1, "adapter_fusion_attentions"))
         attention_scores = output_1.adapter_fusion_attentions["a,b"]
         self.assertEqual(len(list(model.iter_layers())), len(attention_scores))
         for k, per_layer_scores in attention_scores.items():
             self.assertEqual(len(per_layer_scores), 1)
             for k, v in per_layer_scores.items():
-                self.assertEqual(self.default_input_samples_shape[0], v.shape[0], k)
+                self.assertEqual(self.input_shape[0], v.shape[0], k)

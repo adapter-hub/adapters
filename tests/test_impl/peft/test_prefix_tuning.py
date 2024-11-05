@@ -1,6 +1,6 @@
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig
+from adapters import ADAPTER_MODEL_MAPPING, PrefixTuningConfig
 from tests.test_impl.base import AdapterMethodBaseTestMixin
 from transformers import CLIPConfig
 from transformers.testing_utils import require_torch, torch_device
@@ -80,23 +80,4 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
             and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
         ):
             self.skipTest("No seq2seq or causal language model head")
-
-        model1 = AutoAdapterModel.from_config(self.config())
-        model1.add_adapter("dummy", config="prefix_tuning")
-        if "seq2seq_lm" in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
-            model1.add_seq2seq_lm_head("dummy")
-        else:
-            model1.add_causal_lm_head("dummy")
-        model1.set_active_adapters("dummy")
-        model1.to(torch_device)
-
-        seq_output_length = 32
-
-        # Finally, also check if generation works properly
-        input_ids = self.extract_input_ids(
-            self.get_input_samples(self.generate_input_samples_shape, config=model1.config)
-        )
-
-        input_ids = input_ids.to(torch_device)
-        generated = model1.generate(input_ids, max_length=seq_output_length)
-        self.assertLessEqual(generated.shape, (1, seq_output_length))
+        self.run_generate_test(PrefixTuningConfig())

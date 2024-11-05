@@ -19,7 +19,8 @@ from adapters import (
     SeqBnInvConfig,
 )
 from adapters.heads.language_modeling import CausalLMHead
-from tests.test_impl.base import AdapterMethodBaseTestMixin, create_twin_models
+from tests.test_impl.base import AdapterMethodBaseTestMixin
+from tests.test_impl.utils import create_twin_models
 from transformers import MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING, CLIPConfig
 from transformers.testing_utils import require_torch, torch_device
 
@@ -130,12 +131,12 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 model.set_active_adapters(name)
 
                 # check if adapter is correctly added to config
-                self.assert_adapter_available(model, name)
+                self._assert_adapter_available(model, name)
                 # remove the adapter again
                 model.delete_adapter(name)
 
                 # check if adapter is correctly removed from the model
-                self.assert_adapter_unavailable(model, name)
+                self._assert_adapter_unavailable(model, name)
 
                 # check additionally if invertible adapter is removed correctly from the model
                 self.assertFalse(name in model.invertible_adapters)
@@ -144,7 +145,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 # check that weights are available and active
                 has_weights = False
                 filter_keys = [k.format(name=name) for k in filter_keys]
-                for k, v in self.filter_parameters(model, filter_keys).items():
+                for k, v in self._filter_parameters(model, filter_keys).items():
                     has_weights = True
                 self.assertFalse(has_weights)
 
@@ -386,13 +387,13 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         self.assertEqual(adapter_setup, model.active_adapters)
 
         # all weights of the adapters should be frozen (test for one)
-        for k, v in self.filter_parameters(model, ["adapters.a."]).items():
+        for k, v in self._filter_parameters(model, ["adapters.a."]).items():
             self.assertFalse(v.requires_grad, k)
         # all weights of the fusion layer should be activated
-        for k, v in self.filter_parameters(model, ["adapter_fusion_layer"]).items():
+        for k, v in self._filter_parameters(model, ["adapter_fusion_layer"]).items():
             self.assertTrue(v.requires_grad, k)
         # weights of the model should be frozen (check on some examples)
-        for k, v in self.filter_parameters(model, ["encoder.layer.0.attention"]).items():
+        for k, v in self._filter_parameters(model, ["encoder.layer.0.attention"]).items():
             self.assertFalse(v.requires_grad, k)
 
         state_dict_pre = copy.deepcopy(model.state_dict())
@@ -452,13 +453,13 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.train_adapter(adapter_setup)
 
         # all weights of the adapter should be activated
-        for k, v in self.filter_parameters(model, ["adapters.mrpc1."]).items():
+        for k, v in self._filter_parameters(model, ["adapters.mrpc1."]).items():
             self.assertTrue(v.requires_grad, k)
         # all weights of the adapter not used for training should be frozen
-        for k, v in self.filter_parameters(model, ["adapters.mrpc2."]).items():
+        for k, v in self._filter_parameters(model, ["adapters.mrpc2."]).items():
             self.assertTrue(v.requires_grad, k)
         # weights of the model should be frozen (check on some examples)
-        for k, v in self.filter_parameters(model, ["encoder.layer.0.attention"]).items():
+        for k, v in self._filter_parameters(model, ["encoder.layer.0.attention"]).items():
             self.assertFalse(v.requires_grad, k)
 
         state_dict_pre = copy.deepcopy(model.state_dict())

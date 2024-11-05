@@ -29,9 +29,7 @@ class Core(
     AdapterFusionModelTestMixin,
     unittest.TestCase,
 ):
-    def test_context_simple(self):
-        expected_number_of_adapter_calls = ceil(self.config().num_hidden_layers / self.config().num_hidden_groups)
-        super().test_context_simple(expected_number_of_adapter_calls=expected_number_of_adapter_calls)
+    pass
 
 
 @require_torch
@@ -52,7 +50,9 @@ class Heads(
     PredictionHeadModelTestMixin,
     unittest.TestCase,
 ):
-    pass
+    def test_context_simple(self):
+        expected_number_of_adapter_calls = ceil(self.config().num_hidden_layers / self.config().num_hidden_groups)
+        super().test_context_simple(expected_number_of_adapter_calls=expected_number_of_adapter_calls)
 
 
 @require_torch

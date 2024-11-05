@@ -31,7 +31,7 @@ class ReftTestMixin(AdapterMethodBaseTestMixin):
                 model.set_active_adapters(name)
 
                 # adapter is correctly added to config
-                self.assert_adapter_available(model, name)
+                self._assert_adapter_available(model, name)
 
                 adapter = model.get_adapter(name)
 

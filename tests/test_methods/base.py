@@ -59,29 +59,24 @@ class AbstractAdapterTestBase:
         model.to(torch_device)
         return model
 
-    def build_random_tensor(self, shape, dtype=torch.float, **kwargs):
+    def build_rand_tensor(self, shape, dtype=torch.float):
         """Creates a random tensor of the given shape."""
+        total_dims = self._calc_total_dim(shape)
+        values = [random.random() for _ in range(total_dims)]
+
+        return torch.tensor(data=values, dtype=dtype, device=torch_device).view(shape).contiguous()
+
+    def build_rand_ids_tensor(self, shape, vocab_size=5000):
+        """Creates a random tensor of type torch.long with the given shape with random values in range 0 - (vocab_size-1)."""
+        total_dims = self._calc_total_dim(shape)
+        values = [random.randint(0, vocab_size - 1) for _ in range(total_dims)]
+        return torch.tensor(data=values, dtype=torch.long, device=torch_device).view(shape).contiguous()
+
+    def _calc_total_dim(self, shape):
         total_dims = 1
         for dim in shape:
             total_dims *= dim
-        values = []
-        if dtype == torch.long and "vocab_size" in kwargs:
-            values = [random.randint(0, kwargs["vocab_size"] - 1) for _ in range(total_dims)]
-        elif dtype == torch.float:
-            values = [random.random() for _ in range(total_dims)]
-        else:
-            raise ValueError(f"Unsupported dtype {dtype}")
-        return torch.tensor(data=values, dtype=dtype, device=torch_device).view(shape).contiguous()
-
-    def assert_adapter_available(self, model, adapter_name):
-        """Check wether the adapter name is present in the model's adapter config and has been created."""
-        self.assertTrue(adapter_name in model.adapters_config)
-        self.assertGreater(len(model.get_adapter(adapter_name)), 0)
-
-    def assert_adapter_unavailable(self, model, adapter_name):
-        """Check wether the adapter name is not present in the model's adapter config and has not been created."""
-        self.assertFalse(adapter_name in model.adapters_config)
-        self.assertEqual(len(model.get_adapter(adapter_name)), 0)
+        return total_dims
 
     def extract_input_ids(self, inputs):
         # TODO: Check if this is needed in all tests and if it differs between text, vision and speech models
@@ -101,7 +96,7 @@ class TextAdapterTestBase(AbstractAdapterTestBase):
 
     def get_input_samples(self, shape=None, vocab_size=5000, config=None, **kwargs):
         shape = shape or self.input_shape
-        input_ids = self.build_random_tensor(shape, dtype=torch.long)
+        input_ids = self.build_rand_ids_tensor(shape, vocab_size=vocab_size)
 
         # Ensures that only tha last token in each sample is the eos token (needed e.g. for BART)
         if config and config.eos_token_id is not None and config.eos_token_id < vocab_size:
@@ -112,6 +107,9 @@ class TextAdapterTestBase(AbstractAdapterTestBase):
         # Add decoder input ids for models with a decoder
         if config and config.is_encoder_decoder:
             in_data["decoder_input_ids"] = input_ids.clone()
+
+        if "num_labels" in kwargs:
+            in_data["labels"] = self.build_rand_ids_tensor(shape[:-1], vocab_size=kwargs["num_labels"])
         return in_data
 
     def add_head(self, model, name, **kwargs):

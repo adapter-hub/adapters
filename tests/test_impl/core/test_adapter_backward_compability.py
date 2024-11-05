@@ -3,7 +3,7 @@ import os
 import tempfile
 
 from adapters import SeqBnConfig, __version__
-from tests.test_impl.base import create_twin_models
+from tests.test_impl.utils import create_twin_models
 from transformers.testing_utils import require_torch
 
 
