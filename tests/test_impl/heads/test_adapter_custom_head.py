@@ -5,7 +5,7 @@ import torch
 
 from adapters import AutoAdapterModel
 from adapters.heads import ClassificationHead, PredictionHead
-from tests.test_methods.base import ids_tensor
+from tests.test_impl.utils import ids_tensor
 from transformers import AutoConfig
 from transformers.testing_utils import require_torch, torch_device
 

@@ -18,6 +18,7 @@ from tests.test_impl.peft.test_prefix_tuning import PrefixTuningTestMixin
 from tests.test_impl.peft.test_prompt_tuning import PromptTuningTestMixin
 from tests.test_impl.peft.test_reft import ReftTestMixin
 from tests.test_impl.peft.test_unipelt import UniPELTTestMixin
-from tests.test_methods.base import TextAdapterTestBase, make_config
+from tests.test_impl.utils import make_config
+from tests.test_methods.base import TextAdapterTestBase
 from transformers import AutoTokenizer
 from transformers.testing_utils import require_torch

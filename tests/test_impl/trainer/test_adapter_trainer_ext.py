@@ -268,7 +268,7 @@ class TestTrainerExt(TestCasePlus):
         do_predict: bool = True,
         n_gpus_to_use: int = None,
     ):
-        data_dir = self.test_file_dir / "../../hf_transformers/tests/fixtures/tests_samples/wmt_en_ro"
+        data_dir = self.test_file_dir / "../../../hf_transformers/tests/fixtures/tests_samples/wmt_en_ro"
         output_dir = self.get_auto_remove_tmp_dir()
         args_train = f"""
             --model_name_or_path {model_name}

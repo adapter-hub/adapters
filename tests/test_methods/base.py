@@ -9,21 +9,6 @@ from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueD
 from transformers.testing_utils import torch_device
 
 
-global_rng = random.Random()
-
-
-def make_config(config_class, **kwargs):
-    return staticmethod(lambda: config_class(**kwargs))
-
-
-def ids_tensor(shape, dtype=torch.long, vocab_size=5000):
-    total_dims = 1
-    for dim in shape:
-        total_dims *= dim
-    values = [global_rng.randint(0, vocab_size - 1) for _ in range(total_dims)]
-    return torch.tensor(data=values, dtype=dtype, device=torch_device).view(shape).contiguous()
-
-
 class AbstractAdapterTestBase:
     """Base class for adapter tests. Defines basic functions and attributes with default values which are used in the tests.
     Model test classes should inherit from this class or subclass and override the attributes and functions as needed.

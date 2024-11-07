@@ -1,6 +1,12 @@
 import copy
+import random
+
+import torch
 
 from adapters import ADAPTER_MODEL_MAPPING, init
+from transformers.testing_utils import torch_device
+
+global_rng = random.Random()
 
 
 def create_twin_models(model_class, config_creator=None):
@@ -27,3 +33,15 @@ def add_lm_head(config_class, model, adapter_name):
         model.add_seq2seq_lm_head(adapter_name)
     else:
         model.add_causal_lm_head(adapter_name)
+
+
+def make_config(config_class, **kwargs):
+    return staticmethod(lambda: config_class(**kwargs))
+
+
+def ids_tensor(shape, vocab_size=5000, dtype=torch.long):
+    total_dims = 1
+    for dim in shape:
+        total_dims *= dim
+    values = [global_rng.randint(0, vocab_size - 1) for _ in range(total_dims)]
+    return torch.tensor(data=values, dtype=dtype, device=torch_device).view(shape).contiguous()

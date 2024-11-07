@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import unittest
 
 import numpy as np
@@ -7,7 +8,7 @@ import adapters
 from adapters import ADAPTER_CONFIG_MAP, AdapterConfig, BertAdapterModel, get_adapter_config_hash
 from adapters.trainer import AdapterTrainer as Trainer
 from adapters.utils import find_in_index
-from tests.test_methods.base import ids_tensor
+from tests.test_impl.utils import ids_tensor
 from transformers import (
     AutoModel,
     AutoTokenizer,
@@ -19,8 +20,9 @@ from transformers import (
 from transformers.testing_utils import require_torch, torch_device
 
 
-SAMPLE_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/hub-index.sample.json")
-
+current_file_path = os.path.abspath(__file__)
+fixtures_dir = Path(current_file_path).parent.parent.parent / 'fixtures'
+SAMPLE_INDEX = str(fixtures_dir / 'hub-index.sample.json')
 
 @require_torch
 class AdapterHubTest(unittest.TestCase):
