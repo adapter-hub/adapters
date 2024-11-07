@@ -7,7 +7,7 @@ import adapters
 from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel
 from adapters.composition import BatchSplit, Stack
 from adapters.heads import PredictionHead
-from tests.test_impl.base import create_twin_models
+from tests.test_impl.utils import create_twin_models
 from transformers import AutoModelForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
 
@@ -20,10 +20,8 @@ class PredictionHeadModelTestMixin:
         compare_model,
         head_name,
         input_shape=None,
-        output_shape=(1, 2),
+        output_shape=None,
         label_dict=None,
-        num_labels=None,
-        with_labels=False,
     ):
         # first, check if the head is actually correctly registered as part of the pt module
         self.assertTrue(f"heads.{head_name}" in dict(model.named_modules()))
@@ -42,10 +40,8 @@ class PredictionHeadModelTestMixin:
 
         # make a forward pass
         model.active_head = head_name
-        input_shape = input_shape if input_shape is not None else self._get_input_shape()
-        in_data = self.get_input_samples(
-            input_shape, config=model.config, num_labels=num_labels, with_labels=with_labels
-        )
+        input_shape = input_shape if input_shape else self.input_shape
+        in_data = self.get_input_samples(shape=input_shape, config=model.config)
         if label_dict:
             for k, v in label_dict.items():
                 in_data[k] = v
@@ -69,7 +65,9 @@ class PredictionHeadModelTestMixin:
         model1.add_classification_head("dummy")
         label_dict = {}
         label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
-        self.run_prediction_head_test(model1, model2, "dummy", label_dict=label_dict)
+        self.run_prediction_head_test(
+            model1, model2, "dummy", label_dict=label_dict, output_shape=(self.batch_size, 2)
+        )
 
     def test_image_classification_head(self):
         if "image_classification" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
@@ -92,7 +90,12 @@ class PredictionHeadModelTestMixin:
         label_dict = {}
         label_dict["labels"] = torch.ones(self.batch_size, dtype=torch.long, device=torch_device)
         self.run_prediction_head_test(
-            model1, model2, "dummy", input_shape=(self.batch_size, 2, self.seq_length), label_dict=label_dict
+            model1,
+            model2,
+            "dummy",
+            input_shape=(self.batch_size, 2, self.seq_length),
+            label_dict=label_dict,
+            output_shape=(self.batch_size, 2),
         )
 
     def test_tagging_head(self):
@@ -173,8 +176,7 @@ class PredictionHeadModelTestMixin:
         )
 
         # Finally, also check if generation works properly
-        input_shape = self._get_input_shape()
-        input_ids = self.extract_input_ids(self.get_input_samples(input_shape, config=model1.config))
+        input_ids = self.extract_input_ids(self.get_input_samples(self.input_shape, config=model1.config))
 
         input_ids = input_ids.to(torch_device)
         # Use a different length for the seq2seq output
@@ -421,8 +423,7 @@ class PredictionHeadModelTestMixin:
         self.assertIsNotNone(inv_adapter)
         inv_adapter.register_forward_pre_hook(forward_pre_hook)
 
-        input_shape = self._get_input_shape()
-        in_data = self.get_input_samples(input_shape, config=model.config)
+        in_data = self.get_input_samples(self.input_shape, config=model.config)
         model.to(torch_device)
         out = model(**in_data)
 
@@ -470,14 +471,6 @@ class PredictionHeadModelTestMixin:
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_all_adapters(tmp_dir, with_head=False)
             self.assertFalse(os.path.isfile(os.path.join(tmp_dir, "test", "head_config.json")))
-
-    def _get_input_shape(self):
-        # speech models require a different input dimensions compared to text models
-        if self.is_speech_model:
-            input_shape = (self.batch_size, self.seq_length, self.time_window)
-        else:
-            input_shape = (self.batch_size, self.seq_length)
-        return input_shape
 
     def test_average_head(self):
         # Test the average_head method

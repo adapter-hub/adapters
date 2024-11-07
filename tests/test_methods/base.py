@@ -90,9 +90,8 @@ class TextAdapterTestBase(AbstractAdapterTestBase):
     input_shape_generate = (1, 4)
     leave_out_layers = [0, 1]
     batch_size, seq_length = (
-        1,
-        128,
-    )  # TODO: Check in which tests this is needed and if we can simplify by using input_shape
+        input_shape  # TODO: Check in which tests this is needed and if we can simplify by using input_shape
+    )
 
     def get_input_samples(self, shape=None, vocab_size=5000, config=None, **kwargs):
         shape = shape or self.input_shape

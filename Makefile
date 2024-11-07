@@ -94,6 +94,10 @@ test-adapter-ia3:
 test-adapter-lora:
 	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m lora
 
+# run the config union tests for all models
+test-adapter-config_union:
+	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m config_union
+
 # Run tests for examples
 test-examples:
 	python -m pytest -n auto --dist=loadfile -s -v ./examples/pytorch/

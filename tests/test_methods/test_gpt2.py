@@ -151,6 +151,7 @@ class LoRA(
 
 
 @require_torch
+@pytest.mark.config_union
 class ConfigUnion(
     GPT2AdapterTestBase,
     ConfigUnionAdapterTest,
