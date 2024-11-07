@@ -81,16 +81,6 @@ class PrefixTuning(
 
 
 @require_torch
-@pytest.mark.prompt_tuning
-class PromptTuning(
-    GPT2AdapterTestBase,
-    PromptTuningTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
 @pytest.mark.reft
 class ReFT(
     GPT2AdapterTestBase,

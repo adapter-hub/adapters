@@ -6,6 +6,7 @@ import torch
 from adapters import ADAPTER_MODEL_MAPPING, init
 from transformers.testing_utils import torch_device
 
+
 global_rng = random.Random()
 
 

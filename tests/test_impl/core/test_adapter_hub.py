@@ -1,6 +1,6 @@
 import os
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 import numpy as np
 
@@ -21,8 +21,9 @@ from transformers.testing_utils import require_torch, torch_device
 
 
 current_file_path = os.path.abspath(__file__)
-fixtures_dir = Path(current_file_path).parent.parent.parent / 'fixtures'
-SAMPLE_INDEX = str(fixtures_dir / 'hub-index.sample.json')
+fixtures_dir = Path(current_file_path).parent.parent.parent / "fixtures"
+SAMPLE_INDEX = str(fixtures_dir / "hub-index.sample.json")
+
 
 @require_torch
 class AdapterHubTest(unittest.TestCase):
