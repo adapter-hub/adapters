@@ -110,23 +110,7 @@ class ModelClassConversionTestMixin:
         ):
             self.skipTest("No seq2seq language modeling class.")
 
-        label_dict = {}
-        if self.is_speech_model:
-            # speech models require input_features
-            model = MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING[self.config_class](self.config())
-            label_dict["input_features"] = torch.randn(
-                (self.default_input_samples_shape), dtype=torch.float32, device=torch_device
-            )
-            label_dict["decoder_input_ids"] = torch.randint(
-                0, model.config.vocab_size, size=self.default_input_samples_shape[:-1], device=torch_device
-            )
-            label_dict["labels"] = label_dict["decoder_input_ids"]
-        else:
-            model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
-            label_dict["labels"] = torch.zeros(
-                (self.batch_size, self.seq_length), dtype=torch.long, device=torch_device
-            )
-            label_dict["decoder_input_ids"] = label_dict["labels"].clone()
+        model, label_dict = self.get_conversion_model()
         adapters.init(model)
         self.run_test(model, label_dict=label_dict)
 
@@ -209,7 +193,7 @@ class ModelClassConversionTestMixin:
         model_gen = static_model.generate(**input_samples)
         flex_model_gen = flex_model.generate(**input_samples)
 
-        self.assertEquals(model_gen.shape, flex_model_gen.shape)
+        self.assertEqual(model_gen.shape, flex_model_gen.shape)
         self.assertTrue(torch.equal(model_gen, flex_model_gen))
 
     def test_full_model_conversion(self):

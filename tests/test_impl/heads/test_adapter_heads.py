@@ -183,7 +183,7 @@ class PredictionHeadModelTestMixin:
         seq_output_length = self.seq_length + 30
         generated = model1.generate(input_ids, max_length=seq_output_length)
         self.assertTrue(generated.shape[1] <= seq_output_length)
-        self.assertEqual(generated.shape[0], 1)
+        self.assertEqual(generated.shape[0], self.input_shape[0])
 
     def test_masked_lm_head(self):
         if "masked_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:

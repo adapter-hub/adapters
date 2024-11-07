@@ -5,7 +5,14 @@ import torch
 
 import adapters
 from adapters import AutoAdapterModel
-from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
+from transformers import (
+    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
+    MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING,
+    AutoFeatureExtractor,
+    AutoTokenizer,
+    GlueDataset,
+    GlueDataTrainingArguments,
+)
 from transformers.testing_utils import torch_device
 
 
@@ -67,6 +74,10 @@ class AbstractAdapterTestBase:
         # TODO: Check if this is needed in all tests and if it differs between text, vision and speech models
         return inputs["input_ids"]
 
+    def get_conversion_model(self):
+        """Returns the respective conversion class of the adapter model for the conversion tests."""
+        raise NotImplementedError("get_conversion_model() must be implemented in the subclass.")
+
 
 class TextAdapterTestBase(AbstractAdapterTestBase):
     """Base class for adapter tests for text models. Text models test classes should inherit from this class and override the attributes and functions as needed."""
@@ -110,6 +121,13 @@ class TextAdapterTestBase(AbstractAdapterTestBase):
             task_name="mrpc", data_dir="./hf_transformers/tests/fixtures/tests_samples/MRPC", overwrite_cache=True
         )
         return GlueDataset(data_args, tokenizer=tokenizer, mode="train")
+
+    def get_conversion_model(self):
+        label_dict = {}
+        model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
+        label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
+        label_dict["decoder_input_ids"] = label_dict["labels"].clone()
+        return model, label_dict
 
 
 class VisionAdapterTestBase(AbstractAdapterTestBase):
@@ -192,3 +210,15 @@ class AudioAdapterTestBase(AbstractAdapterTestBase):
 
     def extract_input_ids(self, inputs):
         return inputs["input_features"]
+
+    def get_conversion_model(self):
+        label_dict = {}
+        model = MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING[self.config_class](self.config())
+        label_dict["input_features"] = torch.randn(
+            (self.default_input_samples_shape), dtype=torch.float32, device=torch_device
+        )
+        label_dict["decoder_input_ids"] = torch.randint(
+            0, model.config.vocab_size, size=self.default_input_samples_shape[:-1], device=torch_device
+        )
+        label_dict["labels"] = label_dict["decoder_input_ids"]
+        return model, label_dict

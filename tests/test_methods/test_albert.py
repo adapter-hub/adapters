@@ -24,7 +24,6 @@ class AlbertAdapterTestBase(TextAdapterTestBase):
 @pytest.mark.core
 class Core(
     AlbertAdapterTestBase,
-    ModelClassConversionTestMixin,
     CompabilityTestMixin,
     AdapterFusionModelTestMixin,
     unittest.TestCase,

@@ -1,25 +1,27 @@
-from transformers import GPT2Config
+from transformers import BartConfig
 
 from .imports import *
 
 
-class GPT2AdapterTestBase(TextAdapterTestBase):
-    config_class = GPT2Config
+class BartAdapterTestBase(TextAdapterTestBase):
+    config_class = BartConfig
     config = make_config(
-        GPT2Config,
-        n_embd=32,
-        n_layer=4,
-        n_head=4,
-        # set pad token to eos token
-        pad_token_id=50256,
+        BartConfig,
+        d_model=16,
+        encoder_layers=2,
+        decoder_layers=2,
+        encoder_attention_heads=4,
+        decoder_attention_heads=4,
+        encoder_ffn_dim=4,
+        decoder_ffn_dim=4,
     )
-    tokenizer_name = "gpt2"
+    tokenizer_name = "facebook/bart-base"
 
 
 @require_torch
 @pytest.mark.core
 class Core(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     CompabilityTestMixin,
     AdapterFusionModelTestMixin,
     unittest.TestCase,
@@ -30,19 +32,18 @@ class Core(
 @require_torch
 @pytest.mark.composition
 class Composition(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
     unittest.TestCase,
 ):
-    def test_parallel_training_lora(self):
-        self.skipTest("Not supported for GPT2")
+    pass
 
 
 @require_torch
 @pytest.mark.heads
 class Heads(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     PredictionHeadModelTestMixin,
     unittest.TestCase,
 ):
@@ -52,7 +53,7 @@ class Heads(
 @require_torch
 @pytest.mark.embeddings
 class Embeddings(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     EmbeddingTestMixin,
     unittest.TestCase,
 ):
@@ -60,10 +61,9 @@ class Embeddings(
 
 
 @require_torch
-@pytest.mark.class_conversion
-class ClassConversion(
+class BartClassConversionTest(
     ModelClassConversionTestMixin,
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     unittest.TestCase,
 ):
     pass
@@ -72,7 +72,7 @@ class ClassConversion(
 @require_torch
 @pytest.mark.prefix_tuning
 class PrefixTuning(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     PrefixTuningTestMixin,
     unittest.TestCase,
 ):
@@ -82,7 +82,7 @@ class PrefixTuning(
 @require_torch
 @pytest.mark.reft
 class ReFT(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     ReftTestMixin,
     unittest.TestCase,
 ):
@@ -92,7 +92,7 @@ class ReFT(
 @require_torch
 @pytest.mark.unipelt
 class UniPELT(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     UniPELTTestMixin,
     unittest.TestCase,
 ):
@@ -102,7 +102,7 @@ class UniPELT(
 @require_torch
 @pytest.mark.compacter
 class Compacter(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     CompacterTestMixin,
     unittest.TestCase,
 ):
@@ -112,7 +112,7 @@ class Compacter(
 @require_torch
 @pytest.mark.bottleneck
 class Bottleneck(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     BottleneckAdapterTestMixin,
     unittest.TestCase,
 ):
@@ -122,7 +122,7 @@ class Bottleneck(
 @require_torch
 @pytest.mark.ia3
 class IA3(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     IA3TestMixin,
     unittest.TestCase,
 ):
@@ -132,7 +132,7 @@ class IA3(
 @require_torch
 @pytest.mark.lora
 class LoRA(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     LoRATestMixin,
     unittest.TestCase,
 ):
@@ -142,7 +142,7 @@ class LoRA(
 @require_torch
 @pytest.mark.config_union
 class ConfigUnion(
-    GPT2AdapterTestBase,
+    BartAdapterTestBase,
     ConfigUnionAdapterTest,
     unittest.TestCase,
 ):
