@@ -45,3 +45,9 @@ class IA3TestMixin(AdapterMethodBaseTestMixin):
 
     def test_reset_ia3(self):
         self.run_reset_test(IA3Config(init_weights="bert"))
+
+    def test_ia3_gradient_checkpointing_single_adapter(self):
+        self.run_gradient_checkpointing_single_adapter_test(IA3Config())
+
+    def test_ia3_gradient_checkpointing_parallel_adapters(self):
+        self.run_gradient_checkpointing_test_parallel_adapters(IA3Config())
