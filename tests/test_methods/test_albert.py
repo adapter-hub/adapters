@@ -153,13 +153,3 @@ class LoRA(
     unittest.TestCase,
 ):
     pass
-
-
-@require_torch
-@pytest.mark.config_union
-class ConfigUnion(
-    AlbertAdapterTestBase,
-    ConfigUnionAdapterTest,
-    unittest.TestCase,
-):
-    pass

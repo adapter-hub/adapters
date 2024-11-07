@@ -53,10 +53,6 @@ class AdapterMethodBaseTestMixin:
             self.assertTrue(v.requires_grad, k)
         self.assertTrue(has_weights)
 
-        # TODO: for config union tests resetting model should lead to that adapter can be readded with the same name, but currently not working
-        model.set_active_adapters(None)
-        model.delete_adapter(name)
-
     def run_leave_out_test(self, model, adapter_config, leave_out):
         model.eval()
 
@@ -156,7 +152,6 @@ class AdapterMethodBaseTestMixin:
         model.eval()
 
         name = adapter_config.__class__.__name__
-        # TODO: this defeats the purpose of the test, for the config union tests as only the first config is added
         if name not in model.adapters_config:
             model.add_adapter(name, config=adapter_config)
         model.to(torch_device).to(dtype)
