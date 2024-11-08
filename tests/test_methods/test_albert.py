@@ -1,6 +1,16 @@
+import unittest
+
 from transformers import AlbertConfig
 
-from .imports import *
+from .utils import (
+    PredictionHeadModelTestMixin,
+    TextAdapterTestBase,
+    ceil,
+    generate_method_tests,
+    make_config,
+    pytest,
+    require_torch,
+)
 
 
 class AlbertAdapterTestBase(TextAdapterTestBase):
@@ -20,26 +30,10 @@ class AlbertAdapterTestBase(TextAdapterTestBase):
     leave_out_layers = [0]
 
 
-@require_torch
-@pytest.mark.core
-class Core(
-    AlbertAdapterTestBase,
-    CompabilityTestMixin,
-    AdapterFusionModelTestMixin,
-    unittest.TestCase,
-):
-    pass
+method_tests = generate_method_tests(AlbertAdapterTestBase)
 
-
-@require_torch
-@pytest.mark.composition
-class Composition(
-    AlbertAdapterTestBase,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
-    unittest.TestCase,
-):
-    pass
+for test_class_name, test_class in method_tests.items():
+    globals()[test_class_name] = test_class
 
 
 @require_torch
@@ -52,113 +46,3 @@ class Heads(
     def test_context_simple(self):
         expected_number_of_adapter_calls = ceil(self.config().num_hidden_layers / self.config().num_hidden_groups)
         super().test_context_simple(expected_number_of_adapter_calls=expected_number_of_adapter_calls)
-
-
-@require_torch
-@pytest.mark.embeddings
-class Embeddings(
-    AlbertAdapterTestBase,
-    EmbeddingTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.class_conversion
-class ClassConversion(
-    ModelClassConversionTestMixin,
-    AlbertAdapterTestBase,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.prefix_tuning
-class PrefixTuning(
-    AlbertAdapterTestBase,
-    PrefixTuningTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.prompt_tuning
-class PromptTuning(
-    AlbertAdapterTestBase,
-    PromptTuningTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.reft
-class ReFT(
-    AlbertAdapterTestBase,
-    ReftTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.unipelt
-class UniPELT(
-    AlbertAdapterTestBase,
-    UniPELTTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.compacter
-class Compacter(
-    AlbertAdapterTestBase,
-    CompacterTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.bottleneck
-class Bottleneck(
-    AlbertAdapterTestBase,
-    BottleneckAdapterTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.ia3
-class IA3(
-    AlbertAdapterTestBase,
-    IA3TestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.lora
-class LoRA(
-    AlbertAdapterTestBase,
-    LoRATestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.config_union
-class ConfigUnion(
-    AlbertAdapterTestBase,
-    ConfigUnionAdapterTest,
-    unittest.TestCase,
-):
-    pass

@@ -1,6 +1,6 @@
 from transformers import GPT2Config
 
-from .imports import *
+from .utils import *
 
 
 class GPT2AdapterTestBase(TextAdapterTestBase):
@@ -16,15 +16,10 @@ class GPT2AdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "gpt2"
 
 
-@require_torch
-@pytest.mark.core
-class Core(
-    GPT2AdapterTestBase,
-    CompabilityTestMixin,
-    AdapterFusionModelTestMixin,
-    unittest.TestCase,
-):
-    pass
+method_tests = generate_method_tests(GPT2AdapterTestBase, excluded_tests=["PromptTuning"])
+
+for test_class_name, test_class in method_tests.items():
+    globals()[test_class_name] = test_class
 
 
 @require_torch
@@ -37,113 +32,3 @@ class Composition(
 ):
     def test_parallel_training_lora(self):
         self.skipTest("Not supported for GPT2")
-
-
-@require_torch
-@pytest.mark.heads
-class Heads(
-    GPT2AdapterTestBase,
-    PredictionHeadModelTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.embeddings
-class Embeddings(
-    GPT2AdapterTestBase,
-    EmbeddingTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.class_conversion
-class ClassConversion(
-    ModelClassConversionTestMixin,
-    GPT2AdapterTestBase,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.prefix_tuning
-class PrefixTuning(
-    GPT2AdapterTestBase,
-    PrefixTuningTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.reft
-class ReFT(
-    GPT2AdapterTestBase,
-    ReftTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.unipelt
-class UniPELT(
-    GPT2AdapterTestBase,
-    UniPELTTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.compacter
-class Compacter(
-    GPT2AdapterTestBase,
-    CompacterTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.bottleneck
-class Bottleneck(
-    GPT2AdapterTestBase,
-    BottleneckAdapterTestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.ia3
-class IA3(
-    GPT2AdapterTestBase,
-    IA3TestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.lora
-class LoRA(
-    GPT2AdapterTestBase,
-    LoRATestMixin,
-    unittest.TestCase,
-):
-    pass
-
-
-@require_torch
-@pytest.mark.config_union
-class ConfigUnion(
-    GPT2AdapterTestBase,
-    ConfigUnionAdapterTest,
-    unittest.TestCase,
-):
-    pass
