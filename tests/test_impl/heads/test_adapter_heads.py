@@ -78,7 +78,14 @@ class PredictionHeadModelTestMixin:
         model1.add_image_classification_head("dummy")
         label_dict = {}
         label_dict["labels"] = torch.zeros(self.batch_size, dtype=torch.long, device=torch_device)
-        self.run_prediction_head_test(model1, model2, "dummy", input_shape=(1, 3, 224, 224), label_dict=label_dict)
+        self.run_prediction_head_test(
+            model1,
+            model2,
+            "dummy",
+            input_shape=self.input_shape,
+            label_dict=label_dict,
+            output_shape=(self.batch_size, 2),
+        )
 
     def test_multiple_choice_head(self):
         if "multiple_choice" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types:

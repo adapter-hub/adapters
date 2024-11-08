@@ -134,10 +134,11 @@ class VisionAdapterTestBase(AbstractAdapterTestBase):
     """Base class for adapter tests for vision models. Vision models test classes should inherit from this class and override the attributes and functions as needed."""
 
     input_shape = (3, 3, 224, 224)
+    batch_size = 3
 
     def get_input_samples(self, shape=None, config=None, dtype=torch.float, **kwargs):
         shape = shape or self.input_shape
-        pixel_values = self.build_random_tensor(shape, dtype=dtype)
+        pixel_values = self.build_rand_tensor(shape, dtype=dtype)
         return {"pixel_values": pixel_values}
 
     def add_head(self, model, name, **kwargs):
@@ -192,11 +193,11 @@ class AudioAdapterTestBase(AbstractAdapterTestBase):
 
     def get_input_samples(self, shape=None, config=None, **kwargs):
         shape = shape or self.default_input_samples_shape
-        in_data = {"input_features": self.build_random_tensor(shape, dtype=torch.float)}
+        in_data = {"input_features": self.build_rand_tensor(shape, dtype=torch.float)}
 
         # Add decoder input ids for models with a decoder
         if config and config.is_encoder_decoder:
-            in_data["decoder_input_ids"] = self.build_random_tensor(
+            in_data["decoder_input_ids"] = self.build_rand_tensor(
                 (shape[:-1]), dtype=torch.long, vocab_size=config.vocab_size
             )
         return in_data
