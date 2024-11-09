@@ -246,7 +246,11 @@ class PredictionHeadModelTestMixin:
             (self.batch_size, self.seq_length), dtype=torch.long, device=torch_device
         )
         self.run_prediction_head_test(
-            model1, model2, "dummy", output_shape=(1, self.seq_length, self.seq_length + 1, 2), label_dict=label_dict
+            model1,
+            model2,
+            "dummy",
+            output_shape=(self.batch_size, self.seq_length, self.seq_length + 1, 2),
+            label_dict=label_dict,
         )
 
     def test_delete_head(self):

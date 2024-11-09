@@ -4,6 +4,7 @@ import unittest
 from math import ceil
 
 import pytest
+import torch
 
 from tests.test_impl.composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
 from tests.test_impl.core.test_adapter_backward_compability import CompabilityTestMixin
@@ -23,7 +24,7 @@ from tests.test_impl.peft.test_unipelt import UniPELTTestMixin
 from tests.test_impl.utils import make_config
 from tests.test_methods.base import TextAdapterTestBase, VisionAdapterTestBase
 from transformers import AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
-from transformers.testing_utils import require_torch
+from transformers.testing_utils import require_torch, torch_device
 
 
 def generate_method_tests(

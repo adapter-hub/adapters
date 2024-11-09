@@ -229,12 +229,7 @@ class ParallelTrainingMixin:
         a1, a2 = self.create_twin_adapters(model, "a", adapter_config)
         b1, b2 = self.create_twin_adapters(model, "b", adapter_config)
 
-        # TODO: refactor this dataset creation into an own method
-        dataset = []
-        for i in range(3):
-            input_data = self.get_input_samples(config=model.config)
-            input_data["labels"] = self.build_rand_ids_tensor((3, 1), 2)
-            dataset.append(input_data)
+        dataset = self.get_dataset_non_batched(model.config)
 
         for adapter in [a1, b1]:
             model.active_head = adapter
@@ -292,8 +287,7 @@ class ParallelTrainingMixin:
         input_data = self.get_input_samples(
             config=model.config,
         )
-
-        input_data["labels"] = self.build_rand_ids_tensor((3, 1), 2)
+        input_data = self.attach_labels(input_data)
 
         outputs = []
         for adapter in [a1, b1]:

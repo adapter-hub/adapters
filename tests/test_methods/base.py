@@ -28,6 +28,7 @@ class AbstractAdapterTestBase:
     input_shape_generate = ()  # (batch_size, seq_length)
     leave_out_layers = []
     do_run_train_tests = True
+    num_labels = 2
 
     def get_input_samples(self, shape=None, vocab_size=5000, config=None, **kwargs):
         """Creates a dummy batch of samples in the format required for the model."""
@@ -40,6 +41,14 @@ class AbstractAdapterTestBase:
     def get_dataset(self, **kwargs):
         """Loads a dummy dataset for the model."""
         raise NotImplementedError("get_dataset() must be implemented in the subclass.")
+
+    def get_dataset_non_batched(self):
+        """Builds a non-batched dummy dataset for the model."""
+        raise NotImplementedError("build_dummy_dataset() must be implemented in the subclass.")
+
+    def attach_labels(self, inputs):
+        """Attaches labels to the input samples."""
+        raise NotImplementedError("attach_labels() with respective label shape must be implemented in the subclass.")
 
     def get_model(self):
         """Builds a model instance for testing based on the provied model configuration."""
@@ -122,6 +131,18 @@ class TextAdapterTestBase(AbstractAdapterTestBase):
         )
         return GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
+    def get_dataset_non_batched(self, config):
+        dataset = []
+        for i in range(3):
+            input_data = self.get_input_samples(config=config)
+            input_data["labels"] = self.build_rand_ids_tensor((3, 1), self.num_labels)
+            dataset.append(input_data)
+        return dataset
+
+    def attach_labels(self, inputs):
+        inputs["labels"] = torch.randint(0, 2, (self.batch_size, 1), device=torch_device)
+        return inputs
+
     def get_conversion_model(self):
         label_dict = {}
         model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
@@ -187,12 +208,12 @@ class AudioAdapterTestBase(AbstractAdapterTestBase):
         elif head_type == "seq2seq_lm":
             kwargs.pop("num_labels", 1)  # Remove num_labels from kwargs if present in the tests
             model.add_seq2seq_lm_head(name, **kwargs)
-            return self.default_input_samples_shape[1]  # Return the number of mel features
+            return self.input_shape[1]  # Return the number of mel features
         else:
             raise ValueError(f"Head type {head_type} not supported.")
 
     def get_input_samples(self, shape=None, config=None, **kwargs):
-        shape = shape or self.default_input_samples_shape
+        shape = shape or self.input_shape
         in_data = {"input_features": self.build_rand_tensor(shape, dtype=torch.float)}
 
         # Add decoder input ids for models with a decoder
@@ -215,11 +236,9 @@ class AudioAdapterTestBase(AbstractAdapterTestBase):
     def get_conversion_model(self):
         label_dict = {}
         model = MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING[self.config_class](self.config())
-        label_dict["input_features"] = torch.randn(
-            (self.default_input_samples_shape), dtype=torch.float32, device=torch_device
-        )
+        label_dict["input_features"] = torch.randn((self.input_shape), dtype=torch.float32, device=torch_device)
         label_dict["decoder_input_ids"] = torch.randint(
-            0, model.config.vocab_size, size=self.default_input_samples_shape[:-1], device=torch_device
+            0, model.config.vocab_size, size=self.input_shape[:-1], device=torch_device
         )
         label_dict["labels"] = label_dict["decoder_input_ids"]
         return model, label_dict
