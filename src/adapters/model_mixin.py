@@ -1482,7 +1482,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 )
 
         def gradient_checkpointing_function(function, *args, **kwargs):
-            context = ForwardContext(self, *args, **kwargs)
+            context = ForwardContext.get_context()
             context_fn = lambda: (contextlib.nullcontext(), context)
             return checkpoint(function, *args, context_fn=context_fn, **kwargs)
 
