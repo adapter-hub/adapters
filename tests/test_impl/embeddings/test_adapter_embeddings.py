@@ -66,7 +66,7 @@ class EmbeddingTestMixin:
             torch.equal(model.loaded_embeddings["test"].weight, model.loaded_embeddings["test_reloaded"].weight)
         )
         self.assertTrue(torch.equal(output1[0], output2[0]))
-        self.assertEqual(tokenizer.vocab, tokenizer_ref.vocab)
+        self.assertEqual(tokenizer.get_vocab(), tokenizer_ref.get_vocab())
 
     def test_back_to_default(self):
         model = self.get_model()
