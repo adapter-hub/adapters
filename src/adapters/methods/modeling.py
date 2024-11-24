@@ -4,10 +4,10 @@ import torch
 from torch import nn
 
 from transformers.activations import get_activation
+from transformers.utils.import_utils import is_torchvision_available
 
 from ..configuration import AdapterFusionConfig, BnConfig
 from ..context import ForwardContext
-from transformers.utils.import_utils import is_torchvision_available
 
 
 class Activation_Function_Class(nn.Module):
@@ -132,14 +132,10 @@ class Adapter(nn.Module):
         elif config["init_weights"] == "houlsby":
             for layer in self.adapter_down:
                 if isinstance(layer, nn.Linear) or isinstance(layer, PHMLayer):
-                    nn.init.trunc_normal_(
-                        layer.weight, mean=0, std=1e-2, a=-2 * 1e-2, b=2 * 1e-2
-                    )
+                    nn.init.trunc_normal_(layer.weight, mean=0, std=1e-2, a=-2 * 1e-2, b=2 * 1e-2)
                     nn.init.zeros_(layer.bias)
 
-            nn.init.trunc_normal_(
-                self.adapter_up.weight, mean=0, std=1e-2, a=-2 * 1e-2, b=2 * 1e-2
-            )
+            nn.init.trunc_normal_(self.adapter_up.weight, mean=0, std=1e-2, a=-2 * 1e-2, b=2 * 1e-2)
             nn.init.zeros_(self.adapter_up.bias)
         else:
             raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
@@ -147,7 +143,8 @@ class Adapter(nn.Module):
         if config["stochastic_depth"] > 0.0:
             if is_torchvision_available():
                 from torchvision.ops.stochastic_depth import StochasticDepth
-                self.DropPath = StochasticDepth(p=config["stochastic_depth"], mode = "row")
+
+                self.DropPath = StochasticDepth(p=config["stochastic_depth"], mode="row")
             else:
                 raise ImportError("stochastic_depth requires the package torchvision, but it is not installed")
 
