@@ -4,6 +4,7 @@ import torch
 from torch import nn
 
 from transformers.activations import get_activation
+from transformers.utils.import_utils import is_torchvision_available
 
 from ..configuration import AdapterFusionConfig, BnConfig
 from ..context import ForwardContext
@@ -99,6 +100,8 @@ class Adapter(nn.Module):
             self.scaling = config["scaling"]
         elif config["scaling"] == "learned":
             self.scaling = nn.Parameter(torch.ones(1))
+        elif config["scaling"] == "channel":
+            self.scaling = nn.Parameter(torch.ones(input_size))
         else:
             raise ValueError("Unknown scaling type: {}".format(config["scaling"]))
 
@@ -126,8 +129,24 @@ class Adapter(nn.Module):
                 nn.init.zeros_(self.adapter_up.bias)
                 if self.use_gating:
                     self.gate.apply(self.init_bert_weights)
+        elif config["init_weights"] == "houlsby":
+            for layer in self.adapter_down:
+                if isinstance(layer, nn.Linear) or isinstance(layer, PHMLayer):
+                    nn.init.trunc_normal_(layer.weight, mean=0, std=1e-2, a=-2 * 1e-2, b=2 * 1e-2)
+                    nn.init.zeros_(layer.bias)
+
+            nn.init.trunc_normal_(self.adapter_up.weight, mean=0, std=1e-2, a=-2 * 1e-2, b=2 * 1e-2)
+            nn.init.zeros_(self.adapter_up.bias)
         else:
             raise ValueError("Unknown init_weights type: {}".format(config["init_weights"]))
+
+        if config["stochastic_depth"] > 0.0:
+            if is_torchvision_available():
+                from torchvision.ops.stochastic_depth import StochasticDepth
+
+                self.DropPath = StochasticDepth(p=config["stochastic_depth"], mode="row")
+            else:
+                raise ImportError("stochastic_depth requires the package torchvision, but it is not installed")
 
     def pre_forward(
         self,
@@ -176,6 +195,8 @@ class Adapter(nn.Module):
         down = self.adapter_down(x)
 
         up = self.adapter_up(down)
+        if hasattr(self, "DropPath"):
+            up = self.DropPath(up)
         up = up * self.scaling
         output = self.dropout(up)
 
@@ -364,7 +385,6 @@ class BertFusion(nn.Module):
         self.reduction = self.T / 1000.0
 
     def forward(self, query, key, value, residual, output_attentions: bool = False):
-
         if self.config["residual_before"]:
             value += residual[:, :, None, :].repeat(1, 1, value.size(2), 1)
 
