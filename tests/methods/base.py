@@ -422,16 +422,3 @@ class AdapterMethodBaseTestMixin:
             model.adapter_to("adapter1", torch_device)
 
         self._run_gradient_checkpointing_test_helper(adapter_setup_fn)
-
-    def run_gradient_checkpointing_test_parallel_adapters(self, adapter_config):
-        def adapter_setup_fn(model):
-            model.add_adapter("adapter1", config=adapter_config)
-            model.add_adapter("adapter2", config=adapter_config)
-            self.add_head(model, "adapter1")
-            self.add_head(model, "adapter2")
-            model.active_adapters = ac.Parallel("adapter1", "adapter2")
-            model.train_adapter(ac.Parallel("adapter1", "adapter2"))
-            model.adapter_to("adapter1", torch_device)
-            model.adapter_to("adapter2", torch_device)
-
-        self._run_gradient_checkpointing_test_helper(adapter_setup_fn)

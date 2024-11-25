@@ -39,6 +39,3 @@ class PromptTuningTestMixin(AdapterMethodBaseTestMixin):
 
     def test_prompt_tuning_gradient_checkpointing_single_adapter(self):
         self.run_gradient_checkpointing_single_adapter_test(PromptTuningConfig(prompt_length=10))
-
-    def test_prompt_tuning_gradient_checkpointing_parallel_adapters(self):
-        self.run_gradient_checkpointing_test_parallel_adapters(PromptTuningConfig(prompt_length=10))

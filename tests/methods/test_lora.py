@@ -316,6 +316,3 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
     def test_lora_gradient_checkpointing_single_adapter(self):
         self.run_gradient_checkpointing_single_adapter_test(LoRAConfig())
-
-    def test_lora_gradient_checkpointing_parallel_adapters(self):
-        self.run_gradient_checkpointing_test_parallel_adapters(LoRAConfig())

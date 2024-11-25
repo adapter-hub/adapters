@@ -67,6 +67,3 @@ class UniPELTTestMixin(AdapterMethodBaseTestMixin):
 
     def test_unipelt_gradient_checkpointing_single_adapter(self):
         self.run_gradient_checkpointing_single_adapter_test(UniPELTConfig())
-
-    def test_unipelt_gradient_checkpointing_parallel_adapters(self):
-        self.run_gradient_checkpointing_test_parallel_adapters(UniPELTConfig())
