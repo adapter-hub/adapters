@@ -375,6 +375,6 @@ class AdapterMethodBaseTestMixin:
         add_lm_head(self.config_class, model, "generate")
         model.set_active_adapters("generate")
         model.to(torch_device)
-        input_ids = self.build_rand_ids_tensor(self.input_shape).to(torch_device)
-        generated = model.generate(input_ids, max_new_tokens=max_new_tokens)
+        generate_input = self.build_generate_input(self.input_shape).to(torch_device)
+        generated = model.generate(generate_input, max_new_tokens=max_new_tokens)
         self.assertLessEqual(generated.shape, (self.input_shape[0], self.input_shape[1] + max_new_tokens))

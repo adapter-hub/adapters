@@ -22,7 +22,7 @@ from tests.test_impl.peft.test_prompt_tuning import PromptTuningTestMixin
 from tests.test_impl.peft.test_reft import ReftTestMixin
 from tests.test_impl.peft.test_unipelt import UniPELTTestMixin
 from tests.test_impl.utils import make_config
-from tests.test_methods.base import TextAdapterTestBase, VisionAdapterTestBase
+from tests.test_methods.base import AudioAdapterTestBase, TextAdapterTestBase, VisionAdapterTestBase
 from transformers import AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 from transformers.testing_utils import require_torch, torch_device
 

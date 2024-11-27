@@ -25,7 +25,6 @@ class AbstractAdapterTestBase:
     tokenizer_name = "tests/fixtures/SiBERT"  # path to default tokenizer config available in the test repo
     config = None  # specified in the actual model test classes
     input_shape = ()  # (batch_size, seq_length)
-    input_shape_generate = ()  # (batch_size, seq_length)
     leave_out_layers = []
     do_run_train_tests = True
     num_labels = 2
@@ -87,12 +86,15 @@ class AbstractAdapterTestBase:
         """Returns the respective conversion class of the adapter model for the conversion tests."""
         raise NotImplementedError("get_conversion_model() must be implemented in the subclass.")
 
+    def build_generate_input(self, shape):
+        """The generate() functions for inference require different inputs depeding on the model type. E.g. the text models require input_ids, where as the audio models require input_features"""
+        return self.build_rand_ids_tensor(self.input_shape if not shape else shape).to(torch_device)
+
 
 class TextAdapterTestBase(AbstractAdapterTestBase):
     """Base class for adapter tests for text models. Text models test classes should inherit from this class and override the attributes and functions as needed."""
 
     input_shape = (3, 64)
-    input_shape_generate = (1, 4)
     leave_out_layers = [0, 1]
     batch_size, seq_length = (
         input_shape  # TODO: Check in which tests this is needed and if we can simplify by using input_shape
@@ -190,9 +192,9 @@ class AudioAdapterTestBase(AbstractAdapterTestBase):
     """Base class for adapter tests for audio models. Audio models test classes should inherit from this class and override the attributes and functions as needed."""
 
     input_shape = (3, 80, 3000)  # (batch_size, n_mels, enc_seq_len)
-    generate_input_shape = (1, 80, 3000)
     time_window = 3000  # Time window for audio samples
     seq_length = 80
+    batch_size = 3
 
     _TASK_DATASET_MAPPING = {
         # TODO: build global mapping for all tasks and datasets
@@ -218,9 +220,7 @@ class AudioAdapterTestBase(AbstractAdapterTestBase):
 
         # Add decoder input ids for models with a decoder
         if config and config.is_encoder_decoder:
-            in_data["decoder_input_ids"] = self.build_rand_tensor(
-                (shape[:-1]), dtype=torch.long, vocab_size=config.vocab_size
-            )
+            in_data["decoder_input_ids"] = self.build_rand_ids_tensor((shape[:-1]), vocab_size=config.vocab_size)
         return in_data
 
     def get_dataset(self, task_type: str = "seq2seq_lm", **kwargs):
@@ -242,3 +242,19 @@ class AudioAdapterTestBase(AbstractAdapterTestBase):
         )
         label_dict["labels"] = label_dict["decoder_input_ids"]
         return model, label_dict
+
+    def build_generate_input(self, shape):
+        return self.build_rand_tensor(self.input_shape if not shape else shape, dtype=torch.float)
+
+    def attach_labels(self, inputs):
+        inputs["labels"] = torch.randint(0, 2, (self.batch_size, self.seq_length), device=torch_device)
+        return inputs
+
+    def get_dataset_non_batched(self, config):
+        dataset_batched = self.get_dataset()
+        dataset = [{} for _ in range(len(dataset_batched))]
+        # For non-batched training, we need to wrap the samples by an additional dimension
+        for i in range(len(dataset_batched)):
+            for key, value in dataset_batched[i].items():
+                dataset[i][key] = torch.unsqueeze(value, 0)
+        return dataset
