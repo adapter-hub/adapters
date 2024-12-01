@@ -478,11 +478,18 @@ class LoRAConfig(AdapterConfig):
             (addition of decomposed matrix, as in LoRA) or "scale" (element-wise multiplication of vector, as in
             (IA)^3). "scale" can only be used together with r=1. Defaults to "add".
         init_weights (:obj:`str`, optional): Initialization method for the weights of the LoRA modules.
-            Currently, this can be either "lora" (default) or "bert".
+            Currently, this can be either "lora" (default) or "bert", or "vera".
         use_gating (:obj:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
             `merge_adapter()`.
+        d (:obj:`bool` or :obj:`float`, optional):
+            The value of d used in the VeraConfig. Defaults to None
+            
+        b (:obj:`bool` or :obj:`float`, optional):
+            The value of b used in the VeraConfig. Defaults to None
+            
+        
     """
 
     architecture: Optional[str] = "lora"
@@ -499,6 +506,8 @@ class LoRAConfig(AdapterConfig):
     composition_mode: str = "add"
     init_weights: str = "lora"
     use_gating: bool = False
+    d: Union[bool, float] = None
+    b: Union[bool, float] = None
 
 
 @dataclass(eq=False)
@@ -522,6 +531,28 @@ class IA3Config(LoRAConfig):
     init_weights: str = "ia3"
     use_gating: bool = False
 
+@dataclass(eq=False)
+class VeraConfig(LoRAConfig):
+    """
+    Lora Config that applies vector-based random matrix adaptation. It adds
+    trainable matrices 'd' and 'b' while keeping the original LoRA matrices
+    frozen, random, and shared across layers. See more through their paper: 
+    https://arxiv.org/pdf/2106.09685. Note that `r` will still be supplied
+    since we are still initializing decomposition matrices A and B, 
+    however the `composition_mode` parameter along with the 
+    `use_gating` parameter will be ignored.
+    """
+    
+    selfattn_lora: bool = False
+    intermediate_lora: bool = False
+    output_lora: bool = False
+
+    r: int = 8
+    init_weights: str = "vera"
+    d: Union[bool, float] = 0.1
+    b: Union[bool, float] = 0
+    
+    
 
 @dataclass(eq=False)
 class ReftConfig(AdapterConfig):

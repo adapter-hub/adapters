@@ -45,6 +45,7 @@ class LoRA(nn.Module):
         self.composition_mode = config.composition_mode
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
+
         # Optional dropout
         if config.dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=config.dropout)
@@ -54,7 +55,7 @@ class LoRA(nn.Module):
         # Actual trainable parameters
         self.lora_A = nn.Parameter(torch.zeros(lora_A_shape))
         self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
-        self.scaling = self.lora_alpha / self.r
+        self.scaling = self.lora_alpha / self.r       
 
         # For compatibility with (IA)^3, allow all init_weights types here.
         # Usually should be "lora".
@@ -131,7 +132,7 @@ class IA3(nn.Module):
         # For compatibility with LoRA, allow all init_weights types here.
         # Usually should be "ia3".
         if config.init_weights == "lora":
-            logger.warning("(IA)^3 module initialized with LoRA zeo init. Ignore if this is intended.")
+            logger.warning("(IA)^3 module initialized with LoRA zero init. Ignore if this is intended.")
             nn.init.zeros_(self.lora_B)
         elif config.init_weights == "bert":
             nn.init.normal_(self.lora_B, std=0.02)
@@ -173,7 +174,59 @@ class IA3(nn.Module):
 
         return hidden_states, gate
 
+class Vera(nn.Module):
+    def __init__(
+        self,
+        lora_A_shape,
+        lora_B_shape,
+        config: LoRAConfig,
+    ):
+        super().__init__()
+        self.d = config.d
+        self.b = config.b
+        
+        self.lora_A_shape = lora_A_shape
+        self.lora_B_shape = lora_B_shape
+        self.d_shape = self.lora_A_shape[1]
+        self.b_shape = self.lora_B_shape[0]
+        
+        #initialize frozen, random tensors
+        self.lora_A = torch.tensor(torch.zeros(lora_A_shape))
+        self.lora_B = torch.tensor(torch
+                                   .zeros(lora_B_shape))
+        
+        # Actual trainable parameters
+        self.vera_D = nn.Parameter(torch.diag(torch.ones(self.d_shape)*self.d))
+        self.vera_B = nn.Parameter(torch.diag(torch.ones(self.b_shape)*self.b))
 
+        # For compatibility with LoRA, allow all init_weights types here.
+        # Usually should be "vera" or "lora".
+        if config.init_weights == "lora":
+            # initialize A the same way as the default for nn.Linear and B to zero
+            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_B)
+        elif config.init_weights == "bert":
+            nn.init.normal_(self.lora_A, std=0.02)
+            nn.init.normal_(self.lora_B, std=0.02)
+        elif config.init_weights == "ia3":
+            nn.init.ones_(self.lora_A)
+            nn.init.ones_(self.lora_B)
+        elif config.init_weights == "vera":
+            nn.kaiming.uniform_(self.lora_A)
+            nn.kaiming.uniform_(self.lora_B)
+        else:
+            raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
+        
+    @property
+    def delta_w(self) -> torch.Tensor:
+        return self.vera_B @ self.lora_B @ self.vera_D @ self.lora_A
+    
+    def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
+        if hidden_states is None:
+            hidden_states = layer_input
+        hidden_states =  self.vera_B @ self.lora_B @ self.vera_D @ self.lora_A
+
+        return hidden_states
 class LoRALayer(AdapterLayerBase):
     adapter_modules_name = "loras"
 
@@ -212,6 +265,8 @@ class LoRALayer(AdapterLayerBase):
                 lora_cls = IA3
             else:
                 raise ValueError(f"Unknown composition_mode: {lora_config.composition_mode}")
+            #figure out good criteria to load vera
+            #
             lora = lora_cls(
                 *self._get_lora_shapes(lora_config),
                 lora_config,
