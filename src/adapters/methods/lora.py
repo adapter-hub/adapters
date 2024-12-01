@@ -55,7 +55,7 @@ class LoRA(nn.Module):
         # Actual trainable parameters
         self.lora_A = nn.Parameter(torch.zeros(lora_A_shape))
         self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
-        self.scaling = self.lora_alpha / self.r       
+        self.scaling = self.lora_alpha / self.r
 
         # For compatibility with (IA)^3, allow all init_weights types here.
         # Usually should be "lora".

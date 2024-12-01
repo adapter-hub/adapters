@@ -484,12 +484,14 @@ class LoRAConfig(AdapterConfig):
             e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
             `merge_adapter()`.
         d (:obj:`bool` or :obj:`float`, optional):
-            The value of d used in the VeraConfig. Defaults to None
+            The value of d used in the VeraConfig. Defaults to None. Places a trainable
+            scaling parameter before the decomposition matrix A to allow scaling of the 
+            internal weights.
             
         b (:obj:`bool` or :obj:`float`, optional):
-            The value of b used in the VeraConfig. Defaults to None
-            
-        
+            The value of b used in the VeraConfig. Defaults to None. Places a trainable
+            scaling parameter before the decomposition matrix B to allow scaling of the 
+            internal weights.
     """
 
     architecture: Optional[str] = "lora"
@@ -552,8 +554,6 @@ class VeraConfig(LoRAConfig):
     d: Union[bool, float] = 0.1
     b: Union[bool, float] = 0
     
-    
-
 @dataclass(eq=False)
 class ReftConfig(AdapterConfig):
     """
