@@ -174,6 +174,7 @@ class IA3(nn.Module):
 
         return hidden_states, gate
 
+
 class Vera(nn.Module):
     def __init__(
         self,
@@ -184,20 +185,19 @@ class Vera(nn.Module):
         super().__init__()
         self.d = config.d
         self.b = config.b
-        
+
         self.lora_A_shape = lora_A_shape
         self.lora_B_shape = lora_B_shape
         self.d_shape = self.lora_A_shape[1]
         self.b_shape = self.lora_B_shape[0]
-        
-        #initialize frozen, random tensors
+
+        # initialize frozen, random tensors
         self.lora_A = torch.tensor(torch.zeros(lora_A_shape))
-        self.lora_B = torch.tensor(torch
-                                   .zeros(lora_B_shape))
-        
+        self.lora_B = torch.tensor(torch.zeros(lora_B_shape))
+
         # Actual trainable parameters
-        self.vera_D = nn.Parameter(torch.diag(torch.ones(self.d_shape)*self.d))
-        self.vera_B = nn.Parameter(torch.diag(torch.ones(self.b_shape)*self.b))
+        self.vera_D = nn.Parameter(torch.diag(torch.ones(self.d_shape) * self.d))
+        self.vera_B = nn.Parameter(torch.diag(torch.ones(self.b_shape) * self.b))
 
         # For compatibility with LoRA, allow all init_weights types here.
         # Usually should be "vera" or "lora".
@@ -216,17 +216,19 @@ class Vera(nn.Module):
             nn.kaiming.uniform_(self.lora_B)
         else:
             raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
-        
+
     @property
     def delta_w(self) -> torch.Tensor:
         return self.vera_B @ self.lora_B @ self.vera_D @ self.lora_A
-    
+
     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
         if hidden_states is None:
             hidden_states = layer_input
-        hidden_states =  self.vera_B @ self.lora_B @ self.vera_D @ self.lora_A
+        hidden_states = self.vera_B @ self.lora_B @ self.vera_D @ self.lora_A
 
         return hidden_states
+
+
 class LoRALayer(AdapterLayerBase):
     adapter_modules_name = "loras"
 
@@ -265,7 +267,7 @@ class LoRALayer(AdapterLayerBase):
                 lora_cls = IA3
             else:
                 raise ValueError(f"Unknown composition_mode: {lora_config.composition_mode}")
-            #figure out good criteria to load vera
+            # figure out good criteria to load vera
             #
             lora = lora_cls(
                 *self._get_lora_shapes(lora_config),

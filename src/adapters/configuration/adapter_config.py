@@ -485,12 +485,12 @@ class LoRAConfig(AdapterConfig):
             `merge_adapter()`.
         d (:obj:`bool` or :obj:`float`, optional):
             The value of d used in the VeraConfig. Defaults to None. Places a trainable
-            scaling parameter before the decomposition matrix A to allow scaling of the 
+            scaling parameter before the decomposition matrix A to allow scaling of the
             internal weights.
-            
+
         b (:obj:`bool` or :obj:`float`, optional):
             The value of b used in the VeraConfig. Defaults to None. Places a trainable
-            scaling parameter before the decomposition matrix B to allow scaling of the 
+            scaling parameter before the decomposition matrix B to allow scaling of the
             internal weights.
     """
 
@@ -533,18 +533,19 @@ class IA3Config(LoRAConfig):
     init_weights: str = "ia3"
     use_gating: bool = False
 
+
 @dataclass(eq=False)
 class VeraConfig(LoRAConfig):
     """
     Lora Config that applies vector-based random matrix adaptation. It adds
     trainable matrices 'd' and 'b' while keeping the original LoRA matrices
-    frozen, random, and shared across layers. See more through their paper: 
+    frozen, random, and shared across layers. See more through their paper:
     https://arxiv.org/pdf/2106.09685. Note that `r` will still be supplied
-    since we are still initializing decomposition matrices A and B, 
-    however the `composition_mode` parameter along with the 
+    since we are still initializing decomposition matrices A and B,
+    however the `composition_mode` parameter along with the
     `use_gating` parameter will be ignored.
     """
-    
+
     selfattn_lora: bool = False
     intermediate_lora: bool = False
     output_lora: bool = False
@@ -553,7 +554,8 @@ class VeraConfig(LoRAConfig):
     init_weights: str = "vera"
     d: Union[bool, float] = 0.1
     b: Union[bool, float] = 0
-    
+
+
 @dataclass(eq=False)
 class ReftConfig(AdapterConfig):
     """
