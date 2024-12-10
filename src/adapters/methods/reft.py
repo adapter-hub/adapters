@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import torch
 import torch.nn as nn
@@ -18,12 +18,13 @@ class ReftUnit(nn.Module):
         subtract_projection: bool = True,
         non_linearity: str = None,
         dropout: float = 0.0,
+        dtype: Optional[torch.dtype] = None,
     ):
         super().__init__()
         self.orthogonal = orthogonal
-        self.learned_source = nn.Linear(in_dim, r_dim, bias=True)
+        self.learned_source = nn.Linear(in_dim, r_dim, bias=True, dtype=dtype)
 
-        projection = nn.Linear(in_dim, r_dim, bias=False)
+        projection = nn.Linear(in_dim, r_dim, bias=False, dtype=dtype)
         if orthogonal:
             self.projection = nn.utils.parametrizations.orthogonal(projection)
         else:
@@ -50,6 +51,7 @@ class ReftModule(nn.Module):
         self.suffix_positions = config.suffix_positions
         self.tied_weights = config.tied_weights
         n_units = 1 if config.tied_weights else 2
+        dtype = getattr(torch, config.dtype) if config.dtype else None
         self.units = nn.ModuleList(
             [
                 ReftUnit(
@@ -59,6 +61,7 @@ class ReftModule(nn.Module):
                     config.subtract_projection,
                     config.non_linearity,
                     config.dropout,
+                    dtype,
                 )
                 for _ in range(n_units)
             ]
