@@ -18,12 +18,13 @@ class ReftUnit(nn.Module):
         subtract_projection: bool = True,
         non_linearity: str = None,
         dropout: float = 0.0,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__()
         self.orthogonal = orthogonal
-        self.learned_source = nn.Linear(in_dim, r_dim, bias=True)
+        self.learned_source = nn.Linear(in_dim, r_dim, bias=True, dtype=dtype)
 
-        projection = nn.Linear(in_dim, r_dim, bias=False)
+        projection = nn.Linear(in_dim, r_dim, bias=False, dtype=dtype)
         if orthogonal:
             self.projection = nn.utils.parametrizations.orthogonal(projection)
         else:
@@ -59,6 +60,7 @@ class ReftModule(nn.Module):
                     config.subtract_projection,
                     config.non_linearity,
                     config.dropout,
+                    config.dtype,
                 )
                 for _ in range(n_units)
             ]
