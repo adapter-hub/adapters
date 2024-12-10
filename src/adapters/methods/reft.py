@@ -18,7 +18,7 @@ class ReftUnit(nn.Module):
         subtract_projection: bool = True,
         non_linearity: str = None,
         dropout: float = 0.0,
-        dtype: torch.dtype = torch.float32,
+        dtype: Optional[torch.dtype] = None,
     ):
         super().__init__()
         self.orthogonal = orthogonal
@@ -51,6 +51,7 @@ class ReftModule(nn.Module):
         self.suffix_positions = config.suffix_positions
         self.tied_weights = config.tied_weights
         n_units = 1 if config.tied_weights else 2
+        dtype = getattr(torch, config.dtype) if config.dtype else None
         self.units = nn.ModuleList(
             [
                 ReftUnit(
@@ -60,7 +61,7 @@ class ReftModule(nn.Module):
                     config.subtract_projection,
                     config.non_linearity,
                     config.dropout,
-                    config.dtype,
+                    dtype,
                 )
                 for _ in range(n_units)
             ]

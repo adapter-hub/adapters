@@ -3,8 +3,6 @@ from collections.abc import Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, replace
 from typing import List, Literal, Optional, Union
 
-import torch
-
 from ..utils import resolve_adapter_config
 
 
@@ -501,7 +499,7 @@ class LoRAConfig(AdapterConfig):
     composition_mode: str = "add"
     init_weights: str = "lora"
     use_gating: bool = False
-    dtype: torch.dtype = torch.float32
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -524,7 +522,7 @@ class IA3Config(LoRAConfig):
     composition_mode: str = "scale"
     init_weights: str = "ia3"
     use_gating: bool = False
-    dtype: torch.dtype = torch.float32
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -555,7 +553,7 @@ class ReftConfig(AdapterConfig):
     subtract_projection = True
     dropout: float = 0.05
     non_linearity: Optional[str] = None
-    dtype: torch.dtype = torch.float32
+    dtype: Optional[str] = None
 
     architecture: str = "reft"
 
@@ -574,6 +572,7 @@ class LoReftConfig(ReftConfig):
     r: int = 1
     orthogonality: bool = True
     tied_weights: bool = False
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -588,7 +587,7 @@ class NoReftConfig(ReftConfig):
     r: int = 1
     orthogonality: bool = False
     tied_weights: bool = False
-    dtype: torch.dtype = torch.float32
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -604,7 +603,7 @@ class DiReftConfig(ReftConfig):
     orthogonality: bool = False
     tied_weights: bool = False
     subtract_projection = False
-    dtype: torch.dtype = torch.float32
+    dtype: Optional[str] = None
 
 
 class ConfigUnion(AdapterConfig):
