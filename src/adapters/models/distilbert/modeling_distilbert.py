@@ -177,7 +177,6 @@ class DistilBertSdpaAttentionWithAdapters(DistilBertMultiHeadSelfAttentionMixin,
         (mask,) = adjust_tensors_for_parallel(q, mask)
 
         k, v, mask = self.prefix_tuning(k, v, value, mask, invert_mask=False)
-        bs = k.size(0)  # reset for Parallel block
         (q,) = adjust_tensors_for_parallel(k, q)
         # >>> END AH Changes <<<
 

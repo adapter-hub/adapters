@@ -17,7 +17,7 @@
 import torch
 from torch import nn
 
-from transformers.cache_utils import Cache, DynamicCache, EncoderDecoderCache, StaticCache
+from transformers.cache_utils import Cache, DynamicCache, EncoderDecoderCache
 from transformers.modeling_outputs import BaseModelOutputWithPastAndCrossAttentions
 from transformers.models.mt5.modeling_mt5 import (
     MT5Attention,
