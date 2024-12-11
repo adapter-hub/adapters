@@ -25,12 +25,18 @@ from typing import Optional, Tuple
 import torch
 from torch import nn
 
-from transformers.models.distilbert.modeling_distilbert import MultiHeadSelfAttention, TransformerBlock, DistilBertSdpaAttention, DistilBertFlashAttention2
-from transformers.utils import logging, is_flash_attn_2_available
+from transformers.models.distilbert.modeling_distilbert import (
+    DistilBertFlashAttention2,
+    DistilBertSdpaAttention,
+    MultiHeadSelfAttention,
+    TransformerBlock,
+)
+from transformers.utils import is_flash_attn_2_available, logging
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
 from ...utils import prefix_attention_mask
 from .mixin_distilbert import DistilBertMultiHeadSelfAttentionMixin, DistilBertTransfomerBlockAdaptersMixin
+
 
 if is_flash_attn_2_available():
     from transformers.modeling_flash_attention_utils import _flash_attention_forward
