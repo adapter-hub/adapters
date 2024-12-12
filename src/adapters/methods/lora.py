@@ -74,7 +74,7 @@ class LoRA(nn.Module):
         if self.use_gating:
             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
             nn.init.normal_(self.gate.weight, std=0.02)
-        
+
     @property
     def delta_w(self) -> torch.Tensor:
         return self.lora_B @ self.lora_A
@@ -207,18 +207,19 @@ class Vera(nn.Module):
         parameters = ForwardContext.get_context().shared_parameters[self.name]
         lora_A = parameters["lora_A"]
         lora_B = parameters["lora_B"]
-        
+
         if hidden_states is None:
             hidden_states = layer_input
         hidden_states = self.vera_B @ lora_B @ self.vera_D @ lora_A
 
         return hidden_states
 
+
 def init_shared_Vera_parameters(model_config, adapter_config, device):
     hidden_size = model_config.hidden_size
     r = adapter_config["r"]
     parameters = nn.ParameterDict()
-    
+
     # initialize frozen, random tensors A, B
     parameters["lora_A"] = torch.zeros(r, hidden_size).to(device)
     parameters["lora_B"] = torch.zeros(hidden_size, r).to(device)
@@ -226,7 +227,8 @@ def init_shared_Vera_parameters(model_config, adapter_config, device):
     nn.init.kaiming_uniform_(parameters["lora_A"])
     nn.init.kaiming_uniform_(parameters["lora_B"])
     return parameters
-    
+
+
 class LoRALayer(AdapterLayerBase):
     adapter_modules_name = "loras"
 
@@ -240,7 +242,7 @@ class LoRALayer(AdapterLayerBase):
         self.loras = nn.ModuleDict(dict())
 
         self.merged = False
-        
+
     def get_n_heads(self, lora: Union[LoRA, IA3, LoRAConfig]):
         return 1
 
@@ -252,7 +254,7 @@ class LoRALayer(AdapterLayerBase):
 
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
-        
+
         lora_config = self.adapters_config.match(
             adapter_name,
             config_type=LoRAConfig,

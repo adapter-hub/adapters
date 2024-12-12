@@ -16,7 +16,7 @@ from transformers.modeling_outputs import ModelOutput
 from transformers.utils import is_accelerate_available
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig, IA3Config
+from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
@@ -426,7 +426,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         This method initializes adapter modules and fusion modules from the model config.
         """
         self.base_model.shared_parameters = nn.ModuleDict()
-        
+
         # Initialize adapters config
         init_adapters_config(self, model_config, adapters_config)
         # Initialize adapters in all submodules
@@ -617,7 +617,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     self.base_model.shared_parameters[adapter_name] = init_shared_parameters(
                         adapter_config, self.config.hidden_size, self.device
                     )
-                    
+
         # Vera Initialization
         if self.adapters_config.match(adapter_name, LoRAConfig):
             adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
