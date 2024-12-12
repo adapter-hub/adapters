@@ -280,6 +280,8 @@ class LoRALayer(AdapterLayerBase):
             lora.train(self.training)
             lora = lora.to(self.weight.device)
             self.loras[adapter_name] = lora
+            return True
+        
         return False
 
     def average_adapter(
