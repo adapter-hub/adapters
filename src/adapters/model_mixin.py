@@ -16,13 +16,13 @@ from transformers.modeling_outputs import ModelOutput
 from transformers.utils import is_accelerate_available
 
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
-from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
+from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig, IA3Config
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .methods.adapter_layer_base import AdapterLayerBase
 from .methods.bottleneck import BottleneckLayer
-from .methods.lora import LoRALayer
+from .methods.lora import LoRALayer, init_shared_Vera_parameters
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
@@ -426,7 +426,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         This method initializes adapter modules and fusion modules from the model config.
         """
         self.base_model.shared_parameters = nn.ModuleDict()
-
+        
         # Initialize adapters config
         init_adapters_config(self, model_config, adapters_config)
         # Initialize adapters in all submodules
@@ -610,13 +610,21 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                         )
                     else:
                         raise ValueError(
-                            "The model has different hidden sizes {}. Sharing comapcter weights is only possible if"
+                            "The model has different hidden sizes {}. Sharing compacter weights is only possible if"
                             " the hidden_sizes match.".format(hidden_sizes)
                         )
                 else:
                     self.base_model.shared_parameters[adapter_name] = init_shared_parameters(
                         adapter_config, self.config.hidden_size, self.device
                     )
+                    
+        # Vera Initialization
+        if self.adapters_config.match(adapter_name, LoRAConfig):
+            adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+            self.base_model.shared_parameters[adapter_name] = init_shared_Vera_parameters(
+                self.config, adapter_config, self.device
+            )
+
         # Prefix Tuning
         for module in self.modules():
             if isinstance(module, PrefixTuningPool):

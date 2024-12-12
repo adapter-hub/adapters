@@ -18,7 +18,7 @@ from ..composition import Average, BatchSplit, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
 from .utils import dequantize_bnb_weight
-
+from ..context import ForwardContext
 
 try:
     from bitsandbytes.nn import Int8Params, Linear4bit, Linear8bitLt, Params4bit
@@ -45,7 +45,6 @@ class LoRA(nn.Module):
         self.composition_mode = config.composition_mode
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
-
         # Optional dropout
         if config.dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=config.dropout)
@@ -75,7 +74,7 @@ class LoRA(nn.Module):
         if self.use_gating:
             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
             nn.init.normal_(self.gate.weight, std=0.02)
-
+        
     @property
     def delta_w(self) -> torch.Tensor:
         return self.lora_B @ self.lora_A
@@ -178,57 +177,56 @@ class IA3(nn.Module):
 class Vera(nn.Module):
     def __init__(
         self,
+        name,
         lora_A_shape,
         lora_B_shape,
         config: LoRAConfig,
     ):
         super().__init__()
+        self.name = name
         self.d = config.d
         self.b = config.b
 
         self.lora_A_shape = lora_A_shape
         self.lora_B_shape = lora_B_shape
-        self.d_shape = self.lora_A_shape[1]
+        self.d_shape = self.lora_A_shape[0]
         self.b_shape = self.lora_B_shape[0]
-
-        # initialize frozen, random tensors
-        self.lora_A = torch.tensor(torch.zeros(lora_A_shape))
-        self.lora_B = torch.tensor(torch.zeros(lora_B_shape))
 
         # Actual trainable parameters
         self.vera_D = nn.Parameter(torch.diag(torch.ones(self.d_shape) * self.d))
         self.vera_B = nn.Parameter(torch.diag(torch.ones(self.b_shape) * self.b))
 
-        # For compatibility with LoRA, allow all init_weights types here.
-        # Usually should be "vera" or "lora".
-        if config.init_weights == "lora":
-            # initialize A the same way as the default for nn.Linear and B to zero
-            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_B)
-        elif config.init_weights == "bert":
-            nn.init.normal_(self.lora_A, std=0.02)
-            nn.init.normal_(self.lora_B, std=0.02)
-        elif config.init_weights == "ia3":
-            nn.init.ones_(self.lora_A)
-            nn.init.ones_(self.lora_B)
-        elif config.init_weights == "vera":
-            nn.kaiming.uniform_(self.lora_A)
-            nn.kaiming.uniform_(self.lora_B)
-        else:
-            raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
-
     @property
     def delta_w(self) -> torch.Tensor:
-        return self.vera_B @ self.lora_B @ self.vera_D @ self.lora_A
+        parameters = ForwardContext.get_context().shared_parameters[self.name]
+        lora_A = parameters["lora_A"]
+        lora_B = parameters["lora_B"]
+        return self.vera_B @ lora_B @ self.vera_D @ lora_A
 
     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
+        parameters = ForwardContext.get_context().shared_parameters[self.name]
+        lora_A = parameters["lora_A"]
+        lora_B = parameters["lora_B"]
+        
         if hidden_states is None:
             hidden_states = layer_input
-        hidden_states = self.vera_B @ self.lora_B @ self.vera_D @ self.lora_A
+        hidden_states = self.vera_B @ lora_B @ self.vera_D @ lora_A
 
         return hidden_states
 
+def init_shared_Vera_parameters(model_config, adapter_config, device):
+    hidden_size = model_config.hidden_size
+    r = adapter_config["r"]
+    parameters = nn.ParameterDict()
+    
+    # initialize frozen, random tensors A, B
+    parameters["lora_A"] = torch.zeros(r, hidden_size).to(device)
+    parameters["lora_B"] = torch.zeros(hidden_size, r).to(device)
 
+    nn.init.kaiming_uniform_(parameters["lora_A"])
+    nn.init.kaiming_uniform_(parameters["lora_B"])
+    return parameters
+    
 class LoRALayer(AdapterLayerBase):
     adapter_modules_name = "loras"
 
@@ -242,7 +240,7 @@ class LoRALayer(AdapterLayerBase):
         self.loras = nn.ModuleDict(dict())
 
         self.merged = False
-
+        
     def get_n_heads(self, lora: Union[LoRA, IA3, LoRAConfig]):
         return 1
 
@@ -254,6 +252,7 @@ class LoRALayer(AdapterLayerBase):
 
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
+        
         lora_config = self.adapters_config.match(
             adapter_name,
             config_type=LoRAConfig,
@@ -262,13 +261,14 @@ class LoRALayer(AdapterLayerBase):
         )
         if lora_config is not None and self._check_lora_location(lora_config):
             if lora_config.composition_mode == "add":
-                lora_cls = LoRA
+                if lora_config.d and lora_config.b:
+                    lora_cls = Vera
+                else:
+                    lora_cls = LoRA
             elif lora_config.composition_mode == "scale":
                 lora_cls = IA3
             else:
                 raise ValueError(f"Unknown composition_mode: {lora_config.composition_mode}")
-            # figure out good criteria to load vera
-            #
             lora = lora_cls(
                 *self._get_lora_shapes(lora_config),
                 lora_config,
@@ -277,8 +277,6 @@ class LoRALayer(AdapterLayerBase):
             lora.train(self.training)
             lora = lora.to(self.weight.device)
             self.loras[adapter_name] = lora
-            return True
-
         return False
 
     def average_adapter(

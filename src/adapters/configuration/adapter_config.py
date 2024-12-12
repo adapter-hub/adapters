@@ -485,12 +485,12 @@ class LoRAConfig(AdapterConfig):
             `merge_adapter()`.
         d (:obj:`bool` or :obj:`float`, optional):
             The value of d used in the VeraConfig. Defaults to None. Places a trainable
-            scaling parameter before the decomposition matrix A to allow scaling of the
+            scaling parameter `d` before the decomposition matrix A to allow scaling of the
             internal weights.
 
         b (:obj:`bool` or :obj:`float`, optional):
             The value of b used in the VeraConfig. Defaults to None. Places a trainable
-            scaling parameter before the decomposition matrix B to allow scaling of the
+            scaling parameter `b` before the decomposition matrix B to allow scaling of the
             internal weights.
     """
 
@@ -541,9 +541,8 @@ class VeraConfig(LoRAConfig):
     trainable matrices 'd' and 'b' while keeping the original LoRA matrices
     frozen, random, and shared across layers. See more through their paper:
     https://arxiv.org/pdf/2106.09685. Note that `r` will still be supplied
-    since we are still initializing decomposition matrices A and B,
-    however the `composition_mode` parameter along with the
-    `use_gating` parameter will be ignored.
+    since we are still initializing decomposition matrices A and B.
+    The `composition_mode` parameter should also be set to `add`.
     """
 
     selfattn_lora: bool = False
