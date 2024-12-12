@@ -16,9 +16,10 @@ from transformers.pytorch_utils import Conv1D
 
 from ..composition import Average, BatchSplit, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
+from ..context import ForwardContext
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
 from .utils import dequantize_bnb_weight
-from ..context import ForwardContext
+
 
 try:
     from bitsandbytes.nn import Int8Params, Linear4bit, Linear8bitLt, Params4bit

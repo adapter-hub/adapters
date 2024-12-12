@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import torch
 from torch import nn
 
-from adapters.configuration.adapter_config import ConfigUnion, LoRAConfig
+from adapters.configuration.adapter_config import ConfigUnion, LoRAConfig, VeraConfig
 from transformers import GenerationConfig
 from transformers.modeling_outputs import ModelOutput
 from transformers.utils import is_accelerate_available
@@ -619,8 +619,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     )
 
         # Vera Initialization
-        if self.adapters_config.match(adapter_name, LoRAConfig):
-            adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+        if self.adapters_config.match(adapter_name, VeraConfig):
+            adapter_config = self.adapters_config.match(adapter_name, VeraConfig)
             self.base_model.shared_parameters[adapter_name] = init_shared_Vera_parameters(
                 self.config, adapter_config, self.device
             )
