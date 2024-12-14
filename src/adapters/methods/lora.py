@@ -279,7 +279,7 @@ def init_shared_Vera_parameters(model_config, adapter_config, device):
         nn.init.kaiming_uniform_(parameters["lora_A"])
         nn.init.kaiming_uniform_(parameters["lora_B"])
     else:
-        raise ValueError("Unknown init_wfffeights type: {}".format(adapter_config["init_weights"]))
+        raise ValueError("Unknown init_weights type: {}".format(adapter_config["init_weights"]))
 
     return parameters
 
