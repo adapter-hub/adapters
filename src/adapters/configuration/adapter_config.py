@@ -545,14 +545,14 @@ class VeraConfig(LoRAConfig):
     The `composition_mode` parameter should also be set to `add`.
     """
 
-    selfattn_lora: bool = False
+    selfattn_lora: bool = True
     intermediate_lora: bool = False
     output_lora: bool = False
 
     r: int = 8
-    init_weights: str = "vera"
     d: Union[bool, float] = 0.1
-    b: Union[bool, float] = 0
+    b: Union[bool, float] = 0.0
+    init_weights: str = "vera"
 
 
 @dataclass(eq=False)
