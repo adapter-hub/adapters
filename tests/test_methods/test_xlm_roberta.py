@@ -1,6 +1,6 @@
 from transformers import XLMRobertaConfig
 
-from .utils import *
+from .generator import *
 
 
 class XLMRobertaAdapterTestBase(TextAdapterTestBase):

@@ -1,6 +1,6 @@
 from transformers import DistilBertConfig
 
-from .utils import *
+from .generator import *
 
 
 class DistilBertAdapterTestBase(TextAdapterTestBase):

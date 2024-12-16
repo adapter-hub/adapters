@@ -8,7 +8,7 @@ import adapters
 from adapters import ADAPTER_CONFIG_MAP, AdapterConfig, BertAdapterModel, get_adapter_config_hash
 from adapters.trainer import AdapterTrainer as Trainer
 from adapters.utils import find_in_index
-from tests.test_impl.utils import ids_tensor
+from tests.test_methods.method_test_impl.utils import ids_tensor
 from transformers import (
     AutoModel,
     AutoTokenizer,

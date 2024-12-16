@@ -1,6 +1,6 @@
 from transformers import DebertaV2Config
 
-from .utils import *
+from .generator import *
 
 
 class DebertaV2AdapterTestBase(TextAdapterTestBase):

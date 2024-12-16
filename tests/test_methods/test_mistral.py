@@ -1,6 +1,6 @@
 from transformers.models.mistral.configuration_mistral import MistralConfig
 
-from .utils import *
+from .generator import *
 
 
 class MistralAdapterTestBase(TextAdapterTestBase):

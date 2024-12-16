@@ -1,6 +1,6 @@
 from transformers import BartConfig
 
-from .utils import *
+from .generator import *
 
 
 class BartAdapterTestBase(TextAdapterTestBase):

@@ -1,6 +1,6 @@
 from transformers import MT5Config
 
-from .utils import *
+from .generator import *
 
 
 @require_torch

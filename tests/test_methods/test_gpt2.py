@@ -1,6 +1,6 @@
 from transformers import GPT2Config
 
-from .utils import *
+from .generator import *
 
 
 class GPT2AdapterTestBase(TextAdapterTestBase):

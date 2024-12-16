@@ -6,23 +6,26 @@ from math import ceil
 import pytest
 import torch
 
-from tests.test_impl.composition.test_parallel import ParallelAdapterInferenceTestMixin, ParallelTrainingMixin
-from tests.test_impl.core.test_adapter_backward_compability import CompabilityTestMixin
-from tests.test_impl.core.test_adapter_conversion import ModelClassConversionTestMixin
-from tests.test_impl.core.test_adapter_fusion_common import AdapterFusionModelTestMixin
-from tests.test_impl.embeddings.test_adapter_embeddings import EmbeddingTestMixin
-from tests.test_impl.heads.test_adapter_heads import PredictionHeadModelTestMixin
-from tests.test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
-from tests.test_impl.peft.test_compacter import CompacterTestMixin
-from tests.test_impl.peft.test_config_union import ConfigUnionAdapterTest
-from tests.test_impl.peft.test_ia3 import IA3TestMixin
-from tests.test_impl.peft.test_lora import LoRATestMixin
-from tests.test_impl.peft.test_prefix_tuning import PrefixTuningTestMixin
-from tests.test_impl.peft.test_prompt_tuning import PromptTuningTestMixin
-from tests.test_impl.peft.test_reft import ReftTestMixin
-from tests.test_impl.peft.test_unipelt import UniPELTTestMixin
-from tests.test_impl.utils import make_config
 from tests.test_methods.base import AudioAdapterTestBase, TextAdapterTestBase, VisionAdapterTestBase
+from tests.test_methods.method_test_impl.composition.test_parallel import (
+    ParallelAdapterInferenceTestMixin,
+    ParallelTrainingMixin,
+)
+from tests.test_methods.method_test_impl.core.test_adapter_backward_compability import CompabilityTestMixin
+from tests.test_methods.method_test_impl.core.test_adapter_conversion import ModelClassConversionTestMixin
+from tests.test_methods.method_test_impl.core.test_adapter_fusion_common import AdapterFusionModelTestMixin
+from tests.test_methods.method_test_impl.embeddings.test_adapter_embeddings import EmbeddingTestMixin
+from tests.test_methods.method_test_impl.heads.test_adapter_heads import PredictionHeadModelTestMixin
+from tests.test_methods.method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
+from tests.test_methods.method_test_impl.peft.test_compacter import CompacterTestMixin
+from tests.test_methods.method_test_impl.peft.test_config_union import ConfigUnionAdapterTest
+from tests.test_methods.method_test_impl.peft.test_ia3 import IA3TestMixin
+from tests.test_methods.method_test_impl.peft.test_lora import LoRATestMixin
+from tests.test_methods.method_test_impl.peft.test_prefix_tuning import PrefixTuningTestMixin
+from tests.test_methods.method_test_impl.peft.test_prompt_tuning import PromptTuningTestMixin
+from tests.test_methods.method_test_impl.peft.test_reft import ReftTestMixin
+from tests.test_methods.method_test_impl.peft.test_unipelt import UniPELTTestMixin
+from tests.test_methods.method_test_impl.utils import make_config
 from transformers import AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 from transformers.testing_utils import require_torch, torch_device
 
@@ -30,9 +33,9 @@ from transformers.testing_utils import require_torch, torch_device
 def generate_method_tests(
     model_test_base,
     excluded_tests=[],
-):
+) -> dict:
     """
-    Generates a set of test classes for a given model test base.
+    Generates a set of method test classes for a given model test base.
 
     Args:
         model_test_base (type): The base class for the model tests.

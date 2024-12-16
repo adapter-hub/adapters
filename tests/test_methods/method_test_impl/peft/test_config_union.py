@@ -6,7 +6,7 @@ from adapters.configuration import (
     PrefixTuningConfig,
     SeqBnConfig,
 )
-from tests.test_impl.base import AdapterMethodBaseTestMixin
+from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch
 
 

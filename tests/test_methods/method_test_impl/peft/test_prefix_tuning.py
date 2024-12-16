@@ -1,7 +1,7 @@
 import torch
 
 from adapters import ADAPTER_MODEL_MAPPING, PrefixTuningConfig
-from tests.test_impl.base import AdapterMethodBaseTestMixin
+from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers import CLIPConfig
 from transformers.testing_utils import require_torch, torch_device
 

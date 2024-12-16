@@ -1,6 +1,6 @@
 from transformers import MBartConfig
 
-from .utils import *
+from .generator import *
 
 
 class MBartAdapterTestBase(TextAdapterTestBase):

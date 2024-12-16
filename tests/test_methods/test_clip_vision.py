@@ -1,6 +1,6 @@
 from transformers import CLIPVisionConfig, CLIPVisionModel, CLIPVisionModelWithProjection
 
-from .utils import *
+from .generator import *
 
 
 class CLIPVisionAdapterTestBase(VisionAdapterTestBase):

@@ -1,6 +1,6 @@
 from transformers import RobertaConfig
 
-from .utils import *
+from .generator import *
 
 
 class RobertaAdapterTestBase(TextAdapterTestBase):

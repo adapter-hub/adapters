@@ -2,7 +2,7 @@ import unittest
 
 from transformers import AlbertConfig
 
-from .utils import (
+from .generator import (
     PredictionHeadModelTestMixin,
     TextAdapterTestBase,
     ceil,

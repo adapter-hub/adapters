@@ -1,6 +1,6 @@
 from transformers import PLBartConfig
 
-from .utils import *
+from .generator import *
 
 
 class PLBartAdapterTestBase(TextAdapterTestBase):

@@ -19,8 +19,8 @@ from adapters import (
     SeqBnInvConfig,
 )
 from adapters.heads.language_modeling import CausalLMHead
-from tests.test_impl.base import AdapterMethodBaseTestMixin
-from tests.test_impl.utils import create_twin_models
+from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
+from tests.test_methods.method_test_impl.utils import create_twin_models
 from transformers import MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING, CLIPConfig
 from transformers.testing_utils import require_torch, torch_device
 

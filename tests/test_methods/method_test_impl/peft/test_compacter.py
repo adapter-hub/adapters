@@ -1,5 +1,5 @@
 from adapters import ADAPTER_MODEL_MAPPING, CompacterPlusPlusConfig
-from tests.test_impl.base import AdapterMethodBaseTestMixin
+from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch
 
 

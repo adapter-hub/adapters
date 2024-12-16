@@ -1,6 +1,6 @@
 from transformers import XmodConfig
 
-from .utils import *
+from .generator import *
 
 
 class XmodAdapterTestBase(TextAdapterTestBase):

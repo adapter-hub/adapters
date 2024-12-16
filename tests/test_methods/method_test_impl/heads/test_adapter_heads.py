@@ -7,7 +7,7 @@ import adapters
 from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AutoAdapterModel
 from adapters.composition import BatchSplit, Stack
 from adapters.heads import PredictionHead
-from tests.test_impl.utils import create_twin_models
+from tests.test_methods.method_test_impl.utils import create_twin_models
 from transformers import AutoModelForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
 

@@ -1,6 +1,6 @@
 from transformers import T5Config
 
-from .utils import *
+from .generator import *
 
 
 @require_torch

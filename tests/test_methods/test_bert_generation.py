@@ -2,7 +2,7 @@ from datasets import load_dataset
 
 from transformers import AutoTokenizer, BertGenerationConfig
 
-from .utils import TextAdapterTestBase, generate_method_tests, make_config, torch, torch_device
+from .generator import TextAdapterTestBase, generate_method_tests, make_config, torch, torch_device
 
 
 class BertGenerationAdapterTestBase(TextAdapterTestBase):

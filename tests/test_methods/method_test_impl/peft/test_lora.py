@@ -4,7 +4,7 @@ import torch
 
 from adapters import LoRAConfig
 from adapters.methods.lora import LoRALayer
-from tests.test_impl.base import AdapterMethodBaseTestMixin
+from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch
 
 

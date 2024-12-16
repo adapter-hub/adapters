@@ -2,7 +2,7 @@ import random
 
 from transformers import CLIPConfig, CLIPTextConfig, CLIPTextModel, CLIPTextModelWithProjection, CLIPVisionConfig
 
-from .utils import *
+from .generator import *
 
 
 class CLIPTextAdapterTestBase(TextAdapterTestBase):

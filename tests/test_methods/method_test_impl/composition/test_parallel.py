@@ -12,7 +12,7 @@ from adapters import (
     T5AdapterModel,
 )
 from adapters.composition import BatchSplit, Parallel
-from tests.test_impl.utils import add_lm_head
+from tests.test_methods.method_test_impl.utils import add_lm_head
 from transformers import MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING, Trainer, TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
 

@@ -1,6 +1,6 @@
 from transformers import ElectraConfig
 
-from .utils import *
+from .generator import *
 
 
 class ElectraAdapterTestBase(TextAdapterTestBase):

@@ -1,6 +1,6 @@
 from transformers.models.llama.configuration_llama import LlamaConfig
 
-from .utils import *
+from .generator import *
 
 
 class LlamaAdapterTestBase(TextAdapterTestBase):
