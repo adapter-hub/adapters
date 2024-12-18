@@ -96,7 +96,9 @@ class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):
         key_states, value_states, attention_mask = self.prefix_tuning(
             key_states, value_states, hidden_states, attention_mask
         )
+        print(f"query_states before: {query_states.shape}")
         (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
+        print(f"query_states after: {query_states.shape}")
         bsz = query_states.size(0)
 
         proj_shape = (bsz * self.num_heads, -1, self.head_dim)
