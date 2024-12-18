@@ -33,6 +33,7 @@ style:
 # run all tests in the library
 test:
 	python -m pytest -n auto --dist=loadfile -s -v ./tests/
+	python -c "import transformers; print(transformers.__version__)"
 
 # run all tests for the adapter methods for all adapter models
 test-adapter-methods:
@@ -45,6 +46,7 @@ subset ?=
 test-adapter-method-subset:
 	@echo "Running subset $(subset)"
 	python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/ -m $(subset)
+	pip list
 
 
 # run the hugginface test suite for all adapter models
