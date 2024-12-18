@@ -37,7 +37,7 @@ test:
 # run all tests for the adapter methods for all adapter models
 test-adapter-methods:
 	# python -m pytest -n auto --dist=loadfile -s -v ./tests/test_methods/
-	pytest -s tests/test_methods/test_mbart.py::Composition::test_parallel_training_lora
+	pytest -s tests/test_methods/test_mbart.py::Composition::test_parallel_training_lora --tb=long
 
 # run a subset of the adapter method tests for all adapter models
 # list of all subsets: [core, heads, embeddings, composition, prefix_tuning, prompt_tuning, reft, unipelt, compacter, bottleneck, ia3, lora, config_union]
