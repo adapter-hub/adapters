@@ -79,7 +79,7 @@ class MultiHeadSelfAttentionWithAdapters(DistilBertMultiHeadSelfAttentionMixin, 
 
         def unshape(x: torch.Tensor) -> torch.Tensor:
             """group heads"""
-            return x.transpose(1, 2).contiguous().view(bs, -1, self.n_heads * dim_per_head)
+            return x.transpose(1, 2).contiguous().view(x.shape[0], -1, self.n_heads * dim_per_head)
 
         q = shape(self.q_lin(query))  # (bs, n_heads, q_length, dim_per_head)
         k = shape(self.k_lin(key))  # (bs, n_heads, k_length, dim_per_head)
@@ -162,11 +162,12 @@ class DistilBertSdpaAttentionWithAdapters(DistilBertMultiHeadSelfAttentionMixin,
 
         def shape(x: torch.Tensor) -> torch.Tensor:
             """separate heads"""
-            return x.view(batch_size, -1, self.n_heads, dim_per_head).transpose(1, 2)
+            # keep first dim due to parallel composition
+            return x.view(x.shape[0], -1, self.n_heads, dim_per_head).transpose(1, 2)
 
         def unshape(x: torch.Tensor) -> torch.Tensor:
             """group heads"""
-            return x.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * dim_per_head)
+            return x.transpose(1, 2).contiguous().view(x.shape[0], -1, self.n_heads * dim_per_head)
 
         q = shape(self.q_lin(query))  # (bs, n_heads, q_length, dim_per_head)
         k = shape(self.k_lin(key))  # (bs, n_heads, k_length, dim_per_head)
@@ -230,7 +231,7 @@ class DistilBertFlashAttention2WithAdapters(DistilBertMultiHeadSelfAttentionMixi
 
         def reshape(x: torch.Tensor) -> torch.Tensor:
             """separate heads"""
-            return x.view(batch_size, -1, self.n_heads, dim_per_head)
+            return x.view(x.shape[0], -1, self.n_heads, dim_per_head)
 
         # Flash attention requires the input to have the shape
         # batch_size x seq_length x head_dim x hidden_dim
