@@ -77,7 +77,12 @@ class T5AttentionWithAdapters(T5AttentionAdaptersMixin, T5Attention):
         is_cross_attention = key_value_states is not None
 
         query_states = self.q(hidden_states)
-        query_states = query_states.view(batch_size, -1, self.n_heads, self.key_value_proj_dim).transpose(1, 2)
+        # >>> START AH Changes <<<
+        # adapt bsz for lora parallel
+        query_states = query_states.view(query_states.shape[0], -1, self.n_heads, self.key_value_proj_dim).transpose(
+            1, 2
+        )
+        # >>> END AH Changes <<<
 
         if past_key_value is not None:
             is_updated = past_key_value.is_updated.get(self.layer_idx)
@@ -95,8 +100,12 @@ class T5AttentionWithAdapters(T5AttentionAdaptersMixin, T5Attention):
         else:
             key_states = self.k(current_states)
             value_states = self.v(current_states)
-            key_states = key_states.view(batch_size, -1, self.n_heads, self.key_value_proj_dim).transpose(1, 2)
-            value_states = value_states.view(batch_size, -1, self.n_heads, self.key_value_proj_dim).transpose(1, 2)
+            key_states = key_states.view(key_states.shape[0], -1, self.n_heads, self.key_value_proj_dim).transpose(
+                1, 2
+            )
+            value_states = value_states.view(
+                value_states.shape[0], -1, self.n_heads, self.key_value_proj_dim
+            ).transpose(1, 2)
 
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
