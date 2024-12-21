@@ -303,7 +303,7 @@ class TransformerBlockWithAdapters(DistilBertTransfomerBlockAdaptersMixin, Trans
             torch.tensor(bs, seq_length, dim) The output of the transformer block contextualization.
         """
         adjust_tensors_for_parallel_(x, attn_mask)
-        attn_mask = prefix_attention_mask(attn_mask, dim=1, prefix_value=1)  # type: ignore
+        attn_mask = prefix_attention_mask(attn_mask, dim=[2, 3], prefix_value=1)  # type: ignore
 
         # Self-Attention
         sa_output = self.attention(
