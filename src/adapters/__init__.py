@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 from typing import TYPE_CHECKING
 
@@ -41,6 +41,7 @@ _import_structure = {
         "DEFAULT_ADAPTERFUSION_CONFIG",
         "AdapterConfig",
         "AdapterFusionConfig",
+        "AdapterPlusConfig",
         "BnConfig",
         "CompacterConfig",
         "CompacterPlusPlusConfig",
@@ -157,6 +158,7 @@ if TYPE_CHECKING:
         DEFAULT_ADAPTERFUSION_CONFIG,
         AdapterConfig,
         AdapterFusionConfig,
+        AdapterPlusConfig,
         BnConfig,
         CompacterConfig,
         CompacterPlusPlusConfig,

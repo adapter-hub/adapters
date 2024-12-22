@@ -21,9 +21,10 @@ from setuptools import find_packages, setup
 # We try to follow their general layout wherever sensible.
 
 _deps = [
-    "accelerate>=0.21.0",
+    "accelerate>=0.26.0",
     "beautifulsoup4",
     "black~=24.4.0",
+    "dataclasses",
     "datasets!=2.5.0",
     "dill<0.3.5",
     "docutils==0.16.0",
@@ -38,7 +39,7 @@ _deps = [
     "protobuf",
     "psutil",
     "pytest>=7.2.0,<8.0.0",
-    "pytest-subtests",
+    "pytest-rich",
     "pytest-timeout",
     "pytest-xdist",
     "markupsafe==2.0.1",
@@ -58,7 +59,8 @@ _deps = [
     "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch",
-    "transformers~=4.44.0",
+    "torchvision",
+    "transformers~=4.45.2",
 ]
 
 
@@ -80,11 +82,11 @@ extras = {}
 extras["sklearn"] = deps_list("scikit-learn")
 
 extras["torch"] = deps_list("torch", "accelerate")
-
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
+extras["torchvision"] = deps_list("torchvision")
 extras["testing"] = deps_list(
     "pytest",
-    "pytest-subtests",
+    "pytest-rich",
     "pytest-xdist",
     "timeout-decorator",
     "parameterized",
@@ -103,6 +105,7 @@ extras["testing"] = deps_list(
     "beautifulsoup4",
     "pillow",
     "accelerate",
+    "torchvision",
 )
 
 extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython")
@@ -137,7 +140,7 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="1.0.0",
+    version="1.0.1",
     author="The AdapterHub team and community contributors",
     author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
@@ -153,7 +156,7 @@ setup(
     python_requires=">=3.8.0",
     install_requires=install_requires,
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "Intended Audience :: Education",
         "Intended Audience :: Science/Research",

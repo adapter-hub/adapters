@@ -19,6 +19,7 @@ from typing import Optional, Tuple, Union
 import torch
 import torch.utils.checkpoint
 
+from transformers.cache_utils import Cache
 from transformers.models.gptj.modeling_gptj import GPTJAttention, GPTJBlock, apply_rotary_pos_emb, get_embed_positions
 from transformers.utils.import_utils import is_torch_fx_proxy
 
@@ -30,12 +31,13 @@ class GPTJAttentionWithAdapters(GPTJAttentionAdaptersMixin, GPTJAttention):
     def forward(
         self,
         hidden_states: torch.FloatTensor,
-        layer_past: Optional[Tuple[torch.Tensor]] = None,
+        layer_past: Optional[Cache] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
         use_cache: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
+        cache_position: Optional[torch.LongTensor] = None,
     ) -> Union[
         Tuple[torch.Tensor, Tuple[torch.Tensor]],
         Optional[Tuple[torch.Tensor, Tuple[torch.Tensor], Tuple[torch.Tensor, ...]]],
@@ -82,15 +84,13 @@ class GPTJAttentionWithAdapters(GPTJAttentionAdaptersMixin, GPTJAttention):
         query = query.permute(0, 2, 1, 3)
 
         if layer_past is not None:
-            past_key = layer_past[0]
-            past_value = layer_past[1]
-            key = torch.cat((past_key, key), dim=-2)
-            value = torch.cat((past_value, value), dim=-2)
-
-        if use_cache is True:
-            present = (key, value)
-        else:
-            present = None
+            cache_kwargs = {
+                "sin": sin,
+                "cos": cos,
+                "partial_rotation_size": self.rotary_dim,
+                "cache_position": cache_position,
+            }
+            key, value = layer_past.update(key, value, self.layer_idx, cache_kwargs)
 
         key, value, attention_mask = self.prefix_tuning(key, value, hidden_states, attention_mask)
         (query,) = adjust_tensors_for_parallel(key, query)
@@ -102,7 +102,7 @@ class GPTJAttentionWithAdapters(GPTJAttentionAdaptersMixin, GPTJAttention):
         attn_output = self.out_proj(attn_output)
         attn_output = self.resid_dropout(attn_output)
 
-        outputs = (attn_output, present)
+        outputs = (attn_output, layer_past)
         if output_attentions:
             outputs += (attn_weights,)
 
@@ -113,24 +113,26 @@ class GPTJBlockWithAdapters(GPTJDecoderBlockAdaptersMixin, GPTJBlock):
     def forward(
         self,
         hidden_states: Optional[torch.FloatTensor],
-        layer_past: Optional[Tuple[torch.Tensor]] = None,
+        layer_past: Optional[Cache] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
         use_cache: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
+        cache_position: Optional[torch.LongTensor] = None,
     ) -> Union[Tuple[torch.Tensor], Optional[Tuple[torch.Tensor, Tuple[torch.FloatTensor, ...]]]]:
         adjust_tensors_for_parallel_(hidden_states, attention_mask)
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
         attn_outputs = self.attn(
-            hidden_states,
+            hidden_states=hidden_states,
             layer_past=layer_past,
             attention_mask=attention_mask,
             position_ids=position_ids,
             head_mask=head_mask,
             use_cache=use_cache,
             output_attentions=output_attentions,
+            cache_position=cache_position,
         )
         attn_output = attn_outputs[0]  # output_attn: a, present, (attentions)
         outputs = attn_outputs[1:]
