@@ -99,6 +99,7 @@ class LoRA(nn.Module):
             hidden_states = hidden_states * gate
         else:
             gate = None
+            hidden_states = hidden_states * self.scaling
 
         return hidden_states, gate
 
@@ -170,6 +171,7 @@ class IA3(nn.Module):
             hidden_states = hidden_states * gate
         else:
             gate = None
+            hidden_states = hidden_states * self.scaling
 
         return hidden_states, gate
 
