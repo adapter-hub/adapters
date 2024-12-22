@@ -483,6 +483,7 @@ class LoRAConfig(AdapterConfig):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
             `merge_adapter()`.
+        dtype (str, optional): torch dtype for reparametrization tensors. Defaults to None.
     """
 
     architecture: Optional[str] = "lora"
@@ -542,6 +543,7 @@ class ReftConfig(AdapterConfig):
         subtract_projection (bool): If True, subtract the projection of the input.
         dropout (float): The dropout rate used in the intervention layer.
         non_linearity (str): The activation function used in the intervention layer.
+        dtype (str, optional): torch dtype for intervention tensors. Defaults to None.
     """
 
     layers: Union[Literal["all"], List[int]]
