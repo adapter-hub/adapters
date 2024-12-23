@@ -492,6 +492,7 @@ class LoRAConfig(AdapterConfig):
             The value of b used in the VeraConfig. Defaults to None. Places a trainable
             scaling parameter `b` before the decomposition matrix B to allow scaling of the
             internal weights.
+        dtype (str, optional): torch dtype for reparametrization tensors. Defaults to None.
     """
 
     architecture: Optional[str] = "lora"
@@ -510,7 +511,7 @@ class LoRAConfig(AdapterConfig):
     use_gating: bool = False
     d: Union[bool, float] = None
     b: Union[bool, float] = None
-
+    dtype: Optional[str] = None
 
 @dataclass(eq=False)
 class IA3Config(LoRAConfig):
@@ -532,6 +533,7 @@ class IA3Config(LoRAConfig):
     composition_mode: str = "scale"
     init_weights: str = "ia3"
     use_gating: bool = False
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -572,6 +574,7 @@ class ReftConfig(AdapterConfig):
         subtract_projection (bool): If True, subtract the projection of the input.
         dropout (float): The dropout rate used in the intervention layer.
         non_linearity (str): The activation function used in the intervention layer.
+        dtype (str, optional): torch dtype for intervention tensors. Defaults to None.
     """
 
     layers: Union[Literal["all"], List[int]]
@@ -583,6 +586,7 @@ class ReftConfig(AdapterConfig):
     subtract_projection = True
     dropout: float = 0.05
     non_linearity: Optional[str] = None
+    dtype: Optional[str] = None
 
     architecture: str = "reft"
 
@@ -601,6 +605,7 @@ class LoReftConfig(ReftConfig):
     r: int = 1
     orthogonality: bool = True
     tied_weights: bool = False
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -615,6 +620,7 @@ class NoReftConfig(ReftConfig):
     r: int = 1
     orthogonality: bool = False
     tied_weights: bool = False
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -630,6 +636,7 @@ class DiReftConfig(ReftConfig):
     orthogonality: bool = False
     tied_weights: bool = False
     subtract_projection = False
+    dtype: Optional[str] = None
 
 
 class ConfigUnion(AdapterConfig):
