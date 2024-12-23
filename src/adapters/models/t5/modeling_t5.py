@@ -84,7 +84,8 @@ class T5AttentionWithAdapters(T5AttentionAdaptersMixin, T5Attention):
 
         def shape(states):
             """projection"""
-            return states.view(batch_size, -1, self.n_heads, self.key_value_proj_dim).transpose(1, 2)
+            # keep first dim due to parallel composition
+            return states.view(states.shape[0], -1, self.n_heads, self.key_value_proj_dim).transpose(1, 2)
 
         def unshape(states):
             """reshape"""

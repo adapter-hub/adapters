@@ -156,13 +156,14 @@ class BnConfig(AdapterConfig):
         ln_after (:obj:`bool`, optional): If True, add a new layer normalization after the adapter bottleneck.
             Defaults to False.
         init_weights (:obj:`str`, optional): Initialization method for the weights of the adapter modules.
-            Currently, this can be either "bert" (default) or "mam_adapter".
+            Currently, this can be either "bert" (default) or "mam_adapter" or "houlsby".
         is_parallel (:obj:`bool`, optional): If True, apply adapter transformations in parallel.
             By default (False), sequential application is used.
         scaling (:obj:`float` or :obj:`str`, optional):
             Scaling factor to use for scaled addition of adapter outputs as done by He et al. (2021). Can be either a
-            constant factor (float) or the string "learned", in which case the scaling factor is learned. Defaults to
-            1.0.
+            constant factor (float), or the string "learned", in which case the scaling factor is learned, or the string
+            "channel", in which case we initialize a scaling vector of the channel shape that is then learned.
+            Defaults to 1.0.
         use_gating (:obj:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False.
@@ -213,6 +214,10 @@ class BnConfig(AdapterConfig):
         phm_bias (:obj:`bool`, optional):
             If True the down and up projection PHMLayer has a bias term. If `phm_layer` is False this is ignored.
             Defaults to True
+        stochastic_depth (:obj:`float`, optional):
+            This value specifies the probability of the model dropping entire layers during
+            training. This parameter should be only used for vision based tasks involving
+            residual networks.
     """
 
     # Required options
@@ -250,6 +255,7 @@ class BnConfig(AdapterConfig):
     hypercomplex_nonlinearity: Optional[str] = "glorot-uniform"
     phm_rank: Optional[int] = 1
     phm_bias: Optional[bool] = True
+    stochastic_depth: Optional[float] = 0.0
 
     # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
     # Therefore, we don't allow changing attribute values if set once.
@@ -365,6 +371,24 @@ class ParBnConfig(BnConfig):
 
 
 @dataclass(eq=False)
+class AdapterPlusConfig(BnConfig):
+    """
+    The AdapterPlus config architecture proposed by Jan-Martin O, Steitz and Stefan Roth. See https://arxiv.org/pdf/2406.06820
+    """
+
+    original_ln_after: bool = False
+    residual_before_ln: bool = True
+    stochastic_depth: float = 0.1
+    init_weights: str = "houlsby"
+    scaling: Union[float, str] = "channel"
+
+    mh_adapter: bool = False
+    output_adapter: bool = True
+    reduction_factor: Union[float, Mapping] = 96
+    non_linearity: str = "gelu"
+
+
+@dataclass(eq=False)
 class PrefixTuningConfig(AdapterConfig):
     """
     The Prefix Tuning architecture proposed by Li & Liang (2021). See https://arxiv.org/pdf/2101.00190.pdf.
@@ -459,6 +483,7 @@ class LoRAConfig(AdapterConfig):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
             `merge_adapter()`.
+        dtype (str, optional): torch dtype for reparametrization tensors. Defaults to None.
     """
 
     architecture: Optional[str] = "lora"
@@ -475,6 +500,7 @@ class LoRAConfig(AdapterConfig):
     composition_mode: str = "add"
     init_weights: str = "lora"
     use_gating: bool = False
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -497,6 +523,7 @@ class IA3Config(LoRAConfig):
     composition_mode: str = "scale"
     init_weights: str = "ia3"
     use_gating: bool = False
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -516,6 +543,7 @@ class ReftConfig(AdapterConfig):
         subtract_projection (bool): If True, subtract the projection of the input.
         dropout (float): The dropout rate used in the intervention layer.
         non_linearity (str): The activation function used in the intervention layer.
+        dtype (str, optional): torch dtype for intervention tensors. Defaults to None.
     """
 
     layers: Union[Literal["all"], List[int]]
@@ -527,6 +555,7 @@ class ReftConfig(AdapterConfig):
     subtract_projection = True
     dropout: float = 0.05
     non_linearity: Optional[str] = None
+    dtype: Optional[str] = None
 
     architecture: str = "reft"
 
@@ -545,6 +574,7 @@ class LoReftConfig(ReftConfig):
     r: int = 1
     orthogonality: bool = True
     tied_weights: bool = False
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -559,6 +589,7 @@ class NoReftConfig(ReftConfig):
     r: int = 1
     orthogonality: bool = False
     tied_weights: bool = False
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)
@@ -574,6 +605,7 @@ class DiReftConfig(ReftConfig):
     orthogonality: bool = False
     tied_weights: bool = False
     subtract_projection = False
+    dtype: Optional[str] = None
 
 
 class ConfigUnion(AdapterConfig):

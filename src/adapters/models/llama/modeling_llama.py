@@ -85,9 +85,10 @@ class LlamaAttentionWithAdapters(LlamaAttentionMixin, LlamaAttention):
             key_states = self.k_proj(hidden_states)
             value_states = self.v_proj(hidden_states)
 
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        # Loosen constraint on batch_size to allow parallel adapter composition
+        query_states = query_states.view(-1, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        key_states = key_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        value_states = value_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
         # >>> START AH Changes <<<
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
@@ -188,9 +189,11 @@ class LlamaFlashAttention2WithAdapters(LlamaAttentionMixin, LlamaFlashAttention2
         # Flash attention requires the input to have the shape
         # batch_size x seq_length x head_dim x hidden_dim
         # therefore we just need to keep the original shape
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+
+        # Loosen constraint on batch_size to allow parallel adapter composition
+        query_states = query_states.view(-1, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        key_states = key_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        value_states = value_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
         # >>> START AH Changes <<<
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
@@ -320,9 +323,10 @@ class LlamaSdpaAttentionWithAdapters(LlamaAttentionMixin, LlamaSdpaAttention):
         key_states = self.k_proj(hidden_states)
         value_states = self.v_proj(hidden_states)
 
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        # Loosen constraint on batch_size to allow parallel adapter composition
+        query_states = query_states.view(-1, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        key_states = key_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        value_states = value_states.view(-1, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
         # >>> START AH Changes <<<
         query_states, key_states, value_states = match_attn_matrices_for_parallel(

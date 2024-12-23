@@ -61,7 +61,8 @@ class MultiHeadSelfAttentionWithAdapters(DistilBertMultiHeadSelfAttentionMixin, 
 
         def shape(x: torch.Tensor) -> torch.Tensor:
             """separate heads"""
-            return x.view(bs, -1, self.n_heads, dim_per_head).transpose(1, 2)
+            # keep first dim due to parallel composition
+            return x.view(x.shape[0], -1, self.n_heads, dim_per_head).transpose(1, 2)
 
         def unshape(x: torch.Tensor) -> torch.Tensor:
             """group heads"""

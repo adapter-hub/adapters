@@ -59,7 +59,8 @@ class WhisperAdapterTest(
     WhisperAdapterTestBase,
     unittest.TestCase,
 ):
-    pass
+    def test_parallel_training_lora(self):
+        self.skipTest("Not supported for Whisper")
 
 
 @require_torch

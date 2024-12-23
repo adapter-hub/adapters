@@ -42,7 +42,7 @@ A visualization of further configuration options related to the adapter structur
 - [`DoubleSeqBnConfig`](adapters.DoubleSeqBnConfig), as proposed by [Houlsby et al. (2019)](https://arxiv.org/pdf/1902.00751.pdf) places adapter layers after both the multi-head attention and feed-forward block in each Transformer layer.
 - [`SeqBnConfig`](adapters.SeqBnConfig), as proposed by [Pfeiffer et al. (2020)](https://arxiv.org/pdf/2005.00052.pdf) places an adapter layer only after the feed-forward block in each Transformer layer.
 - [`ParBnConfig`](adapters.ParBnConfig), as proposed by [He et al. (2021)](https://arxiv.org/pdf/2110.04366.pdf) places adapter layers in parallel to the original Transformer layers.
-
+- [`AdapterPlusConfig`](adapters.AdapterPlusConfig), as proposed by [Steitz and Roth (2024)](https://arxiv.org/pdf/2406.06820) places adapter layers adapter layers after the multi-head attention and has channel wise scaling and houlsby weight initialization
 _Example_:
 ```python
 from adapters import BnConfig
@@ -56,6 +56,7 @@ _Papers:_
 * [Parameter-Efficient Transfer Learning for NLP](https://arxiv.org/pdf/1902.00751.pdf) (Houlsby et al., 2019)
 * [Simple, Scalable Adaptation for Neural Machine Translation](https://arxiv.org/pdf/1909.08478.pdf) (Bapna and Firat, 2019)
 * [AdapterFusion: Non-Destructive Task Composition for Transfer Learning](https://aclanthology.org/2021.eacl-main.39.pdf) (Pfeiffer et al., 2021)
+* [Adapters Strike Back](https://arxiv.org/pdf/2406.06820) (Steitz and Roth., 2024)
 * [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/pdf/2007.07779.pdf) (Pfeiffer et al., 2020)
 
 ## Language Adapters - Invertible Adapters

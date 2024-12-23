@@ -54,7 +54,8 @@ class GPT2AdapterTest(
     GPT2AdapterTestBase,
     unittest.TestCase,
 ):
-    pass
+    def test_parallel_training_lora(self):
+        self.skipTest("Not supported for GPT2")
 
 
 @require_torch
