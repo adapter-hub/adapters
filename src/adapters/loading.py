@@ -371,7 +371,7 @@ class AdapterLoader(WeightsLoader):
 
     def _fix_backward_compat(self, config):
         # Fix error in previous versions for LoRA/ (IA)^3
-        if config["version"].startswith("adapters.") and Version(config["version"][9:]) < Version("1.1.0"):
+        if config.get("version", "").startswith("adapters.") and Version(config["version"][9:]) < Version("1.1.0"):
             if (
                 config["config"].get("architecture", None) == "lora"
                 and config["config"]["r"] != config["config"]["alpha"]
