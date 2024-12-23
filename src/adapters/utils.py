@@ -173,6 +173,8 @@ def inherit_doc(cls):
 
 
 def multigetattr(o: object, name: str, default=None) -> Optional[object]:
+    if not name:
+        return default
     for n in name.split("."):
         if hasattr(o, n):
             o = getattr(o, n)
@@ -182,6 +184,8 @@ def multigetattr(o: object, name: str, default=None) -> Optional[object]:
 
 
 def multihasattr(o: object, name: str) -> bool:
+    if not name:
+        return False
     parts = name.split(".")
     for n in parts:
         if hasattr(o, n):

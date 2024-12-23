@@ -1,4 +1,5 @@
 from typing import List, Mapping, NamedTuple, Optional, Union
+from functools import partial
 
 import torch
 from torch import nn
@@ -17,6 +18,7 @@ from ..configuration import BnConfig
 from ..context import ForwardContext
 from .adapter_layer_base import ComposableAdapterLayerBase
 from .modeling import Adapter, BertFusion, ParallelAdapter
+from ..utils import multigetattr
 
 
 class BottleneckState(NamedTuple):
@@ -354,3 +356,26 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             torch.Tensor: Output hidden states of the adapter layer.
         """
         return self.bottleneck_layer_forward(hidden_states, residual_input, layer_norm)
+
+
+def hook_fn(adapter_layer, module, args, output):
+    if isinstance(output, torch.Tensor):
+        return adapter_layer(output)
+    else:
+        return (adapter_layer(output[0]),) + output[1:]
+
+
+def init_bottleneck(model):
+    for i, layer in model.iter_layers():
+        if self_attn := multigetattr(layer, model.adapter_interface.layer_self_attn, None):
+            if not hasattr(layer, "attention_adapters"):
+                layer.attention_adapters = BottleneckLayer("mh_adapter")
+                self_attn.register_forward_hook(partial(hook_fn, layer.attention_adapters))
+        if layer_output_proj := multigetattr(layer, model.adapter_interface.layer_output_proj, None):
+            if not hasattr(layer, "output_adapters"):
+                layer.output_adapters = BottleneckLayer("output_adapter")
+                layer_output_proj.register_forward_hook(partial(hook_fn, layer.output_adapters))
+        if cross_attn := multigetattr(layer, model.adapter_interface.layer_cross_attn, None):
+            if not hasattr(cross_attn, "cross_attention_adapters"):
+                layer.attention_adapters = BottleneckLayer("cross_adapter")
+                cross_attn.register_forward_hook(partial(hook_fn, layer.attention_adapters))

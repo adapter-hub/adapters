@@ -18,8 +18,7 @@ from .test_adapter import ids_tensor, make_config
 class CustomInterfaceCompatTest(unittest.TestCase):
     # This test is to check if the custom interface produces the same results as the AdapterModel implementation.
 
-    llama_config = make_config(
-        LlamaConfig,
+    llama_config = LlamaConfig(
         hidden_size=32,
         num_hidden_layers=5,
         num_attention_heads=4,
@@ -27,8 +26,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         hidden_act="gelu",
         pad_token_id=0,
     )
-    bert_config = make_config(
-        BertConfig,
+    bert_config = BertConfig(
         hidden_size=32,
         num_hidden_layers=5,
         num_attention_heads=4,
@@ -37,7 +35,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         pad_token_id=0,
     )
     llama_adapter_interface = AdapterModelInterface(
-        adapter_types=["lora", "reft"],
+        adapter_types=["bottleneck", "lora", "reft"],
         model_embeddings="embed_tokens",
         model_layers="layers",
         layer_self_attn="self_attn",
@@ -49,7 +47,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         layer_output_proj="mlp.down_proj",
     )
     bert_adapter_interface = AdapterModelInterface(
-        adapter_types=["lora", "reft"],
+        adapter_types=["bottleneck", "lora", "reft"],
         model_embeddings="embeddings",
         model_layers="encoder.layer",
         layer_self_attn="attention.self",
@@ -62,18 +60,27 @@ class CustomInterfaceCompatTest(unittest.TestCase):
     )
 
     def create_twin_models(self, config, adapter_interface, hf_auto_model_class):
-        model1 = hf_auto_model_class.from_config(config())
+        model1 = hf_auto_model_class.from_config(config)
         adapters.init(model1, interface=adapter_interface)
         model1.eval()
         # create a twin initialized with the same random weights
-        model2 = AutoAdapterModel.from_pretrained(None, config=config(), state_dict=model1.state_dict())
+        model2 = AutoAdapterModel.from_pretrained(None, config=config, state_dict=model1.state_dict())
         model2.eval()
         return model1, model2
 
-    def run_load_test(self, adapter_config, config, adapter_interface, hf_auto_model_class):
+    @parameterized.expand(
+        [
+            ("LoRA_Llama", adapters.LoRAConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
+            ("LoRA_BERT", adapters.LoRAConfig(), bert_config, bert_adapter_interface, AutoModel),
+            ("LoReft_Llama", adapters.LoReftConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
+            ("LoReft_BERT", adapters.LoReftConfig(), bert_config, bert_adapter_interface, AutoModel),
+            ("Bn_Llama", adapters.SeqBnConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
+            ("Bn_BERT", adapters.SeqBnConfig(), bert_config, bert_adapter_interface, AutoModel),
+        ]
+    )
+    def test_load_adapter(self, name, adapter_config, config, adapter_interface, hf_auto_model_class):
         custom_model, auto_model = self.create_twin_models(config, adapter_interface, hf_auto_model_class)
 
-        name = "dummy_adapter"
         custom_model.add_adapter(name, config=adapter_config)
         custom_model.set_active_adapters(name)
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -102,14 +109,3 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         output2 = auto_model(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
-
-    @parameterized.expand(
-        [
-            ("LoRA_Llama", adapters.LoRAConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
-            ("LoRA_BERT", adapters.LoRAConfig(), bert_config, bert_adapter_interface, AutoModel),
-            ("LoReft_Llama", adapters.LoReftConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
-            ("LoReft_BERT", adapters.LoReftConfig(), bert_config, bert_adapter_interface, AutoModel),
-        ]
-    )
-    def test_load_adapter(self, name, adapter_config, config, adapter_interface, hf_auto_model_class):
-        self.run_load_test(adapter_config, config, adapter_interface, hf_auto_model_class)
