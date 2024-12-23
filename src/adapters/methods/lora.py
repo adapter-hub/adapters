@@ -94,7 +94,6 @@ class LoRA(nn.Module):
         return weights - added * self.scaling
 
     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
-        print("triggered")
         if hidden_states is None:
             hidden_states = layer_input
         hidden_states = self.lora_dropout(hidden_states) @ torch.t(self.lora_A) @ torch.t(self.lora_B)
@@ -239,8 +238,13 @@ class Vera(nn.Module):
 
         if getattr(self, "lora_dropout"):
             hidden_states = self.lora_dropout(hidden_states)
-
-        hidden_states = hidden_states @ self.vera_B @ lora_B @ self.vera_D @ lora_A
+        # print(self.vera_B.shape)
+        # print(lora_B.shape)
+        # print(self.vera_D.shape)
+        # print(lora_A.shape)
+        # print((self.vera_B @ lora_B @ self.vera_D @ lora_A).shape)
+        # print(hidden_states.shape)
+        hidden_states =  hidden_states @ torch.t(self.vera_B @ lora_B @ self.vera_D @ lora_A )
 
         if self.use_gating:
             gate = torch.sigmoid(self.gate(layer_input))
@@ -255,7 +259,7 @@ class Vera(nn.Module):
         self.name = name
 
 
-def init_shared_Vera_parameters(model_config, adapter_config, device):
+def init_shared_vera_parameters(model_config, adapter_config, device):
     hidden_size = model_config.hidden_size
     r = adapter_config["r"]
 

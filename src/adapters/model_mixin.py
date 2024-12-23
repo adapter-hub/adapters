@@ -22,7 +22,7 @@ from .hub_mixin import PushAdapterToHubMixin
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .methods.adapter_layer_base import AdapterLayerBase
 from .methods.bottleneck import BottleneckLayer
-from .methods.lora import LoRALayer, init_shared_Vera_parameters
+from .methods.lora import LoRALayer, init_shared_vera_parameters
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
@@ -621,7 +621,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # Vera Initialization
         if self.adapters_config.match(adapter_name, VeraConfig):
             adapter_config = self.adapters_config.match(adapter_name, VeraConfig)
-            self.base_model.shared_parameters[adapter_name] = init_shared_Vera_parameters(
+            self.base_model.shared_parameters[adapter_name] = init_shared_vera_parameters(
                 self.config, adapter_config, self.device
             )
 
