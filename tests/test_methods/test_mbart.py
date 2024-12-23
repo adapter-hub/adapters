@@ -18,6 +18,9 @@ class MBartAdapterTestBase(TextAdapterTestBase):
     )
     tokenizer_name = "facebook/mbart-large-cc25"
 
+    def test_parallel_training_lora(self):
+        self.skipTest("Not supported for MBart")
+
 
 method_tests = generate_method_tests(
     MBartAdapterTestBase, excluded_tests=["ConfigUnion", "Embeddings", "PromptTuning"]

@@ -113,9 +113,7 @@ class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):
         key_states, value_states, attention_mask = self.prefix_tuning(
             key_states, value_states, hidden_states, attention_mask
         )
-        print(f"query_states before: {query_states.shape}")
         (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
-        print(f"query_states after: {query_states.shape}")
         bsz = query_states.size(0)
         # >>> END AH Changes <<<
 
@@ -454,13 +452,8 @@ class MBartEncoderLayerWithAdapters(BartEncoderLayerAdaptersMixin, MBartEncoderL
                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
                 returned tensors for more detail.
         """
-        print(f"Before parallel adjustment")
-        print(f"EncoderLayer - hidden_states.shape = {hidden_states.shape}")
-        print(f"EncoderLayer - attention_mask.shape = {attention_mask.shape}")
         adjust_tensors_for_parallel_(hidden_states, attention_mask)
-        print(f"After parallel adjustment")
-        print(f"EncoderLayer - hidden_states.shape = {hidden_states.shape}")
-        print(f"EncoderLayer - attention_mask.shape = {attention_mask.shape}")
+
         residual = hidden_states
         hidden_states = self.self_attn_layer_norm(hidden_states)
         hidden_states, attn_weights, _ = self.self_attn(
