@@ -1,3 +1,11 @@
 [tool.black]
 line-length = 119
 target-version = ['py38', 'py39', 'py310']
+
+# copied from HF for testing
+[tool.pytest.ini_options]
+markers = [
+    "flash_attn_test: marks tests related to flash attention (deselect with '-m \"not flash_attn_test\"')",
+    "bitsandbytes: select (or deselect with `not`) bitsandbytes integration tests",
+    "generate: marks tests that use the GenerationTesterMixin"
+]

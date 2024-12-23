@@ -705,6 +705,14 @@ STATIC_TO_FLEX_HEAD_MAP = {
         },
         "layers": [None, "score"],
     },
+    "MistralForQuestionAnswering": {
+        "config": {
+            "head_type": "question_answering",
+            "layers": 1,
+            "activation_function": None,
+        },
+        "layers": [None, "qa_outputs"],
+    },
     # Electra
     "ElectraForTokenClassification": {
         "config": {
