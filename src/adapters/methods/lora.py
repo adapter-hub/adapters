@@ -51,9 +51,10 @@ class LoRA(nn.Module):
         else:
             self.lora_dropout = lambda x: x
 
+        dtype = getattr(torch, config.dtype) if config.dtype else None
         # Actual trainable parameters
-        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape))
-        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
+        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
+        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
         self.scaling = self.lora_alpha / self.r
 
         # For compatibility with (IA)^3, allow all init_weights types here.
