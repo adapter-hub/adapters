@@ -123,9 +123,11 @@ class Adapter(nn.Module):
                 self.gate.apply(self.init_bert_weights)
         elif config["init_weights"] == "mam_adapter":
             with torch.no_grad():
-                nn.init.kaiming_uniform_(self.adapter_down[0].weight, a=math.sqrt(5))
+                for layer in self.adapter_down:
+                    if isinstance(layer, nn.Linear) or isinstance(layer, PHMLayer):
+                        nn.init.kaiming_uniform_(layer.weight, a=math.sqrt(5))
+                        nn.init.zeros_(layer.bias)
                 nn.init.zeros_(self.adapter_up.weight)
-                nn.init.zeros_(self.adapter_down[0].bias)
                 nn.init.zeros_(self.adapter_up.bias)
                 if self.use_gating:
                     self.gate.apply(self.init_bert_weights)
