@@ -509,9 +509,10 @@ class LoRAConfig(AdapterConfig):
     composition_mode: str = "add"
     init_weights: str = "lora"
     use_gating: bool = False
-    d: Union[bool, float] = None
-    b: Union[bool, float] = None
+    vera_d: float = None
+    vera_b: float = None
     dtype: Optional[str] = None
+
 
 @dataclass(eq=False)
 class IA3Config(LoRAConfig):
@@ -542,7 +543,7 @@ class VeraConfig(LoRAConfig):
     Lora Config that applies vector-based random matrix adaptation. It adds
     trainable matrices 'd' and 'b' while keeping the original LoRA matrices
     frozen, random, and shared across layers. See more through their paper:
-    https://arxiv.org/pdf/2106.09685. Note that `r` will still be supplied
+    https://arxiv.org/pdf/2310.11454. Note that `r` will still be supplied
     since we are still initializing decomposition matrices A and B.
     The `composition_mode` parameter should also be set to `add`.
     """
@@ -552,9 +553,11 @@ class VeraConfig(LoRAConfig):
     output_lora: bool = False
 
     r: int = 8
-    d: Union[bool, float] = 0.1
-    b: Union[bool, float] = 0.0
+    vera_d: float = 0.1
+    vera_b: float = 0.0
     init_weights: str = "vera"
+    composition_mode: str = "add"
+    dtype: Optional[str] = None
 
 
 @dataclass(eq=False)

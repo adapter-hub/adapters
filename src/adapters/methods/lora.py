@@ -38,6 +38,7 @@ class LoRA(nn.Module):
         lora_B_shape,
         config: LoRAConfig,
         gating_heads: int = 1,
+        name: str = None,
     ):
         super().__init__()
         assert config.composition_mode == "add", "LoRA module only supports composition_mode='add'."
@@ -46,6 +47,7 @@ class LoRA(nn.Module):
         self.composition_mode = config.composition_mode
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
+        self.name = name
         # Optional dropout
         if config.dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=config.dropout)
@@ -115,6 +117,7 @@ class IA3(nn.Module):
         lora_B_shape,
         config: LoRAConfig,
         gating_heads: int = 1,
+        name: str = None,
     ):
         super().__init__()
         assert config.composition_mode == "scale", "IA3 module only supports composition_mode='scale'."
@@ -125,6 +128,7 @@ class IA3(nn.Module):
         self.composition_mode = config.composition_mode
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
+        self.name = name
         # Optional dropout
         if config.dropout > 0.0:
             raise ValueError("IA3 module does not support dropout.")
@@ -186,13 +190,20 @@ class Vera(nn.Module):
         lora_B_shape,
         config: LoRAConfig,
         gating_heads: int = 1,
+        name: str = None,
     ):
         super().__init__()
-        self.d = config.d
-        self.b = config.b
+        self.d = config.vera_d
+        self.b = config.vera_b
         self.r = config.r
         self.alpha = config.alpha
         self.use_gating = config.use_gating
+        self.name = name
+
+        # check to make sure that the `composition_mode` is set to `add`
+        self.composition_mode = config.composition_mode
+        if self.composition_mode != "add":
+            raise ValueError("Vera module only supports composition_mode='add'.")
 
         # Optional dropout
         if config.dropout > 0.0:
@@ -239,13 +250,8 @@ class Vera(nn.Module):
 
         if getattr(self, "lora_dropout"):
             hidden_states = self.lora_dropout(hidden_states)
-        # print(self.vera_B.shape)
-        # print(lora_B.shape)
-        # print(self.vera_D.shape)
-        # print(lora_A.shape)
-        # print((self.vera_B @ lora_B @ self.vera_D @ lora_A).shape)
-        # print(hidden_states.shape)
-        hidden_states =  hidden_states @ torch.t(self.vera_B @ lora_B @ self.vera_D @ lora_A )
+
+        hidden_states = hidden_states @ torch.t(self.vera_B @ lora_B @ self.vera_D @ lora_A)
 
         if self.use_gating:
             gate = torch.sigmoid(self.gate(layer_input))
@@ -255,9 +261,6 @@ class Vera(nn.Module):
             gate = None
 
         return hidden_states, gate
-
-    def set_vera_adapter_name(self, name):
-        self.name = name
 
 
 def init_shared_vera_parameters(model_config, adapter_config, device):
@@ -323,7 +326,7 @@ class LoRALayer(AdapterLayerBase):
         )
         if lora_config is not None and self._check_lora_location(lora_config):
             if lora_config.composition_mode == "add":
-                if isinstance(lora_config.d, float) or isinstance(lora_config.b, float):
+                if isinstance(lora_config.vera_d, float) or isinstance(lora_config.vera_b, float):
                     lora_cls = Vera
                 else:
                     lora_cls = LoRA
@@ -335,10 +338,8 @@ class LoRALayer(AdapterLayerBase):
                 *self._get_lora_shapes(lora_config),
                 lora_config,
                 gating_heads=self.get_n_heads(lora_config),
+                name=adapter_name,
             )
-            # if we're using Vera, then set the adapter name into the Vera object
-            if lora_cls == Vera:
-                lora.set_vera_adapter_name(name=adapter_name)
 
             lora.train(self.training)
             lora = lora.to(self.weight.device)
