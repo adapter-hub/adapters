@@ -174,3 +174,7 @@ class PromptTuningLayer(AdapterLayerBase, nn.Module):
             context.prompt_tokens_length = prefix_attention_mask_length
 
         return hidden_states
+
+
+def init_prompt_tuning(model):
+    pass
