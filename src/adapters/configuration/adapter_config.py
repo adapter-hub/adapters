@@ -483,12 +483,12 @@ class LoRAConfig(AdapterConfig):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
             `merge_adapter()`.
-        d (:obj:`bool` or :obj:`float`, optional):
+        vera_d (:obj:`bool` or :obj:`float`, optional):
             The value of d used in the VeraConfig. Defaults to None. Places a trainable
             scaling parameter `d` before the decomposition matrix A to allow scaling of the
             internal weights.
 
-        b (:obj:`bool` or :obj:`float`, optional):
+        vera_b (:obj:`bool` or :obj:`float`, optional):
             The value of b used in the VeraConfig. Defaults to None. Places a trainable
             scaling parameter `b` before the decomposition matrix B to allow scaling of the
             internal weights.
