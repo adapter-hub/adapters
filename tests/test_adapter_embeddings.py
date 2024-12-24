@@ -3,7 +3,6 @@ import tempfile
 
 import torch
 
-from adapters import AutoAdapterModel
 from transformers import AutoTokenizer, Trainer, TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
 
