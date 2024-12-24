@@ -438,7 +438,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         init_adapters_config(self, model_config, adapters_config)
 
         # Initialize adapter types defined in interface
-        if self.base_model.adapter_interface is not None:
+        if getattr(self.base_model, "adapter_interface", None) is not None:
             for adapter_type in self.base_model.adapter_interface.adapter_types:
                 init_func = METHOD_INIT_MAPPING[adapter_type]
                 init_func(self.base_model)
