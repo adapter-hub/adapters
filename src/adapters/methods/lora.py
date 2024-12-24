@@ -330,7 +330,10 @@ class LoRALayer(AdapterLayerBase):
             avg_state_dict["lora_B"] = U @ torch.diag(S_diag)
 
     def _copy_hooks_from(self, module: nn.Module):
-        for k, v, in module.__dict__.items():
+        for (
+            k,
+            v,
+        ) in module.__dict__.items():
             if "_hooks" in k:
                 setattr(self, k, v)
 

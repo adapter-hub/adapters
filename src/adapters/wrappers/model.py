@@ -127,7 +127,7 @@ def load_model(
         model_name_or_path (`str` or `os.PathLike`, *optional*):
             Parameter identical to PreTrainedModel.from_pretrained
         model_class (`PreTrainedModel` or `AutoModel`):
-            The model class to load (e.g. EncoderDecoderModel and EncoderDecoderAdapterModel both work) 
+            The model class to load (e.g. EncoderDecoderModel and EncoderDecoderAdapterModel both work)
         interface (`AdapterModelInterface`, *optional*):
             The custom adapter interface to use for the model, to be passed to the init() method.
             If not provided, init() will try to use one of the built-in model integrations.

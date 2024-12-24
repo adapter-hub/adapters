@@ -1,9 +1,10 @@
-import unittest
 import tempfile
+import unittest
 
 import torch
+
 import adapters
-from adapters import AdapterModelInterface, load_model, AdapterSetup
+from adapters import AdapterModelInterface, AdapterSetup, load_model
 from transformers import Gemma2ForCausalLM, Gemma2ForSequenceClassification
 from transformers.models.gemma2.configuration_gemma2 import Gemma2Config
 from transformers.testing_utils import require_torch, torch_device
@@ -77,7 +78,9 @@ class CustomInterfaceModelTest(
         with tempfile.TemporaryDirectory() as temp_dir:
             model1.save_pretrained(temp_dir)
 
-            model2, loading_info = load_model(temp_dir, self.model_class, output_loading_info=True, interface=self.adapter_interface)
+            model2, loading_info = load_model(
+                temp_dir, self.model_class, output_loading_info=True, interface=self.adapter_interface
+            )
 
         # check if all weights were loaded
         self.assertEqual(0, len(loading_info["missing_keys"]), loading_info["missing_keys"])

@@ -1,5 +1,5 @@
-from typing import List, Mapping, NamedTuple, Optional, Union
 from functools import partial
+from typing import List, Mapping, NamedTuple, Optional, Union
 
 import torch
 from torch import nn
@@ -16,9 +16,9 @@ from ..composition import (
 )
 from ..configuration import BnConfig
 from ..context import ForwardContext
+from ..utils import multigetattr
 from .adapter_layer_base import ComposableAdapterLayerBase
 from .modeling import Adapter, BertFusion, ParallelAdapter
-from ..utils import multigetattr
 
 
 class BottleneckState(NamedTuple):
@@ -340,7 +340,9 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
 
             if not self.is_layer_hooked:
                 last_adapter = self.adapters[last]
-                hidden_states = last_adapter.post_forward(hidden_states, input_hidden_states, residual_input, layer_norm)
+                hidden_states = last_adapter.post_forward(
+                    hidden_states, input_hidden_states, residual_input, layer_norm
+                )
 
         elif layer_norm:
             hidden_states = layer_norm(hidden_states + residual_input)

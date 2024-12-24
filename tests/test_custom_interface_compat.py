@@ -77,10 +77,36 @@ class CustomInterfaceCompatTest(unittest.TestCase):
             ("LoRA_BERT", adapters.LoRAConfig(), bert_config, bert_adapter_interface, AutoModel),
             ("LoReft_Llama", adapters.LoReftConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
             ("LoReft_BERT", adapters.LoReftConfig(), bert_config, bert_adapter_interface, AutoModel),
-            ("BnSeq_Llama", adapters.SeqBnConfig(original_ln_before=False), llama_config, llama_adapter_interface, AutoModelForCausalLM),
-            ("Bn2Seq_Llama", adapters.DoubleSeqBnConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
-            ("BnSeq_BERT", adapters.SeqBnConfig(original_ln_before=False), bert_config, bert_adapter_interface, AutoModel, bert_bn_rewrites),
-            ("Bn2Seq_BERT", adapters.DoubleSeqBnConfig(), bert_config, bert_adapter_interface, AutoModel, bert_bn_rewrites),
+            (
+                "BnSeq_Llama",
+                adapters.SeqBnConfig(original_ln_before=False),
+                llama_config,
+                llama_adapter_interface,
+                AutoModelForCausalLM,
+            ),
+            (
+                "Bn2Seq_Llama",
+                adapters.DoubleSeqBnConfig(),
+                llama_config,
+                llama_adapter_interface,
+                AutoModelForCausalLM,
+            ),
+            (
+                "BnSeq_BERT",
+                adapters.SeqBnConfig(original_ln_before=False),
+                bert_config,
+                bert_adapter_interface,
+                AutoModel,
+                bert_bn_rewrites,
+            ),
+            (
+                "Bn2Seq_BERT",
+                adapters.DoubleSeqBnConfig(),
+                bert_config,
+                bert_adapter_interface,
+                AutoModel,
+                bert_bn_rewrites,
+            ),
         ]
     )
     def test_load_adapter(self, name, adapter_config, config, adapter_interface, hf_auto_model_class, rewrites=None):
