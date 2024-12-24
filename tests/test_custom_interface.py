@@ -4,13 +4,14 @@ import unittest
 import torch
 
 import adapters
-from adapters import AdapterModelInterface, AdapterSetup, load_model
+from adapters import AdapterModelInterface, AdapterSetup, LoRAConfig, load_model
 from transformers import Gemma2ForCausalLM, Gemma2ForSequenceClassification
 from transformers.models.gemma2.configuration_gemma2 import Gemma2Config
 from transformers.testing_utils import require_torch, torch_device
 
 from .methods import IA3TestMixin, LoRATestMixin, ReftTestMixin, create_twin_models
 from .test_adapter import AdapterTestBase, make_config
+from .test_adapter_embeddings import EmbeddingTestMixin
 
 
 class CustomInterfaceModelTestBase(AdapterTestBase):
@@ -57,7 +58,7 @@ class CustomInterfaceModelTest(
     # PromptTuningTestMixin,
     ReftTestMixin,
     # UniPELTTestMixin,
-    # EmbeddingTestMixin,
+    EmbeddingTestMixin,
     # AdapterFusionModelTestMixin,
     # CompabilityTestMixin,
     # ParallelAdapterInferenceTestMixin,
@@ -99,12 +100,12 @@ class CustomInterfaceModelTest(
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
 
-    def _init_model_for_train_run(self, trained_adapter_name, frozen_adapter_name, adapter_config):
+    def _init_model_for_train_run(self, trained_adapter_name, frozen_adapter_name, adapter_config=None):
         model = Gemma2ForSequenceClassification(self.config())
         adapters.init(model, interface=self.adapter_interface)
 
-        model.add_adapter(trained_adapter_name, config=adapter_config)
-        model.add_adapter(frozen_adapter_name, config=adapter_config)
+        model.add_adapter(trained_adapter_name, config=adapter_config or LoRAConfig(init_weights="bert"))
+        model.add_adapter(frozen_adapter_name, config=adapter_config or LoRAConfig(init_weights="bert"))
 
         return model
 

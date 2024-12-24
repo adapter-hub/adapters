@@ -11,6 +11,7 @@ from transformers.models.auto.configuration_auto import model_type_to_module_nam
 from ..configuration import ModelAdaptersConfig
 from ..interface import AdapterModelInterface
 from ..model_mixin import (
+    EmbeddingAdaptersMixin,
     EmbeddingAdaptersWrapperMixin,
     ModelAdaptersMixin,
     ModelBaseAdaptersMixin,
@@ -63,7 +64,7 @@ def init(
         model_class_name = base_model.__class__.__name__
         model_class = type(
             model_class_name,
-            (EmbeddingAdaptersWrapperMixin, ModelBaseAdaptersMixin, base_model.__class__),
+            (EmbeddingAdaptersMixin, ModelBaseAdaptersMixin, base_model.__class__),
             {},
         )
         base_model.__class__ = model_class

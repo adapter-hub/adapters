@@ -250,7 +250,7 @@ class AdapterMethodBaseTestMixin:
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
 
-    def _init_model_for_train_run(self, trained_adapter_name, frozen_adapter_name, adapter_config):
+    def _init_model_for_train_run(self, trained_adapter_name, frozen_adapter_name, adapter_config=None):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
         model = AutoAdapterModel.from_config(self.config())
