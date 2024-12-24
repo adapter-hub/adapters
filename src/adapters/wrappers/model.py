@@ -116,6 +116,7 @@ def init(
 def load_model(
     model_name_or_path: Optional[Union[str, os.PathLike]],
     model_class: Type[PreTrainedModel],
+    interface: Optional[AdapterModelInterface] = None,
     *model_args: Any,
     **kwargs: Any,
 ) -> PreTrainedModel:
@@ -126,7 +127,10 @@ def load_model(
         model_name_or_path (`str` or `os.PathLike`, *optional*):
             Parameter identical to PreTrainedModel.from_pretrained
         model_class (`PreTrainedModel` or `AutoModel`):
-            The model class to load (e.g. EncoderDecoderModel and EncoderDecoderAdapterModel both work)
+            The model class to load (e.g. EncoderDecoderModel and EncoderDecoderAdapterModel both work) 
+        interface (`AdapterModelInterface`, *optional*):
+            The custom adapter interface to use for the model, to be passed to the init() method.
+            If not provided, init() will try to use one of the built-in model integrations.
         model_args (sequence of positional arguments, *optional*):
             All remaining positional arguments will be passed to the underlying model's `__init__` method.
         kwargs (remaining dictionary of keyword arguments, *optional*):
@@ -140,7 +144,7 @@ def load_model(
 
     def new_init(self, config, *args, **kwargs):
         old_init(self, config, *args, **kwargs)
-        init(self)
+        init(self, interface=interface)
 
     # wrap model after it is initialized but before the weights are loaded
     model_class.__init__ = new_init

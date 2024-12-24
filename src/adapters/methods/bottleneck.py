@@ -47,9 +47,10 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
     adapter_modules_name = "adapters"
     supported_compositions = [Stack, Fuse, Split, Parallel, BatchSplit, Average]
 
-    def __init__(self, location_key: str):
+    def __init__(self, location_key: str, is_layer_hooked: bool = False):
         super().__init__()
         self.location_key = location_key
+        self.is_layer_hooked = is_layer_hooked
 
     def init_adapters(self, model_config, adapters_config):
         self._init_mapping()
@@ -57,6 +58,8 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
         self.adapters_config = adapters_config
         self.adapters = nn.ModuleDict(dict())
         self.adapter_fusion_layer = nn.ModuleDict(dict())
+        if not hasattr(self, "is_layer_hooked"):
+            self.is_layer_hooked = False
 
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
@@ -323,9 +326,10 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             torch.Tensor: Output hidden states of the adapter layer.
         """
         # Batch sizes might be different due to prefix tuning w. Parallel block
-        (residual_input,) = adjust_tensors_for_parallel(hidden_states, residual_input)
-        # Replicate in both directions as residual might be larger (e.g. GPT-J)
-        (hidden_states,) = adjust_tensors_for_parallel(residual_input, hidden_states)
+        if residual_input is not None:
+            (residual_input,) = adjust_tensors_for_parallel(hidden_states, residual_input)
+            # Replicate in both directions as residual might be larger (e.g. GPT-J)
+            (hidden_states,) = adjust_tensors_for_parallel(residual_input, hidden_states)
         adapter_setup = self.get_active_setup()
         if adapter_setup is not None:
             input_hidden_states = hidden_states
@@ -334,12 +338,13 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
             state = self.compose(adapter_setup, state)
             hidden_states, residual_input, _, _, _, last = state
 
-            last_adapter = self.adapters[last]
-            hidden_states = last_adapter.post_forward(hidden_states, input_hidden_states, residual_input, layer_norm)
+            if not self.is_layer_hooked:
+                last_adapter = self.adapters[last]
+                hidden_states = last_adapter.post_forward(hidden_states, input_hidden_states, residual_input, layer_norm)
 
         elif layer_norm:
             hidden_states = layer_norm(hidden_states + residual_input)
-        else:
+        elif residual_input is not None:
             hidden_states = hidden_states + residual_input
 
         return hidden_states
@@ -359,23 +364,25 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
 
 
 def hook_fn(adapter_layer, module, args, output):
+    # TODO: we currently cannot reliably pass residual input and layer norm here. This means "is_parallel" and "original_ln_before" are not supported.
     if isinstance(output, torch.Tensor):
-        return adapter_layer(output)
+        return adapter_layer(output, None, None)
     else:
-        return (adapter_layer(output[0]),) + output[1:]
+        return (adapter_layer(output[0], None, None),) + output[1:]
 
 
 def init_bottleneck(model):
     for i, layer in model.iter_layers():
         if self_attn := multigetattr(layer, model.adapter_interface.layer_self_attn, None):
-            if not hasattr(layer, "attention_adapters"):
-                layer.attention_adapters = BottleneckLayer("mh_adapter")
-                self_attn.register_forward_hook(partial(hook_fn, layer.attention_adapters))
+            if o_proj := multigetattr(self_attn, model.adapter_interface.attn_o_proj, None):
+                if not hasattr(layer, "attention_adapters"):
+                    layer.attention_adapters = BottleneckLayer("mh_adapter", is_layer_hooked=True)
+                    o_proj.register_forward_hook(partial(hook_fn, layer.attention_adapters))
         if layer_output_proj := multigetattr(layer, model.adapter_interface.layer_output_proj, None):
             if not hasattr(layer, "output_adapters"):
-                layer.output_adapters = BottleneckLayer("output_adapter")
+                layer.output_adapters = BottleneckLayer("output_adapter", is_layer_hooked=True)
                 layer_output_proj.register_forward_hook(partial(hook_fn, layer.output_adapters))
         if cross_attn := multigetattr(layer, model.adapter_interface.layer_cross_attn, None):
             if not hasattr(cross_attn, "cross_attention_adapters"):
-                layer.attention_adapters = BottleneckLayer("cross_adapter")
+                layer.attention_adapters = BottleneckLayer("cross_adapter", is_layer_hooked=True)
                 cross_attn.register_forward_hook(partial(hook_fn, layer.attention_adapters))

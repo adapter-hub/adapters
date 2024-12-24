@@ -329,6 +329,11 @@ class LoRALayer(AdapterLayerBase):
             avg_state_dict["lora_A"] = V
             avg_state_dict["lora_B"] = U @ torch.diag(S_diag)
 
+    def _copy_hooks_from(self, module: nn.Module):
+        for k, v, in module.__dict__.items():
+            if "_hooks" in k:
+                setattr(self, k, v)
+
 
 class LoRAState(NamedTuple):
     """Models the input and output states of a LoRA layer.
@@ -425,6 +430,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 **kwargs,
             )
         new_module.copy_from(module)
+        new_module._copy_hooks_from(module)
 
         return new_module
 
@@ -669,6 +675,7 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
         new_module.weight = module.weight
         if module.bias is not None:
             new_module.bias = module.bias
+        new_module._copy_hooks_from(module)
 
         return new_module
 
@@ -809,15 +816,15 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
 
 def init_lora(model):
     for _, _, attention in model.iter_attentions():
-        if q_proj := getattr(attention, model.adapter_interface.attn_q_proj, None):
+        if q_proj := multigetattr(attention, model.adapter_interface.attn_q_proj, None):
             lora_proj = LoRALinear.wrap(q_proj, "selfattn", model.config, model.adapters_config, attn_key="q")
-            setattr(attention, model.adapter_interface.attn_q_proj, lora_proj)
-        if k_proj := getattr(attention, model.adapter_interface.attn_k_proj, None):
+            multisetattr(attention, model.adapter_interface.attn_q_proj, lora_proj)
+        if k_proj := multigetattr(attention, model.adapter_interface.attn_k_proj, None):
             lora_proj = LoRALinear.wrap(k_proj, "selfattn", model.config, model.adapters_config, attn_key="k")
-            setattr(attention, model.adapter_interface.attn_k_proj, lora_proj)
-        if v_proj := getattr(attention, model.adapter_interface.attn_v_proj, None):
+            multisetattr(attention, model.adapter_interface.attn_k_proj, lora_proj)
+        if v_proj := multigetattr(attention, model.adapter_interface.attn_v_proj, None):
             lora_proj = LoRALinear.wrap(v_proj, "selfattn", model.config, model.adapters_config, attn_key="v")
-            setattr(attention, model.adapter_interface.attn_v_proj, lora_proj)
+            multisetattr(attention, model.adapter_interface.attn_v_proj, lora_proj)
 
     for _, layer in model.iter_layers():
         if intermediate_proj := multigetattr(layer, model.adapter_interface.layer_intermediate_proj):

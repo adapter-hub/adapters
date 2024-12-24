@@ -28,7 +28,8 @@ class AdapterModelInterface:
         layer_cross_attn (str): Name of the cross-attention layer in a transformer layer.
         attn_k_proj (str): Name of the key projection layer in an attention layer.
         attn_q_proj (str): Name of the query projection layer in an attention layer.
-        attn_v_proj (str): Name of the value projection layer in an attention layer
+        attn_v_proj (str): Name of the value projection layer in an attention layer.
+        attn_o_proj (str): Name of the output projection layer in an attention layer.
         layer_intermediate_proj (str): Name of the intermediate projection layer in a transformer layer.
         layer_output_proj (str): Name of the output projection layer in a transformer layer.
     """
@@ -43,6 +44,7 @@ class AdapterModelInterface:
     attn_k_proj: str
     attn_q_proj: str
     attn_v_proj: str
+    attn_o_proj: str
 
     layer_intermediate_proj: str
     layer_output_proj: str

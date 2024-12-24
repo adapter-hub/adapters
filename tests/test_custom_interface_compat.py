@@ -11,7 +11,7 @@ from parameterized import parameterized
 from transformers import AutoModel, AutoModelForCausalLM, BertConfig, LlamaConfig
 from transformers.testing_utils import require_torch, torch_device
 
-from .test_adapter import ids_tensor, make_config
+from .test_adapter import ids_tensor
 
 
 @require_torch
@@ -43,6 +43,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         attn_k_proj="k_proj",
         attn_q_proj="q_proj",
         attn_v_proj="v_proj",
+        attn_o_proj="o_proj",
         layer_intermediate_proj="mlp.up_proj",
         layer_output_proj="mlp.down_proj",
     )
@@ -50,14 +51,16 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         adapter_types=["bottleneck", "lora", "reft"],
         model_embeddings="embeddings",
         model_layers="encoder.layer",
-        layer_self_attn="attention.self",
+        layer_self_attn="attention",
         layer_cross_attn=None,
-        attn_k_proj="key",
-        attn_q_proj="query",
-        attn_v_proj="value",
+        attn_k_proj="self.key",
+        attn_q_proj="self.query",
+        attn_v_proj="self.value",
+        attn_o_proj="output.dense",
         layer_intermediate_proj="intermediate.dense",
         layer_output_proj="output.dense",
     )
+    bert_bn_rewrites = [(".attention_adapters.", ".attention.output."), (".output_adapters.", ".output.")]
 
     def create_twin_models(self, config, adapter_interface, hf_auto_model_class):
         model1 = hf_auto_model_class.from_config(config)
@@ -74,11 +77,13 @@ class CustomInterfaceCompatTest(unittest.TestCase):
             ("LoRA_BERT", adapters.LoRAConfig(), bert_config, bert_adapter_interface, AutoModel),
             ("LoReft_Llama", adapters.LoReftConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
             ("LoReft_BERT", adapters.LoReftConfig(), bert_config, bert_adapter_interface, AutoModel),
-            ("Bn_Llama", adapters.SeqBnConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
-            ("Bn_BERT", adapters.SeqBnConfig(), bert_config, bert_adapter_interface, AutoModel),
+            ("BnSeq_Llama", adapters.SeqBnConfig(original_ln_before=False), llama_config, llama_adapter_interface, AutoModelForCausalLM),
+            ("Bn2Seq_Llama", adapters.DoubleSeqBnConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
+            ("BnSeq_BERT", adapters.SeqBnConfig(original_ln_before=False), bert_config, bert_adapter_interface, AutoModel, bert_bn_rewrites),
+            ("Bn2Seq_BERT", adapters.DoubleSeqBnConfig(), bert_config, bert_adapter_interface, AutoModel, bert_bn_rewrites),
         ]
     )
-    def test_load_adapter(self, name, adapter_config, config, adapter_interface, hf_auto_model_class):
+    def test_load_adapter(self, name, adapter_config, config, adapter_interface, hf_auto_model_class, rewrites=None):
         custom_model, auto_model = self.create_twin_models(config, adapter_interface, hf_auto_model_class)
 
         custom_model.add_adapter(name, config=adapter_config)
@@ -89,14 +94,24 @@ class CustomInterfaceCompatTest(unittest.TestCase):
             # Check that there are actually weights saved
             weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu")
             self.assertTrue(len(weights) > 0)
+            # The weight names of the custom interface adapter and built-in adapter might be different.
+            # Apply weight renaming here if necessary.
+            if rewrites is not None:
+                for old, new in rewrites:
+                    for key in list(weights.keys()):
+                        if old in key:
+                            new_key = key.replace(old, new)
+                            weights[new_key] = weights.pop(key)
+
+                torch.save(weights, os.path.join(temp_dir, WEIGHTS_NAME))
 
             # also tests that set_active works
             loading_info = {}
             auto_model.load_adapter(temp_dir, set_active=True, loading_info=loading_info)
 
         # check if all weights were loaded
-        self.assertEqual(0, len(loading_info["missing_keys"]))
-        self.assertEqual(0, len(loading_info["unexpected_keys"]))
+        self.assertEqual(0, len(loading_info["missing_keys"]), loading_info["missing_keys"])
+        self.assertEqual(0, len(loading_info["unexpected_keys"]), loading_info["unexpected_keys"])
 
         # check if adapter was correctly loaded
         self.assertTrue(name in auto_model.adapters_config)
@@ -108,4 +123,4 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         output1 = custom_model(**input_data)
         output2 = auto_model(**input_data)
         self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
+        self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-5))

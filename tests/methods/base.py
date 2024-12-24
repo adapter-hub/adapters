@@ -234,8 +234,8 @@ class AdapterMethodBaseTestMixin:
             model2, loading_info = load_model(temp_dir, self.model_class, output_loading_info=True)
 
         # check if all weights were loaded
-        self.assertEqual(0, len(loading_info["missing_keys"]))
-        self.assertEqual(0, len(loading_info["unexpected_keys"]))
+        self.assertEqual(0, len(loading_info["missing_keys"]), loading_info["missing_keys"])
+        self.assertEqual(0, len(loading_info["unexpected_keys"]), loading_info["unexpected_keys"])
 
         # check if adapter was correctly loaded
         self.assertTrue(name in model2.adapters_config)
@@ -249,6 +249,18 @@ class AdapterMethodBaseTestMixin:
             output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
+
+    def _init_model_for_train_run(self, trained_adapter_name, frozen_adapter_name, adapter_config):
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
+            self.skipTest("Does not support flex heads.")
+        model = AutoAdapterModel.from_config(self.config())
+
+        # add two adapters: one will be trained and the other should be frozen
+        model.add_adapter(trained_adapter_name, config=adapter_config)
+        model.add_adapter(frozen_adapter_name, config=adapter_config)
+        self.add_head(model, trained_adapter_name)
+
+        return model
 
     def trainings_run(self, model, lr=1.0, steps=8):
         # setup dataset
@@ -275,14 +287,7 @@ class AdapterMethodBaseTestMixin:
     def run_train_test(self, adapter_config, filter_keys):
         if not self.do_run_train_tests:
             self.skipTest("Skipping training tests. Set `do_run_train_tests=True` to run them.")
-        if self.config_class not in ADAPTER_MODEL_MAPPING:
-            self.skipTest("Does not support flex heads.")
-        model = AutoAdapterModel.from_config(self.config())
-
-        # add two adapters: one will be trained and the other should be frozen
-        model.add_adapter("mrpc", config=adapter_config)
-        model.add_adapter("dummy", config=adapter_config)
-        self.add_head(model, "mrpc")
+        model = self._init_model_for_train_run("mrpc", "dummy", adapter_config)
 
         self.assert_adapter_available(model, "mrpc")
         self.assert_adapter_available(model, "dummy")
@@ -314,7 +319,8 @@ class AdapterMethodBaseTestMixin:
         def has_tied_embeddings(k):
             tied_embeddings = hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings
             is_tied_layer = (
-                isinstance(model.heads["mrpc"], CausalLMHead)
+                hasattr(model, "heads")
+                and isinstance(model.heads["mrpc"], CausalLMHead)
                 and "heads.{}.{}.weight".format("mrpc", len(model.heads["mrpc"]._modules) - 1) in k
             )
             return tied_embeddings and is_tied_layer
@@ -322,7 +328,7 @@ class AdapterMethodBaseTestMixin:
         for (k1, v1), (k2, v2) in zip(state_dict_pre.items(), model.state_dict().items()):
             # move both to the same device to avoid device mismatch errors
             v1, v2 = v1.to(v2.device), v2
-            if "mrpc" in k1 and not has_tied_embeddings(k1):
+            if "mrpc" in k1 and not has_tied_embeddings(k1) or not k1.startswith(model.base_model_prefix):
                 adapters_with_change |= not torch.equal(v1, v2)
             else:
                 base_with_change |= not torch.equal(v1, v2)
