@@ -48,7 +48,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         layer_output_proj="mlp.down_proj",
     )
     bert_adapter_interface = AdapterModelInterface(
-        adapter_types=["bottleneck", "lora", "reft"],
+        adapter_types=["bottleneck", "lora", "reft", "prompt_tuning"],
         model_embeddings="embeddings",
         model_layers="encoder.layer",
         layer_self_attn="attention",
@@ -107,6 +107,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
                 AutoModel,
                 bert_bn_rewrites,
             ),
+            ("Prompt_BERT", adapters.PromptTuningConfig(), bert_config, bert_adapter_interface, AutoModel),
         ]
     )
     def test_load_adapter(self, name, adapter_config, config, adapter_interface, hf_auto_model_class, rewrites=None):
