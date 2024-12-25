@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 
 class AdapterType:
@@ -32,6 +32,11 @@ class AdapterModelInterface:
         attn_o_proj (str): Name of the output projection layer in an attention layer.
         layer_intermediate_proj (str): Name of the intermediate projection layer in a transformer layer.
         layer_output_proj (str): Name of the output projection layer in a transformer layer.
+        layer_pre_self_attn (Optional[str]): Hook point directly before the self attention layer. Used for extended bottleneck adapter support.
+        layer_pre_cross_attn (Optional[str]): Hook point directly before the cross attention layer. Used for extended bottleneck adapter support.
+        layer_pre_ffn (Optional[str]): Hook point directly before the feed forward layer. Used for extended bottleneck adapter support.
+        layer_ln_1 (Optional[str]): Layer norm *after* the self-attention layer. Used for extended bottleneck adapter support.
+        layer_ln_2 (Optional[str]): Layer norm *after* the feed forward layer. Used for extended bottleneck adapter support.
     """
 
     adapter_types: List[str]
@@ -48,3 +53,10 @@ class AdapterModelInterface:
 
     layer_intermediate_proj: str
     layer_output_proj: str
+
+    # Optional attributes for extended bottleneck adapter support
+    layer_pre_self_attn: Optional[str] = None
+    layer_pre_cross_attn: Optional[str] = None
+    layer_pre_ffn: Optional[str] = None
+    layer_ln_1: Optional[str] = None
+    layer_ln_2: Optional[str] = None

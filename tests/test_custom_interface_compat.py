@@ -34,7 +34,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         hidden_act="gelu",
         pad_token_id=0,
     )
-    llama_adapter_interface = AdapterModelInterface(
+    llama_interface = AdapterModelInterface(
         adapter_types=["bottleneck", "lora", "reft"],
         model_embeddings="embed_tokens",
         model_layers="layers",
@@ -46,8 +46,13 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         attn_o_proj="o_proj",
         layer_intermediate_proj="mlp.up_proj",
         layer_output_proj="mlp.down_proj",
+        layer_pre_self_attn="input_layernorm",
+        layer_pre_cross_attn=None,
+        layer_pre_ffn="post_attention_layernorm",
+        layer_ln_1=None,
+        layer_ln_2=None,
     )
-    bert_adapter_interface = AdapterModelInterface(
+    bert_interface = AdapterModelInterface(
         adapter_types=["bottleneck", "lora", "reft", "prompt_tuning"],
         model_embeddings="embeddings",
         model_layers="encoder.layer",
@@ -59,6 +64,11 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         attn_o_proj="output.dense",
         layer_intermediate_proj="intermediate.dense",
         layer_output_proj="output.dense",
+        layer_pre_self_attn="attention.self",
+        layer_pre_cross_attn=None,
+        layer_pre_ffn="intermediate",
+        layer_ln_1="attention.output.LayerNorm",
+        layer_ln_2="output.LayerNorm",
     )
     bert_bn_rewrites = [(".attention_adapters.", ".attention.output."), (".output_adapters.", ".output.")]
 
@@ -73,41 +83,73 @@ class CustomInterfaceCompatTest(unittest.TestCase):
 
     @parameterized.expand(
         [
-            ("LoRA_Llama", adapters.LoRAConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
-            ("LoRA_BERT", adapters.LoRAConfig(), bert_config, bert_adapter_interface, AutoModel),
-            ("LoReft_Llama", adapters.LoReftConfig(), llama_config, llama_adapter_interface, AutoModelForCausalLM),
-            ("LoReft_BERT", adapters.LoReftConfig(), bert_config, bert_adapter_interface, AutoModel),
+            ("LoRA_Llama", adapters.LoRAConfig(), llama_config, llama_interface, AutoModelForCausalLM),
+            ("LoRA_BERT", adapters.LoRAConfig(), bert_config, bert_interface, AutoModel),
+            ("LoReft_Llama", adapters.LoReftConfig(), llama_config, llama_interface, AutoModelForCausalLM),
+            ("LoReft_BERT", adapters.LoReftConfig(), bert_config, bert_interface, AutoModel),
             (
                 "BnSeq_Llama",
                 adapters.SeqBnConfig(original_ln_before=False),
                 llama_config,
-                llama_adapter_interface,
+                llama_interface,
                 AutoModelForCausalLM,
             ),
             (
-                "Bn2Seq_Llama",
-                adapters.DoubleSeqBnConfig(),
+                "BnSeqPreLN_Llama",
+                adapters.SeqBnConfig(original_ln_before=True),
                 llama_config,
-                llama_adapter_interface,
+                llama_interface,
+                AutoModelForCausalLM,
+            ),
+            ("BnPar_Llama", adapters.ParBnConfig(), llama_config, llama_interface, AutoModelForCausalLM),
+            (
+                "Bn2Seq_Llama",
+                adapters.DoubleSeqBnConfig(original_ln_before=True),
+                llama_config,
+                llama_interface,
+                AutoModelForCausalLM,
+            ),
+            (
+                "Bn2Par_Llama",
+                adapters.ParBnConfig(mh_adapter=True, output_adapter=True),
+                llama_config,
+                llama_interface,
                 AutoModelForCausalLM,
             ),
             (
                 "BnSeq_BERT",
                 adapters.SeqBnConfig(original_ln_before=False),
                 bert_config,
-                bert_adapter_interface,
+                bert_interface,
                 AutoModel,
                 bert_bn_rewrites,
             ),
             (
-                "Bn2Seq_BERT",
-                adapters.DoubleSeqBnConfig(),
+                "BnSeqPreLN_BERT",
+                adapters.SeqBnConfig(original_ln_before=True),
                 bert_config,
-                bert_adapter_interface,
+                bert_interface,
                 AutoModel,
                 bert_bn_rewrites,
             ),
-            ("Prompt_BERT", adapters.PromptTuningConfig(), bert_config, bert_adapter_interface, AutoModel),
+            ("BnPar_BERT", adapters.ParBnConfig(), bert_config, bert_interface, AutoModel, bert_bn_rewrites),
+            (
+                "Bn2Seq_BERT",
+                adapters.DoubleSeqBnConfig(original_ln_before=True),
+                bert_config,
+                bert_interface,
+                AutoModel,
+                bert_bn_rewrites,
+            ),
+            (
+                "Bn2Par_BERT",
+                adapters.ParBnConfig(mh_adapter=True, output_adapter=True),
+                bert_config,
+                bert_interface,
+                AutoModel,
+                bert_bn_rewrites,
+            ),
+            ("Prompt_BERT", adapters.PromptTuningConfig(), bert_config, bert_interface, AutoModel),
         ]
     )
     def test_load_adapter(self, name, adapter_config, config, adapter_interface, hf_auto_model_class, rewrites=None):

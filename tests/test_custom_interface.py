@@ -4,14 +4,22 @@ import unittest
 import torch
 
 import adapters
-from adapters import AdapterModelInterface, AdapterSetup, LoRAConfig, load_model
+from adapters import AdapterModelInterface, AdapterSetup, DoubleSeqBnConfig, LoRAConfig, ParBnConfig, load_model
 from transformers import Gemma2ForCausalLM, Gemma2ForSequenceClassification
 from transformers.models.gemma2.configuration_gemma2 import Gemma2Config
 from transformers.testing_utils import require_torch, torch_device
 
-from .methods import IA3TestMixin, LoRATestMixin, ReftTestMixin, create_twin_models
+from .methods import (
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
+    IA3TestMixin,
+    LoRATestMixin,
+    ReftTestMixin,
+    create_twin_models,
+)
 from .test_adapter import AdapterTestBase, make_config
 from .test_adapter_embeddings import EmbeddingTestMixin
+from .test_adapter_fusion_common import AdapterFusionModelTestMixin
 
 
 class CustomInterfaceModelTestBase(AdapterTestBase):
@@ -28,7 +36,7 @@ class CustomInterfaceModelTestBase(AdapterTestBase):
     )
     tokenizer_name = "yujiepan/gemma-2-tiny-random"
     adapter_interface = AdapterModelInterface(
-        adapter_types=["lora", "reft"],
+        adapter_types=["bottleneck", "lora", "reft"],
         model_embeddings="embed_tokens",
         model_layers="layers",
         layer_self_attn="self_attn",
@@ -39,6 +47,11 @@ class CustomInterfaceModelTestBase(AdapterTestBase):
         attn_o_proj="o_proj",
         layer_intermediate_proj="mlp.up_proj",
         layer_output_proj="mlp.down_proj",
+        layer_pre_self_attn="input_layernorm",
+        layer_pre_cross_attn=None,
+        layer_pre_ffn="pre_feedforward_layernorm",
+        layer_ln_1="post_attention_layernorm",
+        layer_ln_2="post_feedforward_layernorm",
     )
 
     def get_model(self):
@@ -50,8 +63,8 @@ class CustomInterfaceModelTestBase(AdapterTestBase):
 
 @require_torch
 class CustomInterfaceModelTest(
-    # BottleneckAdapterTestMixin,
-    # CompacterTestMixin,
+    BottleneckAdapterTestMixin,
+    CompacterTestMixin,
     IA3TestMixin,
     LoRATestMixin,
     # PrefixTuningTestMixin,
@@ -59,13 +72,18 @@ class CustomInterfaceModelTest(
     ReftTestMixin,
     # UniPELTTestMixin,
     EmbeddingTestMixin,
-    # AdapterFusionModelTestMixin,
-    # CompabilityTestMixin,
+    AdapterFusionModelTestMixin,
     # ParallelAdapterInferenceTestMixin,
     # ParallelTrainingMixin,
     CustomInterfaceModelTestBase,
     unittest.TestCase,
 ):
+    # Modify the list here since we don't support MAMConfig (due to prefix tuning)
+    adapter_configs_to_test = [
+        (DoubleSeqBnConfig(), ["adapters.{name}."]),
+        (ParBnConfig(init_weights="bert"), ["adapters.{name}."]),
+    ]
+
     def create_twin_models(self):
         return create_twin_models(self.model_class, self.config, self.adapter_interface)
 
@@ -108,6 +126,12 @@ class CustomInterfaceModelTest(
         model.add_adapter(frozen_adapter_name, config=adapter_config or LoRAConfig(init_weights="bert"))
 
         return model
+
+    def test_load_mam_adapter(self):
+        self.skipTest("Does not support prefix tuning.")
+
+    def test_train_mam_adapter(self):
+        self.skipTest("Does not support prefix tuning.")
 
     def test_merging_with_other_adapters(self):
         self.skipTest("Does not support all required methods yet.")
