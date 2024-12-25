@@ -148,10 +148,8 @@ def load_model(
         init(self, interface=interface)
 
     # wrap model after it is initialized but before the weights are loaded
-    model_class.__init__ = new_init
-    model = model_class.from_pretrained(model_name_or_path, *model_args, **kwargs)
-
-    # restore original __init__ function for when other models of the same type are created
-    model_class.__init__ = old_init
+    new_model_class = type(model_class.__name__, (model_class,), {})
+    new_model_class.__init__ = new_init
+    model = new_model_class.from_pretrained(model_name_or_path, *model_args, **kwargs)
 
     return model
