@@ -119,6 +119,7 @@ class CLIPModelAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWr
             if hasattr(module, "init_adapters"):
                 module.init_adapters(model_config.vision_config, adapters_config)
 
+    def _default_init_adapter_methods(self, model_config, adapters_config):
         # Patch for ReFT initialization
         for layer in self.text_model.encoder.layers:
             if not hasattr(layer, "reft_layer"):
