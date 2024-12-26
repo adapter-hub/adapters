@@ -71,6 +71,7 @@ def init(
         )
         base_model.__class__ = model_class
         base_model.adapter_interface = interface
+        base_model.support_prompt_tuning = False  # HACK: will be set to true if init_prompt_tuning() is called
     else:
         # First, replace original module classes with their adapters counterparts
         model_name = get_module_name(model.config.model_type)
