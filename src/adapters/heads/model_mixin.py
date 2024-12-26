@@ -139,10 +139,8 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
 
         super().tie_weights()
 
-    def _resize_token_embeddings(self, new_num_tokens, pad_to_multiple_of=None):
-        old_embeddings = self.get_input_embeddings()
-        new_embeddings = self._get_resized_embeddings(old_embeddings, new_num_tokens, pad_to_multiple_of)
-        self.set_input_embeddings(new_embeddings)
+    def _resize_token_embeddings(self, new_num_tokens, pad_to_multiple_of=None, mean_resizing=True):
+        super()._resize_token_embeddings(new_num_tokens, pad_to_multiple_of, mean_resizing)
 
         # if word embeddings are not tied, make sure that lm head is resized as well
         if not self.config.tie_word_embeddings:
