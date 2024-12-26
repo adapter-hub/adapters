@@ -42,7 +42,9 @@ def replace_with_adapter_class(module: nn.Module, modules_with_adapters) -> None
             module.__class__.__name__, (MODEL_MIXIN_MAPPING[module.__class__.__name__], module.__class__), {}
         )
         module.__class__ = model_class
-    elif module.__class__.__module__.startswith("transformers.models"):
+    elif module.__class__.__module__.startswith("transformers.models") or module.__class__.__module__.startswith(
+        "adapters.wrappers.model"
+    ):
         try:
             module_class = getattribute_from_module(modules_with_adapters, module.__class__.__name__ + "WithAdapters")
             module.__class__ = module_class
