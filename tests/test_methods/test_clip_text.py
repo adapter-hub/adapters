@@ -76,7 +76,7 @@ class CLIPAdapterTestBase(TextAdapterTestBase):
                 intermediate_size=37,
             ),
             CLIPVisionConfig(
-                image_size=30,
+                image_size=224,
                 hidden_size=32,
                 num_hidden_layers=4,
                 num_attention_heads=4,
