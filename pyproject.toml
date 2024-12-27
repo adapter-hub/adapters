@@ -16,4 +16,7 @@ markers = [
     "bottleneck: marks tests as bottleneck adapter test",
     "ia3: marks tests as ia3 adapter test",
     "lora: marks tests as lora adapter test",
+    "flash_attn_test: marks tests related to flash attention (deselect with '-m \"not flash_attn_test\"')",
+    "bitsandbytes: select (or deselect with `not`) bitsandbytes integration tests",
+    "generate: marks tests that use the GenerationTesterMixin"
 ]
