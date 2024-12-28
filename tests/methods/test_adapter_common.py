@@ -480,6 +480,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         self.assertFalse(base_with_change)
 
     def test_load_adapter_setup(self):
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
+            self.skipTest("Does not support flex heads.")
         model1, model2 = create_twin_models(self.model_class, self.config)
 
         # Create a complex setup
