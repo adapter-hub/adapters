@@ -375,7 +375,7 @@ class AdapterLoader(WeightsLoader):
         MIN_VERSION = Version("1.1.0")
 
         version = config.get("version", "")
-        if version.startswith(ADAPTER_PREFIX) and Version(version[len(ADAPTER_PREFIX):]) < MIN_VERSION:
+        if version.startswith(ADAPTER_PREFIX) and Version(version[len(ADAPTER_PREFIX) :]) < MIN_VERSION:
             if (
                 config["config"].get("architecture", None) == "lora"
                 and config["config"]["r"] != config["config"]["alpha"]
