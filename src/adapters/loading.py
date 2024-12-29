@@ -381,7 +381,7 @@ class AdapterLoader(WeightsLoader):
                 and config["config"]["r"] != config["config"]["alpha"]
             ):
                 logger.warning(
-                    "Loading a LoRA trained using a faulty library version. Editing the configuration to make sure the adapter works as trained."
+                    "Loading a LoRA trained using a faulty scaling implementation. Editing the configuration to make sure the adapter works as trained."
                     "See https://github.com/adapter-hub/adapters/pull/770 for more."
                 )
                 config["config"]["alpha"] = config["config"]["r"]
