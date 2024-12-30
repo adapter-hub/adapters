@@ -1,4 +1,5 @@
 import inspect
+import json
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -15,6 +16,7 @@ from transformers import GenerationConfig
 from transformers.modeling_outputs import ModelOutput
 from transformers.utils import is_accelerate_available
 
+from . import __version__
 from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
@@ -27,7 +29,15 @@ from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, ini
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
 from .methods.reft import init_reft
-from .utils import EMBEDDING_FILE, TOKENIZER_PATH, get_adapter_config_hash, inherit_doc, patch_forward
+from .utils import (
+    EMBEDDING_FILE,
+    SETUP_CONFIG_NAME,
+    TOKENIZER_PATH,
+    get_adapter_config_hash,
+    inherit_doc,
+    patch_forward,
+    resolve_adapter_path,
+)
 from .wrappers.configuration import SUBMODEL_NAMES, init_adapters_config
 
 
@@ -802,7 +812,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             adapter_name_or_path (str): can be either:
 
                 - the identifier of a pre-trained task adapter to be loaded from Adapter Hub
-                - a path to a directory containing adapter weights saved using `model.saved_adapter()`
+                - a path to a directory containing adapter weights saved using `model.save_adapter()`
                 - a URL pointing to a zip folder containing a saved adapter module
             config (dict or str, optional): Deprecated.
             version (str, optional): The version of the adapter to be loaded.
@@ -880,6 +890,161 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     set_active=set_active,
                 )
         return load_name
+
+    def _save_adapter_setup_config(
+        self,
+        save_directory: str,
+        adapter_setup: AdapterCompositionBlock,
+        head_setup: Optional[Union[bool, str, list, AdapterCompositionBlock]] = None,
+    ):
+        setup_config = {
+            "adapter_setup": adapter_setup.to_dict(),
+            "head_setup": head_setup.to_dict() if isinstance(head_setup, AdapterCompositionBlock) else head_setup,
+            "version": "adapters." + __version__,
+        }
+        with open(join(save_directory, SETUP_CONFIG_NAME), "w") as f:
+            json.dump(setup_config, f, indent=2)
+
+    def _load_adapter_setup_config(
+        self, load_directory: str
+    ) -> Tuple[AdapterCompositionBlock, Optional[AdapterCompositionBlock]]:
+        with open(join(load_directory, SETUP_CONFIG_NAME), "r") as f:
+            setup_config = json.load(f)
+        adapter_setup = AdapterCompositionBlock.from_dict(setup_config["adapter_setup"])
+        head_setup = setup_config["head_setup"]
+        if isinstance(head_setup, dict):
+            head_setup = AdapterCompositionBlock.from_dict(head_setup)
+        return adapter_setup, head_setup
+
+    def _save_adapter_setup_weights(
+        self,
+        save_directory: str,
+        adapter_setup: AdapterCompositionBlock,
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
+    ):
+        # Save single adapters
+        for adapter_name in adapter_setup.flatten():
+            save_path = join(save_directory, adapter_name)
+            self.save_adapter(save_path, adapter_name, meta_dict=meta_dict, use_safetensors=use_safetensors)
+        # Save adapter fusions
+        fusions = []
+        if isinstance(adapter_setup, Fuse):
+            fusions.append(adapter_setup)
+        for child_setup in adapter_setup.children:
+            if isinstance(child_setup, Fuse):
+                fusions.append(child_setup)
+        for fusion in fusions:
+            save_path = join(save_directory, fusion.name)
+            self.save_adapter_fusion(save_path, fusion, meta_dict=meta_dict, use_safetensors=use_safetensors)
+        # Save additional custom weights
+        if custom_weights_loaders:
+            for weights_loader in custom_weights_loaders:
+                weights_loader.save(save_directory, adapter_name)
+
+    def _load_adapter_setup_weights(
+        self,
+        load_directory: str,
+        adapter_setup: AdapterCompositionBlock,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        set_active: bool = False,
+        use_safetensors: bool = False,
+    ):
+        # Load single adapters
+        for adapter_name in adapter_setup.flatten():
+            save_path = join(load_directory, adapter_name)
+            self.load_adapter(save_path, use_safetensors=use_safetensors)
+        # Load adapter fusions
+        fusions = []
+        if isinstance(adapter_setup, Fuse):
+            fusions.append(adapter_setup)
+        for child_setup in adapter_setup.children:
+            if isinstance(child_setup, Fuse):
+                fusions.append(child_setup)
+        for fusion in fusions:
+            save_path = join(load_directory, fusion.name)
+            self.load_adapter_fusion(save_path, use_safetensors=use_safetensors)
+        # Load additional custom weights
+        if custom_weights_loaders:
+            for weights_loader in custom_weights_loaders:
+                weights_loader.load(load_directory)
+
+        if set_active:
+            self.set_active_adapters(adapter_setup)
+
+    def save_adapter_setup(
+        self,
+        save_directory: str,
+        adapter_setup: Union[str, list, AdapterCompositionBlock],
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
+    ):
+        """Saves an adapter setup to a directory so that it can be shared or reloaded using `load_adapter_setup()`.
+
+        Args:
+            save_directory (str): Path to a directory where the adapter setup should be saved.
+            adapter_setup (Union[str, list, AdapterCompositionBlock]): The adapter setup to be saved. Usually an adapter composition block.
+            use_safetensors (bool, optional): If True, weights are saved via `safetensors`. Otherwise, the regular torch save method is used.
+        """
+        os.makedirs(save_directory, exist_ok=True)
+        adapter_setup = parse_composition(adapter_setup, model_type=self.config.model_type)
+
+        self._save_adapter_setup_config(save_directory, adapter_setup)
+        self._save_adapter_setup_weights(
+            save_directory,
+            adapter_setup,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
+            use_safetensors=use_safetensors,
+        )
+
+    def load_adapter_setup(
+        self,
+        adapter_setup_name_or_path: str,
+        version: str = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        set_active: bool = False,
+        use_safetensors: bool = False,
+        **kwargs,
+    ) -> Tuple[AdapterCompositionBlock, Any]:
+        """Loads an adapter setup from the local file system or a remote location.
+
+        Args:
+            adapter_setup_name_or_path (str): can be either:
+
+                - the identifier of a repository on the HuggingFace Model Hub.
+                - a path to a directory containing adapter weights saved using `model.save_adapter_setup()`
+                - a URL pointing to a zip folder containing a saved adapter module
+            version (str, optional): The version of the adapter to be loaded.
+            set_active (bool, optional):
+                Set the loaded adapter setup to be the active one. By default (False), the adapter setup is loaded but not
+                activated.
+            use_safetensors (bool, optional): If True, weights are loaded via `safetensors` if safetensors checkpoint is available. Otherwise, the regular torch save method is used.
+
+        Returns:
+            Tuple[AdapterCompositionBlock, Any]: The loaded adapter setup and the head setup if available.
+        """
+        resolved_folder = resolve_adapter_path(
+            adapter_setup_name_or_path,
+            version=version,
+            do_exists_check=False,
+            **kwargs,
+        )
+        adapter_setup, head_setup = self._load_adapter_setup_config(resolved_folder)
+        self._load_adapter_setup_weights(
+            resolved_folder,
+            adapter_setup,
+            custom_weights_loaders=custom_weights_loaders,
+            set_active=set_active,
+            use_safetensors=use_safetensors,
+        )
+
+        if head_setup:
+            logger.warning("Loaded adapter setup contains a head setup that is not supported by the current model.")
+
+        return adapter_setup, head_setup
 
     def save_all_adapters(
         self,
@@ -1856,6 +2021,115 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             use_safetensors=use_safetensors,
             **kwargs,
         )
+
+    def save_adapter_setup(
+        self,
+        save_directory: str,
+        adapter_setup: Union[str, list, AdapterCompositionBlock],
+        head_setup: Optional[Union[bool, str, list, AdapterCompositionBlock]] = None,
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
+    ):
+        """Saves an adapter setup to a directory so that it can be shared or reloaded using `load_adapter_setup()`.
+
+        Args:
+            save_directory (str): Path to a directory where the adapter setup should be saved.
+            adapter_setup (Union[str, list, AdapterCompositionBlock]): The adapter setup to be saved. Usually an adapter composition block.
+            head_setup (Optional[Union[bool, str, list, AdapterCompositionBlock]], optional): The head setup to be saved. Can be either:
+
+                - True: save the default head for models without flex heads.
+                - str: save a single head with the given name.
+                - list: save a list of heads.
+                - AdapterCompositionBlock: save a custom head setup.
+                - None (default): do not save any heads.
+            use_safetensors (bool, optional): If True, weights are saved via `safetensors`. Otherwise, the regular torch save method is used.
+        """
+        os.makedirs(save_directory, exist_ok=True)
+        adapter_setup = parse_composition(adapter_setup, model_type=self.config.model_type)
+
+        self._save_adapter_setup_config(save_directory, adapter_setup, head_setup)
+        self._save_adapter_setup_weights(
+            save_directory,
+            adapter_setup,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
+            use_safetensors=use_safetensors,
+        )
+
+        if head_setup is True:
+            self.save_head(save_directory, use_safetensors=use_safetensors)
+        elif head_setup:
+            heads_to_save = []
+            if isinstance(head_setup, AdapterCompositionBlock):
+                heads_to_save = head_setup.flatten()
+            elif isinstance(head_setup, list):
+                heads_to_save = head_setup
+            elif isinstance(head_setup, str):
+                heads_to_save = [head_setup]
+            for head_name in heads_to_save:
+                save_path = join(save_directory, head_name)
+                self.save_head(save_path, head_name, use_safetensors=use_safetensors)
+
+    def load_adapter_setup(
+        self,
+        adapter_setup_name_or_path: str,
+        version: str = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        set_active: bool = False,
+        use_safetensors: bool = False,
+        **kwargs,
+    ) -> str:
+        """Loads an adapter setup from the local file system or a remote location.
+
+        Args:
+            adapter_setup_name_or_path (str): can be either:
+
+                - the identifier of a repository on the HuggingFace Model Hub.
+                - a path to a directory containing adapter weights saved using `model.save_adapter_setup()`
+                - a URL pointing to a zip folder containing a saved adapter module
+            version (str, optional): The version of the adapter to be loaded.
+            set_active (bool, optional):
+                Set the loaded adapter setup to be the active one. By default (False), the adapter setup is loaded but not
+                activated.
+            use_safetensors (bool, optional): If True, weights are loaded via `safetensors` if safetensors checkpoint is available. Otherwise, the regular torch save method is used.
+
+        Returns:
+            Tuple[AdapterCompositionBlock, Any]: The loaded adapter setup and the head setup if available.
+        """
+        resolved_folder = resolve_adapter_path(
+            adapter_setup_name_or_path,
+            version=version,
+            do_exists_check=False,
+            **kwargs,
+        )
+        adapter_setup, head_setup = self._load_adapter_setup_config(resolved_folder)
+        self._load_adapter_setup_weights(
+            resolved_folder,
+            adapter_setup,
+            custom_weights_loaders=custom_weights_loaders,
+            set_active=set_active,
+            use_safetensors=use_safetensors,
+        )
+
+        if head_setup is True:
+            self.load_head(resolved_folder, use_safetensors=use_safetensors)
+        elif head_setup:
+            heads_to_load = []
+            if isinstance(head_setup, AdapterCompositionBlock):
+                heads_to_load = head_setup.flatten()
+            elif isinstance(head_setup, list):
+                heads_to_load = head_setup
+            elif isinstance(head_setup, str):
+                heads_to_load = [head_setup]
+            for head_name in heads_to_load:
+                save_path = join(resolved_folder, head_name)
+                self.load_head(save_path, head_name, use_safetensors=use_safetensors)
+
+            if set_active:
+                self.active_head = head_setup
+
+        return adapter_setup, head_setup
 
     def save_all_heads(self, save_directory: str, use_safetensors: bool = False):
         """Saves all prediction heads of this model to subfolders of the given location.

@@ -1,4 +1,5 @@
 import copy
+import os
 import tempfile
 
 import torch
@@ -17,8 +18,10 @@ from adapters import (
     MAMConfig,
     SeqBnConfig,
     SeqBnInvConfig,
+    Stack,
 )
 from adapters.heads.language_modeling import CausalLMHead
+from adapters.utils import SETUP_CONFIG_NAME
 from transformers import MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING, CLIPConfig
 from transformers.testing_utils import require_torch, torch_device
 
@@ -475,3 +478,43 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 base_with_change |= not torch.equal(v1, v2)
         self.assertTrue(adapters_with_change)
         self.assertFalse(base_with_change)
+
+    def test_load_adapter_setup(self):
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
+            self.skipTest("Does not support flex heads.")
+        model1, model2 = create_twin_models(self.model_class, self.config)
+
+        # Create a complex setup
+        model1.add_adapter("a", config=SeqBnConfig())
+        model1.add_adapter("b", config=SeqBnConfig())
+        model1.add_adapter("c", config=SeqBnConfig())
+        model1.add_adapter_fusion(["a", "b"])
+        self.add_head(model1, "head_a")
+        self.add_head(model1, "head_b")
+        adapter_setup = Stack(Fuse("a", "b"), "c")
+        head_setup = BatchSplit("head_a", "head_b", batch_sizes=[2, 1])
+        model1.set_active_adapters(adapter_setup)
+        model1.active_head = head_setup
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model1.save_adapter_setup(temp_dir, adapter_setup, head_setup=head_setup)
+
+            self.assertTrue(os.path.exists(os.path.join(temp_dir, SETUP_CONFIG_NAME)))
+
+            # also tests that set_active works
+            model2.load_adapter_setup(temp_dir, set_active=True)
+
+        # check if adapter was correctly loaded
+        for name in ["a", "b", "c"]:
+            self.assertTrue(name in model2.adapters_config)
+        self.assertEqual(adapter_setup, model2.active_adapters)
+
+        # check equal output
+        input_data = self.get_input_samples(config=model1.config)
+        model1.to(torch_device)
+        model2.to(torch_device)
+        output1 = model1(**input_data)
+        output2 = model2(**input_data)
+        self.assertEqual(len(output1), len(output2))
+        self.assertTrue(torch.allclose(output1[0][0], output2[0][0], atol=1e-4))
+        self.assertTrue(torch.allclose(output1[1][0], output2[1][0], atol=1e-4))
