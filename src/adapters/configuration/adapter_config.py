@@ -377,7 +377,8 @@ class AdapterPlusConfig(BnConfig):
     """
 
     original_ln_after: bool = False
-    residual_before_ln: bool = True
+    original_ln_before = True
+    residual_before_ln: bool = False
     stochastic_depth: float = 0.1
     init_weights: str = "houlsby"
     scaling: Union[float, str] = "channel"
