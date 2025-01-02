@@ -33,7 +33,7 @@ class CLIPVisionAdapterTestBase(VisionAdapterTestBase):
     config_class = CLIPVisionConfig
     config = make_config(
         CLIPVisionConfig,
-        image_size=30,
+        image_size=224,
         hidden_size=32,
         num_hidden_layers=4,
         num_attention_heads=4,
@@ -64,7 +64,7 @@ class CLIPVisionWithProjectionAdapterTestBase(VisionAdapterTestBase):
     config_class = CLIPVisionConfig
     config = make_config(
         CLIPVisionConfig,
-        image_size=30,
+        image_size=224,
         hidden_size=32,
         num_hidden_layers=4,
         num_attention_heads=4,
@@ -161,7 +161,7 @@ class CLIPAdapterTestBase(AdapterTestBase):
                 intermediate_size=37,
             ),
             CLIPVisionConfig(
-                image_size=30,
+                image_size=224,
                 hidden_size=32,
                 num_hidden_layers=4,
                 num_attention_heads=4,
