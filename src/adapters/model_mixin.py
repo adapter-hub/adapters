@@ -655,9 +655,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 Activate the added AdapterFusion. By default (False), the AdapterFusion is added but not activated.
         """
         if isinstance(adapter_names, Fuse):
-            adapter_names = adapter_names.children
             if name is None:
                 name = adapter_names.name
+            adapter_names = adapter_names.children
         elif isinstance(adapter_names, str):
             adapter_names = adapter_names.split(",")
         if name is None:
