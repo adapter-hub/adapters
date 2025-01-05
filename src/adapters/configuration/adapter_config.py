@@ -376,7 +376,7 @@ class AdapterPlusConfig(BnConfig):
     The AdapterPlus config architecture proposed by Jan-Martin O, Steitz and Stefan Roth. See https://arxiv.org/pdf/2406.06820
     """
 
-    original_ln_after: bool = True
+    original_ln_after: bool = False
     original_ln_before: bool = True
     residual_before_ln: bool = False
     stochastic_depth: float = 0.1
