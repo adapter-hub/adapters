@@ -19,7 +19,7 @@ from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
-from .interface import AdapterModelInterface
+from .interface import AdapterModelInterface, AdapterType
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .methods import METHOD_INIT_MAPPING
 from .methods.adapter_layer_base import AdapterLayerBase
@@ -473,6 +473,31 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         self._add_tied_weights_keys()
 
+    def supports_adapter(self, type_or_config: Union[str, AdapterConfig]) -> bool:
+        """
+        Checks if the model supports a given adapter type.
+
+        Args:
+            adapter_type (str): The adapter type to check.
+
+        Returns:
+            bool: True if the adapter type is supported, False otherwise.
+        """
+        if isinstance(type_or_config, AdapterConfig):
+            types = AdapterType.get_from_config(type_or_config)
+        else:
+            types = [type_or_config]
+
+        supported = []
+        for _type in types:
+            if getattr(self.base_model, "adapter_interface", None) is not None:
+                supported.append(_type in self.base_model.adapter_interface.adapter_types)
+            elif _type == AdapterType.prompt_tuning:
+                supported.append(self.support_prompt_tuning)
+            else:
+                supported.append(True)
+        return all(supported)
+
     # These methods have to be implemented by every deriving class:
 
     @abstractmethod
@@ -598,6 +623,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             the adapter is added but not activated.
         """
         config = AdapterConfig.load(config)  # ensure config is ok and up-to-date
+        # check if config is valid for this model
+        config_or_type = config or AdapterType.bottleneck
+        if not self.supports_adapter(config_or_type):
+            raise ValueError(f"Adapter config or type '{config_or_type}' is not supported by this model.")
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
         if overwrite_ok and adapter_name in self.adapters_config:
             self.delete_adapter(adapter_name)

@@ -135,3 +135,11 @@ class CustomInterfaceModelTest(
 
     def test_merging_with_other_adapters(self):
         self.skipTest("Does not support all required methods yet.")
+
+    def test_supports_adapter(self):
+        model = self.get_model()
+        model.eval()
+
+        config = "unipelt"
+        with self.assertRaises(ValueError):
+            model.add_adapter("my_adapter", config=config)

@@ -13,6 +13,24 @@ class AdapterType:
     prompt_tuning = "prompt_tuning"
     reft = "reft"
 
+    @staticmethod
+    def get_from_config(config) -> List[str]:
+        """
+        Get the adapter type from a given adapter config.
+
+        Args:
+            config: The adapter config.
+
+        Returns:
+            str: The adapter type.
+        """
+        if config.architecture is None:
+            return [AdapterType.bottleneck]
+        elif config.architecture == "union":
+            return [AdapterType.get_from_config(sub_config) for sub_config in config.configs]
+        else:
+            return [config.architecture]
+
 
 @dataclass
 class AdapterModelInterface:
