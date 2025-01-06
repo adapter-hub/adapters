@@ -59,6 +59,11 @@ _Papers:_
 * [Adapters Strike Back](https://arxiv.org/pdf/2406.06820) (Steitz and Roth., 2024)
 * [AdapterHub: A Framework for Adapting Transformers](https://arxiv.org/pdf/2007.07779.pdf) (Pfeiffer et al., 2020)
 
+```{eval-rst}
+.. note::
+    The two parameters ``original_ln_before`` and ``original_ln_after`` inside bottleneck adapters control both the addition of the residual input and the application of the pretrained layer norm. If the original model does not apply a layer norm function at a specific position of the forward function (e.g after the FFN layer), the bottleneck parameters of the adapter set at that same position will only control the application of the residual input.
+```
+
 ## Language Adapters - Invertible Adapters
 
 _Configuration class_: [`SeqBnInvConfig`](adapters.SeqBnInvConfig), [`DoubleSeqBnInvConfig`](adapters.DoubleSeqBnInvConfig)
