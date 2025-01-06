@@ -450,7 +450,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if getattr(self.base_model, "adapter_interface", None) is not None:
             for adapter_type in self.base_model.adapter_interface.adapter_types:
                 init_func = METHOD_INIT_MAPPING[adapter_type]
-                init_func(self.base_model)
+                init_func(self)
         else:
             self._default_init_adapter_methods(self.config, self.adapters_config)
 

@@ -71,24 +71,34 @@ def hook_fn(model, module, args, embedding_output):
     return embedding_output
 
 
-def init_invertible_adapters(model):
-    if not hasattr(model, "invertible_adapters"):
-        model.invertible_adapters = InvertibleAdapterLayer(model.config, model.adapters_config)
+def inv_hook_fn(model, module, args):
+    inv_output = model.invertible_adapters(args[0], rev=True)
+    return (inv_output,) + args[1:]
 
-        embed_layer = multigetattr(model, model.adapter_interface.model_embeddings)
-        embed_layer.register_forward_hook(partial(hook_fn, model))
+
+def init_invertible_adapters(model):
+    base_model = model.base_model
+    if not hasattr(base_model, "invertible_adapters"):
+        base_model.invertible_adapters = InvertibleAdapterLayer(base_model.config, base_model.adapters_config)
+
+        embed_layer = multigetattr(base_model, base_model.adapter_interface.model_embeddings)
+        embed_layer.register_forward_hook(partial(hook_fn, base_model))
 
         # Add methods from original invertible adapter mixin.
         # This is primarily for backwards compatibility and internal use.
-        model.add_invertible_adapter = types.MethodType(
-            lambda self, *args, **kwargs: self.invertible_adapters.add_adapter(*args, **kwargs), model
+        base_model.add_invertible_adapter = types.MethodType(
+            lambda self, *args, **kwargs: self.invertible_adapters.add_adapter(*args, **kwargs), base_model
         )
-        model.delete_invertible_adapter = types.MethodType(
-            lambda self, *args, **kwargs: self.invertible_adapters.delete_adapter(*args, **kwargs), model
+        base_model.delete_invertible_adapter = types.MethodType(
+            lambda self, *args, **kwargs: self.invertible_adapters.delete_adapter(*args, **kwargs), base_model
         )
-        model.get_invertible_adapter = types.MethodType(
-            lambda self: self.invertible_adapters.get_invertible_adapter(), model
+        base_model.get_invertible_adapter = types.MethodType(
+            lambda self: self.invertible_adapters.get_invertible_adapter(), base_model
         )
-        model.invertible_adapters_forward = types.MethodType(
-            lambda self, *args, **kwargs: self.invertible_adapters(*args, **kwargs), model
+        base_model.invertible_adapters_forward = types.MethodType(
+            lambda self, *args, **kwargs: self.invertible_adapters(*args, **kwargs), base_model
         )
+
+        # Register reverse forward pass
+        if output_embedding := model.get_output_embeddings():
+            output_embedding.register_forward_pre_hook(partial(inv_hook_fn, base_model))

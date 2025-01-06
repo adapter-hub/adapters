@@ -191,6 +191,7 @@ def _attn_mask_hook_fn(module, args):
 
 
 def init_prompt_tuning(model):
+    model = model.base_model
     if not hasattr(model, "prompt_tuning"):
         model.support_prompt_tuning = True
         model.prompt_tuning = PromptTuningLayer(model.config, model.adapters_config, model.get_input_embeddings())

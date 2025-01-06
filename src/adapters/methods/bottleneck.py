@@ -403,6 +403,7 @@ def _residual_hook_fn(location_key, module, args):
 
 
 def init_bottleneck(model):
+    model = model.base_model
     for _, layer in model.iter_layers():
         if self_attn := multigetattr(layer, model.adapter_interface.layer_self_attn, None):
             if o_proj := multigetattr(self_attn, model.adapter_interface.attn_o_proj, None):

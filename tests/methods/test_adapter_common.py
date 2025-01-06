@@ -222,6 +222,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
     def test_invertible_adapter_forward(self):
         model = self.get_model()
         model.eval()
+        if not model.supports_adapter("invertible"):
+            self.skipTest("Model does not support invertible adapters.")
 
         for adapter_config, _ in self.inv_adapter_configs_to_test:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):

@@ -818,6 +818,7 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
 
 
 def init_lora(model):
+    model = model.base_model
     for _, _, attention in model.iter_attentions():
         if q_proj := multigetattr(attention, model.adapter_interface.attn_q_proj, None):
             lora_proj = LoRALinear.wrap(q_proj, "selfattn", model.config, model.adapters_config, attn_key="q")
