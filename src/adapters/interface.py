@@ -2,9 +2,9 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 
-class AdapterType:
+class AdapterMethod:
     """
-    Enum for the different adapter types.
+    Enum of all supported adapter method types.
     """
 
     bottleneck = "bottleneck"
@@ -25,9 +25,9 @@ class AdapterType:
             str: The adapter type.
         """
         if config.architecture is None:
-            return [AdapterType.bottleneck]
+            return [AdapterMethod.bottleneck]
         elif config.architecture == "union":
-            return [AdapterType.get_from_config(sub_config) for sub_config in config.configs]
+            return [AdapterMethod.get_from_config(sub_config) for sub_config in config.configs]
         else:
             return [config.architecture]
 

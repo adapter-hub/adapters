@@ -19,7 +19,7 @@ from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
 from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
-from .interface import AdapterModelInterface, AdapterType
+from .interface import AdapterMethod, AdapterModelInterface
 from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .methods import METHOD_INIT_MAPPING
 from .methods.adapter_layer_base import AdapterLayerBase
@@ -484,7 +484,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             bool: True if the adapter type is supported, False otherwise.
         """
         if isinstance(type_or_config, AdapterConfig):
-            types = AdapterType.get_from_config(type_or_config)
+            types = AdapterMethod.get_from_config(type_or_config)
         else:
             types = [type_or_config]
 
@@ -492,8 +492,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         for _type in types:
             if getattr(self.base_model, "adapter_interface", None) is not None:
                 supported.append(_type in self.base_model.adapter_interface.adapter_types)
-            elif _type == AdapterType.prompt_tuning:
-                supported.append(self.support_prompt_tuning)
+            elif _type == AdapterMethod.prompt_tuning:
+                supported.append(self.base_model.support_prompt_tuning)
             else:
                 supported.append(True)
         return all(supported)
@@ -624,7 +624,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         config = AdapterConfig.load(config)  # ensure config is ok and up-to-date
         # check if config is valid for this model
-        config_or_type = config or AdapterType.bottleneck
+        config_or_type = config or AdapterMethod.bottleneck
         if not self.supports_adapter(config_or_type):
             raise ValueError(f"Adapter config or type '{config_or_type}' is not supported by this model.")
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
