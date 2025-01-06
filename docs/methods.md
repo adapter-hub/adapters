@@ -61,7 +61,7 @@ _Papers:_
 
 ```{eval-rst}
 .. note::
-    The two parameters ``original_ln_before`` and ``original_ln_after`` inside bottleneck adapters control both the addition of the residual input and the application of the pretrained layer norm. If the original model does not apply a layer norm function at a specific position of the forward function (e.g after the FFN layer), the bottleneck parameters of the adapter set at that same position will only control the application of the residual input.
+    The two parameters ``original_ln_before`` and ``original_ln_after`` inside bottleneck adapters control both the addition of the residual input and the application of the pretrained layer norm. If the original model does not apply a layer norm function at a specific position of the forward function (e.g after the FFN layer), the two bottleneck parameters of the adapter set at that same position will only control the application of the residual input.
 ```
 
 ## Language Adapters - Invertible Adapters
