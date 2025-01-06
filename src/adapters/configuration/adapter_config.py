@@ -374,13 +374,13 @@ class ParBnConfig(BnConfig):
 class AdapterPlusConfig(BnConfig):
     """
     The AdapterPlus config architecture proposed by Jan-Martin O, Steitz and Stefan Roth. See https://arxiv.org/pdf/2406.06820
-    
-    Please note that some configurations of the adapters parameters `original_ln_after`, `original_ln_before`, and 
-    `residual_before_ln` may result in performance issues when training. 
-    
+
+    Please note that some configurations of the adapters parameters `original_ln_after`, `original_ln_before`, and
+    `residual_before_ln` may result in performance issues when training.
+
     In the general case:
         1) At least one of `original_ln_before` or `original_ln_after` should be set to True in order to ensure that the original residual
-           connection from pre-training is preserved. 
+           connection from pre-training is preserved.
         2) If `original_ln_after` is set to `False`, `residual_before_ln` must also be set to `False` to ensure convergence during training.
     """
 
