@@ -494,6 +494,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 supported.append(_type in self.base_model.adapter_interface.adapter_types)
             elif _type == AdapterMethod.prompt_tuning:
                 supported.append(self.base_model.support_prompt_tuning)
+            elif _type == AdapterMethod.invertible:
+                supported.append(
+                    isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin)
+                )
             else:
                 supported.append(True)
         return all(supported)
@@ -1077,12 +1081,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # global weights are saved at index -1
         if name in self.base_model.shared_parameters:
             destination[-1]["shared"] = self.base_model.shared_parameters[name]
-        if (
-            isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin)
-        ) and name in self.invertible_adapters:
+        if self.supports_adapter("invertible") and name in self.invertible_adapters:
             destination[-1]["invertible"] = self.invertible_adapters[name]
 
-        if self.support_prompt_tuning:
+        if self.supports_adapter("prompt_tuning"):
             prompt_tuning = self.prompt_tuning.get_adapter(name)
             if prompt_tuning is not None:
                 destination[-1]["prompt"] = prompt_tuning

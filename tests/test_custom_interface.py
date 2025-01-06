@@ -36,7 +36,7 @@ class CustomInterfaceModelTestBase(AdapterTestBase):
     )
     tokenizer_name = "yujiepan/gemma-2-tiny-random"
     adapter_interface = AdapterModelInterface(
-        adapter_types=["bottleneck", "lora", "reft"],
+        adapter_types=["bottleneck", "lora", "reft", "invertible"],
         model_embeddings="embed_tokens",
         model_layers="layers",
         layer_self_attn="self_attn",

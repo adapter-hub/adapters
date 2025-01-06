@@ -35,7 +35,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         pad_token_id=0,
     )
     llama_interface = AdapterModelInterface(
-        adapter_types=["bottleneck", "lora", "reft"],
+        adapter_types=["bottleneck", "lora", "reft", "invertible"],
         model_embeddings="embed_tokens",
         model_layers="layers",
         layer_self_attn="self_attn",
@@ -53,7 +53,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         layer_ln_2=None,
     )
     bert_interface = AdapterModelInterface(
-        adapter_types=["bottleneck", "lora", "reft", "prompt_tuning"],
+        adapter_types=["bottleneck", "lora", "reft", "prompt_tuning", "invertible"],
         model_embeddings="embeddings",
         model_layers="encoder.layer",
         layer_self_attn="attention",
@@ -95,6 +95,13 @@ class CustomInterfaceCompatTest(unittest.TestCase):
                 AutoModelForCausalLM,
             ),
             (
+                "BnSeqInv_Llama",
+                adapters.SeqBnInvConfig(),
+                llama_config,
+                llama_interface,
+                AutoModelForCausalLM,
+            ),
+            (
                 "BnSeqPreLN_Llama",
                 adapters.SeqBnConfig(original_ln_before=True),
                 llama_config,
@@ -119,6 +126,14 @@ class CustomInterfaceCompatTest(unittest.TestCase):
             (
                 "BnSeq_BERT",
                 adapters.SeqBnConfig(original_ln_before=False),
+                bert_config,
+                bert_interface,
+                AutoModel,
+                bert_bn_rewrites,
+            ),
+            (
+                "BnSeqInv_BERT",
+                adapters.SeqBnInvConfig(),
                 bert_config,
                 bert_interface,
                 AutoModel,

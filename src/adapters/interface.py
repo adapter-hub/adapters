@@ -12,6 +12,7 @@ class AdapterMethod:
     lora = "lora"
     prompt_tuning = "prompt_tuning"
     reft = "reft"
+    invertible = "invertible"
 
     @staticmethod
     def get_from_config(config) -> List[str]:
@@ -22,14 +23,18 @@ class AdapterMethod:
             config: The adapter config.
 
         Returns:
-            str: The adapter type.
+            List[str]: The adapter type.
         """
+        methods = []
+        if getattr(config, "inv_adapter", False):
+            methods.append(AdapterMethod.invertible)
         if config.architecture is None:
-            return [AdapterMethod.bottleneck]
+            methods.append(AdapterMethod.bottleneck)
         elif config.architecture == "union":
-            return [AdapterMethod.get_from_config(sub_config) for sub_config in config.configs]
+            methods.extend([AdapterMethod.get_from_config(sub_config) for sub_config in config.configs])
         else:
-            return [config.architecture]
+            methods.append(config.architecture)
+        return methods
 
 
 @dataclass
