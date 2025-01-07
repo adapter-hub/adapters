@@ -15,8 +15,8 @@
 """PyTorch DeBERTa model."""
 
 import torch
-from torch import nn
 import torch.utils.checkpoint
+from torch import nn
 
 from transformers.models.deberta.modeling_deberta import (
     DebertaOutput,
@@ -96,8 +96,10 @@ class DisentangledSelfAttentionWithAdapters(DebertaSelfAttentionAdaptersMixin, D
 
 
         """
+        # >>> START AH Changes <<<
         attention_mask = prefix_attention_mask(attention_mask, dim=3, prefix_value=1)  # type: ignore
         attention_mask = prefix_attention_mask(attention_mask, dim=2, prefix_value=1)  # type: ignore
+        # >>> END AH Changes <<<
 
         if query_states is None:
             qp = self.in_proj(hidden_states)  # .split(self.all_head_size, dim=-1)
@@ -110,17 +112,21 @@ class DisentangledSelfAttentionWithAdapters(DebertaSelfAttentionAdaptersMixin, D
             v = torch.matmul(qkvw[2], hidden_states.t().to(dtype=qkvw[2].dtype))
             query_layer, key_layer, value_layer = [self.transpose_for_scores(x) for x in [q, k, v]]
 
+        # >>> START AH Changes <<<
         query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
         (attention_mask,) = adjust_tensors_for_parallel(query_layer, attention_mask)
+        # >>> END AH Changes <<<
 
         query_layer = query_layer + self.transpose_for_scores(self.q_bias[None, None, :])
         value_layer = value_layer + self.transpose_for_scores(self.v_bias[None, None, :])
 
+        # >>> START AH Changes <<<
         orig_key_layer = key_layer  # save this for relative attention
         key_layer, value_layer, attention_mask = self.prefix_tuning(
             key_layer, value_layer, hidden_states, attention_mask, False
         )
         (query_layer, orig_key_layer) = adjust_tensors_for_parallel(key_layer, query_layer, orig_key_layer)
+        # >>> END AH Changes <<<
 
         rel_att: int = 0
         # Take the dot product between "query" and "key" to get the raw attention scores.
@@ -131,9 +137,11 @@ class DisentangledSelfAttentionWithAdapters(DebertaSelfAttentionAdaptersMixin, D
 
         if self.relative_attention and rel_embeddings is not None and relative_pos is not None:
             rel_embeddings = self.pos_dropout(rel_embeddings)
+            # >>> START AH Changes <<<
             rel_att = self.disentangled_att_bias(
                 query_layer, orig_key_layer, relative_pos, rel_embeddings, scale_factor
             )
+            # >>> END AH Changes <<<
 
         if rel_att is not None:
             attention_scores = attention_scores + rel_att
