@@ -144,7 +144,11 @@ class DisentangledSelfAttentionWithAdapters(DebertaSelfAttentionAdaptersMixin, D
             # >>> END AH Changes <<<
 
         if rel_att is not None:
-            attention_scores = attention_scores + rel_att
+            # >>> START AH Changes <<<
+            rel_att_padded = torch.zeros_like(attention_scores)
+            rel_att_padded[:, :, :, -rel_att.size(-1) :] = rel_att
+            # >>> END AH Changes <<<
+            attention_scores = attention_scores + rel_att_padded
 
         # bxhxlxd
         if self.head_logits_proj is not None:
