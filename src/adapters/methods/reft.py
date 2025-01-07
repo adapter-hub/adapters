@@ -26,6 +26,8 @@ class ReftUnit(nn.Module):
 
         projection = nn.Linear(in_dim, r_dim, bias=False, dtype=dtype)
         if orthogonal:
+            # orthogonal is not implemented for half precision
+            projection = projection.to(dtype=torch.float32)
             self.projection = nn.utils.parametrizations.orthogonal(projection)
         else:
             self.projection = projection
@@ -94,7 +96,7 @@ class ReftModule(nn.Module):
             # create indexing matrices for prefixes & suffixes
             if self.prefix_positions > 0:
                 pref_idx = first_non_padding.view(-1, 1, 1) + (
-                    torch.arange(self.prefix_positions)
+                    torch.arange(min(self.prefix_positions, hidden_states.size(1)))
                     .unsqueeze(-1)
                     .expand(bsz, self.prefix_positions, ddim)
                     .to(hidden_states.device)
@@ -103,7 +105,7 @@ class ReftModule(nn.Module):
                 context.pref_idx = pref_idx
             if self.suffix_positions > 0:
                 suff_idx = last_non_padding.view(-1, 1, 1) + (
-                    torch.arange(-self.suffix_positions, 0)
+                    torch.arange(-min(self.suffix_positions, hidden_states.size(1)), 0)
                     .unsqueeze(-1)
                     .expand(bsz, self.suffix_positions, ddim)
                     .to(hidden_states.device)
@@ -131,7 +133,7 @@ class ReftModule(nn.Module):
         context = ForwardContext.get_context()
 
         # merge prefix, suffix and adapted states
-        adapted_output = torch.cat(adapted_states, dim=1)
+        adapted_output = torch.cat(adapted_states, dim=1).to(hidden_states.dtype)
 
         if self.prefix_positions > 0:
             hidden_states = torch.scatter(

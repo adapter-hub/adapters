@@ -1,5 +1,5 @@
-from adapters import DiReftConfig, LoReftConfig, NoReftConfig
-from transformers.testing_utils import require_torch
+from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, DiReftConfig, LoReftConfig, NoReftConfig
+from transformers.testing_utils import require_torch, torch_device
 
 from .base import AdapterMethodBaseTestMixin
 
@@ -77,3 +77,6 @@ class ReftTestMixin(AdapterMethodBaseTestMixin):
 
     def test_train_loreft(self):
         self.run_train_test(LoReftConfig(), ["refts.{name}."])
+
+    def test_reft_generate(self):
+        self.run_generate_test(LoReftConfig())
