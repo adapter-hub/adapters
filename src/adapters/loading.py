@@ -6,6 +6,7 @@ from os.path import exists, isdir, isfile, join
 from typing import Callable, Mapping, Optional, Sequence, Tuple
 
 import torch
+from packaging.version import Version
 
 
 try:
@@ -368,6 +369,23 @@ class AdapterLoader(WeightsLoader):
             k = k.replace(old, new)
         return k
 
+    def _fix_backward_compat(self, config):
+        # Fix error in previous versions for LoRA/ (IA)^3
+        ADAPTER_PREFIX = "adapters."
+        MIN_VERSION = Version("1.1.0")
+
+        version = config.get("version", "")
+        if version.startswith(ADAPTER_PREFIX) and Version(version[len(ADAPTER_PREFIX) :]) < MIN_VERSION:
+            if (
+                config["config"].get("architecture", None) == "lora"
+                and config["config"]["r"] != config["config"]["alpha"]
+            ):
+                logger.warning(
+                    "Loading a LoRA trained using a faulty scaling implementation of a previous library version. Editing the configuration to make sure the adapter works as trained."
+                    "See https://github.com/adapter-hub/adapters/pull/770 for more."
+                )
+                config["config"]["alpha"] = config["config"]["r"]
+
     # This method is used to remove unnecessary invertible adapters from task adapters using the old format.
     # In the old format, task adapters e.g. using seq_bn config specify inv. adapters but don't use them.
     # As inv. adapters would be incorrectly used in the new implementation,
@@ -560,6 +578,8 @@ class AdapterLoader(WeightsLoader):
                 # The conversion to a set and then back to a list removes all duplicates
                 leave_out = list(set(leave_out + config["config"]["leave_out"]))
             config["config"]["leave_out"] = leave_out
+        # Fix issues
+        self._fix_backward_compat(config)
 
         adapter_name = load_as or config["name"]
         # If the adapter is not part of the model, add it

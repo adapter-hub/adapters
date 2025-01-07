@@ -34,6 +34,7 @@ _deps = [
     "isort>=5.5.4",
     "Jinja2==2.11.3",
     "nltk",
+    "packaging",
     "parameterized",
     "pillow",
     "protobuf",
@@ -59,7 +60,8 @@ _deps = [
     "sphinx-multiversion==0.2.4",
     "timeout-decorator",
     "torch",
-    "transformers~=4.45.2",
+    "torchvision",
+    "transformers~=4.46.3",
 ]
 
 
@@ -81,8 +83,8 @@ extras = {}
 extras["sklearn"] = deps_list("scikit-learn")
 
 extras["torch"] = deps_list("torch", "accelerate")
-
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
+extras["torchvision"] = deps_list("torchvision")
 extras["testing"] = deps_list(
     "pytest",
     "pytest-rich",
@@ -104,6 +106,7 @@ extras["testing"] = deps_list(
     "beautifulsoup4",
     "pillow",
     "accelerate",
+    "torchvision",
 )
 
 extras["quality"] = deps_list("black", "datasets", "isort", "flake8", "GitPython")
@@ -134,11 +137,12 @@ extras["dev"] = (
 # when modifying the following list, make sure to update src/transformers/dependency_versions_check.py
 install_requires = [
     deps["transformers"],
+    deps["packaging"],
 ]
 
 setup(
     name="adapters",
-    version="1.0.1",
+    version="1.1.0.dev0",
     author="The AdapterHub team and community contributors",
     author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
