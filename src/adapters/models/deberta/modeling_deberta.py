@@ -145,10 +145,15 @@ class DisentangledSelfAttentionWithAdapters(DebertaSelfAttentionAdaptersMixin, D
 
         if rel_att is not None:
             # >>> START AH Changes <<<
-            rel_att_padded = torch.zeros_like(attention_scores)
-            rel_att_padded[:, :, :, -rel_att.size(-1) :] = rel_att
+            # rel_att is set to 0 by default, i.e. rel_att is always not None (don't know why HuggingFace does this).
+            # Hence, we must check whether rel_att is a tensor and if so, pad it with zeros to be able to add it to attention_scores.
+            if isinstance(rel_att, torch.Tensor):
+                rel_att_padded = torch.zeros_like(attention_scores)
+                rel_att_padded[:, :, :, -rel_att.size(-1) :] = rel_att
+                attention_scores = attention_scores + rel_att_padded
+            else:
+                attention_scores = attention_scores + rel_att
             # >>> END AH Changes <<<
-            attention_scores = attention_scores + rel_att_padded
 
         # bxhxlxd
         if self.head_logits_proj is not None:
