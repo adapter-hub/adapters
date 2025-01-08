@@ -638,6 +638,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self,
         adapter_names: Union[Fuse, list, str],
         config=None,
+        name: str = None,
         overwrite_ok: bool = False,
         set_active: bool = False,
     ):
@@ -655,6 +656,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 - a string identifying a pre-defined adapter fusion configuration
                 - a dictionary representing the adapter fusion configuration
                 - the path to a file containing the adapter fusion configuration
+            name (str, optional):
+                Name of the AdapterFusion layer. If not specified, the name is generated automatically from the fused adapter names.
             overwrite_ok (bool, optional):
                 Overwrite an AdapterFusion layer with the same name if it exists. By default (False), an exception is
                 thrown.
@@ -662,22 +665,24 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 Activate the added AdapterFusion. By default (False), the AdapterFusion is added but not activated.
         """
         if isinstance(adapter_names, Fuse):
+            if name is None:
+                name = adapter_names.name
             adapter_names = adapter_names.children
         elif isinstance(adapter_names, str):
             adapter_names = adapter_names.split(",")
+        if name is None:
+            name = ",".join(adapter_names)
 
         if isinstance(config, dict):
             config = AdapterFusionConfig.from_dict(config)  # ensure config is ok and up-to-date
         # In case adapter already exists and we allow overwriting, explicitly delete the existing one first
-        if overwrite_ok and self.adapters_config.get_fusion(adapter_names) is not None:
-            self.delete_adapter_fusion(adapter_names)
-        self.adapters_config.add_fusion(adapter_names, config=config)
-        self.apply_to_adapter_layers(lambda i, layer: layer.add_fusion_layer(adapter_names))
-        self.apply_to_basemodel_childs(lambda i, child: child.add_fusion_layer(adapter_names))
+        if overwrite_ok and self.adapters_config.get_fusion(name)[0] is not None:
+            self.delete_adapter_fusion(name)
+        self.adapters_config.add_fusion(adapter_names, config=config, fusion_name=name)
+        self.apply_to_adapter_layers(lambda i, layer: layer.add_fusion_layer(name))
+        self.apply_to_basemodel_childs(lambda i, child: child.add_fusion_layer(name))
         if set_active:
-            if not isinstance(adapter_names, list):
-                adapter_names = adapter_names.split(",")
-            self.set_active_adapters(Fuse(*adapter_names))
+            self.set_active_adapters(Fuse(*adapter_names, name=name))
 
     def delete_adapter(self, adapter_name: str):
         """
@@ -710,7 +715,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             adapter_names (Union[Fuse, list, str]): AdapterFusion layer to delete.
         """
         if isinstance(adapter_names, Fuse):
-            adapter_fusion_name = ",".join(adapter_names.children)
+            adapter_fusion_name = adapter_names.name
         elif isinstance(adapter_names, list):
             adapter_fusion_name = ",".join(adapter_names)
         elif isinstance(adapter_names, str):
@@ -776,7 +781,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             ValueError: If the given AdapterFusion name is invalid.
         """
         if isinstance(adapter_names, Fuse):
-            adapter_fusion_name = ",".join(adapter_names.children)
+            adapter_fusion_name = adapter_names.name
         elif isinstance(adapter_names, list):
             adapter_fusion_name = ",".join(adapter_names)
         elif isinstance(adapter_names, str):
@@ -1094,7 +1099,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         os.makedirs(save_directory, exist_ok=True)
         for name in self.adapters_config.fusions:
-            adapter_fusion_config = self.adapters_config.get_fusion(name)
+            adapter_fusion_config, _ = self.adapters_config.get_fusion(name)
             h = get_adapter_config_hash(adapter_fusion_config)
             save_path = join(save_directory, name)
             if meta_dict:

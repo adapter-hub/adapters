@@ -214,3 +214,86 @@ class AdapterFusionModelTestMixin:
             self.assertEqual(len(per_layer_scores), 1)
             for k, v in per_layer_scores.items():
                 self.assertEqual(self.input_shape[0], v.shape[0], k)
+
+    def test_add_adapter_fusion_custom_name(self):
+        config_name = "seq_bn"
+        model = self.get_model()
+        model.eval()
+
+        name1 = f"{config_name}-1"
+        name2 = f"{config_name}-2"
+        model.add_adapter(name1, config=config_name)
+        model.add_adapter(name2, config=config_name)
+
+        # adapter is correctly added to config
+        self.assertTrue(name1 in model.adapters_config)
+        self.assertTrue(name2 in model.adapters_config)
+
+        # add fusion with default name
+        model.add_adapter_fusion([name1, name2])
+        model.to(torch_device)
+
+        # check forward pass
+        input_data = self.get_input_samples(config=model.config)
+        model.set_active_adapters(Fuse(name1, name2))
+        fusion_default_ref_output = model(**input_data)
+
+        # add fusion with custom name
+        model.add_adapter_fusion([name1, name2], name="custom_name_fusion")
+        model.to(torch_device)
+
+        self.assertIn(f"{name1},{name2}", model.adapters_config.fusions)
+        self.assertIn("custom_name_fusion", model.adapters_config.fusions)
+        self.assertIn("custom_name_fusion", model.adapters_config.fusion_name_map)
+
+        # check forward pass
+        model.set_active_adapters(Fuse(name1, name2, name="custom_name_fusion"))
+        fusion_custom_output = model(**input_data)
+        model.set_active_adapters(Fuse(name1, name2))
+        fusion_default_output = model(**input_data)
+        model.set_active_adapters(None)
+        base_output = model(**input_data)
+
+        self.assertFalse(torch.equal(fusion_default_ref_output[0], base_output[0]))
+        self.assertTrue(torch.equal(fusion_default_ref_output[0], fusion_default_output[0]))
+        self.assertFalse(torch.equal(fusion_custom_output[0], fusion_default_output[0]))
+        self.assertFalse(torch.equal(fusion_custom_output[0], base_output[0]))
+
+        # delete only the custom fusion
+        model.delete_adapter_fusion(Fuse(name1, name2, name="custom_name_fusion"))
+        # model.delete_adapter_fusion("custom_name_fusion")
+
+        self.assertIn(f"{name1},{name2}", model.adapters_config.fusions)
+        self.assertNotIn("custom_name_fusion", model.adapters_config.fusions)
+
+    def test_load_adapter_fusion_custom_name(self):
+        model1 = self.get_model()
+        model1.eval()
+
+        name1 = "name1"
+        name2 = "name2"
+        model1.add_adapter(name1)
+        model1.add_adapter(name2)
+
+        model2 = copy.deepcopy(model1)
+        model2.eval()
+
+        model1.add_adapter_fusion([name1, name2], name="custom_name_fusion")
+        model1.set_active_adapters(Fuse(name1, name2, name="custom_name_fusion"))
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model1.save_adapter_fusion(temp_dir, "custom_name_fusion")
+            # also tests that set_active works
+            model2.load_adapter_fusion(temp_dir, set_active=True)
+
+        # check if adapter was correctly loaded
+        self.assertEqual(model1.adapters_config.fusions.keys(), model2.adapters_config.fusions.keys())
+
+        # check equal output
+        in_data = self.get_input_samples(config=model1.config)
+        model1.to(torch_device)
+        model2.to(torch_device)
+        output1 = model1(**in_data)
+        output2 = model2(**in_data)
+        self.assertEqual(len(output1), len(output2))
+        self.assertTrue(torch.equal(output1[0], output2[0]))
