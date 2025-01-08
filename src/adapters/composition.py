@@ -92,13 +92,17 @@ class Stack(AdapterCompositionBlock):
 
 
 class Fuse(AdapterCompositionBlock):
-    def __init__(self, *fuse_stacks: List[Union[AdapterCompositionBlock, str]]):
+    def __init__(self, *fuse_stacks: List[Union[AdapterCompositionBlock, str]], name: Optional[str] = None):
         super().__init__(*fuse_stacks)
+        self._name = name
 
     # TODO-V2 pull this up to all block classes?
     @property
     def name(self):
-        return ",".join([c if isinstance(c, str) else c.last() for c in self.children])
+        if self._name:
+            return self._name
+        else:
+            return ",".join([c if isinstance(c, str) else c.last() for c in self.children])
 
 
 class Split(AdapterCompositionBlock):
