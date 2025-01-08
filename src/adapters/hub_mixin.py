@@ -211,7 +211,7 @@ class PushAdapterToHubMixin:
         commit_description: str = None,
         adapter_card_kwargs: Optional[dict] = None,
     ):
-        """Upload an adapter to HuggingFace's Model Hub.
+        """Upload an adapter setup to HuggingFace's Model Hub.
 
         Args:
             repo_id (str): The name of the repository on the model hub to upload to.
