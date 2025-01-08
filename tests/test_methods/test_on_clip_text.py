@@ -140,3 +140,6 @@ class CLIPAdapterTest(
     def test_adapter_fusion_save_with_head(self):
         # This test is not applicable to CLIP
         self.skipTest("Not applicable to CLIP.")
+
+    def test_load_adapter_setup(self):
+        self.skipTest("Not applicable to CLIP.")
