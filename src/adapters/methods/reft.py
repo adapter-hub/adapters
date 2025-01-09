@@ -95,19 +95,21 @@ class ReftModule(nn.Module):
                 )
             # create indexing matrices for prefixes & suffixes
             if self.prefix_positions > 0:
+                real_pref_len = min(self.prefix_positions, hidden_states.size(1))
                 pref_idx = first_non_padding.view(-1, 1, 1) + (
-                    torch.arange(min(self.prefix_positions, hidden_states.size(1)))
+                    torch.arange(real_pref_len)
                     .unsqueeze(-1)
-                    .expand(bsz, self.prefix_positions, ddim)
+                    .expand(bsz, real_pref_len, ddim)
                     .to(hidden_states.device)
                 )
                 # Cache for next layer
                 context.pref_idx = pref_idx
             if self.suffix_positions > 0:
+                real_suff_len = min(self.suffix_positions, hidden_states.size(1))
                 suff_idx = last_non_padding.view(-1, 1, 1) + (
-                    torch.arange(-min(self.suffix_positions, hidden_states.size(1)), 0)
+                    torch.arange(-real_suff_len, 0)
                     .unsqueeze(-1)
-                    .expand(bsz, self.suffix_positions, ddim)
+                    .expand(bsz, real_suff_len, ddim)
                     .to(hidden_states.device)
                 )
                 context.suff_idx = suff_idx
