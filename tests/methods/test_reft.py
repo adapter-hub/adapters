@@ -1,5 +1,5 @@
-from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, DiReftConfig, LoReftConfig, NoReftConfig
-from transformers.testing_utils import require_torch, torch_device
+from adapters import DiReftConfig, LoReftConfig, NoReftConfig
+from transformers.testing_utils import require_torch
 
 from .base import AdapterMethodBaseTestMixin
 

@@ -1,6 +1,6 @@
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel, PrefixTuningConfig
+from adapters import PrefixTuningConfig
 from transformers import CLIPConfig
 from transformers.testing_utils import require_torch, torch_device
 
