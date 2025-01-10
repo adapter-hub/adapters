@@ -12,94 +12,36 @@ from ...model_mixin import (
     InvertibleAdaptersMixin,
     ModelBaseAdaptersMixin,
 )
-from ...utils import patch_forward
+from ..llama.mixin_llama import LlamaAttentionMixin, LlamaDecoderLayerMixin
+from ..clip.mixin_clip import CLIPEncoderLayerAdaptersMixin, CLIPEncoderAdaptersMixin
 
 
-class MllamaBaseAttentionAdaptersMixin:
-    """Base mixin class for adding adapter support to attention modules in MLLaMA.
-
-    Implements common adapter functionality for all attention variants including:
-    - LoRA adapters for query, key, and value projections
-    - Additional Prefix tuning layer
-
-    This base implementation ensures consistent adapter behavior across different
-    attention mechanisms in the model.
-    """
-
-    def init_adapters(self, model_config, adapters_config):
-        # Wrap layers for LoRA
-        self.q_proj = LoRALinear.wrap(self.q_proj, "selfattn", model_config, adapters_config, attn_key="q")
-        self.k_proj = LoRALinear.wrap(self.k_proj, "selfattn", model_config, adapters_config, attn_key="k")
-        self.v_proj = LoRALinear.wrap(self.v_proj, "selfattn", model_config, adapters_config, attn_key="v")
-
-        self.prefix_tuning = PrefixTuningLayer(
-            "self_prefix", model_config, adapters_config, add_model_type_to_key=True
-        )
-        patch_forward(self)
-
-
-class MllamaVisionAttentionAdaptersMixin(MllamaBaseAttentionAdaptersMixin):
+class MllamaVisionAttentionAdaptersMixin(LlamaAttentionMixin):
     """Mixin for adding adapter support to MLLaMA's vision attention module."""
 
 
-class MllamaTextCrossAttentionAdaptersMixin(MllamaBaseAttentionAdaptersMixin):
+class MllamaTextCrossAttentionAdaptersMixin(LlamaAttentionMixin):
     """Mixin for adding adapter support to MLLaMA's cross-attention module."""
 
 
-class MllamaTextSelfAttentionAdaptersMixin(MllamaBaseAttentionAdaptersMixin):
+class MllamaTextSelfAttentionAdaptersMixin(LlamaAttentionMixin):
     """Mixin for adding adapter support to MLLaMA's self-attention module."""
 
 
-class MllamaBaseLayerAdaptersMixin:
-    """Base mixin class for adding adapter support to MLLaMA layer modules.
-
-    Implements common layer-level adapter functionality including:
-    - LoRA adapters for MLP layers (fc1/fc2)
-    - Bottleneck adapters for attention and output
-    - Forward pass patching for adapter integration
-    """
-
-    def init_adapters(self, model_config, adapters_config):
-        # Wrap layers for LoRA
-        self.mlp.fc1 = LoRALinear.wrap(self.mlp.fc1, "intermediate", model_config, adapters_config)
-        self.mlp.fc2 = LoRALinear.wrap(self.mlp.fc2, "output", model_config, adapters_config)
-
-        self.attention_adapters = BottleneckLayer("mh_adapter")
-        self.output_adapters = BottleneckLayer("output_adapter")
-
-        patch_forward(self)
-
-
-class MllamaVisionEncoderLayerAdaptersMixin(MllamaBaseLayerAdaptersMixin):
+class MllamaVisionEncoderLayerAdaptersMixin(CLIPEncoderLayerAdaptersMixin):
     """Mixin for adding adapter support to MLLaMA's vision encoder layers."""
 
 
-class MllamaSelfAttentionDecoderLayerAdaptersMixin(MllamaBaseLayerAdaptersMixin):
+class MllamaSelfAttentionDecoderLayerAdaptersMixin(LlamaDecoderLayerMixin):
     """Mixin for adding adapter support to MLLaMA's self-attention decoder layers."""
 
 
-class MllamaCrossAttentionDecoderLayerAdaptersMixin(MllamaBaseLayerAdaptersMixin):
+class MllamaCrossAttentionDecoderLayerAdaptersMixin(LlamaDecoderLayerMixin):
     """Mixin for adding adapter support to MLLaMA's cross-attention decoder layers."""
 
 
-class MllamaVisionEncoderAdaptersMixin:
-    """Mixin for adding adapter support to MLLaMA's vision encoder module.
-
-    Implements parallel composition support for vision encoder layers by:
-    - Setting up hooks to adjust tensors during forward pass for parallel adapter processing
-    """
-
-    def init_adapters(self, model_config, adapters_config):
-        # Set hook for parallel composition
-        for layer in self.layers:
-            self._set_layer_hook_for_parallel(layer)
-
-    def _set_layer_hook_for_parallel(self, layer: nn.Module):
-        def hook(module, input):
-            adjust_tensors_for_parallel_(input[0], input[1])
-            return input
-
-        layer.register_forward_pre_hook(hook)
+class MllamaVisionEncoderAdaptersMixin(CLIPEncoderAdaptersMixin):
+    """Mixin for adding adapter support to MLLaMA's vision encoder module. """
 
 
 class MllamaVisionModelAdaptersMixin(ModelBaseAdaptersMixin):
@@ -110,11 +52,15 @@ class MllamaVisionModelAdaptersMixin(ModelBaseAdaptersMixin):
     def init_adapters(self, model_config, adapters_config):
         super().init_adapters(model_config, adapters_config)
 
-        # Register hook for post embedding forward
-        self.embed_tokens.register_forward_hook(self.post_embedding_forward)
+        # no embeddings therefore no post embedding forward
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
-        for i, layer in enumerate(self.layers):
+        # Vision model has two encoders:
+        # 1. local transformer focusing on fine-grained, tile-level features
+        for i, layer in enumerate(self.transformer.layers):
+            yield i, layer
+        # 2. global transformer operating on output of the local transformer, integrating information across all tiles
+        for i, layer in enumerate(self.global_transformer.layers, start=len(self.transformer.layers)):
             yield i, layer
 
     def post_embedding_forward(self, module, args, embedding_output):
