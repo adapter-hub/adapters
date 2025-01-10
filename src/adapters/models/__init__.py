@@ -42,6 +42,17 @@ from .whisper.mixin_whisper import (
 )
 from .xmod.mixin_xmod import XmodModelAdaptersMixin
 
+from .mllama.mixin_mllama import (
+    MllamaCrossAttentionDecoderLayerAdaptersMixin,
+    MllamaSelfAttentionDecoderLayerAdaptersMixin,
+    MllamaTextCrossAttentionAdaptersMixin,
+    MllamaTextModelAdaptersMixin,
+    MllamaTextSelfAttentionAdaptersMixin,
+    MllamaVisionAttentionAdaptersMixin,
+    MllamaVisionEncoderAdaptersMixin,
+    MllamaVisionEncoderLayerAdaptersMixin,
+    MllamaVisionModelAdaptersMixin,
+)
 
 # IMPORTANT: Only add classes to this mapping that are not copied into the adapters package
 MODEL_MIXIN_MAPPING = {
@@ -109,4 +120,14 @@ MODEL_MIXIN_MAPPING = {
     "WhisperForAudioClassification": WhisperForAudioClassificationWithHeadsMixin,
     "LlamaForQuestionAnswering": LlamaForQuestionAnsweringAdapterMixin,
     "MistralModel": MistralModelAdapterMixin,
+    # Mulitmodal Llama
+    "MllamaVisionModel": MllamaVisionModelAdaptersMixin,
+    "MllamaTextModel": MllamaTextModelAdaptersMixin,
+    "MllamaVisionEncoder": MllamaVisionEncoderAdaptersMixin,
+    "MllamaVisionAttention": MllamaVisionAttentionAdaptersMixin,
+    "MllamaTextSelfAttention": MllamaTextSelfAttentionAdaptersMixin,
+    "MllamaTextCrossAttention": MllamaTextCrossAttentionAdaptersMixin,
+    "MllamaVisionEncoderLayer": MllamaVisionEncoderLayerAdaptersMixin,
+    "MllamaSelfAttentionDecoderLayer": MllamaSelfAttentionDecoderLayerAdaptersMixin,
+    "MllamaCrossAttentionDecoderLayer": MllamaCrossAttentionDecoderLayerAdaptersMixin,
 }
