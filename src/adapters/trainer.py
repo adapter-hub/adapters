@@ -41,6 +41,7 @@ class AdapterTrainer(Trainer):
         data_collator: Optional[DataCollator] = None,
         train_dataset: Optional[Union[Dataset, IterableDataset, "datasets.Dataset"]] = None,
         eval_dataset: Optional[Union[Dataset, Dict[str, Dataset], "datasets.Dataset"]] = None,
+        tokenizer: Optional[PreTrainedTokenizerBase] = None,
         processing_class: Optional[
             Union[PreTrainedTokenizerBase, BaseImageProcessor, FeatureExtractionMixin, ProcessorMixin]
         ] = None,
@@ -61,7 +62,7 @@ class AdapterTrainer(Trainer):
             data_collator,
             train_dataset,
             eval_dataset,
-            processing_class=processing_class,
+            processing_class=processing_class or tokenizer,
             model_init=model_init,
             compute_metrics=compute_metrics,
             callbacks=[AdapterTrainerCallback(self)] + callbacks if callbacks else [AdapterTrainerCallback(self)],
