@@ -126,7 +126,7 @@ class AdapterFusionModelTestMixin:
         model1.add_adapter(name2)
         model1.add_adapter_fusion([name1, name2])
         # save & reload model
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             model1.save_pretrained(temp_dir)
 
             model2 = load_model(temp_dir, self.model_class)
