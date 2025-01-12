@@ -1,6 +1,6 @@
 import os
 import re
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -61,13 +61,11 @@ class AdapterTrainer(Trainer):
             data_collator,
             train_dataset,
             eval_dataset,
-            processing_class=processing_class or tokenizer,
+            processing_class=processing_class,
             model_init=model_init,
-            compute_loss_func=compute_loss_func,
             compute_metrics=compute_metrics,
             callbacks=[AdapterTrainerCallback(self)] + callbacks if callbacks else [AdapterTrainerCallback(self)],
             optimizers=optimizers,
-            optimizer_cls_and_kwargs=optimizer_cls_and_kwargs,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
             **kwargs,
         )
