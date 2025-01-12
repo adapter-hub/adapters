@@ -237,7 +237,7 @@ class TestAdapterTrainer(unittest.TestCase):
                 save_steps=1,
                 remove_unused_columns=False,
                 load_best_model_at_end=True,
-                evaluation_strategy="epoch",
+                eval_strategy="epoch",
                 save_strategy="epoch",
                 num_train_epochs=2,
             )
@@ -273,7 +273,7 @@ class TestAdapterTrainer(unittest.TestCase):
                 save_steps=1,
                 remove_unused_columns=False,
                 load_best_model_at_end=True,
-                evaluation_strategy="epoch",
+                eval_strategy="epoch",
                 save_strategy="epoch",
                 num_train_epochs=2,
             )
@@ -309,7 +309,7 @@ class TestAdapterTrainer(unittest.TestCase):
                 save_steps=1,
                 remove_unused_columns=False,
                 load_best_model_at_end=True,
-                evaluation_strategy="epoch",
+                eval_strategy="epoch",
                 save_strategy="epoch",
                 num_train_epochs=2,
             )
@@ -600,7 +600,7 @@ class TestAdapterTrainer(unittest.TestCase):
                 output_dir=tempdir,
                 per_device_train_batch_size=1,
                 per_device_eval_batch_size=1,
-                evaluation_strategy="steps",
+                eval_strategy="steps",
                 logging_steps=10,
                 max_steps=5,
                 lr_scheduler_type="constant",
