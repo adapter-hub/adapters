@@ -6,7 +6,6 @@ from typing import Callable
 import torch
 
 import adapters
-import adapters.composition as ac
 from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
 from adapters.heads import CausalLMHead
 from adapters.utils import WEIGHTS_NAME
