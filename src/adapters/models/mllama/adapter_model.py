@@ -16,6 +16,7 @@ from transformers.models.mllama.modeling_mllama import (
 )
 from transformers.utils import add_start_docstrings
 
+from ...context import AdapterSetup
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
@@ -192,4 +193,37 @@ class MllamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
         output_adapter_fusion_attentions=False,
         **kwargs,
     ):
-        pass
+
+        outputs, context = self.model(
+            input_ids=input_ids,
+            pixel_values=pixel_values,
+            aspect_ratio_mask=aspect_ratio_mask,
+            aspect_ratio_ids=aspect_ratio_ids,
+            attention_mask=attention_mask,
+            cross_attention_mask=cross_attention_mask,
+            cross_attention_states=cross_attention_states,
+            position_ids=position_ids,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            labels=labels,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            cache_position=cache_position,
+            num_logits_to_keep=num_logits_to_keep,
+            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
+            output_context=True,
+        )
+        kwargs["context"] = context
+
+        if head or AdapterSetup.get_context_head_setup() or self.active_head:
+            head_outputs = self.forward_head(
+                outputs,
+                head_name=head,
+                attention_mask=attention_mask,
+                return_dict=return_dict,
+                **kwargs,
+            )
+            return head_outputs
+        return outputs
