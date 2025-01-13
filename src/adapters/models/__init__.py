@@ -20,6 +20,18 @@ from .gpt2.mixin_gpt2 import GPT2ModelAdapterMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin, GPTJModelAdapterMixin
 from .llama.mixin_llama import LlamaForQuestionAnsweringAdapterMixin, LlamaModelAdapterMixin
 from .mistral.mixin_mistral import MistralModelAdapterMixin
+from .mllama.mixin_mllama import (
+    MllamaAdaptersMixin,
+    MllamaCrossAttentionDecoderLayerAdaptersMixin,
+    MllamaSelfAttentionDecoderLayerAdaptersMixin,
+    MllamaTextCrossAttentionAdaptersMixin,
+    MllamaTextModelAdaptersMixin,
+    MllamaTextSelfAttentionAdaptersMixin,
+    MllamaVisionAttentionAdaptersMixin,
+    MllamaVisionEncoderAdaptersMixin,
+    MllamaVisionEncoderLayerAdaptersMixin,
+    MllamaVisionModelAdaptersMixin,
+)
 from .plbart.mixin_plbart import (
     PLBartDecoderAdaptersMixin,
     PLBartDecoderWrapperAdaptersMixin,
@@ -42,17 +54,6 @@ from .whisper.mixin_whisper import (
 )
 from .xmod.mixin_xmod import XmodModelAdaptersMixin
 
-from .mllama.mixin_mllama import (
-    MllamaCrossAttentionDecoderLayerAdaptersMixin,
-    MllamaSelfAttentionDecoderLayerAdaptersMixin,
-    MllamaTextCrossAttentionAdaptersMixin,
-    MllamaTextModelAdaptersMixin,
-    MllamaTextSelfAttentionAdaptersMixin,
-    MllamaVisionAttentionAdaptersMixin,
-    MllamaVisionEncoderAdaptersMixin,
-    MllamaVisionEncoderLayerAdaptersMixin,
-    MllamaVisionModelAdaptersMixin,
-)
 
 # IMPORTANT: Only add classes to this mapping that are not copied into the adapters package
 MODEL_MIXIN_MAPPING = {
@@ -121,6 +122,7 @@ MODEL_MIXIN_MAPPING = {
     "LlamaForQuestionAnswering": LlamaForQuestionAnsweringAdapterMixin,
     "MistralModel": MistralModelAdapterMixin,
     # Mulitmodal Llama
+    "MllamaModel": MllamaAdaptersMixin,
     "MllamaVisionModel": MllamaVisionModelAdaptersMixin,
     "MllamaTextModel": MllamaTextModelAdaptersMixin,
     "MllamaVisionEncoder": MllamaVisionEncoderAdaptersMixin,

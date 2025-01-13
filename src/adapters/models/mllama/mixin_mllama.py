@@ -5,6 +5,7 @@ import torch.nn as nn
 from ...methods.reft import ReftLayer, hook_fn
 from ...model_mixin import (
     EmbeddingAdaptersMixin,
+    EmbeddingAdaptersWrapperMixin,
     InvertibleAdaptersMixin,
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
@@ -65,7 +66,7 @@ class MllamaTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMix
         super().init_adapters(model_config, adapters_config)
 
         # Register hook for post embedding forward
-        self.embeddings.register_forward_hook(self.post_embedding_forward)
+        self.embed_tokens.register_forward_hook(self.post_embedding_forward)
 
     def post_embedding_forward(self, module, args, embedding_output):
         embedding_output = self.invertible_adapters_forward(embedding_output)
@@ -77,23 +78,23 @@ class MllamaTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMix
             yield i, layer
 
 
-class MllamaAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersWrapperMixin, ModelBaseAdaptersMixin):
+class MllamaAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWrapperMixin, ModelBaseAdaptersMixin):
     """
     Adds adapters to the MLLaMA model, handling both vision and text components.
     """
 
-    invertible_adapters_base_name = "language_model"  # Changed from text_model to match MLLaMA's naming
+    invertible_adapters_base_name = "language_model"
     support_prompt_tuning = False
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         layer_idx = 0
 
         # First iterate through vision model's local transformer layers
-        for _, layer in enumerate(self.vision_model.iter_layers()):
+        for _, layer in self.vision_model.iter_layers():
             yield layer_idx, layer
             layer_idx += 1
 
-        for _, layer in enumerate(self.language_model.layers):
+        for _, layer in self.language_model.iter_layers():
             yield layer_idx, layer
             layer_idx += 1
 
