@@ -432,7 +432,9 @@ class T5StackWithAdapters(T5StackAdaptersMixin, T5Stack):
                 # >>> END AH Changes <<<
 
                 layer_outputs = self._gradient_checkpointing_func(
+                    # >>> START AH Changes <<<
                     create_custom_forward(layer_module),
+                    # >>> END AH Changes <<<
                     hidden_states,
                     causal_mask,
                     position_bias,
