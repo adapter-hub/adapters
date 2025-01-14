@@ -1679,13 +1679,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         try:
             self.enable_input_require_grads()
         except NotImplementedError:
-            # Some models (CLIP) don't have input embeddings, so Hugging Face's implementation raises a NotImplementedError.
-            logger.warning(
-                "Model does not have input embeddings. Hugging Face didn't implement the model.enable_input_require_grads() method. But Gradient Checkpointing should nevertheless work. If you, however, encounter errors / weird behaviour, this might be the reason. In this case, please implement the method in the model yourself / open an issue on our GitHub."
+            # Some models (CLIP) don't have input embeddings, so Hugging Face's implementation raises a NotImplementedError. We provide the user with some more information.
+            raise NotImplementedError(
+                "Model has no enable_input_require_grads method implementation by Hugging Face. Parameter efficient fine-tuning however needs gradients for embeddings. This model therefore doesn't support gradient checkpointing with Adapters nor Hugging Face's PEFT library."
             )
-        except Exception as e:
-            # Every other exception is unexpected and should be raised.
-            raise e
         # >>> END AH Changes <<<
 
 
