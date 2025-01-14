@@ -87,7 +87,6 @@ class MllamaModel(MllamaPreTrainedModel):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         cache_position: Optional[torch.LongTensor] = None,
-        num_logits_to_keep: int = 0,
     ) -> Union[Tuple, BaseModelOutputWithPast]:
 
         # Establish parameter values
@@ -160,6 +159,10 @@ class MllamaModel(MllamaPreTrainedModel):
 @add_start_docstrings(MLLAMA_START_DOCSTRING)
 class MllamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MllamaPreTrainedModel):
 
+    head_types = [
+        "causal_lm",
+    ]
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -211,15 +214,19 @@ class MllamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
             cache_position=cache_position,
-            num_logits_to_keep=num_logits_to_keep,
+            output_adapter_gating_scores=output_adapter_gating_scores,
+            output_adapter_fusion_attentions=output_adapter_fusion_attentions,
             adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
             output_context=True,
         )
         kwargs["context"] = context
 
+        hidden_states = outputs[0]
+        head_input_states = hidden_states[:, -num_logits_to_keep:, :]
+
         if head or AdapterSetup.get_context_head_setup() or self.active_head:
             head_outputs = self.forward_head(
-                outputs,
+                head_input_states,
                 head_name=head,
                 attention_mask=attention_mask,
                 return_dict=return_dict,
