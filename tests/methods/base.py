@@ -394,13 +394,17 @@ class AdapterMethodBaseTestMixin:
 
             # Initialize model
             model = adapters.AutoAdapterModel.from_config(config)
+
+            # if model doesn't support gradient checkpointing, skip the test
+            if not model.supports_gradient_checkpointing:
+                self.skipTest("Model does not support gradient checkpointing")
+
             model.to(torch_device)
             adapter_setup_fn(model)
 
             # Enable gradient checkpointing
             if train_with_checkpointing:
                 model.gradient_checkpointing_enable()
-                model.enable_input_require_grads()
 
             # Train & store state dict
             self.trainings_run(model, batch_size=1, gradient_accumulation_steps=2)

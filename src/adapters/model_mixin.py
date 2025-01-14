@@ -1674,12 +1674,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 "Please update to the new format on your modeling file. To use the new format, you need to completely remove the definition of the method `_set_gradient_checkpointing` in your model."
             )
 
-        if getattr(self, "_hf_peft_config_loaded", False):
-            # When using PEFT + gradient checkpointing + Trainer we need to make sure the input has requires_grad=True
-            # we do it also on PEFT: https://github.com/huggingface/peft/blob/85013987aa82aa1af3da1236b6902556ce3e483e/src/peft/peft_model.py#L334
-            # When training with PEFT, only LoRA layers will have requires grad set to True, but the output of frozen layers need to propagate
-            # the gradients to make sure the gradient flows.
-            self.enable_input_require_grads()
+        # >>> START AH Changes <<<
+        # For adapter training, we always require requires_grad=True for the input embeddings.
+        self.enable_input_require_grads()
+        # >>> END AH Changes <<<
 
 
 @inherit_doc
