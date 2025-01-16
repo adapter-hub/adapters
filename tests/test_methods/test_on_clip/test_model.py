@@ -1,68 +1,7 @@
 import random
 
-from transformers import CLIPConfig, CLIPTextConfig, CLIPTextModel, CLIPTextModelWithProjection, CLIPVisionConfig
-
-from .generator import *
-
-
-class CLIPTextAdapterTestBase(TextAdapterTestBase):
-    model_class = CLIPTextModel
-    config_class = CLIPTextConfig
-    config = make_config(
-        CLIPTextConfig,
-        hidden_size=32,
-        num_hidden_layers=4,
-        num_attention_heads=4,
-        intermediate_size=37,
-    )
-    tokenizer_name = "openai/clip-vit-base-patch32"
-
-
-@require_torch
-class CLIPTextAdapterTest(
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    ReftTestMixin,
-    UniPELTTestMixin,
-    AdapterFusionModelTestMixin,
-    CompabilityTestMixin,
-    CLIPTextAdapterTestBase,
-    unittest.TestCase,
-):
-    pass
-
-
-class CLIPTextWithProjectionAdapterTestBase(TextAdapterTestBase):
-    model_class = CLIPTextModelWithProjection
-    config_class = CLIPTextConfig
-    config = make_config(
-        CLIPTextConfig,
-        hidden_size=32,
-        num_hidden_layers=4,
-        num_attention_heads=4,
-        intermediate_size=37,
-    )
-    tokenizer_name = "openai/clip-vit-base-patch32"
-
-
-@require_torch
-class CLIPTextWithProjectionAdapterTest(
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    ReftTestMixin,
-    UniPELTTestMixin,
-    AdapterFusionModelTestMixin,
-    CompabilityTestMixin,
-    CLIPTextWithProjectionAdapterTestBase,
-    unittest.TestCase,
-):
-    pass
+from tests.test_methods.generator import *
+from transformers import CLIPConfig, CLIPTextConfig, CLIPVisionConfig
 
 
 class CLIPAdapterTestBase(TextAdapterTestBase):
@@ -122,24 +61,19 @@ class CLIPAdapterTestBase(TextAdapterTestBase):
     def add_head(self, *args, **kwargs):
         pass
 
-
-@require_torch
-class CLIPAdapterTest(
-    BottleneckAdapterTestMixin,
-    CompacterTestMixin,
-    IA3TestMixin,
-    LoRATestMixin,
-    PrefixTuningTestMixin,
-    ReftTestMixin,
-    UniPELTTestMixin,
-    AdapterFusionModelTestMixin,
-    CompabilityTestMixin,
-    CLIPAdapterTestBase,
-    unittest.TestCase,
-):
     def test_adapter_fusion_save_with_head(self):
         # This test is not applicable to CLIP
         self.skipTest("Not applicable to CLIP.")
 
     def test_load_adapter_setup(self):
         self.skipTest("Not applicable to CLIP.")
+
+
+method_tests = generate_method_tests(
+    model_test_base=CLIPAdapterTestBase,
+    excluded_tests=["Embeddings", "Heads", "Composition", "ClassConversion", "PromptTuning", "ConfigUnion"],
+)
+
+
+for test_class_name, test_class in method_tests.items():
+    globals()[test_class_name] = test_class
