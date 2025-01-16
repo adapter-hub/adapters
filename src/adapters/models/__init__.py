@@ -23,6 +23,7 @@ from .mistral.mixin_mistral import MistralModelAdapterMixin
 from .mllama.mixin_mllama import (
     MllamaAdaptersMixin,
     MllamaCrossAttentionDecoderLayerAdaptersMixin,
+    MllamaForConditionalGenerationWithHeadsAdaptersMixin,
     MllamaSelfAttentionDecoderLayerAdaptersMixin,
     MllamaTextCrossAttentionAdaptersMixin,
     MllamaTextModelAdaptersMixin,
@@ -122,6 +123,7 @@ MODEL_MIXIN_MAPPING = {
     "LlamaForQuestionAnswering": LlamaForQuestionAnsweringAdapterMixin,
     "MistralModel": MistralModelAdapterMixin,
     # Mulitmodal Llama
+    "MllamaForConditionalGeneration": MllamaForConditionalGenerationWithHeadsAdaptersMixin,
     "MllamaModel": MllamaAdaptersMixin,
     "MllamaVisionModel": MllamaVisionModelAdaptersMixin,
     "MllamaTextModel": MllamaTextModelAdaptersMixin,

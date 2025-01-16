@@ -2,6 +2,8 @@ from typing import Iterable, Tuple
 
 import torch.nn as nn
 
+from transformers.models.mllama.modeling_mllama import MllamaForConditionalGeneration
+
 from ...methods.reft import ReftLayer, hook_fn
 from ...model_mixin import (
     EmbeddingAdaptersMixin,
@@ -9,20 +11,21 @@ from ...model_mixin import (
     InvertibleAdaptersMixin,
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
+    ModelWithHeadsAdaptersMixin,
 )
-from ..clip.mixin_clip import CLIPEncoderAdaptersMixin, CLIPEncoderLayerAdaptersMixin
-from ..llama.mixin_llama import LlamaAttentionMixin, LlamaDecoderLayerMixin
+from ..clip.mixin_clip import CLIPAttentionAdaptersMixin, CLIPEncoderAdaptersMixin, CLIPEncoderLayerAdaptersMixin
+from ..llama.mixin_llama import LlamaDecoderLayerMixin
 
 
-class MllamaVisionAttentionAdaptersMixin(LlamaAttentionMixin):
+class MllamaVisionAttentionAdaptersMixin(CLIPAttentionAdaptersMixin):
     """Mixin for adding adapter support to MLLaMA's vision attention module."""
 
 
-class MllamaTextCrossAttentionAdaptersMixin(LlamaAttentionMixin):
+class MllamaTextCrossAttentionAdaptersMixin(CLIPAttentionAdaptersMixin):
     """Mixin for adding adapter support to MLLaMA's cross-attention module."""
 
 
-class MllamaTextSelfAttentionAdaptersMixin(LlamaAttentionMixin):
+class MllamaTextSelfAttentionAdaptersMixin(CLIPAttentionAdaptersMixin):
     """Mixin for adding adapter support to MLLaMA's self-attention module."""
 
 
@@ -42,7 +45,7 @@ class MllamaVisionEncoderAdaptersMixin(CLIPEncoderAdaptersMixin):
     """Mixin for adding adapter support to MLLaMA's vision encoder module."""
 
 
-class MllamaVisionModelAdaptersMixin(ModelBaseAdaptersMixin):
+class MllamaVisionModelAdaptersMixin:
     """Adds adapters to the a MllamaVisionModel class."""
 
     support_prompt_tuning = False
@@ -57,21 +60,10 @@ class MllamaVisionModelAdaptersMixin(ModelBaseAdaptersMixin):
             yield i, layer
 
 
-class MllamaTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
+class MllamaTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin):
     """Adds adapters to the a MllamaTextModel class."""
 
     support_prompt_tuning = False
-
-    def init_adapters(self, model_config, adapters_config):
-        super().init_adapters(model_config, adapters_config)
-
-        # Register hook for post embedding forward
-        self.embed_tokens.register_forward_hook(self.post_embedding_forward)
-
-    def post_embedding_forward(self, module, args, embedding_output):
-        embedding_output = self.invertible_adapters_forward(embedding_output)
-        # Prompt tuning not yet supported
-        return embedding_output
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.layers):
@@ -100,6 +92,9 @@ class MllamaAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWrapp
 
     def _init_adapters_submodules(self, model_config, adapters_config):
         """Initialize adapters in vision and language models separately."""
+        # transformers naming inconsistency: Add num_attention_heads to the model config for the vision model because it is by default represented by the parameter attention_head
+        model_config.vision_config.num_attention_heads = model_config.vision_config.attention_heads
+
         # Initialize vision model adapters
         for module in self.vision_model.modules():
             if hasattr(module, "init_adapters"):
@@ -126,3 +121,9 @@ class MllamaAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWrapp
             if not hasattr(layer, "reft_layer"):
                 layer.reft_layer = ReftLayer("output", model_config.text_config, adapters_config)
                 layer.register_forward_hook(hook_fn)
+
+
+class MllamaForConditionalGenerationWithHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, MllamaAdaptersMixin):
+    """Adds adapters to the MllamaForConditionalGeneration class."""
+
+    pass

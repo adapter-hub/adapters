@@ -30,21 +30,21 @@ from torch import nn
 from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
 from transformers.cache_utils import Cache
 from transformers.models.mllama.modeling_mllama import (
-    repeat_kv,
-    apply_rotary_pos_emb,
-    MllamaVisionAttention,
-    MllamaVisionSdpaAttention,
     MllamaTextCrossAttention,
     MllamaTextCrossSdpaAttention,
     MllamaTextSelfAttention,
     MllamaTextSelfSdpaAttention,
+    MllamaVisionAttention,
+    MllamaVisionSdpaAttention,
+    apply_rotary_pos_emb,
+    repeat_kv,
 )
 from transformers.utils import logging
 
 from .mixin_mllama import (
-    MllamaVisionAttentionAdaptersMixin,
     MllamaTextCrossAttentionAdaptersMixin,
     MllamaTextSelfAttentionAdaptersMixin,
+    MllamaVisionAttentionAdaptersMixin,
 )
 
 
