@@ -93,3 +93,10 @@ test_methods = generate_method_tests(MllamaAdapterTestBase, excluded_tests=[])
 
 for test_class_name, test_class in test_methods.items():
     globals()[test_class_name] = test_class
+
+
+""" resources:
+https://github.com/AdrianBZG/llama-multimodal-vqa
+https://huggingface.co/blog/llama32
+https://github.com/huggingface/huggingface-llama-recipes/blob/main/fine_tune/Llama-Vision%20FT.ipynb
+"""
