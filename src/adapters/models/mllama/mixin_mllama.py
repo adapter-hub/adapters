@@ -2,8 +2,6 @@ from typing import Iterable, Tuple
 
 import torch.nn as nn
 
-from transformers.models.mllama.modeling_mllama import MllamaForConditionalGeneration
-
 from ...methods.reft import ReftLayer, hook_fn
 from ...model_mixin import (
     EmbeddingAdaptersMixin,

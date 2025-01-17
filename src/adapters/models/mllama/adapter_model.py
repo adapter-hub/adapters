@@ -4,8 +4,6 @@ from typing import List, Optional, Tuple, Union
 import torch
 from torch import nn
 
-from adapters.heads.language_modeling import CausalLMOutputWithPast
-from transformers.cache_utils import Cache
 from transformers.modeling_outputs import BaseModelOutputWithPast
 from transformers.models.mllama.modeling_mllama import (
     MLLAMA_START_DOCSTRING,

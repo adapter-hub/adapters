@@ -19,7 +19,6 @@
 # limitations under the License.
 
 import math
-import warnings
 from typing import Optional, Tuple
 
 import torch
@@ -328,7 +327,7 @@ class MllamaTextSelfAttentionWithAdapters(MllamaTextSelfAttentionAdaptersMixin, 
         value_states = self.v_proj(hidden_states)
 
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(sbsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
         # >>> START AH Changes <<<

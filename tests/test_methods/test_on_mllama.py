@@ -1,5 +1,9 @@
-import random
+import os
+from pathlib import Path
 
+from PIL import Image
+
+from transformers import MllamaImageProcessor
 from transformers.models.mllama.configuration_mllama import MllamaConfig, MllamaTextConfig, MllamaVisionConfig
 
 from .generator import *
@@ -32,7 +36,7 @@ class MllamaAdapterTestBase(TextAdapterTestBase):
             MllamaTextConfig(
                 vocab_size=1000,  # Minimal vocab size
                 hidden_size=128,
-                num_hidden_layers=1,
+                num_hidden_layers=4,
                 num_attention_heads=2,
                 num_key_value_heads=2,
                 intermediate_size=256,
@@ -47,44 +51,40 @@ class MllamaAdapterTestBase(TextAdapterTestBase):
             ),
             MllamaVisionConfig(
                 hidden_size=128,
-                num_hidden_layers=1,
-                num_global_layers=1,
+                num_hidden_layers=4,
+                num_global_layers=4,
                 num_attention_heads=1,
                 intermediate_size=256,
                 vision_output_dim=128,
-                image_size=112,
-                patch_size=4,
+                image_size=224,
             ),
         )
     )
     tokenizer_name = "arnavgrg/mllama-11b-vision-lora"
+    shape = (1, 128)
 
-    def get_input_samples(self, vocab_size=5000, config=None, dtype=torch.float, **kwargs):
-        # text inputs
-        shape = self.default_text_input_samples_shape
-        total_dims = 1
-        for dim in shape:
-            total_dims *= dim
-        values = []
-        for _ in range(total_dims):
-            values.append(random.randint(0, vocab_size - 1))
-        input_ids = torch.tensor(data=values, dtype=torch.long, device=torch_device).view(shape).contiguous()
-        # this is needed e.g. for BART
-        if config and config.eos_token_id is not None and config.eos_token_id < vocab_size:
-            input_ids[input_ids == config.eos_token_id] = random.randint(0, config.eos_token_id - 1)
-            input_ids[:, -1] = config.eos_token_id
-        in_data = {"input_ids": input_ids}
+    # Save runtime by computing the processed image once and reusing it for all tests
+    FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
-        # vision inputs
-        shape = self.default_vision_input_samples_shape
-        total_dims = 1
-        for dim in shape:
-            total_dims *= dim
-        values = []
-        for _ in range(total_dims):
-            values.append(random.random())
-        pixel_values = torch.tensor(data=values, dtype=dtype, device=torch_device).view(shape).contiguous()
-        in_data["pixel_values"] = pixel_values
+    img_processor = MllamaImageProcessor()
+    img = Image.open(os.path.join(FIXTURES_DIR, "tests_samples", "COCO", "000000039769.png"))
+    processed_img = img_processor(img, return_tensors="pt")
+
+    def get_input_samples(self, vocab_size=1000, shape=None, config=None, dtype=torch.float, **kwargs):
+        shape = shape or self.input_shape
+
+        # Text inputs
+        input_ids = self.build_rand_ids_tensor(shape, vocab_size)
+
+        in_data = {
+            "input_ids": input_ids,
+            "pixel_values": self.processed_img["pixel_values"],
+            "aspect_ratio_ids": self.processed_img["aspect_ratio_ids"],
+            "aspect_ratio_mask": self.processed_img["aspect_ratio_mask"],
+        }
+
+        if "num_labels" in kwargs:
+            in_data["labels"] = self.build_rand_ids_tensor(shape[:-1], vocab_size=kwargs["num_labels"])
 
         return in_data
 
