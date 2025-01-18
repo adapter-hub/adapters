@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 
 import torch
@@ -7,6 +8,9 @@ from ..configuration.adapter_config import ReftConfig
 from ..context import ForwardContext
 from .adapter_layer_base import AdapterLayerBase
 from .modeling import Activation_Function_Class
+
+
+logger = logging.getLogger(__name__)
 
 
 class ReftUnit(nn.Module):
@@ -28,7 +32,7 @@ class ReftUnit(nn.Module):
         if orthogonal:
             # orthogonal is not implemented for half precision
             if dtype in [torch.float16, torch.bfloat16]:
-                warnings.warn(
+                logger.warning(
                     "Orthogonal parametrization is not supported for half precision dtypes. Converting REFT projection layer to float32.",
                     UserWarning,
                 )
