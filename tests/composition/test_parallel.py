@@ -214,7 +214,7 @@ class ParallelTrainingMixin:
             do_train=True,
             learning_rate=1.0,
             max_steps=20,
-            no_cuda=True,
+            use_cpu=True,
             remove_unused_columns=False,
         )
 

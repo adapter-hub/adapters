@@ -37,7 +37,7 @@ class ModelClassConversionTestMixin:
         ):
             self.skipTest("Skipping as base model classes are different.")
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             static_model.save_head(temp_dir)
 
             loading_info = {}
@@ -193,7 +193,7 @@ class ModelClassConversionTestMixin:
         static_model.eval()
         flex_model.eval()
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             static_model.save_adapter(temp_dir, "dummy")
 
             loading_info = {}
@@ -209,7 +209,7 @@ class ModelClassConversionTestMixin:
         model_gen = static_model.generate(**input_samples)
         flex_model_gen = flex_model.generate(**input_samples)
 
-        self.assertEquals(model_gen.shape, flex_model_gen.shape)
+        self.assertEqual(model_gen.shape, flex_model_gen.shape)
         self.assertTrue(torch.equal(model_gen, flex_model_gen))
 
     def test_full_model_conversion(self):
@@ -220,7 +220,7 @@ class ModelClassConversionTestMixin:
         adapters.init(static_head_model)
         static_head_model.eval()
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             static_head_model.save_pretrained(temp_dir)
 
             flex_head_model, loading_info = AutoAdapterModel.from_pretrained(temp_dir, output_loading_info=True)

@@ -192,11 +192,11 @@ class AdapterMethodBaseTestMixin:
         name = "dummy_adapter"
         model1.add_adapter(name, config=adapter_config)
         model1.set_active_adapters(name)
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             model1.save_adapter(temp_dir, name)
 
             # Check that there are actually weights saved
-            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu")
+            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu", weights_only=True)
             self.assertTrue(len(weights) > 0)
 
             # also tests that set_active works
@@ -225,7 +225,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "dummy"
         model1.add_adapter(name, config=adapter_config)
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             model1.save_pretrained(temp_dir)
 
             model2, loading_info = load_model(temp_dir, self.model_class, output_loading_info=True)
@@ -256,7 +256,7 @@ class AdapterMethodBaseTestMixin:
             do_train=True,
             learning_rate=lr,
             max_steps=steps,
-            no_cuda=True,
+            use_cpu=True,
             per_device_train_batch_size=2,
             remove_unused_columns=False,
         )
