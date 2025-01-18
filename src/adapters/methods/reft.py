@@ -27,7 +27,12 @@ class ReftUnit(nn.Module):
         projection = nn.Linear(in_dim, r_dim, bias=False, dtype=dtype)
         if orthogonal:
             # orthogonal is not implemented for half precision
-            projection = projection.to(dtype=torch.float32)
+            if dtype in [torch.float16, torch.bfloat16]:
+                warnings.warn(
+                    "Orthogonal parametrization is not supported for half precision dtypes. Converting REFT projection layer to float32.",
+                    UserWarning
+                )
+                projection = projection.to(dtype=torch.float32)
             self.projection = nn.utils.parametrizations.orthogonal(projection)
         else:
             self.projection = projection
