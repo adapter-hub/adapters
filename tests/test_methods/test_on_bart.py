@@ -18,7 +18,9 @@ class BartAdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "facebook/bart-base"
 
 
-method_tests = generate_method_tests(BartAdapterTestBase, excluded_tests=["PromptTuning"])
+method_tests = generate_method_tests(
+    BartAdapterTestBase, not_supported=["PromptTuning"], redundant=["ConfigUnion", "Embeddings"]
+)
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

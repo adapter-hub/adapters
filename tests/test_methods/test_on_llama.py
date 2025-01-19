@@ -17,7 +17,7 @@ class LlamaAdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "openlm-research/open_llama_13b"
 
 
-method_tests = generate_method_tests(LlamaAdapterTestBase, excluded_tests=["PromptTuning"])
+method_tests = generate_method_tests(LlamaAdapterTestBase, not_supported=["PromptTuning"])
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

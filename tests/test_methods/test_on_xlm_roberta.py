@@ -16,6 +16,6 @@ class XLMRobertaAdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "xlm-roberta-base"
 
 
-method_tests = generate_method_tests(XLMRobertaAdapterTestBase, excluded_tests=["ConfigUnion", "Embeddings"])
+method_tests = generate_method_tests(XLMRobertaAdapterTestBase, redundant=["ConfigUnion", "Embeddings"])
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

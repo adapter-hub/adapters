@@ -24,6 +24,6 @@ class WhisperAdapterTestBase(AudioAdapterTestBase):
         self.skipTest("Not supported for Whisper")
 
 
-method_tests = generate_method_tests(WhisperAdapterTestBase, excluded_tests=["PromptTuning"])
+method_tests = generate_method_tests(WhisperAdapterTestBase, not_supported=["PromptTuning"])
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

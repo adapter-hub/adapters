@@ -32,21 +32,23 @@ from transformers.testing_utils import require_torch, torch_device
 
 def generate_method_tests(
     model_test_base,
-    excluded_tests=[],
+    redundant=[],
+    not_supported=[],
 ) -> dict:
     """
     Generates a set of method test classes for a given model test base.
 
     Args:
         model_test_base (type): The base class for the model tests.
-        excluded_tests (list, optional): A list of test classes to exclude.
+        redundant (list, optional): A list of redundant tests to exclude. Defaults to [].
+        not_supported (list, optional): A list of tests that are not supported for the model. Defaults to [].
 
     Returns:
         dict: A dictionary mapping test class names to the generated test classes.
     """
     test_classes = {}
 
-    if "Core" not in excluded_tests:
+    if "Core" not in redundant and "Core" not in not_supported:
 
         @require_torch
         @pytest.mark.core
@@ -60,7 +62,7 @@ def generate_method_tests(
 
         test_classes["Core"] = Core
 
-    if "Heads" not in excluded_tests:
+    if "Heads" not in redundant and "Heads" not in not_supported:
 
         @require_torch
         @pytest.mark.heads
@@ -73,7 +75,7 @@ def generate_method_tests(
 
         test_classes["Heads"] = Heads
 
-    if "Embeddings" not in excluded_tests:
+    if "Embeddings" not in redundant and "Embeddings" not in not_supported:
 
         @require_torch
         @pytest.mark.embeddings
@@ -86,7 +88,7 @@ def generate_method_tests(
 
         test_classes["Embeddings"] = Embeddings
 
-    if "Composition" not in excluded_tests:
+    if "Composition" not in redundant and "Composition" not in not_supported:
 
         @require_torch
         @pytest.mark.composition
@@ -100,7 +102,7 @@ def generate_method_tests(
 
         test_classes["Composition"] = Composition
 
-    if "ClassConversion" not in excluded_tests:
+    if "ClassConversion" not in redundant and "ClassConversion" not in not_supported:
 
         @require_torch
         class ClassConversion(
@@ -112,7 +114,7 @@ def generate_method_tests(
 
         test_classes["ClassConversion"] = ClassConversion
 
-    if "PrefixTuning" not in excluded_tests:
+    if "PrefixTuning" not in redundant and "PrefixTuning" not in not_supported:
 
         @require_torch
         @pytest.mark.prefix_tuning
@@ -125,7 +127,7 @@ def generate_method_tests(
 
         test_classes["PrefixTuning"] = PrefixTuning
 
-    if "PromptTuning" not in excluded_tests:
+    if "PromptTuning" not in redundant and "PromptTuning" not in not_supported:
 
         @require_torch
         @pytest.mark.prompt_tuning
@@ -138,7 +140,7 @@ def generate_method_tests(
 
         test_classes["PromptTuning"] = PromptTuning
 
-    if "ReFT" not in excluded_tests:
+    if "ReFT" not in redundant and "ReFT" not in not_supported:
 
         @require_torch
         @pytest.mark.reft
@@ -151,7 +153,7 @@ def generate_method_tests(
 
         test_classes["ReFT"] = ReFT
 
-    if "UniPELT" not in excluded_tests:
+    if "UniPELT" not in redundant and "UniPELT" not in not_supported:
 
         @require_torch
         @pytest.mark.unipelt
@@ -164,7 +166,7 @@ def generate_method_tests(
 
         test_classes["UniPELT"] = UniPELT
 
-    if "Compacter" not in excluded_tests:
+    if "Compacter" not in redundant and "Compacter" not in not_supported:
 
         @require_torch
         @pytest.mark.compacter
@@ -177,7 +179,7 @@ def generate_method_tests(
 
         test_classes["Compacter"] = Compacter
 
-    if "Bottleneck" not in excluded_tests:
+    if "Bottleneck" not in redundant and "Bottleneck" not in not_supported:
 
         @require_torch
         @pytest.mark.bottleneck
@@ -190,7 +192,7 @@ def generate_method_tests(
 
         test_classes["Bottleneck"] = Bottleneck
 
-    if "IA3" not in excluded_tests:
+    if "IA3" not in redundant and "IA3" not in not_supported:
 
         @require_torch
         @pytest.mark.ia3
@@ -203,7 +205,7 @@ def generate_method_tests(
 
         test_classes["IA3"] = IA3
 
-    if "LoRA" not in excluded_tests:
+    if "LoRA" not in redundant and "LoRA" not in not_supported:
 
         @require_torch
         @pytest.mark.lora
@@ -216,7 +218,7 @@ def generate_method_tests(
 
         test_classes["LoRA"] = LoRA
 
-    if "ConfigUnion" not in excluded_tests:
+    if "ConfigUnion" not in redundant and "ConfigUnion" not in not_supported:
 
         @require_torch
         @pytest.mark.config_union

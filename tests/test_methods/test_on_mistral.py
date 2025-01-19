@@ -18,7 +18,7 @@ class MistralAdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "HuggingFaceH4/zephyr-7b-beta"
 
 
-test_methods = generate_method_tests(MistralAdapterTestBase, excluded_tests=["PromptTuning", "ConfigUnion"])
+test_methods = generate_method_tests(MistralAdapterTestBase, not_supported=["PromptTuning", "ConfigUnion"])
 
 for test_class_name, test_class in test_methods.items():
     globals()[test_class_name] = test_class

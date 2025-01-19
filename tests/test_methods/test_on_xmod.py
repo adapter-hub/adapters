@@ -18,6 +18,6 @@ class XmodAdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "xlm-roberta-base"
 
 
-method_tests = generate_method_tests(XmodAdapterTestBase, excluded_tests=["ConfigUnion", "Embeddings"])
+method_tests = generate_method_tests(XmodAdapterTestBase, not_supported=["ConfigUnion", "Embeddings"])
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

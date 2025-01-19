@@ -16,6 +16,6 @@ class ViTAdapterTestBase(VisionAdapterTestBase):
     feature_extractor_name = "google/vit-base-patch16-224-in21k"
 
 
-method_tests = generate_method_tests(ViTAdapterTestBase, excluded_tests=["ConfigUnion", "Embeddings", "Composition"])
+method_tests = generate_method_tests(ViTAdapterTestBase, not_supported=["ConfigUnion", "Embeddings", "Composition"])
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

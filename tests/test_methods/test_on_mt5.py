@@ -20,7 +20,7 @@ class MT5AdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "google/mt5-base"
 
 
-method_tests = generate_method_tests(MT5AdapterTestBase, excluded_tests=["PromptTuning", "ConfigUnion"])
+method_tests = generate_method_tests(MT5AdapterTestBase, not_supported=["PromptTuning", "ConfigUnion"])
 
 for test_name, test_class in method_tests.items():
     globals()[test_name] = test_class

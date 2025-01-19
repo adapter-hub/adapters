@@ -19,7 +19,7 @@ class PLBartAdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "uclanlp/plbart-base"
 
 
-method_tests = generate_method_tests(PLBartAdapterTestBase, excluded_tests=["PromptTuning"])
+method_tests = generate_method_tests(PLBartAdapterTestBase, not_supported=["PromptTuning"])
 
 for test_name, test_class in method_tests.items():
     globals()[test_name] = test_class

@@ -30,7 +30,7 @@ class AlbertAdapterTestBase(TextAdapterTestBase):
     leave_out_layers = [0]
 
 
-method_tests = generate_method_tests(AlbertAdapterTestBase, excluded_tests=["Heads"])
+method_tests = generate_method_tests(AlbertAdapterTestBase, not_supported=["Heads"])
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

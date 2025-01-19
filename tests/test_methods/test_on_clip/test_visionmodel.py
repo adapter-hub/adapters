@@ -18,7 +18,7 @@ class CLIPVisionAdapterTestBase(VisionAdapterTestBase):
 
 method_tests = generate_method_tests(
     model_test_base=CLIPVisionAdapterTestBase,
-    excluded_tests=["Embeddings", "Heads", "Composition", "ClassConversion", "PromptTuning", "ConfigUnion"],
+    not_supported=["Embeddings", "Heads", "Composition", "ClassConversion", "PromptTuning", "ConfigUnion"],
 )
 
 

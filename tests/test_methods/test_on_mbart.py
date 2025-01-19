@@ -23,7 +23,7 @@ class MBartAdapterTestBase(TextAdapterTestBase):
 
 
 method_tests = generate_method_tests(
-    MBartAdapterTestBase, excluded_tests=["ConfigUnion", "Embeddings", "PromptTuning"]
+    MBartAdapterTestBase, redundant=["ConfigUnion", "Embeddings"], not_supported=["PromptTuning"]
 )
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class
