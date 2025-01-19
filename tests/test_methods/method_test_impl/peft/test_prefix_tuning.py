@@ -1,6 +1,6 @@
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, PrefixTuningConfig
+from adapters import PrefixTuningConfig
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers import CLIPConfig
 from transformers.testing_utils import require_torch, torch_device
@@ -75,9 +75,4 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
         self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-4))
 
     def test_prefix_tuning_generate(self):
-        if self.config_class not in ADAPTER_MODEL_MAPPING or (
-            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
-            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
-        ):
-            self.skipTest("No seq2seq or causal language model head")
         self.run_generate_test(PrefixTuningConfig())

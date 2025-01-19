@@ -76,3 +76,6 @@ class ReftTestMixin(AdapterMethodBaseTestMixin):
 
     def test_train_loreft(self):
         self.run_train_test(LoReftConfig(), ["refts.{name}."])
+
+    def test_reft_generate(self):
+        self.run_generate_test(LoReftConfig())

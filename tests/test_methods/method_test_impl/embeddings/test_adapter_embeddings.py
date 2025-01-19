@@ -107,7 +107,7 @@ class EmbeddingTestMixin:
             do_train=True,
             learning_rate=0.4,
             max_steps=15,
-            no_cuda=True,
+            use_cpu=True,
             per_device_train_batch_size=2,
             label_names=["labels"],
         )

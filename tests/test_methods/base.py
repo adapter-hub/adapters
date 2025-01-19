@@ -5,14 +5,7 @@ import torch
 
 import adapters
 from adapters import AutoAdapterModel
-from transformers import (
-    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-    MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING,
-    AutoFeatureExtractor,
-    AutoTokenizer,
-    GlueDataset,
-    GlueDataTrainingArguments,
-)
+from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
 from transformers.testing_utils import torch_device
 
 

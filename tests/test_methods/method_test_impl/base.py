@@ -189,11 +189,11 @@ class AdapterMethodBaseTestMixin:
         name = "dummy_adapter"
         model1.add_adapter(name, config=adapter_config)
         model1.set_active_adapters(name)
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             model1.save_adapter(temp_dir, name)
 
             # Check that there are actually weights saved
-            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu")
+            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu", weights_only=True)
             self.assertTrue(len(weights) > 0)
 
             # also tests that set_active works
@@ -222,7 +222,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "dummy"
         model1.add_adapter(name, config=adapter_config)
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             model1.save_pretrained(temp_dir)
 
             model2, loading_info = load_model(temp_dir, self.model_class, output_loading_info=True)
@@ -253,7 +253,7 @@ class AdapterMethodBaseTestMixin:
             do_train=True,
             learning_rate=lr,
             max_steps=steps,
-            no_cuda=True,
+            use_cpu=True,
             per_device_train_batch_size=2,
             remove_unused_columns=False,
         )
@@ -369,7 +369,11 @@ class AdapterMethodBaseTestMixin:
         self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))
 
     def run_generate_test(self, adapter_config, max_new_tokens=32):
-
+        if self.config_class not in ADAPTER_MODEL_MAPPING or (
+            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+        ):
+            self.skipTest("No seq2seq or causal language model head")
         model = self.get_model()
         model.add_adapter("generate", config=adapter_config)
         add_lm_head(self.config_class, model, "generate")

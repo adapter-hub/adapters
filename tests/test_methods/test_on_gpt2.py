@@ -15,20 +15,11 @@ class GPT2AdapterTestBase(TextAdapterTestBase):
     )
     tokenizer_name = "gpt2"
 
+    def test_parallel_training_lora(self):
+        self.skipTest("Not supported for GPT2")
+
 
 method_tests = generate_method_tests(GPT2AdapterTestBase, excluded_tests=["PromptTuning"])
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class
-
-
-@require_torch
-@pytest.mark.composition
-class Composition(
-    GPT2AdapterTestBase,
-    ParallelAdapterInferenceTestMixin,
-    ParallelTrainingMixin,
-    unittest.TestCase,
-):
-    def test_parallel_training_lora(self):
-        self.skipTest("Not supported for GPT2")

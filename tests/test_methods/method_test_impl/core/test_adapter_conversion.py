@@ -37,7 +37,7 @@ class ModelClassConversionTestMixin:
         ):
             self.skipTest("Skipping as base model classes are different.")
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             static_model.save_head(temp_dir)
 
             loading_info = {}
@@ -108,11 +108,9 @@ class ModelClassConversionTestMixin:
             self.skipTest("No seq2seq language modeling class.")
         label_dict = {}
         model = MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING[self.config_class](self.config())
-        label_dict["input_features"] = torch.randn(
-            (self.default_input_samples_shape), dtype=torch.float32, device=torch_device
-        )
+        label_dict["input_features"] = torch.randn((self.input_shape), dtype=torch.float32, device=torch_device)
         label_dict["decoder_input_ids"] = torch.randint(
-            0, model.config.vocab_size, size=self.default_input_samples_shape[:-1], device=torch_device
+            0, model.config.vocab_size, size=self.input_shape[:-1], device=torch_device
         )
         label_dict["labels"] = label_dict["decoder_input_ids"]
         adapters.init(model)
@@ -191,7 +189,7 @@ class ModelClassConversionTestMixin:
         static_model.eval()
         flex_model.eval()
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             static_model.save_adapter(temp_dir, "dummy")
 
             loading_info = {}
@@ -218,7 +216,7 @@ class ModelClassConversionTestMixin:
         adapters.init(static_head_model)
         static_head_model.eval()
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             static_head_model.save_pretrained(temp_dir)
 
             flex_head_model, loading_info = AutoAdapterModel.from_pretrained(temp_dir, output_loading_info=True)

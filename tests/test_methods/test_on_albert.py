@@ -30,7 +30,7 @@ class AlbertAdapterTestBase(TextAdapterTestBase):
     leave_out_layers = [0]
 
 
-method_tests = generate_method_tests(AlbertAdapterTestBase)
+method_tests = generate_method_tests(AlbertAdapterTestBase, excluded_tests=["Heads"])
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class
@@ -43,6 +43,7 @@ class Heads(
     PredictionHeadModelTestMixin,
     unittest.TestCase,
 ):
+
     def test_context_simple(self):
         expected_number_of_adapter_calls = ceil(self.config().num_hidden_layers / self.config().num_hidden_groups)
         super().test_context_simple(expected_number_of_adapter_calls=expected_number_of_adapter_calls)

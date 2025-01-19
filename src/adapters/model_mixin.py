@@ -257,7 +257,7 @@ class EmbeddingAdaptersMixin:
         embedding_path = os.path.join(path, EMBEDDING_FILE)
         if not os.path.isfile(embedding_path):
             raise FileNotFoundError("No embeddings found at {}".format(embedding_path))
-        weights = torch.load(embedding_path)
+        weights = torch.load(embedding_path, weights_only=True)
 
         self.loaded_embeddings[name] = nn.Embedding.from_pretrained(weights)
         self.set_active_embeddings(name)

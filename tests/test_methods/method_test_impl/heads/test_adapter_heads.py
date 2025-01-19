@@ -325,7 +325,7 @@ class PredictionHeadModelTestMixin:
         self.add_head(model, "dummy", layers=1)
 
         true_config = model.get_prediction_heads_config()
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             # save
             model.save_pretrained(temp_dir)
             # reload
