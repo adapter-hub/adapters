@@ -2,6 +2,7 @@ from typing import Iterable, Tuple
 
 import torch.nn as nn
 
+from ...composition import adjust_tensors_for_parallel_
 from ...methods.reft import ReftLayer, hook_fn
 from ...model_mixin import (
     EmbeddingAdaptersMixin,
@@ -39,8 +40,27 @@ class MllamaCrossAttentionDecoderLayerAdaptersMixin(LlamaDecoderLayerMixin):
     """Mixin for adding adapter support to MLLaMA's cross-attention decoder layers."""
 
 
-class MllamaVisionEncoderAdaptersMixin(CLIPEncoderAdaptersMixin):
+class MllamaVisionEncoderAdaptersMixin:
     """Mixin for adding adapter support to MLLaMA's vision encoder module."""
+
+    def init_adapters(self, model_config, adapters_config):
+        # Set hook for parallel composition
+        for layer in self.layers:
+            self._set_layer_hook_for_parallel(layer)
+
+    def _set_layer_hook_for_parallel(self, layer: nn.Module):
+        def hook(module, args, kwargs):
+            # Extract the hidden states from kwargs
+            if "hidden_state" in kwargs:
+                hidden_states = kwargs["hidden_state"]
+                attention_mask = kwargs.get("attention_mask")
+                if attention_mask is not None:
+                    adjust_tensors_for_parallel_(hidden_states, attention_mask)
+                    kwargs["hidden_state"] = hidden_states
+                    kwargs["attention_mask"] = attention_mask
+            return args, kwargs
+
+        layer.register_forward_pre_hook(hook, with_kwargs=True)
 
 
 class MllamaVisionModelAdaptersMixin:

@@ -36,10 +36,10 @@ class MllamaAdapterTestBase(TextAdapterTestBase):
             MllamaTextConfig(
                 vocab_size=1000,  # Minimal vocab size
                 hidden_size=128,
-                num_hidden_layers=4,
+                num_hidden_layers=1,
                 num_attention_heads=2,
                 num_key_value_heads=2,
-                intermediate_size=256,
+                intermediate_size=128,
                 cross_attention_layers=[0],
                 bos_token_id=990,
                 eos_token_id=991,
@@ -51,12 +51,13 @@ class MllamaAdapterTestBase(TextAdapterTestBase):
             ),
             MllamaVisionConfig(
                 hidden_size=128,
-                num_hidden_layers=4,
-                num_global_layers=4,
+                num_hidden_layers=1,
+                num_global_layers=1,
                 num_attention_heads=1,
-                intermediate_size=256,
-                vision_output_dim=128,
+                intermediate_size=128,
+                vision_output_dim=256,
                 image_size=224,
+                intermediate_layers_indices=[0],
             ),
         )
     )
