@@ -388,6 +388,7 @@ class AdapterMethodBaseTestMixin:
         config = self.config()
         state_dict_after_training = {}
 
+        # Run training twice (with & without gradient checkpointing) to verify both produce identical results (i.e. the same state dict)
         for train_with_checkpointing in [True, False]:
             # Set random seed
             torch.manual_seed(42)

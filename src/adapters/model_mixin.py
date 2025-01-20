@@ -1621,6 +1621,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         # Remove adapters config
         del self.config.adapters
 
+    # Override PreTrainedModel.gradient_checkpointing_enable(...) method from transformers/modeling_utils.py to support gradient checkpointing for adapter training.
     def gradient_checkpointing_enable(self, gradient_checkpointing_kwargs=None):
         """
         Activates gradient checkpointing for the current model.
