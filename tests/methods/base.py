@@ -193,11 +193,11 @@ class AdapterMethodBaseTestMixin:
         name = "dummy_adapter"
         model1.add_adapter(name, config=adapter_config)
         model1.set_active_adapters(name)
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             model1.save_adapter(temp_dir, name)
 
             # Check that there are actually weights saved
-            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu")
+            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu", weights_only=True)
             self.assertTrue(len(weights) > 0)
 
             # also tests that set_active works
@@ -226,7 +226,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "dummy"
         model1.add_adapter(name, config=adapter_config)
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             model1.save_pretrained(temp_dir)
 
             model2, loading_info = load_model(temp_dir, self.model_class, output_loading_info=True)
@@ -257,7 +257,7 @@ class AdapterMethodBaseTestMixin:
             do_train=True,
             learning_rate=lr,
             max_steps=steps,
-            no_cuda=True,
+            use_cpu=True,
             per_device_train_batch_size=batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
             remove_unused_columns=False,
@@ -425,3 +425,30 @@ class AdapterMethodBaseTestMixin:
             model.adapter_to("adapter1", torch_device)
 
         self._run_gradient_checkpointing_test_helper(adapter_setup_fn)
+
+    def run_generate_test(self, adapter_config):
+        if self.config_class not in ADAPTER_MODEL_MAPPING or (
+            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
+        ):
+            self.skipTest("No seq2seq or causal language model head")
+
+        model1 = AutoAdapterModel.from_config(self.config())
+        model1.add_adapter("dummy", config=adapter_config)
+        if "seq2seq_lm" in ADAPTER_MODEL_MAPPING[self.config_class].head_types:
+            model1.add_seq2seq_lm_head("dummy")
+        else:
+            model1.add_causal_lm_head("dummy")
+        model1.set_active_adapters("dummy")
+        model1.to(torch_device)
+
+        seq_output_length = 32
+
+        # Finally, also check if generation works properly
+        if self.is_speech_model:
+            input_ids = self.get_input_samples((1, 80, 3000), config=model1.config)["input_features"]
+        else:
+            input_ids = self.get_input_samples((1, 4), config=model1.config)["input_ids"]
+        input_ids = input_ids.to(torch_device)
+        generated = model1.generate(input_ids, max_length=seq_output_length)
+        self.assertLessEqual(generated.shape, (1, seq_output_length))

@@ -32,7 +32,7 @@ A Unified Library for Parameter-Efficient and Modular Transfer Learning
     <a href="https://arxiv.org/abs/2311.11077">Paper</a>
 </h3>
 
-![Tests](https://github.com/Adapter-Hub/adapters/workflows/Tests/badge.svg?branch=adapters)
+![Tests](https://github.com/Adapter-Hub/adapters/workflows/Tests/badge.svg)
 [![GitHub](https://img.shields.io/github/license/adapter-hub/adapters.svg?color=blue)](https://github.com/adapter-hub/adapters/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/adapters)](https://pypi.org/project/adapters/)
 
@@ -45,7 +45,7 @@ _Adapters_ provides a unified interface for efficient fine-tuning and modular tr
 
 ## Installation
 
-`adapters` currently supports **Python 3.8+** and **PyTorch 1.10+**.
+`adapters` currently supports **Python 3.9+** and **PyTorch 2.0+**.
 After [installing PyTorch](https://pytorch.org/get-started/locally/), you can install `adapters` from PyPI ...
 
 ```
@@ -147,7 +147,7 @@ Currently, adapters integrates all architectures and methods listed below:
 
 | Method | Paper(s) | Quick Links |
 | --- | --- | --- |
-| Bottleneck adapters | [Houlsby et al. (2019)](https://arxiv.org/pdf/1902.00751.pdf)<br> [Bapna and Firat (2019)](https://arxiv.org/pdf/1909.08478.pdf) | [Quickstart](https://docs.adapterhub.ml/quickstart.html), [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/01_Adapter_Training.ipynb) |
+| Bottleneck adapters | [Houlsby et al. (2019)](https://arxiv.org/pdf/1902.00751.pdf)<br> [Bapna and Firat (2019)](https://arxiv.org/pdf/1909.08478.pdf)<br> [Steitz and Roth (2024)](https://openaccess.thecvf.com/content/CVPR2024/papers/Steitz_Adapters_Strike_Back_CVPR_2024_paper.pdf) | [Quickstart](https://docs.adapterhub.ml/quickstart.html), [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/01_Adapter_Training.ipynb) |
 | AdapterFusion | [Pfeiffer et al. (2021)](https://aclanthology.org/2021.eacl-main.39.pdf) | [Docs: Training](https://docs.adapterhub.ml/training.html#train-adapterfusion), [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/03_Adapter_Fusion.ipynb) |
 | MAD-X,<br> Invertible adapters | [Pfeiffer et al. (2020)](https://aclanthology.org/2020.emnlp-main.617/) | [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/04_Cross_Lingual_Transfer.ipynb) |
 | AdapterDrop | [Rücklé et al. (2021)](https://arxiv.org/pdf/2010.11918.pdf) | [Notebook](https://colab.research.google.com/github/Adapter-Hub/adapters/blob/main/notebooks/05_Adapter_Drop_Training.ipynb) |
