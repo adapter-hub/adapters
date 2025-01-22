@@ -164,6 +164,7 @@ class AdapterMethodBaseTestMixin:
         input_data = self.get_input_samples(config=model.config, dtype=dtype)
 
         # pass 1: set adapter via property
+        print("First pass")
         model.set_active_adapters(name)
         output_1 = model(**input_data)
 
@@ -172,10 +173,12 @@ class AdapterMethodBaseTestMixin:
         model.set_active_adapters(None)
         self.assertEqual(None, model.active_adapters)
         with AdapterSetup(name):
+            print("Second pass")
             output_2 = model(**input_data)
 
         # pass 3: base output
         model.set_active_adapters(None)
+        print("Third pass")
         base_output = model(**input_data)
 
         self.assertEqual(len(output_1), len(output_2))

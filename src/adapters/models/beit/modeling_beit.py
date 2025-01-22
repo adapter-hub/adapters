@@ -96,6 +96,9 @@ class BeitLayerWithAdapters(BeitLayerAdaptersMixin, BeitLayer):
         interpolate_pos_encoding: bool = False,
         resolution: Optional[Tuple[int]] = None,
     ) -> Union[Tuple[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
+        print("=== Layer Forward Pass ===")
+        print(f"Initial hidden states: {hidden_states[0][0][:5]}")
+
         self_attention_outputs = self.attention(
             self.layernorm_before(hidden_states),  # in BEiT, layernorm is applied before self-attention
             head_mask,
@@ -112,9 +115,12 @@ class BeitLayerWithAdapters(BeitLayerAdaptersMixin, BeitLayer):
             attention_output = self.lambda_1 * attention_output
 
         # first residual connection
+        print(f"Before first adapter - hidden: {hidden_states[0][0][:5]}")
+
         hidden_states = self.attention_adapters.bottleneck_layer_forward(
             self.drop_path(attention_output), hidden_states, None
         )
+        print(f"After first adapter: {hidden_states[0][0][:5]}")
 
         # in BEiT, layernorm is also applied after self-attention
         layer_output = self.layernorm_after(hidden_states)
@@ -126,7 +132,10 @@ class BeitLayerWithAdapters(BeitLayerAdaptersMixin, BeitLayer):
             layer_output = self.lambda_2 * layer_output
 
         # second residual connection
+        print(f"Before second adapter - hidden: {hidden_states[0][0][:5]}")
         layer_output = self.output_adapters.bottleneck_layer_forward(self.drop_path(layer_output), hidden_states, None)
+
+        print(f"After second adapter: {layer_output[0][0][:5]}")
 
         outputs = (layer_output,) + outputs
 
