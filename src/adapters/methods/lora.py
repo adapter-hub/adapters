@@ -176,7 +176,77 @@ class IA3(nn.Module):
 
         return hidden_states, gate
 
+class DoRA(nn.Module):
+    def __init__(
+        self,
+        lora_A_shape,
+        lora_B_shape,
+        config: LoRAConfig,
+        gating_heads: int = 1,
+    ):
+        super().__init__()
+        assert config.composition_mode == "add", "DoRA module only supports composition_mode='scale'."
+        self.r = config.r
+        self.lora_alpha = config.alpha
+        self.composition_mode = config.composition_mode
+        self.attn_matrices = config.attn_matrices
+        self.use_gating = config.use_gating
+        # Optional dropout
+        if config.dropout > 0.0:
+            self.lora_dropout = nn.Dropout(p=config.dropout)
+        else:
+            self.lora_dropout = lambda x: x
 
+        dtype = getattr(torch, config.dtype) if config.dtype else None
+
+        # Actual trainable parameters
+        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
+        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
+        self.scaling = self.lora_alpha / self.r
+        self.m = nn.Parameter(torch.ones(lora_B_shape, dtype=dtype))
+
+        if config.init_weights == "lora":
+            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_B)
+        elif config.init_weights == "bert":
+            nn.init.normal_(self.lora_A, std=0.02)
+            nn.init.normal_(self.lora_B, std=0.02)
+        elif config.init_weights == "ia3":
+            nn.init.ones_(self.lora_A)
+            nn.init.ones_(self.lora_B)
+        else:
+            raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
+
+        if self.use_gating:
+            self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
+            nn.init.normal_(self.gate.weight, std=0.02)
+
+    @property
+    def delta_w(self) -> torch.Tensor:
+        return self.lora_B @ self.lora_A
+
+    def com(self, weights: torch.Tensor, added: torch.Tensor, scaling=None) -> torch.Tensor:
+        """Performs the composition operation between existing and injected weights."""
+        if scaling is None:
+            scaling = self.scaling
+        return weights * (added * scaling)
+
+    def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
+        """Inverts the composition operation between existing and injected weights."""
+        return weights / (added * self.scaling)
+
+    def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
+        if hidden_states is None:
+            hidden_states = layer_input
+        hidden_states = self.lora_dropout(hidden_states) @ torch.t(self.lora_A) @ torch.t(self.lora_B)
+        if self.use_gating:
+            gate = torch.sigmoid(self.gate(layer_input))
+            gate = torch.mean(gate, dim=1).unsqueeze(-1)
+            hidden_states = hidden_states * gate
+        else:
+            gate = None
+
+        return hidden_states, gate
 class LoRALayer(AdapterLayerBase):
     adapter_modules_name = "loras"
 
@@ -210,7 +280,7 @@ class LoRALayer(AdapterLayerBase):
         )
         if lora_config is not None and self._check_lora_location(lora_config):
             if lora_config.composition_mode == "add":
-                lora_cls = LoRA
+                lora_cls = DoRA
             elif lora_config.composition_mode == "scale":
                 lora_cls = IA3
             else:
@@ -449,6 +519,8 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 return  # already merged
             elif not self.merged:
                 lora = self.loras[name]
+                print(lora)
+                print(lora.m)
                 if lora.use_gating:
                     raise ValueError("Cannot merge LoRA layer with gating.")
                 delta_w = self.maybe_t(lora.delta_w)
