@@ -1,8 +1,12 @@
+import torch
 from datasets import load_dataset
 
 from transformers import AutoTokenizer, BertGenerationConfig
+from transformers.testing_utils import torch_device
 
-from .generator import TextAdapterTestBase, generate_method_tests, make_config, torch, torch_device
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 class BertGenerationAdapterTestBase(TextAdapterTestBase):

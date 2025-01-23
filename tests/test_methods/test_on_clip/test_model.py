@@ -1,7 +1,11 @@
 import random
 
-from tests.test_methods.generator import *
+import torch
+
+from tests.test_methods.base import TextAdapterTestBase
+from tests.test_methods.generator import generate_method_tests
 from transformers import CLIPConfig, CLIPTextConfig, CLIPVisionConfig
+from transformers.testing_utils import torch_device
 
 
 class CLIPAdapterTestBase(TextAdapterTestBase):

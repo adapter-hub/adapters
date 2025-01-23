@@ -1,6 +1,9 @@
 from transformers import MT5Config
+from transformers.testing_utils import require_torch
 
-from .generator import *
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 @require_torch

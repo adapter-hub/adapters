@@ -1,6 +1,8 @@
 from transformers import ViTConfig
 
-from .generator import *
+from .base import VisionAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 class ViTAdapterTestBase(VisionAdapterTestBase):

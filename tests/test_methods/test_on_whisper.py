@@ -1,6 +1,8 @@
 from transformers import WhisperConfig
 
-from .generator import *
+from .base import AudioAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 class WhisperAdapterTestBase(AudioAdapterTestBase):

@@ -1,6 +1,8 @@
 from transformers import BeitConfig
 
-from .generator import VisionAdapterTestBase, generate_method_tests, make_config
+from .base import VisionAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 class BeitAdapterTestBase(VisionAdapterTestBase):

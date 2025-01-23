@@ -1,6 +1,8 @@
 from transformers import BertConfig
 
-from .generator import TextAdapterTestBase, generate_method_tests, make_config
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 class BertAdapterTestBase(TextAdapterTestBase):

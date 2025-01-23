@@ -1,7 +1,8 @@
 from adapters import init
-from transformers import AutoModelForSeq2SeqLM, BertConfig, EncoderDecoderConfig, EncoderDecoderModel
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, BertConfig, EncoderDecoderConfig, EncoderDecoderModel
 
-from .generator import *
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
 
 
 class EncoderDecoderAdapterTestBase(TextAdapterTestBase):

@@ -1,4 +1,6 @@
-from tests.test_methods.generator import *
+from tests.test_methods.base import VisionAdapterTestBase
+from tests.test_methods.generator import generate_method_tests
+from tests.test_methods.method_test_impl.utils import make_config
 from transformers import CLIPVisionConfig, CLIPVisionModel
 
 

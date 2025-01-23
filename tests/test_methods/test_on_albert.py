@@ -1,16 +1,15 @@
 import unittest
+from math import ceil
+
+import pytest
 
 from transformers import AlbertConfig
+from transformers.testing_utils import require_torch
 
-from .generator import (
-    PredictionHeadModelTestMixin,
-    TextAdapterTestBase,
-    ceil,
-    generate_method_tests,
-    make_config,
-    pytest,
-    require_torch,
-)
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.heads.test_adapter_heads import PredictionHeadModelTestMixin
+from .method_test_impl.utils import make_config
 
 
 class AlbertAdapterTestBase(TextAdapterTestBase):

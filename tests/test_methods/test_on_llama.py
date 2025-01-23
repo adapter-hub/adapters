@@ -1,6 +1,12 @@
-from transformers.models.llama.configuration_llama import LlamaConfig
+import unittest
 
-from .generator import *
+from transformers.models.llama.configuration_llama import LlamaConfig
+from transformers.testing_utils import require_torch
+
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.core.test_adapter_conversion import ModelClassConversionTestMixin
+from .method_test_impl.utils import make_config
 
 
 class LlamaAdapterTestBase(TextAdapterTestBase):
