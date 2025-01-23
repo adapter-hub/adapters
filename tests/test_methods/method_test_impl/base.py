@@ -53,7 +53,7 @@ class AdapterMethodBaseTestMixin:
             self.assertTrue(v.requires_grad, k)
         self.assertTrue(has_weights)
 
-        # TODO: for config union tests resetting model should lead to that adapter can be readded with the same name, but currently not working
+        # Remove added adapters in case of multiple subtests
         model.set_active_adapters(None)
         model.delete_adapter(name)
 
@@ -181,6 +181,11 @@ class AdapterMethodBaseTestMixin:
         self.assertTrue(torch.equal(output_1[0], output_2[0]))
         self.assertGreaterEqual(len(output_1), len(base_output))
         self.assertFalse(torch.equal(output_1[0], base_output[0]))
+
+        # Remove added adapters in case of multiple subtests
+        # Readd these lines to recreate the issue: https://github.com/adapter-hub/adapters/issues/785
+        # model.set_active_adapters(None)
+        # model.delete_adapter(name)
 
     def run_load_test(self, adapter_config):
         model1, model2 = create_twin_models(self.model_class, self.config)

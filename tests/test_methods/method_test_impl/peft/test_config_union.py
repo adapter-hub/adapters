@@ -16,7 +16,7 @@ class ConfigUnionAdapterTest(AdapterMethodBaseTestMixin):
         (
             ConfigUnion(
                 PrefixTuningConfig(),
-                ParBnConfig(phm_dim=1),
+                ParBnConfig(),
             ),
             ["adapters.{name}.", "prefix_tunings.{name}."],
         ),
