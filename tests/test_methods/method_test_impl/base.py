@@ -156,7 +156,6 @@ class AdapterMethodBaseTestMixin:
         model.eval()
 
         name = adapter_config.__class__.__name__
-        # TODO: this defeats the purpose of the test, for the config union tests as only the first config is added
         if name not in model.adapters_config:
             model.add_adapter(name, config=adapter_config)
         model.to(torch_device).to(dtype)
@@ -164,7 +163,6 @@ class AdapterMethodBaseTestMixin:
         input_data = self.get_input_samples(config=model.config, dtype=dtype)
 
         # pass 1: set adapter via property
-        print("First pass")
         model.set_active_adapters(name)
         output_1 = model(**input_data)
 
@@ -173,12 +171,10 @@ class AdapterMethodBaseTestMixin:
         model.set_active_adapters(None)
         self.assertEqual(None, model.active_adapters)
         with AdapterSetup(name):
-            print("Second pass")
             output_2 = model(**input_data)
 
         # pass 3: base output
         model.set_active_adapters(None)
-        print("Third pass")
         base_output = model(**input_data)
 
         self.assertEqual(len(output_1), len(output_2))
