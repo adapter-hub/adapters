@@ -157,6 +157,9 @@ class BnConfig(AdapterConfig):
             Defaults to False.
         init_weights (:obj:`str`, optional): Initialization method for the weights of the adapter modules.
             Currently, this can be either "bert" (default) or "mam_adapter" or "houlsby".
+        init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
+            Important:  set, the seed will be used for all adapter modules, meaning that all adapter modules will have the same
+            initialization. If not set, the seed will be set randomly for each adapter module. Defaults to None.
         is_parallel (:obj:`bool`, optional): If True, apply adapter transformations in parallel.
             By default (False), sequential application is used.
         scaling (:obj:`float` or :obj:`str`, optional):
@@ -233,6 +236,7 @@ class BnConfig(AdapterConfig):
     ln_before: bool = False
     ln_after: bool = False
     init_weights: str = "bert"
+    init_weights_seed: Optional[int] = None
     is_parallel: bool = False
     scaling: Union[float, str] = 1.0
     use_gating: bool = False
@@ -488,6 +492,9 @@ class LoRAConfig(AdapterConfig):
             (IA)^3). "scale" can only be used together with r=1. Defaults to "add".
         init_weights (:obj:`str`, optional): Initialization method for the weights of the LoRA modules.
             Currently, this can be either "lora" (default) or "bert".
+        init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
+            Important:  set, the seed will be used for all adapter modules, meaning that all adapter modules will have the same
+            initialization. If not set, the seed will be set randomly for each adapter module. Defaults to None.
         use_gating (:obj:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
@@ -508,6 +515,7 @@ class LoRAConfig(AdapterConfig):
     attn_matrices: List[str] = field(default_factory=lambda: ["q", "v"])
     composition_mode: str = "add"
     init_weights: str = "lora"
+    init_weights_seed: Optional[int] = None
     use_gating: bool = False
     dtype: Optional[str] = None
 

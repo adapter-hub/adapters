@@ -8,6 +8,7 @@ from transformers.utils.import_utils import is_torchvision_available
 
 from ..configuration import AdapterFusionConfig, BnConfig
 from ..context import ForwardContext
+from .utils import fix_seed
 
 
 class Activation_Function_Class(nn.Module):
@@ -114,6 +115,9 @@ class Adapter(nn.Module):
             self.gate = nn.Linear(self.input_size, 1)
 
         self.dropout = nn.Dropout(p=config["dropout"])
+
+        # Set seed for reproducibility if specified in config
+        fix_seed(config.init_weights_seed)
 
         # if we want to initialize with the bert strategy then this function is called for all the linear layers
         if config["init_weights"] == "bert":
