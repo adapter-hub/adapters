@@ -15,7 +15,11 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from adapters.configuration.adapter_config import ConfigUnion, LoRAConfig
+from adapters.configuration.adapter_config import (
+    ConfigUnion,
+    LoRAConfig,
+    MTLLoRAConfig,
+)
 from transformers import GenerationConfig
 from transformers.modeling_outputs import ModelOutput
 from transformers.utils import is_accelerate_available
@@ -27,6 +31,7 @@ from .configuration import (
     AdapterConfig,
     AdapterFusionConfig,
     BnConfig,
+    MTLLoRAConfig,
 )
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
@@ -733,6 +738,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if set_active:
             self.set_active_adapters(adapter_name)
 
+        if isinstance(config, MTLLoRAConfig):
+            for task_name, config in config.subtask_iterator():
+                self.add_adapter(
+                    task_name,
+                    config,
+                    overwrite_ok=overwrite_ok,
+                    set_active=set_active,
+                )
+
     def _add_adapter_weights(self, adapter_name: str):
         """Helper method that performs the actual parameter additions when adding a new adapter."""
         self.apply_to_adapter_layers(
@@ -1331,8 +1345,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         This method is called by the ``ForwardContext`` at the beginning of the forward pass.
         """
-        if "batch_task_ids" in kwargs:
-            context.batch_task_ids = kwargs.pop("batch_task_ids")
+        if "task_ids" in kwargs:
+            context.task_ids = kwargs.pop("task_ids")
 
         # some warnings if we don't use available adapters
         active_adapters = (

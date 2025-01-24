@@ -14,7 +14,9 @@ from adapters.composition import (
     Stack,
     parse_composition,
 )
-from adapters.models.bert.adapter_model import BertForSequenceClassification
+from adapters.models.bert.adapter_model import (
+    BertForSequenceClassificationAdapterModel,
+)
 from tests.test_adapter import ids_tensor
 from transformers import BertConfig
 from transformers.testing_utils import require_torch, torch_device
@@ -62,7 +64,7 @@ class AdapterCompositionTest(unittest.TestCase):
         return SeqBnConfig()
 
     def build_model(self):
-        model = BertForSequenceClassification(
+        model = BertForSequenceClassificationAdapterModel(
             BertConfig(
                 hidden_size=32,
                 num_hidden_layers=4,
@@ -198,7 +200,7 @@ class AdapterCompositionTest(unittest.TestCase):
         inputs = {
             "input_ids": ids_tensor((4, 128), 1000).to(torch_device),
             "labels": torch.ones(4, dtype=torch.long).to(torch_device),
-            "batch_task_ids": torch.randint(4, (4,)),
+            "task_ids": torch.randint(4, (4,)),
         }
         loss = model(**inputs).loss
         loss.backward()

@@ -3,6 +3,8 @@ from collections.abc import Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, replace
 from typing import List, Literal, Optional, Union
 
+from torch import fill
+
 from ..utils import resolve_adapter_config
 
 
@@ -21,7 +23,9 @@ class AdapterConfig(Mapping):
     architecture: Optional[str] = None
 
     def __init__(self):
-        raise TypeError("AdapterConfig is an abstract class and cannot be instantiated.")
+        raise TypeError(
+            "AdapterConfig is an abstract class and cannot be instantiated."
+        )
 
     # We want to emulate a simple form of immutability while keeping the ability to add custom attributes.
     # Therefore, we don't allow changing attribute values if set once.
@@ -117,7 +121,9 @@ class AdapterConfig(Mapping):
         else:
             local_map = ADAPTER_CONFIG_MAP
         if download_kwargs:
-            config_dict = resolve_adapter_config(config, local_map=local_map, **download_kwargs)
+            config_dict = resolve_adapter_config(
+                config, local_map=local_map, **download_kwargs
+            )
         else:
             config_dict = resolve_adapter_config(config, local_map=local_map)
         # convert back to dict to allow attr overrides
@@ -267,7 +273,11 @@ class BnConfig(AdapterConfig):
             # Now, we have two config keys directly in the adapter config.
             if value:
                 object.__setattr__(self, "inv_adapter", value["block_type"])
-                object.__setattr__(self, "inv_adapter_reduction_factor", value["reduction_factor"])
+                object.__setattr__(
+                    self,
+                    "inv_adapter_reduction_factor",
+                    value["reduction_factor"],
+                )
         else:
             object.__setattr__(self, name, value)
 
@@ -536,6 +546,22 @@ class IA3Config(LoRAConfig):
 
 
 @dataclass(eq=False)
+class MTLLoRAConfig(LoRAConfig):
+    task_names: Optional[List[str]] = field(default_factory=lambda: [])
+    n_up_projection: int = 1
+    task_specific_matrix_type: Literal["singular_values", "linear"] = (
+        "singular_values"
+    )
+
+    def subtask_iterator(self):
+        if self.task_names is not None:
+            for task in self.task_names:
+                config = dict(self)
+                config["task_names"] = None
+                yield task, MTLLoRAConfig(**config)
+
+
+@dataclass(eq=False)
 class ReftConfig(AdapterConfig):
     """
     Base class for Representation Fine-Tuning (ReFT) methods proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
@@ -649,22 +675,34 @@ class ConfigUnion(AdapterConfig):
             if not isinstance(config, AdapterConfig):
                 raise TypeError(f"{config} is not an instance of AdapterConfig")
             elif isinstance(config, ConfigUnion):
-                raise TypeError(f"{config} of type {type(config)} is not supported in a config union.")
+                raise TypeError(
+                    f"{config} of type {type(config)} is not supported in a config union."
+                )
         # perform pairwise check
-        for c_a, c_b in [(c_a, c_b) for i, c_a in enumerate(configs) for j, c_b in enumerate(configs) if i > j]:
+        for c_a, c_b in [
+            (c_a, c_b)
+            for i, c_a in enumerate(configs)
+            for j, c_b in enumerate(configs)
+            if i > j
+        ]:
             if c_a.architecture != c_b.architecture:
                 continue
             # if at least one config specifies a leave_out, we cannot make a final decision at this point
             elif c_a.get("leave_out", []) or c_b.get("leave_out", []):
                 continue
             elif c_a.architecture is None or c_a.architecture == "bottleneck":
-                is_valid = c_a.mh_adapter != c_b.mh_adapter and c_a.output_adapter != c_b.output_adapter
+                is_valid = (
+                    c_a.mh_adapter != c_b.mh_adapter
+                    and c_a.output_adapter != c_b.output_adapter
+                )
                 if not is_valid:
                     raise ValueError(f"{c_a} and {c_b} cannot be combined.")
                 else:
                     continue
             # at this point, we know that the architectures are the same
-            raise ValueError(f"{c_a} and {c_b} have the same adapter architecture and cannot be combined.")
+            raise ValueError(
+                f"{c_a} and {c_b} have the same adapter architecture and cannot be combined."
+            )
 
     def __getitem__(self, key):
         if isinstance(key, int):
@@ -684,10 +722,15 @@ class ConfigUnion(AdapterConfig):
         return sum([len(c) for c in self.configs])
 
     def __eq__(self, other):
-        return all([c_a == c_b for c_a, c_b in zip(self.configs, other.configs)])
+        return all(
+            [c_a == c_b for c_a, c_b in zip(self.configs, other.configs)]
+        )
 
     def to_dict(self):
-        return {"architecture": self.architecture, "configs": [c.to_dict() for c in self.configs]}
+        return {
+            "architecture": self.architecture,
+            "configs": [c.to_dict() for c in self.configs],
+        }
 
     def replace(self, **changes):
         return ConfigUnion(*[c.replace(**changes) for c in self.configs])
@@ -710,7 +753,11 @@ class MAMConfig(ConfigUnion):
     The Mix-And-Match adapter architecture proposed by He et al. (2021). See https://arxiv.org/pdf/2110.04366.pdf.
     """
 
-    def __init__(self, prefix_tuning: Optional[PrefixTuningConfig] = None, adapter: Optional[BnConfig] = None):
+    def __init__(
+        self,
+        prefix_tuning: Optional[PrefixTuningConfig] = None,
+        adapter: Optional[BnConfig] = None,
+    ):
         prefix_tuning = prefix_tuning or PrefixTuningConfig(bottleneck_size=800)
         adapter = adapter or ParBnConfig()
 

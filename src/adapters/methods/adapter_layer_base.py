@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Collection, Dict, List, NamedTuple, Union
+from typing import Collection, Dict, List, NamedTuple, Union, final
 
 import numpy as np
 import torch
@@ -500,23 +500,21 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
 
         # sequentially feed different parts of the blown-up batch into different adapters
         context = ForwardContext.get_context()
-        task_ids = context.batch_task_ids
+        task_ids = context.task_ids
 
-        assert hasattr(context, "batch_task_ids")
+        assert hasattr(context, "task_ids")
 
         ordering_idx = task_ids.argsort()
-        batch_task_ids_ordered = task_ids[ordering_idx]
-        children_states = self.compose_batch_split(
+        inter_state = self.compose_batch_split(
             adapter_setup=BatchSplit(
                 *adapter_setup.children,
                 batch_sizes=task_ids.bincount().tolist(),
             ),
-            state=self.vslice(state, batch_task_ids_ordered),
+            state=self.vslice(state, ordering_idx),
             lvl=lvl,
         )
-
-        states = self.vslice(children_states, ordering_idx)
-        return states
+        final_state = self.vslice(inter_state, ordering_idx.argsort())
+        return final_state
 
     def compose_parallel(
         self, adapter_setup: Parallel, state: NamedTuple, lvl: int = 0

@@ -9,6 +9,7 @@ from adapters import (
     DoubleSeqBnConfig,
     LoRAConfig,
     MAMConfig,
+    MTLLoRAConfig,
     ParBnConfig,
     PrefixTuningConfig,
     SeqBnConfig,
@@ -55,8 +56,14 @@ class AdapterConfigTest(unittest.TestCase):
         unions = [
             [PrefixTuningConfig(), ParBnConfig()],
             [PrefixTuningConfig(), SeqBnConfig()],
-            [DoubleSeqBnConfig(mh_adapter=False), DoubleSeqBnConfig(output_adapter=False, reduction_factor=2)],
-            [SeqBnConfig(leave_out=[9, 10, 11], reduction_factor=2), SeqBnConfig(leave_out=list(range(9)))],
+            [
+                DoubleSeqBnConfig(mh_adapter=False),
+                DoubleSeqBnConfig(output_adapter=False, reduction_factor=2),
+            ],
+            [
+                SeqBnConfig(leave_out=[9, 10, 11], reduction_factor=2),
+                SeqBnConfig(leave_out=list(range(9))),
+            ],
         ]
         for union in unions:
             with self.subTest(union=union):
@@ -85,19 +92,33 @@ class AdapterConfigTest(unittest.TestCase):
     def test_config_string_valid(self):
         to_test = [
             ("double_seq_bn", DoubleSeqBnConfig()),
-            ("seq_bn[reduction_factor=2, leave_out=[11]]", SeqBnConfig(reduction_factor=2, leave_out=[11])),
+            (
+                "seq_bn[reduction_factor=2, leave_out=[11]]",
+                SeqBnConfig(reduction_factor=2, leave_out=[11]),
+            ),
             (
                 "par_bn[reduction_factor={'0': 8, '1': 8, 'default': 16}]",
                 ParBnConfig(reduction_factor={"0": 8, "1": 8, "default": 16}),
             ),
-            ("prefix_tuning[prefix_length=30, flat=True]", PrefixTuningConfig(prefix_length=30, flat=True)),
+            (
+                "prefix_tuning[prefix_length=30, flat=True]",
+                PrefixTuningConfig(prefix_length=30, flat=True),
+            ),
             ("lora[r=200,alpha=8]", LoRAConfig(r=200, alpha=8)),
-            ("prefix_tuning|par_bn", ConfigUnion(PrefixTuningConfig(), ParBnConfig())),
-            ("lora[attn_matrices=['k', 'v']]", LoRAConfig(attn_matrices=["k", "v"])),
+            (
+                "prefix_tuning|par_bn",
+                ConfigUnion(PrefixTuningConfig(), ParBnConfig()),
+            ),
+            (
+                "lora[attn_matrices=['k', 'v']]",
+                LoRAConfig(attn_matrices=["k", "v"]),
+            ),
             (
                 "lora[use_gating=True]|prefix_tuning[use_gating=True]|seq_bn[use_gating=True]",
                 ConfigUnion(
-                    LoRAConfig(use_gating=True), PrefixTuningConfig(use_gating=True), SeqBnConfig(use_gating=True)
+                    LoRAConfig(use_gating=True),
+                    PrefixTuningConfig(use_gating=True),
+                    SeqBnConfig(use_gating=True),
                 ),
             ),
         ]

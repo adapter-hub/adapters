@@ -9,7 +9,11 @@ from transformers.utils import add_start_docstrings, add_start_docstrings_to_mod
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
-from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...model_mixin import (
+    EmbeddingAdaptersWrapperMixin,
+    ModelAdaptersMixin,
+    ModelWithHeadsAdaptersMixin,
+)
 from ...wrappers import init
 
 
