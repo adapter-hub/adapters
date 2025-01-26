@@ -77,3 +77,6 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
 
     def test_prefix_tuning_generate(self):
         self.run_generate_test(PrefixTuningConfig())
+
+    def test_prefix_tuning_gradient_checkpointing_single_adapter(self):
+        self.run_gradient_checkpointing_single_adapter_test(PrefixTuningConfig())
