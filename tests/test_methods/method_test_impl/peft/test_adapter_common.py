@@ -45,7 +45,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
 
         for adapter_config, filter_keys in self.adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_add_test(model, adapter_config, filter_keys)
 
     def test_leave_out_adapter(self):
@@ -53,15 +56,23 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
 
         for adapter_config, _ in self.adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
-                self.run_leave_out_test(model, adapter_config, self.leave_out_layers)
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
+                self.run_leave_out_test(
+                    model, adapter_config, self.leave_out_layers
+                )
 
     def test_linear_average_adapter(self):
         model = self.get_model()
         model.eval()
 
         for adapter_config, filter_keys in self.adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_linear_average_test(model, adapter_config, filter_keys)
 
     def test_delete_adapter(self):
@@ -69,28 +80,41 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
 
         for adapter_config, filter_keys in self.adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_delete_test(model, adapter_config, filter_keys)
 
     def test_add_adapter_with_invertible(self):
         model = self.get_model().base_model
         model.eval()
-        if not isinstance(model, InvertibleAdaptersMixin) and not isinstance(model, InvertibleAdaptersWrapperMixin):
+        if not isinstance(model, InvertibleAdaptersMixin) and not isinstance(
+            model, InvertibleAdaptersWrapperMixin
+        ):
             self.skipTest("Model does not support invertible adapters.")
 
         for adapter_config in [SeqBnInvConfig(), DoubleSeqBnInvConfig()]:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
                 model.set_active_adapters(name)
 
                 # adapter is correctly added to config
                 self.assertTrue(name in model.adapters_config)
-                self.assertEqual(adapter_config, model.adapters_config.get(name))
+                self.assertEqual(
+                    adapter_config, model.adapters_config.get(name)
+                )
 
                 # invertible adapter is correctly added and returned
                 self.assertTrue(name in model.invertible_adapters)
-                self.assertEqual(model.invertible_adapters[name], model.get_invertible_adapter())
+                self.assertEqual(
+                    model.invertible_adapters[name],
+                    model.get_invertible_adapter(),
+                )
 
                 # all invertible adapter weights should be activated for training
                 for param in model.invertible_adapters[name].parameters():
@@ -104,7 +128,9 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                     nonlocal calls
                     calls += 1
 
-                model.get_invertible_adapter().register_forward_pre_hook(forward_pre_hook)
+                model.get_invertible_adapter().register_forward_pre_hook(
+                    forward_pre_hook
+                )
 
                 # check forward pass
                 input_data = self.get_input_samples(config=model.config)
@@ -114,8 +140,12 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
                 del model.invertible_adapters[name]
                 self.assertFalse(name in model.invertible_adapters)
                 adapter_output_no_inv = model(**input_data)
-                self.assertEqual(len(adapter_output), len(adapter_output_no_inv))
-                self.assertFalse(torch.equal(adapter_output[0], adapter_output_no_inv[0]))
+                self.assertEqual(
+                    len(adapter_output), len(adapter_output_no_inv)
+                )
+                self.assertFalse(
+                    torch.equal(adapter_output[0], adapter_output_no_inv[0])
+                )
                 # We expect one call to invertible adapter
                 self.assertEqual(1, calls)
 
@@ -123,12 +153,17 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         """Tests if the invertible adapters are deleted correctly."""
         model = self.get_model().base_model
         model.eval()
-        if not isinstance(model, InvertibleAdaptersMixin) and not isinstance(model, InvertibleAdaptersWrapperMixin):
+        if not isinstance(model, InvertibleAdaptersMixin) and not isinstance(
+            model, InvertibleAdaptersWrapperMixin
+        ):
             self.skipTest("Model does not support invertible adapters.")
 
         # iterate through all adapter invertible adapter configs
         for adapter_config, filter_keys in self.inv_adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
                 model.set_active_adapters(name)
@@ -158,7 +193,9 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         n_layers = len(list(model.iter_layers()))
         if model.config.is_encoder_decoder:
             n_prefix_layers = 3
-        elif model.config.is_composition or isinstance(model.config, CLIPConfig):
+        elif model.config.is_composition or isinstance(
+            model.config, CLIPConfig
+        ):
             n_prefix_layers = 2
         else:
             n_prefix_layers = 1
@@ -167,7 +204,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             (DoubleSeqBnConfig(), n_layers * 2),
             (MAMConfig(), n_layers + n_prefix_layers),
         ]:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_get_test(model, adapter_config, n_expected)
 
     def test_add_adapter_multiple_reduction_factors(self):
@@ -178,14 +218,19 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             SeqBnConfig(reduction_factor=reduction_factor),
             DoubleSeqBnConfig(reduction_factor=reduction_factor),
         ]:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
                 model.set_active_adapters(name)
 
                 # adapter is correctly added to config
                 self.assertTrue(name in model.adapters_config)
-                self.assertEqual(adapter_config, model.adapters_config.get(name))
+                self.assertEqual(
+                    adapter_config, model.adapters_config.get(name)
+                )
 
                 adapter = model.get_adapter(name)
 
@@ -208,7 +253,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             SeqBnConfig(reduction_factor=reduction_factor),
             DoubleSeqBnConfig(reduction_factor=reduction_factor),
         ]:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 name = adapter_config.__class__.__name__
                 with self.assertRaises(KeyError):
                     model.add_adapter(name, config=adapter_config)
@@ -220,7 +268,9 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         for adapter_config, _ in self.adapter_configs_to_test:
             for dtype in self.dtypes_to_test:
                 with self.subTest(
-                    model_class=model.__class__.__name__, config=adapter_config.__class__.__name__, dtype=dtype
+                    model_class=model.__class__.__name__,
+                    config=adapter_config.__class__.__name__,
+                    dtype=dtype,
                 ):
                     self.run_forward_test(model, adapter_config, dtype=dtype)
 
@@ -229,7 +279,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
 
         for adapter_config, _ in self.inv_adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_forward_test(model, adapter_config)
 
     def test_load_adapter(self):
@@ -276,7 +329,9 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
 
-        model_base, model_with_head = create_twin_models(self.model_class, self.config)
+        model_base, model_with_head = create_twin_models(
+            self.model_class, self.config
+        )
         model_base = model_base.base_model  # use base model w/o prefix
 
         model_with_head.add_adapter("dummy")
@@ -303,7 +358,9 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
 
-        model_base, model_with_head = create_twin_models(self.model_class, self.config)
+        model_base, model_with_head = create_twin_models(
+            self.model_class, self.config
+        )
         model_base = model_base.base_model  # use base model w/o prefix
 
         model_base.add_adapter("dummy")
@@ -332,9 +389,13 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         if self.config_class not in MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING:
             self.skipTest("No causal lm class.")
 
-        static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
+        static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[
+            self.config_class
+        ](self.config())
         adapters.init(static_model)
-        flex_model = AutoAdapterModel.from_pretrained(None, config=self.config(), state_dict=static_model.state_dict())
+        flex_model = AutoAdapterModel.from_pretrained(
+            None, config=self.config(), state_dict=static_model.state_dict()
+        )
 
         static_model.add_adapter("dummy")
         static_model.set_active_adapters("dummy")
@@ -357,7 +418,9 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         input_data["past_key_values"] = output["past_key_values"]
         output_base = static_model(**input_data)
         output_with_head = flex_model(**input_data)
-        self.assertTrue(torch.allclose(output_base["logits"], output_with_head["logits"]))
+        self.assertTrue(
+            torch.allclose(output_base["logits"], output_with_head["logits"])
+        )
 
     def test_train_single_adapter(self):
         self.run_train_test(SeqBnConfig(), ["adapters.{name}."])
@@ -367,7 +430,9 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
     def test_train_adapter_fusion(self):
         if not self.do_run_train_tests:
-            self.skipTest("Skipping training tests. Set `do_run_train_tests=True` to run them.")
+            self.skipTest(
+                "Skipping training tests. Set `do_run_train_tests=True` to run them."
+            )
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
         model = AutoAdapterModel.from_config(self.config())
@@ -404,29 +469,41 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         # Since our config has a value matrix, make sure it is regularized.
         # We do this by patching the fusion regularization function.
         regularization_called = False
-        orig_fusion_regularization_loss = model.base_model.get_fusion_regularization_loss
+        orig_fusion_regularization_loss = (
+            model.base_model.get_fusion_regularization_loss
+        )
 
         def patched_fusion_reg_loss():
             nonlocal regularization_called
             regularization_called = True
             return orig_fusion_regularization_loss()
 
-        model.base_model.get_fusion_regularization_loss = patched_fusion_reg_loss
+        model.base_model.get_fusion_regularization_loss = (
+            patched_fusion_reg_loss
+        )
 
         self.trainings_run(model)
         self.assertTrue(regularization_called)
 
         def has_tied_embeddings(k):
-            tied_embeddings = hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings
+            tied_embeddings = (
+                hasattr(model.config, "tie_word_embeddings")
+                and model.config.tie_word_embeddings
+            )
             is_tied_layer = (
                 isinstance(model.heads["head"], CausalLMHead)
-                and "heads.{}.{}.weight".format("head", len(model.heads["head"]._modules) - 1) in k
+                and "heads.{}.{}.weight".format(
+                    "head", len(model.heads["head"]._modules) - 1
+                )
+                in k
             )
             return tied_embeddings and is_tied_layer
 
         # check that the adapters have changed, but the base model has not
         adapters_with_change, base_with_change = False, False
-        for (k1, v1), (k2, v2) in zip(state_dict_pre.items(), model.state_dict().items()):
+        for (k1, v1), (k2, v2) in zip(
+            state_dict_pre.items(), model.state_dict().items()
+        ):
             if (
                 "adapter_fusion_layer" in k1
                 or "classifier" in k1
@@ -442,7 +519,9 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
     def test_batch_split_training(self):
         if not self.do_run_train_tests:
-            self.skipTest("Skipping training tests. Set `do_run_train_tests=True` to run them.")
+            self.skipTest(
+                "Skipping training tests. Set `do_run_train_tests=True` to run them."
+            )
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
         model = AutoAdapterModel.from_config(self.config())
@@ -466,12 +545,13 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             self.assertFalse(v.requires_grad, k)
 
         state_dict_pre = copy.deepcopy(model.state_dict())
-
         self.trainings_run(model)
 
         # check that the adapters have changed, but the base model has not
         adapters_with_change, base_with_change = False, False
-        for (k1, v1), (k2, v2) in zip(state_dict_pre.items(), model.state_dict().items()):
+        for (k1, v1), (k2, v2) in zip(
+            state_dict_pre.items(), model.state_dict().items()
+        ):
             if "mrpc" in k1:
                 adapters_with_change |= not torch.equal(v1, v2)
             else:
@@ -497,9 +577,13 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model1.active_head = head_setup
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            model1.save_adapter_setup(temp_dir, adapter_setup, head_setup=head_setup)
+            model1.save_adapter_setup(
+                temp_dir, adapter_setup, head_setup=head_setup
+            )
 
-            self.assertTrue(os.path.exists(os.path.join(temp_dir, SETUP_CONFIG_NAME)))
+            self.assertTrue(
+                os.path.exists(os.path.join(temp_dir, SETUP_CONFIG_NAME))
+            )
 
             # also tests that set_active works
             model2.load_adapter_setup(temp_dir, set_active=True)

@@ -15,13 +15,7 @@ from adapters.configuration.adapter_config import MTLLoRAConfig
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
-from ..composition import (
-    Average,
-    BatchSplit,
-    MultiTaskLearning,
-    Parallel,
-    Stack,
-)
+from ..composition import Average, BatchSplit, MultiTaskLearning, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
 from .utils import dequantize_bnb_weight
@@ -71,8 +65,6 @@ class LoRA(nn.Module):
         lora_B_shape,
         config: LoRAConfig,
         gating_heads: int = 1,
-        lora_A: Optional[nn.Parameter] = None,
-        lora_B: Optional[nn.Parameter] = None,
     ):
         super().__init__()
         assert (
@@ -91,17 +83,9 @@ class LoRA(nn.Module):
 
         dtype = getattr(torch, config.dtype) if config.dtype else None
         # Actual trainable parameters
-        self.lora_A = (
-            lora_A
-            if lora_A is not None
-            else nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
-        )
+        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
 
-        self.lora_B = (
-            lora_B
-            if lora_B is not None
-            else nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
-        )
+        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
         self.scaling = self.lora_alpha / self.r
 
         # For compatibility with (IA)^3, allow all init_weights types here.
@@ -163,6 +147,10 @@ class LoRA(nn.Module):
 
         return hidden_states, gate
 
+class MultiProj(nn.Module):
+    def __init__(self, shape):
+        self.shape
+        self.projs = nn.ParameterList([])
 
 class MTLLoRA(LoRA):
     def __init__(
@@ -175,8 +163,20 @@ class MTLLoRA(LoRA):
         lora_B: Optional[nn.Parameter] = None,
     ):
         super().__init__(
-            lora_A_shape, lora_B_shape, config, gating_heads, lora_A, lora_B
+            lora_A_shape,
+            lora_B_shape,
+            config,
+            gating_heads,
         )
+
+        if lora_A is not None:
+            self.lora_A = lora_A
+
+        if lora_B is not None:
+            self.lora_B = lora_B
+        else:
+
+        
 
         self.task_specific = TASK_SPECIFIC_MATRIX_CLS[
             config.task_specific_matrix_type
@@ -323,6 +323,21 @@ class LoRALayer(AdapterLayerBase):
     def _get_lora_shapes(self, config: LoRAConfig):
         raise NotImplementedError()
 
+    def delete_adapter(self, adapter_name: str):
+        lora_config = self.adapters_config.match(
+            adapter_name,
+            config_type=LoRAConfig,
+            layer_idx=self.layer_idx,
+            location_key=self.location_key,
+        )
+
+        if isinstance(lora_config, MTLLoRAConfig):
+            if lora_config.task_names is not None:
+                for task_name in lora_config.task_names:
+                    super().delete_adapter(task_name)
+
+        super().delete_adapter(adapter_name)
+
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
         lora_config = self.adapters_config.match(
@@ -332,9 +347,19 @@ class LoRALayer(AdapterLayerBase):
             location_key=self.location_key,
         )
         if lora_config is not None and self._check_lora_location(lora_config):
+            kwargs = {
+                "config": lora_config,
+                "gating_heads": self.get_n_heads(lora_config),
+            }
             if lora_config.composition_mode == "add":
                 if isinstance(lora_config, MTLLoRAConfig):
                     lora_cls = MTLLoRA
+                    for param in ("lora_A", "lora_B"):
+                        kwargs[param] = (
+                            self.shared_parameters[adapter_name][param]
+                            if adapter_name in self.shared_parameters
+                            else None
+                        )
                 else:
                     lora_cls = LoRA
             elif lora_config.composition_mode == "scale":
@@ -344,21 +369,7 @@ class LoRALayer(AdapterLayerBase):
                     f"Unknown composition_mode: {lora_config.composition_mode}"
                 )
 
-            lora = lora_cls(
-                *self._get_lora_shapes(lora_config),
-                lora_config,
-                gating_heads=self.get_n_heads(lora_config),
-                lora_A=(
-                    self.shared_parameters[adapter_name]["lora_A"]
-                    if adapter_name in self.shared_parameters
-                    else None
-                ),
-                lora_B=(
-                    self.shared_parameters[adapter_name]["lora_B"]
-                    if adapter_name in self.shared_parameters
-                    else None
-                ),
-            )
+            lora = lora_cls(*self._get_lora_shapes(lora_config), **kwargs)
 
             if (
                 isinstance(lora_config, MTLLoRAConfig)

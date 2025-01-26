@@ -871,13 +871,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 "No adapter '%s' found for deletion. Skipping.", adapter_name
             )
             return
-        del self.adapters_config.adapters[adapter_name]
         self.apply_to_adapter_layers(
             lambda i, layer: layer.delete_adapter(adapter_name)
         )
         self.apply_to_basemodel_childs(
             lambda i, child: child.delete_adapter(adapter_name)
         )
+        del self.adapters_config.adapters[adapter_name]
         # PHM Layer
         if adapter_name in self.base_model.shared_parameters:
             del self.base_model.shared_parameters[adapter_name]
