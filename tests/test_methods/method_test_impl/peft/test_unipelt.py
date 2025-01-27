@@ -63,3 +63,6 @@ class UniPELTTestMixin(AdapterMethodBaseTestMixin):
             self.assertGreaterEqual(len(per_layer_scores), 3)
             for k, v in per_layer_scores.items():
                 self.assertEqual(self.input_shape[0], v.shape[0], k)
+
+    def test_unipelt_gradient_checkpointing_single_adapter(self):
+        self.run_gradient_checkpointing_single_adapter_test(UniPELTConfig())
