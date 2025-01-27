@@ -23,14 +23,14 @@ class ConfigUnionAdapterTest(AdapterMethodBaseTestMixin):
         (
             ConfigUnion(
                 CompacterConfig(phm_dim=1),
-                LoRAConfig(),
+                LoRAConfig(init_weights="bert"),
             ),
             ["adapters.{name}.", "loras.{name}."],
         ),
         (
             ConfigUnion(
                 SeqBnConfig(phm_dim=1),
-                LoRAConfig(),
+                LoRAConfig(init_weights="bert"),
             ),
             ["adapters.{name}.", "loras.{name}."],
         ),
