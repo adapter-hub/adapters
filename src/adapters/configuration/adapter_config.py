@@ -421,6 +421,9 @@ class PrefixTuningConfig(AdapterConfig):
         shared_gating (:
             obj:`bool`, optional): Whether to use a shared gate for the prefixes of all attention matrices. Only
             applicable if `use_gating=True`. Defaults to True.
+        init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
+            Important:  set, the seed will be reset for all adapter modules, meaning that all adapter modules will have the same
+            initialization. If not set, the seed will be set once and each adapter module has random weights initialization. Defaults to None.
     """
 
     architecture: Optional[str] = "prefix_tuning"
@@ -436,6 +439,7 @@ class PrefixTuningConfig(AdapterConfig):
     dropout: float = 0.0
     use_gating: bool = False
     shared_gating: bool = True
+    init_weights_seed: Optional[int] = None
 
 
 @dataclass(eq=False)
@@ -454,6 +458,9 @@ class PromptTuningConfig(AdapterConfig):
         combine (str):
             The method used to combine the prompt with the input. Can be either "prefix" or "prefix_after_bos".
             Defaults to "prefix".
+        init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
+            Important:  set, the seed will be reset for all adapter modules, meaning that all adapter modules will have the same
+            initialization. If not set, the seed will be set once and each adapter module has random weights initialization. Defaults to None.
     """
 
     architecture: str = "prompt_tuning"
@@ -463,6 +470,7 @@ class PromptTuningConfig(AdapterConfig):
     prompt_init_text: Optional[str] = None
     random_uniform_scale = 0.5
     combine: str = "prefix"
+    init_weights_seed: Optional[int] = None
 
 
 @dataclass(eq=False)
@@ -561,6 +569,10 @@ class ReftConfig(AdapterConfig):
         dropout (float): The dropout rate used in the intervention layer.
         non_linearity (str): The activation function used in the intervention layer.
         dtype (str, optional): torch dtype for intervention tensors. Defaults to None.
+        init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
+            Important:  set, the seed will be reset for all adapter modules, meaning that all adapter modules will have the same
+            initialization. If not set, the seed will be set once and each adapter module has random weights initialization. Defaults to None.
+
     """
 
     layers: Union[Literal["all"], List[int]]
@@ -577,6 +589,7 @@ class ReftConfig(AdapterConfig):
     architecture: str = "reft"
 
     output_reft: bool = True
+    init_weights_seed: Optional[int] = None
 
 
 @dataclass(eq=False)

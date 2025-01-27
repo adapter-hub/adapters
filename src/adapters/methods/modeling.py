@@ -660,6 +660,10 @@ class PHMLayer(nn.Module):
             return init_W(self.config, W_left, W_right, W)
 
     def reset_parameters(self):
+
+        if self.config.init_weights_seed:
+            fix_seed(self.config.init_weights_seed)
+
         if not self.shared_W_phm:
             self._init_W()
 
