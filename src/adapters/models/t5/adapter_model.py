@@ -2,6 +2,7 @@ import logging
 
 import torch
 
+from transformers.generation import GenerationMixin
 from transformers.models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOCSTRING, T5Model, T5PreTrainedModel
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
@@ -15,7 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 @add_start_docstrings("T5 Model with the option to add multiple flexible prediction heads on top.", T5_START_DOCSTRING)
-class T5AdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, T5PreTrainedModel):
+class T5AdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, T5PreTrainedModel, GenerationMixin
+):
     _tied_weights_keys = [
         "encoder.embed_tokens.weight",
         "decoder.embed_tokens.weight",

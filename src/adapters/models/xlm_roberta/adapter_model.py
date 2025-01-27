@@ -1,3 +1,4 @@
+from transformers.generation import GenerationMixin
 from transformers.models.xlm_roberta.modeling_xlm_roberta import (
     XLM_ROBERTA_INPUTS_DOCSTRING,
     XLM_ROBERTA_START_DOCSTRING,
@@ -17,7 +18,7 @@ from ...wrappers import init
     XLM_ROBERTA_START_DOCSTRING,
 )
 class XLMRobertaAdapterModel(
-    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, XLMRobertaPreTrainedModel
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, XLMRobertaPreTrainedModel, GenerationMixin
 ):
 
     head_types = [
