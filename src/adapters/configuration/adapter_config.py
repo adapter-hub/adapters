@@ -4,6 +4,7 @@ from dataclasses import FrozenInstanceError, asdict, dataclass, field, replace
 from typing import List, Literal, Optional, Union
 
 from torch import fill
+from torch.utils import data
 
 from ..utils import resolve_adapter_config
 
@@ -82,18 +83,17 @@ class AdapterConfig(Mapping):
         Returns the matching config class for the given config dict based on its "architecture" key.
         """
         architecture = config_dict.get("architecture", None)
-        if architecture == "prefix_tuning":
-            cls_new = PrefixTuningConfig
-        elif architecture == "lora":
-            cls_new = LoRAConfig
-        elif architecture == "union":
-            cls_new = ConfigUnion
-        elif architecture == "prompt_tuning":
-            cls_new = PromptTuningConfig
-        elif architecture == "reft":
-            cls_new = ReftConfig
-        else:
-            cls_new = BnConfig
+        arch_to_config = {
+            "prefix_tuning": PrefixTuningConfig,
+            "lora": LoRAConfig,
+            "mtl-lora": MTLLoRAConfig,
+            "mtl-union": MTLConfigUnion,
+            "union": ConfigUnion,
+            "prompt_tuning": PromptTuningConfig,
+            "reft": ReftConfig,
+            None: BnConfig,
+        }
+        cls_new = arch_to_config[architecture]
 
         return cls_new
 
@@ -546,19 +546,50 @@ class IA3Config(LoRAConfig):
 
 
 @dataclass(eq=False)
-class MTLLoRAConfig(LoRAConfig):
-    task_names: Optional[List[str]] = field(default_factory=lambda: [])
+class MTLConfig(AdapterConfig):
+    shared_parameters_name: Optional[str] = None
+
+
+@dataclass(eq=False)
+class MTLLoRAConfig(LoRAConfig, MTLConfig):
+    architecture: Optional[str] = "mtl-lora"
     n_up_projection: int = 1
     task_specific_matrix_type: Literal["singular_values", "linear"] = (
         "singular_values"
     )
+    weights_sharpness: float = 0.05
 
-    def subtask_iterator(self):
-        if self.task_names is not None:
-            for task in self.task_names:
-                config = dict(self)
-                config["task_names"] = None
-                yield task, MTLLoRAConfig(**config)
+
+class MTLConfigUnion(AdapterConfig):
+    architecture: Optional[str] = "mtl-union"
+    base_config: MTLConfig
+    task_names: List[str]
+
+    def __init__(self, base_config: MTLConfig, task_names: List[str]):
+        assert isinstance(
+            base_config, MTLConfig
+        ), f"{base_config.__class__} is not a MTLConfig subclass"
+        self.base_config = base_config
+        self.task_names = task_names
+
+    def to_dict(self):
+        return {
+            "architecture": self.architecture,
+            "base_config": self.base_config.to_dict(),
+            "task_names": self.task_names,
+        }
+
+    @classmethod
+    def from_dict(cls, config):
+        if isinstance(config, AdapterConfig):
+            return config
+
+        config_class = cls._get_config_class(config["base_config"])
+
+        return cls(
+            base_config=config_class.from_dict(config["base_config"]),
+            task_names=config["task_names"],
+        )
 
 
 @dataclass(eq=False)
@@ -815,6 +846,7 @@ ADAPTER_CONFIG_MAP = {
     "prefix_tuning": PrefixTuningConfig(),
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
     "prompt_tuning": PromptTuningConfig(),
+    "mtl_lora": MTLLoRAConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
     "loreft": LoReftConfig(),

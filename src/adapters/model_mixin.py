@@ -18,7 +18,7 @@ from torch.utils.checkpoint import checkpoint
 from adapters.configuration.adapter_config import (
     ConfigUnion,
     LoRAConfig,
-    MTLLoRAConfig,
+    MTLConfigUnion,
 )
 from transformers import GenerationConfig
 from transformers.modeling_outputs import ModelOutput
@@ -31,13 +31,13 @@ from .configuration import (
     AdapterConfig,
     AdapterFusionConfig,
     BnConfig,
-    MTLLoRAConfig,
 )
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
 from .loading import (
     AdapterFusionLoader,
     AdapterLoader,
+    MTLAdaptersLoader,
     PredictionHeadLoader,
     WeightsLoader,
 )
@@ -738,11 +738,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if set_active:
             self.set_active_adapters(adapter_name)
 
-        if isinstance(config, MTLLoRAConfig):
-            for task_name, config in config.subtask_iterator():
+        if isinstance(config, MTLConfigUnion):
+            for task_name in config.task_names:
+                task_config = config.base_config.replace(
+                    shared_parameters_name=adapter_name
+                )
                 self.add_adapter(
                     task_name,
-                    config,
+                    task_config,
                     overwrite_ok=overwrite_ok,
                     set_active=set_active,
                 )
@@ -871,6 +874,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 "No adapter '%s' found for deletion. Skipping.", adapter_name
             )
             return
+
+        # Multi Task Learning Config
+        if isinstance(
+            (config := self.adapters_config.get(adapter_name)), MTLConfigUnion
+        ):
+            for sub_adapter_name in config.task_names:
+                self.delete_adapter(sub_adapter_name)
+
         self.apply_to_adapter_layers(
             lambda i, layer: layer.delete_adapter(adapter_name)
         )
@@ -951,6 +962,33 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
                 weights_loader.save(save_directory, adapter_name)
+
+    def save_mtl_adapters(
+        self,
+        save_directory: str,
+        adapter_name: str,
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
+    ):
+        adapter_config = self.adapters_config.get(adapter_name)
+        assert isinstance(adapter_config, MTLConfigUnion)
+
+        loader = MTLAdaptersLoader(self, use_safetensors=use_safetensors)
+        loader.save(save_directory, adapter_name, meta_dict)
+        # save additional custom weights
+        if custom_weights_loaders:
+            for weights_loader in custom_weights_loaders:
+                weights_loader.save(save_directory, adapter_name)
+
+        for task_name in adapter_config.task_names:
+            self.save_adapter(
+                save_directory=join(save_directory, task_name),
+                adapter_name=task_name,
+                meta_dict=meta_dict,
+                custom_weights_loaders=custom_weights_loaders,
+                use_safetensors=use_safetensors,
+            )
 
     def save_adapter_fusion(
         self,
@@ -1050,6 +1088,44 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     set_active=set_active,
                 )
         return load_name
+
+    def load_mtl_adapters(
+        self,
+        adapter_name_or_path: str,
+        config: Union[dict, str] = None,
+        version: str = None,
+        model_name: str = None,
+        load_as: str = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        leave_out: Optional[List[int]] = None,
+        id2label=None,
+        set_active: bool = False,
+        use_safetensors: bool = False,
+        **kwargs,
+    ) -> List[str]:
+        loader = MTLAdaptersLoader(self, use_safetensors=use_safetensors)
+        load_dir, load_names = loader.load(
+            adapter_name_or_path,
+            config,
+            version,
+            model_name,
+            load_as,
+            leave_out=leave_out,
+            set_active=set_active,
+            **kwargs,
+        )
+        # load additional custom weights
+        if custom_weights_loaders:
+            for weights_loader in custom_weights_loaders:
+                weights_loader.load(
+                    load_dir,
+                    load_as=load_as,
+                    loading_info=kwargs.get("loading_info", None),
+                    main_load_name=load_name,
+                    id2label=id2label,
+                    set_active=set_active,
+                )
+        return load_names
 
     def load_adapter_fusion(
         self,
@@ -2335,6 +2411,33 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
                 )
             )
         super().save_adapter(
+            save_directory,
+            adapter_name,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
+            use_safetensors=use_safetensors,
+        )
+
+    def save_mtl_adapters(
+        self,
+        save_directory: str,
+        adapter_name: str,
+        with_head: bool = True,
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
+    ):
+        if with_head:
+            if custom_weights_loaders is None:
+                custom_weights_loaders = []
+            custom_weights_loaders.append(
+                PredictionHeadLoader(
+                    self,
+                    error_on_missing=False,
+                    use_safetensors=use_safetensors,
+                )
+            )
+        super().save_mtl_adapters(
             save_directory,
             adapter_name,
             meta_dict=meta_dict,

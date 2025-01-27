@@ -11,11 +11,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from adapters.configuration.adapter_config import MTLLoRAConfig
+from adapters.configuration.adapter_config import MTLConfigUnion, MTLLoRAConfig
+from huggingface_hub.utils import sha
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
-from ..composition import Average, BatchSplit, MultiTaskLearning, Parallel, Stack
+from ..composition import (
+    Average,
+    BatchSplit,
+    MultiTaskLearning,
+    Parallel,
+    Stack,
+)
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
 from .utils import dequantize_bnb_weight
@@ -36,7 +43,7 @@ class TaskSpecificSingularValue(nn.Module):
         super().__init__()
         self.rank = rank
         self.dtype = dtype
-        self.values = nn.Parameter(torch.zeros(rank, dtype=dtype))
+        self.values = nn.Parameter(torch.ones(rank, dtype=dtype))
 
     def forward(self):
         return torch.diag(self.values)
@@ -46,7 +53,7 @@ class TaskSpecificLinear(nn.Module):
     def __init__(self, rank: int, dtype: Optional[str] = None):
         self.rank = (rank,)
         self.dtype = dtype
-        self.values = nn.Parameter(torch.zeros(rank, rank, dtype=dtype))
+        self.values = nn.Parameter(torch.ones(rank, rank, dtype=dtype))
 
     def forward(self):
         return self.values
@@ -81,11 +88,11 @@ class LoRA(nn.Module):
         else:
             self.lora_dropout = lambda x: x
 
-        dtype = getattr(torch, config.dtype) if config.dtype else None
+        self.dtype = getattr(torch, config.dtype) if config.dtype else None
         # Actual trainable parameters
-        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
+        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=self.dtype))
 
-        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
+        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=self.dtype))
         self.scaling = self.lora_alpha / self.r
 
         # For compatibility with (IA)^3, allow all init_weights types here.
@@ -147,10 +154,6 @@ class LoRA(nn.Module):
 
         return hidden_states, gate
 
-class MultiProj(nn.Module):
-    def __init__(self, shape):
-        self.shape
-        self.projs = nn.ParameterList([])
 
 class MTLLoRA(LoRA):
     def __init__(
@@ -168,19 +171,35 @@ class MTLLoRA(LoRA):
             config,
             gating_heads,
         )
-
         if lora_A is not None:
             self.lora_A = lora_A
 
         if lora_B is not None:
             self.lora_B = lora_B
         else:
-
-        
+            self.lora_B = nn.Parameter(
+                torch.zeros(
+                    config.n_up_projection, *lora_B_shape, dtype=self.dtype
+                )
+            )
+            if config.init_weights == "lora":
+                nn.init.zeros_(self.lora_B)
+            elif config.init_weights == "bert":
+                nn.init.normal_(self.lora_B, std=0.02)
 
         self.task_specific = TASK_SPECIFIC_MATRIX_CLS[
             config.task_specific_matrix_type
         ](config.r)
+
+        self.weights = nn.Parameter(torch.ones(config.n_up_projection))
+        self.weights_sharpness = config.weights_sharpness
+
+    def apply_weights(self, hidden_states: torch.Tensor):
+        w = (self.weights / self.weights_sharpness).exp()
+        # hidden_states : n_up_projection x bsz x seq_len x dim
+        return torch.sum(
+            ((w[:, None, None, None] * hidden_states) / w.sum()), 0
+        )
 
     def forward(
         self,
@@ -189,12 +208,16 @@ class MTLLoRA(LoRA):
     ):
         if hidden_states is None:
             hidden_states = layer_input
+
         hidden_states = (
             self.lora_dropout(hidden_states)
             @ torch.t(self.lora_A)
             @ self.task_specific()
-            @ torch.t(self.lora_B)
+            @ torch.transpose(self.lora_B.unsqueeze(1), -1, -2)
         )
+        # apply weights
+        hidden_states = self.apply_weights(hidden_states)
+
         if self.use_gating:
             gate = torch.sigmoid(self.gate(layer_input))
             gate = torch.mean(gate, dim=1).unsqueeze(-1)
@@ -323,21 +346,6 @@ class LoRALayer(AdapterLayerBase):
     def _get_lora_shapes(self, config: LoRAConfig):
         raise NotImplementedError()
 
-    def delete_adapter(self, adapter_name: str):
-        lora_config = self.adapters_config.match(
-            adapter_name,
-            config_type=LoRAConfig,
-            layer_idx=self.layer_idx,
-            location_key=self.location_key,
-        )
-
-        if isinstance(lora_config, MTLLoRAConfig):
-            if lora_config.task_names is not None:
-                for task_name in lora_config.task_names:
-                    super().delete_adapter(task_name)
-
-        super().delete_adapter(adapter_name)
-
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
         lora_config = self.adapters_config.match(
@@ -347,17 +355,22 @@ class LoRALayer(AdapterLayerBase):
             location_key=self.location_key,
         )
         if lora_config is not None and self._check_lora_location(lora_config):
+
             kwargs = {
                 "config": lora_config,
                 "gating_heads": self.get_n_heads(lora_config),
             }
+
             if lora_config.composition_mode == "add":
                 if isinstance(lora_config, MTLLoRAConfig):
                     lora_cls = MTLLoRA
                     for param in ("lora_A", "lora_B"):
                         kwargs[param] = (
-                            self.shared_parameters[adapter_name][param]
-                            if adapter_name in self.shared_parameters
+                            self.shared_parameters[
+                                lora_config.shared_parameters_name
+                            ][param]
+                            if lora_config.shared_parameters_name
+                            in self.shared_parameters
                             else None
                         )
                 else:
@@ -373,15 +386,17 @@ class LoRALayer(AdapterLayerBase):
 
             if (
                 isinstance(lora_config, MTLLoRAConfig)
-                and lora_config.task_names
+                and lora_config.shared_parameters_name
+                not in self.shared_parameters
             ):
-                for t in [adapter_name] + lora_config.task_names:
-                    self.shared_parameters[t] = nn.ParameterDict(
+                self.shared_parameters[lora_config.shared_parameters_name] = (
+                    nn.ParameterDict(
                         {
                             "lora_A": lora.lora_A,
                             "lora_B": lora.lora_B,
                         }
                     )
+                )
 
             lora.train(self.training)
             lora = lora.to(self.weight.device)
@@ -389,6 +404,12 @@ class LoRALayer(AdapterLayerBase):
             return True
 
         return False
+
+    def delete_adapter(self, adapter_name: str):
+        if adapter_name in self.shared_parameters:
+            del self.shared_parameters[adapter_name]
+        else:
+            super().delete_adapter(adapter_name)
 
     def average_adapter(
         self,
