@@ -5,13 +5,13 @@ from typing import Callable
 
 import torch
 
+import adapters
 from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
 from adapters.heads import CausalLMHead
 from adapters.utils import WEIGHTS_NAME
 from adapters.wrappers import load_model
 from transformers import TrainingArguments
 from transformers.testing_utils import require_torch, torch_device
-import adapters
 
 from .utils import add_lm_head, create_twin_models
 
