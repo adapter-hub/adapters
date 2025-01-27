@@ -9,7 +9,7 @@ class WhisperAdapterTestBase(AudioAdapterTestBase):
     config_class = WhisperConfig
     config = make_config(
         WhisperConfig,
-        d_model=16,
+        d_model=32,
         encoder_layers=2,
         decoder_layers=2,
         encoder_attention_heads=4,

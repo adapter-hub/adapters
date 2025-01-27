@@ -9,7 +9,7 @@ class PLBartAdapterTestBase(TextAdapterTestBase):
     config_class = PLBartConfig
     config = make_config(
         PLBartConfig,
-        d_model=16,
+        d_model=32,
         encoder_layers=2,
         decoder_layers=2,
         encoder_attention_heads=4,

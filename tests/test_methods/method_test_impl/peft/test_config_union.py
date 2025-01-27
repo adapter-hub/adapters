@@ -22,15 +22,17 @@ class ConfigUnionAdapterTest(AdapterMethodBaseTestMixin):
         ),
         (
             ConfigUnion(
-                CompacterConfig(phm_dim=1),
-                LoRAConfig(init_weights="bert"),
+                CompacterConfig(
+                    reduction_factor=8
+                ),  # set to smaller value than default due to smaller hidden size of test models
+                LoRAConfig(init_weights="bert"),  # set to bert to avoid zero initialization
             ),
             ["adapters.{name}.", "loras.{name}."],
         ),
         (
             ConfigUnion(
                 SeqBnConfig(phm_dim=1),
-                LoRAConfig(init_weights="bert"),
+                LoRAConfig(init_weights="bert"),  # set to bert to avoid zero initialization
             ),
             ["adapters.{name}.", "loras.{name}."],
         ),
