@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+from transformers.generation import GenerationMixin
 from transformers.models.distilbert.modeling_distilbert import (
     DISTILBERT_INPUTS_DOCSTRING,
     DISTILBERT_START_DOCSTRING,
@@ -18,7 +19,7 @@ from ...wrappers import init
     DISTILBERT_START_DOCSTRING,
 )
 class DistilBertAdapterModel(
-    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, DistilBertPreTrainedModel
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, DistilBertPreTrainedModel, GenerationMixin
 ):
     head_types = [
         "classification",

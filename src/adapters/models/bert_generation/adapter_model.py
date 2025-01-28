@@ -1,3 +1,4 @@
+from transformers.generation import GenerationMixin
 from transformers.models.bert_generation.modeling_bert_generation import (
     BERT_GENERATION_INPUTS_DOCSTRING,
     BERT_GENERATION_START_DOCSTRING,
@@ -17,7 +18,7 @@ from ...wrappers import init
     BERT_GENERATION_START_DOCSTRING,
 )
 class BertGenerationAdapterModel(
-    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BertGenerationPreTrainedModel
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BertGenerationPreTrainedModel, GenerationMixin
 ):
     _keys_to_ignore_on_load_unexpected = [r"lm_head.bias"]
 

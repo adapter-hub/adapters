@@ -1,5 +1,6 @@
 import torch
 
+from transformers.generation import GenerationMixin
 from transformers.models.plbart.modeling_plbart import (
     PLBART_INPUTS_DOCSTRING,
     PLBART_START_DOCSTRING,
@@ -18,7 +19,9 @@ from ...wrappers import init
 @add_start_docstrings(
     "PLBART Model with the option to add multiple flexible prediction heads on top.", PLBART_START_DOCSTRING
 )
-class PLBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, PLBartPreTrainedModel):
+class PLBartAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, PLBartPreTrainedModel, GenerationMixin
+):
     _tied_weights_keys = [
         "encoder.embed_tokens.weight",
         "decoder.embed_tokens.weight",

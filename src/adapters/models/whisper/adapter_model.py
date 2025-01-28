@@ -1,6 +1,7 @@
 import torch
 
 from transformers import EncoderDecoderCache, StaticCache
+from transformers.generation import GenerationMixin
 from transformers.models.whisper.modeling_whisper import (
     WHISPER_INPUTS_DOCSTRING,
     WHISPER_START_DOCSTRING,
@@ -19,7 +20,9 @@ from ...wrappers import init
 @add_start_docstrings(
     "WHISPER Model with the option to add multiple flexible prediction heads on top.", WHISPER_START_DOCSTRING
 )
-class WhisperAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, WhisperPreTrainedModel):
+class WhisperAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, WhisperPreTrainedModel, GenerationMixin
+):
     _tied_weights_keys = []
     head_types = ["seq2seq_lm"]
 

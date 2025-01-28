@@ -2,6 +2,7 @@ import logging
 
 import torch
 
+from transformers.generation import GenerationMixin
 from transformers.models.mistral.modeling_mistral import MISTRAL_START_DOCSTRING, MistralModel, MistralPreTrainedModel
 from transformers.utils import add_start_docstrings
 
@@ -25,7 +26,9 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
 """,
     MISTRAL_START_DOCSTRING,
 )
-class MistralAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MistralPreTrainedModel):
+class MistralAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MistralPreTrainedModel, GenerationMixin
+):
     head_types = [
         "classification",
         "multilabel_classification",
