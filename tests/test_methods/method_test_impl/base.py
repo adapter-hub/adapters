@@ -1,380 +1,232 @@
-import copy
-import os
-import tempfile
+import random
 
+import datasets
 import torch
 
-from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
-from adapters.heads import CausalLMHead
-from adapters.utils import WEIGHTS_NAME
-from adapters.wrappers import load_model
-from transformers import TrainingArguments
-from transformers.testing_utils import require_torch, torch_device
-
-from .utils import add_lm_head, create_twin_models
+import adapters
+from adapters import AutoAdapterModel
+from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
+from transformers.testing_utils import torch_device
 
 
-@require_torch
-class AdapterMethodBaseTestMixin:
-    """Implements base test running methods for testing adapter method implementations."""
+class AbstractAdapterTestBase:
+    """Base class for adapter tests. Defines basic functions and attributes with default values which are used in the tests.
+    Model test classes should inherit from this class or subclass and override the attributes and functions as needed.
+    """
 
-    dtypes_to_test = [torch.float32, torch.half] if torch_device == "cuda" else [torch.float32]
+    model_class = AutoAdapterModel
+    tokenizer_name = "tests/fixtures/SiBERT"  # path to default tokenizer config available in the test repo
+    config = None  # specified in the actual model test classes
+    input_shape = ()  # (batch_size, seq_length)
+    leave_out_layers = []
+    do_run_train_tests = True
+    num_labels = 2
 
-    def _assert_adapter_available(self, model, adapter_name):
-        """Check wether the adapter name is present in the model's adapter config and has been created."""
-        self.assertTrue(adapter_name in model.adapters_config)
-        self.assertGreater(len(model.get_adapter(adapter_name)), 0)
+    def get_input_samples(self, shape=None, vocab_size=5000, config=None, **kwargs):
+        """Creates a dummy batch of samples in the format required for the model."""
+        raise NotImplementedError("get_input_samples() must be implemented in the subclass.")
 
-    def _assert_adapter_unavailable(self, model, adapter_name):
-        """Check wether the adapter name is not present in the model's adapter config and has not been created."""
-        self.assertFalse(adapter_name in model.adapters_config)
-        self.assertEqual(len(model.get_adapter(adapter_name)), 0)
+    def add_head(self, model, name, **kwargs):
+        """Adds a dummy head to the model."""
+        raise NotImplementedError("add_head() must be implemented in the subclass.")
 
-    def _filter_parameters(self, model, filter_keys):
-        return {k: v for (k, v) in model.named_parameters() if any([filter_key in k for filter_key in filter_keys])}
+    def get_dataset(self, **kwargs):
+        """Loads a dummy dataset for the model."""
+        raise NotImplementedError("get_dataset() must be implemented in the subclass.")
 
-    def run_add_test(self, model, adapter_config, filter_keys):
-        model.eval()
+    def get_dataset_non_batched(self):
+        """Builds a non-batched dummy dataset for the model."""
+        raise NotImplementedError("build_dummy_dataset() must be implemented in the subclass.")
 
-        name = "test_adapter_" + adapter_config.__class__.__name__
-        model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters(name)
+    def attach_labels(self, inputs):
+        """Attaches labels to the input samples."""
+        raise NotImplementedError("attach_labels() with respective label shape must be implemented in the subclass.")
+
+    def get_model(self):
+        """Builds a model instance for testing based on the provied model configuration."""
+        if self.model_class == AutoAdapterModel:
+            model = AutoAdapterModel.from_config(self.config())
+        else:
+            model = self.model_class(self.config())
+            adapters.init(model)
         model.to(torch_device)
+        return model
 
-        # adapter is correctly added to config
-        self.assertTrue(name in model.adapters_config)
-        self.assertEqual(adapter_config, model.adapters_config.get(name))
+    def build_rand_tensor(self, shape, dtype=torch.float):
+        """Creates a random tensor of the given shape."""
+        total_dims = self._calc_total_dim(shape)
+        values = [random.random() for _ in range(total_dims)]
 
-        # check that weights are available and active
-        has_weights = False
-        filter_keys = [k.format(name=name) for k in filter_keys]
-        for k, v in self._filter_parameters(model, filter_keys).items():
-            has_weights = True
-            self.assertTrue(v.requires_grad, k)
-        self.assertTrue(has_weights)
+        return torch.tensor(data=values, dtype=dtype, device=torch_device).view(shape).contiguous()
 
-        # TODO: for config union tests resetting model should lead to that adapter can be readded with the same name, but currently not working
-        model.set_active_adapters(None)
-        model.delete_adapter(name)
+    def build_rand_ids_tensor(self, shape, vocab_size=5000):
+        """Creates a random tensor of type torch.long with the given shape with random values in range 0 - (vocab_size-1)."""
+        total_dims = self._calc_total_dim(shape)
+        values = [random.randint(0, vocab_size - 1) for _ in range(total_dims)]
+        return torch.tensor(data=values, dtype=torch.long, device=torch_device).view(shape).contiguous()
 
-    def run_leave_out_test(self, model, adapter_config, leave_out):
-        model.eval()
+    def _calc_total_dim(self, shape):
+        total_dims = 1
+        for dim in shape:
+            total_dims *= dim
+        return total_dims
 
-        adapter_config = adapter_config.replace(leave_out=leave_out)
-        name = "test_adapter_" + adapter_config.__class__.__name__
-        model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters(name)
+    def extract_input_ids(self, inputs):
+        # TODO: Check if this is needed in all tests and if it differs between text, vision and speech models
+        return inputs["input_ids"]
 
-        # adapter is correctly added to config
-        self._assert_adapter_available(model, name)
+    def build_generate_input(self, shape):
+        """The generate() functions for inference require different inputs depeding on the model type. E.g. the text models require input_ids, where as the audio models require input_features"""
+        return self.build_rand_ids_tensor(self.input_shape if not shape else shape).to(torch_device)
 
-        adapter = model.get_adapter(name)
 
-        self.assertNotEqual(len(adapter), 0)
-        found_layers = list(adapter.keys())
-        for layer in leave_out:
-            self.assertNotIn(layer, found_layers)
+class TextAdapterTestBase(AbstractAdapterTestBase):
+    """Base class for adapter tests for text models. Text models test classes should inherit from this class and override the attributes and functions as needed."""
 
-        model.delete_adapter(name)
+    input_shape = (3, 64)
+    leave_out_layers = [0, 1]
+    batch_size, seq_length = (
+        input_shape  # TODO: Check in which tests this is needed and if we can simplify by using input_shape
+    )
 
-    def run_linear_average_test(self, model, adapter_config, filter_keys):
-        model.eval()
+    def get_input_samples(self, shape=None, vocab_size=5000, config=None, **kwargs):
+        shape = shape or self.input_shape
+        input_ids = self.build_rand_ids_tensor(shape, vocab_size=vocab_size)
 
-        weights = [-0.2, 0.9, 0.3]
+        # Ensures that only tha last token in each sample is the eos token (needed e.g. for BART)
+        if config and config.eos_token_id is not None and config.eos_token_id < vocab_size:
+            input_ids[input_ids == config.eos_token_id] = random.randint(0, config.eos_token_id - 1)
+            input_ids[:, -1] = config.eos_token_id
+        in_data = {"input_ids": input_ids}
 
-        # add adapters to average
-        name = "test_adapter_" + adapter_config.__class__.__name__
-        for i in range(len(weights)):
-            model.add_adapter(name + f"_{i}", config=adapter_config)
+        # Add decoder input ids for models with a decoder
+        if config and config.is_encoder_decoder:
+            in_data["decoder_input_ids"] = input_ids.clone()
 
-        # collect weighted average of adapter weights
-        averaged_weights = {}
-        for i, w in enumerate(weights):
-            this_filter_keys = [k.format(name=name + f"_{i}") for k in filter_keys]
-            for k, v in self._filter_parameters(model, this_filter_keys).items():
-                base_k = k.replace(name + f"_{i}", name)
-                if base_k not in averaged_weights:
-                    averaged_weights[base_k] = w * v
-                else:
-                    averaged_weights[base_k] += w * v
+        if "num_labels" in kwargs:
+            in_data["labels"] = self.build_rand_ids_tensor(shape[:-1], vocab_size=kwargs["num_labels"])
+        return in_data
 
-        # average adapters
-        model.average_adapter(
-            name, [name + f"_{i}" for i in range(len(weights))], weights=weights, combine_strategy="linear"
+    def add_head(self, model, name, **kwargs):
+        # TODO: Check if this should be more modular
+        model.add_classification_head(name, **kwargs)
+        return model.heads[name].config["num_labels"]
+
+    def get_dataset(self, tokenizer=None):
+        if tokenizer is None:
+            tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+        data_args = GlueDataTrainingArguments(
+            task_name="mrpc", data_dir="./hf_transformers/tests/fixtures/tests_samples/MRPC", overwrite_cache=True
         )
+        return GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
-        # adapter is correctly added to config
-        self.assertTrue(name in model.adapters_config)
-        self.assertEqual(adapter_config, model.adapters_config.get(name))
+    def get_dataset_non_batched(self, config):
+        dataset = []
+        for i in range(3):
+            input_data = self.get_input_samples(config=config)
+            input_data["labels"] = self.build_rand_ids_tensor((3, 1), self.num_labels)
+            dataset.append(input_data)
+        return dataset
 
-        # compare averaged weights to collected weights
-        this_filter_keys = [k.format(name=name) for k in filter_keys]
-        for k, v in self._filter_parameters(model, this_filter_keys).items():
-            self.assertTrue(torch.allclose(v, averaged_weights[k]), k)
+    def attach_labels(self, inputs):
+        inputs["labels"] = torch.randint(0, 2, (self.batch_size, 1), device=torch_device)
+        return inputs
 
-    def run_delete_test(self, model, adapter_config, filter_keys):
-        model.eval()
 
-        name = "test_adapter_" + adapter_config.__class__.__name__
-        model.add_adapter(name, config=adapter_config)
-        model.set_active_adapters(name)
-        model.to(torch_device)
+class VisionAdapterTestBase(AbstractAdapterTestBase):
+    """Base class for adapter tests for vision models. Vision models test classes should inherit from this class and override the attributes and functions as needed."""
 
-        # adapter is correctly added to config
-        self._assert_adapter_available(model, name)
+    input_shape = (3, 3, 224, 224)
+    batch_size = 3
 
-        # remove the adapter again
-        model.delete_adapter(name)
-        self._assert_adapter_unavailable(model, name)
+    def get_input_samples(self, shape=None, config=None, dtype=torch.float, **kwargs):
+        shape = shape or self.input_shape
+        pixel_values = self.build_rand_tensor(shape, dtype=dtype)
+        return {"pixel_values": pixel_values}
 
-        # check that weights are available and active
-        has_weights = False
-        filter_keys = [k.format(name=name) for k in filter_keys]
-        for k, v in self._filter_parameters(model, filter_keys).items():
-            has_weights = True
-        self.assertFalse(has_weights)
+    def add_head(self, model, name, **kwargs):
+        kwargs["num_labels"] = 10 if "num_labels" not in kwargs else kwargs["num_labels"]
+        model.add_image_classification_head(name, **kwargs)
+        return model.heads[name].config["num_labels"]
 
-    def run_get_test(self, model, adapter_config, num_expected_modules):
-        model.eval()
-
-        model.add_adapter("first", config=adapter_config)
-        model.set_active_adapters("first")
-
-        # adapter is correctly added to config
-        name = "first"
-        self._assert_adapter_available(model, name)
-
-        adapter = model.get_adapter("first")
-
-        self.assertNotEqual(len(adapter), 0)
-        num_found_modules = sum([len(layer_modules) for layer_modules in adapter.values()])
-        self.assertEqual(num_expected_modules, num_found_modules)
-
-        model.delete_adapter("first")
-
-    def run_forward_test(self, model, adapter_config, dtype=torch.float32):
-        model.eval()
-
-        name = adapter_config.__class__.__name__
-        # TODO: this defeats the purpose of the test, for the config union tests as only the first config is added
-        if name not in model.adapters_config:
-            model.add_adapter(name, config=adapter_config)
-        model.to(torch_device).to(dtype)
-
-        input_data = self.get_input_samples(config=model.config, dtype=dtype)
-
-        # pass 1: set adapter via property
-        model.set_active_adapters(name)
-        output_1 = model(**input_data)
-
-        # pass 2: set via context
-        # unset and make sure it's unset
-        model.set_active_adapters(None)
-        self.assertEqual(None, model.active_adapters)
-        with AdapterSetup(name):
-            output_2 = model(**input_data)
-
-        # pass 3: base output
-        model.set_active_adapters(None)
-        base_output = model(**input_data)
-
-        self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.equal(output_1[0], output_2[0]))
-        self.assertGreaterEqual(len(output_1), len(base_output))
-        self.assertFalse(torch.equal(output_1[0], base_output[0]))
-
-    def run_load_test(self, adapter_config):
-        model1, model2 = create_twin_models(self.model_class, self.config)
-
-        name = "dummy_adapter"
-        model1.add_adapter(name, config=adapter_config)
-        model1.set_active_adapters(name)
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model1.save_adapter(temp_dir, name)
-
-            # Check that there are actually weights saved
-            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu")
-            self.assertTrue(len(weights) > 0)
-
-            # also tests that set_active works
-            loading_info = {}
-            model2.load_adapter(temp_dir, set_active=True, loading_info=loading_info)
-
-        # check if all weights were loaded
-        self.assertEqual(0, len(loading_info["missing_keys"]))
-        self.assertEqual(0, len(loading_info["unexpected_keys"]))
-
-        # check if adapter was correctly loaded
-        self.assertTrue(name in model2.adapters_config)
-
-        # check equal output
-        input_data = self.get_input_samples(config=model1.config)
-        model1.to(torch_device)
-        model2.to(torch_device)
-        output1 = model1(**input_data)
-        output2 = model2(**input_data)
-        self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
-
-    def run_full_model_load_test(self, adapter_config):
-        model1 = self.get_model()
-        model1.eval()
-
-        name = "dummy"
-        model1.add_adapter(name, config=adapter_config)
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model1.save_pretrained(temp_dir)
-
-            model2, loading_info = load_model(temp_dir, self.model_class, output_loading_info=True)
-
-        # check if all weights were loaded
-        self.assertEqual(0, len(loading_info["missing_keys"]))
-        self.assertEqual(0, len(loading_info["unexpected_keys"]))
-
-        # check if adapter was correctly loaded
-        self.assertTrue(name in model2.adapters_config)
-
-        # check equal output
-        input_data = self.get_input_samples(config=model1.config)
-        model1.to(torch_device)
-        model2.to(torch_device)
-        with AdapterSetup(name):
-            output1 = model1(**input_data)
-            output2 = model2(**input_data)
-        self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
-
-    def trainings_run(self, model, lr=1.0, steps=8):
-        # setup dataset
-        train_dataset = self.get_dataset()
-
-        training_args = TrainingArguments(
-            output_dir="./examples",
-            do_train=True,
-            learning_rate=lr,
-            max_steps=steps,
-            no_cuda=True,
-            per_device_train_batch_size=2,
-            remove_unused_columns=False,
+    def get_dataset(self, feature_extractor=None):
+        dataset = datasets.load_dataset(
+            "./tests/fixtures/samples/cifar10",
+            data_dir="./tests/fixtures/samples/cifar10",
+            split="train",
+            trust_remote_code=True,
         )
+        if feature_extractor is None:
+            feature_extractor = AutoFeatureExtractor.from_pretrained(self.feature_extractor_name)
 
-        # evaluate
-        trainer = AdapterTrainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-        )
-        trainer.train()
+        def transform(example_batch):
+            inputs = feature_extractor([x for x in example_batch["img"]], return_tensors="pt")
+            inputs["labels"] = example_batch["label"]
+            return inputs
 
-    def run_train_test(self, adapter_config, filter_keys):
-        if not self.do_run_train_tests:
-            self.skipTest("Skipping training tests. Set `do_run_train_tests=True` to run them.")
-        if self.config_class not in ADAPTER_MODEL_MAPPING:
-            self.skipTest("Does not support flex heads.")
-        model = AutoAdapterModel.from_config(self.config())
+        dataset = dataset.with_transform(transform)
+        return dataset
 
-        # add two adapters: one will be trained and the other should be frozen
-        model.add_adapter("mrpc", config=adapter_config)
-        model.add_adapter("dummy", config=adapter_config)
-        self.add_head(model, "mrpc")
 
-        self._assert_adapter_available(model, "mrpc")
-        self._assert_adapter_available(model, "dummy")
+class AudioAdapterTestBase(AbstractAdapterTestBase):
+    """Base class for adapter tests for audio models. Audio models test classes should inherit from this class and override the attributes and functions as needed."""
 
-        # train the mrpc adapter -> should be activated & unfreezed
-        model.train_adapter("mrpc")
-        self.assertEqual(set(["mrpc"]), model.active_adapters.flatten())
+    input_shape = (3, 80, 3000)  # (batch_size, n_mels, enc_seq_len)
+    time_window = 3000  # Time window for audio samples
+    seq_length = 80
+    batch_size = 3
 
-        # all weights of the adapter should be activated
-        has_weights = False
-        filter_keys_trained = [k.format(name="mrpc") for k in filter_keys]
-        for k, v in self._filter_parameters(model, filter_keys_trained).items():
-            has_weights = True
-            self.assertTrue(v.requires_grad, k)
-        self.assertTrue(has_weights)
-        # all weights of the adapter not used for training should be frozen
-        filter_keys_untrained = [k.format(name="dummy") for k in filter_keys]
-        for k, v in self._filter_parameters(model, filter_keys_untrained).items():
-            self.assertFalse(v.requires_grad, k)
+    _TASK_DATASET_MAPPING = {
+        # TODO: build global mapping for all tasks and datasets
+        "seq2seq_lm": "./tests/fixtures/audio_datasets/common_voice_encoded",
+        "audio_classification": "./tests/fixtures/audio_datasets/speech_commands_encoded",
+    }
 
-        state_dict_pre = copy.deepcopy(model.state_dict())
+    def add_head(self, model, name, head_type="seq2seq_lm", **kwargs):
+        # TODO: simpify Audio tests by using the same head type for all tests
+        if head_type == "audio_classification":
+            model.add_audio_classification_head(name, **kwargs)
+            return model.heads[name].config["num_labels"]
+        elif head_type == "seq2seq_lm":
+            kwargs.pop("num_labels", 1)  # Remove num_labels from kwargs if present in the tests
+            model.add_seq2seq_lm_head(name, **kwargs)
+            return self.input_shape[1]  # Return the number of mel features
+        else:
+            raise ValueError(f"Head type {head_type} not supported.")
 
-        self.trainings_run(model)
+    def get_input_samples(self, shape=None, config=None, **kwargs):
+        shape = shape or self.input_shape
+        in_data = {"input_features": self.build_rand_tensor(shape, dtype=torch.float)}
 
-        # check that the adapters have changed, but the base model has not
-        adapters_with_change, base_with_change = False, False
-        # check whether the key corresponds to a tied embedding
+        # Add decoder input ids for models with a decoder
+        if config and config.is_encoder_decoder:
+            in_data["decoder_input_ids"] = self.build_rand_ids_tensor((shape[:-1]), vocab_size=config.vocab_size)
+        return in_data
 
-        def has_tied_embeddings(k):
-            tied_embeddings = hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings
-            is_tied_layer = (
-                isinstance(model.heads["mrpc"], CausalLMHead)
-                and "heads.{}.{}.weight".format("mrpc", len(model.heads["mrpc"]._modules) - 1) in k
-            )
-            return tied_embeddings and is_tied_layer
+    def get_dataset(self, task_type: str = "seq2seq_lm", **kwargs):
+        # Dataset is already processed and saved to disk, to save time during testing
+        # Preparation script can be found in tests/fixtures/audio_datasets/respective_prepare_script.py
+        dataset_path = self._TASK_DATASET_MAPPING[task_type]
+        dataset = datasets.load_from_disk(dataset_path)
+        return dataset["train"]
 
-        for (k1, v1), (k2, v2) in zip(state_dict_pre.items(), model.state_dict().items()):
-            # move both to the same device to avoid device mismatch errors
-            v1, v2 = v1.to(v2.device), v2
-            if "mrpc" in k1 and not has_tied_embeddings(k1):
-                adapters_with_change |= not torch.equal(v1, v2)
-            else:
-                base_with_change |= not torch.equal(v1, v2)
-        self.assertTrue(adapters_with_change)
-        self.assertFalse(base_with_change)
+    def extract_input_ids(self, inputs):
+        return inputs["input_features"]
 
-    def run_merge_test(self, adapter_config):
-        model = self.get_model()
-        model.eval()
-        model.add_adapter("test_lora", config=adapter_config)
-        model.to(torch_device)
+    def build_generate_input(self, shape):
+        return self.build_rand_tensor(self.input_shape if not shape else shape, dtype=torch.float)
 
-        input_data = self.get_input_samples(config=model.config)
+    def attach_labels(self, inputs):
+        inputs["labels"] = torch.randint(0, 2, (self.batch_size, self.seq_length), device=torch_device)
+        return inputs
 
-        # forward in training mode
-        model.set_active_adapters("test_lora")
-        output_1 = model(**input_data)
-
-        # forward in merged mode
-        model.set_active_adapters(None)
-        model.merge_adapter("test_lora")
-        model.to(torch_device)
-        model.eval()
-        output_2 = model(**input_data)
-
-        # check forward pass
-        self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))
-
-    def run_reset_test(self, adapter_config):
-        model = self.get_model()
-        model.eval()
-        model.add_adapter("test_lora", config=adapter_config)
-        model.to(torch_device)
-
-        input_data = self.get_input_samples(config=model.config)
-
-        # before merging
-        output_1 = model(**input_data)
-
-        # merge & reset
-        model.merge_adapter("test_lora")
-        model.reset_adapter()
-
-        # after merging
-        output_2 = model(**input_data)
-
-        # check forward pass
-        self.assertEqual(len(output_1), len(output_2))
-        self.assertTrue(torch.allclose(output_1[0], output_2[0], atol=1e-3))
-
-    def run_generate_test(self, adapter_config, max_new_tokens=32):
-
-        model = self.get_model()
-        model.add_adapter("generate", config=adapter_config)
-        add_lm_head(self.config_class, model, "generate")
-        model.set_active_adapters("generate")
-        model.to(torch_device)
-        generate_input = self.build_generate_input(self.input_shape).to(torch_device)
-        generated = model.generate(generate_input, max_new_tokens=max_new_tokens)
-        self.assertLessEqual(generated.shape, (self.input_shape[0], self.input_shape[1] + max_new_tokens))
+    def get_dataset_non_batched(self, config):
+        dataset_batched = self.get_dataset()
+        dataset = [{} for _ in range(len(dataset_batched))]
+        # For non-batched training, we need to wrap the samples by an additional dimension
+        for i in range(len(dataset_batched)):
+            for key, value in dataset_batched[i].items():
+                dataset[i][key] = torch.unsqueeze(value, 0)
+        return dataset

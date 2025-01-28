@@ -1,6 +1,12 @@
-from transformers.models.llama.configuration_llama import LlamaConfig
+import unittest
 
-from .generator import *
+from transformers.models.llama.configuration_llama import LlamaConfig
+from transformers.testing_utils import require_torch
+
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.core.test_adapter_conversion import ModelClassConversionTestMixin
+from .method_test_impl.utils import make_config
 
 
 class LlamaAdapterTestBase(TextAdapterTestBase):
@@ -17,7 +23,7 @@ class LlamaAdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "openlm-research/open_llama_13b"
 
 
-method_tests = generate_method_tests(LlamaAdapterTestBase, excluded_tests=["PromptTuning"])
+method_tests = generate_method_tests(LlamaAdapterTestBase, not_supported=["PromptTuning"])
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

@@ -1,16 +1,15 @@
 import unittest
+from math import ceil
+
+import pytest
 
 from transformers import AlbertConfig
+from transformers.testing_utils import require_torch
 
-from .generator import (
-    PredictionHeadModelTestMixin,
-    TextAdapterTestBase,
-    ceil,
-    generate_method_tests,
-    make_config,
-    pytest,
-    require_torch,
-)
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.heads.test_adapter_heads import PredictionHeadModelTestMixin
+from .method_test_impl.utils import make_config
 
 
 class AlbertAdapterTestBase(TextAdapterTestBase):
@@ -30,7 +29,7 @@ class AlbertAdapterTestBase(TextAdapterTestBase):
     leave_out_layers = [0]
 
 
-method_tests = generate_method_tests(AlbertAdapterTestBase)
+method_tests = generate_method_tests(AlbertAdapterTestBase, not_supported=["Heads"])
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class
@@ -43,6 +42,7 @@ class Heads(
     PredictionHeadModelTestMixin,
     unittest.TestCase,
 ):
+
     def test_context_simple(self):
         expected_number_of_adapter_calls = ceil(self.config().num_hidden_layers / self.config().num_hidden_groups)
         super().test_context_simple(expected_number_of_adapter_calls=expected_number_of_adapter_calls)

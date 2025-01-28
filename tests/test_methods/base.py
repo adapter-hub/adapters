@@ -5,14 +5,7 @@ import torch
 
 import adapters
 from adapters import AutoAdapterModel
-from transformers import (
-    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-    MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING,
-    AutoFeatureExtractor,
-    AutoTokenizer,
-    GlueDataset,
-    GlueDataTrainingArguments,
-)
+from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
 from transformers.testing_utils import torch_device
 
 
@@ -82,10 +75,6 @@ class AbstractAdapterTestBase:
         # TODO: Check if this is needed in all tests and if it differs between text, vision and speech models
         return inputs["input_ids"]
 
-    def get_conversion_model(self):
-        """Returns the respective conversion class of the adapter model for the conversion tests."""
-        raise NotImplementedError("get_conversion_model() must be implemented in the subclass.")
-
     def build_generate_input(self, shape):
         """The generate() functions for inference require different inputs depeding on the model type. E.g. the text models require input_ids, where as the audio models require input_features"""
         return self.build_rand_ids_tensor(self.input_shape if not shape else shape).to(torch_device)
@@ -144,13 +133,6 @@ class TextAdapterTestBase(AbstractAdapterTestBase):
     def attach_labels(self, inputs):
         inputs["labels"] = torch.randint(0, 2, (self.batch_size, 1), device=torch_device)
         return inputs
-
-    def get_conversion_model(self):
-        label_dict = {}
-        model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
-        label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
-        label_dict["decoder_input_ids"] = label_dict["labels"].clone()
-        return model, label_dict
 
 
 class VisionAdapterTestBase(AbstractAdapterTestBase):
@@ -232,16 +214,6 @@ class AudioAdapterTestBase(AbstractAdapterTestBase):
 
     def extract_input_ids(self, inputs):
         return inputs["input_features"]
-
-    def get_conversion_model(self):
-        label_dict = {}
-        model = MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING[self.config_class](self.config())
-        label_dict["input_features"] = torch.randn((self.input_shape), dtype=torch.float32, device=torch_device)
-        label_dict["decoder_input_ids"] = torch.randint(
-            0, model.config.vocab_size, size=self.input_shape[:-1], device=torch_device
-        )
-        label_dict["labels"] = label_dict["decoder_input_ids"]
-        return model, label_dict
 
     def build_generate_input(self, shape):
         return self.build_rand_tensor(self.input_shape if not shape else shape, dtype=torch.float)

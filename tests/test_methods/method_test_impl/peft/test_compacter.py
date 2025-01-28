@@ -1,4 +1,4 @@
-from adapters import ADAPTER_MODEL_MAPPING, CompacterPlusPlusConfig
+from adapters import CompacterPlusPlusConfig
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch
 
@@ -50,9 +50,4 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
         self.run_train_test(self.default_config, ["adapters.{name}."])
 
     def test_compacter_generate(self):
-        if self.config_class not in ADAPTER_MODEL_MAPPING or (
-            "seq2seq_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
-            and "causal_lm" not in ADAPTER_MODEL_MAPPING[self.config_class].head_types
-        ):
-            self.skipTest("No seq2seq or causal language model head")
-        self.run_generate_test(self.default_config)
+        self.run_generate_test(CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8))

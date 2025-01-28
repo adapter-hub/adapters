@@ -1,6 +1,8 @@
 from transformers import BartConfig
 
-from .generator import *
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 class BartAdapterTestBase(TextAdapterTestBase):
@@ -18,7 +20,9 @@ class BartAdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "facebook/bart-base"
 
 
-method_tests = generate_method_tests(BartAdapterTestBase, excluded_tests=["PromptTuning"])
+method_tests = generate_method_tests(
+    BartAdapterTestBase, not_supported=["PromptTuning"], redundant=["ConfigUnion", "Embeddings"]
+)
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

@@ -1,13 +1,15 @@
 from transformers import PLBartConfig
 
-from .generator import *
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 class PLBartAdapterTestBase(TextAdapterTestBase):
     config_class = PLBartConfig
     config = make_config(
         PLBartConfig,
-        d_model=16,
+        d_model=32,
         encoder_layers=2,
         decoder_layers=2,
         encoder_attention_heads=4,
@@ -19,7 +21,7 @@ class PLBartAdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "uclanlp/plbart-base"
 
 
-method_tests = generate_method_tests(PLBartAdapterTestBase, excluded_tests=["PromptTuning"])
+method_tests = generate_method_tests(PLBartAdapterTestBase, not_supported=["PromptTuning"])
 
 for test_name, test_class in method_tests.items():
     globals()[test_name] = test_class

@@ -1,6 +1,9 @@
 from transformers import T5Config
+from transformers.testing_utils import require_torch
 
-from .generator import *
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 @require_torch
@@ -20,6 +23,6 @@ class T5AdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "t5-base"
 
 
-method_tests = generate_method_tests(T5AdapterTestBase, excluded_tests=["ConfigUnion", "PromptTuning"])
+method_tests = generate_method_tests(T5AdapterTestBase, not_supported=["ConfigUnion", "PromptTuning"])
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

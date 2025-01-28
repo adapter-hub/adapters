@@ -37,7 +37,7 @@ class ModelClassConversionTestMixin:
         ):
             self.skipTest("Skipping as base model classes are different.")
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             static_model.save_head(temp_dir)
 
             loading_info = {}
@@ -103,14 +103,26 @@ class ModelClassConversionTestMixin:
             label_dict["decoder_input_ids"] = label_dict["labels"].clone()
         self.run_test(model, label_dict=label_dict)
 
-    def test_conversion_seq2seq_lm_model(self):
-        if (
-            self.config_class not in MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING
-            and self.config_class not in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING
-        ):
+    def test_conversion_audio_seq2seq_lm_model(self):
+        if self.config_class not in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING:
             self.skipTest("No seq2seq language modeling class.")
+        label_dict = {}
+        model = MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING[self.config_class](self.config())
+        label_dict["input_features"] = torch.randn((self.input_shape), dtype=torch.float32, device=torch_device)
+        label_dict["decoder_input_ids"] = torch.randint(
+            0, model.config.vocab_size, size=self.input_shape[:-1], device=torch_device
+        )
+        label_dict["labels"] = label_dict["decoder_input_ids"]
+        adapters.init(model)
+        self.run_test(model, label_dict=label_dict)
 
-        model, label_dict = self.get_conversion_model()
+    def test_conversion_text_seq2seq_lm_model(self):
+        if self.config_class not in MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING:
+            self.skipTest("No seq2seq language modeling class.")
+        label_dict = {}
+        model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
+        label_dict["labels"] = torch.zeros((self.batch_size, self.seq_length), dtype=torch.long, device=torch_device)
+        label_dict["decoder_input_ids"] = label_dict["labels"].clone()
         adapters.init(model)
         self.run_test(model, label_dict=label_dict)
 
@@ -177,7 +189,7 @@ class ModelClassConversionTestMixin:
         static_model.eval()
         flex_model.eval()
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             static_model.save_adapter(temp_dir, "dummy")
 
             loading_info = {}
@@ -204,7 +216,7 @@ class ModelClassConversionTestMixin:
         adapters.init(static_head_model)
         static_head_model.eval()
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             static_head_model.save_pretrained(temp_dir)
 
             flex_head_model, loading_info = AutoAdapterModel.from_pretrained(temp_dir, output_loading_info=True)

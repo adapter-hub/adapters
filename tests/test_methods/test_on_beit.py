@@ -1,6 +1,8 @@
 from transformers import BeitConfig
 
-from .generator import VisionAdapterTestBase, generate_method_tests, make_config
+from .base import VisionAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 class BeitAdapterTestBase(VisionAdapterTestBase):
@@ -16,7 +18,7 @@ class BeitAdapterTestBase(VisionAdapterTestBase):
     feature_extractor_name = "microsoft/beit-base-patch16-224-pt22k"
 
 
-method_tests = generate_method_tests(BeitAdapterTestBase, excluded_tests=["Composition", "Embeddings"])
+method_tests = generate_method_tests(BeitAdapterTestBase, not_supported=["Composition", "Embeddings"])
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

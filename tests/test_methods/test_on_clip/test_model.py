@@ -1,7 +1,11 @@
 import random
 
-from tests.test_methods.generator import *
+import torch
+
+from tests.test_methods.base import TextAdapterTestBase
+from tests.test_methods.generator import generate_method_tests
 from transformers import CLIPConfig, CLIPTextConfig, CLIPVisionConfig
+from transformers.testing_utils import torch_device
 
 
 class CLIPAdapterTestBase(TextAdapterTestBase):
@@ -71,7 +75,7 @@ class CLIPAdapterTestBase(TextAdapterTestBase):
 
 method_tests = generate_method_tests(
     model_test_base=CLIPAdapterTestBase,
-    excluded_tests=["Embeddings", "Heads", "Composition", "ClassConversion", "PromptTuning", "ConfigUnion"],
+    not_supported=["Embeddings", "Heads", "Composition", "ClassConversion", "PromptTuning", "ConfigUnion"],
 )
 
 

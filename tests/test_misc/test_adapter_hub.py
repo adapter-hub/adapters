@@ -78,7 +78,7 @@ class AdapterHubTest(unittest.TestCase):
                     overwrite_cache=True,
                 )
                 eval_dataset = GlueDataset(data_args, tokenizer=tokenizer, mode="dev")
-                training_args = TrainingArguments(output_dir="./examples", no_cuda=True)
+                training_args = TrainingArguments(output_dir="./examples", use_cpu=True)
 
                 # evaluate
                 trainer = Trainer(

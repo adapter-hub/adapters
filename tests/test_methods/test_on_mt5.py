@@ -1,6 +1,9 @@
 from transformers import MT5Config
+from transformers.testing_utils import require_torch
 
-from .generator import *
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+from .method_test_impl.utils import make_config
 
 
 @require_torch
@@ -20,7 +23,7 @@ class MT5AdapterTestBase(TextAdapterTestBase):
     tokenizer_name = "google/mt5-base"
 
 
-method_tests = generate_method_tests(MT5AdapterTestBase, excluded_tests=["PromptTuning", "ConfigUnion"])
+method_tests = generate_method_tests(MT5AdapterTestBase, not_supported=["PromptTuning", "ConfigUnion"])
 
 for test_name, test_class in method_tests.items():
     globals()[test_name] = test_class

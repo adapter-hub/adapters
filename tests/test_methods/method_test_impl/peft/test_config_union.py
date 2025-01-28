@@ -16,39 +16,48 @@ class ConfigUnionAdapterTest(AdapterMethodBaseTestMixin):
         (
             ConfigUnion(
                 PrefixTuningConfig(),
-                ParBnConfig(phm_dim=1),
+                ParBnConfig(),
             ),
             ["adapters.{name}.", "prefix_tunings.{name}."],
         ),
         (
             ConfigUnion(
-                CompacterConfig(phm_dim=1),
-                LoRAConfig(),
+                CompacterConfig(
+                    reduction_factor=8
+                ),  # set to smaller value than default due to smaller hidden size of test models
+                LoRAConfig(init_weights="bert"),  # set to bert to avoid zero initialization
             ),
             ["adapters.{name}.", "loras.{name}."],
         ),
         (
             ConfigUnion(
                 SeqBnConfig(phm_dim=1),
-                LoRAConfig(),
+                LoRAConfig(init_weights="bert"),  # set to bert to avoid zero initialization
             ),
             ["adapters.{name}.", "loras.{name}."],
         ),
     ]
 
     def test_add_union_adapter(self):
-        # TODO: Discuss, why old tests were not working properly (could not work because we would add three times the same adapter name)
-        # TODO: Discuss why these config unions are not working properly (must set phm_dim=1)
+        model = self.get_model()
+        model.eval()
         for adapter_config, filter_keys in self.adapter_configs_to_test:
-            model = self.get_model()
-            model.eval()
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            config = (
+                "ConfigUnion: "
+                + adapter_config.configs[0].__class__.__name__
+                + adapter_config.configs[1].__class__.__name__
+            )
+            with self.subTest(model_class=model.__class__.__name__, config=config):
                 self.run_add_test(model, adapter_config, filter_keys)
 
     def test_union_adapter_forward(self):
         model = self.get_model()
         model.eval()
-
         for adapter_config, _ in self.adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            config = (
+                "ConfigUnion: "
+                + adapter_config.configs[0].__class__.__name__
+                + adapter_config.configs[1].__class__.__name__
+            )
+            with self.subTest(model_class=model.__class__.__name__, config=config):
                 self.run_forward_test(model, adapter_config)
