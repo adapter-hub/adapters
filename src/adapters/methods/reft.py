@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 
 import torch
@@ -7,6 +8,9 @@ from ..configuration.adapter_config import ReftConfig
 from ..context import ForwardContext
 from .adapter_layer_base import AdapterLayerBase
 from .modeling import Activation_Function_Class
+
+
+logger = logging.getLogger(__name__)
 
 
 class ReftUnit(nn.Module):
@@ -26,6 +30,13 @@ class ReftUnit(nn.Module):
 
         projection = nn.Linear(in_dim, r_dim, bias=False, dtype=dtype)
         if orthogonal:
+            # orthogonal is not implemented for half precision
+            if dtype in [torch.float16, torch.bfloat16]:
+                logger.warning(
+                    "Orthogonal parametrization is not supported for half precision dtypes. Converting REFT projection layer to float32.",
+                    UserWarning,
+                )
+                projection = projection.to(dtype=torch.float32)
             self.projection = nn.utils.parametrizations.orthogonal(projection)
         else:
             self.projection = projection
@@ -93,19 +104,18 @@ class ReftModule(nn.Module):
                 )
             # create indexing matrices for prefixes & suffixes
             if self.prefix_positions > 0:
+                real_pref_len = min(self.prefix_positions, hidden_states.size(1))
                 pref_idx = first_non_padding.view(-1, 1, 1) + (
-                    torch.arange(self.prefix_positions)
-                    .unsqueeze(-1)
-                    .expand(bsz, self.prefix_positions, ddim)
-                    .to(hidden_states.device)
+                    torch.arange(real_pref_len).unsqueeze(-1).expand(bsz, real_pref_len, ddim).to(hidden_states.device)
                 )
                 # Cache for next layer
                 context.pref_idx = pref_idx
             if self.suffix_positions > 0:
+                real_suff_len = min(self.suffix_positions, hidden_states.size(1))
                 suff_idx = last_non_padding.view(-1, 1, 1) + (
-                    torch.arange(-self.suffix_positions, 0)
+                    torch.arange(-real_suff_len, 0)
                     .unsqueeze(-1)
-                    .expand(bsz, self.suffix_positions, ddim)
+                    .expand(bsz, real_suff_len, ddim)
                     .to(hidden_states.device)
                 )
                 context.suff_idx = suff_idx
@@ -131,7 +141,7 @@ class ReftModule(nn.Module):
         context = ForwardContext.get_context()
 
         # merge prefix, suffix and adapted states
-        adapted_output = torch.cat(adapted_states, dim=1)
+        adapted_output = torch.cat(adapted_states, dim=1).to(hidden_states.dtype)
 
         if self.prefix_positions > 0:
             hidden_states = torch.scatter(

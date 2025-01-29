@@ -1,3 +1,4 @@
+from transformers.generation import GenerationMixin
 from transformers.models.electra.modeling_electra import (
     ELECTRA_INPUTS_DOCSTRING,
     ELECTRA_START_DOCSTRING,
@@ -16,7 +17,9 @@ from ...wrappers import init
     """Electra Model transformer with the option to add multiple flexible heads on top.""",
     ELECTRA_START_DOCSTRING,
 )
-class ElectraAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, ElectraPreTrainedModel):
+class ElectraAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, ElectraPreTrainedModel, GenerationMixin
+):
 
     head_types = [
         "classification",

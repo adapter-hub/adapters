@@ -1,5 +1,6 @@
 import torch
 
+from transformers.generation import GenerationMixin
 from transformers.models.mbart.modeling_mbart import (
     MBART_INPUTS_DOCSTRING,
     MBART_START_DOCSTRING,
@@ -19,7 +20,9 @@ from ...wrappers import init
 @add_start_docstrings(
     "MBART Model with the option to add multiple flexible prediction heads on top.", MBART_START_DOCSTRING
 )
-class MBartAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MBartPreTrainedModel):
+class MBartAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MBartPreTrainedModel, GenerationMixin
+):
     _tied_weights_keys = [
         "encoder.embed_tokens.weight",
         "decoder.embed_tokens.weight",
