@@ -7,6 +7,7 @@ from transformers.models.mistral.modeling_mistral import MISTRAL_START_DOCSTRING
 from transformers.utils import add_start_docstrings
 
 from ...composition import adjust_tensors_for_parallel
+from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
@@ -51,6 +52,7 @@ class MistralAdapterModel(
         self.device_map = None
         self.post_init()
 
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -63,8 +65,6 @@ class MistralAdapterModel(
         output_hidden_states=None,
         return_dict=None,
         head=None,
-        output_adapter_gating_scores=False,
-        output_adapter_fusion_attentions=False,
         **kwargs,
     ):
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
@@ -73,7 +73,7 @@ class MistralAdapterModel(
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs, context = self.model(
+        outputs = self.model(
             input_ids,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
@@ -83,14 +83,7 @@ class MistralAdapterModel(
             output_attentions=output_attentions,
             return_dict=return_dict,
             output_hidden_states=output_hidden_states,
-            output_adapter_gating_scores=output_adapter_gating_scores,
-            output_adapter_fusion_attentions=output_adapter_fusion_attentions,
-            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
-            output_context=True,
         )
-        # required e.g. for prompt tuning in all models
-        kwargs["context"] = context
-
         batch_size = outputs[0].shape[0]
 
         if self.config.pad_token_id is None:
