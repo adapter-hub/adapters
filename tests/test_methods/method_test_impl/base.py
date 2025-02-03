@@ -6,7 +6,7 @@ from typing import Callable
 import torch
 
 import adapters
-from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
+from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer
 from adapters.heads import CausalLMHead
 from adapters.utils import WEIGHTS_NAME
 from adapters.wrappers import load_model
@@ -251,18 +251,6 @@ class AdapterMethodBaseTestMixin:
             output2 = model2(**input_data)
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
-
-    def _init_model_for_train_run(self, trained_adapter_name, frozen_adapter_name, adapter_config=None):
-        if self.config_class not in ADAPTER_MODEL_MAPPING:
-            self.skipTest("Does not support flex heads.")
-        model = AutoAdapterModel.from_config(self.config())
-
-        # add two adapters: one will be trained and the other should be frozen
-        model.add_adapter(trained_adapter_name, config=adapter_config)
-        model.add_adapter(frozen_adapter_name, config=adapter_config)
-        self.add_head(model, trained_adapter_name)
-
-        return model
 
     def trainings_run(self, model, lr=1.0, steps=8, batch_size=2, gradient_accumulation_steps=1):
         # setup dataset
