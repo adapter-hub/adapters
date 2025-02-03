@@ -185,7 +185,7 @@ class DoRA(nn.Module):
         gating_heads: int = 1,
     ):
         super().__init__()
-        assert config.composition_mode == "add", "DoRA module only supports composition_mode='scale'."
+        assert config.composition_mode == "dora", "DoRA module only supports composition_mode='dora'."
         self.r = config.r
         self.lora_alpha = config.alpha
         self.composition_mode = config.composition_mode
