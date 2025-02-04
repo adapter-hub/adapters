@@ -280,9 +280,11 @@ class LoRALayer(AdapterLayerBase):
         )
         if lora_config is not None and self._check_lora_location(lora_config):
             if lora_config.composition_mode == "add":
-                lora_cls = DoRA
+                lora_cls = LoRA
             elif lora_config.composition_mode == "scale":
                 lora_cls = IA3
+            elif lora_config.composition_mode == "dora":
+                lora_cls = DoRA
             else:
                 raise ValueError(f"Unknown composition_mode: {lora_config.composition_mode}")
             lora = lora_cls(
