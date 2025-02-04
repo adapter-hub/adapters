@@ -61,7 +61,7 @@ _deps = [
     "timeout-decorator",
     "torch",
     "torchvision",
-    "transformers~=4.46.3",
+    "transformers~=4.47.1",
 ]
 
 
@@ -142,7 +142,7 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="1.1.0.dev0",
+    version="1.1.0",
     author="The AdapterHub team and community contributors",
     author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
@@ -155,7 +155,7 @@ setup(
     packages=find_packages("src"),
     zip_safe=False,
     extras_require=extras,
-    python_requires=">=3.8.0",
+    python_requires=">=3.9.0",
     install_requires=install_requires,
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -165,9 +165,10 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
 )

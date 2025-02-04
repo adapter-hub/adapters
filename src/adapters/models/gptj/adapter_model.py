@@ -2,6 +2,7 @@ import logging
 
 import torch
 
+from transformers.generation import GenerationMixin
 from transformers.models.gptj.modeling_gptj import GPTJ_START_DOCSTRING, GPTJModel, GPTJPreTrainedModel
 from transformers.utils import add_start_docstrings
 
@@ -25,7 +26,9 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
 """,
     GPTJ_START_DOCSTRING,
 )
-class GPTJAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPTJPreTrainedModel):
+class GPTJAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPTJPreTrainedModel, GenerationMixin
+):
     head_types = [
         "classification",
         "multilabel_classification",

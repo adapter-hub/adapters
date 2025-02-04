@@ -1,3 +1,4 @@
+from transformers.generation import GenerationMixin
 from transformers.models.roberta.modeling_roberta import (
     ROBERTA_INPUTS_DOCSTRING,
     ROBERTA_START_DOCSTRING,
@@ -16,7 +17,9 @@ from ...wrappers import init
     """Roberta Model transformer with the option to add multiple flexible heads on top.""",
     ROBERTA_START_DOCSTRING,
 )
-class RobertaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, RobertaPreTrainedModel):
+class RobertaAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, RobertaPreTrainedModel, GenerationMixin
+):
     head_types = [
         "classification",
         "multilabel_classification",

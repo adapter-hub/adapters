@@ -3,6 +3,7 @@ from typing import Optional
 
 import torch
 
+from transformers.generation import GenerationMixin
 from transformers.models.llama.modeling_llama import LLAMA_START_DOCSTRING, LlamaModel, LlamaPreTrainedModel
 from transformers.utils import add_start_docstrings
 
@@ -26,7 +27,9 @@ it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead 
 """,
     LLAMA_START_DOCSTRING,
 )
-class LlamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, LlamaPreTrainedModel):
+class LlamaAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, LlamaPreTrainedModel, GenerationMixin
+):
     head_types = [
         "classification",
         "multilabel_classification",

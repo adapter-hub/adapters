@@ -16,12 +16,14 @@
 
 import torch
 import torch.utils.checkpoint
+from torch import nn
 
 from transformers.models.deberta_v2.modeling_deberta_v2 import (
+    DebertaV2Embeddings,
     DebertaV2Output,
     DebertaV2SelfOutput,
     DisentangledSelfAttention,
-    XSoftmax,
+    scaled_size_sqrt,
 )
 
 from ...composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
@@ -46,6 +48,60 @@ class DebertaV2OutputWithAdapters(BertOutputAdaptersMixin, DebertaV2Output):
         hidden_states = self.dropout(hidden_states)
         hidden_states = self.bottleneck_layer_forward(hidden_states, input_tensor, self.LayerNorm)
         return hidden_states
+
+
+# Copied from transformers.models.deberta.modeling_deberta.DebertaEmbeddings with DebertaLayerNorm->LayerNorm,Deberta->DebertaV2
+class DebertaV2EmbeddingsWithAdapters(DebertaV2Embeddings):
+    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, mask=None, inputs_embeds=None):
+        if input_ids is not None:
+            input_shape = input_ids.size()
+        else:
+            input_shape = inputs_embeds.size()[:-1]
+
+        seq_length = input_shape[1]
+
+        if position_ids is None:
+            position_ids = self.position_ids[:, :seq_length]
+
+        if token_type_ids is None:
+            token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=self.position_ids.device)
+
+        if inputs_embeds is None:
+            inputs_embeds = self.word_embeddings(input_ids)
+
+        if self.position_embeddings is not None:
+            position_embeddings = self.position_embeddings(position_ids.long())
+        else:
+            position_embeddings = torch.zeros_like(inputs_embeds)
+
+        embeddings = inputs_embeds
+        if self.position_biased_input:
+            # >>> START AH Changes <<<
+            # HuggingFace uses += instead of + which leads to a bug when using model.enable_input_require_grads. Once this is fixed, we can remove DebertaV2EmbeddingsWithAdapters.
+            embeddings = embeddings + position_embeddings
+            # >>> END AH Changes <<<
+        if self.token_type_embeddings is not None:
+            token_type_embeddings = self.token_type_embeddings(token_type_ids)
+            # >>> START AH Changes <<<
+            embeddings = embeddings + token_type_embeddings
+            # >>> END AH Changes <<<
+
+        if self.embed_proj is not None:
+            embeddings = self.embed_proj(embeddings)
+
+        embeddings = self.LayerNorm(embeddings)
+
+        if mask is not None:
+            if mask.dim() != embeddings.dim():
+                if mask.dim() == 4:
+                    mask = mask.squeeze(1).squeeze(1)
+                mask = mask.unsqueeze(2)
+            mask = mask.to(embeddings.dtype)
+
+            embeddings = embeddings * mask
+
+        embeddings = self.dropout(embeddings)
+        return embeddings
 
 
 class DisentangledSelfAttentionWithAdapters(DebertaV2SelfAttentionAdaptersMixin, DisentangledSelfAttention):
@@ -90,11 +146,15 @@ class DisentangledSelfAttentionWithAdapters(DebertaV2SelfAttentionAdaptersMixin,
                 The embedding of relative distances. It's a tensor of shape [\\(2 \\times
                 \\text{max_relative_positions}\\), *hidden_size*].
         """
+        # >>> START AH Changes <<<
         attention_mask = prefix_attention_mask(attention_mask, dim=3, prefix_value=1)  # type: ignore
         attention_mask = prefix_attention_mask(attention_mask, dim=2, prefix_value=1)  # type: ignore
+        # >>> END AH Changes <<<
 
         if query_states is None:
             query_states = hidden_states
+
+        # >>> START AH Changes <<<
         query_layer = self.transpose_for_scores_extended(self.query_proj(query_states), self.num_attention_heads)
         key_layer = self.transpose_for_scores_extended(self.key_proj(hidden_states), self.num_attention_heads)
         value_layer = self.transpose_for_scores_extended(self.value_proj(hidden_states), self.num_attention_heads)
@@ -112,6 +172,7 @@ class DisentangledSelfAttentionWithAdapters(DebertaV2SelfAttentionAdaptersMixin,
         key_layer = key_layer.contiguous().view(-1, key_layer.size(2), key_layer.size(-1))
         value_layer = value_layer.contiguous().view(-1, value_layer.size(2), value_layer.size(-1))
         orig_key_layer = orig_key_layer.contiguous().view(-1, orig_key_layer.size(2), orig_key_layer.size(-1))
+        # >>> END AH Changes <<<
 
         rel_att = None
         # Take the dot product between "query" and "key" to get the raw attention scores.
@@ -120,25 +181,39 @@ class DisentangledSelfAttentionWithAdapters(DebertaV2SelfAttentionAdaptersMixin,
             scale_factor += 1
         if "p2c" in self.pos_att_type:
             scale_factor += 1
-        scale = torch.sqrt(torch.tensor(query_layer.size(-1), dtype=torch.float) * scale_factor)
-        attention_scores = torch.bmm(query_layer, key_layer.transpose(-1, -2)) / scale.to(dtype=query_layer.dtype)
+        scale = scaled_size_sqrt(query_layer, scale_factor)
+        attention_scores = torch.bmm(query_layer, key_layer.transpose(-1, -2) / scale.to(dtype=query_layer.dtype))
         if self.relative_attention:
             rel_embeddings = self.pos_dropout(rel_embeddings)
+            # >>> START AH Changes <<<
             rel_att = self.disentangled_attention_bias(
                 query_layer, orig_key_layer, relative_pos, rel_embeddings, scale_factor
             )
+            # >>> END AH Changes <<<
 
         if rel_att is not None:
-            rel_att_padded = torch.zeros_like(attention_scores)
-            rel_att_padded[:, :, -rel_att.size(2) :] = rel_att
-            attention_scores = attention_scores + rel_att_padded
+            # >>> START AH Changes <<<
+            # rel_att is set to 0 by default, i.e. rel_att is always not None (don't know why HuggingFace does this).
+            # Hence, we must check whether rel_att is a tensor and if so, pad it with zeros to be able to add it to attention_scores.
+            if isinstance(rel_att, torch.Tensor):
+                rel_att_padded = torch.zeros_like(attention_scores)
+                rel_att_padded[:, :, -rel_att.size(2) :] = rel_att
+                attention_scores = attention_scores + rel_att_padded
+            else:
+                attention_scores = attention_scores + rel_att
+            # >>> END AH Changes <<<
+
         attention_scores = attention_scores
         attention_scores = attention_scores.view(
             -1, self.num_attention_heads, attention_scores.size(-2), attention_scores.size(-1)
         )
 
+        attention_mask = attention_mask.bool()
+        attention_scores = attention_scores.masked_fill(~(attention_mask), torch.finfo(query_layer.dtype).min)
         # bsz x height x length x dimension
-        attention_probs = XSoftmax.apply(attention_scores, attention_mask, -1)
+        attention_probs = nn.functional.softmax(attention_scores, dim=-1)
+        attention_probs.masked_fill(attention_mask, 0)
+
         attention_probs = self.dropout(attention_probs)
         context_layer = torch.bmm(
             attention_probs.view(-1, attention_probs.size(-2), attention_probs.size(-1)), value_layer
@@ -150,7 +225,6 @@ class DisentangledSelfAttentionWithAdapters(DebertaV2SelfAttentionAdaptersMixin,
         )
         new_context_layer_shape = context_layer.size()[:-2] + (-1,)
         context_layer = context_layer.view(new_context_layer_shape)
-        if output_attentions:
-            return (context_layer, attention_probs)
-        else:
-            return context_layer
+        if not output_attentions:
+            return (context_layer, None)
+        return (context_layer, attention_probs)
