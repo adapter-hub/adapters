@@ -1526,7 +1526,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             name (str): LoRA module to merge.
         """
         with ForwardContext(self, torch.empty(0, 1)):
-            #check if there are shared parameters between adapter weights
+            # check if there are shared parameters between adapter weights
             if self.base_model.shared_parameters:
                 ForwardContext.get_context().shared_parameters = self.base_model.shared_parameters
 
