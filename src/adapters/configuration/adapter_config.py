@@ -534,6 +534,7 @@ class IA3Config(LoRAConfig):
     use_gating: bool = False
     dtype: Optional[str] = None
 
+
 class DoRAConfig(LoRAConfig):
     """
     The 'Weight-Decomposed Low-Rank Adaptation' DoRA method was preposed by Liu et al. (2022). See https://arxiv.org/pdf/2402.09353.
@@ -542,6 +543,7 @@ class DoRAConfig(LoRAConfig):
     During training, the directional matrix is scaled to unit norm by the vector-wise columns of the matrix and multiplied
     by the magnutude matrix to obtain the final weights.
     """
+
     selfattn_lora: bool = True
     intermediate_lora: bool = False
     output_lora: bool = False
@@ -553,6 +555,7 @@ class DoRAConfig(LoRAConfig):
     init_weights: str = "lora"
     use_gating: bool = False
     dtype: Optional[str] = None
+
 
 @dataclass(eq=False)
 class ReftConfig(AdapterConfig):

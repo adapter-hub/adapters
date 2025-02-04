@@ -176,6 +176,7 @@ class IA3(nn.Module):
 
         return hidden_states, gate
 
+
 class DoRA(nn.Module):
     def __init__(
         self,
@@ -247,6 +248,8 @@ class DoRA(nn.Module):
             gate = None
 
         return hidden_states, gate
+
+
 class LoRALayer(AdapterLayerBase):
     adapter_modules_name = "loras"
 
@@ -521,8 +524,6 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 return  # already merged
             elif not self.merged:
                 lora = self.loras[name]
-                print(lora)
-                print(lora.m)
                 if lora.use_gating:
                     raise ValueError("Cannot merge LoRA layer with gating.")
                 delta_w = self.maybe_t(lora.delta_w)
