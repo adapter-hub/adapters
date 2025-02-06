@@ -562,8 +562,8 @@ class VeraConfig(LoRAConfig):
     output_lora: bool = False
 
     r: int = 8
-    vera_d: float = 0.1
-    vera_b: float = 0.0
+    vera_d: Optional[float] = 0.1
+    vera_b: Optional[float] = 0.0
     init_weights: str = "vera"
     composition_mode: str = "add"
     dtype: Optional[str] = None
@@ -804,6 +804,7 @@ ADAPTER_CONFIG_MAP = {
     "prompt_tuning": PromptTuningConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
+    "vera": VeraConfig(),
     "loreft": LoReftConfig(),
     "noreft": NoReftConfig(),
     "direft": DiReftConfig(),
