@@ -11,7 +11,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from adapters.configuration.adapter_config import MTLConfigUnion, MTLLoRAConfig
+from accelerate.utils import is_megatron_lm_available
+from adapters.configuration.adapter_config import MTLConfig, MTLLoRAConfig
 from huggingface_hub.utils import sha
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
@@ -194,6 +195,24 @@ class MTLLoRA(LoRA):
         self.weights = nn.Parameter(torch.ones(config.n_up_projection))
         self.weights_sharpness = config.weights_sharpness
 
+    @classmethod
+    def get_shared_parameter(cls, layer_shared_parameters, config):
+        try:
+            shared_params = layer_shared_parameters.get_submodule(
+                config.shared_parameters_name
+            )
+            return {
+                "lora_A": shared_params.lora_A,
+                "lora_B": shared_params.lora_B,
+            }
+        except AttributeError:
+            return {}
+
+    def share_parameters(self, layer_shared_parameters, config):
+        layer_shared_parameters[config.shared_parameters_name] = (
+            nn.ParameterDict({"lora_A": self.lora_A, "lora_B": self.lora_B})
+        )
+
     def apply_weights(self, hidden_states: torch.Tensor):
         w = (self.weights / self.weights_sharpness).exp()
         # hidden_states : n_up_projection x bsz x seq_len x dim
@@ -356,23 +375,17 @@ class LoRALayer(AdapterLayerBase):
         )
         if lora_config is not None and self._check_lora_location(lora_config):
 
-            kwargs = {
-                "config": lora_config,
-                "gating_heads": self.get_n_heads(lora_config),
-            }
+            kwargs = {}
+            is_mtl_config = isinstance(lora_config, MTLConfig)
 
             if lora_config.composition_mode == "add":
-                if isinstance(lora_config, MTLLoRAConfig):
+                if is_mtl_config:
                     lora_cls = MTLLoRA
-                    for param in ("lora_A", "lora_B"):
-                        kwargs[param] = (
-                            self.shared_parameters[
-                                lora_config.shared_parameters_name
-                            ][param]
-                            if lora_config.shared_parameters_name
-                            in self.shared_parameters
-                            else None
+                    kwargs.update(
+                        lora_cls.get_shared_parameter(
+                            self.shared_parameters, lora_config
                         )
+                    )
                 else:
                     lora_cls = LoRA
             elif lora_config.composition_mode == "scale":
@@ -382,21 +395,20 @@ class LoRALayer(AdapterLayerBase):
                     f"Unknown composition_mode: {lora_config.composition_mode}"
                 )
 
-            lora = lora_cls(*self._get_lora_shapes(lora_config), **kwargs)
+            lora = lora_cls(
+                *self._get_lora_shapes(lora_config),
+                config=lora_config,
+                gating_heads=self.get_n_heads(lora_config),
+                **kwargs,
+            )
 
             if (
-                isinstance(lora_config, MTLLoRAConfig)
+                is_mtl_config
+                and lora_config.shared_parameters_name is not None
                 and lora_config.shared_parameters_name
                 not in self.shared_parameters
             ):
-                self.shared_parameters[lora_config.shared_parameters_name] = (
-                    nn.ParameterDict(
-                        {
-                            "lora_A": lora.lora_A,
-                            "lora_B": lora.lora_B,
-                        }
-                    )
-                )
+                lora.share_parameters(self.shared_parameters, lora_config)
 
             lora.train(self.training)
             lora = lora.to(self.weight.device)
@@ -995,7 +1007,9 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
         result = result.view(-1, self.out_features)
         # Move lora_ind to the same device as x
         lora_ind = lora.lora_ind.to(x.device)
-        result[:, lora_ind] = x.reshape(-1, self.out_features // 3 * self.get_n_heads(lora))
+        result[:, lora_ind] = x.reshape(
+            -1, self.out_features // 3 * self.get_n_heads(lora)
+        )
         return result.view((*x.shape[:-1], self.out_features))
 
     def reset_adapter(self):
