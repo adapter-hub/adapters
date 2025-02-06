@@ -86,8 +86,8 @@ class AdapterConfig(Mapping):
         arch_to_config = {
             "prefix_tuning": PrefixTuningConfig,
             "lora": LoRAConfig,
-            "mtl-lora": MTLLoRAConfig,
-            "mtl-union": MTLConfigUnion,
+            "mtl_lora": MTLLoRAConfig,
+            "mtl_union": MTLConfigUnion,
             "union": ConfigUnion,
             "prompt_tuning": PromptTuningConfig,
             "reft": ReftConfig,
@@ -552,7 +552,7 @@ class MTLConfig(AdapterConfig):
 
 @dataclass(eq=False)
 class MTLLoRAConfig(LoRAConfig, MTLConfig):
-    architecture: Optional[str] = "mtl-lora"
+    architecture: Optional[str] = "mtl_lora"
     n_up_projection: int = 1
     task_specific_matrix_type: Literal["singular_values", "linear"] = (
         "singular_values"
@@ -561,14 +561,11 @@ class MTLLoRAConfig(LoRAConfig, MTLConfig):
 
 
 class MTLConfigUnion(AdapterConfig):
-    architecture: Optional[str] = "mtl-union"
+    architecture: Optional[str] = "mtl_union"
     base_config: MTLConfig
     task_names: List[str]
 
     def __init__(self, base_config: MTLConfig, task_names: List[str]):
-        assert isinstance(
-            base_config, MTLConfig
-        ), f"{base_config.__class__} is not a MTLConfig subclass"
         self.base_config = base_config
         self.task_names = task_names
 
