@@ -1,3 +1,8 @@
+from typing import Optional, Tuple, Union
+
+import torch
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
+
 from transformers.generation import GenerationMixin
 from transformers.models.bert.modeling_bert import (
     BERT_INPUTS_DOCSTRING,
@@ -9,11 +14,7 @@ from transformers.utils import add_start_docstrings, add_start_docstrings_to_mod
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
-from ...model_mixin import (
-    EmbeddingAdaptersWrapperMixin,
-    ModelAdaptersMixin,
-    ModelWithHeadsAdaptersMixin,
-)
+from ...model_mixin import EmbeddingAdaptersWrapperMixin, ModelAdaptersMixin, ModelWithHeadsAdaptersMixin
 from ...wrappers import init
 
 
@@ -22,7 +23,10 @@ from ...wrappers import init
     BERT_START_DOCSTRING,
 )
 class BertAdapterModel(
-    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel, GenerationMixin
+    EmbeddingAdaptersWrapperMixin,
+    ModelWithFlexibleHeadsAdaptersMixin,
+    BertPreTrainedModel,
+    GenerationMixin,
 ):
 
     head_types = [

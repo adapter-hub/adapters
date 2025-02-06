@@ -5,11 +5,7 @@ from .bart.mixin_bart import (
     BartEncoderAdaptersMixin,
     BartModelAdaptersMixin,
 )
-from .beit.mixin_beit import (
-    BeitIntermediateAdaptersMixin,
-    BeitModelAdaptersMixin,
-    BeitOutputAdaptersMixin,
-)
+from .beit.mixin_beit import BeitIntermediateAdaptersMixin, BeitModelAdaptersMixin, BeitOutputAdaptersMixin
 from .bert.mixin_bert import BertLayerAdaptersMixin, BertModelAdaptersMixin
 from .clip.mixin_clip import (
     CLIPEncoderAdaptersMixin,
@@ -19,16 +15,10 @@ from .clip.mixin_clip import (
     CLIPVisionModelAdaptersMixin,
 )
 from .deberta.mixin_deberta import DebertaModelAdaptersMixin
-from .distilbert.mixin_distilbert import (
-    DistilBertModelAdaptersMixin,
-    DistilBertTransformerAdaptersMixin,
-)
+from .distilbert.mixin_distilbert import DistilBertModelAdaptersMixin, DistilBertTransformerAdaptersMixin
 from .gpt2.mixin_gpt2 import GPT2ModelAdapterMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin, GPTJModelAdapterMixin
-from .llama.mixin_llama import (
-    LlamaForQuestionAnsweringAdapterMixin,
-    LlamaModelAdapterMixin,
-)
+from .llama.mixin_llama import LlamaForQuestionAnsweringAdapterMixin, LlamaModelAdapterMixin
 from .mistral.mixin_mistral import MistralModelAdapterMixin
 from .plbart.mixin_plbart import (
     PLBartDecoderAdaptersMixin,

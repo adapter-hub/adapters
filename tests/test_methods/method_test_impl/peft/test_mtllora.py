@@ -69,9 +69,7 @@ class MTLLoRATestMixin(AdapterMethodBaseTestMixin):
         self.run_full_model_load_test(MTLLoRAConfig(init_weights="bert"))
 
     def test_train_mtl_lora(self):
-        self.run_train_test(
-            MTLLoRAConfig(init_weights="bert"), ["loras.{name}."]
-        )
+        self.run_train_test(MTLLoRAConfig(init_weights="bert"), ["loras.{name}."])
 
     def test_lora_gradient_checkpointing_single_adapter(self):
         self.run_gradient_checkpointing_single_adapter_test(MTLLoRAConfig())

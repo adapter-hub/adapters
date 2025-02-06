@@ -13,9 +13,7 @@ from transformers.testing_utils import require_torch, torch_device
 class ConfigMultiTaskAdapterTest(AdapterMethodBaseTestMixin):
     mtl_configs_to_test = [
         (
-            MTLConfigUnion(
-                MTLLoRAConfig(), task_names=["lora1", "lora2", "lora3"]
-            ),
+            MTLConfigUnion(MTLLoRAConfig(), task_names=["lora1", "lora2", "lora3"]),
             [
                 "loras.shared_parameters.{name}.",
                 "loras.lora1.",
@@ -74,15 +72,11 @@ class ConfigMultiTaskAdapterTest(AdapterMethodBaseTestMixin):
                 model_class=model.__class__.__name__,
                 config=adapter_config.__class__.__name__,
             ):
-                model1, model2 = create_twin_models(
-                    self.model_class, self.config
-                )
+                model1, model2 = create_twin_models(self.model_class, self.config)
 
                 name = "dummy_adapter"
                 model1.add_adapter(name, config=adapter_config)
-                model1.set_active_adapters(
-                    MultiTaskLearning(*adapter_config.task_names)
-                )
+                model1.set_active_adapters(MultiTaskLearning(*adapter_config.task_names))
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model1.save_mtl_adapters(temp_dir, name)
                     # Check that there are actually weights saved
@@ -95,9 +89,7 @@ class ConfigMultiTaskAdapterTest(AdapterMethodBaseTestMixin):
 
                     # also tests that set_active works
                     loading_info = {}
-                    model2.load_mtl_adapters(
-                        temp_dir, set_active=True, loading_info=loading_info
-                    )
+                    model2.load_mtl_adapters(temp_dir, set_active=True, loading_info=loading_info)
 
                 # check if all weights were loaded
                 self.assertEqual(0, len(loading_info["missing_keys"]))
@@ -115,6 +107,4 @@ class ConfigMultiTaskAdapterTest(AdapterMethodBaseTestMixin):
                 output1 = model1(**input_data)
                 output2 = model2(**input_data)
                 self.assertEqual(len(output1), len(output2))
-                self.assertTrue(
-                    torch.allclose(output1[0], output2[0], atol=1e-4)
-                )
+                self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))

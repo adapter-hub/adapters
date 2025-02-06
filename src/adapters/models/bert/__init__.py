@@ -30,10 +30,7 @@ _import_structure = {
 
 
 if TYPE_CHECKING:
-    from .adapter_model import (
-        BertAdapterModel,
-        BertForSequenceClassificationAdapterModel,
-    )
+    from .adapter_model import BertAdapterModel, BertForSequenceClassificationAdapterModel
 
 else:
     import sys

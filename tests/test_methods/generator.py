@@ -6,48 +6,22 @@ from tests.test_methods.method_test_impl.composition.test_parallel import (
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
 )
-from tests.test_methods.method_test_impl.core.test_adapter_backward_compability import (
-    CompabilityTestMixin,
-)
-from tests.test_methods.method_test_impl.core.test_adapter_conversion import (
-    ModelClassConversionTestMixin,
-)
-from tests.test_methods.method_test_impl.core.test_adapter_fusion_common import (
-    AdapterFusionModelTestMixin,
-)
-from tests.test_methods.method_test_impl.embeddings.test_adapter_embeddings import (
-    EmbeddingTestMixin,
-)
-from tests.test_methods.method_test_impl.heads.test_adapter_heads import (
-    PredictionHeadModelTestMixin,
-)
-from tests.test_methods.method_test_impl.peft.test_adapter_common import (
-    BottleneckAdapterTestMixin,
-)
-from tests.test_methods.method_test_impl.peft.test_compacter import (
-    CompacterTestMixin,
-)
-from tests.test_methods.method_test_impl.peft.test_config_mtl_union import (
-    MTLConfigUnionAdapterTest,
-)
-from tests.test_methods.method_test_impl.peft.test_config_union import (
-    ConfigUnionAdapterTest,
-)
+from tests.test_methods.method_test_impl.core.test_adapter_backward_compability import CompabilityTestMixin
+from tests.test_methods.method_test_impl.core.test_adapter_conversion import ModelClassConversionTestMixin
+from tests.test_methods.method_test_impl.core.test_adapter_fusion_common import AdapterFusionModelTestMixin
+from tests.test_methods.method_test_impl.embeddings.test_adapter_embeddings import EmbeddingTestMixin
+from tests.test_methods.method_test_impl.heads.test_adapter_heads import PredictionHeadModelTestMixin
+from tests.test_methods.method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
+from tests.test_methods.method_test_impl.peft.test_compacter import CompacterTestMixin
+from tests.test_methods.method_test_impl.peft.test_config_mtl_union import MTLConfigUnionAdapterTest
+from tests.test_methods.method_test_impl.peft.test_config_union import ConfigUnionAdapterTest
 from tests.test_methods.method_test_impl.peft.test_ia3 import IA3TestMixin
 from tests.test_methods.method_test_impl.peft.test_lora import LoRATestMixin
-from tests.test_methods.method_test_impl.peft.test_mtllora import (
-    MTLLoRATestMixin,
-)
-from tests.test_methods.method_test_impl.peft.test_prefix_tuning import (
-    PrefixTuningTestMixin,
-)
-from tests.test_methods.method_test_impl.peft.test_prompt_tuning import (
-    PromptTuningTestMixin,
-)
+from tests.test_methods.method_test_impl.peft.test_mtllora import MTLLoRATestMixin
+from tests.test_methods.method_test_impl.peft.test_prefix_tuning import PrefixTuningTestMixin
+from tests.test_methods.method_test_impl.peft.test_prompt_tuning import PromptTuningTestMixin
 from tests.test_methods.method_test_impl.peft.test_reft import ReftTestMixin
-from tests.test_methods.method_test_impl.peft.test_unipelt import (
-    UniPELTTestMixin,
-)
+from tests.test_methods.method_test_impl.peft.test_unipelt import UniPELTTestMixin
 from transformers.testing_utils import require_torch
 
 
@@ -123,10 +97,7 @@ def generate_method_tests(
 
         test_classes["Composition"] = Composition
 
-    if (
-        "ClassConversion" not in redundant
-        and "ClassConversion" not in not_supported
-    ):
+    if "ClassConversion" not in redundant and "ClassConversion" not in not_supported:
 
         @require_torch
         class ClassConversion(
@@ -268,10 +239,7 @@ def generate_method_tests(
 
         test_classes["ConfigUnion"] = ConfigUnion
 
-    if (
-        "MTLConfigUnion" not in redundant
-        and "MTLConfigUnion" not in not_supported
-    ):
+    if "MTLConfigUnion" not in redundant and "MTLConfigUnion" not in not_supported:
 
         @require_torch
         @pytest.mark.config_union
