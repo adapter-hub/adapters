@@ -6,7 +6,9 @@ from PIL import Image
 from transformers import MllamaImageProcessor
 from transformers.models.mllama.configuration_mllama import MllamaConfig, MllamaTextConfig, MllamaVisionConfig
 
-from .generator import *
+from .base import TextAdapterTestBase
+from .generator import generate_method_tests
+import torch
 
 
 def from_text_vision_configs(config_class, text_config: MllamaTextConfig, vision_config: MllamaVisionConfig, **kwargs):
@@ -36,28 +38,27 @@ class MllamaAdapterTestBase(TextAdapterTestBase):
             MllamaTextConfig(
                 vocab_size=1000,  # Minimal vocab size
                 hidden_size=128,
-                num_hidden_layers=1,
+                num_hidden_layers=4,
                 num_attention_heads=2,
                 num_key_value_heads=2,
                 intermediate_size=128,
-                cross_attention_layers=[0],
+                cross_attention_layers=[3],
                 bos_token_id=990,
                 eos_token_id=991,
                 pad_token_id=992,
-                max_position_embeddings=512,
+                max_position_embeddings=128,
                 rope_scaling={
                     "rope_type": "default",
                 },
             ),
             MllamaVisionConfig(
                 hidden_size=128,
-                num_hidden_layers=1,
+                num_hidden_layers=4,
                 num_global_layers=1,
                 num_attention_heads=1,
                 intermediate_size=128,
                 vision_output_dim=256,
-                image_size=224,
-                intermediate_layers_indices=[0],
+                intermediate_layers_indices=[3],
             ),
         )
     )
@@ -67,7 +68,7 @@ class MllamaAdapterTestBase(TextAdapterTestBase):
     # Save runtime by computing the processed image once and reusing it for all tests
     FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
-    img_processor = MllamaImageProcessor()
+    img_processor = MllamaImageProcessor(size={"height": 448, "width": 448})
     img = Image.open(os.path.join(FIXTURES_DIR, "tests_samples", "COCO", "000000039769.png"))
     processed_img = img_processor(img, return_tensors="pt")
 
@@ -90,7 +91,7 @@ class MllamaAdapterTestBase(TextAdapterTestBase):
         return in_data
 
 
-test_methods = generate_method_tests(MllamaAdapterTestBase, excluded_tests=[])
+test_methods = generate_method_tests(MllamaAdapterTestBase)
 
 for test_class_name, test_class in test_methods.items():
     globals()[test_class_name] = test_class
