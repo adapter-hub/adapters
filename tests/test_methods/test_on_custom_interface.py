@@ -68,37 +68,6 @@ class CustomInterfaceModelTestBase(TextAdapterTestBase):
     def create_twin_models(self):
         return create_twin_models(self.model_class, self.config, self.adapter_interface)
 
-    # Copied from base.py to pass custom interface to load_model
-    def run_full_model_load_test(self, adapter_config):
-        model1 = self.get_model()
-        model1.eval()
-
-        name = "dummy"
-        model1.add_adapter(name, config=adapter_config)
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model1.save_pretrained(temp_dir)
-
-            model2, loading_info = load_model(
-                temp_dir, self.model_class, output_loading_info=True, interface=self.adapter_interface
-            )
-
-        # check if all weights were loaded
-        self.assertEqual(0, len(loading_info["missing_keys"]), loading_info["missing_keys"])
-        self.assertEqual(0, len(loading_info["unexpected_keys"]), loading_info["unexpected_keys"])
-
-        # check if adapter was correctly loaded
-        self.assertTrue(name in model2.adapters_config)
-
-        # check equal output
-        input_data = self.get_input_samples(config=model1.config)
-        model1.to(torch_device)
-        model2.to(torch_device)
-        with AdapterSetup(name):
-            output1 = model1(**input_data)
-            output2 = model2(**input_data)
-        self.assertEqual(len(output1), len(output2))
-        self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
-
     def test_load_mam_adapter(self):
         self.skipTest("Does not support prefix tuning.")
 

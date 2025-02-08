@@ -1,5 +1,12 @@
-from dataclasses import dataclass
+import json
+import os
+from dataclasses import asdict, dataclass
 from typing import List, Optional
+
+from transformers.utils import cached_file
+
+from . import __version__
+from .utils import INTERFACE_CONFIG_NAME
 
 
 class AdapterMethod:
@@ -83,3 +90,23 @@ class AdapterModelInterface:
     layer_pre_ffn: Optional[str] = None
     layer_ln_1: Optional[str] = None
     layer_ln_2: Optional[str] = None
+
+    def to_dict(self):
+        return asdict(self)
+
+    def _save(self, save_directory, model_config):
+        config_dict = {
+            "model_type": model_config.model_type,
+            "interface": self.to_dict(),
+            "version": "adapters." + __version__,
+        }
+        save_path = os.path.join(save_directory, INTERFACE_CONFIG_NAME)
+        with open(save_path, "w") as f:
+            json.dump(config_dict, f, indent=2, sort_keys=True)
+
+    @classmethod
+    def _load(cls, path_or_repo_id: str, **kwargs):
+        resolved_file = cached_file(path_or_repo_id, INTERFACE_CONFIG_NAME, **kwargs)
+        with open(resolved_file, "r") as f:
+            config_dict = json.load(f)
+        return AdapterModelInterface(**config_dict["interface"])

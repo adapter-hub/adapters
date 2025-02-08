@@ -8,10 +8,9 @@ import adapters
 from adapters import AdapterModelInterface, AutoAdapterModel
 from adapters.utils import WEIGHTS_NAME
 from parameterized import parameterized
+from tests.test_methods.method_test_impl.utils import ids_tensor
 from transformers import AutoModel, AutoModelForCausalLM, BertConfig, LlamaConfig
 from transformers.testing_utils import require_torch, torch_device
-
-from .test_adapter import ids_tensor
 
 
 @require_torch

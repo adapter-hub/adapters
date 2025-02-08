@@ -146,6 +146,13 @@ def load_model(
 
     old_init = model_class.__init__
 
+    # try if we can find a interface file
+    if interface is None:
+        try:
+            interface = AdapterModelInterface._load(model_name_or_path, **kwargs)
+        except EnvironmentError:
+            pass
+
     def new_init(self, config, *args, **kwargs):
         old_init(self, config, *args, **kwargs)
         init(self, interface=interface)
