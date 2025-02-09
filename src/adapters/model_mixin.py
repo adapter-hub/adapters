@@ -456,7 +456,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         # Initialize adapter types defined in interface
         if getattr(self.base_model, "adapter_interface", None) is not None:
-            for adapter_type in self.base_model.adapter_interface.adapter_types:
+            for adapter_type in self.base_model.adapter_interface.adapter_methods:
                 init_func = METHOD_INIT_MAPPING[adapter_type]
                 init_func(self)
         else:
@@ -499,7 +499,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         supported = []
         for _type in types:
             if getattr(self.base_model, "adapter_interface", None) is not None:
-                supported.append(_type in self.base_model.adapter_interface.adapter_types)
+                supported.append(_type in self.base_model.adapter_interface.adapter_methods)
             elif _type == AdapterMethod.prompt_tuning:
                 supported.append(self.base_model.support_prompt_tuning)
             elif _type == AdapterMethod.invertible:

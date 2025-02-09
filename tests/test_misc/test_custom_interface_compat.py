@@ -34,7 +34,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         pad_token_id=0,
     )
     llama_interface = AdapterModelInterface(
-        adapter_types=["bottleneck", "lora", "reft", "invertible"],
+        adapter_methods=["bottleneck", "lora", "reft", "invertible"],
         model_embeddings="embed_tokens",
         model_layers="layers",
         layer_self_attn="self_attn",
@@ -52,7 +52,7 @@ class CustomInterfaceCompatTest(unittest.TestCase):
         layer_ln_2=None,
     )
     bert_interface = AdapterModelInterface(
-        adapter_types=["bottleneck", "lora", "reft", "prompt_tuning", "invertible"],
+        adapter_methods=["bottleneck", "lora", "reft", "prompt_tuning", "invertible"],
         model_embeddings="embeddings",
         model_layers="encoder.layer",
         layer_self_attn="attention",

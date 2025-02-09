@@ -12,6 +12,14 @@ from .utils import INTERFACE_CONFIG_NAME
 class AdapterMethod:
     """
     Enum of all supported adapter method types.
+
+    Attributes:
+        bottleneck: Adapter methods using bottleneck layers.
+        prefix_tuning: Adapters methods based on Prefix Tuning.
+        lora: Adapter methods based on low-rank adaptation.
+        prompt_tuning: Adapter methods based on Prompt Tuning.
+        reft: Adapters methods based on Representation Fine-Tuning.
+        invertible: Adapter methods using invertible modules.
     """
 
     bottleneck = "bottleneck"
@@ -51,7 +59,7 @@ class AdapterModelInterface:
     This interface translates generic accessor names to model-specific attribute names.
 
     Args:
-        adapter_types (List[str]): List of adapter types that are supported by the model.
+        adapter_methods (List[str]): List of adapter types that are supported by the model.
         model_embeddings (str): Name of the model's embedding layer.
         model_layers (str): Name of the model's layer list.
         layer_self_attn (str): Name of the self-attention layer in a transformer layer.
@@ -69,7 +77,7 @@ class AdapterModelInterface:
         layer_ln_2 (Optional[str]): Layer norm *after* the feed forward layer. Used for extended bottleneck adapter support.
     """
 
-    adapter_types: List[str]
+    adapter_methods: List[str]
 
     model_embeddings: str
     model_layers: str
