@@ -1,9 +1,5 @@
-import tempfile
-
-import torch
-
 import adapters
-from adapters import AdapterModelInterface, AdapterSetup, DoubleSeqBnConfig, LoRAConfig, ParBnConfig, load_model
+from adapters import AdapterModelInterface, DoubleSeqBnConfig, LoRAConfig, ParBnConfig
 from transformers import Gemma2ForCausalLM, Gemma2ForSequenceClassification
 from transformers.models.gemma2.configuration_gemma2 import Gemma2Config
 from transformers.testing_utils import torch_device

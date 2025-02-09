@@ -13,6 +13,7 @@ The table below further shows which model architectures support which adaptation
 
 | Model                                   | (Bottleneck)<br> Adapters | Prefix<br> Tuning | LoRA | Compacter | Adapter<br> Fusion | Invertible<br> Adapters | Parallel<br> block | Prompt<br> Tuning | ReFT |
 | --------------------------------------- | -| - | - | - | - | - | - |- | - |
+| [Custom models](plugin_interface.html)    | ✅(°) |  | ✅ | ✅ | ✅ | ✅ |  | ✅ | ✅ |
 | [ALBERT](classes/models/albert.html)    | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [BART](classes/models/bart.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [BEIT](classes/models/beit.html)        | ✅ | ✅ | ✅ | ✅ | ✅ |  |  | ✅ | ✅ |
@@ -38,9 +39,11 @@ The table below further shows which model architectures support which adaptation
 | [XLM-RoBERTa](classes/models/xlmroberta.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [X-MOD](classes/models/xmod.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
+(°) `original_ln_after=False` is unsupported for bottleneck configs.  
 (*) If the used encoder and decoder model class are supported.
 
-**Missing a model architecture you'd like to use?**
-adapters can be easily extended to new model architectures as described in [Adding Adapters to a Model](https://docs.adapterhub.ml/contributing/adding_adapters_to_a_model.html).
+**Missing a model architecture you'd like to use?**  
+The new model plugin interface makes it easy to support new model architectures. [Learn more](plugin_interface.md).
+Also, _Adapters_ can be extended to new model architectures as described in [Adding Adapters to a Model](https://docs.adapterhub.ml/contributing/adding_adapters_to_a_model.html).
 Feel free to [open an issue](https://github.com/Adapter-Hub/adapters/issues) requesting support for a new architecture.
 _We very much welcome pull requests adding new model implementations!_

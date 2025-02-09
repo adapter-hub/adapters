@@ -15,7 +15,7 @@ class AdapterMethod:
 
     Attributes:
         bottleneck: Adapter methods using bottleneck layers.
-        prefix_tuning: Adapters methods based on Prefix Tuning.
+        prefix_tuning: Adapters methods based on Prefix Tuning. Note that this is currently unsupported via AdapterModelInterface.
         lora: Adapter methods based on low-rank adaptation.
         prompt_tuning: Adapter methods based on Prompt Tuning.
         reft: Adapters methods based on Representation Fine-Tuning.
