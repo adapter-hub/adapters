@@ -23,12 +23,12 @@ plugin_interface = AdapterModelInterface(
     layer_output_proj="mlp.down_proj",
 )
 
-model = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b-it")
+model = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b-it", token="<YOUR_TOKEN>")
 adapters.init(model, interface=plugin_interface)
 
 model.add_adapter("my_adapter", config="lora")
 
-print(model_2.adapter_summary())
+print(model.adapter_summary())
 ```
 
 ## Walkthrough
