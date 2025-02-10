@@ -79,15 +79,15 @@ class ForwardContext(ContextManager):
     # thread-local storage that holds a stack of active contexts
     storage = threading.local()
 
-    context_args = [
+    context_args = {
         "output_adapter_gating_scores",
         "output_adapter_fusion_attentions",
         "adapter_input_parallelized",
-    ]
-    context_attributes = [
+    }
+    context_attributes = {
         "adapter_gating_scores",
         "adapter_fusion_attentions",
-    ]
+    }
     # Additional used attributes not exposed to the user
     # - prompt_tokens_length: length of the prompt tokens
 
