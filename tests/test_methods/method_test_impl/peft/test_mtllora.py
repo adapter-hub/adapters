@@ -1,5 +1,3 @@
-from os import walk
-
 from adapters.configuration.adapter_config import MTLConfigUnion, MTLLoRAConfig
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch
