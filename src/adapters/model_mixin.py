@@ -978,7 +978,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     load_dir,
                     load_as=load_as,
                     loading_info=kwargs.get("loading_info", None),
-                    main_load_name=load_name,
+                    main_load_name=load_names,
                     id2label=id2label,
                     set_active=set_active,
                 )
@@ -1827,7 +1827,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         _is_using_old_format = "value" in inspect.signature(self._set_gradient_checkpointing).parameters
 
         if not _is_using_old_format:
-            self._set_gradient_checkpointing(enable=True, gradient_checkpointing_func=gradient_checkpointing_func)
+            self._set_gradient_checkpointing(
+                enable=True,
+                gradient_checkpointing_func=gradient_checkpointing_func,
+            )
         else:
             self.apply(partial(self._set_gradient_checkpointing, value=True))
             logger.warning(

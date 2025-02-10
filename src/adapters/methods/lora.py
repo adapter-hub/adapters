@@ -11,9 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from accelerate.utils import is_megatron_lm_available
 from adapters.configuration.adapter_config import MTLConfig, MTLLoRAConfig
-from huggingface_hub.utils import sha
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 

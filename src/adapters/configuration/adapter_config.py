@@ -3,9 +3,6 @@ from collections.abc import Mapping
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, replace
 from typing import List, Literal, Optional, Union
 
-from torch import fill
-from torch.utils import data
-
 from ..utils import resolve_adapter_config
 
 

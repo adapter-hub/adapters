@@ -8,8 +8,6 @@ from typing import Callable, Mapping, Optional, Sequence, Tuple
 import torch
 from packaging.version import Version
 
-from adapters.configuration.adapter_config import MTLConfigUnion
-
 
 try:
     from safetensors.torch import load_file, save_file

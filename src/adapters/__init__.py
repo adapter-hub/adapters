@@ -152,6 +152,7 @@ if TYPE_CHECKING:
         AdapterCompositionBlock,
         BatchSplit,
         Fuse,
+        MultiTaskLearning,
         Parallel,
         Split,
         Stack,

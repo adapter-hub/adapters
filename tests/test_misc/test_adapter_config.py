@@ -9,7 +9,6 @@ from adapters import (
     DoubleSeqBnConfig,
     LoRAConfig,
     MAMConfig,
-    MTLLoRAConfig,
     ParBnConfig,
     PrefixTuningConfig,
     SeqBnConfig,

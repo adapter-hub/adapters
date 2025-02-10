@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Collection, Dict, List, NamedTuple, Union, final
+from typing import Collection, Dict, List, NamedTuple, Union
 
 import numpy as np
 import torch

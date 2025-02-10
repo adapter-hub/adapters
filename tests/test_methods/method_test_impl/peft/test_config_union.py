@@ -1,5 +1,3 @@
-from accelerate.state import torch
-from adapters.composition import MultiTaskLearning
 from adapters.configuration import (
     CompacterConfig,
     ConfigUnion,
