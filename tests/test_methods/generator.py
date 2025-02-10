@@ -216,7 +216,7 @@ def generate_method_tests(
     if "MTLLoRA" not in redundant and "MTLLoRA" not in not_supported:
 
         @require_torch
-        @pytest.mark.lora
+        @pytest.mark.mtllora
         class MTLLoRA(
             model_test_base,
             MTLLoRATestMixin,
@@ -242,7 +242,7 @@ def generate_method_tests(
     if "MTLConfigUnion" not in redundant and "MTLConfigUnion" not in not_supported:
 
         @require_torch
-        @pytest.mark.config_union
+        @pytest.mark.mtl_config_union
         class MTLConfigUnion(
             model_test_base,
             MTLConfigUnionAdapterTest,
