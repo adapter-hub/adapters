@@ -176,15 +176,20 @@ class AdapterCompositionTest(unittest.TestCase):
         self.assertEqual(logits.shape, (2, 2))
 
     def test_multi_task_learning(self):
+        if MultiTaskLearning in self.unsupported_blocks:
+            self.skipTest("MultiTaskLearning not supported by adapter config.")
+
         model = self.build_model()
         model.set_active_adapters(MultiTaskLearning("a", "b", "c", "d"))
         inputs = {
             "input_ids": ids_tensor((4, 128), 1000).to(torch_device),
             "labels": torch.ones(4, dtype=torch.long).to(torch_device),
-            "task_ids": torch.randint(4, (4,)),
         }
-        loss = model(**inputs).loss
-        loss.backward()
+
+        for task_ids in [[0, 2, 1, 3], [0, 0, 0, 0]]:
+            with self.subTest(task_ids=task_ids):
+                loss = model(**inputs, task_ids=torch.tensor(task_ids)).loss
+                loss.backward()
 
     def test_batch_split(self):
         if BatchSplit in self.unsupported_blocks:
@@ -262,7 +267,8 @@ class AdapterCompositionTest(unittest.TestCase):
 
 
 class PrefixTuningCompositionTest(AdapterCompositionTest):
-    unsupported_blocks = [Split, Fuse, Average]
+    # TODO: remove MultiTaskLearning if PR #795 is merged.
+    unsupported_blocks = [Split, Fuse, Average, MultiTaskLearning]
 
     def get_adapter_config(self):
         return PrefixTuningConfig()
