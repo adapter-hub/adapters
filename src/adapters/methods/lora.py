@@ -431,6 +431,19 @@ class LoRALayer(AdapterLayerBase):
 
         return False
 
+    def get_adapter(self, adapter_name: str) -> nn.Module:
+        """Returns the adapter module with the given name.
+
+        Args:
+            adapter_name (str): The name of the adapter module.
+        """
+        if adapter_name in self.adapter_modules:
+            return self.adapter_modules[adapter_name]
+        elif adapter_name in self.shared_parameters:
+            return self.shared_parameters[adapter_name]
+        else:
+            return None
+
     def _average_adapter_lora_delta_w_svd(self, input_adapters: Dict[str, float], avg_state_dict, svd_rank):
         # Weight the delta_w matrices by the input weights and then use Singular Value Decomposition to split them into A and B matrices.
         if svd_rank is None:
