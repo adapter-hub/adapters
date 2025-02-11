@@ -86,7 +86,7 @@ class Parallel(AdapterCompositionBlock):
         return len(self.children)
 
 
-class MultiTaskLearning(AdapterCompositionBlock):
+class MultiTask(AdapterCompositionBlock):
     def __init__(self, *children):
         super().__init__(*children)
 
@@ -168,7 +168,7 @@ ALLOWED_NESTINGS = {
     Fuse: [str, Stack],
     Split: [str, Split, Stack, BatchSplit, Average],
     Parallel: [str, Stack, BatchSplit, Average],
-    MultiTaskLearning: [str, Stack, Average, Fuse],
+    MultiTask: [str, Stack, Average, Fuse],
     BatchSplit: [str, Stack, Split, BatchSplit, Average],
     Average: [str, Stack, Split, BatchSplit],
 }

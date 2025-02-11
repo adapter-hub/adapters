@@ -15,7 +15,7 @@ from adapters.configuration.adapter_config import MTLConfig, MTLLoRAConfig
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
-from ..composition import Average, BatchSplit, MultiTaskLearning, Parallel, Stack
+from ..composition import Average, BatchSplit, MultiTask, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
 from .utils import dequantize_bnb_weight
@@ -506,7 +506,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
         BatchSplit,
         Average,
         Parallel,
-        MultiTaskLearning,
+        MultiTask,
     ]
     allow_multi_parallelize = True
 

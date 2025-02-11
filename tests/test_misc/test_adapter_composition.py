@@ -4,16 +4,7 @@ import torch
 
 import adapters
 from adapters import IA3Config, LoRAConfig, PrefixTuningConfig, SeqBnConfig
-from adapters.composition import (
-    Average,
-    BatchSplit,
-    Fuse,
-    MultiTaskLearning,
-    Parallel,
-    Split,
-    Stack,
-    parse_composition,
-)
+from adapters.composition import Average, BatchSplit, Fuse, MultiTask, Parallel, Split, Stack, parse_composition
 from adapters.models.bert.adapter_model import BertForSequenceClassificationAdapterModel
 from tests.test_methods.method_test_impl.utils import ids_tensor
 from transformers import BertConfig
@@ -176,11 +167,11 @@ class AdapterCompositionTest(unittest.TestCase):
         self.assertEqual(logits.shape, (2, 2))
 
     def test_multi_task_learning(self):
-        if MultiTaskLearning in self.unsupported_blocks:
+        if MultiTask in self.unsupported_blocks:
             self.skipTest("MultiTaskLearning not supported by adapter config.")
 
         model = self.build_model()
-        model.set_active_adapters(MultiTaskLearning("a", "b", "c", "d"))
+        model.set_active_adapters(MultiTask("a", "b", "c", "d"))
         inputs = {
             "input_ids": ids_tensor((4, 128), 1000).to(torch_device),
             "labels": torch.ones(4, dtype=torch.long).to(torch_device),
@@ -268,7 +259,7 @@ class AdapterCompositionTest(unittest.TestCase):
 
 class PrefixTuningCompositionTest(AdapterCompositionTest):
     # TODO: remove MultiTaskLearning if PR #795 is merged.
-    unsupported_blocks = [Split, Fuse, Average, MultiTaskLearning]
+    unsupported_blocks = [Split, Fuse, Average, MultiTask]
 
     def get_adapter_config(self):
         return PrefixTuningConfig()

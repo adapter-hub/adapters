@@ -11,7 +11,7 @@ from ..composition import (
     Average,
     BatchSplit,
     Fuse,
-    MultiTaskLearning,
+    MultiTask,
     Parallel,
     Split,
     Stack,
@@ -230,7 +230,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             Stack: "compose_stack",
             Fuse: "compose_fuse",
             Split: "compose_split",
-            MultiTaskLearning: "compose_multi_task_learning",
+            MultiTask: "compose_multi_task",
             BatchSplit: "compose_batch_split",
             Parallel: "compose_parallel",
             Average: "compose_average",
@@ -453,7 +453,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         state = self.pad_and_concat(children_states)
         return state
 
-    def compose_multi_task_learning(self, adapter_setup: MultiTaskLearning, state: NamedTuple, lvl: int = 0):
+    def compose_multi_task(self, adapter_setup: MultiTask, state: NamedTuple, lvl: int = 0):
         """
         For splitting to multiple adapters along the task_ids.
         """
