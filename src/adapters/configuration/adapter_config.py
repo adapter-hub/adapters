@@ -82,8 +82,8 @@ class AdapterConfig(Mapping):
             "prefix_tuning": PrefixTuningConfig,
             "lora": LoRAConfig,
             "mtl_lora": MTLLoRAConfig,
-            "mtl_union": MTLConfigUnion,
             "union": ConfigUnion,
+            "mtl_union": MultiTaskConfigUnion,
             "prompt_tuning": PromptTuningConfig,
             "reft": ReftConfig,
             None: BnConfig,
@@ -539,24 +539,24 @@ class IA3Config(LoRAConfig):
 
 
 @dataclass(eq=False)
-class MTLConfig(AdapterConfig):
+class MultiTaskConfig(AdapterConfig):
     shared_parameters_name: Optional[str] = None
 
 
 @dataclass(eq=False)
-class MTLLoRAConfig(LoRAConfig, MTLConfig):
+class MTLLoRAConfig(LoRAConfig, MultiTaskConfig):
     architecture: Optional[str] = "mtl_lora"
     n_up_projection: int = 1
     task_specific_matrix_type: Literal["singular_values", "linear"] = "singular_values"
     weights_sharpness: float = 0.05
 
 
-class MTLConfigUnion(AdapterConfig):
+class MultiTaskConfigUnion(AdapterConfig):
     architecture: Optional[str] = "mtl_union"
-    base_config: MTLConfig
+    base_config: MultiTaskConfig
     task_names: List[str]
 
-    def __init__(self, base_config: MTLConfig, task_names: List[str]):
+    def __init__(self, base_config: MultiTaskConfig, task_names: List[str]):
         self.base_config = base_config
         self.task_names = task_names
 

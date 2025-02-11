@@ -102,7 +102,10 @@ class AdapterMethodBaseTestMixin:
 
         # average adapters
         model.average_adapter(
-            name, [name + f"_{i}" for i in range(len(weights))], weights=weights, combine_strategy="linear"
+            name,
+            [name + f"_{i}" for i in range(len(weights))],
+            weights=weights,
+            combine_strategy="linear",
         )
 
         # adapter is correctly added to config
@@ -154,10 +157,11 @@ class AdapterMethodBaseTestMixin:
 
         model.delete_adapter("first")
 
-    def run_forward_test(self, model, adapter_config, dtype=torch.float32):
+    def run_forward_test(self, model, adapter_config, dtype=torch.float32, adapter_setup=None):
         model.eval()
 
         name = adapter_config.__class__.__name__
+        adapter_setup = adapter_setup or name
         if name not in model.adapters_config:
             model.add_adapter(name, config=adapter_config)
         model.to(torch_device).to(dtype)
@@ -165,14 +169,14 @@ class AdapterMethodBaseTestMixin:
         input_data = self.get_input_samples(config=model.config, dtype=dtype)
 
         # pass 1: set adapter via property
-        model.set_active_adapters(name)
+        model.set_active_adapters(adapter_setup)
         output_1 = model(**input_data)
 
         # pass 2: set via context
         # unset and make sure it's unset
         model.set_active_adapters(None)
         self.assertEqual(None, model.active_adapters)
-        with AdapterSetup(name):
+        with AdapterSetup(adapter_setup):
             output_2 = model(**input_data)
 
         # pass 3: base output
@@ -198,7 +202,11 @@ class AdapterMethodBaseTestMixin:
             model1.save_adapter(temp_dir, name)
 
             # Check that there are actually weights saved
-            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu", weights_only=True)
+            weights = torch.load(
+                os.path.join(temp_dir, WEIGHTS_NAME),
+                map_location="cpu",
+                weights_only=True,
+            )
             self.assertTrue(len(weights) > 0)
 
             # also tests that set_active works
@@ -249,7 +257,14 @@ class AdapterMethodBaseTestMixin:
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
 
-    def trainings_run(self, model, lr=1.0, steps=8, batch_size=2, gradient_accumulation_steps=1):
+    def trainings_run(
+        self,
+        model,
+        lr=1.0,
+        steps=8,
+        batch_size=2,
+        gradient_accumulation_steps=1,
+    ):
         # setup dataset
         train_dataset = self.get_dataset()
 
@@ -414,10 +429,14 @@ class AdapterMethodBaseTestMixin:
 
         # Check that the state dicts are the same (we know that normal training works as expected, so we only need to check that gradient checkpointing produces the same results.)
         for (k1, v1), (k2, v2) in zip(
-            state_dict_after_training[True].items(), state_dict_after_training[False].items()
+            state_dict_after_training[True].items(),
+            state_dict_after_training[False].items(),
         ):
             v1 = v1.to(v2.device)
-            self.assertTrue(torch.equal(v1, v2), msg=f"Key {k1} is not equal:\nv1: {v1}\nv2: {v2}")
+            self.assertTrue(
+                torch.equal(v1, v2),
+                msg=f"Key {k1} is not equal:\nv1: {v1}\nv2: {v2}",
+            )
 
     def run_gradient_checkpointing_single_adapter_test(self, adapter_config):
         def adapter_setup_fn(model):
@@ -441,4 +460,7 @@ class AdapterMethodBaseTestMixin:
         model.to(torch_device)
         generate_input = self.build_generate_input(self.input_shape).to(torch_device)
         generated = model.generate(generate_input, max_new_tokens=max_new_tokens)
-        self.assertLessEqual(generated.shape, (self.input_shape[0], self.input_shape[1] + max_new_tokens))
+        self.assertLessEqual(
+            generated.shape,
+            (self.input_shape[0], self.input_shape[1] + max_new_tokens),
+        )

@@ -13,7 +13,7 @@ from tests.test_methods.method_test_impl.embeddings.test_adapter_embeddings impo
 from tests.test_methods.method_test_impl.heads.test_adapter_heads import PredictionHeadModelTestMixin
 from tests.test_methods.method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
 from tests.test_methods.method_test_impl.peft.test_compacter import CompacterTestMixin
-from tests.test_methods.method_test_impl.peft.test_config_mtl_union import MTLConfigUnionAdapterTest
+from tests.test_methods.method_test_impl.peft.test_config_mtl_union import MultiTaskConfigUnionAdapterTest
 from tests.test_methods.method_test_impl.peft.test_config_union import ConfigUnionAdapterTest
 from tests.test_methods.method_test_impl.peft.test_ia3 import IA3TestMixin
 from tests.test_methods.method_test_impl.peft.test_lora import LoRATestMixin
@@ -216,7 +216,7 @@ def generate_method_tests(
     if "MTLLoRA" not in redundant and "MTLLoRA" not in not_supported:
 
         @require_torch
-        @pytest.mark.mtllora
+        @pytest.mark.mtl_lora
         class MTLLoRA(
             model_test_base,
             MTLLoRATestMixin,
@@ -239,17 +239,17 @@ def generate_method_tests(
 
         test_classes["ConfigUnion"] = ConfigUnion
 
-    if "MTLConfigUnion" not in redundant and "MTLConfigUnion" not in not_supported:
+    if "MultiTaskConfigUnion" not in redundant and "MultiTaskConfigUnion" not in not_supported:
 
         @require_torch
         @pytest.mark.mtl_config_union
-        class MTLConfigUnion(
+        class MultiTaskConfigUnion(
             model_test_base,
-            MTLConfigUnionAdapterTest,
+            MultiTaskConfigUnionAdapterTest,
             unittest.TestCase,
         ):
             pass
 
-        test_classes["MTLConfigUnion"] = MTLConfigUnion
+        test_classes["MultiTaskConfigUnion"] = MultiTaskConfigUnion
 
     return test_classes

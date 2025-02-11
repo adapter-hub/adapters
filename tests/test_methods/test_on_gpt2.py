@@ -21,7 +21,10 @@ class GPT2AdapterTestBase(TextAdapterTestBase):
         self.skipTest("Not supported for GPT2")
 
 
-method_tests = generate_method_tests(GPT2AdapterTestBase, not_supported=["PromptTuning", "MTLLoRA"])
+method_tests = generate_method_tests(
+    GPT2AdapterTestBase,
+    not_supported=["PromptTuning", "MTLLoRA", "MultiTaskConfigUnion"],
+)
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

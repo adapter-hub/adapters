@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from adapters.configuration.adapter_config import MTLConfig, MTLLoRAConfig
+from adapters.configuration.adapter_config import MTLLoRAConfig, MultiTaskConfig
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
@@ -328,7 +328,7 @@ class LoRALayer(AdapterLayerBase):
         if lora_config is not None and self._check_lora_location(lora_config):
 
             kwargs = {}
-            is_mtl_config = isinstance(lora_config, MTLConfig)
+            is_mtl_config = isinstance(lora_config, MultiTaskConfig)
 
             if lora_config.composition_mode == "add":
                 if is_mtl_config:

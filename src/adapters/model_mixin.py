@@ -15,13 +15,13 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from adapters.configuration.adapter_config import ConfigUnion, LoRAConfig, MTLConfigUnion
+from adapters.configuration.adapter_config import ConfigUnion, LoRAConfig, MultiTaskConfigUnion
 from transformers import GenerationConfig
 from transformers.modeling_outputs import ModelOutput
 from transformers.utils import is_accelerate_available
 
 from . import __version__
-from .composition import AdapterCompositionBlock, Fuse, Stack, parse_composition
+from .composition import AdapterCompositionBlock, Fuse, MultiTask, Stack, parse_composition
 from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
@@ -641,18 +641,22 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         except ValueError as ex:
             self.delete_adapter(adapter_name)
             raise ex
-        if set_active:
-            self.set_active_adapters(adapter_name)
 
-        if isinstance(config, MTLConfigUnion):
+        if isinstance(config, MultiTaskConfigUnion):
             for task_name in config.task_names:
                 task_config = config.base_config.replace(shared_parameters_name=adapter_name)
                 self.add_adapter(
                     task_name,
                     task_config,
                     overwrite_ok=overwrite_ok,
-                    set_active=set_active,
                 )
+
+        if set_active:
+            if isinstance(config, MultiTaskConfigUnion):
+                adapter_setup = MultiTask(*config.task_names)
+            else:
+                adapter_setup = adapter_name
+            self.set_active_adapters(adapter_setup)
 
     def _add_adapter_weights(self, adapter_name: str):
         """Helper method that performs the actual parameter additions when adding a new adapter."""
@@ -749,7 +753,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             return
 
         # Multi Task Learning Config
-        if isinstance((config := self.adapters_config.get(adapter_name)), MTLConfigUnion):
+        config = self.adapters_config.get(adapter_name)
+        if isinstance(
+            config,
+            MultiTaskConfigUnion,
+        ):
             for sub_adapter_name in config.task_names:
                 self.delete_adapter(sub_adapter_name)
 
@@ -831,7 +839,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         use_safetensors: bool = False,
     ):
         adapter_config = self.adapters_config.get(adapter_name)
-        assert isinstance(adapter_config, MTLConfigUnion)
+        assert isinstance(adapter_config, MultiTaskConfigUnion)
 
         loader = MTLAdaptersLoader(self, use_safetensors=use_safetensors)
         loader.save(save_directory, adapter_name, meta_dict)
@@ -1361,6 +1369,13 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                                 destination[i][module.location_key] = nn.ModuleList([old_module, adapter_module])
                         else:
                             destination[i][module.location_key] = adapter_module
+
+        if isinstance(config := self.adapters_config.get(name), MultiTaskConfigUnion):
+            for task_name in config.task_names:
+                adapter = self.get_adapter(task_name)
+                for layer_i, module_loc in adapter.items():
+                    for loc_name, module in module_loc.items():
+                        destination[layer_i][loc_name] += adapter[layer_i][loc_name]
 
         return dict(destination)
 
