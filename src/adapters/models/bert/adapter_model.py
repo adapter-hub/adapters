@@ -1,8 +1,3 @@
-from typing import Optional, Tuple, Union
-
-import torch
-from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
-
 from transformers.generation import GenerationMixin
 from transformers.models.bert.modeling_bert import (
     BERT_INPUTS_DOCSTRING,
