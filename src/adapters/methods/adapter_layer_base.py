@@ -461,16 +461,13 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
 
         # sequentially feed different parts of the blown-up batch into different adapters
         context = ForwardContext.get_context()
-        task_ids = context.task_ids
-
         assert hasattr(context, "task_ids")
-
+        task_ids = context.task_ids
+        assert task_ids is not None
         ordering_idx = task_ids.argsort()
+        batch_sizes = task_ids.bincount().tolist()
         inter_state = self.compose_batch_split(
-            adapter_setup=BatchSplit(
-                *adapter_setup.children,
-                batch_sizes=task_ids.bincount().tolist(),
-            ),
+            adapter_setup=BatchSplit(*adapter_setup.children, batch_sizes=batch_sizes),
             state=self.vslice(state, ordering_idx),
             lvl=lvl,
         )
