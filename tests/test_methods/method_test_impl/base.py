@@ -157,16 +157,16 @@ class AdapterMethodBaseTestMixin:
 
         model.delete_adapter("first")
 
-    def run_forward_test(self, model, adapter_config, dtype=torch.float32, adapter_setup=None):
+    def run_forward_test(self, model, adapter_config, dtype=torch.float32, **kwargs):
         model.eval()
 
         name = adapter_config.__class__.__name__
-        adapter_setup = adapter_setup or name
+        adapter_setup = kwargs.get("adapter_setup") or name
         if name not in model.adapters_config:
             model.add_adapter(name, config=adapter_config)
         model.to(torch_device).to(dtype)
 
-        input_data = self.get_input_samples(config=model.config, dtype=dtype)
+        input_data = self.get_input_samples(config=model.config, dtype=dtype, **kwargs)
 
         # pass 1: set adapter via property
         model.set_active_adapters(adapter_setup)
@@ -192,7 +192,7 @@ class AdapterMethodBaseTestMixin:
         model.set_active_adapters(None)
         model.delete_adapter(name)
 
-    def run_load_test(self, adapter_config):
+    def run_load_test(self, adapter_config, **kwargs):
         model1, model2 = create_twin_models(self.model_class, self.config)
 
         name = "dummy_adapter"
@@ -221,7 +221,7 @@ class AdapterMethodBaseTestMixin:
         self.assertTrue(name in model2.adapters_config)
 
         # check equal output
-        input_data = self.get_input_samples(config=model1.config)
+        input_data = self.get_input_samples(config=model1.config, **kwargs)
         model1.to(torch_device)
         model2.to(torch_device)
         output1 = model1(**input_data)
