@@ -4,16 +4,7 @@ import torch
 
 import adapters
 from adapters import IA3Config, LoRAConfig, PrefixTuningConfig, SeqBnConfig
-from adapters.composition import (
-    Average,
-    BatchSplit,
-    Fuse,
-    MultiTask,
-    Parallel,
-    Split,
-    Stack,
-    parse_composition,
-)
+from adapters.composition import Average, BatchSplit, Fuse, MultiTask, Parallel, Split, Stack, parse_composition
 from adapters.context import ForwardContext
 from tests.test_methods.method_test_impl.utils import ids_tensor
 from transformers import BertConfig, BertForSequenceClassification
@@ -23,25 +14,17 @@ from transformers.testing_utils import require_torch, torch_device
 class AdapterCompositionParsingTest(unittest.TestCase):
     def test_parse_lists(self):
         self.assertEqual(Stack("a"), parse_composition("a"))
-        self.assertEqual(
-            Stack("a", "b", "c"), parse_composition(["a", "b", "c"])
-        )
-        self.assertEqual(
-            Stack("a", Fuse("b", "c")), parse_composition(["a", ["b", "c"]])
-        )
+        self.assertEqual(Stack("a", "b", "c"), parse_composition(["a", "b", "c"]))
+        self.assertEqual(Stack("a", Fuse("b", "c")), parse_composition(["a", ["b", "c"]]))
 
     def test_to_deep(self):
         self.assertRaises(
             ValueError,
-            lambda: parse_composition(
-                Stack("a", Fuse("b", Stack(Fuse("c", "d"), "e")))
-            ),
+            lambda: parse_composition(Stack("a", Fuse("b", Stack(Fuse("c", "d"), "e")))),
         )
 
     def test_invalid_nesting_fusion(self):
-        self.assertRaises(
-            ValueError, lambda: parse_composition(Fuse(Fuse("a", "b"), "c"))
-        )
+        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Fuse("a", "b"), "c")))
         self.assertRaises(
             ValueError,
             lambda: parse_composition(Fuse(Split("a", "b", splits=128), "c")),
@@ -120,9 +103,7 @@ class AdapterCompositionTest(unittest.TestCase):
 
         model = self.build_model()
         # split into two stacks
-        model.set_active_adapters(
-            Split(Stack("a", "b"), Stack("c", "d"), splits=64)
-        )
+        model.set_active_adapters(Split(Stack("a", "b"), Stack("c", "d"), splits=64))
 
         self.training_pass(model)
 
@@ -147,9 +128,7 @@ class AdapterCompositionTest(unittest.TestCase):
         model.add_adapter_fusion(Fuse("a", "b"))
         model.to(torch_device)
 
-        model.set_active_adapters(
-            Stack("a", Split("c", "d", splits=64), Fuse("a", "b"))
-        )
+        model.set_active_adapters(Stack("a", Split("c", "d", splits=64), Fuse("a", "b")))
 
         self.training_pass(model)
 
@@ -159,9 +138,7 @@ class AdapterCompositionTest(unittest.TestCase):
 
         model = self.build_model()
         # split into two stacks
-        model.set_active_adapters(
-            Split(Split("a", "b", splits=32), "c", splits=64)
-        )
+        model.set_active_adapters(Split(Split("a", "b", splits=32), "c", splits=64))
 
         self.training_pass(model)
 
@@ -178,10 +155,7 @@ class AdapterCompositionTest(unittest.TestCase):
         self.assertEqual(logits.shape, (8, 2))
 
     def test_nested_parallel(self):
-        if (
-            Parallel in self.unsupported_blocks
-            or Stack in self.unsupported_blocks
-        ):
+        if Parallel in self.unsupported_blocks or Stack in self.unsupported_blocks:
             self.skipTest("Parallel or Stack not supported by adapter config.")
 
         model = self.build_model()
@@ -216,9 +190,7 @@ class AdapterCompositionTest(unittest.TestCase):
         model = self.build_model()
         for batch_sizes in [[1, 1, 2], [2, 0, 2], [2, 2, 0]]:
             with self.subTest(batch_sizes=batch_sizes):
-                model.set_active_adapters(
-                    BatchSplit("a", "b", "c", batch_sizes=batch_sizes)
-                )
+                model.set_active_adapters(BatchSplit("a", "b", "c", batch_sizes=batch_sizes))
                 self.batched_training_pass(model)
 
     def test_batch_split_int(self):
@@ -230,33 +202,19 @@ class AdapterCompositionTest(unittest.TestCase):
         self.batched_training_pass(model)
 
     def test_nested_batch_split_1(self):
-        if (
-            BatchSplit in self.unsupported_blocks
-            or Stack in self.unsupported_blocks
-        ):
-            self.skipTest(
-                "BatchSplit or Stack not supported by adapter config."
-            )
+        if BatchSplit in self.unsupported_blocks or Stack in self.unsupported_blocks:
+            self.skipTest("BatchSplit or Stack not supported by adapter config.")
 
         model = self.build_model()
-        model.set_active_adapters(
-            Stack("a", BatchSplit("b", "c", batch_sizes=[2, 2]))
-        )
+        model.set_active_adapters(Stack("a", BatchSplit("b", "c", batch_sizes=[2, 2])))
         self.batched_training_pass(model)
 
     def test_nested_batch_split_2(self):
-        if (
-            BatchSplit in self.unsupported_blocks
-            or Stack in self.unsupported_blocks
-        ):
-            self.skipTest(
-                "BatchSplit or Stack not supported by adapter config."
-            )
+        if BatchSplit in self.unsupported_blocks or Stack in self.unsupported_blocks:
+            self.skipTest("BatchSplit or Stack not supported by adapter config.")
 
         model = self.build_model()
-        model.set_active_adapters(
-            BatchSplit(Stack("a", "b"), "c", batch_sizes=[2, 2])
-        )
+        model.set_active_adapters(BatchSplit(Stack("a", "b"), "c", batch_sizes=[2, 2]))
         self.batched_training_pass(model)
 
     def test_batch_split_invalid(self):
@@ -301,8 +259,7 @@ class AdapterCompositionTest(unittest.TestCase):
 
 
 class PrefixTuningCompositionTest(AdapterCompositionTest):
-    # TODO: remove MultiTaskLearning if PR #795 is merged.
-    unsupported_blocks = [Split, Fuse, Average, MultiTask]
+    unsupported_blocks = [Split, Fuse, Average]
 
     def get_adapter_config(self):
         return PrefixTuningConfig()
