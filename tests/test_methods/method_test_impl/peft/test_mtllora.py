@@ -7,7 +7,7 @@ from transformers.testing_utils import require_torch
 class MTLLoRATestMixin(AdapterMethodBaseTestMixin):
     def test_add_mtllora(self):
         model = self.get_model()
-        config = MTLLoRAConfig()
+        config = MTLLoRAConfig(n_up_projection=3)
         self.run_add_test(
             model,
             config,
@@ -53,7 +53,7 @@ class MTLLoRATestMixin(AdapterMethodBaseTestMixin):
                         model,
                         MTLLoRAConfig(
                             n_up_projection=n_proj,
-                            init_weights="bert",
+                            init_weights="bert",  # avoid a zero tensor approx hidden state
                             intermediate_lora=True,
                             output_lora=True,
                         ),

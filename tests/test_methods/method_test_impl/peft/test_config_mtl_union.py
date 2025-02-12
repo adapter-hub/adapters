@@ -1,8 +1,6 @@
 from adapters.composition import MultiTask
-from adapters.configuration.adapter_config import (
-    MTLLoRAConfig,
-    MultiTaskConfigUnion,
-)
+from adapters.configuration.adapter_config import MTLLoRAConfig, MultiTaskConfigUnion
+from adapters.context import ForwardContext
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch, torch_device
 
@@ -13,7 +11,8 @@ class MultiTaskConfigUnionAdapterTest(AdapterMethodBaseTestMixin):
     adapter_configs_to_test = [
         (
             MultiTaskConfigUnion(
-                base_config=MTLLoRAConfig(), task_names=["a", "b", "c"]
+                base_config=MTLLoRAConfig(n_up_projection=3, init_weights="bert"),
+                task_names=["a", "b", "c"],
             ),
             [
                 "loras.shared_parameters.{name}.",
@@ -49,16 +48,12 @@ class MultiTaskConfigUnionAdapterTest(AdapterMethodBaseTestMixin):
 
                 name = "test_adapter_" + adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config, set_active=True)
-                model.set_active_adapters == MultiTask(
-                    *adapter_config.task_names
-                )
+                model.set_active_adapters == MultiTask(*adapter_config.task_names)
                 model.to(torch_device)
 
                 # adapter is correctly added to config
                 self.assertTrue(name in model.adapters_config)
-                self.assertEqual(
-                    adapter_config, model.adapters_config.get(name)
-                )
+                self.assertEqual(adapter_config, model.adapters_config.get(name))
 
                 # check that weights are available and active
                 has_weights = False
@@ -90,19 +85,22 @@ class MultiTaskConfigUnionAdapterTest(AdapterMethodBaseTestMixin):
                 config=adapter_config.base_config.__class__.__name__,
                 task_names=adapter_config.task_names,
             ):
-                self.run_load_test(adapter_config)
+                ForwardContext.context_args.add("task_ids")
+                self.run_load_test(adapter_config, n_tasks=len(adapter_config.task_names))
 
-    # def test_mtl_union_adapter_forward(self):
-    #     model = self.get_model()
-    #     model.eval()
-    #     for adapter_config, _ in self.adapter_configs_to_test:
-    #         with self.subTest(
-    #             model_class=model.__class__.__name__,
-    #             config=adapter_config.base_config.__class__.__name__,
-    #             task_names=adapter_config.task_names,
-    #         ):
-    #             self.run_forward_test(
-    #                 model,
-    #                 adapter_config,
-    #                 adapter_setup=MultiTask(*adapter_config.task_names),
-    #             )
+    def test_mtl_union_adapter_forward(self):
+        model = self.get_model()
+        model.eval()
+        for adapter_config, _ in self.adapter_configs_to_test:
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.base_config.__class__.__name__,
+                task_names=adapter_config.task_names,
+            ):
+                ForwardContext.context_args.add("task_ids")
+                self.run_forward_test(
+                    model,
+                    adapter_config,
+                    n_tasks=len(adapter_config.task_names),
+                    adapter_setup=MultiTask(*adapter_config.task_names),
+                )
