@@ -5,7 +5,17 @@ import numpy as np
 import torch
 from torch import nn
 
-from ..composition import ALLOWED_NESTINGS, AdapterCompositionBlock, Average, BatchSplit, Fuse, Parallel, Split, Stack
+from ..composition import (
+    ALLOWED_NESTINGS,
+    AdapterCompositionBlock,
+    Average,
+    BatchSplit,
+    Fuse,
+    MultiTaskLearning,
+    Parallel,
+    Split,
+    Stack,
+)
 from ..context import AdapterSetup, ForwardContext
 
 
@@ -44,9 +54,12 @@ class AdapterLayerBase(metaclass=ABCMeta):
         else:
             adapter_setup = None
         skip_adapters = adapter_setup is None or (
-            self.adapters_config.skip_layers is not None and self.layer_idx in self.adapters_config.skip_layers
+            self.adapters_config.skip_layers is not None
+            and self.layer_idx in self.adapters_config.skip_layers
         )
-        if not skip_adapters and (len(set(self.adapter_modules.keys()) & adapter_setup.flatten()) > 0):
+        if not skip_adapters and (
+            len(set(self.adapter_modules.keys()) & adapter_setup.flatten()) > 0
+        ):
             return adapter_setup
         else:
             return None
@@ -60,13 +73,17 @@ class AdapterLayerBase(metaclass=ABCMeta):
             gating_score = gating_score.detach().squeeze().cpu().numpy()
             if len(gating_score.shape) == 0:
                 gating_score = np.expand_dims(gating_score, axis=0)
-            cache_score = gating_cache[adapter_name][self.layer_idx].get(self.location_key, None)
+            cache_score = gating_cache[adapter_name][self.layer_idx].get(
+                self.location_key, None
+            )
             if cache_score is not None:
-                gating_cache[adapter_name][self.layer_idx][self.location_key] = np.column_stack(
-                    (cache_score, gating_score)
-                )
+                gating_cache[adapter_name][self.layer_idx][
+                    self.location_key
+                ] = np.column_stack((cache_score, gating_score))
             else:
-                gating_cache[adapter_name][self.layer_idx][self.location_key] = gating_score
+                gating_cache[adapter_name][self.layer_idx][
+                    self.location_key
+                ] = gating_score
 
     def _store_fusion_attentions(self, fusion_name, attentions):
         context = ForwardContext.get_context()
@@ -74,7 +91,9 @@ class AdapterLayerBase(metaclass=ABCMeta):
             attention_cache = context.adapter_fusion_attentions
             if self.layer_idx not in attention_cache[fusion_name]:
                 attention_cache[fusion_name][self.layer_idx] = {}
-            attention_cache[fusion_name][self.layer_idx][self.location_key] = attentions
+            attention_cache[fusion_name][self.layer_idx][
+                self.location_key
+            ] = attentions
 
     @abstractmethod
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
@@ -90,7 +109,13 @@ class AdapterLayerBase(metaclass=ABCMeta):
         """
         raise NotImplementedError()
 
-    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy, **kwargs) -> bool:
+    def average_adapter(
+        self,
+        adapter_name: str,
+        input_adapters: Dict[str, float],
+        combine_strategy,
+        **kwargs,
+    ) -> bool:
         """Averages a set of adapter modules into a new adapter module.
 
         Args:
@@ -106,7 +131,9 @@ class AdapterLayerBase(metaclass=ABCMeta):
         if self.add_adapter(adapter_name, self.layer_idx):
             if combine_strategy != "linear":
                 # You get the adapter type from the input adapters
-                raise ValueError(f"Combine strategy {combine_strategy} not supported for the chosen adapter methods.")
+                raise ValueError(
+                    f"Combine strategy {combine_strategy} not supported for the chosen adapter methods."
+                )
 
             # average weights linearly
             avg_state_dict = {}
@@ -119,7 +146,9 @@ class AdapterLayerBase(metaclass=ABCMeta):
                         else:
                             avg_state_dict[k] = weight * v
                 else:
-                    self.delete_adapter(adapter_name)  # clean up before raising error
+                    self.delete_adapter(
+                        adapter_name
+                    )  # clean up before raising error
                     raise ValueError("Adapter {} not found.".format(name))
 
             # load averaged weights
@@ -144,7 +173,12 @@ class AdapterLayerBase(metaclass=ABCMeta):
     def delete_fusion_layer(self, adapter_names: Union[List, str]):
         pass  # default implementation does nothing as fusion is not applicable to all methods
 
-    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
+    def enable_adapters(
+        self,
+        adapter_setup: AdapterCompositionBlock,
+        unfreeze_adapters: bool,
+        unfreeze_fusion: bool,
+    ):
         """Enables/ disables a set of adapter modules within the layer.
 
         Args:
@@ -209,6 +243,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             Stack: "compose_stack",
             Fuse: "compose_fuse",
             Split: "compose_split",
+            MultiTaskLearning: "compose_multi_task_learning",
             BatchSplit: "compose_batch_split",
             Parallel: "compose_parallel",
             Average: "compose_average",
@@ -227,7 +262,11 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         """
         return state[0].shape[0]
 
-    def pre_block(self, adapter_setup: Union[AdapterCompositionBlock, str], state: NamedTuple) -> NamedTuple:
+    def pre_block(
+        self,
+        adapter_setup: Union[AdapterCompositionBlock, str],
+        state: NamedTuple,
+    ) -> NamedTuple:
         """
         Optional state pre-processing method which is invoked before passing the state to the first child block of a
         composition. By default, this method does not contain any logic. E.g. used for bottleneck adapters to implement
@@ -286,7 +325,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         raise NotImplementedError()
 
     @abstractmethod
-    def mean(self, states: List[NamedTuple], weights: torch.Tensor) -> NamedTuple:
+    def mean(
+        self, states: List[NamedTuple], weights: torch.Tensor
+    ) -> NamedTuple:
         """Averages the given states along the batch size dimension by the given weights.
         This is e.g. used by the Average composition block. IMPORTANT: Has to be implemented by all derived classes.
 
@@ -300,7 +341,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         raise NotImplementedError()
 
     @abstractmethod
-    def compose_single(self, adapter_setup: str, state: NamedTuple, lvl: int = 0) -> NamedTuple:
+    def compose_single(
+        self, adapter_setup: str, state: NamedTuple, lvl: int = 0
+    ) -> NamedTuple:
         """Forwards the given state through the given single adapter.
 
         Args:
@@ -315,7 +358,12 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
 
     # END CUSTOMIZABLE METHODS #
 
-    def check_composition_valid(self, parent: AdapterCompositionBlock, child: AdapterCompositionBlock, lvl: int):
+    def check_composition_valid(
+        self,
+        parent: AdapterCompositionBlock,
+        child: AdapterCompositionBlock,
+        lvl: int,
+    ):
         """Checks whether the given composition is valid.
 
         Args:
@@ -329,35 +377,51 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         # Break if setup is too deep
         if isinstance(parent, Stack) and lvl >= 1:
             raise ValueError(
-                "Specified adapter setup is too deep. Cannot have {} at level {}".format(child.__class__.__name__, lvl)
+                "Specified adapter setup is too deep. Cannot have {} at level {}".format(
+                    child.__class__.__name__, lvl
+                )
             )
         elif type(child) not in ALLOWED_NESTINGS[type(parent)]:
             raise ValueError(
                 "Cannot nest {} inside {}. Only the following nestings are allowed: {}".format(
                     child.__class__.__name__,
                     parent.__class__.__name__,
-                    ", ".join([t.__name__ for t in ALLOWED_NESTINGS[type(parent)]]),
+                    ", ".join(
+                        [t.__name__ for t in ALLOWED_NESTINGS[type(parent)]]
+                    ),
                 )
             )
 
-    def compose_stack(self, adapter_setup: Stack, state: NamedTuple, lvl: int = 0) -> NamedTuple:
+    def compose_stack(
+        self, adapter_setup: Stack, state: NamedTuple, lvl: int = 0
+    ) -> NamedTuple:
         """
         For sequentially stacking multiple adapters.
         """
         for i, adapter_stack_layer in enumerate(adapter_setup):
             if isinstance(adapter_stack_layer, AdapterCompositionBlock):
-                self.check_composition_valid(adapter_setup, adapter_stack_layer, lvl)
-                composition_func = self._get_compose_func(type(adapter_stack_layer))
-                state = composition_func(adapter_stack_layer, state, lvl=lvl + 1)
+                self.check_composition_valid(
+                    adapter_setup, adapter_stack_layer, lvl
+                )
+                composition_func = self._get_compose_func(
+                    type(adapter_stack_layer)
+                )
+                state = composition_func(
+                    adapter_stack_layer, state, lvl=lvl + 1
+                )
             elif adapter_stack_layer in self.adapter_modules:
                 state = self.pre_block(adapter_stack_layer, state)
-                state = self.compose_single(adapter_stack_layer, state, lvl=lvl + 1)
+                state = self.compose_single(
+                    adapter_stack_layer, state, lvl=lvl + 1
+                )
             else:
                 pass
 
         return state
 
-    def compose_fuse(self, adapter_setup: Fuse, state: NamedTuple, lvl: int = 0):
+    def compose_fuse(
+        self, adapter_setup: Fuse, state: NamedTuple, lvl: int = 0
+    ):
         """
         For fusing multiple adapters using adapter fusion. NOTE: This method has no default implementation.
         """
@@ -367,7 +431,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             return state
         raise NotImplementedError()
 
-    def compose_split(self, adapter_setup: Split, state: NamedTuple, lvl: int = 0):
+    def compose_split(
+        self, adapter_setup: Split, state: NamedTuple, lvl: int = 0
+    ):
         """
         For splitting to multiple adapters along the sequence length dimension. NOTE: This method has no default
         implementation.
@@ -378,7 +444,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             return state
         raise NotImplementedError()
 
-    def compose_batch_split(self, adapter_setup: BatchSplit, state: NamedTuple, lvl: int = 0):
+    def compose_batch_split(
+        self, adapter_setup: BatchSplit, state: NamedTuple, lvl: int = 0
+    ):
         """
         For splitting to multiple adapters along the batch size dimension.
         """
@@ -422,7 +490,37 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         state = self.pad_and_concat(children_states)
         return state
 
-    def compose_parallel(self, adapter_setup: Parallel, state: NamedTuple, lvl: int = 0):
+    def compose_multi_task_learning(
+        self, adapter_setup: MultiTaskLearning, state: NamedTuple, lvl: int = 0
+    ):
+        """
+        For splitting to multiple adapters along the task_ids.
+        """
+        state = self.pre_block(adapter_setup, state)
+
+        # sequentially feed different parts of the blown-up batch into different adapters
+        context = ForwardContext.get_context()
+        task_ids = context.batch_task_ids
+
+        assert hasattr(context, "batch_task_ids")
+
+        ordering_idx = task_ids.argsort()
+        batch_task_ids_ordered = task_ids[ordering_idx]
+        children_states = self.compose_batch_split(
+            adapter_setup=BatchSplit(
+                *adapter_setup.children,
+                batch_sizes=task_ids.bincount().tolist(),
+            ),
+            state=self.vslice(state, batch_task_ids_ordered),
+            lvl=lvl,
+        )
+
+        states = self.vslice(children_states, ordering_idx)
+        return states
+
+    def compose_parallel(
+        self, adapter_setup: Parallel, state: NamedTuple, lvl: int = 0
+    ):
         """
         For parallel execution of the adapters on the same input. This means that the input is repeated N times before
         feeding it to the adapters (where N is the number of adapters).
@@ -438,7 +536,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             bsz = self._bsz(state)
             # If the input was already parallelized, we can parallelize it again.
             # This is useful e.g. for LoRA, where attention matrices are parallelized independently.
-            if self.allow_multi_parallelize and bsz == getattr(context, "original_batch_size", -1):
+            if self.allow_multi_parallelize and bsz == getattr(
+                context, "original_batch_size", -1
+            ):
                 state = self.repeat(state, adapter_setup.parallel_channels)
                 orig_batch_size = bsz
             # The base model should handle replication of input.
@@ -461,25 +561,38 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
                 composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(
                     child,
-                    self.vslice(state, slice(i * orig_batch_size, (i + 1) * orig_batch_size)),
+                    self.vslice(
+                        state,
+                        slice(i * orig_batch_size, (i + 1) * orig_batch_size),
+                    ),
                     lvl=lvl + 1,
                 )
                 children_states.append(child_state)
             elif child in self.adapter_modules:
                 child_state = self.compose_single(
                     child,
-                    self.vslice(state, slice(i * orig_batch_size, (i + 1) * orig_batch_size)),
+                    self.vslice(
+                        state,
+                        slice(i * orig_batch_size, (i + 1) * orig_batch_size),
+                    ),
                     lvl=lvl + 1,
                 )
                 children_states.append(child_state)
             else:
-                children_states.append(self.vslice(state, slice(i * orig_batch_size, (i + 1) * orig_batch_size)))
+                children_states.append(
+                    self.vslice(
+                        state,
+                        slice(i * orig_batch_size, (i + 1) * orig_batch_size),
+                    )
+                )
 
         # concatenate all outputs and return
         state = self.pad_and_concat(children_states)
         return state
 
-    def compose_average(self, adapter_setup: Average, state: NamedTuple, lvl: int = 0):
+    def compose_average(
+        self, adapter_setup: Average, state: NamedTuple, lvl: int = 0
+    ):
         """
         For averaging the output representations of multiple adapters.
         """
@@ -499,12 +612,18 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             else:
                 pass
 
-        weights = torch.tensor(adapter_setup.weights)[:, None, None, None].to(state[0].device)
+        weights = torch.tensor(adapter_setup.weights)[:, None, None, None].to(
+            state[0].device
+        )
         state = self.mean(children_states, weights)
 
         return state
 
-    def compose(self, adapter_setup: Union[AdapterCompositionBlock, str], state: NamedTuple) -> NamedTuple:
+    def compose(
+        self,
+        adapter_setup: Union[AdapterCompositionBlock, str],
+        state: NamedTuple,
+    ) -> NamedTuple:
         """The main composition forward method which recursively calls the composition blocks forward methods.
         This method should be called by the forward method of the derived class.
 

@@ -4,27 +4,54 @@ import torch
 
 import adapters
 from adapters import IA3Config, LoRAConfig, PrefixTuningConfig, SeqBnConfig
-from adapters.composition import Average, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
-from tests.test_methods.method_test_impl.utils import ids_tensor
-from transformers import BertConfig, BertForSequenceClassification
+from adapters.composition import (
+    Average,
+    BatchSplit,
+    Fuse,
+    MultiTaskLearning,
+    Parallel,
+    Split,
+    Stack,
+    parse_composition,
+)
+from adapters.models.bert.adapter_model import BertForSequenceClassification
+from tests.test_adapter import ids_tensor
+from transformers import BertConfig
 from transformers.testing_utils import require_torch, torch_device
 
 
 class AdapterCompositionParsingTest(unittest.TestCase):
     def test_parse_lists(self):
         self.assertEqual(Stack("a"), parse_composition("a"))
-        self.assertEqual(Stack("a", "b", "c"), parse_composition(["a", "b", "c"]))
-        self.assertEqual(Stack("a", Fuse("b", "c")), parse_composition(["a", ["b", "c"]]))
+        self.assertEqual(
+            Stack("a", "b", "c"), parse_composition(["a", "b", "c"])
+        )
+        self.assertEqual(
+            Stack("a", Fuse("b", "c")), parse_composition(["a", ["b", "c"]])
+        )
 
     def test_to_deep(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Stack("a", Fuse("b", Stack(Fuse("c", "d"), "e")))))
+        self.assertRaises(
+            ValueError,
+            lambda: parse_composition(
+                Stack("a", Fuse("b", Stack(Fuse("c", "d"), "e")))
+            ),
+        )
 
     def test_invalid_nesting_fusion(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Fuse("a", "b"), "c")))
-        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Split("a", "b", splits=128), "c")))
+        self.assertRaises(
+            ValueError, lambda: parse_composition(Fuse(Fuse("a", "b"), "c"))
+        )
+        self.assertRaises(
+            ValueError,
+            lambda: parse_composition(Fuse(Split("a", "b", splits=128), "c")),
+        )
 
     def test_invalid_nesting_split(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Split("a", Fuse("b", "c"), splits=128)))
+        self.assertRaises(
+            ValueError,
+            lambda: parse_composition(Split("a", Fuse("b", "c"), splits=128)),
+        )
 
 
 @require_torch
@@ -93,7 +120,9 @@ class AdapterCompositionTest(unittest.TestCase):
 
         model = self.build_model()
         # split into two stacks
-        model.set_active_adapters(Split(Stack("a", "b"), Stack("c", "d"), splits=64))
+        model.set_active_adapters(
+            Split(Stack("a", "b"), Stack("c", "d"), splits=64)
+        )
 
         self.training_pass(model)
 
@@ -118,7 +147,9 @@ class AdapterCompositionTest(unittest.TestCase):
         model.add_adapter_fusion(Fuse("a", "b"))
         model.to(torch_device)
 
-        model.set_active_adapters(Stack("a", Split("c", "d", splits=64), Fuse("a", "b")))
+        model.set_active_adapters(
+            Stack("a", Split("c", "d", splits=64), Fuse("a", "b"))
+        )
 
         self.training_pass(model)
 
@@ -128,7 +159,9 @@ class AdapterCompositionTest(unittest.TestCase):
 
         model = self.build_model()
         # split into two stacks
-        model.set_active_adapters(Split(Split("a", "b", splits=32), "c", splits=64))
+        model.set_active_adapters(
+            Split(Split("a", "b", splits=32), "c", splits=64)
+        )
 
         self.training_pass(model)
 
@@ -145,7 +178,10 @@ class AdapterCompositionTest(unittest.TestCase):
         self.assertEqual(logits.shape, (8, 2))
 
     def test_nested_parallel(self):
-        if Parallel in self.unsupported_blocks or Stack in self.unsupported_blocks:
+        if (
+            Parallel in self.unsupported_blocks
+            or Stack in self.unsupported_blocks
+        ):
             self.skipTest("Parallel or Stack not supported by adapter config.")
 
         model = self.build_model()
@@ -155,6 +191,17 @@ class AdapterCompositionTest(unittest.TestCase):
         inputs["input_ids"] = ids_tensor((1, 10), 1000)
         logits = model(**inputs).logits
         self.assertEqual(logits.shape, (2, 2))
+
+    def test_multi_task_learning(self):
+        model = self.build_model()
+        model.set_active_adapters(MultiTaskLearning("a", "b", "c", "d"))
+        inputs = {
+            "input_ids": ids_tensor((4, 128), 1000).to(torch_device),
+            "labels": torch.ones(4, dtype=torch.long).to(torch_device),
+            "batch_task_ids": torch.randint(4, (4,)),
+        }
+        loss = model(**inputs).loss
+        loss.backward()
 
     def test_batch_split(self):
         if BatchSplit in self.unsupported_blocks:
@@ -175,19 +222,33 @@ class AdapterCompositionTest(unittest.TestCase):
         self.batched_training_pass(model)
 
     def test_nested_batch_split_1(self):
-        if BatchSplit in self.unsupported_blocks or Stack in self.unsupported_blocks:
-            self.skipTest("BatchSplit or Stack not supported by adapter config.")
+        if (
+            BatchSplit in self.unsupported_blocks
+            or Stack in self.unsupported_blocks
+        ):
+            self.skipTest(
+                "BatchSplit or Stack not supported by adapter config."
+            )
 
         model = self.build_model()
-        model.set_active_adapters(Stack("a", BatchSplit("b", "c", batch_sizes=[2, 2])))
+        model.set_active_adapters(
+            Stack("a", BatchSplit("b", "c", batch_sizes=[2, 2]))
+        )
         self.batched_training_pass(model)
 
     def test_nested_batch_split_2(self):
-        if BatchSplit in self.unsupported_blocks or Stack in self.unsupported_blocks:
-            self.skipTest("BatchSplit or Stack not supported by adapter config.")
+        if (
+            BatchSplit in self.unsupported_blocks
+            or Stack in self.unsupported_blocks
+        ):
+            self.skipTest(
+                "BatchSplit or Stack not supported by adapter config."
+            )
 
         model = self.build_model()
-        model.set_active_adapters(BatchSplit(Stack("a", "b"), "c", batch_sizes=[2, 2]))
+        model.set_active_adapters(
+            BatchSplit(Stack("a", "b"), "c", batch_sizes=[2, 2])
+        )
         self.batched_training_pass(model)
 
     def test_batch_split_invalid(self):

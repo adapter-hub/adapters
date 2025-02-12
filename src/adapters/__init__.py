@@ -28,6 +28,7 @@ _import_structure = {
         "AdapterCompositionBlock",
         "BatchSplit",
         "Fuse",
+        "MultiTaskLearning",
         "Parallel",
         "Split",
         "Stack",
@@ -84,7 +85,10 @@ _import_structure = {
         "Seq2SeqLMHead",
         "TaggingHead",
     ],
-    "methods.adapter_layer_base": ["AdapterLayerBase", "ComposableAdapterLayerBase"],
+    "methods.adapter_layer_base": [
+        "AdapterLayerBase",
+        "ComposableAdapterLayerBase",
+    ],
     "model_mixin": [
         "EmbeddingAdaptersMixin",
         "InvertibleAdaptersMixin",

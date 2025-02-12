@@ -23,13 +23,19 @@ class AdapterSetup(ContextManager):
     # thread-local storage that holds a stack of active contexts
     storage = threading.local()
 
-    def __init__(self, adapter_setup, head_setup=None, ignore_empty: bool = False):
+    def __init__(
+        self, adapter_setup, head_setup=None, ignore_empty: bool = False
+    ):
         self.adapter_setup = parse_composition(adapter_setup)
         if head_setup:
             self.head_setup = head_setup
         else:
             self.head_setup = parse_heads_from_composition(self.adapter_setup)
-        self._empty = ignore_empty and self.adapter_setup is None and self.head_setup is None
+        self._empty = (
+            ignore_empty
+            and self.adapter_setup is None
+            and self.head_setup is None
+        )
 
     def __enter__(self):
         if not self._empty:
