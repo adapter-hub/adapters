@@ -164,7 +164,7 @@ class Average(AdapterCompositionBlock):
 
 # Mapping each composition block type to the allowed nested types
 ALLOWED_NESTINGS = {
-    Stack: [str, Fuse, Split, Parallel, BatchSplit, Average],
+    Stack: [str, Fuse, Split, Parallel, BatchSplit, Average, MultiTask],
     Fuse: [str, Stack],
     Split: [str, Split, Stack, BatchSplit, Average],
     Parallel: [str, Stack, BatchSplit, Average],

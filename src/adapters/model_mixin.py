@@ -581,6 +581,25 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def set_shared_parameters(self, param):
         self.base_model.shared_parameters = param
 
+    def replace_compositions(self, adapter_setup):
+
+        if isinstance(adapter_setup, AdapterCompositionBlock):
+            adapter_setup.children = [self.replace_compositions(sub_setup) for sub_setup in adapter_setup]
+
+            if len(adapter_setup.children) == 1 and isinstance(
+                sub_setup := adapter_setup.children[0], AdapterCompositionBlock
+            ):
+                adapter_setup = sub_setup
+            return adapter_setup
+
+        else:
+            adapter_config = self.adapters_config.get(adapter_setup)
+            return (
+                MultiTask(*adapter_config.task_names)
+                if isinstance(adapter_config, MultiTaskConfigUnion)
+                else adapter_setup
+            )
+
     def set_active_adapters(
         self,
         adapter_setup: Union[list, AdapterCompositionBlock],
@@ -595,6 +614,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
         adapter_setup = parse_composition(adapter_setup, model_type=self.config.model_type)
+        adapter_setup = self.replace_compositions(adapter_setup)
         if adapter_setup:
             for adapter_name in adapter_setup.flatten():
                 if adapter_name not in self.adapters_config.adapters:
@@ -652,11 +672,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 )
 
         if set_active:
-            if isinstance(config, MultiTaskConfigUnion):
-                adapter_setup = MultiTask(*config.task_names)
-            else:
-                adapter_setup = adapter_name
-            self.set_active_adapters(adapter_setup)
+            self.set_active_adapters(adapter_name)
 
     def _add_adapter_weights(self, adapter_name: str):
         """Helper method that performs the actual parameter additions when adding a new adapter."""
