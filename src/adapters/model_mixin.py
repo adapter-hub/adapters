@@ -849,6 +849,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
                 weights_loader.save(save_directory, adapter_name)
+                if is_mtl_union:
+                    for task_name in adapter_config.task_names:
+                        weights_loader.save(os.path.join(save_directory, task_name), task_name)
 
     def save_adapter_fusion(
         self,
