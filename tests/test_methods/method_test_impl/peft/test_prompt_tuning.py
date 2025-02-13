@@ -38,3 +38,9 @@ class PromptTuningTestMixin(AdapterMethodBaseTestMixin):
 
     def test_prompt_tuning_gradient_checkpointing_single_adapter(self):
         self.run_gradient_checkpointing_single_adapter_test(PromptTuningConfig(prompt_length=10))
+
+    def test_same_weights_after_adding_adapter(self):
+        # setting init_weights_seed should leed to every adapter layer having the same weights after initialization
+        self.run_same_weights_test(
+            PromptTuningConfig(init_weights_seed=42, prompt_length=10), ["prompt_tunings.{name}."]
+        )

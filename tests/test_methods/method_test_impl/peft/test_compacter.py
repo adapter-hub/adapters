@@ -51,3 +51,9 @@ class CompacterTestMixin(AdapterMethodBaseTestMixin):
 
     def test_compacter_generate(self):
         self.run_generate_test(CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8))
+
+    def test_same_weights_after_adding_adapter(self):
+        # setting init_weights_seed should leed to every adapter layer having the same weights after initialization
+        self.run_same_weights_test(
+            CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8, init_weights_seed=42), ["adapters.{name}."]
+        )

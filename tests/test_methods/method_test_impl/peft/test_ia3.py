@@ -47,3 +47,7 @@ class IA3TestMixin(AdapterMethodBaseTestMixin):
 
     def test_ia3_gradient_checkpointing_single_adapter(self):
         self.run_gradient_checkpointing_single_adapter_test(IA3Config())
+
+    def test_same_weights_after_adding_adapter(self):
+        # setting init_weights_seed should leed to every adapter layer having the same weights after initialization
+        self.run_same_weights_test(IA3Config(init_weights_seed=42), ["loras.{name}."])

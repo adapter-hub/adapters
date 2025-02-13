@@ -79,3 +79,7 @@ class PrefixTuningTestMixin(AdapterMethodBaseTestMixin):
 
     def test_prefix_tuning_gradient_checkpointing_single_adapter(self):
         self.run_gradient_checkpointing_single_adapter_test(PrefixTuningConfig())
+
+    def test_same_weights_after_adding_adapter(self):
+        # setting init_weights_seed should leed to every adapter layer having the same weights after initialization
+        self.run_same_weights_test(PrefixTuningConfig(init_weights_seed=42), ["prefix_tunings.{name}."])
