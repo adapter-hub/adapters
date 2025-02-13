@@ -25,7 +25,7 @@ from .composition import AdapterCompositionBlock, Fuse, MultiTask, Stack, parse_
 from .configuration import ADAPTER_CONFIG_MAP, AdapterConfig, AdapterFusionConfig, BnConfig
 from .context import AdapterSetup, ForwardContext
 from .hub_mixin import PushAdapterToHubMixin
-from .loading import AdapterFusionLoader, AdapterLoader, MultiTaskAdapterLoarder, PredictionHeadLoader, WeightsLoader
+from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, WeightsLoader
 from .methods.adapter_layer_base import AdapterLayerBase
 from .methods.bottleneck import BottleneckLayer
 from .methods.lora import LoRALayer
@@ -49,6 +49,77 @@ logger = logging.getLogger(__name__)
 
 if is_accelerate_available():
     from accelerate.hooks import AlignDevicesHook, add_hook_to_module
+
+
+class MultiTaskAdaptersMixin:
+    """Mixin for multi-task composition and union"""
+
+    def is_mtl_union(self, adapter_config):
+        return isinstance(adapter_config, MultiTaskConfigUnion)
+
+    def set_active_adapters_mtl_hook(self, adapter_setup):
+        return self._replace_union_name_by_compositions(adapter_setup)
+
+    def add_adapter_mtl_hook(self, config, adapter_name, overwrite_ok):
+        if self.is_mtl_union(config):
+            for task_name in config.task_names:
+                task_config = config.base_config.replace(shared_parameters_name=adapter_name)
+                self.add_adapter(
+                    task_name,
+                    task_config,
+                    overwrite_ok=overwrite_ok,
+                )
+
+    def delete_adapter_mtl_hook(self, adapter_name, config=None):
+        config = config or self.adapters_config.get(adapter_name)
+        if self.is_mtl_union(config):
+            for sub_adapter_name in config.task_names:
+                self.delete_adapter(sub_adapter_name)
+
+    def save_adapter_mtl_hook(
+        self,
+        save_directory: str,
+        adapter_name: str,
+        meta_dict: dict = None,
+        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
+        use_safetensors: bool = False,
+        **kwargs,
+    ):
+        config = self.adapters_config.get(adapter_name)
+        if self.is_mtl_union(config):
+            for task in config.task_names:
+                self.save_adapter(
+                    save_directory=os.path.join(save_directory, task),
+                    adapter_name=task,
+                    meta_dict=meta_dict,
+                    custom_weights_loaders=custom_weights_loaders,
+                    use_safetensors=use_safetensors,
+                    **kwargs,
+                )
+
+    def train_adapter_mtl_hook(self, adapter_setup):
+        return self._replace_union_name_by_compositions(adapter_setup)
+
+    def _replace_union_name_by_compositions(self, adapter_setup):
+        """Replace adapter union name by MultiTask composition recursively in adapter_setup"""
+        if isinstance(adapter_setup, AdapterCompositionBlock):
+            adapter_setup.children = [
+                self._replace_union_name_by_compositions(sub_setup) for sub_setup in adapter_setup
+            ]
+
+            if len(adapter_setup.children) == 1 and isinstance(
+                sub_setup := adapter_setup.children[0], AdapterCompositionBlock
+            ):
+                adapter_setup = sub_setup
+            return adapter_setup
+
+        else:
+            adapter_config = self.adapters_config.get(adapter_setup)
+            return (
+                MultiTask(*adapter_config.task_names)
+                if isinstance(adapter_config, MultiTaskConfigUnion)
+                else adapter_setup
+            )
 
 
 class InvertibleAdaptersMixin:
@@ -413,7 +484,7 @@ class EmbeddingAdaptersWrapperMixin:
         return self.base_model.loaded_embeddings
 
 
-class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
+class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
     """Mixin for transformer models adding support for loading/ saving adapters."""
 
     add_base_adapters = False
@@ -530,6 +601,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
+        adapter_setup = self.train_adapter_mtl_hook(adapter_setup)
         self.apply_to_adapter_layers(lambda i, layer: layer.enable_adapters(adapter_setup, True, False))
         self.apply_to_basemodel_childs(lambda i, child: child.enable_adapters(adapter_setup, True, False))
         for adapter_name in adapter_setup:
@@ -581,25 +653,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
     def set_shared_parameters(self, param):
         self.base_model.shared_parameters = param
 
-    def replace_compositions(self, adapter_setup):
-
-        if isinstance(adapter_setup, AdapterCompositionBlock):
-            adapter_setup.children = [self.replace_compositions(sub_setup) for sub_setup in adapter_setup]
-
-            if len(adapter_setup.children) == 1 and isinstance(
-                sub_setup := adapter_setup.children[0], AdapterCompositionBlock
-            ):
-                adapter_setup = sub_setup
-            return adapter_setup
-
-        else:
-            adapter_config = self.adapters_config.get(adapter_setup)
-            return (
-                MultiTask(*adapter_config.task_names)
-                if isinstance(adapter_config, MultiTaskConfigUnion)
-                else adapter_setup
-            )
-
     def set_active_adapters(
         self,
         adapter_setup: Union[list, AdapterCompositionBlock],
@@ -614,7 +667,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
         adapter_setup = parse_composition(adapter_setup, model_type=self.config.model_type)
-        adapter_setup = self.replace_compositions(adapter_setup)
+        adapter_setup = self.set_active_adapters_mtl_hook(adapter_setup)
         if adapter_setup:
             for adapter_name in adapter_setup.flatten():
                 if adapter_name not in self.adapters_config.adapters:
@@ -661,16 +714,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         except ValueError as ex:
             self.delete_adapter(adapter_name)
             raise ex
-
-        if isinstance(config, MultiTaskConfigUnion):
-            for task_name in config.task_names:
-                task_config = config.base_config.replace(shared_parameters_name=adapter_name)
-                self.add_adapter(
-                    task_name,
-                    task_config,
-                    overwrite_ok=overwrite_ok,
-                )
-
+        self.add_adapter_mtl_hook(config, adapter_name, overwrite_ok)
         if set_active:
             self.set_active_adapters(adapter_name)
 
@@ -767,16 +811,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if adapter_name not in self.adapters_config:
             logger.info("No adapter '%s' found for deletion. Skipping.", adapter_name)
             return
-
-        # Multi Task Learning Config
-        config = self.adapters_config.get(adapter_name)
-        if isinstance(
-            config,
-            MultiTaskConfigUnion,
-        ):
-            for sub_adapter_name in config.task_names:
-                self.delete_adapter(sub_adapter_name)
-
+        self.delete_adapter_mtl_hook(adapter_name)
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
         self.apply_to_basemodel_childs(lambda i, child: child.delete_adapter(adapter_name))
         del self.adapters_config.adapters[adapter_name]
@@ -826,6 +861,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         meta_dict: dict = None,
         custom_weights_loaders: Optional[List[WeightsLoader]] = None,
         use_safetensors: bool = False,
+        **kwargs,
     ):
         """
         Saves an adapter and its configuration file to a directory so that it can be shared or reloaded using
@@ -839,19 +875,22 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Raises:
             ValueError: If the given adapter name is invalid.
         """
-        adapter_config = self.adapters_config.get(adapter_name)
-        is_mtl_union = isinstance(adapter_config, MultiTaskConfigUnion)
-        loader_cls = AdapterLoader if not is_mtl_union else MultiTaskAdapterLoarder
-        loader = loader_cls(self, use_safetensors=use_safetensors)
+        loader = AdapterLoader(self, use_safetensors=use_safetensors)
         loader.save(save_directory, adapter_name, meta_dict)
         # save additional custom weights
 
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
                 weights_loader.save(save_directory, adapter_name)
-                if is_mtl_union:
-                    for task_name in adapter_config.task_names:
-                        weights_loader.save(os.path.join(save_directory, task_name), task_name)
+
+        self.save_adapter_mtl_hook(
+            save_directory=save_directory,
+            adapter_name=adapter_name,
+            meta_dict=meta_dict,
+            custom_weights_loaders=custom_weights_loaders,
+            use_safetensors=use_safetensors,
+            **kwargs,
+        )
 
     def save_adapter_fusion(
         self,
@@ -949,44 +988,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     set_active=set_active,
                 )
         return load_name
-
-    def load_mtl_adapters(
-        self,
-        adapter_name_or_path: str,
-        config: Union[dict, str] = None,
-        version: str = None,
-        model_name: str = None,
-        load_as: str = None,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
-        leave_out: Optional[List[int]] = None,
-        id2label=None,
-        set_active: bool = False,
-        use_safetensors: bool = False,
-        **kwargs,
-    ) -> List[str]:
-        loader = MultiTaskAdapterLoarder(self, use_safetensors=use_safetensors)
-        load_dir, load_names = loader.load(
-            adapter_name_or_path,
-            config,
-            version,
-            model_name,
-            load_as,
-            leave_out=leave_out,
-            set_active=set_active,
-            **kwargs,
-        )
-        # load additional custom weights
-        if custom_weights_loaders:
-            for weights_loader in custom_weights_loaders:
-                weights_loader.load(
-                    load_dir,
-                    load_as=load_as,
-                    loading_info=kwargs.get("loading_info", None),
-                    main_load_name=load_names,
-                    id2label=id2label,
-                    set_active=set_active,
-                )
-        return load_names
 
     def load_adapter_fusion(
         self,
@@ -2171,31 +2172,13 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             use_safetensors=use_safetensors,
         )
 
-    def save_mtl_adapters(
-        self,
-        save_directory: str,
-        adapter_name: str,
-        with_head: bool = True,
-        meta_dict: dict = None,
-        custom_weights_loaders: Optional[List[WeightsLoader]] = None,
-        use_safetensors: bool = False,
-    ):
-        if with_head:
-            if custom_weights_loaders is None:
-                custom_weights_loaders = []
-            custom_weights_loaders.append(
-                PredictionHeadLoader(
-                    self,
-                    error_on_missing=False,
-                    use_safetensors=use_safetensors,
-                )
-            )
-        super().save_mtl_adapters(
-            save_directory,
-            adapter_name,
+        self.save_adapter_mtl_hook(
+            save_directory=save_directory,
+            adapter_name=adapter_name,
             meta_dict=meta_dict,
             custom_weights_loaders=custom_weights_loaders,
             use_safetensors=use_safetensors,
+            with_head=with_head,
         )
 
     def load_adapter(

@@ -388,6 +388,7 @@ class AdapterLoader(WeightsLoader):
             or ".loras.{}.".format(adapter_name) in x
             or ".refts.{}.".format(adapter_name) in x
             or ".prompt_tunings.{}.".format(adapter_name) in x
+            or ".shared_parameters.{}.".format(adapter_name) in x
         )
 
     # This dict maps the original weight names to the currently used equivalents.
@@ -456,8 +457,8 @@ class AdapterLoader(WeightsLoader):
             )
             .replace(".loras.{}.".format(old_name), ".loras.{}.".format(new_name))
             .replace(
-                ".loras.shared_parameters.{}.".format(old_name),
-                ".loras.shared_parameters.{}.".format(new_name),
+                ".shared_parameters.{}.".format(old_name),
+                ".shared_parameters.{}.".format(new_name),
             )
             .replace(".refts.{}.".format(old_name), ".refts.{}.".format(new_name))
         )
@@ -650,76 +651,6 @@ class AdapterLoader(WeightsLoader):
             loading_info["missing_keys"] = missing_keys
 
         return resolved_folder, adapter_name
-
-
-class MultiTaskAdapterLoarder(AdapterLoader):
-
-    def filter_func(self, adapter_name):
-        base_filter_func = super().filter_func(adapter_name)
-        return lambda x: base_filter_func(x) or ".shared_parameters.{}.".format(adapter_name) in x
-
-    def save(self, save_directory, name, meta_dict=None):
-        adapter_config = self.model.adapters_config.get(name)
-        super().save(save_directory, name, meta_dict)
-        for task_name in adapter_config.task_names:
-            super().save(join(save_directory, task_name), task_name, meta_dict)
-
-    def load(
-        self,
-        adapter_name_or_path,
-        config=None,
-        version=None,
-        model_name=None,
-        load_as=None,
-        loading_info=None,
-        leave_out=None,
-        set_active=False,
-        **kwargs,
-    ):
-
-        if config is not None or model_name is not None:
-            logger.warning(
-                "The 'config' and 'model_name' arguments are specific to the now unsupported legacy Hub repo and will"
-                " be removed."
-                "Please switch to only providing the HF Model Hub identifier.",
-            )
-        requested_config = AdapterConfig.load(config) if config else None
-        # Resolve the weights to be loaded based on the given identifier and the current adapter config
-        model_name = self.model.model_name or model_name
-        resolved_folder = resolve_adapter_path(
-            adapter_name_or_path,
-            model_name,
-            adapter_config=requested_config,
-            version=version,
-            **kwargs,
-        )
-
-        resolved_folder, adapter_name = super().load(
-            adapter_name_or_path=adapter_name_or_path,
-            version=version,
-            model_name=model_name,
-            load_as=load_as,
-            loading_info=loading_info,
-            leave_out=leave_out,
-            set_active=set_active,
-            **kwargs,
-        )
-
-        # Load config of adapter
-        config = self.weights_helper.load_weights_config(resolved_folder)
-        task_names = config["config"]["task_names"]
-        for task_name in task_names:
-            super().load(
-                adapter_name_or_path=join(adapter_name_or_path, task_name),
-                version=version,
-                model_name=model_name,
-                loading_info=loading_info,
-                leave_out=leave_out,
-                set_active=set_active,
-                **kwargs,
-            )
-
-        return resolved_folder, (adapter_name, task_names)
 
 
 class AdapterFusionLoader(WeightsLoader):
@@ -947,7 +878,7 @@ class PredictionHeadLoader(WeightsLoader):
     def rename_func(self, old_name, new_name):
         return lambda k: k.replace("heads.{}".format(old_name), "heads.{}".format(new_name))
 
-    def save(self, save_directory: str, name: str = None):
+    def save(self, save_directory: str, name: str = None, save_as=None):
         """
         Saves a prediction head module into the given directory.
 
