@@ -551,14 +551,11 @@ class MTLLoRAConfig(LoRAConfig, MultiTaskConfig):
     weights_sharpness: float = 0.05
 
 
+@dataclass
 class MultiTaskConfigUnion(AdapterConfig):
     architecture: Optional[str] = "mtl_union"
-    base_config: MultiTaskConfig
-    task_names: List[str]
-
-    def __init__(self, base_config: MultiTaskConfig, task_names: List[str]):
-        self.base_config = base_config
-        self.task_names = task_names
+    base_config: Optional[MultiTaskConfig] = None
+    task_names: Optional[List[str]] = None
 
     def to_dict(self):
         return {
