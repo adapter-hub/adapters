@@ -1661,8 +1661,8 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             lambda i, layer: layer.set_pool(None) if isinstance(layer, PrefixTuningLayer) else None
         )
 
-        if self.base_model.adapter_interface is not None:
-            self.base_model.adapter_interface._save(save_directory, self.config)
+        if interface := getattr(self.base_model, "adapter_interface", None):
+            interface._save(save_directory, self.config)
         super().save_pretrained(save_directory, **kwargs)
         # Remove adapters config
         del self.config.adapters

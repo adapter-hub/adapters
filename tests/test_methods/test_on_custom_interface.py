@@ -1,5 +1,5 @@
 import adapters
-from adapters import AdapterModelInterface, DoubleSeqBnConfig, LoRAConfig, ParBnConfig
+from adapters import AdapterModelInterface, ConfigUnion, DoubleSeqBnConfig, LoRAConfig, ParBnConfig
 from transformers import Gemma2ForCausalLM, Gemma2ForSequenceClassification
 from transformers.models.gemma2.configuration_gemma2 import Gemma2Config
 from transformers.testing_utils import torch_device
@@ -80,6 +80,18 @@ class CustomInterfaceModelTestBase(TextAdapterTestBase):
         config = "unipelt"
         with self.assertRaises(ValueError):
             model.add_adapter("my_adapter", config=config)
+
+    def test_get_adapter(self):
+        model = self.get_model()
+        model.eval()
+        n_layers = len(list(model.iter_layers()))
+
+        for adapter_config, n_expected in [
+            (DoubleSeqBnConfig(), n_layers * 2),
+            (ConfigUnion(LoRAConfig(), ParBnConfig()), n_layers * 2),
+        ]:
+            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+                self.run_get_test(model, adapter_config, n_expected)
 
 
 method_tests = generate_method_tests(

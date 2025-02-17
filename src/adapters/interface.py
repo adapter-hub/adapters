@@ -46,7 +46,8 @@ class AdapterMethod:
         if config.architecture is None:
             methods.append(AdapterMethod.bottleneck)
         elif config.architecture == "union":
-            methods.extend([AdapterMethod.get_from_config(sub_config) for sub_config in config.configs])
+            for sub_config in config.configs:
+                methods.extend(AdapterMethod.get_from_config(sub_config))
         else:
             methods.append(config.architecture)
         return methods
