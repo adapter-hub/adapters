@@ -1,10 +1,10 @@
 import importlib
-import inspect
 import os
 from typing import Any, Optional, Type, Union
 
 from torch import nn
 
+from adapters.context import ForwardContext
 from transformers import PreTrainedModel
 from transformers.models.auto.auto_factory import getattribute_from_module
 from transformers.models.auto.configuration_auto import model_type_to_module_name
@@ -37,19 +37,27 @@ def replace_with_adapter_class(module: nn.Module, modules_with_adapters) -> None
     if module.__class__.__name__ in MODEL_MIXIN_MAPPING:
         # Create new wrapper model class
         model_class = type(
-            module.__class__.__name__, (MODEL_MIXIN_MAPPING[module.__class__.__name__], module.__class__), {}
+            module.__class__.__name__,
+            (MODEL_MIXIN_MAPPING[module.__class__.__name__], module.__class__),
+            {},
         )
         module.__class__ = model_class
     elif module.__class__.__module__.startswith("transformers.models"):
         try:
-            module_class = getattribute_from_module(modules_with_adapters, module.__class__.__name__ + "WithAdapters")
+            module_class = getattribute_from_module(
+                modules_with_adapters,
+                module.__class__.__name__ + "WithAdapters",
+            )
             module.__class__ = module_class
         except ValueError:
             # Silently fail and keep original module class
             pass
 
 
-def init(model: PreTrainedModel, adapters_config: Optional[ModelAdaptersConfig] = None) -> None:
+def init(
+    model: PreTrainedModel,
+    adapters_config: Optional[ModelAdaptersConfig] = None,
+) -> None:
     if isinstance(model, ModelAdaptersMixin):
         return model
 
@@ -80,12 +88,16 @@ def init(model: PreTrainedModel, adapters_config: Optional[ModelAdaptersConfig] 
             base_model = getattr(model, model.base_model_prefix)
             if isinstance(base_model, ModelAdaptersMixin):
                 # HACK to preserve original forward method signature (e.g. for Trainer label names)
-                temp_signature = inspect.signature(model.forward.__func__)
+                temp_signature = ForwardContext.add_contex_args_in_signature(model.forward.__func__)
                 # Create new wrapper model class
                 model_class_name = model.__class__.__name__
                 model_class = type(
                     model_class_name,
-                    (EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin, model.__class__),
+                    (
+                        EmbeddingAdaptersWrapperMixin,
+                        ModelWithHeadsAdaptersMixin,
+                        model.__class__,
+                    ),
                     {},
                 )
                 model.__class__ = model_class

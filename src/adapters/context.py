@@ -1,4 +1,5 @@
 import functools
+import inspect
 import threading
 from typing import ContextManager
 
@@ -120,6 +121,31 @@ class ForwardContext(ContextManager):
                     results[attr] = dict(getattr(self, attr))
 
         return results
+
+    @classmethod
+    def add_contex_args_in_signature(cls, f):
+        old_signature = inspect.signature(f)
+        params = list(old_signature.parameters.values())
+        # search if a VAR_POSITIONAL or VAR_KEYWORD is present
+        # if yes insert step parameter before it, else insert it in last position
+        param_types = [param.kind for param in params]
+        i = min(
+            [
+                (param_types.index(param_type) if param_type in param_types else float("inf"))
+                for param_type in (
+                    inspect.Parameter.VAR_POSITIONAL,
+                    inspect.Parameter.VAR_KEYWORD,
+                )
+            ]
+            + [len(params)]
+        )
+        for name in cls.context_args:
+            new_param = inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None)
+            if new_param not in params:
+                params.insert(i, new_param)
+            # we can now build the signature for the wrapper function
+        new_signature = old_signature.replace(parameters=params)
+        return new_signature
 
     @classmethod
     def wrap_base(cls, f):
