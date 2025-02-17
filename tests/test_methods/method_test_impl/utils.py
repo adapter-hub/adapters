@@ -10,7 +10,7 @@ from transformers.testing_utils import torch_device
 global_rng = random.Random()
 
 
-def create_twin_models(model_class, config_creator=None):
+def create_twin_models(model_class, config_creator=None, interface=None):
     if config_creator and model_class.__name__.startswith("Auto"):
         model_config = config_creator()
         model1 = model_class.from_config(model_config)
@@ -20,7 +20,7 @@ def create_twin_models(model_class, config_creator=None):
     else:
         model_config = model_class.config_class()
         model1 = model_class(model_config)
-    init(model1)
+    init(model1, interface=interface)
     model1.eval()
     # create a twin initialized with the same random weights
     model2 = copy.deepcopy(model1)

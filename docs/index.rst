@@ -52,7 +52,6 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    merging_adapters
    prediction_heads
    embeddings
-   extending
 
 .. toctree::
    :maxdepth: 2
@@ -66,6 +65,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    :caption: Supported Models
 
    model_overview
+   plugin_interface
    classes/models/albert
    classes/models/auto
    classes/models/bart
@@ -99,6 +99,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    classes/adapter_config
    classes/model_adapters_config
    classes/adapter_layer
+   classes/adapter_model_interface
    classes/model_mixins
    classes/adapter_training
    classes/adapter_utils
@@ -110,6 +111,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    contributing
    contributing/adding_adapter_methods
    contributing/adding_adapters_to_a_model
+   extending
 
 Citation
 ========

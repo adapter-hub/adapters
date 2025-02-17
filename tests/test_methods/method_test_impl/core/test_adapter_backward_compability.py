@@ -9,8 +9,11 @@ from transformers.testing_utils import require_torch
 
 @require_torch
 class CompabilityTestMixin:
+    def create_twin_models(self):
+        return create_twin_models(self.model_class, self.config)
+
     def test_load_old_non_linearity(self):
-        model1, model2 = create_twin_models(self.model_class, self.config)
+        model1, model2 = self.create_twin_models()
         config = SeqBnConfig(non_linearity="gelu")
         name = "dummy"
         model1.add_adapter(name, config=config)

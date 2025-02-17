@@ -1,4 +1,11 @@
 # Adding Adapters to a Model
+
+```{eval-rst}
+.. important::
+    For most use cases, it can be much easier support a new model architecture via the new adapter plugin interface.
+    Check out `Custom Models <../plugin_interface.html>`_ for more.
+```
+
 This document gives an overview of how new model architectures of Hugging Face Transformers can be supported by `adapters`.
 Before delving into implementation details, you should familiarize yourself with the main design philosophies of `adapters`:
 

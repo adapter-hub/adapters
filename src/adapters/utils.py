@@ -54,6 +54,7 @@ SAFE_ADAPTERFUSION_WEIGHTS_NAME = "model_adapter_fusion.safetensors"
 EMBEDDING_FILE = "embedding.pt"
 TOKENIZER_PATH = "tokenizer"
 SETUP_CONFIG_NAME = "adapter_setup.json"
+INTERFACE_CONFIG_NAME = "adapter_interface.json"
 
 ADAPTER_HUB_URL = "https://raw.githubusercontent.com/Adapter-Hub/Hub/master/dist/v2/"
 ADAPTER_HUB_INDEX_FILE = ADAPTER_HUB_URL + "index/{}.json"
@@ -171,6 +172,39 @@ def inherit_doc(cls):
                     func.__doc__ = parfunc.__doc__
                     break
     return cls
+
+
+def multigetattr(o: object, name: str, default=None) -> Optional[object]:
+    if not name:
+        return default
+    for n in name.split("."):
+        if hasattr(o, n):
+            o = getattr(o, n)
+        else:
+            return default
+    return o
+
+
+def multihasattr(o: object, name: str) -> bool:
+    if not name:
+        return False
+    parts = name.split(".")
+    for n in parts:
+        if hasattr(o, n):
+            o = getattr(o, n)
+        else:
+            return False
+    return True
+
+
+def multisetattr(o: object, name: str, value: object):
+    parts = name.split(".")
+    for n in parts[:-1]:
+        if hasattr(o, n):
+            o = getattr(o, n)
+        else:
+            return
+    setattr(o, parts[-1], value)
 
 
 def urljoin(*args):
