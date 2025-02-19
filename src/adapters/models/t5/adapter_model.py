@@ -7,6 +7,7 @@ from transformers.models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOC
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...composition import adjust_tensors_for_parallel
+from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin, Seq2SeqLMHead
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
@@ -56,6 +57,7 @@ class T5AdapterModel(
         return self.transformer.decoder
 
     @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -75,8 +77,6 @@ class T5AdapterModel(
         output_hidden_states=None,
         return_dict=None,
         head=None,
-        output_adapter_gating_scores=False,
-        output_adapter_fusion_attentions=False,
         **kwargs,
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
@@ -89,7 +89,7 @@ class T5AdapterModel(
                 # decoder_input_ids from input_ids if no decoder_input_ids are provided
                 decoder_input_ids = self._shift_right(input_ids)
 
-        model_output, context = self.transformer(
+        model_output = self.transformer(
             input_ids=input_ids,
             attention_mask=attention_mask,
             decoder_input_ids=decoder_input_ids,
@@ -105,13 +105,7 @@ class T5AdapterModel(
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            output_adapter_gating_scores=output_adapter_gating_scores,
-            output_adapter_fusion_attentions=output_adapter_fusion_attentions,
-            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
-            output_context=True,
         )
-        # required e.g. for prompt tuning in all models
-        kwargs["context"] = context
         sequence_output = model_output[0]
         # ToDo move head to device for parallel forward pass
 

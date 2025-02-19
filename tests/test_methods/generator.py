@@ -13,9 +13,11 @@ from tests.test_methods.method_test_impl.embeddings.test_adapter_embeddings impo
 from tests.test_methods.method_test_impl.heads.test_adapter_heads import PredictionHeadModelTestMixin
 from tests.test_methods.method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
 from tests.test_methods.method_test_impl.peft.test_compacter import CompacterTestMixin
+from tests.test_methods.method_test_impl.peft.test_config_mtl_union import MultiTaskConfigUnionAdapterTest
 from tests.test_methods.method_test_impl.peft.test_config_union import ConfigUnionAdapterTest
 from tests.test_methods.method_test_impl.peft.test_ia3 import IA3TestMixin
 from tests.test_methods.method_test_impl.peft.test_lora import LoRATestMixin
+from tests.test_methods.method_test_impl.peft.test_mtllora import MTLLoRATestMixin
 from tests.test_methods.method_test_impl.peft.test_prefix_tuning import PrefixTuningTestMixin
 from tests.test_methods.method_test_impl.peft.test_prompt_tuning import PromptTuningTestMixin
 from tests.test_methods.method_test_impl.peft.test_reft import ReftTestMixin
@@ -211,6 +213,19 @@ def generate_method_tests(
 
         test_classes["LoRA"] = LoRA
 
+    if "MTLLoRA" not in redundant and "MTLLoRA" not in not_supported:
+
+        @require_torch
+        @pytest.mark.mtl_lora
+        class MTLLoRA(
+            model_test_base,
+            MTLLoRATestMixin,
+            unittest.TestCase,
+        ):
+            pass
+
+        test_classes["MTLLoRA"] = MTLLoRA
+
     if "ConfigUnion" not in redundant and "ConfigUnion" not in not_supported:
 
         @require_torch
@@ -223,5 +238,18 @@ def generate_method_tests(
             pass
 
         test_classes["ConfigUnion"] = ConfigUnion
+
+    if "MultiTaskConfigUnion" not in redundant and "MultiTaskConfigUnion" not in not_supported:
+
+        @require_torch
+        @pytest.mark.mtl_config_union
+        class MultiTaskConfigUnion(
+            model_test_base,
+            MultiTaskConfigUnionAdapterTest,
+            unittest.TestCase,
+        ):
+            pass
+
+        test_classes["MultiTaskConfigUnion"] = MultiTaskConfigUnion
 
     return test_classes

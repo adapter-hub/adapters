@@ -5,7 +5,17 @@ import numpy as np
 import torch
 from torch import nn
 
-from ..composition import ALLOWED_NESTINGS, AdapterCompositionBlock, Average, BatchSplit, Fuse, Parallel, Split, Stack
+from ..composition import (
+    ALLOWED_NESTINGS,
+    AdapterCompositionBlock,
+    Average,
+    BatchSplit,
+    Fuse,
+    MultiTask,
+    Parallel,
+    Split,
+    Stack,
+)
 from ..context import AdapterSetup, ForwardContext
 
 
@@ -90,7 +100,13 @@ class AdapterLayerBase(metaclass=ABCMeta):
         """
         raise NotImplementedError()
 
-    def average_adapter(self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy, **kwargs) -> bool:
+    def average_adapter(
+        self,
+        adapter_name: str,
+        input_adapters: Dict[str, float],
+        combine_strategy,
+        **kwargs,
+    ) -> bool:
         """Averages a set of adapter modules into a new adapter module.
 
         Args:
@@ -144,7 +160,12 @@ class AdapterLayerBase(metaclass=ABCMeta):
     def delete_fusion_layer(self, adapter_names: Union[List, str]):
         pass  # default implementation does nothing as fusion is not applicable to all methods
 
-    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
+    def enable_adapters(
+        self,
+        adapter_setup: AdapterCompositionBlock,
+        unfreeze_adapters: bool,
+        unfreeze_fusion: bool,
+    ):
         """Enables/ disables a set of adapter modules within the layer.
 
         Args:
@@ -209,6 +230,7 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
             Stack: "compose_stack",
             Fuse: "compose_fuse",
             Split: "compose_split",
+            MultiTask: "compose_multi_task",
             BatchSplit: "compose_batch_split",
             Parallel: "compose_parallel",
             Average: "compose_average",
@@ -227,7 +249,11 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         """
         return state[0].shape[0]
 
-    def pre_block(self, adapter_setup: Union[AdapterCompositionBlock, str], state: NamedTuple) -> NamedTuple:
+    def pre_block(
+        self,
+        adapter_setup: Union[AdapterCompositionBlock, str],
+        state: NamedTuple,
+    ) -> NamedTuple:
         """
         Optional state pre-processing method which is invoked before passing the state to the first child block of a
         composition. By default, this method does not contain any logic. E.g. used for bottleneck adapters to implement
@@ -315,7 +341,12 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
 
     # END CUSTOMIZABLE METHODS #
 
-    def check_composition_valid(self, parent: AdapterCompositionBlock, child: AdapterCompositionBlock, lvl: int):
+    def check_composition_valid(
+        self,
+        parent: AdapterCompositionBlock,
+        child: AdapterCompositionBlock,
+        lvl: int,
+    ):
         """Checks whether the given composition is valid.
 
         Args:
@@ -422,6 +453,27 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         state = self.pad_and_concat(children_states)
         return state
 
+    def compose_multi_task(self, adapter_setup: MultiTask, state: NamedTuple, lvl: int = 0):
+        """
+        For splitting to multiple adapters along the task_ids.
+        """
+        state = self.pre_block(adapter_setup, state)
+
+        # sequentially feed different parts of the blown-up batch into different adapters
+        context = ForwardContext.get_context()
+        assert hasattr(context, "task_ids")
+        task_ids = context.task_ids
+        assert task_ids is not None
+        ordering_idx = task_ids.argsort()
+        batch_sizes = task_ids.bincount().tolist()
+        inter_state = self.compose_batch_split(
+            adapter_setup=BatchSplit(*adapter_setup.children, batch_sizes=batch_sizes),
+            state=self.vslice(state, ordering_idx),
+            lvl=lvl,
+        )
+        final_state = self.vslice(inter_state, ordering_idx.argsort())
+        return final_state
+
     def compose_parallel(self, adapter_setup: Parallel, state: NamedTuple, lvl: int = 0):
         """
         For parallel execution of the adapters on the same input. This means that the input is repeated N times before
@@ -461,19 +513,30 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
                 composition_func = self._get_compose_func(type(child))
                 child_state = composition_func(
                     child,
-                    self.vslice(state, slice(i * orig_batch_size, (i + 1) * orig_batch_size)),
+                    self.vslice(
+                        state,
+                        slice(i * orig_batch_size, (i + 1) * orig_batch_size),
+                    ),
                     lvl=lvl + 1,
                 )
                 children_states.append(child_state)
             elif child in self.adapter_modules:
                 child_state = self.compose_single(
                     child,
-                    self.vslice(state, slice(i * orig_batch_size, (i + 1) * orig_batch_size)),
+                    self.vslice(
+                        state,
+                        slice(i * orig_batch_size, (i + 1) * orig_batch_size),
+                    ),
                     lvl=lvl + 1,
                 )
                 children_states.append(child_state)
             else:
-                children_states.append(self.vslice(state, slice(i * orig_batch_size, (i + 1) * orig_batch_size)))
+                children_states.append(
+                    self.vslice(
+                        state,
+                        slice(i * orig_batch_size, (i + 1) * orig_batch_size),
+                    )
+                )
 
         # concatenate all outputs and return
         state = self.pad_and_concat(children_states)
@@ -504,7 +567,11 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
 
         return state
 
-    def compose(self, adapter_setup: Union[AdapterCompositionBlock, str], state: NamedTuple) -> NamedTuple:
+    def compose(
+        self,
+        adapter_setup: Union[AdapterCompositionBlock, str],
+        state: NamedTuple,
+    ) -> NamedTuple:
         """The main composition forward method which recursively calls the composition blocks forward methods.
         This method should be called by the forward method of the derived class.
 
