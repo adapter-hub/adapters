@@ -106,6 +106,9 @@ class ForwardContext(ContextManager):
         ForwardContext.get_contexts().pop()
 
     def _call_forward(self, model, f, *args, **kwargs):
+        """
+        Calls the forward function of the model with the given arguments and keyword arguments.
+        """
         kwargs = {k: v for k, v in kwargs.items() if k not in self.context_args}
         results = f(model, *args, **kwargs)
 
@@ -123,6 +126,10 @@ class ForwardContext(ContextManager):
 
     @classmethod
     def wrap_base(cls, f):
+        """
+        Decorator method that wraps a ``forward()`` function of a base model class.
+        Unlike ``wrap()``, this method does not create a new context if the is an existing one.
+        """
 
         @functools.wraps(f)
         def wrapper_func(self, *args, **kwargs):
