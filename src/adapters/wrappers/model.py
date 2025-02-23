@@ -85,7 +85,7 @@ def init(model: PreTrainedModel, adapters_config: Optional[ModelAdaptersConfig] 
                 params = list(temp_signature.parameters.values())
                 # add forward context args to signature
                 for param_name in ForwardContext.context_args:
-                    params.append(inspect.Parameter(param_name, inspect.Parameter.VAR_KEYWORD))
+                    params.append(inspect.Parameter(param_name, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None))
                 temp_signature = temp_signature.replace(parameters=params)
                 # Create new wrapper model class
                 model_class_name = model.__class__.__name__
