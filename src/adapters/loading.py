@@ -160,10 +160,10 @@ class WeightsLoaderHelper:
                 else:
                     logger.info(f"No safetensors file found in {save_directory}. Falling back to torch.load...")
                     weights_file = join(save_directory, self.weights_name)
-                    state_dict = torch.load(weights_file, map_location="cpu")
+                    state_dict = torch.load(weights_file, map_location="cpu", weights_only=True)
             else:
                 weights_file = join(save_directory, self.weights_name)
-                state_dict = torch.load(weights_file, map_location="cpu")
+                state_dict = torch.load(weights_file, map_location="cpu", weights_only=True)
         except Exception:
             raise OSError("Unable to load weights from pytorch checkpoint file. ")
         logger.info("Loading module weights from {}".format(weights_file))
