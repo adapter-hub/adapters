@@ -63,11 +63,11 @@ class MultiTaskAdaptersMixin:
     def add_adapter_mtl_hook(self, config, adapter_name, overwrite_ok):
         if self.is_mtl_union(config):
             for task_name in config.task_names:
-                task_config = config.base_config.replace(shared_parameters_name=adapter_name)
                 self.add_adapter(
                     task_name,
-                    task_config,
+                    config.base_config,
                     overwrite_ok=overwrite_ok,
+                    shared_parameters_name=adapter_name,
                 )
 
     def delete_adapter_mtl_hook(self, adapter_name, config=None):
@@ -687,6 +687,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
         config=None,
         overwrite_ok: bool = False,
         set_active: bool = False,
+        **kwargs,
     ):
         """
         Adds a new adapter module of the specified type to the model.
@@ -710,7 +711,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
             self.delete_adapter(adapter_name)
         self.adapters_config.add(adapter_name, config=config)
         try:
-            self._add_adapter_weights(adapter_name)
+            self._add_adapter_weights(adapter_name, **kwargs)
         except ValueError as ex:
             self.delete_adapter(adapter_name)
             raise ex
@@ -718,10 +719,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
         if set_active:
             self.set_active_adapters(adapter_name)
 
-    def _add_adapter_weights(self, adapter_name: str):
+    def _add_adapter_weights(self, adapter_name: str, **kwargs):
         """Helper method that performs the actual parameter additions when adding a new adapter."""
-        self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
-        self.apply_to_basemodel_childs(lambda i, child: child.add_adapter(adapter_name, i))
+        self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i, **kwargs))
+        self.apply_to_basemodel_childs(lambda i, child: child.add_adapter(adapter_name, i, **kwargs))
 
         # PHM Layer
         if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):

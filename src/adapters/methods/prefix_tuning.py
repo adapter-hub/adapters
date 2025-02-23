@@ -342,7 +342,7 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
     def set_pool(self, pool: PrefixTuningPool):
         self.__setattr__("pool", pool)
 
-    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
+    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
         self.layer_idx = layer_idx
         # only match location keys for which we have config keys
         if self.location_key.startswith("cross") or self.location_key.startswith("encoder"):
@@ -382,7 +382,7 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         **kwargs,
     ) -> bool:
         # add new adapter
-        if self.add_adapter(adapter_name, self.layer_idx):
+        if self.add_adapter(adapter_name, self.layer_idx, **kwargs):
             # Prefix Tuning only support linear combination
             if combine_strategy != "linear":
                 raise ValueError(f"Combine strategy {combine_strategy} not supported for prefix tuning.")

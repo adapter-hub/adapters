@@ -168,9 +168,9 @@ class MTLLoRA(LoRA):
         self.weights_sharpness = config.weights_sharpness
 
     @classmethod
-    def get_shared_parameter(cls, layer_shared_parameters, config):
+    def get_shared_parameter(cls, layer_shared_parameters, shared_params_name):
         try:
-            shared_params = layer_shared_parameters.get_submodule(config.shared_parameters_name)
+            shared_params = layer_shared_parameters.get_submodule(shared_params_name)
             return {
                 "lora_A": shared_params.lora_A,
                 "lora_B": shared_params.lora_B,
@@ -178,10 +178,8 @@ class MTLLoRA(LoRA):
         except AttributeError:
             return {}
 
-    def share_parameters(self, layer_shared_parameters, config):
-        layer_shared_parameters[config.shared_parameters_name] = nn.ParameterDict(
-            {"lora_A": self.lora_A, "lora_B": self.lora_B}
-        )
+    def share_parameters(self, layer_shared_parameters, shared_params_name):
+        layer_shared_parameters[shared_params_name] = nn.ParameterDict({"lora_A": self.lora_A, "lora_B": self.lora_B})
 
     def apply_weights(self, hidden_states: torch.Tensor):
         w = (self.weights / self.weights_sharpness).exp()
@@ -317,7 +315,7 @@ class LoRALayer(AdapterLayerBase):
     def _get_lora_shapes(self, config: LoRAConfig):
         raise NotImplementedError()
 
-    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
+    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
         self.layer_idx = layer_idx
         lora_config = self.adapters_config.match(
             adapter_name,
@@ -327,13 +325,14 @@ class LoRALayer(AdapterLayerBase):
         )
         if lora_config is not None and self._check_lora_location(lora_config):
 
-            kwargs = {}
+            shared_params_name = kwargs.get("shared_parameters_name")
+            lora_args = {}
             is_mtl_config = isinstance(lora_config, MultiTaskConfig)
 
             if lora_config.composition_mode == "add":
                 if is_mtl_config:
                     lora_cls = MTLLoRA
-                    kwargs.update(lora_cls.get_shared_parameter(self.shared_parameters, lora_config))
+                    lora_args.update(lora_cls.get_shared_parameter(self.shared_parameters, shared_params_name))
                 else:
                     lora_cls = LoRA
             elif lora_config.composition_mode == "scale":
@@ -345,15 +344,11 @@ class LoRALayer(AdapterLayerBase):
                 *self._get_lora_shapes(lora_config),
                 config=lora_config,
                 gating_heads=self.get_n_heads(lora_config),
-                **kwargs,
+                **lora_args,
             )
 
-            if (
-                is_mtl_config
-                and lora_config.shared_parameters_name is not None
-                and lora_config.shared_parameters_name not in self.shared_parameters
-            ):
-                lora.share_parameters(self.shared_parameters, lora_config)
+            if is_mtl_config and shared_params_name is not None and shared_params_name not in self.shared_parameters:
+                lora.share_parameters(self.shared_parameters, shared_params_name)
 
             lora.train(self.training)
             lora = lora.to(self.weight.device)
@@ -377,7 +372,7 @@ class LoRALayer(AdapterLayerBase):
         **kwargs,
     ) -> bool:
         # add new adapter
-        if self.add_adapter(adapter_name, self.layer_idx):
+        if self.add_adapter(adapter_name, self.layer_idx, **kwargs):
             avg_state_dict = {}
 
             # First, check if all input adapters are present
@@ -876,8 +871,8 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
             config.r,
         )
 
-    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
-        is_added = super().add_adapter(adapter_name, layer_idx)
+    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
+        is_added = super().add_adapter(adapter_name, layer_idx, **kwargs)
         if is_added:
             lora_config = lora_config = self.adapters_config.match(
                 adapter_name,

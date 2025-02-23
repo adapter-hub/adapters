@@ -45,7 +45,8 @@ class PromptTuning(nn.Module):
         embedding_size = getattr(model_config, "embedding_size", model_config.hidden_size)
 
         self.prompt_embedding = nn.Embedding(
-            num_embeddings=prompt_tuning_config.prompt_length, embedding_dim=embedding_size
+            num_embeddings=prompt_tuning_config.prompt_length,
+            embedding_dim=embedding_size,
         )
         # Initialize prompt tokens
         self.prompt_tokens = torch.arange(prompt_tuning_config.prompt_length).long()
@@ -56,7 +57,12 @@ class PromptTuning(nn.Module):
             self.combination_fn = lambda prompt, embedded_input: torch.cat([prompt, embedded_input], dim=1)
         elif prompt_tuning_config.combine == "prefix_after_bos":
             self.combination_fn = lambda prompt, embedded_input: torch.cat(
-                [embedded_input[:, 0, np.newaxis], prompt, embedded_input[:, 1:]], dim=1
+                [
+                    embedded_input[:, 0, np.newaxis],
+                    prompt,
+                    embedded_input[:, 1:],
+                ],
+                dim=1,
             )
         else:
             raise ValueError(
@@ -104,7 +110,10 @@ class PromptTuning(nn.Module):
 
         # Prompt to batch size
         batch_size = embedded_input.shape[0]
-        prompt = torch.tile(torch.unsqueeze(prompt, dim=0), [batch_size] + [1 for _ in prompt.shape])
+        prompt = torch.tile(
+            torch.unsqueeze(prompt, dim=0),
+            [batch_size] + [1 for _ in prompt.shape],
+        )
 
         # Merge prompt and input
         output = self.combination_fn(prompt, embedded_input)
@@ -141,7 +150,7 @@ class PromptTuningLayer(AdapterLayerBase, nn.Module):
         self.base_model_embeddings = base_model_embeddings
         self.prompt_tunings = nn.ModuleDict()
 
-    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
+    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
         # ignore layer_idx as prompt tunings are only added after the embedding layer
         prompt_tuning_config = self.adapters_config.match(
             adapter_name,

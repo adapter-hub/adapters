@@ -145,11 +145,17 @@ class ReftModule(nn.Module):
 
         if self.prefix_positions > 0:
             hidden_states = torch.scatter(
-                hidden_states, 1, context.pref_idx, adapted_output[:, : self.prefix_positions, :]
+                hidden_states,
+                1,
+                context.pref_idx,
+                adapted_output[:, : self.prefix_positions, :],
             )
         if self.suffix_positions > 0:
             hidden_states = torch.scatter(
-                hidden_states, 1, context.suff_idx, adapted_output[:, -self.suffix_positions :, :]
+                hidden_states,
+                1,
+                context.suff_idx,
+                adapted_output[:, -self.suffix_positions :, :],
             )
 
         return hidden_states
@@ -177,7 +183,7 @@ class ReftLayer(AdapterLayerBase, nn.Module):
         self.adapters_config = adapters_config
         self.refts = nn.ModuleDict()
 
-    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
+    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
         self.layer_idx = layer_idx
         reft_config = self.adapters_config.match(
             adapter_name,
