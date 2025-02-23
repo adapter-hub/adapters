@@ -2,6 +2,7 @@ from typing import Optional
 
 import torch
 
+from transformers.generation import GenerationMixin
 from transformers.models.xmod.modeling_xmod import (
     XMOD_INPUTS_DOCSTRING,
     XMOD_START_DOCSTRING,
@@ -20,7 +21,9 @@ from ...wrappers import init
     """X-MOD Model transformer with the option to add multiple flexible heads on top.""",
     XMOD_START_DOCSTRING,
 )
-class XmodAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, XmodPreTrainedModel):
+class XmodAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, XmodPreTrainedModel, GenerationMixin
+):
 
     head_types = [
         "classification",

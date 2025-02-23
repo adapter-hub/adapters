@@ -1,3 +1,4 @@
+from transformers.generation import GenerationMixin
 from transformers.models.bert.modeling_bert import (
     BERT_INPUTS_DOCSTRING,
     BERT_START_DOCSTRING,
@@ -16,7 +17,9 @@ from ...wrappers import init
     """Bert Model transformer with the option to add multiple flexible heads on top.""",
     BERT_START_DOCSTRING,
 )
-class BertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel):
+class BertAdapterModel(
+    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel, GenerationMixin
+):
 
     head_types = [
         "classification",
