@@ -11,6 +11,7 @@ from transformers.models.bart.modeling_bart import (
 )
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
+from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
@@ -50,6 +51,7 @@ class BartAdapterModel(
         return self.model.get_decoder()
 
     @add_start_docstrings_to_model_forward(BART_INPUTS_DOCSTRING)
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -68,8 +70,6 @@ class BartAdapterModel(
         return_dict=None,
         past_key_values=None,
         head=None,
-        output_adapter_gating_scores=False,
-        output_adapter_fusion_attentions=False,
         **kwargs,
     ):
         r"""
@@ -82,7 +82,7 @@ class BartAdapterModel(
         if "labels" in kwargs or "start_positions" in kwargs and "end_positions" in kwargs:
             use_cache = False
 
-        outputs, context = self.model(
+        outputs = self.model(
             input_ids,
             attention_mask=attention_mask,
             decoder_input_ids=decoder_input_ids,
@@ -98,13 +98,7 @@ class BartAdapterModel(
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
             past_key_values=past_key_values,
-            output_adapter_gating_scores=output_adapter_gating_scores,
-            output_adapter_fusion_attentions=output_adapter_fusion_attentions,
-            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
-            output_context=True,
         )
-        # required e.g. for prompt tuning in all models
-        kwargs["context"] = context
 
         head_outputs = self.forward_head(
             outputs,

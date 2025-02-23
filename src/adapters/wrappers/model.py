@@ -1,4 +1,5 @@
 import importlib
+import inspect
 import os
 from typing import Any, Optional, Type, Union
 
@@ -9,6 +10,7 @@ from transformers.models.auto.auto_factory import getattribute_from_module
 from transformers.models.auto.configuration_auto import model_type_to_module_name
 
 from ..configuration import ModelAdaptersConfig
+from ..context import ForwardContext
 from ..model_mixin import (
     EmbeddingAdaptersWrapperMixin,
     ModelAdaptersMixin,
@@ -78,6 +80,13 @@ def init(model: PreTrainedModel, adapters_config: Optional[ModelAdaptersConfig] 
         if hasattr(model, "base_model_prefix") and hasattr(model, model.base_model_prefix):
             base_model = getattr(model, model.base_model_prefix)
             if isinstance(base_model, ModelAdaptersMixin):
+                # HACK to preserve original forward method signature (e.g. for Trainer label names)
+                temp_signature = inspect.signature(model.forward.__func__)
+                params = list(temp_signature.parameters.values())
+                # add forward context args to signature
+                for param_name in ForwardContext.context_args:
+                    params.append(inspect.Parameter(param_name, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None))
+                temp_signature = temp_signature.replace(parameters=params)
                 # Create new wrapper model class
                 model_class_name = model.__class__.__name__
                 model_class = type(
@@ -86,6 +95,7 @@ def init(model: PreTrainedModel, adapters_config: Optional[ModelAdaptersConfig] 
                     {},
                 )
                 model.__class__ = model_class
+                model.forward.__func__.__signature__ = temp_signature
 
     # Finally, initialize adapters
     model.init_adapters(model.config, adapters_config)

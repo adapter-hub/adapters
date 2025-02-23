@@ -584,8 +584,12 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 kwargs["invertible_adapter"] = inv_adapter
 
         # Set prompt tokens length
+        context = context or ForwardContext.get_context()
         if context is not None:
-            prompt_tokens_length = context.get("prompt_tokens_length", None)
+            if isinstance(context, ForwardContext):
+                prompt_tokens_length = getattr(context, "prompt_tokens_length", None)
+            else:
+                prompt_tokens_length = context.get("prompt_tokens_length", None)
             if prompt_tokens_length is not None:
                 kwargs["prompt_tokens_length"] = prompt_tokens_length
 
