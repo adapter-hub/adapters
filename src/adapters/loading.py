@@ -878,7 +878,7 @@ class PredictionHeadLoader(WeightsLoader):
     def rename_func(self, old_name, new_name):
         return lambda k: k.replace("heads.{}".format(old_name), "heads.{}".format(new_name))
 
-    def save(self, save_directory: str, name: str = None, save_as=None):
+    def save(self, save_directory: str, name: str = None):
         """
         Saves a prediction head module into the given directory.
 
