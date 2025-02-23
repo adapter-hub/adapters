@@ -5,7 +5,6 @@ import torch
 import adapters
 from adapters import IA3Config, LoRAConfig, PrefixTuningConfig, SeqBnConfig
 from adapters.composition import Average, BatchSplit, Fuse, MultiTask, Parallel, Split, Stack, parse_composition
-from adapters.context import ForwardContext
 from tests.test_methods.method_test_impl.utils import ids_tensor
 from transformers import BertConfig, BertForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
@@ -171,7 +170,6 @@ class AdapterCompositionTest(unittest.TestCase):
             self.skipTest("MultiTaskLearning not supported by adapter config.")
 
         model = self.build_model()
-        ForwardContext.context_args.add("task_ids")
         model.set_active_adapters(MultiTask("a", "b", "c", "d"))
         inputs = {
             "input_ids": ids_tensor((4, 128), 1000).to(torch_device),

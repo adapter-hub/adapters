@@ -540,7 +540,13 @@ class IA3Config(LoRAConfig):
 
 @dataclass(eq=False)
 class MultiTaskConfig(AdapterConfig):
-    shared_parameters_name: Optional[str] = None
+    """
+    Flag class for all multi task adaptation methods.
+    This class does not define specific configuration keys, but only provides
+    some common helper methods.
+    """
+
+    ...
 
 
 @dataclass(eq=False)

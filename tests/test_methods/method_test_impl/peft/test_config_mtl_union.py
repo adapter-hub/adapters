@@ -7,7 +7,6 @@ from accelerate.state import torch
 from accelerate.utils.modeling import tempfile
 from adapters.composition import MultiTask
 from adapters.configuration.adapter_config import MTLLoRAConfig, MultiTaskConfigUnion
-from adapters.context import ForwardContext
 from adapters.heads.language_modeling import CausalLMHead
 from adapters.models.auto.adapter_model import ADAPTER_MODEL_MAPPING, AutoAdapterModel
 from adapters.trainer import AdapterTrainer
@@ -181,7 +180,6 @@ class AdapterMethodMultiTaskConfigUnionTestMixin(AdapterMethodBaseTestMixin):
 
 @require_torch
 class MultiTaskConfigUnionAdapterTest(AdapterMethodMultiTaskConfigUnionTestMixin):
-    ForwardContext.context_args.add("task_ids")
 
     adapter_configs_to_test = [
         (

@@ -84,6 +84,7 @@ class ForwardContext(ContextManager):
         "output_adapter_gating_scores",
         "output_adapter_fusion_attentions",
         "adapter_input_parallelized",
+        "task_ids",
     }
     context_attributes = {
         "adapter_gating_scores",
