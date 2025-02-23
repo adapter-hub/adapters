@@ -22,12 +22,22 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 
-from transformers.models.beit.modeling_beit import BeitLayer, BeitRelativePositionBias, BeitSelfAttention
+from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
+from transformers.models.beit.modeling_beit import (
+    BeitLayer,
+    BeitRelativePositionBias,
+    BeitSdpaSelfAttention,
+    BeitSelfAttention,
+)
+from transformers.utils import logging
 
-from .mixin_beit import BeitLayerAdaptersMixin, BeitSelfAttentionAdaptersMixin
+from .mixin_beit import BeitAttentionAdaptersMixin, BeitLayerAdaptersMixin
 
 
-class BeitSelfAttentionWithAdapters(BeitSelfAttentionAdaptersMixin, BeitSelfAttention):
+logger = logging.getLogger(__name__)
+
+
+class BeitSelfAttentionWithAdapters(BeitAttentionAdaptersMixin, BeitSelfAttention):
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -82,6 +92,75 @@ class BeitSelfAttentionWithAdapters(BeitSelfAttentionAdaptersMixin, BeitSelfAtte
         outputs = (context_layer, attention_probs) if output_attentions else (context_layer,)
 
         return outputs
+
+
+class BeitSdpaSelfAttentionWithAdapters(BeitAttentionAdaptersMixin, BeitSdpaSelfAttention):
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        head_mask: Optional[torch.Tensor] = None,
+        output_attentions: bool = False,
+        relative_position_bias: Optional["BeitRelativePositionBias"] = None,
+        interpolate_pos_encoding: bool = False,
+        resolution: Optional[Tuple[int]] = None,
+    ) -> Union[Tuple[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
+        if output_attentions or head_mask is not None:
+            logger.warning_once(
+                "`BeitSdpaSelfAttention` is used but `torch.nn.functional.scaled_dot_product_attention` does not "
+                "support `output_attentions=True` or `head_mask`. Falling back to the manual attention implementation, "
+                "but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. "
+                'This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
+            )
+            return super().forward(
+                hidden_states=hidden_states,
+                head_mask=head_mask,
+                output_attentions=output_attentions,
+                relative_position_bias=relative_position_bias,
+                interpolate_pos_encoding=interpolate_pos_encoding,
+                resolution=resolution,
+            )
+
+        mixed_query_layer = self.query(hidden_states)
+        key_layer = self.transpose_for_scores(self.key(hidden_states))
+        value_layer = self.transpose_for_scores(self.value(hidden_states))
+        query_layer = self.transpose_for_scores(mixed_query_layer)
+
+        # >>> START AH Changes <<<
+        query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
+
+        key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer, hidden_states)
+        (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
+        # >>> END AH Changes <<<
+
+        attn_bias = None
+        if self.relative_position_bias is not None:
+            height, width = resolution
+            window_size = (height // self.config.patch_size, width // self.config.patch_size)
+            attn_bias = self.relative_position_bias(
+                window_size, interpolate_pos_encoding, dim_size=hidden_states.shape[1]
+            )
+
+        # Add shared relative position bias if provided.
+        if relative_position_bias is not None:
+            if attn_bias is None:
+                attn_bias = relative_position_bias
+            else:
+                attn_bias += relative_position_bias
+
+        scaling = 1 / math.sqrt(self.attention_head_size)
+        context_layer = torch.nn.functional.scaled_dot_product_attention(
+            query_layer,
+            key_layer,
+            value_layer,
+            attn_mask=attn_bias,
+            dropout_p=self.config.attention_probs_dropout_prob if self.training else 0.0,
+            is_causal=False,
+            scale=scaling,
+        )
+        context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
+        new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
+        context_layer = context_layer.view(*new_context_layer_shape)
+        return context_layer, None
 
 
 class BeitLayerWithAdapters(BeitLayerAdaptersMixin, BeitLayer):
