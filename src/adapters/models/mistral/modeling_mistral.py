@@ -18,7 +18,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """PyTorch Mistral model."""
-from typing import Callable, Optional, Tuple, Unpack
+from typing import Callable, Optional, Tuple
+
+
+try:
+    from typing import Unpack
+except ImportError:
+    from typing_extensions import Unpack
 
 import torch
 import torch.utils.checkpoint
