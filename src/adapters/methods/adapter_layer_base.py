@@ -464,6 +464,9 @@ class ComposableAdapterLayerBase(AdapterLayerBase):
         assert hasattr(context, "task_ids")
         task_ids = context.task_ids
         assert task_ids is not None
+        if isinstance(task_ids, list) and isinstance(task_ids[0], str):
+            children = adapter_setup.children
+            task_ids = torch.tensor([children.index(task) for task in task_ids])
         ordering_idx = task_ids.argsort()
         batch_sizes = task_ids.bincount().tolist()
         inter_state = self.compose_batch_split(

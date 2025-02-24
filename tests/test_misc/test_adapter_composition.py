@@ -168,16 +168,25 @@ class AdapterCompositionTest(unittest.TestCase):
     def test_multi_task_learning(self):
         if MultiTask in self.unsupported_blocks:
             self.skipTest("MultiTaskLearning not supported by adapter config.")
-
+        tasks = ["a", "b", "c", "d"]
         model = self.build_model()
-        model.set_active_adapters(MultiTask("a", "b", "c", "d"))
+        model.set_active_adapters(MultiTask(*tasks))
         inputs = {
             "input_ids": ids_tensor((4, 128), 1000).to(torch_device),
             "labels": torch.ones(4, dtype=torch.long).to(torch_device),
         }
 
-        for task_ids in [[0, 2, 1, 3], [0, 0, 0, 0]]:
+        for task_ids in [
+            ["a", "c", "b", "d"],
+            ["a", "a", "a", "a"],
+            ["b", "b", "a", "a"],
+        ]:
             with self.subTest(task_ids=task_ids):
+                loss = model(**inputs, task_ids=task_ids).loss
+                loss.backward()
+
+            with self.subTest(task_ids=task_ids):
+                task_ids = [tasks.index(task) for task in task_ids]
                 loss = model(**inputs, task_ids=torch.tensor(task_ids)).loss
                 loss.backward()
 

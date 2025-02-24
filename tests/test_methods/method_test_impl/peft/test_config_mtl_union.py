@@ -54,7 +54,7 @@ class AdapterMethodMultiTaskConfigUnionTestMixin(AdapterMethodBaseTestMixin):
             self.assertTrue(adapter_name in model2.adapters_config)
 
         # check equal output
-        input_data = self.get_input_samples(config=model1.config, **kwargs)
+        input_data = self.get_input_samples(config=model1.config, n_tasks=len(adapter_config.task_names))
         model1.to(torch_device)
         model2.to(torch_device)
         output1 = model1(**input_data)
@@ -62,7 +62,7 @@ class AdapterMethodMultiTaskConfigUnionTestMixin(AdapterMethodBaseTestMixin):
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
 
-    def get_dataset_with_task_ids(self, n_tasks):
+    def get_dataset_with_task_ids(self, tasks):
         train_dataset = self.get_dataset()
         if not isinstance(train_dataset, Dataset):
             train_dataset = Dataset.from_list([asdict(feature) for feature in train_dataset])
@@ -72,7 +72,8 @@ class AdapterMethodMultiTaskConfigUnionTestMixin(AdapterMethodBaseTestMixin):
 
         def add_task_ids(example_batch):
             inputs = copy.deepcopy(example_batch)
-            inputs["task_ids"] = torch.randint(0, n_tasks, (len(example_batch),)).tolist()
+            bsz = len(example_batch)
+            inputs["task_ids"] = torch.randint(0, len(tasks), (bsz,)).tolist()
             return inputs
 
         train_dataset.set_transform(add_task_ids)
@@ -88,7 +89,7 @@ class AdapterMethodMultiTaskConfigUnionTestMixin(AdapterMethodBaseTestMixin):
         **kwargs,
     ):
         # setup dataset
-        train_dataset = self.get_dataset_with_task_ids(kwargs["n_tasks"])
+        train_dataset = self.get_dataset_with_task_ids(kwargs["tasks"])
 
         training_args = TrainingArguments(
             output_dir="./examples",
@@ -109,7 +110,7 @@ class AdapterMethodMultiTaskConfigUnionTestMixin(AdapterMethodBaseTestMixin):
         )
         trainer.train()
 
-    def run_train_test(self, adapter_config, filter_keys, n_tasks):
+    def run_train_test(self, adapter_config, filter_keys, tasks):
         if not self.do_run_train_tests:
             self.skipTest("Skipping training tests. Set `do_run_train_tests=True` to run them.")
         if self.config_class not in ADAPTER_MODEL_MAPPING:
@@ -152,7 +153,7 @@ class AdapterMethodMultiTaskConfigUnionTestMixin(AdapterMethodBaseTestMixin):
 
         state_dict_pre = copy.deepcopy(model.state_dict())
 
-        self.trainings_run(model, n_tasks=n_tasks)
+        self.trainings_run(model, tasks=tasks)
 
         # check that the adapters have changed, but the base model has not
         adapters_with_change, base_with_change = False, False
@@ -259,7 +260,7 @@ class MultiTaskConfigUnionAdapterTest(AdapterMethodMultiTaskConfigUnionTestMixin
                 config=adapter_config.base_config.__class__.__name__,
                 task_names=adapter_config.task_names,
             ):
-                self.run_load_test(adapter_config, n_tasks=len(adapter_config.task_names))
+                self.run_load_test(adapter_config, tasks=adapter_config.task_names)
 
     def test_mtl_union_adapter_forward(self):
         model = self.get_model()
@@ -273,8 +274,9 @@ class MultiTaskConfigUnionAdapterTest(AdapterMethodMultiTaskConfigUnionTestMixin
                 self.run_forward_test(
                     model,
                     adapter_config,
-                    n_tasks=len(adapter_config.task_names),
+                    tasks=adapter_config.task_names,
                     adapter_setup=MultiTask(*adapter_config.task_names),
+                    n_tasks=len(adapter_config.task_names),
                 )
 
     def test_mtl_union_adapter_train(self):
@@ -289,5 +291,5 @@ class MultiTaskConfigUnionAdapterTest(AdapterMethodMultiTaskConfigUnionTestMixin
                 self.run_train_test(
                     adapter_config,
                     filter_keys,
-                    n_tasks=len(adapter_config.task_names),
+                    tasks=adapter_config.task_names,
                 )
