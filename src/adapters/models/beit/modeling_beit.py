@@ -34,7 +34,7 @@ from transformers.utils import logging
 from .mixin_beit import BeitAttentionAdaptersMixin, BeitLayerAdaptersMixin
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 
 class BeitSelfAttentionWithAdapters(BeitAttentionAdaptersMixin, BeitSelfAttention):
