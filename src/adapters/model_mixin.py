@@ -1730,11 +1730,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
         }
         encoder_signature = set(inspect.signature(encoder.forward).parameters)
         encoder_accepts_wildcard = "kwargs" in encoder_signature or "model_kwargs" in encoder_signature
+        forward_context_args = ["adapter_input_parallelized", "task_ids"]
         if not encoder_accepts_wildcard:
             encoder_kwargs = {
                 argument: value
                 for argument, value in encoder_kwargs.items()
-                if argument in encoder_signature or argument == "adapter_input_parallelized"
+                if argument in encoder_signature or argument in forward_context_args
             }
         encoder_kwargs["output_attentions"] = generation_config.output_attentions
         encoder_kwargs["output_hidden_states"] = generation_config.output_hidden_states
@@ -1744,7 +1745,9 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
         encoder_kwargs["return_dict"] = True
         encoder_kwargs[model_input_name] = inputs_tensor
         with ForwardContext(self, **encoder_kwargs):
-            encoder_kwargs.pop("adapter_input_parallelized", None)  # This should not be passed to actual model
+            for arg_name in forward_context_args:
+                encoder_kwargs.pop(arg_name, None)  # This should not be passed to actual model
+
             model_kwargs["encoder_outputs"]: ModelOutput = encoder(**encoder_kwargs)
 
         return model_kwargs
