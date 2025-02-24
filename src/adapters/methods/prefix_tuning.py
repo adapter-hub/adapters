@@ -511,7 +511,12 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         # Select index range for batch split
         # Ignore slices that go beyond the prefix states bsz
         # (this is the case for slices produced by Parallel blocks which operate on replicated kv states)
-        if state.idx_slice is not None and state.idx_slice.start < prefix_keys.size(0):
+        # But, let pass slices go beyond which return empty tensor
+        # (this is the case for last batch_size == 0 for BatchSplit blocks)
+        if state.idx_slice is not None and (
+            state.idx_slice.start < prefix_keys.size(0)
+            or state.idx_slice.start == state.idx_slice.stop == prefix_keys.size(0)
+        ):
             prefix_keys = prefix_keys[state.idx_slice]
             prefix_values = prefix_values[state.idx_slice]
 
