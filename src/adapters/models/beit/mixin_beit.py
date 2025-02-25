@@ -9,7 +9,7 @@ from ...model_mixin import ModelBaseAdaptersMixin
 from ...utils import patch_forward
 
 
-class BeitAttentionAdaptersMixin:
+class BeitSelfAttentionAdaptersMixin:
     def init_adapters(self, model_config, adapters_config):
         self.location_key = "self"
 

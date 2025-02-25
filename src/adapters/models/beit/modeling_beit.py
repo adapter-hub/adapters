@@ -31,13 +31,13 @@ from transformers.models.beit.modeling_beit import (
 )
 from transformers.utils import logging
 
-from .mixin_beit import BeitAttentionAdaptersMixin, BeitLayerAdaptersMixin
+from .mixin_beit import BeitLayerAdaptersMixin, BeitSelfAttentionAdaptersMixin
 
 
 logger = logging.get_logger(__name__)
 
 
-class BeitSelfAttentionWithAdapters(BeitAttentionAdaptersMixin, BeitSelfAttention):
+class BeitSelfAttentionWithAdapters(BeitSelfAttentionAdaptersMixin, BeitSelfAttention):
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -94,7 +94,7 @@ class BeitSelfAttentionWithAdapters(BeitAttentionAdaptersMixin, BeitSelfAttentio
         return outputs
 
 
-class BeitSdpaSelfAttentionWithAdapters(BeitAttentionAdaptersMixin, BeitSdpaSelfAttention):
+class BeitSdpaSelfAttentionWithAdapters(BeitSelfAttentionAdaptersMixin, BeitSdpaSelfAttention):
     def forward(
         self,
         hidden_states: torch.Tensor,
