@@ -67,8 +67,8 @@ class PromptTuning(nn.Module):
 
     def _init_prompt_embedding(self, base_model_embeddings: nn.Module) -> None:
 
-        if self.prompt_tuning_config.init_weights_seed:
-            fix_seed(self.prompt_tuning_config.init_weights_seed)
+        # Set seed for reproducibility if specified in config
+        fix_seed(self.prompt_tuning_config.init_weights_seed)
 
         if self.prompt_tuning_config.prompt_init == "random_uniform":
             nn.init.uniform_(

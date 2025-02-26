@@ -661,8 +661,8 @@ class PHMLayer(nn.Module):
 
     def reset_parameters(self):
 
-        if self.config.init_weights_seed:
-            fix_seed(self.config.init_weights_seed)
+        # Set seed for reproducibility if specified in config
+        fix_seed(self.config.init_weights_seed)
 
         if not self.shared_W_phm:
             self._init_W()

@@ -31,8 +31,8 @@ class PrefixTuning(nn.Module, ModuleUtilsMixin):
         self.n_embd_per_head = n_embd_per_head or self.input_size // self.n_heads
         self.config = config
 
-        if self.config.init_weights_seed:
-            fix_seed(self.config.init_weights_seed)
+        # Set seed for reproducibility if specified in config
+        fix_seed(self.config.init_weights_seed)
         self.wte = nn.Embedding(self.config.prefix_length, self.input_size)
         self.control_trans = nn.Sequential(
             nn.Linear(self.input_size, self.config.bottleneck_size),
@@ -83,8 +83,8 @@ class FlatPrefixTuning(nn.Module, ModuleUtilsMixin):
         self.n_embd_per_head = n_embd_per_head or self.input_size // self.n_heads
         self.config = config
 
-        if self.config.init_weights_seed:
-            fix_seed(self.config.init_weights_seed)
+        # Set seed for reproducibility if specified in config
+        fix_seed(self.config.init_weights_seed)
 
         self.control_trans = nn.Parameter(
             torch.randn(self.config.prefix_length * self.n_layers * 2 * self.n_heads * self.n_embd_per_head)

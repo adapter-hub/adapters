@@ -20,6 +20,7 @@ import torch
 def fix_seed(seed: Optional[int] = None):
     """
     Helper function to fix the torch seed on cpu and gpu for initializing adapters with the same weights.
+    Is only executed if the config provides a respective seed.
     """
     if seed:
         torch.manual_seed(seed)

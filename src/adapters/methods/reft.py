@@ -29,8 +29,8 @@ class ReftUnit(nn.Module):
         super().__init__()
         self.orthogonal = orthogonal
 
-        if init_weights_seed:
-            fix_seed(init_weights_seed)
+        # Set seed for reproducibility if specified in config
+        fix_seed(init_weights_seed)
         self.learned_source = nn.Linear(in_dim, r_dim, bias=True, dtype=dtype)
         projection = nn.Linear(in_dim, r_dim, bias=False, dtype=dtype)
 
