@@ -17,7 +17,7 @@ from transformers.pytorch_utils import Conv1D
 from ..composition import Average, BatchSplit, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
-from .utils import dequantize_bnb_weight
+from .utils import dequantize_bnb_weight, fix_seed
 
 
 try:
@@ -56,6 +56,9 @@ class LoRA(nn.Module):
         self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
         self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
         self.scaling = self.lora_alpha / self.r
+
+        # Set seed for reproducibility if specified in config
+        fix_seed(config.init_weights_seed)
 
         # For compatibility with (IA)^3, allow all init_weights types here.
         # Usually should be "lora".
@@ -129,6 +132,9 @@ class IA3(nn.Module):
         # Actual trainable parameters
         self.lora_B = nn.Parameter(torch.zeros(lora_B_shape))
         self.scaling = self.lora_alpha
+
+        # Set seed for reproducibility if specified in config
+        fix_seed(config.init_weights_seed)
 
         # For compatibility with LoRA, allow all init_weights types here.
         # Usually should be "ia3".
