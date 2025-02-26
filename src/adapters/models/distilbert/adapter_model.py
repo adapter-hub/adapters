@@ -9,6 +9,7 @@ from transformers.models.distilbert.modeling_distilbert import (
 )
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
+from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
@@ -63,6 +64,7 @@ class DistilBertAdapterModel(
         self.distilbert.resize_position_embeddings(new_num_position_embeddings)
 
     @add_start_docstrings_to_model_forward(DISTILBERT_INPUTS_DOCSTRING.format("batch_size, num_choices"))
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids=None,
@@ -73,8 +75,6 @@ class DistilBertAdapterModel(
         output_hidden_states=None,
         return_dict=None,
         head=None,
-        output_adapter_gating_scores=False,
-        output_adapter_fusion_attentions=False,
         **kwargs,
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
@@ -87,7 +87,7 @@ class DistilBertAdapterModel(
             else None
         )
 
-        distilbert_output, context = self.distilbert(
+        distilbert_output = self.distilbert(
             input_ids=input_ids,
             attention_mask=attention_mask,
             head_mask=head_mask,
@@ -95,14 +95,7 @@ class DistilBertAdapterModel(
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            output_adapter_gating_scores=output_adapter_gating_scores,
-            output_adapter_fusion_attentions=output_adapter_fusion_attentions,
-            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
-            output_context=True,
         )
-        # required e.g. for prompt tuning in all models
-        kwargs["context"] = context
-
         outputs = self.forward_head(
             distilbert_output, head_name=head, attention_mask=attention_mask, return_dict=return_dict, **kwargs
         )

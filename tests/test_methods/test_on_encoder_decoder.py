@@ -66,7 +66,15 @@ class EncoderDecoderAdapterTestBase(TextAdapterTestBase):
 
 test_methods = generate_method_tests(
     EncoderDecoderAdapterTestBase,
-    not_supported=["Heads", "ConfigUnion", "Embeddings", "Composition", "PromptTuning", "ClassConversion"],
+    not_supported=[
+        "Heads",
+        "ConfigUnion",
+        "Embeddings",
+        "Composition",
+        "PromptTuning",
+        "ClassConversion",
+        "MultiTaskConfigUnion",
+    ],
 )
 
 for test_class_name, test_class in test_methods.items():

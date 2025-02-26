@@ -1,4 +1,5 @@
 import functools
+import inspect
 import threading
 from typing import ContextManager
 
@@ -79,16 +80,23 @@ class ForwardContext(ContextManager):
     # thread-local storage that holds a stack of active contexts
     storage = threading.local()
 
-    context_attributes = [
+    context_args = {
+        "output_adapter_gating_scores",
+        "output_adapter_fusion_attentions",
+        "adapter_input_parallelized",
+        "task_ids",
+    }
+    context_attributes = {
         "adapter_gating_scores",
         "adapter_fusion_attentions",
-        "adapter_input_parallelized",
-    ]
+    }
     # Additional used attributes not exposed to the user
     # - prompt_tokens_length: length of the prompt tokens
 
     def __init__(self, model, *args, **kwargs):
         # If the model has a method ``forward_context()``, use it to create the context.
+        for arg_name in self.context_args:
+            setattr(self, arg_name, kwargs.pop(arg_name, None))
         if hasattr(model, "forward_context"):
             model.forward_context(self, *args, **kwargs)
 
@@ -98,6 +106,61 @@ class ForwardContext(ContextManager):
 
     def __exit__(self, type, value, traceback):
         ForwardContext.get_contexts().pop()
+
+    def _call_forward(self, model, f, *args, **kwargs):
+        kwargs = {k: v for k, v in kwargs.items() if k not in self.context_args}
+        results = f(model, *args, **kwargs)
+
+        # append output attributes
+        if isinstance(results, tuple):
+            for attr in self.context_attributes:
+                if getattr(self, "output_" + attr, False):
+                    results = results + (dict(getattr(self, attr)),)
+        else:
+            for attr in self.context_attributes:
+                if getattr(self, "output_" + attr, False):
+                    results[attr] = dict(getattr(self, attr))
+
+        return results
+
+    @classmethod
+    def add_contex_args_in_signature(cls, f):
+        old_signature = inspect.signature(f)
+        params = list(old_signature.parameters.values())
+        # search if a VAR_POSITIONAL or VAR_KEYWORD is present
+        # if yes insert step parameter before it, else insert it in last position
+        param_types = [param.kind for param in params]
+        i = min(
+            [
+                (param_types.index(param_type) if param_type in param_types else float("inf"))
+                for param_type in (
+                    inspect.Parameter.VAR_POSITIONAL,
+                    inspect.Parameter.VAR_KEYWORD,
+                )
+            ]
+            + [len(params)]
+        )
+        for name in cls.context_args:
+            new_param = inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None)
+            if new_param not in params:
+                params.insert(i, new_param)
+            # we can now build the signature for the wrapper function
+        new_signature = old_signature.replace(parameters=params)
+        return new_signature
+
+    @classmethod
+    def wrap_base(cls, f):
+
+        @functools.wraps(f)
+        def wrapper_func(self, *args, **kwargs):
+            if self.adapters_config is not None and ForwardContext.get_context() is None:
+                with cls(self, *args, **kwargs) as ctx:
+                    results = ctx._call_forward(self, f, *args, **kwargs)
+                return results
+            else:
+                return f(self, *args, **kwargs)
+
+        return wrapper_func
 
     @classmethod
     def wrap(cls, f):
@@ -109,30 +172,8 @@ class ForwardContext(ContextManager):
         def wrapper_func(self, *args, **kwargs):
             if self.adapters_config is not None:
                 with cls(self, *args, **kwargs) as ctx:
-                    # whether to output the context attributes
-                    output_context = kwargs.pop("output_context", False)
-                    kwargs = {
-                        k: v for k, v in kwargs.items() if k.replace("output_", "") not in cls.context_attributes
-                    }
-                    results = f(self, *args, **kwargs)
-
-                    # append output attributes
-                    if isinstance(results, tuple):
-                        for attr in cls.context_attributes:
-                            if getattr(ctx, "output_" + attr, False):
-                                results = results + (dict(getattr(ctx, attr)),)
-                    else:
-                        for attr in cls.context_attributes:
-                            if getattr(ctx, "output_" + attr, False):
-                                results[attr] = dict(getattr(ctx, attr))
-
-                    if output_context:
-                        context_dict = ctx.__dict__
-
-                if output_context:
-                    return results, context_dict
-                else:
-                    return results
+                    results = ctx._call_forward(self, f, *args, **kwargs)
+                return results
             else:
                 return f(self, *args, **kwargs)
 
