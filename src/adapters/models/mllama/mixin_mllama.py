@@ -12,7 +12,7 @@ from ...model_mixin import (
     ModelBaseAdaptersMixin,
     ModelWithHeadsAdaptersMixin,
 )
-from ..clip.mixin_clip import CLIPAttentionAdaptersMixin, CLIPEncoderAdaptersMixin, CLIPEncoderLayerAdaptersMixin
+from ..clip.mixin_clip import CLIPAttentionAdaptersMixin, CLIPEncoderLayerAdaptersMixin
 from ..llama.mixin_llama import LlamaDecoderLayerMixin
 
 

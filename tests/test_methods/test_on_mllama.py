@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import torch
 from PIL import Image
 
 from transformers import MllamaImageProcessor
@@ -8,7 +9,6 @@ from transformers.models.mllama.configuration_mllama import MllamaConfig, Mllama
 
 from .base import TextAdapterTestBase
 from .generator import generate_method_tests
-import torch
 
 
 def from_text_vision_configs(config_class, text_config: MllamaTextConfig, vision_config: MllamaVisionConfig, **kwargs):
