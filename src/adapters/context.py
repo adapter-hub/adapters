@@ -79,16 +79,22 @@ class ForwardContext(ContextManager):
     # thread-local storage that holds a stack of active contexts
     storage = threading.local()
 
-    context_attributes = [
+    context_args = {
+        "output_adapter_gating_scores",
+        "output_adapter_fusion_attentions",
+        "adapter_input_parallelized",
+    }
+    context_attributes = {
         "adapter_gating_scores",
         "adapter_fusion_attentions",
-        "adapter_input_parallelized",
-    ]
+    }
     # Additional used attributes not exposed to the user
     # - prompt_tokens_length: length of the prompt tokens
 
     def __init__(self, model, *args, **kwargs):
         # If the model has a method ``forward_context()``, use it to create the context.
+        for arg_name in self.context_args:
+            setattr(self, arg_name, kwargs.pop(arg_name, None))
         if hasattr(model, "forward_context"):
             model.forward_context(self, *args, **kwargs)
 
@@ -98,6 +104,43 @@ class ForwardContext(ContextManager):
 
     def __exit__(self, type, value, traceback):
         ForwardContext.get_contexts().pop()
+
+    def _call_forward(self, model, f, *args, **kwargs):
+        """
+        Calls the forward function of the model with the given arguments and keyword arguments.
+        """
+        kwargs = {k: v for k, v in kwargs.items() if k not in self.context_args}
+        results = f(model, *args, **kwargs)
+
+        # append output attributes
+        if isinstance(results, tuple):
+            for attr in self.context_attributes:
+                if getattr(self, "output_" + attr, False):
+                    results = results + (dict(getattr(self, attr)),)
+        else:
+            for attr in self.context_attributes:
+                if getattr(self, "output_" + attr, False):
+                    results[attr] = dict(getattr(self, attr))
+
+        return results
+
+    @classmethod
+    def wrap_base(cls, f):
+        """
+        Decorator method that wraps a ``forward()`` function of a base model class.
+        Unlike ``wrap()``, this method does not create a new context if the is an existing one.
+        """
+
+        @functools.wraps(f)
+        def wrapper_func(self, *args, **kwargs):
+            if self.adapters_config is not None and ForwardContext.get_context() is None:
+                with cls(self, *args, **kwargs) as ctx:
+                    results = ctx._call_forward(self, f, *args, **kwargs)
+                return results
+            else:
+                return f(self, *args, **kwargs)
+
+        return wrapper_func
 
     @classmethod
     def wrap(cls, f):
@@ -109,30 +152,8 @@ class ForwardContext(ContextManager):
         def wrapper_func(self, *args, **kwargs):
             if self.adapters_config is not None:
                 with cls(self, *args, **kwargs) as ctx:
-                    # whether to output the context attributes
-                    output_context = kwargs.pop("output_context", False)
-                    kwargs = {
-                        k: v for k, v in kwargs.items() if k.replace("output_", "") not in cls.context_attributes
-                    }
-                    results = f(self, *args, **kwargs)
-
-                    # append output attributes
-                    if isinstance(results, tuple):
-                        for attr in cls.context_attributes:
-                            if getattr(ctx, "output_" + attr, False):
-                                results = results + (dict(getattr(ctx, attr)),)
-                    else:
-                        for attr in cls.context_attributes:
-                            if getattr(ctx, "output_" + attr, False):
-                                results[attr] = dict(getattr(ctx, attr))
-
-                    if output_context:
-                        context_dict = ctx.__dict__
-
-                if output_context:
-                    return results, context_dict
-                else:
-                    return results
+                    results = ctx._call_forward(self, f, *args, **kwargs)
+                return results
             else:
                 return f(self, *args, **kwargs)
 

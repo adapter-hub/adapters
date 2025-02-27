@@ -1,4 +1,5 @@
 import importlib
+import inspect
 import os
 from typing import Any, Optional, Type, Union
 
@@ -78,6 +79,8 @@ def init(model: PreTrainedModel, adapters_config: Optional[ModelAdaptersConfig] 
         if hasattr(model, "base_model_prefix") and hasattr(model, model.base_model_prefix):
             base_model = getattr(model, model.base_model_prefix)
             if isinstance(base_model, ModelAdaptersMixin):
+                # HACK to preserve original forward method signature (e.g. for Trainer label names)
+                temp_signature = inspect.signature(model.forward.__func__)
                 # Create new wrapper model class
                 model_class_name = model.__class__.__name__
                 model_class = type(
@@ -86,6 +89,7 @@ def init(model: PreTrainedModel, adapters_config: Optional[ModelAdaptersConfig] 
                     {},
                 )
                 model.__class__ = model_class
+                model.forward.__func__.__signature__ = temp_signature
 
     # Finally, initialize adapters
     model.init_adapters(model.config, adapters_config)
