@@ -161,8 +161,10 @@ class AdapterCompositionTest(unittest.TestCase):
             self.skipTest("BatchSplit not supported by adapter config.")
 
         model = self.build_model()
-        model.set_active_adapters(BatchSplit("a", "b", "c", batch_sizes=[1, 1, 2]))
-        self.batched_training_pass(model)
+        for batch_sizes in [[1, 1, 2], [2, 0, 2], [2, 2, 0]]:
+            with self.subTest(batch_sizes=batch_sizes):
+                model.set_active_adapters(BatchSplit("a", "b", "c", batch_sizes=batch_sizes))
+                self.batched_training_pass(model)
 
     def test_batch_split_int(self):
         if BatchSplit in self.unsupported_blocks:

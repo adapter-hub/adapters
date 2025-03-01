@@ -15,6 +15,7 @@ from ..configuration import ModelAdaptersConfig, PromptTuningConfig
 from ..context import ForwardContext
 from ..utils import multigetattr, prefix_attention_mask
 from .adapter_layer_base import AdapterLayerBase
+from .utils import fix_seed
 
 
 class PromptTuning(nn.Module):
@@ -67,6 +68,10 @@ class PromptTuning(nn.Module):
             )
 
     def _init_prompt_embedding(self, base_model_embeddings: nn.Module) -> None:
+
+        # Set seed for reproducibility if specified in config
+        fix_seed(self.prompt_tuning_config.init_weights_seed)
+
         if self.prompt_tuning_config.prompt_init == "random_uniform":
             nn.init.uniform_(
                 self.prompt_embedding.weight,

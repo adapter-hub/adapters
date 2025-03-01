@@ -524,3 +524,7 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0][0], output2[0][0], atol=1e-4))
         self.assertTrue(torch.allclose(output1[1][0], output2[1][0], atol=1e-4))
+
+    def test_same_weights_after_adding_adapter(self):
+        # setting init_weights_seed should leed to every adapter layer having the same weights after initialization
+        self.run_same_weights_test(SeqBnConfig(init_weights_seed=42), ["adapters.{name}."])

@@ -324,3 +324,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
     def test_lora_gradient_checkpointing_single_adapter(self):
         self.run_gradient_checkpointing_single_adapter_test(LoRAConfig())
+
+    def test_same_weights_after_adding_adapter(self):
+        # setting init_weights_seed should leed to every adapter layer having the same weights after initialization
+        self.run_same_weights_test(LoRAConfig(init_weights_seed=42), ["loras.{name}."])

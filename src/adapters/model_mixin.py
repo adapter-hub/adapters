@@ -1184,8 +1184,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         context.adapters_parallelized = False
         # Check if already parallelized in encoder
-        adapter_input_parallelized = kwargs.pop("adapter_input_parallelized", None)
-        if adapter_input_parallelized:
+        if context.adapter_input_parallelized:
             if active_adapters.parallel_channels > 1:
                 context.adapters_parallelized = True
         # Add the shared parameters for the active adapters to the context
@@ -1211,8 +1210,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             context.offsets = attention_mask.argmax(1)
 
         # Adapter gating and attention outputs
-        context.output_adapter_gating_scores = kwargs.get("output_adapter_gating_scores", False)
-        context.output_adapter_fusion_attentions = kwargs.get("output_adapter_fusion_attentions", False)
         context.adapter_gating_scores = defaultdict(dict)
         context.adapter_fusion_attentions = defaultdict(dict)
 
@@ -1774,7 +1771,7 @@ class ModelBaseAdaptersMixin(ModelAdaptersMixin):
 
         return embedding_output
 
-    @ForwardContext.wrap
+    @ForwardContext.wrap_base
     def forward(self, *args, **kwargs):
         return super().forward(*args, **kwargs)
 
@@ -2320,3 +2317,7 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             else:
                 for p in self.get_output_embeddings().parameters():
                     p.requires_grad = not freeze
+
+    @ForwardContext.wrap
+    def forward(self, *args, **kwargs):
+        return super().forward(*args, **kwargs)

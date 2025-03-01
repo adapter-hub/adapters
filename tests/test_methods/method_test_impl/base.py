@@ -439,3 +439,34 @@ class AdapterMethodBaseTestMixin:
         generate_input = self.build_generate_input(self.input_shape).to(torch_device)
         generated = model.generate(generate_input, max_new_tokens=max_new_tokens)
         self.assertLessEqual(generated.shape, (self.input_shape[0], self.input_shape[1] + max_new_tokens))
+
+    def run_same_weights_test(self, adapter_config, filter_keys):
+
+        # Check one model with multiple adapters with same config
+        model = self.get_model()
+        num_adapters = 2
+        per_model_filter_keys = {}
+
+        for i in range(num_adapters):
+            model.add_adapter(f"adapter{i}", config=adapter_config)
+        for i in range(num_adapters):
+            name = f"adapter{i}"
+            per_model_filter_keys[name] = [k.format(name=name) for k in filter_keys]
+
+        for (k1, v1), (k2, v2) in zip(
+            self._filter_parameters(model, per_model_filter_keys["adapter0"]).items(),
+            self._filter_parameters(model, per_model_filter_keys["adapter1"]).items(),
+        ):
+            self.assertTrue(torch.equal(v1, v2), msg=f"{k1} has different weights than {k2}")
+
+        # Check multiple models with one adapter with same config
+        model1, model2 = create_twin_models(self.model_class, self.config)
+        model1.add_adapter("adapter", config=adapter_config)
+        model2.add_adapter("adapter", config=adapter_config)
+        per_model_filter_keys = {"adapter": [k.format(name="adapter") for k in filter_keys]}
+
+        for (k1, v1), (k2, v2) in zip(
+            self._filter_parameters(model1, per_model_filter_keys["adapter"]).items(),
+            self._filter_parameters(model2, per_model_filter_keys["adapter"]).items(),
+        ):
+            self.assertTrue(torch.equal(v1, v2), msg=f"{k1} has different weights than {k2}")
