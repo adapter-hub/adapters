@@ -8,6 +8,7 @@ from ..configuration.adapter_config import ReftConfig
 from ..context import ForwardContext
 from .adapter_layer_base import AdapterLayerBase
 from .modeling import Activation_Function_Class
+from .utils import fix_seed
 
 
 logger = logging.getLogger(__name__)
@@ -22,13 +23,17 @@ class ReftUnit(nn.Module):
         subtract_projection: bool = True,
         non_linearity: str = None,
         dropout: float = 0.0,
+        init_weights_seed: int = None,
         dtype: Optional[torch.dtype] = None,
     ):
         super().__init__()
         self.orthogonal = orthogonal
-        self.learned_source = nn.Linear(in_dim, r_dim, bias=True, dtype=dtype)
 
+        # Set seed for reproducibility if specified in config
+        fix_seed(init_weights_seed)
+        self.learned_source = nn.Linear(in_dim, r_dim, bias=True, dtype=dtype)
         projection = nn.Linear(in_dim, r_dim, bias=False, dtype=dtype)
+
         if orthogonal:
             # orthogonal is not implemented for half precision
             if dtype in [torch.float16, torch.bfloat16]:
@@ -72,6 +77,7 @@ class ReftModule(nn.Module):
                     config.subtract_projection,
                     config.non_linearity,
                     config.dropout,
+                    config.init_weights_seed,
                     dtype,
                 )
                 for _ in range(n_units)
@@ -223,6 +229,7 @@ def hook_fn(module, args, output):
 
 
 def init_reft(model):
+    model = model.base_model
     for _, layer in model.iter_layers():
         if not hasattr(layer, "reft_layer"):
             layer.reft_layer = ReftLayer("output", model.config, model.adapters_config)

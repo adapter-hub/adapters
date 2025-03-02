@@ -12,6 +12,7 @@ from transformers.models.whisper.modeling_whisper import (
 )
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
+from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
@@ -52,6 +53,7 @@ class WhisperAdapterModel(
         self.model.encoder._freeze_parameters()
 
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
+    @ForwardContext.wrap
     def forward(
         self,
         input_features=None,
@@ -69,8 +71,6 @@ class WhisperAdapterModel(
         output_hidden_states=None,
         return_dict=None,
         head=None,
-        output_adapter_gating_scores=False,
-        output_adapter_fusion_attentions=False,
         **kwargs,
     ):
         r"""
@@ -94,7 +94,7 @@ class WhisperAdapterModel(
         # raise ValueError(ValueError: The following model_kwargs are not used by the model: ['labels']
         # This is because we do not specify labels as parameter in the forward method
 
-        outputs, context = self.model(
+        outputs = self.model(
             input_features=input_features,
             attention_mask=attention_mask,
             decoder_input_ids=decoder_input_ids,
@@ -109,14 +109,7 @@ class WhisperAdapterModel(
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
             past_key_values=past_key_values,
-            output_adapter_gating_scores=output_adapter_gating_scores,
-            output_adapter_fusion_attentions=output_adapter_fusion_attentions,
-            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
-            output_context=True,
         )
-
-        # required e.g. for prompt tuning in all models
-        kwargs["context"] = context
 
         head_outputs = self.forward_head(
             outputs,

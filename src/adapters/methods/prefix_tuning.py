@@ -12,6 +12,7 @@ from ..configuration import ModelAdaptersConfig, PrefixTuningConfig
 from ..context import AdapterSetup, ForwardContext
 from .adapter_layer_base import ComposableAdapterLayerBase
 from .modeling import Activation_Function_Class
+from .utils import fix_seed
 
 
 class PrefixTuning(nn.Module, ModuleUtilsMixin):
@@ -30,6 +31,8 @@ class PrefixTuning(nn.Module, ModuleUtilsMixin):
         self.n_embd_per_head = n_embd_per_head or self.input_size // self.n_heads
         self.config = config
 
+        # Set seed for reproducibility if specified in config
+        fix_seed(self.config.init_weights_seed)
         self.wte = nn.Embedding(self.config.prefix_length, self.input_size)
         self.control_trans = nn.Sequential(
             nn.Linear(self.input_size, self.config.bottleneck_size),
@@ -79,6 +82,9 @@ class FlatPrefixTuning(nn.Module, ModuleUtilsMixin):
         self.input_size = input_size
         self.n_embd_per_head = n_embd_per_head or self.input_size // self.n_heads
         self.config = config
+
+        # Set seed for reproducibility if specified in config
+        fix_seed(self.config.init_weights_seed)
 
         self.control_trans = nn.Parameter(
             torch.randn(self.config.prefix_length * self.n_layers * 2 * self.n_heads * self.n_embd_per_head)
@@ -510,7 +516,12 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         # Select index range for batch split
         # Ignore slices that go beyond the prefix states bsz
         # (this is the case for slices produced by Parallel blocks which operate on replicated kv states)
-        if state.idx_slice is not None and state.idx_slice.start < prefix_keys.size(0):
+        # But, let pass slices go beyond which return empty tensor
+        # (this is the case for last batch_size == 0 for BatchSplit blocks)
+        if state.idx_slice is not None and (
+            state.idx_slice.start < prefix_keys.size(0)
+            or state.idx_slice.start == state.idx_slice.stop == prefix_keys.size(0)
+        ):
             prefix_keys = prefix_keys[state.idx_slice]
             prefix_values = prefix_values[state.idx_slice]
 
