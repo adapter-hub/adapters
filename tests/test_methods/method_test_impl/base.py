@@ -6,7 +6,7 @@ from typing import Callable
 import torch
 
 import adapters
-from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer, AutoAdapterModel
+from adapters import ADAPTER_MODEL_MAPPING, AdapterSetup, AdapterTrainer
 from adapters.heads import CausalLMHead
 from adapters.utils import WEIGHTS_NAME
 from adapters.wrappers import load_model
@@ -188,8 +188,11 @@ class AdapterMethodBaseTestMixin:
         model.set_active_adapters(None)
         model.delete_adapter(name)
 
+    def create_twin_models(self):
+        return create_twin_models(self.model_class, self.config)
+
     def run_load_test(self, adapter_config):
-        model1, model2 = create_twin_models(self.model_class, self.config)
+        model1, model2 = self.create_twin_models()
 
         name = "dummy_adapter"
         model1.add_adapter(name, config=adapter_config)
@@ -233,8 +236,8 @@ class AdapterMethodBaseTestMixin:
             model2, loading_info = load_model(temp_dir, self.model_class, output_loading_info=True)
 
         # check if all weights were loaded
-        self.assertEqual(0, len(loading_info["missing_keys"]))
-        self.assertEqual(0, len(loading_info["unexpected_keys"]))
+        self.assertEqual(0, len(loading_info["missing_keys"]), loading_info["missing_keys"])
+        self.assertEqual(0, len(loading_info["unexpected_keys"]), loading_info["unexpected_keys"])
 
         # check if adapter was correctly loaded
         self.assertTrue(name in model2.adapters_config)
@@ -275,14 +278,7 @@ class AdapterMethodBaseTestMixin:
     def run_train_test(self, adapter_config, filter_keys):
         if not self.do_run_train_tests:
             self.skipTest("Skipping training tests. Set `do_run_train_tests=True` to run them.")
-        if self.config_class not in ADAPTER_MODEL_MAPPING:
-            self.skipTest("Does not support flex heads.")
-        model = AutoAdapterModel.from_config(self.config())
-
-        # add two adapters: one will be trained and the other should be frozen
-        model.add_adapter("mrpc", config=adapter_config)
-        model.add_adapter("dummy", config=adapter_config)
-        self.add_head(model, "mrpc")
+        model = self._init_model_for_train_run("mrpc", "dummy", adapter_config)
 
         self._assert_adapter_available(model, "mrpc")
         self._assert_adapter_available(model, "dummy")
@@ -314,7 +310,8 @@ class AdapterMethodBaseTestMixin:
         def has_tied_embeddings(k):
             tied_embeddings = hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings
             is_tied_layer = (
-                isinstance(model.heads["mrpc"], CausalLMHead)
+                hasattr(model, "heads")
+                and isinstance(model.heads["mrpc"], CausalLMHead)
                 and "heads.{}.{}.weight".format("mrpc", len(model.heads["mrpc"]._modules) - 1) in k
             )
             return tied_embeddings and is_tied_layer
@@ -322,7 +319,7 @@ class AdapterMethodBaseTestMixin:
         for (k1, v1), (k2, v2) in zip(state_dict_pre.items(), model.state_dict().items()):
             # move both to the same device to avoid device mismatch errors
             v1, v2 = v1.to(v2.device), v2
-            if "mrpc" in k1 and not has_tied_embeddings(k1):
+            if "mrpc" in k1 and not has_tied_embeddings(k1) or not k1.startswith(model.base_model_prefix):
                 adapters_with_change |= not torch.equal(v1, v2)
             else:
                 base_with_change |= not torch.equal(v1, v2)
@@ -463,7 +460,10 @@ class AdapterMethodBaseTestMixin:
             self.assertTrue(torch.equal(v1, v2), msg=f"{k1} has different weights than {k2}")
 
         # Check multiple models with one adapter with same config
-        model1, model2 = create_twin_models(self.model_class, self.config)
+        if hasattr(self, "adapter_interface") and self.adapter_interface:
+            model1, model2 = create_twin_models(self.model_class, self.config, self.adapter_interface)
+        else:
+            model1, model2 = create_twin_models(self.model_class, self.config)
         model1.add_adapter("adapter", config=adapter_config)
         model2.add_adapter("adapter", config=adapter_config)
         per_model_filter_keys = {"adapter": [k.format(name="adapter") for k in filter_keys]}
