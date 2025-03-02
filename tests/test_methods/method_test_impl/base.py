@@ -460,7 +460,7 @@ class AdapterMethodBaseTestMixin:
             self.assertTrue(torch.equal(v1, v2), msg=f"{k1} has different weights than {k2}")
 
         # Check multiple models with one adapter with same config
-        if self.adapter_interface:
+        if hasattr(self, "adapter_interface") and self.adapter_interface:
             model1, model2 = create_twin_models(self.model_class, self.config, self.adapter_interface)
         else:
             model1, model2 = create_twin_models(self.model_class, self.config)
