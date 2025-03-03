@@ -15,6 +15,7 @@ from tests.test_methods.method_test_impl.peft.test_adapter_common import Bottlen
 from tests.test_methods.method_test_impl.peft.test_compacter import CompacterTestMixin
 from tests.test_methods.method_test_impl.peft.test_config_union import ConfigUnionAdapterTest
 from tests.test_methods.method_test_impl.peft.test_ia3 import IA3TestMixin
+from tests.test_methods.method_test_impl.peft.test_vera import VeraTestMixin
 from tests.test_methods.method_test_impl.peft.test_lora import LoRATestMixin
 from tests.test_methods.method_test_impl.peft.test_prefix_tuning import PrefixTuningTestMixin
 from tests.test_methods.method_test_impl.peft.test_prompt_tuning import PromptTuningTestMixin
@@ -197,6 +198,19 @@ def generate_method_tests(
             pass
 
         test_classes["IA3"] = IA3
+        
+    if "Vera" not in redundant and "Vera" not in not_supported:
+
+        @require_torch
+        @pytest.mark.vera
+        class Vera(
+            model_test_base,
+            VeraTestMixin,
+            unittest.TestCase,
+        ):
+            pass
+
+        test_classes["Vera"] = Vera
 
     if "LoRA" not in redundant and "LoRA" not in not_supported:
 
