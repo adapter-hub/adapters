@@ -217,6 +217,8 @@ class Vera(nn.Module):
         # Optional dropout
         if config.dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=config.dropout)
+        else:
+            self.lora_dropout = lambda x: x
 
         self.lora_A_shape = lora_A_shape
         self.lora_B_shape = lora_B_shape

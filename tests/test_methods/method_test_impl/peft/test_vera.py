@@ -24,7 +24,7 @@ class VeraTestMixin(AdapterMethodBaseTestMixin):
     def test_get_Vera(self):
         model = self.get_model()
         n_layers = len(list(model.iter_layers()))
-        self.run_get_test(model, VeraConfig(intermediate_lora=True, output_lora=True), n_layers * 3)
+        self.run_get_test(model, VeraConfig(intermediate_lora=True, output_lora=True), n_layers * 3 + 1)
 
     def test_forward_Vera(self):
         model = self.get_model()

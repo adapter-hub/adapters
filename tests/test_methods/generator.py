@@ -198,7 +198,7 @@ def generate_method_tests(
             pass
 
         test_classes["IA3"] = IA3
-        
+
     if "Vera" not in redundant and "Vera" not in not_supported:
 
         @require_torch
