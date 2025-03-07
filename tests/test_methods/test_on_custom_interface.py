@@ -11,9 +11,9 @@ from transformers.testing_utils import torch_device
 
 from .base import TextAdapterTestBase
 from .generator import generate_method_tests, require_torch
-from .method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
 from .method_test_impl.core.test_adapter_backward_compability import CompabilityTestMixin
 from .method_test_impl.core.test_adapter_fusion_common import AdapterFusionModelTestMixin
+from .method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
 from .method_test_impl.utils import create_twin_models, make_config
 
 
