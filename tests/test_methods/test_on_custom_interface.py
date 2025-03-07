@@ -1,3 +1,4 @@
+import copy
 import unittest
 
 import pytest
@@ -11,6 +12,8 @@ from transformers.testing_utils import torch_device
 from .base import TextAdapterTestBase
 from .generator import generate_method_tests, require_torch
 from .method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
+from .method_test_impl.core.test_adapter_backward_compability import CompabilityTestMixin
+from .method_test_impl.core.test_adapter_fusion_common import AdapterFusionModelTestMixin
 from .method_test_impl.utils import create_twin_models, make_config
 
 
@@ -123,3 +126,22 @@ class Bottleneck(
         ]:
             with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
                 self.run_get_test(model, adapter_config, n_expected)
+
+
+@require_torch
+@pytest.mark.core
+class Core(
+    CustomInterfaceModelTestBase,
+    CompabilityTestMixin,
+    AdapterFusionModelTestMixin,
+    unittest.TestCase,
+):
+    def test_wrong_interface(self):
+        faulty_interface = copy.deepcopy(self.adapter_interface)
+        faulty_interface.attn_k_proj = "some_non_existing_layer_name"
+
+        model = Gemma2ForCausalLM(self.config())
+
+        # expect ValueError
+        with self.assertRaises(ValueError):
+            adapters.init(model, interface=faulty_interface)
