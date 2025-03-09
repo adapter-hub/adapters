@@ -230,6 +230,7 @@ class AdapterMethodBaseTestMixin:
 
         name = "dummy"
         model1.add_adapter(name, config=adapter_config)
+        print("test", self.model_class)
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             model1.save_pretrained(temp_dir)
 
