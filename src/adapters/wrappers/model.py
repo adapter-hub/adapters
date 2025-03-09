@@ -30,6 +30,9 @@ SPECIAL_MODEL_TYPE_TO_MODULE_NAME = {
 }
 
 
+_INTERFACE_ERROR_TEMPLATE = "AdapterInterface: '{layer_name}' is set to '{layer_value}' but this value is not found in the {parent_name}. See https://docs.adapterhub.ml/plugin_interface.html for more information."
+
+
 def get_module_name(model_type: str) -> str:
     if model_type in SPECIAL_MODEL_TYPE_TO_MODULE_NAME:
         return SPECIAL_MODEL_TYPE_TO_MODULE_NAME[model_type]
@@ -185,19 +188,22 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
 
     if not multihasattr(base_model, interface.model_embeddings):
         raise ValueError(
-            f"AdapterInterface: 'model_embeddings' is set to '{interface.model_embeddings}' but this value is not found in the model. See https://docs.adapterhub.ml/plugin_interface.html for more information."
+            _INTERFACE_ERROR_TEMPLATE.format(
+                layer_name="model_embeddings", layer_value=interface.model_embeddings, parent_name="base_model"
+            )
         )
-
     # All other values are layer specific => Get the first layer and check if all values are present
     layers = multigetattr(base_model, interface.model_layers)
     if not layers:
         raise ValueError(
-            f"AdapterInterface: 'model_layers' is set to '{interface.model_layers}' but this value is not found in the model. See https://docs.adapterhub.ml/plugin_interface.html for more information."
+            _INTERFACE_ERROR_TEMPLATE.format(
+                layer_name="model_layers", layer_value=interface.model_layers, parent_name="base_model"
+            )
         )
 
     if len(layers) == 0:
         raise ValueError(
-            f"AdapterInterface: 'model_layers' is set to '{interface.model_layers}' but accessing the value in the model returns an empty list. See https://docs.adapterhub.ml/plugin_interface.html for more information."
+            f"AdapterInterface: 'model_layers' is set to '{interface.model_layers}'. But accessing this value of the base_model returns an empty list. See https://docs.adapterhub.ml/plugin_interface.html for more information."
         )
 
     layer = layers[0]
@@ -220,7 +226,9 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
     for layer_name, layer_value in values_to_check.items():
         if not multihasattr(layer, layer_value):
             raise ValueError(
-                f"AdapterInterface: '{layer_name}' is set to '{layer_value}' but this value is not found in the model layer. See https://docs.adapterhub.ml/plugin_interface.html for more information."
+                _INTERFACE_ERROR_TEMPLATE.format(
+                    layer_name=layer_name, layer_value=layer_value, parent_name="model layer"
+                )
             )
 
     # Check attention-specific attributes if self-attention or cross-attention is defined
@@ -232,7 +240,9 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
             attn_value = getattr(interface, attn_name)
             if not multihasattr(self_attn_module, attn_value):
                 raise ValueError(
-                    f"AdapterInterface: '{attn_name}' is set to '{attn_value}' but this value is not found in the self-attention layer. See https://docs.adapterhub.ml/plugin_interface.html for more information."
+                    _INTERFACE_ERROR_TEMPLATE.format(
+                        layer_name=attn_name, layer_value=attn_value, parent_name="self-attention layer"
+                    )
                 )
 
     if interface.layer_cross_attn is not None:
@@ -241,5 +251,7 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
             attn_value = getattr(interface, attn_name)
             if not multihasattr(cross_attn_module, attn_value):
                 raise ValueError(
-                    f"AdapterInterface: '{attn_name}' is set to '{attn_value}' but this value is not found in the cross-attention layer. See https://docs.adapterhub.ml/plugin_interface.html for more information."
+                    _INTERFACE_ERROR_TEMPLATE.format(
+                        layer_name=attn_name, layer_value=attn_value, parent_name="cross-attention layer"
+                    )
                 )
