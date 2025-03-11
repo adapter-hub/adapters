@@ -204,7 +204,7 @@ class DoRA(nn.Module):
         self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
         self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
         self.scaling = self.lora_alpha / self.r
-        self.m = nn.Linear(1, self.lora_B.shape[0], bias = False, dtype = dtype)
+        self.m = nn.Linear(1, self.lora_B.shape[0], bias=False, dtype=dtype)
 
         if config.init_weights == "lora":
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
@@ -226,31 +226,38 @@ class DoRA(nn.Module):
     def delta_w(self) -> torch.Tensor:
         return self.lora_B @ self.lora_A
 
-    def com(self, weights: torch.Tensor, added: torch.Tensor, input_states: torch.Tensor, weight: torch.Tensor, scaling=None) -> torch.Tensor:
+    def com(
+        self,
+        weights: torch.Tensor,
+        added: torch.Tensor,
+        input_states: torch.Tensor,
+        weight: torch.Tensor,
+        scaling=None,
+    ) -> torch.Tensor:
         """Performs the composition operation between existing and injected weights.
-            Requires the original pretrained weights (W_o) of the layer as well to calculate the unit norm.
-            Also requires the input_states `x` in order to do further calculations
+        Requires the original pretrained weights (W_o) of the layer as well to calculate the unit norm.
+        Also requires the input_states `x` in order to do further calculations
         """
         if scaling is None:
             scaling = self.scaling
-            
-        #v = W_o + BA used to calculate norm_scale
+
+        # v = W_o + BA used to calculate norm_scale
         v = weight + (self.lora_B @ self.lora_A) * self.scaling
-        #norm_scale = m / ||W_o + BA||c
-        norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v,dim=1)
-        
+        # norm_scale = m / ||W_o + BA||c
+        norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
+
         input_states_with_dropout = self.lora_dropout(input_states)
-        
+
         scaled_weights = norm_scale * F.linear(input_states_with_dropout, weight)
         scaled_lora = norm_scale * added
-        #result = W_ox + norm_scale * W_ox + norm_scale * BA * scaling
+        # result = W_ox + norm_scale * W_ox + norm_scale * BA * scaling
         result = (weights + scaled_weights + scaled_lora) * self.scaling
         return result
 
     def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
         """Inverts the composition operation between existing and injected weights."""
-        
-        #TODO: figure out how to invert the composition operation
+
+        # TODO: figure out how to invert the composition operation
         return weights - added * self.scaling
 
     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
@@ -617,12 +624,10 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 _, hidden_states, layer_output, last = state
 
                 last_lora = self.loras[last]
-                #if we're using dora, we need original pretrained weights as well
+                # if we're using dora, we need original pretrained weights as well
                 if last_lora.composition_mode == "dora":
                     weight = torch.transpose(self.weight, -2, -1) if self.fan_in_fan_out else self.weight
-                    layer_output = last_lora.com(
-                        layer_output, hidden_states, input_states, weight, scaling=1.0
-                    )
+                    layer_output = last_lora.com(layer_output, hidden_states, input_states, weight, scaling=1.0)
                 else:
                     layer_output = last_lora.com(
                         layer_output, hidden_states, scaling=1.0
