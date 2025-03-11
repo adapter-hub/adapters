@@ -550,9 +550,8 @@ class DoRAConfig(LoRAConfig):
 
     r: int = 8
     alpha: int = 8
-    dropout: float = 0.0
+    dropout: float = 0.5
     composition_mode: str = "dora"
-    init_weights: str = "lora"
     use_gating: bool = False
     dtype: Optional[str] = None
 
