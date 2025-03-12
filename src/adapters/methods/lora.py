@@ -224,6 +224,7 @@ class DoRA(nn.Module):
 
     @property
     def delta_w(self) -> torch.Tensor:
+        #TODO need to figure this out as well
         return self.lora_B @ self.lora_A
 
     def com(
@@ -624,7 +625,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 _, hidden_states, layer_output, last = state
 
                 last_lora = self.loras[last]
-                # if we're using dora, we need original pretrained weights as well
+                # if we're using dora, we need original pretrained weights and input states x as well
                 if last_lora.composition_mode == "dora":
                     weight = torch.transpose(self.weight, -2, -1) if self.fan_in_fan_out else self.weight
                     layer_output = last_lora.com(layer_output, hidden_states, input_states, weight, scaling=1.0)
