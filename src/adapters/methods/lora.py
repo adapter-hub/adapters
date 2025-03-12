@@ -224,7 +224,7 @@ class DoRA(nn.Module):
 
     @property
     def delta_w(self) -> torch.Tensor:
-        #TODO need to figure this out as well
+        # TODO need to figure this out as well
         return self.lora_B @ self.lora_A
 
     def com(
