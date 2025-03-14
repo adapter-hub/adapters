@@ -10,9 +10,8 @@ from ...model_mixin import (
     InvertibleAdaptersMixin,
     InvertibleAdaptersWrapperMixin,
     ModelBaseAdaptersMixin,
-    ModelWithHeadsAdaptersMixin,
 )
-from ..clip.mixin_clip import CLIPAttentionAdaptersMixin, CLIPEncoderAdaptersMixin, CLIPEncoderLayerAdaptersMixin
+from ..clip.mixin_clip import CLIPAttentionAdaptersMixin, CLIPEncoderLayerAdaptersMixin
 from ..llama.mixin_llama import LlamaDecoderLayerMixin
 
 
@@ -139,9 +138,3 @@ class MllamaAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWrapp
             if not hasattr(layer, "reft_layer"):
                 layer.reft_layer = ReftLayer("output", model_config.text_config, adapters_config)
                 layer.register_forward_hook(hook_fn)
-
-
-class MllamaForConditionalGenerationWithHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin, MllamaAdaptersMixin):
-    """Adds adapters to the MllamaForConditionalGeneration class."""
-
-    pass

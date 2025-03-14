@@ -22,9 +22,6 @@ from .llama.mixin_llama import LlamaForQuestionAnsweringAdapterMixin, LlamaModel
 from .mistral.mixin_mistral import MistralModelAdapterMixin
 from .mllama.mixin_mllama import (
     MllamaAdaptersMixin,
-    MllamaCrossAttentionDecoderLayerAdaptersMixin,
-    MllamaForConditionalGenerationWithHeadsAdaptersMixin,
-    MllamaSelfAttentionDecoderLayerAdaptersMixin,
     MllamaTextCrossAttentionAdaptersMixin,
     MllamaTextModelAdaptersMixin,
     MllamaTextSelfAttentionAdaptersMixin,
@@ -123,7 +120,6 @@ MODEL_MIXIN_MAPPING = {
     "LlamaForQuestionAnswering": LlamaForQuestionAnsweringAdapterMixin,
     "MistralModel": MistralModelAdapterMixin,
     # Mulitmodal Llama
-    "MllamaForConditionalGeneration": MllamaForConditionalGenerationWithHeadsAdaptersMixin,
     "MllamaModel": MllamaAdaptersMixin,
     "MllamaVisionModel": MllamaVisionModelAdaptersMixin,
     "MllamaTextModel": MllamaTextModelAdaptersMixin,
@@ -132,6 +128,4 @@ MODEL_MIXIN_MAPPING = {
     "MllamaTextSelfAttention": MllamaTextSelfAttentionAdaptersMixin,
     "MllamaTextCrossAttention": MllamaTextCrossAttentionAdaptersMixin,
     "MllamaVisionEncoderLayer": MllamaVisionEncoderLayerAdaptersMixin,
-    "MllamaSelfAttentionDecoderLayer": MllamaSelfAttentionDecoderLayerAdaptersMixin,
-    "MllamaCrossAttentionDecoderLayer": MllamaCrossAttentionDecoderLayerAdaptersMixin,
 }
