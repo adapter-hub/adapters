@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import torch
+import torch
 from PIL import Image
 
 from transformers import MllamaImageProcessor
@@ -37,27 +38,27 @@ class MllamaAdapterTestBase(TextAdapterTestBase):
             MllamaConfig,
             MllamaTextConfig(
                 vocab_size=1000,  # Minimal vocab size
-                hidden_size=128,
+                hidden_size=32,
                 num_hidden_layers=4,
                 num_attention_heads=2,
                 num_key_value_heads=2,
-                intermediate_size=128,
+                intermediate_size=32,
                 cross_attention_layers=[3],
                 bos_token_id=990,
                 eos_token_id=991,
                 pad_token_id=992,
-                max_position_embeddings=128,
+                max_position_embeddings=32,
                 rope_scaling={
                     "rope_type": "default",
                 },
             ),
             MllamaVisionConfig(
-                hidden_size=128,
+                hidden_size=32,
                 num_hidden_layers=4,
-                num_global_layers=1,
-                num_attention_heads=1,
-                intermediate_size=128,
-                vision_output_dim=256,
+                num_global_layers=2,
+                num_attention_heads=2,
+                intermediate_size=32,
+                vision_output_dim=64,
                 intermediate_layers_indices=[3],
             ),
         )
@@ -72,7 +73,7 @@ class MllamaAdapterTestBase(TextAdapterTestBase):
     img = Image.open(os.path.join(FIXTURES_DIR, "tests_samples", "COCO", "000000039769.png"))
     processed_img = img_processor(img, return_tensors="pt")
 
-    def get_input_samples(self, vocab_size=1000, shape=None, config=None, dtype=torch.float, **kwargs):
+    def get_input_samples(self, vocab_size=1000, shape=(1, 128), config=None, dtype=torch.float, **kwargs):
         shape = shape or self.input_shape
 
         # Text inputs

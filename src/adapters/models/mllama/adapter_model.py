@@ -14,7 +14,7 @@ from transformers.models.mllama.modeling_mllama import (
 )
 from transformers.utils import add_start_docstrings
 
-from ...context import AdapterSetup
+from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
@@ -168,6 +168,7 @@ class MllamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
         self._init_head_modules()
         self.post_init()
 
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
@@ -188,12 +189,10 @@ class MllamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
         cache_position: Optional[torch.LongTensor] = None,
         num_logits_to_keep: int = 0,
         head=None,
-        output_adapter_gating_scores=False,
-        output_adapter_fusion_attentions=False,
         **kwargs,
     ):
 
-        outputs, context = self.model(
+        outputs = self.model(
             input_ids=input_ids,
             pixel_values=pixel_values,
             aspect_ratio_mask=aspect_ratio_mask,
@@ -209,12 +208,7 @@ class MllamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
             cache_position=cache_position,
-            output_adapter_gating_scores=output_adapter_gating_scores,
-            output_adapter_fusion_attentions=output_adapter_fusion_attentions,
-            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
-            output_context=True,
         )
-        kwargs["context"] = context
 
         hidden_states = outputs[0]
         head_input_states = hidden_states[:, -num_logits_to_keep:, :]
