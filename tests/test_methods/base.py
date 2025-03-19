@@ -4,7 +4,7 @@ import datasets
 import torch
 
 import adapters
-from adapters import AutoAdapterModel
+from adapters import ADAPTER_MODEL_MAPPING, AutoAdapterModel
 from transformers import AutoFeatureExtractor, AutoTokenizer, GlueDataset, GlueDataTrainingArguments
 from transformers.testing_utils import torch_device
 
@@ -80,6 +80,18 @@ class AbstractAdapterTestBase:
     def build_generate_input(self, shape):
         """The generate() functions for inference require different inputs depeding on the model type. E.g. the text models require input_ids, where as the audio models require input_features"""
         return self.build_rand_ids_tensor(self.input_shape if not shape else shape).to(torch_device)
+
+    def _init_model_for_train_run(self, trained_adapter_name, frozen_adapter_name, adapter_config=None):
+        if self.config_class not in ADAPTER_MODEL_MAPPING:
+            self.skipTest("Does not support flex heads.")
+        model = AutoAdapterModel.from_config(self.config())
+
+        # add two adapters: one will be trained and the other should be frozen
+        model.add_adapter(trained_adapter_name, config=adapter_config)
+        model.add_adapter(frozen_adapter_name, config=adapter_config)
+        self.add_head(model, trained_adapter_name)
+
+        return model
 
 
 class TextAdapterTestBase(AbstractAdapterTestBase):
