@@ -2,6 +2,7 @@ import unittest
 
 import pytest
 
+from tests.test_methods.method_test_impl.composition.test_multi_task import MultiTaskTestMixin
 from tests.test_methods.method_test_impl.composition.test_parallel import (
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
@@ -13,7 +14,6 @@ from tests.test_methods.method_test_impl.embeddings.test_adapter_embeddings impo
 from tests.test_methods.method_test_impl.heads.test_adapter_heads import PredictionHeadModelTestMixin
 from tests.test_methods.method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
 from tests.test_methods.method_test_impl.peft.test_compacter import CompacterTestMixin
-from tests.test_methods.method_test_impl.peft.test_config_mtl_union import MultiTaskConfigUnionAdapterTest
 from tests.test_methods.method_test_impl.peft.test_config_union import ConfigUnionAdapterTest
 from tests.test_methods.method_test_impl.peft.test_ia3 import IA3TestMixin
 from tests.test_methods.method_test_impl.peft.test_lora import LoRATestMixin
@@ -91,6 +91,7 @@ def generate_method_tests(
             model_test_base,
             ParallelAdapterInferenceTestMixin,
             ParallelTrainingMixin,
+            MultiTaskTestMixin.generate_test_methods(),
             unittest.TestCase,
         ):
             pass
@@ -238,18 +239,5 @@ def generate_method_tests(
             pass
 
         test_classes["ConfigUnion"] = ConfigUnion
-
-    if "MultiTaskConfigUnion" not in redundant and "MultiTaskConfigUnion" not in not_supported:
-
-        @require_torch
-        @pytest.mark.mtl_config_union
-        class MultiTaskConfigUnion(
-            model_test_base,
-            MultiTaskConfigUnionAdapterTest,
-            unittest.TestCase,
-        ):
-            pass
-
-        test_classes["MultiTaskConfigUnion"] = MultiTaskConfigUnion
 
     return test_classes

@@ -639,7 +639,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
         self.train()
         self.freeze_model(True)
         adapter_setup = parse_composition(adapter_setup)
-        adapter_setup = self.train_adapter_mtl_hook(adapter_setup)
         self.apply_to_adapter_layers(lambda i, layer: layer.enable_adapters(adapter_setup, True, False))
         self.apply_to_basemodel_childs(lambda i, child: child.enable_adapters(adapter_setup, True, False))
         for adapter_name in adapter_setup:
@@ -705,7 +704,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
                 The list of adapters to be activated by default. Can be a fusion or stacking configuration.
         """
         adapter_setup = parse_composition(adapter_setup, model_type=self.config.model_type)
-        adapter_setup = self.set_active_adapters_mtl_hook(adapter_setup)
         if adapter_setup:
             for adapter_name in adapter_setup.flatten():
                 if adapter_name not in self.adapters_config.adapters:
@@ -757,7 +755,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
         except ValueError as ex:
             self.delete_adapter(adapter_name)
             raise ex
-        self.add_adapter_mtl_hook(config, adapter_name, overwrite_ok)
         if set_active:
             self.set_active_adapters(adapter_name)
 
@@ -793,6 +790,59 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
                 module.confirm_prefix(adapter_name)
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.add_invertible_adapter(adapter_name)
+
+    def share_parameters(
+        self,
+        adapter_names: Union[MultiTask, list, str],
+        name: Optional[str] = None,
+        reference_adapter_name: Optional[str] = None,
+    ):
+        if isinstance(adapter_names, MultiTask):
+            adapter_names = adapter_names.children
+        elif isinstance(adapter_names, str):
+            adapter_names = adapter_names.split(",")
+        if name is None:
+            name = ",".join(adapter_names)
+
+        self.apply_to_adapter_layers(
+            lambda i, layer: layer.share_parameters(
+                name=name,
+                adapter_names=adapter_names,
+                reference_adapter_name=reference_adapter_name,
+            )
+        )
+        self.apply_to_basemodel_childs(
+            lambda i, child: child.share_parameters(
+                name=name,
+                adapter_names=adapter_names,
+                reference_adapter_name=reference_adapter_name,
+            )
+        )
+
+    def unshare_parameters(
+        self,
+        adapter_names: Union[MultiTask, list, str],
+        name: Optional[str] = None,
+    ):
+        if isinstance(adapter_names, MultiTask):
+            adapter_names = adapter_names.children
+        elif isinstance(adapter_names, str):
+            adapter_names = adapter_names.split(",")
+        if name is None:
+            name = ",".join(adapter_names)
+
+        self.apply_to_adapter_layers(
+            lambda i, layer: layer.unshare_parameters(
+                name=name,
+                adapter_names=adapter_names,
+            )
+        )
+        self.apply_to_basemodel_childs(
+            lambda i, child: child.unshare_parameters(
+                name=name,
+                adapter_names=adapter_names,
+            )
+        )
 
     def add_adapter_fusion(
         self,
@@ -854,7 +904,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
         if adapter_name not in self.adapters_config:
             logger.info("No adapter '%s' found for deletion. Skipping.", adapter_name)
             return
-        self.delete_adapter_mtl_hook(adapter_name)
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
         self.apply_to_basemodel_childs(lambda i, child: child.delete_adapter(adapter_name))
         del self.adapters_config.adapters[adapter_name]
@@ -925,15 +974,6 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, MultiTaskAdaptersMixin, ABC):
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
                 weights_loader.save(save_directory, adapter_name)
-
-        self.save_adapter_mtl_hook(
-            save_directory=save_directory,
-            adapter_name=adapter_name,
-            meta_dict=meta_dict,
-            custom_weights_loaders=custom_weights_loaders,
-            use_safetensors=use_safetensors,
-            **kwargs,
-        )
 
     def save_adapter_fusion(
         self,
@@ -1927,14 +1967,18 @@ class ModelBaseAdaptersMixin(ModelAdaptersMixin):
     def get_layer(self, idx: int) -> nn.Module:
         return multigetattr(self, self.adapter_interface.model_layers)[idx]
 
-    def iter_attentions(self) -> Iterable[Tuple[int, Literal["self", "cross"], nn.Module]]:
+    def iter_attentions(
+        self,
+    ) -> Iterable[Tuple[int, Literal["self", "cross"], nn.Module]]:
         for i, layer in self.iter_layers():
             if multihasattr(layer, self.adapter_interface.layer_self_attn or ""):
                 yield i, "self", multigetattr(layer, self.adapter_interface.layer_self_attn)
             if multihasattr(layer, self.adapter_interface.layer_cross_attn or ""):
                 yield i, "cross", multigetattr(layer, self.adapter_interface.layer_cross_attn)
 
-    def iter_layer_ffns(self) -> Iterable[Tuple[int, Literal["intermediate", "output"], nn.Module]]:
+    def iter_layer_ffns(
+        self,
+    ) -> Iterable[Tuple[int, Literal["intermediate", "output"], nn.Module]]:
         for i, layer in self.iter_layers():
             if intermediate_proj := multigetattr(layer, self.adapter_interface.layer_intermediate_proj):
                 yield i, "intermediate", intermediate_proj
@@ -2242,15 +2286,6 @@ class ModelWithHeadsAdaptersMixin(ModelAdaptersMixin):
             meta_dict=meta_dict,
             custom_weights_loaders=custom_weights_loaders,
             use_safetensors=use_safetensors,
-        )
-
-        self.save_adapter_mtl_hook(
-            save_directory=save_directory,
-            adapter_name=adapter_name,
-            meta_dict=meta_dict,
-            custom_weights_loaders=custom_weights_loaders,
-            use_safetensors=use_safetensors,
-            with_head=with_head,
         )
 
     def load_adapter(

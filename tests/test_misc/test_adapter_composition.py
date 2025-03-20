@@ -39,6 +39,7 @@ class AdapterCompositionParsingTest(unittest.TestCase):
 @require_torch
 class AdapterCompositionTest(unittest.TestCase):
     unsupported_blocks = []
+    __import__("pdb").set_trace()
 
     def get_adapter_config(self):
         return SeqBnConfig()

@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Collection, Dict, List, NamedTuple, Union
+from typing import Collection, Dict, List, NamedTuple, Optional, Union
 
 import numpy as np
 import torch
@@ -154,6 +154,17 @@ class AdapterLayerBase(metaclass=ABCMeta):
         if adapter_name in self.adapter_modules:
             del self.adapter_modules[adapter_name]
 
+    def share_parameters(
+        self,
+        name: str,
+        adapter_names: List,
+        reference_adapter_name: Optional[str],
+    ):
+        pass  # default implementation does nothing as multi task is not applicable to all methods
+
+    def unshare_parameters(self, name: str, adapter_names: Union[List, str]):
+        pass  # default implementation does nothing as multi task is not applicable to all methods
+
     def add_fusion_layer(self, adapter_names: Union[List, str]):
         pass  # default implementation does nothing as fusion is not applicable to all methods
 
@@ -171,7 +182,6 @@ class AdapterLayerBase(metaclass=ABCMeta):
         Args:
             adapter_setup (AdapterCompositionBlock): The adapter setup to enable/ disable.
             unfreeze_adapters (bool): Whether to unfreeze the adapters.
-            unfreeze_fusion (bool): Whether to unfreeze the fusion layers.
         """
         if unfreeze_adapters:
             for name in adapter_setup.flatten():

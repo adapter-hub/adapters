@@ -5,13 +5,14 @@
 #  ------------------------------------------------------------------------------------------
 import logging
 import math
+from copy import deepcopy
 from typing import Dict, List, NamedTuple, Optional, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from adapters.configuration.adapter_config import MTLLoRAConfig, MultiTaskConfig
+from adapters.configuration.adapter_config import MTLLoRAConfig
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
@@ -60,12 +61,18 @@ TASK_SPECIFIC_MATRIX_CLS = {
 
 
 class LoRA(nn.Module):
+    sharable_parameters = [
+        "lora_A",
+        "lora_B",
+    ]
+
     def __init__(
         self,
         lora_A_shape,
         lora_B_shape,
         config: LoRAConfig,
         gating_heads: int = 1,
+        **kwargs,
     ):
         super().__init__()
         assert config.composition_mode == "add", "LoRA module only supports composition_mode='add'."
@@ -123,6 +130,21 @@ class LoRA(nn.Module):
         """Inverts the composition operation between existing and injected weights."""
         return weights - added * self.scaling
 
+    def get_parameters(self, parameters_names=None):
+        parameters_names = parameters_names or self.sharable_parameters
+        return nn.ParameterDict(
+            {
+                param_name: deepcopy(getattr(self, param_name))
+                for param_name in parameters_names
+                if hasattr(self, param_name) and param_name in self.sharable_parameters
+            }
+        )
+
+    def set_parameters(self, parameters):
+        for name, param in parameters.items():
+            if name in self.sharable_parameters:
+                setattr(self, name, param)
+
     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
         if hidden_states is None:
             hidden_states = layer_input
@@ -145,8 +167,7 @@ class MTLLoRA(LoRA):
         lora_B_shape,
         config: MTLLoRAConfig,
         gating_heads: int = 1,
-        lora_A: Optional[nn.Parameter] = None,
-        lora_B: Optional[nn.Parameter] = None,
+        **kwargs,
     ):
         super().__init__(
             lora_A_shape,
@@ -154,36 +175,16 @@ class MTLLoRA(LoRA):
             config,
             gating_heads,
         )
-        if lora_A is not None:
-            self.lora_A = lora_A
-
-        if lora_B is not None:
-            self.lora_B = lora_B
-        else:
-            self.lora_B = nn.Parameter(torch.zeros(config.n_up_projection, *lora_B_shape, dtype=self.dtype))
-            if config.init_weights == "lora":
-                nn.init.zeros_(self.lora_B)
-            elif config.init_weights == "bert":
-                nn.init.normal_(self.lora_B, std=0.02)
+        self.lora_B = nn.Parameter(torch.zeros(config.n_up_projection, *lora_B_shape, dtype=self.dtype))
+        if config.init_weights == "lora":
+            nn.init.zeros_(self.lora_B)
+        elif config.init_weights == "bert":
+            nn.init.normal_(self.lora_B, std=0.02)
 
         self.task_specific = TASK_SPECIFIC_MATRIX_CLS[config.task_specific_matrix_type](config.r)
 
         self.weights = nn.Parameter(torch.ones(config.n_up_projection))
         self.weights_sharpness = config.weights_sharpness
-
-    @classmethod
-    def get_shared_parameter(cls, layer_shared_parameters, shared_params_name):
-        try:
-            shared_params = layer_shared_parameters.get_submodule(shared_params_name)
-            return {
-                "lora_A": shared_params.lora_A,
-                "lora_B": shared_params.lora_B,
-            }
-        except AttributeError:
-            return {}
-
-    def share_parameters(self, layer_shared_parameters, shared_params_name):
-        layer_shared_parameters[shared_params_name] = nn.ParameterDict({"lora_A": self.lora_A, "lora_B": self.lora_B})
 
     def apply_weights(self, hidden_states: torch.Tensor):
         w = (self.weights / self.weights_sharpness).exp()
@@ -225,6 +226,7 @@ class IA3(nn.Module):
         lora_B_shape,
         config: LoRAConfig,
         gating_heads: int = 1,
+        **kwargs,
     ):
         super().__init__()
         assert config.composition_mode == "scale", "IA3 module only supports composition_mode='scale'."
@@ -331,17 +333,9 @@ class LoRALayer(AdapterLayerBase):
             location_key=self.location_key,
         )
         if lora_config is not None and self._check_lora_location(lora_config):
-
-            shared_params_name = kwargs.get("shared_parameters_name")
             lora_args = {}
-            is_mtl_config = isinstance(lora_config, MultiTaskConfig)
-
             if lora_config.composition_mode == "add":
-                if is_mtl_config:
-                    lora_cls = MTLLoRA
-                    lora_args.update(lora_cls.get_shared_parameter(self.shared_parameters, shared_params_name))
-                else:
-                    lora_cls = LoRA
+                lora_cls = LoRA if not isinstance(lora_config, MTLLoRAConfig) else MTLLoRA
             elif lora_config.composition_mode == "scale":
                 lora_cls = IA3
             else:
@@ -351,11 +345,9 @@ class LoRALayer(AdapterLayerBase):
                 *self._get_lora_shapes(lora_config),
                 config=lora_config,
                 gating_heads=self.get_n_heads(lora_config),
+                shared_parameters=self.shared_parameters,
                 **lora_args,
             )
-
-            if is_mtl_config and shared_params_name is not None and shared_params_name not in self.shared_parameters:
-                lora.share_parameters(self.shared_parameters, shared_params_name)
 
             lora.train(self.training)
             lora = lora.to(self.weight.device)
@@ -363,6 +355,23 @@ class LoRALayer(AdapterLayerBase):
             return True
 
         return False
+
+    def share_parameters(
+        self,
+        name: str,
+        adapter_names: List,
+        reference_adapter_name: Optional[str] = None,
+    ):
+        ref_adapter = reference_adapter_name or adapter_names[0]
+        if all(name in self.loras for name in adapter_names):
+            shared_params = self.loras[ref_adapter].get_parameters()
+            self.shared_parameters[name] = shared_params
+            for adapter_name in adapter_names:
+                self.loras[adapter_name].set_parameters(shared_params)
+
+    def unshare_parameters(self, name: str, adapter_names: List[str]):
+        if name in self.shared_parameters:
+            del self.shared_parameters[name]
 
     def delete_adapter(self, adapter_name: str):
         if adapter_name in self.shared_parameters:
@@ -1027,19 +1036,46 @@ def init_lora(model):
     model = model.base_model
     for _, _, attention in model.iter_attentions():
         if q_proj := multigetattr(attention, model.adapter_interface.attn_q_proj, None):
-            lora_proj = LoRALinear.wrap(q_proj, "selfattn", model.config, model.adapters_config, attn_key="q")
+            lora_proj = LoRALinear.wrap(
+                q_proj,
+                "selfattn",
+                model.config,
+                model.adapters_config,
+                attn_key="q",
+            )
             multisetattr(attention, model.adapter_interface.attn_q_proj, lora_proj)
         if k_proj := multigetattr(attention, model.adapter_interface.attn_k_proj, None):
-            lora_proj = LoRALinear.wrap(k_proj, "selfattn", model.config, model.adapters_config, attn_key="k")
+            lora_proj = LoRALinear.wrap(
+                k_proj,
+                "selfattn",
+                model.config,
+                model.adapters_config,
+                attn_key="k",
+            )
             multisetattr(attention, model.adapter_interface.attn_k_proj, lora_proj)
         if v_proj := multigetattr(attention, model.adapter_interface.attn_v_proj, None):
-            lora_proj = LoRALinear.wrap(v_proj, "selfattn", model.config, model.adapters_config, attn_key="v")
+            lora_proj = LoRALinear.wrap(
+                v_proj,
+                "selfattn",
+                model.config,
+                model.adapters_config,
+                attn_key="v",
+            )
             multisetattr(attention, model.adapter_interface.attn_v_proj, lora_proj)
 
     for _, layer in model.iter_layers():
         if intermediate_proj := multigetattr(layer, model.adapter_interface.layer_intermediate_proj):
-            lora_proj = LoRALinear.wrap(intermediate_proj, "intermediate", model.config, model.adapters_config)
-            multisetattr(layer, model.adapter_interface.layer_intermediate_proj, lora_proj)
+            lora_proj = LoRALinear.wrap(
+                intermediate_proj,
+                "intermediate",
+                model.config,
+                model.adapters_config,
+            )
+            multisetattr(
+                layer,
+                model.adapter_interface.layer_intermediate_proj,
+                lora_proj,
+            )
         if output_proj := multigetattr(layer, model.adapter_interface.layer_output_proj):
             lora_proj = LoRALinear.wrap(output_proj, "output", model.config, model.adapters_config)
             multisetattr(layer, model.adapter_interface.layer_output_proj, lora_proj)
