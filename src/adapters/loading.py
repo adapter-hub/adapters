@@ -141,7 +141,6 @@ class WeightsLoaderHelper:
                     module.__class__.__name__, "\n\t".join(error_msgs)
                 )
             )
-        print(unexpected_keys, "a")
         return missing_keys, unexpected_keys
 
     def load_weights(

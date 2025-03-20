@@ -679,11 +679,12 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                     )
 
         # Vera Initialization
-        if self.adapters_config.match(adapter_name, VeraConfig):
-            adapter_config = self.adapters_config.match(adapter_name, VeraConfig)
-            self.base_model.shared_parameters[adapter_name] = init_shared_vera_parameters(
-                self.config, adapter_config, self.device
-            )
+        if self.adapters_config.match(adapter_name, LoRAConfig):
+            adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+            if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+                self.base_model.shared_parameters[adapter_name] = init_shared_vera_parameters(
+                    self.config, adapter_config, self.device
+                )
 
         # Prefix Tuning
         for module in self.modules():
