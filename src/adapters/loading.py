@@ -141,6 +141,7 @@ class WeightsLoaderHelper:
                     module.__class__.__name__, "\n\t".join(error_msgs)
                 )
             )
+        print(unexpected_keys, "a")
         return missing_keys, unexpected_keys
 
     def load_weights(
@@ -196,6 +197,7 @@ class WeightsLoaderHelper:
         )
 
         missing_keys = [k for k in missing_keys if filter_func(k)]
+
         if len(missing_keys) > 0:
             logger.info(
                 "Some module weights could not be found in loaded weights file: {}".format(", ".join(missing_keys))
@@ -214,7 +216,7 @@ class WeightsLoaderHelper:
                 loading_info["unexpected_keys"] = []
             loading_info["missing_keys"].extend(missing_keys)
             loading_info["unexpected_keys"].extend(unexpected_keys)
-
+            
         return missing_keys, unexpected_keys
 
 
@@ -351,6 +353,7 @@ class AdapterLoader(WeightsLoader):
             or ".loras.{}.".format(adapter_name) in x
             or ".refts.{}.".format(adapter_name) in x
             or ".prompt_tunings.{}.".format(adapter_name) in x
+            or ".shared_parameters.{}.".format(adapter_name) in x
         )
 
     # This dict maps the original weight names to the currently used equivalents.
