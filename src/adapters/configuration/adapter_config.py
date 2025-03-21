@@ -534,8 +534,8 @@ class LoRAConfig(AdapterConfig):
     init_weights: str = "lora"
     init_weights_seed: Optional[int] = None
     use_gating: bool = False
-    vera_d: float = None
-    vera_b: float = None
+    vera_d: Optional[float] = None
+    vera_b: Optional[float] = None
     dtype: Optional[str] = None
 
 
