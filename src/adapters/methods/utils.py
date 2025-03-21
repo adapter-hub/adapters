@@ -12,7 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional
+
 import torch
+
+
+def fix_seed(seed: Optional[int] = None):
+    """
+    Helper function to fix the torch seed on cpu and gpu for initializing adapters with the same weights.
+    Is only executed if the config provides a respective seed.
+    """
+    if seed:
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
 
 
 # Copied from https://github.com/huggingface/peft/blob/main/src/peft/utils/integrations.py.

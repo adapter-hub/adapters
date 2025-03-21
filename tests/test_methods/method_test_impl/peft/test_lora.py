@@ -2,7 +2,7 @@ import random
 
 import torch
 
-from adapters import LoRAConfig
+from adapters import AdapterConfig, LoRAConfig
 from adapters.methods.lora import LoRALayer
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch
@@ -23,21 +23,30 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
         model.add_adapter("lora", config="lora")
 
         # Add different adapters
-        model.add_adapter("bottleneck", config="seq_bn")
-        model.add_adapter("prompt", config="prompt_tuning")
-        model.add_adapter("prefix", config="prefix_tuning")
-        model.add_adapter("ia3", config="ia3")
-        model.add_adapter("unipelt", config="unipelt")
-        model.add_adapter("mam", config="mam")
-        model.add_adapter("compacter", config="compacter[phm_dim=2, reduction_factor=8]")
+        adapter_methods = [
+            "seq_bn",
+            "prompt_tuning",
+            "prefix_tuning",
+            "ia3",
+            "unipelt",
+            "mam",
+            "compacter[phm_dim=2, reduction_factor=8]",
+        ]
+
+        for adapter_method in adapter_methods:
+            config = AdapterConfig.load(adapter_method)
+            if model.supports_adapter(config):
+                model.add_adapter(adapter_method, config=config)
 
         # Merging adapters with different architectures with LoRA should raise a ValueError
-        for adapter_architecture in ["bottleneck", "prompt", "prefix", "ia3", "unipelt", "mam", "compacter"]:
-            with self.subTest(adapter_architecture=adapter_architecture):
+        for adapter_method in adapter_methods:
+            with self.subTest(adapter_architecture=adapter_method):
+                if adapter_method not in model.adapters_config:
+                    continue
                 with self.assertRaises(ValueError):
                     model.average_adapter(
-                        adapter_name=f"average_lora_{adapter_architecture}",
-                        adapter_list=[adapter_architecture, "lora"],
+                        adapter_name=f"average_lora_{adapter_method}",
+                        adapter_list=[adapter_method, "lora"],
                         weights=[0.5, 0.5],
                         combine_strategy="linear",
                     )
@@ -315,3 +324,7 @@ class LoRATestMixin(AdapterMethodBaseTestMixin):
 
     def test_lora_gradient_checkpointing_single_adapter(self):
         self.run_gradient_checkpointing_single_adapter_test(LoRAConfig())
+
+    def test_same_weights_after_adding_adapter(self):
+        # setting init_weights_seed should leed to every adapter layer having the same weights after initialization
+        self.run_same_weights_test(LoRAConfig(init_weights_seed=42), ["loras.{name}."])

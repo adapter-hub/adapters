@@ -1,6 +1,7 @@
 # https://github.com/google-research/prompt-tuning/blob/main/prompt_tuning/train/prompts.py
 
 import math
+from functools import partial
 from typing import Callable
 
 import numpy as np
@@ -12,7 +13,9 @@ from transformers.configuration_utils import PretrainedConfig
 
 from ..configuration import ModelAdaptersConfig, PromptTuningConfig
 from ..context import ForwardContext
+from ..utils import multigetattr, prefix_attention_mask
 from .adapter_layer_base import AdapterLayerBase
+from .utils import fix_seed
 
 
 class PromptTuning(nn.Module):
@@ -65,6 +68,10 @@ class PromptTuning(nn.Module):
             )
 
     def _init_prompt_embedding(self, base_model_embeddings: nn.Module) -> None:
+
+        # Set seed for reproducibility if specified in config
+        fix_seed(self.prompt_tuning_config.init_weights_seed)
+
         if self.prompt_tuning_config.prompt_init == "random_uniform":
             nn.init.uniform_(
                 self.prompt_embedding.weight,
@@ -174,3 +181,27 @@ class PromptTuningLayer(AdapterLayerBase, nn.Module):
             context.prompt_tokens_length = prefix_attention_mask_length
 
         return hidden_states
+
+
+def hook_fn(model, module, args, embedding_output):
+    embedding_output = model.prompt_tuning.forward(embedding_output)
+    return embedding_output
+
+
+# TODO: this will only work for a limited set of models
+def _attn_mask_hook_fn(module, args):
+    attn_mask = args[1]
+    attn_mask = prefix_attention_mask(attn_mask)
+    return (args[0], attn_mask) + args[2:]
+
+
+def init_prompt_tuning(model):
+    model = model.base_model
+    if not hasattr(model, "prompt_tuning"):
+        model.support_prompt_tuning = True
+        model.prompt_tuning = PromptTuningLayer(model.config, model.adapters_config, model.get_input_embeddings())
+        embed_layer = multigetattr(model, model.adapter_interface.model_embeddings)
+        embed_layer.register_forward_hook(partial(hook_fn, model))
+
+        for _, layer in model.iter_layers():
+            layer.register_forward_pre_hook(_attn_mask_hook_fn)

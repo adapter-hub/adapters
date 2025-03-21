@@ -10,7 +10,7 @@ from transformers.models.clip.modeling_clip import (
 )
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
-from ...context import AdapterSetup
+from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
@@ -29,6 +29,7 @@ class CLIPAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         self.post_init()
 
     @add_start_docstrings_to_model_forward(CLIP_INPUTS_DOCSTRING)
+    @ForwardContext.wrap
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
@@ -40,11 +41,9 @@ class CLIPAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         head=None,
-        output_adapter_gating_scores=False,
-        output_adapter_fusion_attentions=False,
         **kwargs,
     ):
-        outputs, context = self.clip(
+        outputs = self.clip(
             input_ids=input_ids,
             pixel_values=pixel_values,
             attention_mask=attention_mask,
@@ -53,14 +52,7 @@ class CLIPAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
-            output_adapter_gating_scores=output_adapter_gating_scores,
-            output_adapter_fusion_attentions=output_adapter_fusion_attentions,
-            adapter_input_parallelized=kwargs.pop("adapter_input_parallelized", False),
-            output_context=True,
         )
-        # required e.g. for prompt tuning in all models
-        kwargs["context"] = context
-
         if head or AdapterSetup.get_context_head_setup() or self.active_head:
             head_outputs = self.forward_head(
                 outputs,

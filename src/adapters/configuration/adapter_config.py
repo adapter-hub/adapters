@@ -157,6 +157,9 @@ class BnConfig(AdapterConfig):
             Defaults to False.
         init_weights (:obj:`str`, optional): Initialization method for the weights of the adapter modules.
             Currently, this can be either "bert" (default) or "mam_adapter" or "houlsby".
+        init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
+            Important:  set, the seed will be reset for all adapter modules, meaning that all adapter modules will have the same
+            initialization. If not set, the seed will be set once and each adapter module has random weights initialization. Defaults to None.
         is_parallel (:obj:`bool`, optional): If True, apply adapter transformations in parallel.
             By default (False), sequential application is used.
         scaling (:obj:`float` or :obj:`str`, optional):
@@ -233,6 +236,7 @@ class BnConfig(AdapterConfig):
     ln_before: bool = False
     ln_after: bool = False
     init_weights: str = "bert"
+    init_weights_seed: Optional[int] = None
     is_parallel: bool = False
     scaling: Union[float, str] = 1.0
     use_gating: bool = False
@@ -417,6 +421,9 @@ class PrefixTuningConfig(AdapterConfig):
         shared_gating (:
             obj:`bool`, optional): Whether to use a shared gate for the prefixes of all attention matrices. Only
             applicable if `use_gating=True`. Defaults to True.
+        init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
+            Important:  set, the seed will be reset for all adapter modules, meaning that all adapter modules will have the same
+            initialization. If not set, the seed will be set once and each adapter module has random weights initialization. Defaults to None.
     """
 
     architecture: Optional[str] = "prefix_tuning"
@@ -432,6 +439,7 @@ class PrefixTuningConfig(AdapterConfig):
     dropout: float = 0.0
     use_gating: bool = False
     shared_gating: bool = True
+    init_weights_seed: Optional[int] = None
 
 
 @dataclass(eq=False)
@@ -450,6 +458,9 @@ class PromptTuningConfig(AdapterConfig):
         combine (str):
             The method used to combine the prompt with the input. Can be either "prefix" or "prefix_after_bos".
             Defaults to "prefix".
+        init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
+            Important:  set, the seed will be reset for all adapter modules, meaning that all adapter modules will have the same
+            initialization. If not set, the seed will be set once and each adapter module has random weights initialization. Defaults to None.
     """
 
     architecture: str = "prompt_tuning"
@@ -459,6 +470,7 @@ class PromptTuningConfig(AdapterConfig):
     prompt_init_text: Optional[str] = None
     random_uniform_scale = 0.5
     combine: str = "prefix"
+    init_weights_seed: Optional[int] = None
 
 
 @dataclass(eq=False)
@@ -488,6 +500,9 @@ class LoRAConfig(AdapterConfig):
             (IA)^3). "scale" can only be used together with r=1. Defaults to "add".
         init_weights (:obj:`str`, optional): Initialization method for the weights of the LoRA modules.
             Currently, this can be either "lora" (default) or "bert".
+        init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
+            Important:  set, the seed will be reset for all adapter modules, meaning that all adapter modules will have the same
+            initialization. If not set, the seed will be set once and each adapter module has random weights initialization. Defaults to None.
         use_gating (:obj:`bool`, optional):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
@@ -508,6 +523,7 @@ class LoRAConfig(AdapterConfig):
     attn_matrices: List[str] = field(default_factory=lambda: ["q", "v"])
     composition_mode: str = "add"
     init_weights: str = "lora"
+    init_weights_seed: Optional[int] = None
     use_gating: bool = False
     dtype: Optional[str] = None
 
@@ -574,6 +590,10 @@ class ReftConfig(AdapterConfig):
         dropout (float): The dropout rate used in the intervention layer.
         non_linearity (str): The activation function used in the intervention layer.
         dtype (str, optional): torch dtype for intervention tensors. Defaults to None.
+        init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
+            Important:  set, the seed will be reset for all adapter modules, meaning that all adapter modules will have the same
+            initialization. If not set, the seed will be set once and each adapter module has random weights initialization. Defaults to None.
+
     """
 
     layers: Union[Literal["all"], List[int]]
@@ -590,6 +610,7 @@ class ReftConfig(AdapterConfig):
     architecture: str = "reft"
 
     output_reft: bool = True
+    init_weights_seed: Optional[int] = None
 
 
 @dataclass(eq=False)
