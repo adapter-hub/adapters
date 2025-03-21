@@ -680,8 +680,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
 
         # Vera Initialization
         if self.adapters_config.match(adapter_name, LoRAConfig):
+        #in above line - we need to check for LoRAConfig since adapter reinitilization
+        #depends on the architecture field of the adapter config
             adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
             if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+            #here we check if its actually a VeraConfig
                 self.base_model.shared_parameters[adapter_name] = init_shared_vera_parameters(
                     self.config, adapter_config, self.device
                 )
