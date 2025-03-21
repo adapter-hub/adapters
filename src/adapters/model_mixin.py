@@ -15,7 +15,7 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from adapters.configuration.adapter_config import ConfigUnion, LoRAConfig, VeraConfig
+from adapters.configuration.adapter_config import ConfigUnion, LoRAConfig
 from transformers import GenerationConfig
 from transformers.modeling_outputs import ModelOutput
 from transformers.utils import is_accelerate_available
