@@ -282,8 +282,8 @@ def init_shared_vera_parameters(model_config, adapter_config, device):
     parameters = nn.ParameterDict()
 
     # initialize frozen, random tensors A, B
-    parameters["lora_A"] = nn.Parameter(torch.zeros(r, hidden_size).to(device), requires_grad = False)
-    parameters["lora_B"] = nn.Parameter(torch.zeros(hidden_size, r).to(device), requires_grad = False)
+    parameters["lora_A"] = nn.Parameter(torch.zeros(r, hidden_size).to(device), requires_grad=False)
+    parameters["lora_B"] = nn.Parameter(torch.zeros(hidden_size, r).to(device), requires_grad=False)
 
     if adapter_config["init_weights"] == "lora":
         # initialize A the same way as the default for nn.Linear and B to zero

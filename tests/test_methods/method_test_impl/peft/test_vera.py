@@ -28,7 +28,9 @@ class VeraTestMixin(AdapterMethodBaseTestMixin):
 
     def test_forward_Vera(self):
         model = self.get_model()
-        self.run_forward_test(model, VeraConfig(init_weights="vera", intermediate_lora=False, output_lora=False,  vera_b=0.5, vera_d=0.5))
+        self.run_forward_test(
+            model, VeraConfig(init_weights="vera", intermediate_lora=False, output_lora=False, vera_b=0.5, vera_d=0.5)
+        )
 
     def test_load_Vera(self):
         self.run_load_test(VeraConfig())
