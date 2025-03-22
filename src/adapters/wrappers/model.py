@@ -22,6 +22,7 @@ from ..model_mixin import (
 from ..models import MODEL_MIXIN_MAPPING
 from ..utils import multigetattr, multihasattr
 from .configuration import init_adapters_config
+from .interfaces import get_adapter_interface
 
 
 SPECIAL_MODEL_TYPE_TO_MODULE_NAME = {
@@ -65,6 +66,10 @@ def init(
 ) -> None:
     if isinstance(model, ModelAdaptersMixin):
         return model
+
+    # If interface is None, have a look at our pre-supported interfaces
+    if interface is None:
+        interface = get_adapter_interface(model)
 
     if interface is not None:
         base_model = model.base_model
@@ -232,7 +237,13 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
             )
 
     # Check attention-specific attributes if self-attention or cross-attention is defined
-    attention_attributes = ["attn_q_proj", "attn_k_proj", "attn_v_proj", "attn_o_proj"]
+    attention_attributes = ["attn_o_proj"]
+
+    if getattr(interface, "attn_q_proj") is not None:
+        attention_attributes += ["attn_q_proj", "attn_k_proj", "attn_v_proj"]
+    else:
+        # If q,k,v are not specified on their own, they must be specified combined in attn_qkv_proj
+        attention_attributes += ["attn_qkv_proj"]
 
     if interface.layer_self_attn is not None:
         self_attn_module = multigetattr(layer, interface.layer_self_attn)

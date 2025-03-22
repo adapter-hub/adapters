@@ -85,6 +85,12 @@ adapters.init(model, interface=adapter_interface)
 ```
 Now, you can use (almost) all functionality of the _Adapters_ library on the adapted model instance!
 
+
+```{eval-rst}
+.. note::
+    Some models like GPT-2 or ModernBERT have the query, value and key layer in one single tensor. In this case, you must set the `attn_qkv_proj` instead of setting `attn_k_proj`, `attn_q_proj` and `attn_v_proj`.
+```
+
 ## Limitations
 
 The following features of the _Adapters_ library are not supported via the plugin interface approach:
