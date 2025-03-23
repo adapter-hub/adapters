@@ -33,8 +33,8 @@ class MultiTaskTestMethod(AdapterMethodBaseTestMixin):
         train_dataset.set_transform(add_task_ids)
         return train_dataset
 
-    def _get_filter_keys(self, filter_keys, tasks, shared_parameters_name):
-        return {k.format(name=shared_parameters_name, task=task) for k in filter_keys for task in tasks}
+    def _get_filter_keys(self, filter_keys, tasks, name):
+        return {k.format(name=name, task=task) for k in filter_keys for task in tasks}
 
     def trainings_run(
         self,
