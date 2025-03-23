@@ -83,7 +83,6 @@ class AdapterConfig(Mapping):
             "lora": LoRAConfig,
             "mtl_lora": MTLLoRAConfig,
             "union": ConfigUnion,
-            "mtl_union": MultiTaskConfigUnion,
             "prompt_tuning": PromptTuningConfig,
             "reft": ReftConfig,
             None: BnConfig,
@@ -572,31 +571,6 @@ class MTLLoRAConfig(LoRAConfig, MultiTaskConfig):
     task_specific_matrix_type: Literal["singular_values", "linear"] = "singular_values"
     weights_sharpness: float = 0.05
 
-
-@dataclass
-class MultiTaskConfigUnion(AdapterConfig):
-    architecture: Optional[str] = "mtl_union"
-    base_config: Optional[MultiTaskConfig] = None
-    task_names: Optional[List[str]] = None
-
-    def to_dict(self):
-        return {
-            "architecture": self.architecture,
-            "base_config": self.base_config.to_dict(),
-            "task_names": self.task_names,
-        }
-
-    @classmethod
-    def from_dict(cls, config):
-        if isinstance(config, AdapterConfig):
-            return config
-
-        config_class = cls._get_config_class(config["base_config"])
-
-        return cls(
-            base_config=config_class.from_dict(config["base_config"]),
-            task_names=config["task_names"],
-        )
 
 
 @dataclass(eq=False)

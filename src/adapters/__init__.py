@@ -57,8 +57,6 @@ _import_structure = {
         "MAMConfig",
         "ModelAdaptersConfig",
         "MTLLoRAConfig",
-        "MultiTaskConfig",
-        "MultiTaskConfigUnion",
         "NoReftConfig",
         "ParBnConfig",
         "PrefixTuningConfig",
@@ -89,7 +87,10 @@ _import_structure = {
         "TaggingHead",
     ],
     "interface": ["AdapterMethod", "AdapterModelInterface"],
-    "methods.adapter_layer_base": ["AdapterLayerBase", "ComposableAdapterLayerBase"],
+    "methods.adapter_layer_base": [
+        "AdapterLayerBase",
+        "ComposableAdapterLayerBase",
+    ],
     "model_mixin": [
         "EmbeddingAdaptersMixin",
         "InvertibleAdaptersMixin",
@@ -179,8 +180,6 @@ if TYPE_CHECKING:
         MAMConfig,
         ModelAdaptersConfig,
         MTLLoRAConfig,
-        MultiTaskConfig,
-        MultiTaskConfigUnion,
         NoReftConfig,
         ParBnConfig,
         PrefixTuningConfig,
@@ -208,7 +207,10 @@ if TYPE_CHECKING:
         TaggingHead,
     )
     from .interface import AdapterMethod, AdapterModelInterface
-    from .methods.adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
+    from .methods.adapter_layer_base import (
+        AdapterLayerBase,
+        ComposableAdapterLayerBase,
+    )
     from .model_mixin import (
         EmbeddingAdaptersMixin,
         InvertibleAdaptersMixin,
