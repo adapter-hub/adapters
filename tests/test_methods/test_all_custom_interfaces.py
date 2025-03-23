@@ -1,15 +1,14 @@
 import os
 import tempfile
 import unittest
+
 import adapters
-from adapters import LoRAConfig
+from adapters import CompacterPlusPlusConfig, IA3Config, LoRAConfig
+from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers import AutoModel, Gemma2Config, ModernBertConfig
 from transformers.testing_utils import torch_device
 
-from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from .base import TextAdapterTestBase
-
-from adapters import LoRAConfig
 
 
 # To add tests for a new model, add a new entry to this dictionary. Nothing else needs to be changed.
@@ -39,34 +38,73 @@ MODEL_CONFIGS = {
     },
 }
 
-ADAPTER_CONFIGS = {
-    "lora": LoRAConfig(init_weights="bert", intermediate_lora=True, output_lora=True),
-    "reft": "loreft",
-    "bottleneck": "seq_bn",
-    "invertible": "double_seq_bn_inv",
-    "prompt_tuning": "prompt_tuning",
-}
-
 
 class CustomInterfaceTestBase(AdapterMethodBaseTestMixin):
     """
-    Tests for the custom interfaces we support. This test suite is limited to test the basic functionality only per model to save time.
+    Tests for the custom interfaces we support. To save time, this test suite is limited to test only basic functionality for each model.
     """
 
     def get_model(self):
         model = AutoModel.from_config(self.config())
-        adapters.init(model)  # No need to specify interface, it's auto-detected
+        adapters.init(model)  # No need to specify interface - it's auto-detected
         model.to(torch_device)
         return model
 
-    def test_forward_pass(self):
-        """Test that forward pass works with all supported adapter methods."""
+    def test_bottleneck_forward(self):
+        """Test that bottleneck forward pass works."""
         model = self.get_model()
         adapter_methods = model.adapter_interface.adapter_methods
+        if "bottleneck" not in adapter_methods:
+            self.skipTest("Bottleneck not supported by this model.")
+        self.run_forward_test(model, "seq_bn")
 
-        for method in adapter_methods:
-            with self.subTest(adapter_method=method):
-                self.run_forward_test(model, ADAPTER_CONFIGS[method])
+    def test_invertible_forward(self):
+        """Test that invertible forward pass works."""
+        model = self.get_model()
+        adapter_methods = model.adapter_interface.adapter_methods
+        if "invertible" not in adapter_methods:
+            self.skipTest("Invertible not supported by this model.")
+        self.run_forward_test(model, "double_seq_bn")
+
+    def test_prompt_tuning_forward(self):
+        """Test that prompt tuning forward pass works."""
+        model = self.get_model()
+        adapter_methods = model.adapter_interface.adapter_methods
+        if "prompt_tuning" not in adapter_methods:
+            self.skipTest("Prompt tuning not supported by this model.")
+        self.run_forward_test(model, "prompt_tuning")
+
+    def test_reft_forward(self):
+        """Test that reft forward pass works."""
+        model = self.get_model()
+        adapter_methods = model.adapter_interface.adapter_methods
+        if "reft" not in adapter_methods:
+            self.skipTest("Reft not supported by this model.")
+        self.run_forward_test(model, "loreft")
+
+    def test_lora_forward(self):
+        """Test that lora forward pass works."""
+        model = self.get_model()
+        adapter_methods = model.adapter_interface.adapter_methods
+        if "lora" not in adapter_methods:
+            self.skipTest("LoRA not supported by this model.")
+        self.run_forward_test(model, LoRAConfig(init_weights="bert", intermediate_lora=True, output_lora=True))
+
+    def test_ia3_forward(self):
+        """Test that IA3 forward pass works."""
+        model = self.get_model()
+        adapter_methods = model.adapter_interface.adapter_methods
+        if "lora" not in adapter_methods:
+            self.skipTest("IA3 not supported by this model.")
+        self.run_forward_test(model, IA3Config(init_weights="bert", intermediate_lora=True, output_lora=True))
+
+    def test_compacter_forward(self):
+        """Test that compacter forward pass works."""
+        model = self.get_model()
+        adapter_methods = model.adapter_interface.adapter_methods
+        if "bottleneck" not in adapter_methods:
+            self.skipTest("Compacter not supported by this model.")
+        self.run_forward_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8))
 
     def test_adapter_loading(self):
         """Test saving and loading adapters."""

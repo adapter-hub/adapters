@@ -1,6 +1,6 @@
-from transformers import ModernBertPreTrainedModel, Gemma2PreTrainedModel
-
 from adapters import AdapterModelInterface
+from transformers import Gemma2PreTrainedModel, ModernBertPreTrainedModel
+
 
 CUSTOM_INTERFACES = {
     ModernBertPreTrainedModel: AdapterModelInterface(

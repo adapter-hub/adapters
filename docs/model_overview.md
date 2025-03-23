@@ -27,7 +27,7 @@ The table below further shows which model architectures support which adaptation
 | [Encoder Decoder](classes/models/encoderdecoder.html) | (*) | (*) | (*) | (*) | (*) | (*) | | | (*) |
 | [GPT-2](classes/models/gpt2.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [GPT-J](classes/models/gptj.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
-| [Llama](classes/models/llama.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
+| [Llama<br>Llama 2<br>Llama 3](classes/models/llama.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [MBart](classes/models/mbart.html)      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [Mistral](classes/models/mistral.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [MT5](classes/models/mt5.html)          | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
@@ -41,6 +41,15 @@ The table below further shows which model architectures support which adaptation
 
 (°) `original_ln_after=False` is unsupported for bottleneck configs.  
 (*) If the used encoder and decoder model class are supported.
+
+## Models Supported via Custom Interfaces
+| Model | (Bottleneck)<br> Adapters | Prefix<br> Tuning | LoRA | Compacter | Adapter<br> Fusion | Invertible<br> Adapters | Parallel<br> block | Prompt<br> Tuning | ReFT |
+| ----- | -| - | - | - | - | - | - |- | - |
+| ModernBERT | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
+| Gemma 2 | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
+
+
+These models are integrated using the plugin interface mechanism described in [Custom Models](plugin_interface.html). While they support most adapter methods, some features like Prefix Tuning, Parallel blocks, and `original_ln_after=False` for bottleneck adapters are not available. Refer to the [wiki page](plugin_interface.html) to see how to use them. 
 
 **Missing a model architecture you'd like to use?**  
 The new model plugin interface makes it easy to support new transformer models with just a few lines of code [Learn more](plugin_interface.md).
