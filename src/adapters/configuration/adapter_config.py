@@ -572,7 +572,6 @@ class MTLLoRAConfig(LoRAConfig, MultiTaskConfig):
     weights_sharpness: float = 0.05
 
 
-
 @dataclass(eq=False)
 class ReftConfig(AdapterConfig):
     """

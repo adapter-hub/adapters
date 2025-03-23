@@ -4,28 +4,16 @@ import unittest
 import pytest
 
 import adapters
-from adapters import (
-    AdapterModelInterface,
-    ConfigUnion,
-    DoubleSeqBnConfig,
-    LoRAConfig,
-    ParBnConfig,
-)
+from adapters import AdapterModelInterface, ConfigUnion, DoubleSeqBnConfig, LoRAConfig, ParBnConfig
 from transformers import Gemma2ForCausalLM, Gemma2ForSequenceClassification
 from transformers.models.gemma2.configuration_gemma2 import Gemma2Config
 from transformers.testing_utils import torch_device
 
 from .base import TextAdapterTestBase
 from .generator import generate_method_tests, require_torch
-from .method_test_impl.core.test_adapter_backward_compability import (
-    CompabilityTestMixin,
-)
-from .method_test_impl.core.test_adapter_fusion_common import (
-    AdapterFusionModelTestMixin,
-)
-from .method_test_impl.peft.test_adapter_common import (
-    BottleneckAdapterTestMixin,
-)
+from .method_test_impl.core.test_adapter_backward_compability import CompabilityTestMixin
+from .method_test_impl.core.test_adapter_fusion_common import AdapterFusionModelTestMixin
+from .method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
 from .method_test_impl.utils import create_twin_models, make_config
 
 
@@ -67,9 +55,7 @@ class CustomInterfaceModelTestBase(TextAdapterTestBase):
         model.to(torch_device)
         return model
 
-    def _init_model_for_train_run(
-        self, trained_adapter_name, frozen_adapter_name, adapter_config=None
-    ):
+    def _init_model_for_train_run(self, trained_adapter_name, frozen_adapter_name, adapter_config=None):
         model = Gemma2ForSequenceClassification(self.config())
         adapters.init(model, interface=self.adapter_interface)
 
@@ -90,9 +76,7 @@ class CustomInterfaceModelTestBase(TextAdapterTestBase):
     ]
 
     def create_twin_models(self):
-        return create_twin_models(
-            self.model_class, self.config, self.adapter_interface
-        )
+        return create_twin_models(self.model_class, self.config, self.adapter_interface)
 
     def test_load_mam_adapter(self):
         self.skipTest("Does not support prefix tuning.")

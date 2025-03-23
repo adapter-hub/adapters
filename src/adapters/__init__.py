@@ -207,10 +207,7 @@ if TYPE_CHECKING:
         TaggingHead,
     )
     from .interface import AdapterMethod, AdapterModelInterface
-    from .methods.adapter_layer_base import (
-        AdapterLayerBase,
-        ComposableAdapterLayerBase,
-    )
+    from .methods.adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
     from .model_mixin import (
         EmbeddingAdaptersMixin,
         InvertibleAdaptersMixin,

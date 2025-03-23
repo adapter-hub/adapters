@@ -324,7 +324,7 @@ class LoRALayer(AdapterLayerBase):
     def _get_lora_shapes(self, config: LoRAConfig):
         raise NotImplementedError()
 
-    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
+    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
         lora_config = self.adapters_config.match(
             adapter_name,

@@ -348,7 +348,7 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
     def set_pool(self, pool: PrefixTuningPool):
         self.__setattr__("pool", pool)
 
-    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
+    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
         # only match location keys for which we have config keys
         if self.location_key.startswith("cross") or self.location_key.startswith("encoder"):

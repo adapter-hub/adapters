@@ -1,11 +1,5 @@
 from adapters import init
-from transformers import (
-    AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    BertConfig,
-    EncoderDecoderConfig,
-    EncoderDecoderModel,
-)
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, BertConfig, EncoderDecoderConfig, EncoderDecoderModel
 
 from .base import TextAdapterTestBase
 from .generator import generate_method_tests
@@ -40,24 +34,18 @@ class EncoderDecoderAdapterTestBase(TextAdapterTestBase):
         init(model)
         model.add_adapter("test", config="pfeiffer")
         model.set_active_adapters("test")
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.tokenizer_name, use_fast=False
-        )
+        tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name, use_fast=False)
 
         text = "This is a test sentence."
         input_ids = tokenizer(text, return_tensors="pt").input_ids
 
         generated_ids = model.generate(input_ids, bos_token_id=100)
-        generated_text = tokenizer.batch_decode(
-            generated_ids, skip_special_tokens=True
-        )[0]
+        generated_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
         self.assertNotEqual("", generated_text)
 
     def test_invertible_adapter_with_head(self):
         """This test class is copied and adapted from the identically-named test in test_adapter_heads.py."""
-        raise self.skipTest(
-            "AutoModelForSeq2SeqLM does not support using invertible adapters."
-        )
+        raise self.skipTest("AutoModelForSeq2SeqLM does not support using invertible adapters.")
 
     def test_adapter_fusion_save_with_head(self):
         # This test is not applicable to the encoder-decoder model since it has no heads.

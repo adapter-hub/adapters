@@ -157,7 +157,7 @@ class PromptTuningLayer(AdapterLayerBase, nn.Module):
         self.base_model_embeddings = base_model_embeddings
         self.prompt_tunings = nn.ModuleDict()
 
-    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
+    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         # ignore layer_idx as prompt tunings are only added after the embedding layer
         prompt_tuning_config = self.adapters_config.match(
             adapter_name,

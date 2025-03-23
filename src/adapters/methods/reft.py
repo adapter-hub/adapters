@@ -189,7 +189,7 @@ class ReftLayer(AdapterLayerBase, nn.Module):
         self.adapters_config = adapters_config
         self.refts = nn.ModuleDict()
 
-    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
+    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
         reft_config = self.adapters_config.match(
             adapter_name,

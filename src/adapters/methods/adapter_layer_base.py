@@ -87,7 +87,7 @@ class AdapterLayerBase(metaclass=ABCMeta):
             attention_cache[fusion_name][self.layer_idx][self.location_key] = attentions
 
     @abstractmethod
-    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
+    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         """Adds a new adapter module to the layer.
 
         Args:
@@ -105,7 +105,6 @@ class AdapterLayerBase(metaclass=ABCMeta):
         adapter_name: str,
         input_adapters: Dict[str, float],
         combine_strategy,
-        **kwargs,
     ) -> bool:
         """Averages a set of adapter modules into a new adapter module.
 
@@ -119,7 +118,7 @@ class AdapterLayerBase(metaclass=ABCMeta):
             bool: True if the adapter was added, False otherwise.
         """
         # add new adapter
-        if self.add_adapter(adapter_name, self.layer_idx, **kwargs):
+        if self.add_adapter(adapter_name, self.layer_idx):
             if combine_strategy != "linear":
                 # You get the adapter type from the input adapters
                 raise ValueError(f"Combine strategy {combine_strategy} not supported for the chosen adapter methods.")

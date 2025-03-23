@@ -66,7 +66,7 @@ class BottleneckLayer(ComposableAdapterLayerBase, nn.Module):
         if not hasattr(self, "is_layer_hooked"):
             self.is_layer_hooked = False
 
-    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
+    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
         adapter_config = self.adapters_config.match(
             adapter_name,
