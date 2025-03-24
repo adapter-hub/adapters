@@ -60,22 +60,32 @@ class AdapterModelInterface:
     This interface translates generic accessor names to model-specific attribute names.
 
     Args:
-        adapter_methods (List[str]): List of adapter types that are supported by the model.
+        adapter_methods (List[str]): List of adapter types that are supported by the model. Subset of this list: ["bottleneck", "lora", "reft", "prompt_tuning", "invertible"]
         model_embeddings (str): Name of the model's embedding layer.
         model_layers (str): Name of the model's layer list.
         layer_self_attn (str): Name of the self-attention layer in a transformer layer.
         layer_cross_attn (str): Name of the cross-attention layer in a transformer layer.
-        attn_k_proj (str): Name of the key projection layer in an attention layer.
-        attn_q_proj (str): Name of the query projection layer in an attention layer.
-        attn_v_proj (str): Name of the value projection layer in an attention layer.
         attn_o_proj (str): Name of the output projection layer in an attention layer.
         layer_intermediate_proj (str): Name of the intermediate projection layer in a transformer layer.
         layer_output_proj (str): Name of the output projection layer in a transformer layer.
+
+        # Either the following three attributes must be specified:
+        attn_k_proj (Optional[str]): Name of the key projection layer in an attention layer.
+        attn_q_proj (Optional[str]): Name of the query projection layer in an attention layer.
+        attn_v_proj (Optional[str]): Name of the value projection layer in an attention layer.
+
+        # Or this single attribute must be specified (but not both sets):
+        attn_qkv_proj (Optional[str]): Name of the combined query-key-value projection layer (for models like GPT-2 or ModernBERT where QKV are in one tensor).
+
+        # Optional attributes for extended bottleneck adapter support:
         layer_pre_self_attn (Optional[str]): Hook point directly before the self attention layer. Used for extended bottleneck adapter support.
         layer_pre_cross_attn (Optional[str]): Hook point directly before the cross attention layer. Used for extended bottleneck adapter support.
         layer_pre_ffn (Optional[str]): Hook point directly before the feed forward layer. Used for extended bottleneck adapter support.
         layer_ln_1 (Optional[str]): Layer norm *after* the self-attention layer. Used for extended bottleneck adapter support.
         layer_ln_2 (Optional[str]): Layer norm *after* the feed forward layer. Used for extended bottleneck adapter support.
+
+    Note:
+        You must specify either all three of the individual projection layers (attn_k_proj, attn_q_proj, attn_v_proj) OR the combined projection layer (attn_qkv_proj).
     """
 
     adapter_methods: List[str]
@@ -85,13 +95,21 @@ class AdapterModelInterface:
 
     layer_self_attn: str
     layer_cross_attn: str
-    attn_k_proj: str
-    attn_q_proj: str
-    attn_v_proj: str
-    attn_o_proj: str
+
+    attn_o_proj: Optional[str]
 
     layer_intermediate_proj: str
     layer_output_proj: str
+
+    ###
+    # Either all of these (this is the default and best working implementation):
+    attn_k_proj: Optional[str] = None
+    attn_q_proj: Optional[str] = None
+    attn_v_proj: Optional[str] = None
+
+    # Or this (for when query, key and value are stored in the same tensor as in GPT2 or ModernBERT):
+    attn_qkv_proj: Optional[str] = None
+    ###
 
     # Optional attributes for extended bottleneck adapter support
     layer_pre_self_attn: Optional[str] = None
@@ -102,6 +120,24 @@ class AdapterModelInterface:
 
     def to_dict(self):
         return asdict(self)
+
+    def __post_init__(self):
+        """Validate projection attributes after initialization."""
+
+        has_separate_projections = (
+            self.attn_k_proj is not None and self.attn_q_proj is not None and self.attn_v_proj is not None
+        )
+        has_combined_projection = self.attn_qkv_proj is not None
+
+        if not has_separate_projections and not has_combined_projection:
+            raise ValueError(
+                "Must specify either individual projections (k,q,v) layers or combined qkv projection layer. You currently are neither specifying attn_qkv_proj nor attn_k_proj, attn_q_proj and attn_v_proj."
+            )
+
+        if has_separate_projections and has_combined_projection:
+            raise ValueError(
+                "Cannot specify both individual projections (k,q,v) and combined qkv projection. You specified attn_qkv_proj as well as attn_k_proj, attn_q_proj and attn_v_proj which makes no sense."
+            )
 
     def _save(self, save_directory, model_config):
         config_dict = {

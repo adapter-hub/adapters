@@ -50,7 +50,7 @@ The following table gives an overview on the supported composition blocks and th
 | [Output averaging](#output-averaging)       | ✅                       |                   | ✅         | ✅(*) | ✅(*)  |               |
 | [Parameter averaging](#parameter-averaging) | ✅                       | ✅                 | ✅         | ✅    | ✅     | ✅             |
 
-(*) except for Deberta and GPT-2.
+(*) except for Deberta, GPT-2 and ModernBERT.
 
 Next, we present all composition blocks in more detail.
 

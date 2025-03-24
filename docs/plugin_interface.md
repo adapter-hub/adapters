@@ -1,8 +1,24 @@
 # Custom Models
 
-The _Adapters_ library provides a simple mechanism for integrating adapter methods into any available _Transformers_ model - including custom architectures.
-This can be accomplished by defining a plugin interface instance of [`AdapterModelInterface`](adapters.AdapterModelInterface).
-The following example shows how this looks like for Gemma 2:
+The _Adapters_ library provides a simple mechanism for integrating adapter methods into any available _Transformers_ model - including custom architectures. While most adapter methods are supported through this interface, some features like Prefix Tuning are not available.
+
+## Pre-supported Models
+
+Some models already have interfaces provided by default in the library. For these models, you can simply initialize the model using adapters without specifying an interface:
+
+```python
+import adapters
+from transformers import AutoModelForMaskedLM 
+
+model = AutoModelForMaskedLM.from_pretrained("answerdotai/ModernBERT-base")  
+adapters.init(model)
+```
+
+Check out our [Model Overview](model_overview.html) page to see all models that are supported out of the box.
+
+## Adding Support for New Models
+
+If we don't support your model yet, you can easily add adapter support by defining a plugin interface instance of [`AdapterModelInterface`](adapters.AdapterModelInterface). Here's an example for Gemma 2:
 
 ```python
 import adapters
@@ -31,7 +47,13 @@ model.add_adapter("my_adapter", config="lora")
 print(model.adapter_summary())
 ```
 
-## Walkthrough
+### Contributing Interfaces
+
+We encourage you to share your adapter interfaces with the community! The interfaces for all pre-supported models can be found in our [`interfaces.py`](https://github.com/adapter-hub/adapters/blob/main/src/adapters/wrappers/interfaces.py) file. You can:
+- Open a pull request to add your interface directly
+- If you're short on time, just drop your interface in a GitHub issue and we'll add it for you
+
+### Walkthrough
 
 Let's go through what happens in the example above step by step:
 
@@ -84,6 +106,12 @@ This can be achieved using the usual `adapters.init()` method:
 adapters.init(model, interface=adapter_interface)
 ```
 Now, you can use (almost) all functionality of the _Adapters_ library on the adapted model instance!
+
+
+```{eval-rst}
+.. note::
+    Some models like GPT-2 or ModernBERT have the query, value and key layer in one single tensor. In this case, you must set the `attn_qkv_proj` instead of setting `attn_k_proj`, `attn_q_proj` and `attn_v_proj`.
+```
 
 ## Limitations
 
