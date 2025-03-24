@@ -388,7 +388,7 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         **kwargs,
     ) -> bool:
         # add new adapter
-        if self.add_adapter(adapter_name, self.layer_idx, **kwargs):
+        if self.add_adapter(adapter_name, self.layer_idx):
             # Prefix Tuning only support linear combination
             if combine_strategy != "linear":
                 raise ValueError(f"Combine strategy {combine_strategy} not supported for prefix tuning.")

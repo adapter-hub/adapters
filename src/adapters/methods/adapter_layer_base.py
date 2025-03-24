@@ -105,6 +105,7 @@ class AdapterLayerBase(metaclass=ABCMeta):
         adapter_name: str,
         input_adapters: Dict[str, float],
         combine_strategy,
+        **kwargs,
     ) -> bool:
         """Averages a set of adapter modules into a new adapter module.
 
