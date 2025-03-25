@@ -162,7 +162,7 @@ class AdapterLayerBase(metaclass=ABCMeta):
     ):
         pass  # default implementation does nothing as multi task is not applicable to all methods
 
-    def unshare_parameters(self, name: str, adapter_names: Union[List, str]):
+    def unshare_parameters(self, name: str):
         pass  # default implementation does nothing as multi task is not applicable to all methods
 
     def add_fusion_layer(self, adapter_names: Union[List, str]):

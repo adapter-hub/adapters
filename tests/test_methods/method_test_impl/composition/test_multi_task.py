@@ -5,10 +5,13 @@ import torch
 from datasets import Dataset
 
 from adapters.composition import MultiTask
-from adapters.configuration.adapter_config import MTLLoRAConfig
+from adapters.configuration.adapter_config import LoRAConfig, MTLLoRAConfig
 from adapters.context import AdapterSetup
 from adapters.heads.language_modeling import CausalLMHead
-from adapters.models.auto.adapter_model import ADAPTER_MODEL_MAPPING, AutoAdapterModel
+from adapters.models.auto.adapter_model import (
+    ADAPTER_MODEL_MAPPING,
+    AutoAdapterModel,
+)
 from adapters.trainer import AdapterTrainer
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch, torch_device
@@ -19,10 +22,14 @@ class MultiTaskTestMethod(AdapterMethodBaseTestMixin):
     def get_dataset_with_task_ids(self, tasks):
         train_dataset = self.get_dataset()
         if not isinstance(train_dataset, Dataset):
-            train_dataset = Dataset.from_list([asdict(feature) for feature in train_dataset])
+            train_dataset = Dataset.from_list(
+                [asdict(feature) for feature in train_dataset]
+            )
         else:
             # to get dataset with transformations
-            train_dataset = Dataset.from_list([example for example in train_dataset])
+            train_dataset = Dataset.from_list(
+                [example for example in train_dataset]
+            )
 
         def add_task_ids(example_batch):
             inputs = deepcopy(example_batch)
@@ -34,7 +41,11 @@ class MultiTaskTestMethod(AdapterMethodBaseTestMixin):
         return train_dataset
 
     def _get_filter_keys(self, filter_keys, task_names, name):
-        return {k.format(name=name, task=task) for k in filter_keys for task in task_names}
+        return {
+            k.format(name=name, task=task)
+            for k in filter_keys
+            for task in task_names
+        }
 
     def trainings_run(
         self,
@@ -72,10 +83,13 @@ class MultiTaskTestMethod(AdapterMethodBaseTestMixin):
         adapter_config,
         filter_keys,
         adapter_setup,
+        shared_parameters,
         tasks,
     ):
         if not self.do_run_train_tests:
-            self.skipTest("Skipping training tests. Set `do_run_train_tests=True` to run them.")
+            self.skipTest(
+                "Skipping training tests. Set `do_run_train_tests=True` to run them."
+            )
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
 
@@ -121,7 +135,9 @@ class MultiTaskTestMethod(AdapterMethodBaseTestMixin):
 
         # all weights of the adapter should be activated
         has_weights = False
-        filter_keys_trained = self._get_filter_keys(filter_keys, name=shared_name, task_names=tasks)
+        filter_keys_trained = self._get_filter_keys(
+            filter_keys, name=shared_name, task_names=tasks
+        )
 
         for k, v in self._filter_parameters(model, filter_keys_trained).items():
             has_weights = True
@@ -134,7 +150,9 @@ class MultiTaskTestMethod(AdapterMethodBaseTestMixin):
             task_names=dummy_tasks,
         )
 
-        for k, v in self._filter_parameters(model, filter_keys_untrained).items():
+        for k, v in self._filter_parameters(
+            model, filter_keys_untrained
+        ).items():
             self.assertFalse(v.requires_grad, k)
 
         state_dict_pre = deepcopy(model.state_dict())
@@ -146,23 +164,41 @@ class MultiTaskTestMethod(AdapterMethodBaseTestMixin):
         # check whether the key corresponds to a tied embedding
 
         def has_tied_embeddings(k):
-            tied_embeddings = hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings
+            tied_embeddings = (
+                hasattr(model.config, "tie_word_embeddings")
+                and model.config.tie_word_embeddings
+            )
             is_tied_layer = (
                 isinstance(model.heads[name], CausalLMHead)
-                and "heads.{}.{}.weight".format(name, len(model.heads[name]._modules) - 1) in k
+                and "heads.{}.{}.weight".format(
+                    name, len(model.heads[name]._modules) - 1
+                )
+                in k
             )
             return tied_embeddings and is_tied_layer
 
-        for (k1, v1), (k2, v2) in zip(state_dict_pre.items(), model.state_dict().items()):
+        self.run_shared_parameters_are_equals(
+            model,
+            shared_parameters,
+            shared_name,
+            tasks,
+        )
+
+        for (k1, v1), (k2, v2) in zip(
+            state_dict_pre.items(), model.state_dict().items()
+        ):
             # move both to the same device to avoid device mismatch errors
             v1, v2 = v1.to(v2.device), v2
-            if (any(key in k1 for key in filter_keys_trained) or name in k1) and not has_tied_embeddings(k1):
+            if (
+                any(key in k1 for key in filter_keys_trained) or name in k1
+            ) and not has_tied_embeddings(k1):
                 adapters_with_change |= not torch.equal(v1, v2)
             else:
                 base_with_change |= not torch.equal(v1, v2)
 
         self.assertTrue(adapters_with_change)
         self.assertFalse(base_with_change)
+        __import__("pdb").set_trace()
 
     def run_forward_test(
         self,
@@ -184,7 +220,9 @@ class MultiTaskTestMethod(AdapterMethodBaseTestMixin):
 
         model.to(torch_device).to(dtype)
 
-        input_data = self.get_input_samples(config=model.config, dtype=dtype, **kwargs)
+        input_data = self.get_input_samples(
+            config=model.config, dtype=dtype, **kwargs
+        )
 
         # pass 1: set adapter via property
         model.set_active_adapters(adapter_setup)
@@ -214,6 +252,31 @@ class MultiTaskTestMethod(AdapterMethodBaseTestMixin):
         for task in tasks:
             model.delete_adapter(task)
 
+    def run_shared_parameters_are_equals(
+        self,
+        model,
+        shared_parameters,  # name of adapter parameters / submodules
+        shared_parameters_name,  # name in layer.shared_parameters which store shared parts.
+        tasks,
+    ):
+
+        def test(layer, model):
+            for task in tasks:
+                if task in layer.adapter_modules:
+                    for shared_parameter in shared_parameters:
+                        adapter_params = getattr(
+                            layer.adapter_modules[task], shared_parameter
+                        )
+                        shared_params = layer.shared_parameters[
+                            shared_parameters_name
+                        ][shared_parameter]
+                        try:
+                            self.assertTrue(adapter_params.equal(shared_params))
+                        except:
+                            __import__("pdb").set_trace()
+
+        model.apply_to_adapter_layers(lambda i, layer: test(layer, model))
+
 
 @require_torch
 class MultiTaskTestMixin(MultiTaskTestMethod):
@@ -226,14 +289,19 @@ class MultiTaskTestMixin(MultiTaskTestMethod):
                 ".loras.{task}.",
                 ".loras.{task}.shared_parameters.{name}.",
             ],
-            lambda self, layer, name, tasks: [
-                self.assertTrue(layer.loras[task].lora_A.equal(layer.shared_parameters[name].lora_A))
-                and self.assertTrue(layer.loras[task].lora_B.equal(layer.shared_parameters[name].lora_B))
-                for task in tasks
-                if hasattr(layer, "loras") and task in layer.loras
-            ],
+            ["lora_A", "lora_B"],
         ),
     ]
+
+    def test_adapter_are_mtl_configs(self):
+        model = self.get_model()
+        model.eval()
+
+        model.add_adapter("a", LoRAConfig())
+        model.add_adapter("b", LoRAConfig())
+        model.add_adapter("c", LoRAConfig())
+        with self.assertRaises(TypeError):
+            model.share_parameters(adapter_names=MultiTask("a", "b", "c"))
 
     @classmethod
     def generate_test_methods(cls):
@@ -242,7 +310,7 @@ class MultiTaskTestMixin(MultiTaskTestMethod):
             adapter_config,
             tasks,
             filter_keys,
-            test_shared_parameters,
+            shared_parameters,
         ) in enumerate(cls.adapter_configs_to_test):
 
             def test_share_parameters(
@@ -250,11 +318,13 @@ class MultiTaskTestMixin(MultiTaskTestMethod):
                 adapter_config=adapter_config,
                 tasks=tasks,
                 filter_keys=filter_keys,
-                test_shared_parameters=test_shared_parameters,
+                shared_parameters=shared_parameters,
             ):
                 model = self.get_model()
                 model.eval()
-                with self.subTest(config=adapter_config.__class__.__name__, task_names=tasks):
+                with self.subTest(
+                    config=adapter_config.__class__.__name__, task_names=tasks
+                ):
                     shared_parameters_name = "shared"
                     for task in tasks:
                         model.add_adapter(task, config=adapter_config)
@@ -265,20 +335,31 @@ class MultiTaskTestMixin(MultiTaskTestMethod):
                     )
 
                     has_weights = False
-                    filter_keys = self._get_filter_keys(filter_keys, tasks, shared_parameters_name)
-                    for k, v in self._filter_parameters(model, filter_keys).items():
+                    filter_keys = self._get_filter_keys(
+                        filter_keys, tasks, shared_parameters_name
+                    )
+                    for k, v in self._filter_parameters(
+                        model, filter_keys
+                    ).items():
                         has_weights = True
                         self.assertTrue(v.requires_grad, k)
                     self.assertTrue(has_weights)
 
-                    model.apply_to_adapter_layers(
-                        lambda i, layer: test_shared_parameters(self, layer, shared_parameters_name, tasks)
+                    self.run_shared_parameters_are_equals(
+                        model,
+                        shared_parameters,  # name of adapter parameters / submodules
+                        shared_parameters_name,  # name in layer.shared_parameters which store shared parts.
+                        tasks,
                     )
 
-            def test_unshare_parameters(self, adapter_config=adapter_config, tasks=tasks):
+            def test_unshare_parameters(
+                self, adapter_config=adapter_config, tasks=tasks
+            ):
                 model = self.get_model()
                 model.eval()
-                with self.subTest(config=adapter_config.__class__.__name__, task_names=tasks):
+                with self.subTest(
+                    config=adapter_config.__class__.__name__, task_names=tasks
+                ):
                     shared_parameters_name = "shared"
                     for task in tasks:
                         model.add_adapter(task, config=adapter_config)
@@ -292,14 +373,20 @@ class MultiTaskTestMixin(MultiTaskTestMethod):
                         name=shared_parameters_name,
                     )
 
-                    filter_keys = [f".shared_parameters.{shared_parameters_name}."]
+                    filter_keys = [
+                        f".shared_parameters.{shared_parameters_name}."
+                    ]
                     parameters = self._filter_parameters(model, filter_keys)
                     self.assertTrue(parameters == {})
 
-            def test_mtl_forward(self, adapter_config=adapter_config, tasks=tasks):
+            def test_mtl_forward(
+                self, adapter_config=adapter_config, tasks=tasks
+            ):
                 model = self.get_model()
                 model.eval()
-                with self.subTest(config=adapter_config.__class__.__name__, task_names=tasks):
+                with self.subTest(
+                    config=adapter_config.__class__.__name__, task_names=tasks
+                ):
                     self.run_forward_test(
                         model,
                         adapter_config,
@@ -314,16 +401,24 @@ class MultiTaskTestMixin(MultiTaskTestMethod):
                 tasks=tasks,
                 filter_keys=filter_keys,
             ):
-                with self.subTest(config=adapter_config.__class__.__name__, task_names=tasks):
+                with self.subTest(
+                    config=adapter_config.__class__.__name__, task_names=tasks
+                ):
                     self.run_train_test(
                         adapter_config,
                         filter_keys,
                         adapter_setup=MultiTask(*tasks),
+                        shared_parameters=shared_parameters,
                         tasks=tasks,
                     )
 
             arch = adapter_config.architecture
-            for method in [test_shared_parameters, test_unshare_parameters, test_mtl_forward, test_mtl_train]:
+            for method in [
+                test_share_parameters,
+                test_unshare_parameters,
+                test_mtl_forward,
+                test_mtl_train,
+            ]:
                 setattr(cls, f"{method.__name__}_{arch}", method)
 
             return cls

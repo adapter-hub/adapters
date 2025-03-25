@@ -15,7 +15,7 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from adapters.configuration.adapter_config import ConfigUnion, LoRAConfig
+from adapters.configuration.adapter_config import ConfigUnion, LoRAConfig, MultiTaskConfig
 from transformers import GenerationConfig
 from transformers.modeling_outputs import ModelOutput
 from transformers.utils import is_accelerate_available
@@ -741,6 +741,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             reference_adapter_name (Optional[str], default=None): The name of an existing
                 adapter to use as a reference for parameter sharing.
 
+        Raises:
+            TypeError: If any adapter configuration is not of type `MultiTaskConfig`.
+            ValueError: If the reference adapter is not in the provided adapter names.
+            AssertionError: If the adapter list is empty.
         """
         if isinstance(adapter_names, MultiTask):
             adapter_names = adapter_names.children
@@ -748,6 +752,33 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             adapter_names = adapter_names.split(",")
         if name is None:
             name = ",".join(adapter_names)
+
+        reference_adapter_name = reference_adapter_name or adapter_names[0]
+        assert len(adapter_names) > 0, "Expected at least one adapter name, but got an empty list."
+
+        # Check that all adapter configurations exist and have the same type
+        adapter_configs = []
+        for adapter_name in adapter_names:
+            adapter_config = self.adapters_config.get(adapter_name)
+            if adapter_config is None:
+                raise ValueError(f"No configuration found for adapter '{adapter_name}'.")
+            if not isinstance(adapter_config, MultiTaskConfig):
+                raise TypeError(
+                    f"Expected adapter configuration of type 'MultiTaskConfig' for adapter '{adapter_name}', but got '{type(adapter_config).__name__}' instead."
+                )
+            adapter_configs.append(adapter_config)
+
+        # Ensure all adapter configurations have the same type
+        config_types = {type(config) for config in adapter_configs}
+        if len(config_types) > 1:
+            raise TypeError(
+                f"All adapter configurations must be of the same type, but found multiple types: {config_types}"
+            )
+
+        if reference_adapter_name is not None and reference_adapter_name not in adapter_names:
+            raise ValueError(
+                f"Reference adapter '{reference_adapter_name}' not found in the provided adapter names: {adapter_names}."
+            )
 
         self.apply_to_adapter_layers(
             lambda i, layer: layer.share_parameters(
@@ -794,13 +825,11 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.apply_to_adapter_layers(
             lambda i, layer: layer.unshare_parameters(
                 name=name,
-                adapter_names=adapter_names,
             )
         )
         self.apply_to_basemodel_childs(
             lambda i, child: child.unshare_parameters(
                 name=name,
-                adapter_names=adapter_names,
             )
         )
 

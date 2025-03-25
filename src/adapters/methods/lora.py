@@ -362,14 +362,13 @@ class LoRALayer(AdapterLayerBase):
         adapter_names: List,
         reference_adapter_name: Optional[str] = None,
     ):
-        ref_adapter = reference_adapter_name or adapter_names[0]
         if all(name in self.loras for name in adapter_names):
-            shared_params = self.loras[ref_adapter].get_parameters()
+            shared_params = self.loras[reference_adapter_name].get_parameters()
             self.shared_parameters[name] = shared_params
             for adapter_name in adapter_names:
                 self.loras[adapter_name].set_parameters(shared_params)
 
-    def unshare_parameters(self, name: str, adapter_names: List[str]):
+    def unshare_parameters(self, name: str):
         if name in self.shared_parameters:
             del self.shared_parameters[name]
 
