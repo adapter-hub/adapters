@@ -20,6 +20,7 @@ __version__ = "1.1.0"
 
 from typing import TYPE_CHECKING
 
+from adapters.configuration.adapter_config import MultiTaskConfig
 from transformers.utils import _LazyModule
 
 
@@ -57,6 +58,7 @@ _import_structure = {
         "MAMConfig",
         "ModelAdaptersConfig",
         "MTLLoRAConfig",
+        "MultiTaskConfig",
         "NoReftConfig",
         "ParBnConfig",
         "PrefixTuningConfig",
@@ -180,6 +182,7 @@ if TYPE_CHECKING:
         MAMConfig,
         ModelAdaptersConfig,
         MTLLoRAConfig,
+        MultiTaskConfig,
         NoReftConfig,
         ParBnConfig,
         PrefixTuningConfig,

@@ -86,11 +86,6 @@ class Parallel(AdapterCompositionBlock):
         return len(self.children)
 
 
-class MultiTask(AdapterCompositionBlock):
-    def __init__(self, *children):
-        super().__init__(*children)
-
-
 class Stack(AdapterCompositionBlock):
     def __init__(self, *stack_layers: List[Union[AdapterCompositionBlock, str]]):
         super().__init__(*stack_layers)
@@ -138,6 +133,11 @@ class BatchSplit(AdapterCompositionBlock):
 
     def _get_save_kwargs(self):
         return {"batch_sizes": self.batch_sizes}
+
+
+class MultiTask(AdapterCompositionBlock):
+    def __init__(self, *children):
+        super().__init__(*children)
 
 
 class Average(AdapterCompositionBlock):

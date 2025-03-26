@@ -566,6 +566,21 @@ class MultiTaskConfig(AdapterConfig):
 
 @dataclass(eq=False)
 class MTLLoRAConfig(LoRAConfig, MultiTaskConfig):
+    """
+    The MTL-LoRA architecture, proposed by Yang et al. (2024), combine LoRA with multi-task learning. See https://arxiv.org/pdf/2410.09437.pdf.
+    This configuration extends LoRA to support multi-task adaptation, allowing parameter-efficient fine-tuning across
+    multiple tasks while leveraging low-rank reparameterization techniques.
+
+    Args:
+        n_up_projection (int, optional): The number of additional projection layers for task-specific adaptations.
+            Defaults to 1.
+        task_specific_matrix_type (Literal["singular_values", "linear"], optional): The type of task-specific matrix
+            used in adaptation. Can be either "singular_values" (which adapts using singular value decomposition-based
+            transformations) or "linear" (which applies a learned linear transformation). Defaults to "singular_values".
+        weights_sharpness (float, optional): A scaling factor controlling the sharpness of the task-specific weight
+            transformations, influencing how much task adaptation is applied. Defaults to 0.05.
+    """
+
     architecture: Optional[str] = "mtl_lora"
     n_up_projection: int = 1
     task_specific_matrix_type: Literal["singular_values", "linear"] = "singular_values"

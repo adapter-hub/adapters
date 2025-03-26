@@ -43,6 +43,7 @@ Currently, we support the PyTorch versions of all models as listed on the `Model
    overview
    methods
    method_combinations
+   multi_task_methods
 
 .. toctree::
    :maxdepth: 2
