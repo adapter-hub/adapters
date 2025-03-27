@@ -20,6 +20,7 @@ from ..model_mixin import (
     ModelWithHeadsAdaptersMixin,
 )
 from ..models import MODEL_MIXIN_MAPPING
+from ..utils import multigetattr, multihasattr
 from .configuration import init_adapters_config
 
 
@@ -27,6 +28,9 @@ SPECIAL_MODEL_TYPE_TO_MODULE_NAME = {
     "clip_vision_model": "clip",
     "clip_text_model": "clip",
 }
+
+
+_INTERFACE_ERROR_TEMPLATE = "AdapterInterface: '{layer_name}' is set to '{layer_value}' but this value is not found in the {parent_name}. See https://docs.adapterhub.ml/plugin_interface.html for more information."
 
 
 def get_module_name(model_type: str) -> str:
@@ -64,6 +68,7 @@ def init(
 
     if interface is not None:
         base_model = model.base_model
+        _validate_interface_values(base_model, interface)
         model_class_name = base_model.__class__.__name__
         model_class = type(
             model_class_name,
@@ -167,3 +172,86 @@ def load_model(
     model = new_model_class.from_pretrained(model_name_or_path, *model_args, **kwargs)
 
     return model
+
+
+def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterModelInterface) -> None:
+    """
+    Validates that all values specified in the interface exist in the model.
+
+    Args:
+        base_model: The base model to validate against
+        interface: The adapter interface to validate
+
+    Raises:
+        ValueError: If any specified path is not found in the model
+    """
+
+    if not multihasattr(base_model, interface.model_embeddings):
+        raise ValueError(
+            _INTERFACE_ERROR_TEMPLATE.format(
+                layer_name="model_embeddings", layer_value=interface.model_embeddings, parent_name="base_model"
+            )
+        )
+    # All other values are layer specific => Get the first layer and check if all values are present
+    layers = multigetattr(base_model, interface.model_layers)
+    if not layers:
+        raise ValueError(
+            _INTERFACE_ERROR_TEMPLATE.format(
+                layer_name="model_layers", layer_value=interface.model_layers, parent_name="base_model"
+            )
+        )
+
+    if len(layers) == 0:
+        raise ValueError(
+            f"AdapterInterface: 'model_layers' is set to '{interface.model_layers}'. But accessing this value of the base_model returns an empty list. See https://docs.adapterhub.ml/plugin_interface.html for more information."
+        )
+
+    layer = layers[0]
+
+    layer_attributes = [
+        "layer_self_attn",
+        "layer_cross_attn",
+        "layer_intermediate_proj",
+        "layer_output_proj",
+        "layer_pre_self_attn",
+        "layer_pre_cross_attn",
+        "layer_pre_ffn",
+        "layer_ln_1",
+        "layer_ln_2",
+    ]
+    values_to_check = {
+        name: getattr(interface, name) for name in layer_attributes if getattr(interface, name) is not None
+    }
+
+    for layer_name, layer_value in values_to_check.items():
+        if not multihasattr(layer, layer_value):
+            raise ValueError(
+                _INTERFACE_ERROR_TEMPLATE.format(
+                    layer_name=layer_name, layer_value=layer_value, parent_name="model layer"
+                )
+            )
+
+    # Check attention-specific attributes if self-attention or cross-attention is defined
+    attention_attributes = ["attn_q_proj", "attn_k_proj", "attn_v_proj", "attn_o_proj"]
+
+    if interface.layer_self_attn is not None:
+        self_attn_module = multigetattr(layer, interface.layer_self_attn)
+        for attn_name in attention_attributes:
+            attn_value = getattr(interface, attn_name)
+            if not multihasattr(self_attn_module, attn_value):
+                raise ValueError(
+                    _INTERFACE_ERROR_TEMPLATE.format(
+                        layer_name=attn_name, layer_value=attn_value, parent_name="self-attention layer"
+                    )
+                )
+
+    if interface.layer_cross_attn is not None:
+        cross_attn_module = multigetattr(layer, interface.layer_cross_attn)
+        for attn_name in attention_attributes:
+            attn_value = getattr(interface, attn_name)
+            if not multihasattr(cross_attn_module, attn_value):
+                raise ValueError(
+                    _INTERFACE_ERROR_TEMPLATE.format(
+                        layer_name=attn_name, layer_value=attn_value, parent_name="cross-attention layer"
+                    )
+                )
