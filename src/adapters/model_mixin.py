@@ -684,9 +684,24 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             # depends on the architecture field of the adapter config
             adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
             if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
-                # here we check if its actually a VeraConfig
+                # First, we need to check that the hidden size is the same for all submodels
+                if self.config.model_type in SUBMODEL_NAMES:
+                    hidden_sizes = [
+                        getattr(self.config, key).hidden_size for key in SUBMODEL_NAMES[self.config.model_type]
+                    ]
+                    if not (all(hidden_sizes[0] == h for h in hidden_sizes)):
+                        raise ValueError(
+                            "The model has different hidden sizes {}. Vera uses shared LoRA A and B matrices and thus initialization is only possible if the hidden_sizes match.".format(
+                                hidden_sizes
+                            )
+                        )
+
+                # Next, init the shared parameters of Vera
+                shapes_info = self.adapters_config._vera_init_shapes[adapter_name]
+                lora_A_shape = shapes_info["lora_A_shape"]
+                lora_B_shape = shapes_info["lora_B_shape"]
                 self.base_model.shared_parameters[adapter_name] = init_shared_vera_parameters(
-                    self.config, adapter_config, self.device
+                    lora_A_shape, lora_B_shape, adapter_config, self.device
                 )
 
         # Prefix Tuning

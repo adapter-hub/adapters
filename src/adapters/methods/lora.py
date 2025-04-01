@@ -275,15 +275,28 @@ class Vera(nn.Module):
         return hidden_states, gate
 
 
-def init_shared_vera_parameters(model_config, adapter_config, device):
-    hidden_size = model_config.hidden_size
-    r = adapter_config["r"]
+def init_shared_vera_parameters(lora_A_shape, lora_B_shape, adapter_config, device):
+    """
+    This function creates the shared random matrices A and B that are used across all Vera layers.
+    These matrices are frozen and initialized according to the specified initialization strategy.
 
+    Args:
+        lora_A_shape: The shape of the A matrix
+        lora_B_shape: The shape of the B matrix
+        adapter_config (dict): The adapter configuration
+        device: The device to place the parameters on
+
+    Returns:
+        nn.ParameterDict: Dictionary containing:
+            - lora_A: Parameter of shape lora_A_shape
+            - lora_B: Parameter of shape lora_B_shape
+    """
     parameters = nn.ParameterDict()
 
     # initialize frozen, random tensors A, B
-    parameters["lora_A"] = nn.Parameter(torch.zeros(r, hidden_size).to(device), requires_grad=False)
-    parameters["lora_B"] = nn.Parameter(torch.zeros(hidden_size, r).to(device), requires_grad=False)
+    dtype = getattr(torch, adapter_config.dtype) if adapter_config.dtype else None
+    parameters["lora_A"] = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype).to(device), requires_grad=False)
+    parameters["lora_B"] = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype).to(device), requires_grad=False)
 
     if adapter_config["init_weights"] == "lora":
         # initialize A the same way as the default for nn.Linear and B to zero
@@ -340,6 +353,12 @@ class LoRALayer(AdapterLayerBase):
             if lora_config.composition_mode == "add":
                 if isinstance(lora_config.vera_d, float) or isinstance(lora_config.vera_b, float):
                     lora_cls = Vera
+                    if adapter_name not in self.adapters_config._vera_init_shapes:
+                        lora_A_shape, lora_B_shape = self._get_lora_shapes(lora_config)
+                        self.adapters_config._vera_init_shapes[adapter_name] = {
+                            "lora_A_shape": lora_A_shape,
+                            "lora_B_shape": lora_B_shape,
+                        }
                 else:
                     lora_cls = LoRA
             elif lora_config.composition_mode == "scale":
