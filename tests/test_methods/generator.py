@@ -20,6 +20,7 @@ from tests.test_methods.method_test_impl.peft.test_prefix_tuning import PrefixTu
 from tests.test_methods.method_test_impl.peft.test_prompt_tuning import PromptTuningTestMixin
 from tests.test_methods.method_test_impl.peft.test_reft import ReftTestMixin
 from tests.test_methods.method_test_impl.peft.test_unipelt import UniPELTTestMixin
+from tests.test_methods.method_test_impl.peft.test_vera import VeraTestMixin
 from transformers.testing_utils import require_torch
 
 
@@ -197,6 +198,19 @@ def generate_method_tests(
             pass
 
         test_classes["IA3"] = IA3
+
+    if "Vera" not in redundant and "Vera" not in not_supported:
+
+        @require_torch
+        @pytest.mark.vera
+        class Vera(
+            model_test_base,
+            VeraTestMixin,
+            unittest.TestCase,
+        ):
+            pass
+
+        test_classes["Vera"] = Vera
 
     if "LoRA" not in redundant and "LoRA" not in not_supported:
 

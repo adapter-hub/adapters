@@ -23,7 +23,7 @@ class DebertaAdapterTestBase(TextAdapterTestBase):
         self.skipTest("Not supported for DeBERTa")
 
 
-method_tests = generate_method_tests(DebertaAdapterTestBase)
+method_tests = generate_method_tests(DebertaAdapterTestBase, not_supported=["Vera"])
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

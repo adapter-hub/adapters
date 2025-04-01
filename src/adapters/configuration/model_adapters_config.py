@@ -33,6 +33,8 @@ class ModelAdaptersConfig(Collection):
         self.active_setup: Optional[AdapterCompositionBlock] = None
         self.skip_layers = None
 
+        self._vera_init_shapes = {}
+
     def __contains__(self, item):
         return item in self.adapters.keys()
 

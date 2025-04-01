@@ -30,7 +30,7 @@ from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, W
 from .methods import METHOD_INIT_MAPPING
 from .methods.adapter_layer_base import AdapterLayerBase
 from .methods.bottleneck import BottleneckLayer
-from .methods.lora import LoRALayer
+from .methods.lora import LoRALayer, init_shared_vera_parameters
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
@@ -670,13 +670,40 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                         )
                     else:
                         raise ValueError(
-                            "The model has different hidden sizes {}. Sharing comapcter weights is only possible if"
+                            "The model has different hidden sizes {}. Sharing compacter weights is only possible if"
                             " the hidden_sizes match.".format(hidden_sizes)
                         )
                 else:
                     self.base_model.shared_parameters[adapter_name] = init_shared_parameters(
                         adapter_config, self.config.hidden_size, self.device
                     )
+
+        # Vera Initialization
+        if self.adapters_config.match(adapter_name, LoRAConfig):
+            # in above line - we need to check for LoRAConfig since adapter reinitilization
+            # depends on the architecture field of the adapter config
+            adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+            if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+                # First, we need to check that the hidden size is the same for all submodels
+                if self.config.model_type in SUBMODEL_NAMES:
+                    hidden_sizes = [
+                        getattr(self.config, key).hidden_size for key in SUBMODEL_NAMES[self.config.model_type]
+                    ]
+                    if not (all(hidden_sizes[0] == h for h in hidden_sizes)):
+                        raise ValueError(
+                            "The model has different hidden sizes {}. Vera uses shared LoRA A and B matrices and thus initialization is only possible if the hidden_sizes match.".format(
+                                hidden_sizes
+                            )
+                        )
+
+                # Next, init the shared parameters of Vera
+                shapes_info = self.adapters_config._vera_init_shapes[adapter_name]
+                lora_A_shape = shapes_info["lora_A_shape"]
+                lora_B_shape = shapes_info["lora_B_shape"]
+                self.base_model.shared_parameters[adapter_name] = init_shared_vera_parameters(
+                    lora_A_shape, lora_B_shape, adapter_config, self.device
+                )
+
         # Prefix Tuning
         for module in self.modules():
             if isinstance(module, PrefixTuningPool):
@@ -1558,18 +1585,27 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             name (str): LoRA module to merge.
         """
-        for module in self.modules():
-            if isinstance(module, LoRALayer):
-                if name in module.loras:
-                    module.merge_adapter(name)
+        with ForwardContext(self, torch.empty(0, 1)):
+            # check if there are shared parameters between adapter weights
+            if self.base_model.shared_parameters:
+                ForwardContext.get_context().shared_parameters = self.base_model.shared_parameters
+
+            for module in self.modules():
+                if isinstance(module, LoRALayer):
+                    if name in module.loras:
+                        module.merge_adapter(name)
 
     def reset_adapter(self):
         """
         Resets weights of a LoRA module merged using `model.merge_adapter(name)`.
         """
-        for module in self.modules():
-            if isinstance(module, LoRALayer):
-                module.reset_adapter()
+        with ForwardContext(self, torch.empty(0, 1)):
+            if self.base_model.shared_parameters:
+                ForwardContext.get_context().shared_parameters = self.base_model.shared_parameters
+
+            for module in self.modules():
+                if isinstance(module, LoRALayer):
+                    module.reset_adapter()
 
     # HACK Copied from transformers/generation/utils.py
     def _prepare_encoder_decoder_kwargs_for_generation(
