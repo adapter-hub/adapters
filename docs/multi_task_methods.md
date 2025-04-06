@@ -1,5 +1,7 @@
 # Multi Task Methods
 
+## MTL-LoRA
+
 _Configuration class_: [`MTLLoRAConfig`](adapters.MTLLoRAConfig)
 
 "MTL-LoRA: Low-Rank Adaptation for Multi-Task Learning" ([Yang et al., 2024](https://arxiv.org/pdf/2410.09437)). MTL-LoRA enhances LoRA for multi-task learning (MTL) by improving task differentiation and knowledge sharing. It introduces a task-specific low-rank learnable matrix $\Lambda_t$ to better capture task-specific information and utilizes $n$ low-rank up-projection matrices for diverse information-sharing. A weighted averaging mechanism integrates these matrices, allowing adaptive knowledge transfer across tasks. Specifically, the MTL-LoRA output for task $t$ is formulated as:  
