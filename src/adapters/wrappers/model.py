@@ -120,7 +120,7 @@ def init(
             base_model = getattr(model, model.base_model_prefix)
             if isinstance(base_model, ModelAdaptersMixin):
                 # HACK to preserve original forward method signature (e.g. for Trainer label names)
-                temp_signature = ForwardContext.add_contex_args_in_signature(model.forward.__func__)
+                temp_signature = ForwardContext.add_context_args_in_signature(model.forward.__func__)
                 # Create new wrapper model class
                 model_class_name = model.__class__.__name__
                 model_class = type(

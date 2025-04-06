@@ -127,7 +127,7 @@ class ForwardContext(ContextManager):
         return results
 
     @classmethod
-    def add_contex_args_in_signature(cls, f):
+    def add_context_args_in_signature(cls, f):
         old_signature = inspect.signature(f)
         params = list(old_signature.parameters.values())
         # search if a VAR_POSITIONAL or VAR_KEYWORD is present
