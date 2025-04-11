@@ -53,7 +53,12 @@ class BeitSelfAttentionWithAdapters(BeitSelfAttentionAdaptersMixin, BeitSelfAtte
         value_layer = self.transpose_for_scores(self.value(hidden_states))
         query_layer = self.transpose_for_scores(mixed_query_layer)
 
+        # >>> START AH Changes <<<
+        query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
+
         key_layer, value_layer, _ = self.prefix_tuning(key_layer, value_layer, hidden_states)
+        (query_layer,) = adjust_tensors_for_parallel(key_layer, query_layer)
+        # >>> END AH Changes <<<
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
@@ -61,7 +66,7 @@ class BeitSelfAttentionWithAdapters(BeitSelfAttentionAdaptersMixin, BeitSelfAtte
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
 
         # Add relative position bias if present.
-        if self.relative_position_bias is not None:
+        if self.has_relative_position_bias:
             height, width = resolution
             window_size = (height // self.config.patch_size, width // self.config.patch_size)
             attention_scores = attention_scores + self.relative_position_bias(
@@ -133,7 +138,7 @@ class BeitSdpaSelfAttentionWithAdapters(BeitSelfAttentionAdaptersMixin, BeitSdpa
         # >>> END AH Changes <<<
 
         attn_bias = None
-        if self.relative_position_bias is not None:
+        if self.has_relative_position_bias:
             height, width = resolution
             window_size = (height // self.config.patch_size, width // self.config.patch_size)
             attn_bias = self.relative_position_bias(
