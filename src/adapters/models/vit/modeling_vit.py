@@ -15,11 +15,9 @@
 """PyTorch ViT model."""
 
 
-import math
 from typing import Callable, Optional, Tuple, Union
 
 import torch
-import torch.utils.checkpoint
 from torch import nn
 
 from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
