@@ -23,14 +23,15 @@ import torch.utils.checkpoint
 from torch import nn
 
 from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
-from transformers.models.vit.modeling_vit import ViTLayer, ViTOutput, ViTSelfAttention
-from transformers.utils import logging
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
-from transformers.models.vit.modeling_vit import eager_attention_forward
+from transformers.models.vit.modeling_vit import ViTLayer, ViTOutput, ViTSelfAttention, eager_attention_forward
+from transformers.utils import logging
 
 from .mixin_vit import ViTLayerAdaptersMixin, ViTOutputAdaptersMixin, ViTSelfAttentionAdaptersMixin
 
+
 logger = logging.get_logger(__name__)
+
 
 class ViTSelfAttentionWithAdapters(ViTSelfAttentionAdaptersMixin, ViTSelfAttention):
     def forward(
