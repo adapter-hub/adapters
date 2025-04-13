@@ -18,3 +18,6 @@ class AdapterModelTesterMixin:
 
     def test_correct_missing_keys(self):
         self.skipTest("Not applicable.")
+
+    def test_generation_tester_mixin_inheritance(self):
+        self.skipTest("Not applicable.")  # AdapterModel classes are not generative as is (ie without a LM head)
