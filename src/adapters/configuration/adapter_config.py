@@ -586,7 +586,7 @@ class VeraConfig(LoRAConfig):
     composition_mode: str = "add"
     dtype: Optional[str] = None
 
-    
+
 class MultiTaskConfig(AdapterConfig):
     """
     Flag class for all multi task adaptation methods.
@@ -618,6 +618,7 @@ class MTLLoRAConfig(LoRAConfig, MultiTaskConfig):
     n_up_projection: int = 1
     task_specific_matrix_type: Literal["singular_values", "linear"] = "singular_values"
     weights_sharpness: float = 0.05
+
 
 @dataclass(eq=False)
 class ReftConfig(AdapterConfig):
