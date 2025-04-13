@@ -274,6 +274,27 @@ model.reset_adapter()
 _Papers:_
 - [Few-Shot Parameter-Efficient Fine-Tuning is Better and Cheaper than In-Context Learning](https://arxiv.org/pdf/2205.05638.pdf) (Liu et al., 2022)
 
+## Vera
+
+Vera is a LoRA based fine-tuning method proposed by Kopiczko et al. (2024). In Vera, we add frozen matrices A and B that are shared across all layers. It reduces the number of trainable parameters but maintains the same performance when compared to LoRA. Furthermore, trainable scaling vectors $b$ and $d$ are introduced and are multipled by the frozen matrices to result in the equation:
+
+$$ h = W_{0}x + \Lambda_{b}B\Lambda_{d}Ax $$
+
+where \Lambda_{b} and \Lambda_{d} receive updates during training.
+
+_Example_:
+```python
+from adapters import VeraConfig
+
+config = VeraConfig()
+model.add_adapter("vera_config", config=config)
+```
+
+Using the `VeraConfig`, you can specify the initialization of the scaling vectors and the `Vera` initialization of frozen weights B and A via the parameter `init_weights`.
+
+_Papers:_
+- [VeRA: Vector-based Random Matrix Adaptation](https://arxiv.org/pdf/2310.11454) (Kopiczko et al., 2024)
+
 ## Prompt Tuning
 Prompt Tuning is an efficient fine-tuning technique proposed by Lester et al. (2021). Prompt tuning adds tunable tokens, called soft-prompts, that are prepended to the input text.
 First, the input sequence ${x_1, x_2, \dots, x_n }$ gets embedded, resulting in the matrix $X_e \in \mathbb{R}^{n \times e}$ where $e$ is the dimension of
