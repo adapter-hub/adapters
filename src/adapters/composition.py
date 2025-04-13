@@ -41,7 +41,7 @@ class AdapterCompositionBlock(Sequence):
 
     @property
     def parallel_channels(self):
-        return max([b.parallel_channels if isinstance(b, AdapterCompositionBlock) else 1 for b in self.children])
+        return max([(b.parallel_channels if isinstance(b, AdapterCompositionBlock) else 1) for b in self.children])
 
     def flatten(self) -> Set[str]:
         return set(itertools.chain(*[[b] if isinstance(b, str) else b.flatten() for b in self.children]))
@@ -53,7 +53,7 @@ class AdapterCompositionBlock(Sequence):
         save_dict = {
             "type": self.__class__.__name__,
             "children": [
-                c.to_dict() if isinstance(c, AdapterCompositionBlock) else {"type": "single", "children": [c]}
+                (c.to_dict() if isinstance(c, AdapterCompositionBlock) else {"type": "single", "children": [c]})
                 for c in self.children
             ],
         }
@@ -92,7 +92,11 @@ class Stack(AdapterCompositionBlock):
 
 
 class Fuse(AdapterCompositionBlock):
-    def __init__(self, *fuse_stacks: List[Union[AdapterCompositionBlock, str]], name: Optional[str] = None):
+    def __init__(
+        self,
+        *fuse_stacks: List[Union[AdapterCompositionBlock, str]],
+        name: Optional[str] = None,
+    ):
         super().__init__(*fuse_stacks)
         self._name = name
 
@@ -106,7 +110,11 @@ class Fuse(AdapterCompositionBlock):
 
 
 class Split(AdapterCompositionBlock):
-    def __init__(self, *split_adapters: List[Union[AdapterCompositionBlock, str]], splits: Union[List[int], int]):
+    def __init__(
+        self,
+        *split_adapters: List[Union[AdapterCompositionBlock, str]],
+        splits: Union[List[int], int],
+    ):
         super().__init__(*split_adapters)
         self.splits = splits if isinstance(splits, list) else [splits] * len(split_adapters)
 
@@ -115,12 +123,21 @@ class Split(AdapterCompositionBlock):
 
 
 class BatchSplit(AdapterCompositionBlock):
-    def __init__(self, *split_adapters: List[Union[AdapterCompositionBlock, str]], batch_sizes: Union[List[int], int]):
+    def __init__(
+        self,
+        *split_adapters: List[Union[AdapterCompositionBlock, str]],
+        batch_sizes: Union[List[int], int],
+    ):
         super().__init__(*split_adapters)
         self.batch_sizes = batch_sizes if isinstance(batch_sizes, list) else [batch_sizes] * len(split_adapters)
 
     def _get_save_kwargs(self):
         return {"batch_sizes": self.batch_sizes}
+
+
+class MultiTask(AdapterCompositionBlock):
+    def __init__(self, *children):
+        super().__init__(*children)
 
 
 class Average(AdapterCompositionBlock):
@@ -147,10 +164,11 @@ class Average(AdapterCompositionBlock):
 
 # Mapping each composition block type to the allowed nested types
 ALLOWED_NESTINGS = {
-    Stack: [str, Fuse, Split, Parallel, BatchSplit, Average],
+    Stack: [str, Fuse, Split, Parallel, BatchSplit, Average, MultiTask],
     Fuse: [str, Stack],
     Split: [str, Split, Stack, BatchSplit, Average],
     Parallel: [str, Stack, BatchSplit, Average],
+    MultiTask: [str, Stack, Average, Fuse],
     BatchSplit: [str, Stack, Split, BatchSplit, Average],
     Average: [str, Stack, Split, BatchSplit],
 }
@@ -255,7 +273,7 @@ def parse_heads_from_composition(adapter_composition, reference_heads: list = No
         return [a if isinstance(a, str) else a.last() for a in final_block.children]
     elif isinstance(final_block, BatchSplit):
         # Convert BatchSplit of adapters to a BatchSplit of heads.
-        blocks = [block.last() if isinstance(block, AdapterCompositionBlock) else block for block in final_block]
+        blocks = [(block.last() if isinstance(block, AdapterCompositionBlock) else block) for block in final_block]
         head_setup = BatchSplit(*blocks, batch_sizes=final_block.batch_sizes)
         if reference_heads is None or all(head in reference_heads for head in head_setup):
             return head_setup

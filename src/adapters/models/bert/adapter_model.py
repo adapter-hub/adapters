@@ -18,7 +18,10 @@ from ...wrappers import init
     BERT_START_DOCSTRING,
 )
 class BertAdapterModel(
-    EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BertPreTrainedModel, GenerationMixin
+    EmbeddingAdaptersWrapperMixin,
+    ModelWithFlexibleHeadsAdaptersMixin,
+    BertPreTrainedModel,
+    GenerationMixin,
 ):
 
     head_types = [

@@ -59,8 +59,14 @@ class CustomInterfaceModelTestBase(TextAdapterTestBase):
         model = Gemma2ForSequenceClassification(self.config())
         adapters.init(model, interface=self.adapter_interface)
 
-        model.add_adapter(trained_adapter_name, config=adapter_config or LoRAConfig(init_weights="bert"))
-        model.add_adapter(frozen_adapter_name, config=adapter_config or LoRAConfig(init_weights="bert"))
+        model.add_adapter(
+            trained_adapter_name,
+            config=adapter_config or LoRAConfig(init_weights="bert"),
+        )
+        model.add_adapter(
+            frozen_adapter_name,
+            config=adapter_config or LoRAConfig(init_weights="bert"),
+        )
 
         return model
 
@@ -98,6 +104,7 @@ method_tests = generate_method_tests(
         "Heads",
         "PrefixTuning",
         "PromptTuning",
+        "MTLLoRA",
         "UniPELT",
         "Composition",
         "Bottleneck",
@@ -124,7 +131,10 @@ class Bottleneck(
             (DoubleSeqBnConfig(), n_layers * 2),
             (ConfigUnion(LoRAConfig(), ParBnConfig()), n_layers * 2),
         ]:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_get_test(model, adapter_config, n_expected)
 
 

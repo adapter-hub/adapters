@@ -2,6 +2,7 @@ import unittest
 
 import pytest
 
+from tests.test_methods.method_test_impl.composition.test_multi_task import MultiTaskTestMixin
 from tests.test_methods.method_test_impl.composition.test_parallel import (
     ParallelAdapterInferenceTestMixin,
     ParallelTrainingMixin,
@@ -16,6 +17,7 @@ from tests.test_methods.method_test_impl.peft.test_compacter import CompacterTes
 from tests.test_methods.method_test_impl.peft.test_config_union import ConfigUnionAdapterTest
 from tests.test_methods.method_test_impl.peft.test_ia3 import IA3TestMixin
 from tests.test_methods.method_test_impl.peft.test_lora import LoRATestMixin
+from tests.test_methods.method_test_impl.peft.test_mtllora import MTLLoRATestMixin
 from tests.test_methods.method_test_impl.peft.test_prefix_tuning import PrefixTuningTestMixin
 from tests.test_methods.method_test_impl.peft.test_prompt_tuning import PromptTuningTestMixin
 from tests.test_methods.method_test_impl.peft.test_reft import ReftTestMixin
@@ -90,6 +92,7 @@ def generate_method_tests(
             model_test_base,
             ParallelAdapterInferenceTestMixin,
             ParallelTrainingMixin,
+            MultiTaskTestMixin.generate_test_methods(),
             unittest.TestCase,
         ):
             pass
@@ -224,6 +227,19 @@ def generate_method_tests(
             pass
 
         test_classes["LoRA"] = LoRA
+
+    if "MTLLoRA" not in redundant and "MTLLoRA" not in not_supported:
+
+        @require_torch
+        @pytest.mark.mtl_lora
+        class MTLLoRA(
+            model_test_base,
+            MTLLoRATestMixin,
+            unittest.TestCase,
+        ):
+            pass
+
+        test_classes["MTLLoRA"] = MTLLoRA
 
     if "ConfigUnion" not in redundant and "ConfigUnion" not in not_supported:
 
