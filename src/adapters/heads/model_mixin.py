@@ -9,7 +9,7 @@ from transformers.utils import ModelOutput
 
 from ..composition import AdapterCompositionBlock, BatchSplit, Parallel, parse_heads_from_composition
 from ..context import AdapterSetup, ForwardContext
-from ..loading import PredictionHeadLoader
+from ..head_utils import STATIC_TO_FLEX_HEAD_MAP, get_head_config_and_rename_list
 from ..model_mixin import ModelWithHeadsAdaptersMixin
 from .base import (
     ClassificationHead,
@@ -709,48 +709,33 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     def _load_pretrained_model(
         cls,
         model,
-        state_dict,
-        loaded_keys,
         *args,
+        key_mapping=None,
         **kwargs,
     ):
-        # Filter only weights not part of base model
-        loader = PredictionHeadLoader(model, error_on_missing=False, convert_to_flex_head=True)
-        filter_func = loader.filter_func(None)
-        if state_dict is not None:
-            head_state_dict = {key: value for key, value in state_dict.items() if filter_func(key)}
-        else:
-            head_state_dict = None
+        original_model_class = model.config.architectures[0]
         head_name = "default"
-        head_config, new_head_state_dict = loader.convert_static_to_flex_head(head_state_dict, load_as=head_name)
-
-        if head_config is not None:
+        if original_model_class in STATIC_TO_FLEX_HEAD_MAP:
+            head_config, rename_dict = get_head_config_and_rename_list(
+                original_model_class,
+                head_name,
+                getattr(model.config, "label2id"),
+                return_rename_func=False,
+            )
             # add head from config
             if head_name in model.heads:
                 logger.warning("Overwriting existing head '{}'".format(head_name))
 
             model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
 
-        if new_head_state_dict is not None:
-            # Always ensure base_model_prefix is added, otherwise loading head weights does not work.
-            if len(model.base_model_prefix) > 0 and not any(
-                s.startswith(model.base_model_prefix) for s in loaded_keys
-            ):
-                rename_func = lambda x: model.base_model_prefix + "." + x if x not in head_state_dict else x
-                state_dict = {rename_func(k): v for k, v in state_dict.items()}
-                loaded_keys = [rename_func(k) for k in loaded_keys]
-
-            for k in head_state_dict:
-                del state_dict[k]
-                loaded_keys.remove(k)
-            for k in new_head_state_dict:
-                state_dict[k] = new_head_state_dict[k]
-                loaded_keys.append(k)
+            if key_mapping is None:
+                key_mapping = rename_dict
+            else:
+                key_mapping.update(rename_dict)
 
         return super()._load_pretrained_model(
             model,
-            state_dict,
-            loaded_keys,
             *args,
+            key_mapping=key_mapping,
             **kwargs,
         )

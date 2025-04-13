@@ -18,7 +18,6 @@
 from typing import Callable, Optional, Tuple, Union
 
 import torch
-from torch import nn
 
 from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
