@@ -3,6 +3,10 @@ from transformers.testing_utils import require_torch
 
 @require_torch
 class AdapterModelTesterMixin:
+    @property
+    def all_generative_model_classes(self):
+        return tuple()  # AdapterModel classes are not generative as is (ie without a LM head)
+
     def test_training(self):
         self.skipTest("Not applicable.")
 
