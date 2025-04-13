@@ -713,25 +713,26 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
         key_mapping=None,
         **kwargs,
     ):
-        original_model_class = model.config.architectures[0]
-        head_name = "default"
-        if original_model_class in STATIC_TO_FLEX_HEAD_MAP:
-            head_config, rename_dict = get_head_config_and_rename_list(
-                original_model_class,
-                head_name,
-                getattr(model.config, "label2id"),
-                return_rename_func=False,
-            )
-            # add head from config
-            if head_name in model.heads:
-                logger.warning("Overwriting existing head '{}'".format(head_name))
+        if model.config.architectures is not None:
+            original_model_class = model.config.architectures[0]
+            head_name = "default"
+            if original_model_class in STATIC_TO_FLEX_HEAD_MAP:
+                head_config, rename_dict = get_head_config_and_rename_list(
+                    original_model_class,
+                    head_name,
+                    getattr(model.config, "label2id"),
+                    return_rename_func=False,
+                )
+                # add head from config
+                if head_name in model.heads:
+                    logger.warning("Overwriting existing head '{}'".format(head_name))
 
-            model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
+                model.add_prediction_head_from_config(head_name, head_config, overwrite_ok=True)
 
-            if key_mapping is None:
-                key_mapping = rename_dict
-            else:
-                key_mapping.update(rename_dict)
+                if key_mapping is None:
+                    key_mapping = rename_dict
+                else:
+                    key_mapping.update(rename_dict)
 
         return super()._load_pretrained_model(
             model,

@@ -793,9 +793,9 @@ STATIC_TO_FLEX_HEAD_MAP = {
 
 def _regex_list_rename_func(k, rename_list):
     for o, n in rename_list:
-        new_n, count = re.subn(o, k, n)
+        new_k, count = re.subn(o, n, k)
         if count > 0:
-            return new_n
+            return new_k
     return k
 
 
