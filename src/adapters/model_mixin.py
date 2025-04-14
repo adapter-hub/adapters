@@ -572,9 +572,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.apply_to_basemodel_childs(lambda i, child: child.enable_adapters(adapter_setup, True, False))
         for adapter_name in adapter_setup:
             if adapter_name in self.base_model.shared_parameters:
-                for param in self.base_model.shared_parameters[adapter_name].values():
-                    param.requires_grad = True
-
+                # if the adapter being used is a Vera adapter, we need to keep the shared params disabled
+                adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+                if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+                    for param in self.base_model.shared_parameters[adapter_name].values():
+                        param.requires_grad = False
+                else:
+                    for param in self.base_model.shared_parameters[adapter_name].values():
+                        param.requires_grad = True
+                        
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.enable_invertible_adapters(adapter_setup.flatten())
         # use the adapters to be trained by default in every forward pass
@@ -923,7 +929,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
         self.apply_to_basemodel_childs(lambda i, child: child.delete_adapter(adapter_name))
         del self.adapters_config.adapters[adapter_name]
-        # PHM Layer
+        # PHM Layer and Vera
         if adapter_name in self.base_model.shared_parameters:
             del self.base_model.shared_parameters[adapter_name]
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
