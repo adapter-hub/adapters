@@ -580,7 +580,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                 else:
                     for param in self.base_model.shared_parameters[adapter_name].values():
                         param.requires_grad = True
-                        
+
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.enable_invertible_adapters(adapter_setup.flatten())
         # use the adapters to be trained by default in every forward pass

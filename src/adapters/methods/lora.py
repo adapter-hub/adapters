@@ -162,7 +162,7 @@ class LoRA(nn.Module):
         else:
             gate = None
             hidden_states = hidden_states * self.scaling
-        
+
         return hidden_states, gate
 
 
@@ -367,7 +367,7 @@ class Vera(nn.Module):
         parameters = ForwardContext.get_context().shared_parameters[self.name]
         lora_A = parameters["lora_A"]
         lora_B = parameters["lora_B"]
-        
+
         if hidden_states is None:
             hidden_states = layer_input
 
