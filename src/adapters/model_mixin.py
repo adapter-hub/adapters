@@ -573,10 +573,14 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         for adapter_name in adapter_setup:
             if adapter_name in self.base_model.shared_parameters:
                 # if the adapter being used is a Vera adapter, we need to keep the shared params disabled
-                adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
-                if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
-                    for param in self.base_model.shared_parameters[adapter_name].values():
-                        param.requires_grad = False
+                if self.adapters_config.match(adapter_name, LoRAConfig):
+                    adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+                    if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+                        for param in self.base_model.shared_parameters[adapter_name].values():
+                            param.requires_grad = False
+                    else:
+                        for param in self.base_model.shared_parameters[adapter_name].values():
+                            param.requires_grad = True
                 else:
                     for param in self.base_model.shared_parameters[adapter_name].values():
                         param.requires_grad = True
