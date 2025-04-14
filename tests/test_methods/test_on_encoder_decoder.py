@@ -73,7 +73,6 @@ test_methods = generate_method_tests(
         "Composition",
         "PromptTuning",
         "ClassConversion",
-        "Vera",
     ],
 )
 
