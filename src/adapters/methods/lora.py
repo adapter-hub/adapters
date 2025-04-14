@@ -162,7 +162,7 @@ class LoRA(nn.Module):
         else:
             gate = None
             hidden_states = hidden_states * self.scaling
-
+        
         return hidden_states, gate
 
 
@@ -311,6 +311,7 @@ class Vera(nn.Module):
         config: LoRAConfig,
         gating_heads: int = 1,
         name: str = None,
+        **kwargs,
     ):
         super().__init__()
         self.d = config.vera_d
@@ -366,7 +367,7 @@ class Vera(nn.Module):
         parameters = ForwardContext.get_context().shared_parameters[self.name]
         lora_A = parameters["lora_A"]
         lora_B = parameters["lora_B"]
-
+        
         if hidden_states is None:
             hidden_states = layer_input
 
@@ -479,7 +480,7 @@ class LoRALayer(AdapterLayerBase):
                         }
                 else:
                     lora_cls = LoRA
-                lora_cls = LoRA if not isinstance(lora_config, MTLLoRAConfig) else MTLLoRA
+                lora_cls = lora_cls if not isinstance(lora_config, MTLLoRAConfig) else MTLLoRA
             elif lora_config.composition_mode == "scale":
                 lora_cls = IA3
             else:
