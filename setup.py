@@ -61,7 +61,7 @@ _deps = [
     "timeout-decorator",
     "torch",
     "torchvision",
-    "transformers~=4.48.3",
+    "transformers~=4.50.3",
 ]
 
 
@@ -149,7 +149,7 @@ install_requires = [
 
 setup(
     name="adapters",
-    version="1.1.0",
+    version="1.2.0.dev0",
     author="The AdapterHub team and community contributors",
     author_email="calpt@mail.de",
     description="A Unified Library for Parameter-Efficient and Modular Transfer Learning",
