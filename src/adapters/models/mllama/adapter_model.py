@@ -14,7 +14,8 @@ from transformers.models.mllama.modeling_mllama import (
 )
 from transformers.utils import add_start_docstrings
 
-from ...context import AdapterSetup, ForwardContext
+from ...composition import adjust_tensors_for_parallel
+from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
 from ...wrappers import init
@@ -210,16 +211,31 @@ class MllamaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
             cache_position=cache_position,
         )
 
-        hidden_states = outputs[0]
-        head_input_states = hidden_states[:, -num_logits_to_keep:, :]
+        batch_size = outputs[0].shape[0]
 
-        if head or AdapterSetup.get_context_head_setup() or self.active_head:
-            head_outputs = self.forward_head(
-                head_input_states,
-                head_name=head,
-                attention_mask=attention_mask,
-                return_dict=return_dict,
-                **kwargs,
-            )
-            return head_outputs
+        if self.config.pad_token_id is None:
+            # TODO-AH: this may result in unexpected behavior for classification. Find a better way to do this?
+            sequence_lengths = -1
+        else:
+            if input_ids is not None:
+                sequence_lengths = torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
+                (sequence_lengths,) = adjust_tensors_for_parallel(outputs[0], sequence_lengths)
+            else:
+                sequence_lengths = -1
+                logger.warning(
+                    f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
+                    "unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                )
+
+        cls_logits = outputs[0][range(batch_size), sequence_lengths]
+
+        outputs = self.forward_head(
+            outputs,
+            head_name=head,
+            cls_output=cls_logits,
+            attention_mask=attention_mask,
+            return_dict=return_dict,
+            **kwargs,
+        )
+
         return outputs
