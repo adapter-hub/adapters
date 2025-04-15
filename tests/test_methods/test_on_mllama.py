@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 
 import torch
-import torch
 from PIL import Image
 
 from transformers import MllamaImageProcessor

@@ -532,7 +532,10 @@ class MllamaSelfAttentionDecoderLayerWithAdapters(
             cache_position=cache_position,
             position_embeddings=position_embeddings,
         )
+
+        # >>> START AH Changes <<<
         hidden_states = self.attention_adapters(hidden_states, residual, None)
+        # >>> END AH Changes <<<
 
         # Fully Connected
         residual = hidden_states
