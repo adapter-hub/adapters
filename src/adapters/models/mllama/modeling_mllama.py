@@ -29,6 +29,7 @@ from torch import nn
 from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
 from transformers.cache_utils import Cache
 from transformers.models.mllama.modeling_mllama import (
+    MllamaCrossAttentionDecoderLayer,
     MllamaSelfAttentionDecoderLayer,
     MllamaTextCrossAttention,
     MllamaTextCrossSdpaAttention,
@@ -42,6 +43,7 @@ from transformers.models.mllama.modeling_mllama import (
 from transformers.utils import logging
 
 from .mixin_mllama import (
+    MllamaCrossAttentionDecoderLayerAdaptersMixin,
     MllamaSelfAttentionDecoderLayerAdaptersMixin,
     MllamaTextCrossAttentionAdaptersMixin,
     MllamaTextSelfAttentionAdaptersMixin,
@@ -552,5 +554,63 @@ class MllamaSelfAttentionDecoderLayerWithAdapters(
 
         if use_cache:
             outputs += (present_key_value,)
+
+        return outputs
+
+
+class MllamaCrossAttentionDecoderLayerWithAdapters(
+    MllamaCrossAttentionDecoderLayer, MllamaCrossAttentionDecoderLayerAdaptersMixin
+):
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        cross_attention_states: torch.Tensor,
+        cross_attention_mask: torch.Tensor,
+        attention_mask: torch.Tensor,
+        full_text_row_masked_out_mask: Tuple[torch.Tensor, torch.Tensor],
+        position_ids: Optional[torch.LongTensor] = None,
+        past_key_value: Optional[Cache] = None,
+        output_attentions: Optional[bool] = False,
+        use_cache: Optional[bool] = False,
+        cache_position: Optional[torch.LongTensor] = None,
+        position_embeddings: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor]:
+
+        residual = hidden_states
+        hidden_states = self.input_layernorm(hidden_states)
+
+        hidden_states, attn_weights, past_key_value = self.cross_attn(
+            hidden_states=hidden_states,
+            attention_mask=cross_attention_mask,
+            cross_attention_states=cross_attention_states,
+            past_key_value=past_key_value,
+            output_attentions=output_attentions,
+            cache_position=cache_position,
+        )
+        # >>> START AH Changes <<<
+        hidden_states = self.attention_adapters(hidden_states, residual, None)
+        # >>> END AH Changes <<<
+        hidden_states = residual + self.cross_attn_attn_gate.tanh() * hidden_states
+
+        # Fully Connected
+        residual = hidden_states
+        hidden_states = self.post_attention_layernorm(hidden_states)
+        hidden_states = self.mlp(hidden_states)
+        # >>> START AH Changes <<<
+        hidden_states = self.output_adapters(hidden_states, residual, None)
+        # >>> END AH Changes <<<
+
+        if full_text_row_masked_out_mask is not None:
+            hidden_states = full_text_row_masked_out_mask[:, 0] * hidden_states  # type: ignore
+        hidden_states = residual + self.cross_attn_mlp_gate.tanh() * hidden_states
+
+        outputs = (hidden_states,)
+
+        if output_attentions:
+            outputs += (attn_weights,)
+
+        if use_cache:
+            outputs += (past_key_value,)
 
         return outputs
