@@ -1,9 +1,8 @@
 from adapters import AdapterModelInterface
-from transformers import Gemma2PreTrainedModel, ModernBertPreTrainedModel
 
 
 CUSTOM_INTERFACES = {
-    ModernBertPreTrainedModel: AdapterModelInterface(
+    "modernbert": AdapterModelInterface(
         adapter_methods=["bottleneck", "lora", "reft", "invertible"],  # not yet working for prompt tuning
         model_embeddings="embeddings",
         model_layers="layers",
@@ -19,7 +18,7 @@ CUSTOM_INTERFACES = {
         layer_ln_1="mlp_norm",
         layer_ln_2=None,  # ModernBERT has no layer norm after the attention layer
     ),
-    Gemma2PreTrainedModel: AdapterModelInterface(
+    "gemma2": AdapterModelInterface(
         adapter_methods=["bottleneck", "lora", "reft", "invertible"],
         model_embeddings="embed_tokens",
         model_layers="layers",
@@ -40,9 +39,8 @@ CUSTOM_INTERFACES = {
 }
 
 
-def get_adapter_interface(model):
-    # If it is a sub type of a known model, return the corresponding interface
-    for model_type, interface in CUSTOM_INTERFACES.items():
-        if isinstance(model, model_type):
-            return interface
-    return None
+def get_adapter_interface(model_name):
+    if model_name in CUSTOM_INTERFACES:
+        return CUSTOM_INTERFACES[model_name]
+    else:
+        return None
