@@ -1033,34 +1033,43 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
 
 def init_lora(model):
     model = model.base_model
+
+    # First, check if we should use merged linear layer instead of individual q,k,v projections
+    use_merged_linear = model.adapter_interface.attn_qkv_proj is not None
+
     for _, _, attention in model.iter_attentions():
-        if q_proj := multigetattr(attention, model.adapter_interface.attn_q_proj, None):
-            lora_proj = LoRALinear.wrap(
-                q_proj,
-                "selfattn",
-                model.config,
-                model.adapters_config,
-                attn_key="q",
-            )
-            multisetattr(attention, model.adapter_interface.attn_q_proj, lora_proj)
-        if k_proj := multigetattr(attention, model.adapter_interface.attn_k_proj, None):
-            lora_proj = LoRALinear.wrap(
-                k_proj,
-                "selfattn",
-                model.config,
-                model.adapters_config,
-                attn_key="k",
-            )
-            multisetattr(attention, model.adapter_interface.attn_k_proj, lora_proj)
-        if v_proj := multigetattr(attention, model.adapter_interface.attn_v_proj, None):
-            lora_proj = LoRALinear.wrap(
-                v_proj,
-                "selfattn",
-                model.config,
-                model.adapters_config,
-                attn_key="v",
-            )
-            multisetattr(attention, model.adapter_interface.attn_v_proj, lora_proj)
+        if use_merged_linear:
+            if qkv_proj := multigetattr(attention, model.adapter_interface.attn_qkv_proj, None):
+                lora_proj = LoRAMergedLinear.wrap(qkv_proj, "selfattn", model.config, model.adapters_config)
+                multisetattr(attention, model.adapter_interface.attn_qkv_proj, lora_proj)
+        else:
+            if q_proj := multigetattr(attention, model.adapter_interface.attn_q_proj, None):
+                lora_proj = LoRALinear.wrap(
+                    q_proj,
+                    "selfattn",
+                    model.config,
+                    model.adapters_config,
+                    attn_key="q",
+                )
+                multisetattr(attention, model.adapter_interface.attn_q_proj, lora_proj)
+            if k_proj := multigetattr(attention, model.adapter_interface.attn_k_proj, None):
+                lora_proj = LoRALinear.wrap(
+                    k_proj,
+                    "selfattn",
+                    model.config,
+                    model.adapters_config,
+                    attn_key="k",
+                )
+                multisetattr(attention, model.adapter_interface.attn_k_proj, lora_proj)
+            if v_proj := multigetattr(attention, model.adapter_interface.attn_v_proj, None):
+                lora_proj = LoRALinear.wrap(
+                    v_proj,
+                    "selfattn",
+                    model.config,
+                    model.adapters_config,
+                    attn_key="v",
+                )
+                multisetattr(attention, model.adapter_interface.attn_v_proj, lora_proj)
 
     for _, layer in model.iter_layers():
         if intermediate_proj := multigetattr(layer, model.adapter_interface.layer_intermediate_proj):
