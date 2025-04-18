@@ -13,7 +13,7 @@ The table below further shows which model architectures support which adaptation
 
 | Model                                   | (Bottleneck)<br> Adapters | Prefix<br> Tuning | LoRA | Compacter | Adapter<br> Fusion | Invertible<br> Adapters | Parallel<br> block | Prompt<br> Tuning | ReFT |
 | --------------------------------------- | -| - | - | - | - | - | - |- | - |
-| [Custom models](plugin_interface.html)    | ✅(°) |  | ✅ | ✅ | ✅ | ✅ |  | ✅ | ✅ |
+| [Custom models](plugin_interface.html)<sup>◊</sup> | ✅ |  | ✅ | ✅ | ✅ | ✅ |  | ✅ | ✅ |
 | [ALBERT](classes/models/albert.html)    | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [BART](classes/models/bart.html)        | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [BEIT](classes/models/beit.html)        | ✅ | ✅ | ✅ | ✅ | ✅ |  |  | ✅ | ✅ |
@@ -25,10 +25,12 @@ The table below further shows which model architectures support which adaptation
 | [DistilBERT](classes/models/distilbert.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [Electra](classes/models/electra.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [Encoder Decoder](classes/models/encoderdecoder.html) | (*) | (*) | (*) | (*) | (*) | (*) | | | (*) |
+| Gemma 2<sup>◊</sup>                    | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
 | [GPT-2](classes/models/gpt2.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [GPT-J](classes/models/gptj.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [Llama<br>Llama 2<br>Llama 3](classes/models/llama.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [MBart](classes/models/mbart.html)      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
+| ModernBERT<sup>◊</sup>                 | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
 | [Mistral](classes/models/mistral.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [MT5](classes/models/mt5.html)          | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [PLBart](classes/models/plbart.html)      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
@@ -39,17 +41,9 @@ The table below further shows which model architectures support which adaptation
 | [XLM-RoBERTa](classes/models/xlmroberta.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [X-MOD](classes/models/xmod.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-(°) `original_ln_after=False` is unsupported for bottleneck configs.  
+<sup>◊</sup> Models supported via the [plugin interface mechanism](plugin_interface.html). `original_ln_after=False` is unsupported for bottleneck configs.  
 (*) If the used encoder and decoder model class are supported.
 
-## Models Supported via Custom Interfaces
-| Model | (Bottleneck)<br> Adapters | Prefix<br> Tuning | LoRA | Compacter | Adapter<br> Fusion | Invertible<br> Adapters | Parallel<br> block | Prompt<br> Tuning | ReFT |
-| ----- | -| - | - | - | - | - | - |- | - |
-| ModernBERT | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
-| Gemma 2 | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
-
-
-These models are integrated using the plugin interface mechanism described in [Custom Models](plugin_interface.html). While they support most adapter methods, some features like Prefix Tuning, Parallel blocks, and `original_ln_after=False` for bottleneck adapters are not available. Refer to the [wiki page](plugin_interface.html) to see how to use them. 
 
 **Missing a model architecture you'd like to use?**  
 The new model plugin interface makes it easy to support new transformer models with just a few lines of code [Learn more](plugin_interface.md).
