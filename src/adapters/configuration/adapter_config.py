@@ -78,18 +78,16 @@ class AdapterConfig(Mapping):
         Returns the matching config class for the given config dict based on its "architecture" key.
         """
         architecture = config_dict.get("architecture", None)
-        if architecture == "prefix_tuning":
-            cls_new = PrefixTuningConfig
-        elif architecture == "lora":
-            cls_new = LoRAConfig
-        elif architecture == "union":
-            cls_new = ConfigUnion
-        elif architecture == "prompt_tuning":
-            cls_new = PromptTuningConfig
-        elif architecture == "reft":
-            cls_new = ReftConfig
-        else:
-            cls_new = BnConfig
+        arch_to_config = {
+            "prefix_tuning": PrefixTuningConfig,
+            "lora": LoRAConfig,
+            "mtl_lora": MTLLoRAConfig,
+            "union": ConfigUnion,
+            "prompt_tuning": PromptTuningConfig,
+            "reft": ReftConfig,
+            None: BnConfig,
+        }
+        cls_new = arch_to_config[architecture]
 
         return cls_new
 
@@ -271,7 +269,11 @@ class BnConfig(AdapterConfig):
             # Now, we have two config keys directly in the adapter config.
             if value:
                 object.__setattr__(self, "inv_adapter", value["block_type"])
-                object.__setattr__(self, "inv_adapter_reduction_factor", value["reduction_factor"])
+                object.__setattr__(
+                    self,
+                    "inv_adapter_reduction_factor",
+                    value["reduction_factor"],
+                )
         else:
             object.__setattr__(self, name, value)
 
@@ -552,6 +554,40 @@ class IA3Config(LoRAConfig):
 
 
 @dataclass(eq=False)
+class MultiTaskConfig(AdapterConfig):
+    """
+    Flag class for all multi task adaptation methods.
+    This class does not define specific configuration keys, but only provides
+    some common helper methods.
+    """
+
+    ...
+
+
+@dataclass(eq=False)
+class MTLLoRAConfig(LoRAConfig, MultiTaskConfig):
+    """
+    The MTL-LoRA architecture, proposed by Yang et al. (2024), combine LoRA with multi-task learning. See https://arxiv.org/pdf/2410.09437.pdf.
+    This configuration extends LoRA to support multi-task adaptation, allowing parameter-efficient fine-tuning across
+    multiple tasks while leveraging low-rank reparameterization techniques.
+
+    Args:
+        n_up_projection (int, optional): The number of additional projection layers for task-specific adaptations.
+            Defaults to 1.
+        task_specific_matrix_type (Literal["singular_values", "linear"], optional): The type of task-specific matrix
+            used in adaptation. Can be either "singular_values" (which adapts using singular value decomposition-based
+            transformations) or "linear" (which applies a learned linear transformation). Defaults to "singular_values".
+        weights_sharpness (float, optional): A scaling factor controlling the sharpness of the task-specific weight
+            transformations, influencing how much task adaptation is applied. Defaults to 0.05.
+    """
+
+    architecture: Optional[str] = "mtl_lora"
+    n_up_projection: int = 1
+    task_specific_matrix_type: Literal["singular_values", "linear"] = "singular_values"
+    weights_sharpness: float = 0.05
+
+
+@dataclass(eq=False)
 class ReftConfig(AdapterConfig):
     """
     Base class for Representation Fine-Tuning (ReFT) methods proposed in Wu et al. (2024). See https://arxiv.org/pdf/2404.03592.
@@ -708,7 +744,10 @@ class ConfigUnion(AdapterConfig):
         return all([c_a == c_b for c_a, c_b in zip(self.configs, other.configs)])
 
     def to_dict(self):
-        return {"architecture": self.architecture, "configs": [c.to_dict() for c in self.configs]}
+        return {
+            "architecture": self.architecture,
+            "configs": [c.to_dict() for c in self.configs],
+        }
 
     def replace(self, **changes):
         return ConfigUnion(*[c.replace(**changes) for c in self.configs])
@@ -731,7 +770,11 @@ class MAMConfig(ConfigUnion):
     The Mix-And-Match adapter architecture proposed by He et al. (2021). See https://arxiv.org/pdf/2110.04366.pdf.
     """
 
-    def __init__(self, prefix_tuning: Optional[PrefixTuningConfig] = None, adapter: Optional[BnConfig] = None):
+    def __init__(
+        self,
+        prefix_tuning: Optional[PrefixTuningConfig] = None,
+        adapter: Optional[BnConfig] = None,
+    ):
         prefix_tuning = prefix_tuning or PrefixTuningConfig(bottleneck_size=800)
         adapter = adapter or ParBnConfig()
 
@@ -789,6 +832,7 @@ ADAPTER_CONFIG_MAP = {
     "prefix_tuning": PrefixTuningConfig(),
     "prefix_tuning_flat": PrefixTuningConfig(flat=True),
     "prompt_tuning": PromptTuningConfig(),
+    "mtl_lora": MTLLoRAConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
     "loreft": LoReftConfig(),

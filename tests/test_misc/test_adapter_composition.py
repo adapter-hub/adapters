@@ -4,7 +4,7 @@ import torch
 
 import adapters
 from adapters import IA3Config, LoRAConfig, PrefixTuningConfig, SeqBnConfig
-from adapters.composition import Average, BatchSplit, Fuse, Parallel, Split, Stack, parse_composition
+from adapters.composition import Average, BatchSplit, Fuse, MultiTask, Parallel, Split, Stack, parse_composition
 from tests.test_methods.method_test_impl.utils import ids_tensor
 from transformers import BertConfig, BertForSequenceClassification
 from transformers.testing_utils import require_torch, torch_device
@@ -17,19 +17,29 @@ class AdapterCompositionParsingTest(unittest.TestCase):
         self.assertEqual(Stack("a", Fuse("b", "c")), parse_composition(["a", ["b", "c"]]))
 
     def test_to_deep(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Stack("a", Fuse("b", Stack(Fuse("c", "d"), "e")))))
+        self.assertRaises(
+            ValueError,
+            lambda: parse_composition(Stack("a", Fuse("b", Stack(Fuse("c", "d"), "e")))),
+        )
 
     def test_invalid_nesting_fusion(self):
         self.assertRaises(ValueError, lambda: parse_composition(Fuse(Fuse("a", "b"), "c")))
-        self.assertRaises(ValueError, lambda: parse_composition(Fuse(Split("a", "b", splits=128), "c")))
+        self.assertRaises(
+            ValueError,
+            lambda: parse_composition(Fuse(Split("a", "b", splits=128), "c")),
+        )
 
     def test_invalid_nesting_split(self):
-        self.assertRaises(ValueError, lambda: parse_composition(Split("a", Fuse("b", "c"), splits=128)))
+        self.assertRaises(
+            ValueError,
+            lambda: parse_composition(Split("a", Fuse("b", "c"), splits=128)),
+        )
 
 
 @require_torch
 class AdapterCompositionTest(unittest.TestCase):
     unsupported_blocks = []
+    __import__("pdb").set_trace()
 
     def get_adapter_config(self):
         return SeqBnConfig()
@@ -155,6 +165,31 @@ class AdapterCompositionTest(unittest.TestCase):
         inputs["input_ids"] = ids_tensor((1, 10), 1000)
         logits = model(**inputs).logits
         self.assertEqual(logits.shape, (2, 2))
+
+    def test_multi_task_learning(self):
+        if MultiTask in self.unsupported_blocks:
+            self.skipTest("MultiTaskLearning not supported by adapter config.")
+        tasks = ["a", "b", "c", "d"]
+        model = self.build_model()
+        model.set_active_adapters(MultiTask(*tasks))
+        inputs = {
+            "input_ids": ids_tensor((4, 128), 1000).to(torch_device),
+            "labels": torch.ones(4, dtype=torch.long).to(torch_device),
+        }
+
+        for task_ids in [
+            ["a", "c", "b", "d"],
+            ["a", "a", "a", "a"],
+            ["b", "b", "a", "a"],
+        ]:
+            with self.subTest(task_ids=task_ids):
+                loss = model(**inputs, task_ids=task_ids).loss
+                loss.backward()
+
+            with self.subTest(task_ids=task_ids):
+                task_ids = [tasks.index(task) for task in task_ids]
+                loss = model(**inputs, task_ids=torch.tensor(task_ids)).loss
+                loss.backward()
 
     def test_batch_split(self):
         if BatchSplit in self.unsupported_blocks:

@@ -46,6 +46,7 @@ The following table gives an overview on the supported composition blocks and th
 | [`Fuse`](#fuse)                             | ✅                       |                   | ✅         |      |       |               |
 | [`Split`](#split)                           | ✅                       |                   | ✅         |      |       |               |
 | [`BatchSplit`](#batchsplit)                 | ✅                       | ✅                 | ✅         | ✅(*) | ✅(*)  |               |
+| [`MultiTask`](#multitask)                 | ✅                       | ✅                 | ✅         | ✅(*) | ✅(*)  |               |
 | [`Parallel`](#parallel)                     | ✅                       | ✅                 | ✅         | ✅(*) | ✅(*)  |               |
 | [Output averaging](#output-averaging)       | ✅                       |                   | ✅         | ✅(*) | ✅(*)  |               |
 | [Parameter averaging](#parameter-averaging) | ✅                       | ✅                 | ✅         | ✅    | ✅     | ✅             |
@@ -201,7 +202,43 @@ model.add_adapter("l")
 model.active_adapters = ac.BatchSplit("i", "k", "l", batch_sizes=[2, 1, 2])
 
 ```
+## `MultiTask`
 
+The `MultiTask` block extends `BatchSplit` by enabling dynamic batch splitting based on `task_ids` provided to the `forward` method.
+
+In the example below, the batch is dynamically divided among adapters `i`, `k`, and `l` based on `task_ids` assigned to each sequence. This approach supports flexible multi-task learning without requiring fixed batch sizes per adapter. 
+
+```{eval-rst}
+.. important::
+    - `MultiTask` can only be used with config that inherits from `MultiTaskConfig`.
+    - When training multi-task adapters, `task_ids` mus be an integer tensor indicating the adapter positions. 
+    - For inference, `task_ids` can be a list of task names. 
+```
+
+```python
+from adapters import MTLLoRAConfig
+import adapters.composition as ac
+
+// ...
+
+# config must inherit from MultiTaskConfig
+config = MTLLoRAConfig()
+model.add_adapter("i", config)
+model.add_adapter("k", config)
+model.add_adapter("l", config)
+
+model.share_parameters(
+    adapter_names=["i", "k", "l"],
+)
+
+model.active_adapters = ac.MultiTask("i", "k", "l")
+
+# input batch size = 3
+model.forward(**inputs, task_ids=torch.tensor([2, 1, 0]))  # 2 → "l", 1 → "k", 0 → "i"
+
+# Equivalent inference call
+model.forward(**inputs, task_ids=["l", "k", "i"])
+```
 ## `Parallel`
 
 ```{eval-rst}
@@ -279,6 +316,7 @@ However, combinations of adapter composition blocks cannot be arbitrarily deep. 
 | [`Split`](#split)              | [str, Split, Stack, BatchSplit, Average]          |
 | [`Parallel`](#parallel)        | [str, Stack, BatchSplit, Average]                 |
 | [`BatchSplit`](#batchsplit)    | [str, Stack, Split, BatchSplit, Average]          |
+| [`MultiTask`](#multitask)      | [str, Stack, Split, BatchSplit, Average]          |
 | [`Average`](#output-averaging) | [str, Stack, Split, BatchSplit]                   |
 
 In the table, `str` represents an adapter, e.g. adapter "a" in the nesting example above. Depending on the individual model, some nested compositions might not be possible.

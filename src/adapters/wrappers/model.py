@@ -1,10 +1,10 @@
 import importlib
-import inspect
 import os
 from typing import Any, Optional, Type, Union
 
 from torch import nn
 
+from adapters.context import ForwardContext
 from transformers import PreTrainedModel
 from transformers.models.auto.auto_factory import getattribute_from_module
 from transformers.models.auto.configuration_auto import model_type_to_module_name
@@ -45,14 +45,19 @@ def replace_with_adapter_class(module: nn.Module, modules_with_adapters) -> None
     if module.__class__.__name__ in MODEL_MIXIN_MAPPING:
         # Create new wrapper model class
         model_class = type(
-            module.__class__.__name__, (MODEL_MIXIN_MAPPING[module.__class__.__name__], module.__class__), {}
+            module.__class__.__name__,
+            (MODEL_MIXIN_MAPPING[module.__class__.__name__], module.__class__),
+            {},
         )
         module.__class__ = model_class
     elif module.__class__.__module__.startswith("transformers.models") or module.__class__.__module__.startswith(
         "adapters.wrappers.model"
     ):
         try:
-            module_class = getattribute_from_module(modules_with_adapters, module.__class__.__name__ + "WithAdapters")
+            module_class = getattribute_from_module(
+                modules_with_adapters,
+                module.__class__.__name__ + "WithAdapters",
+            )
             module.__class__ = module_class
         except ValueError:
             # Silently fail and keep original module class
@@ -79,7 +84,11 @@ def init(
         model_class_name = base_model.__class__.__name__
         model_class = type(
             model_class_name,
-            (EmbeddingAdaptersMixin, ModelBaseAdaptersMixin, base_model.__class__),
+            (
+                EmbeddingAdaptersMixin,
+                ModelBaseAdaptersMixin,
+                base_model.__class__,
+            ),
             {},
         )
         base_model.__class__ = model_class
@@ -117,12 +126,16 @@ def init(
             base_model = getattr(model, model.base_model_prefix)
             if isinstance(base_model, ModelAdaptersMixin):
                 # HACK to preserve original forward method signature (e.g. for Trainer label names)
-                temp_signature = inspect.signature(model.forward.__func__)
+                temp_signature = ForwardContext.add_context_args_in_signature(model.forward.__func__)
                 # Create new wrapper model class
                 model_class_name = model.__class__.__name__
                 model_class = type(
                     model_class_name,
-                    (EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin, model.__class__),
+                    (
+                        EmbeddingAdaptersWrapperMixin,
+                        ModelWithHeadsAdaptersMixin,
+                        model.__class__,
+                    ),
                     {},
                 )
                 model.__class__ = model_class
@@ -195,7 +208,9 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
     if not multihasattr(base_model, interface.model_embeddings):
         raise ValueError(
             _INTERFACE_ERROR_TEMPLATE.format(
-                layer_name="model_embeddings", layer_value=interface.model_embeddings, parent_name="base_model"
+                layer_name="model_embeddings",
+                layer_value=interface.model_embeddings,
+                parent_name="base_model",
             )
         )
     # All other values are layer specific => Get the first layer and check if all values are present
@@ -203,7 +218,9 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
     if not layers:
         raise ValueError(
             _INTERFACE_ERROR_TEMPLATE.format(
-                layer_name="model_layers", layer_value=interface.model_layers, parent_name="base_model"
+                layer_name="model_layers",
+                layer_value=interface.model_layers,
+                parent_name="base_model",
             )
         )
 
@@ -233,7 +250,9 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
         if not multihasattr(layer, layer_value):
             raise ValueError(
                 _INTERFACE_ERROR_TEMPLATE.format(
-                    layer_name=layer_name, layer_value=layer_value, parent_name="model layer"
+                    layer_name=layer_name,
+                    layer_value=layer_value,
+                    parent_name="model layer",
                 )
             )
 
@@ -253,7 +272,9 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
             if not multihasattr(self_attn_module, attn_value):
                 raise ValueError(
                     _INTERFACE_ERROR_TEMPLATE.format(
-                        layer_name=attn_name, layer_value=attn_value, parent_name="self-attention layer"
+                        layer_name=attn_name,
+                        layer_value=attn_value,
+                        parent_name="self-attention layer",
                     )
                 )
 
@@ -264,6 +285,8 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
             if not multihasattr(cross_attn_module, attn_value):
                 raise ValueError(
                     _INTERFACE_ERROR_TEMPLATE.format(
-                        layer_name=attn_name, layer_value=attn_value, parent_name="cross-attention layer"
+                        layer_name=attn_name,
+                        layer_value=attn_value,
+                        parent_name="cross-attention layer",
                     )
                 )

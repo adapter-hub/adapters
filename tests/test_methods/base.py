@@ -22,10 +22,6 @@ class AbstractAdapterTestBase:
     do_run_train_tests = True
     num_labels = 2
 
-    def get_input_samples(self, shape=None, vocab_size=5000, config=None, **kwargs):
-        """Creates a dummy batch of samples in the format required for the model."""
-        raise NotImplementedError("get_input_samples() must be implemented in the subclass.")
-
     def add_head(self, model, name, **kwargs):
         """Adds a dummy head to the model."""
         raise NotImplementedError("add_head() must be implemented in the subclass.")
@@ -41,6 +37,12 @@ class AbstractAdapterTestBase:
     def attach_labels(self, inputs):
         """Attaches labels to the input samples."""
         raise NotImplementedError("attach_labels() with respective label shape must be implemented in the subclass.")
+
+    def get_input_samples(self, shape=None, vocab_size=5000, config=None, **kwargs):
+        in_data = {}
+        if "n_tasks" in kwargs:
+            in_data["task_ids"] = torch.randint(0, kwargs["n_tasks"], (shape[0],))
+        return in_data
 
     def get_model(self):
         """Builds a model instance for testing based on the provied model configuration."""
@@ -103,13 +105,13 @@ class TextAdapterTestBase(AbstractAdapterTestBase):
 
     def get_input_samples(self, shape=None, vocab_size=5000, config=None, **kwargs):
         shape = shape or self.input_shape
+        in_data = super().get_input_samples(shape, vocab_size, config, **kwargs)
         input_ids = self.build_rand_ids_tensor(shape, vocab_size=vocab_size)
-
         # Ensures that only tha last token in each sample is the eos token (needed e.g. for BART)
         if config and config.eos_token_id is not None and config.eos_token_id < vocab_size:
             input_ids[input_ids == config.eos_token_id] = random.randint(0, config.eos_token_id - 1)
             input_ids[:, -1] = config.eos_token_id
-        in_data = {"input_ids": input_ids}
+        in_data["input_ids"] = input_ids
 
         # Add decoder input ids for models with a decoder
         if config and config.is_encoder_decoder:
@@ -117,6 +119,7 @@ class TextAdapterTestBase(AbstractAdapterTestBase):
 
         if "num_labels" in kwargs:
             in_data["labels"] = self.build_rand_ids_tensor(shape[:-1], vocab_size=kwargs["num_labels"])
+
         return in_data
 
     def add_head(self, model, name, **kwargs):
@@ -130,7 +133,9 @@ class TextAdapterTestBase(AbstractAdapterTestBase):
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
         data_args = GlueDataTrainingArguments(
-            task_name="mrpc", data_dir="./hf_transformers/tests/fixtures/tests_samples/MRPC", overwrite_cache=True
+            task_name="mrpc",
+            data_dir="./hf_transformers/tests/fixtures/tests_samples/MRPC",
+            overwrite_cache=True,
         )
         return GlueDataset(data_args, tokenizer=tokenizer, mode="train")
 
@@ -155,8 +160,10 @@ class VisionAdapterTestBase(AbstractAdapterTestBase):
 
     def get_input_samples(self, shape=None, config=None, dtype=torch.float, **kwargs):
         shape = shape or self.input_shape
+        in_data = super().get_input_samples(shape, config=config, **kwargs)
         pixel_values = self.build_rand_tensor(shape, dtype=dtype)
-        return {"pixel_values": pixel_values}
+        in_data["pixel_values"] = pixel_values
+        return in_data
 
     def add_head(self, model, name, **kwargs):
         kwargs["num_labels"] = 10 if "num_labels" not in kwargs else kwargs["num_labels"]
@@ -210,7 +217,8 @@ class AudioAdapterTestBase(AbstractAdapterTestBase):
 
     def get_input_samples(self, shape=None, config=None, **kwargs):
         shape = shape or self.input_shape
-        in_data = {"input_features": self.build_rand_tensor(shape, dtype=torch.float)}
+        in_data = super().get_input_samples(shape, config=config, **kwargs)
+        in_data["input_features"] = self.build_rand_tensor(shape, dtype=torch.float)
 
         # Add decoder input ids for models with a decoder
         if config and config.is_encoder_decoder:
