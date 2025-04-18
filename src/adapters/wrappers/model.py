@@ -67,9 +67,11 @@ def init(
     if isinstance(model, ModelAdaptersMixin):
         return model
 
+    model_name = get_module_name(model.config.model_type)
+
     # If interface is None, have a look at our pre-supported interfaces
     if interface is None:
-        interface = get_adapter_interface(model)
+        interface = get_adapter_interface(model_name)
 
     if interface is not None:
         base_model = model.base_model
@@ -85,7 +87,6 @@ def init(
         base_model.support_prompt_tuning = False  # HACK: will be set to true if init_prompt_tuning() is called
     else:
         # First, replace original module classes with their adapters counterparts
-        model_name = get_module_name(model.config.model_type)
         try:
             modules_with_adapters = importlib.import_module(f".{model_name}.modeling_{model_name}", "adapters.models")
         except ImportError:
