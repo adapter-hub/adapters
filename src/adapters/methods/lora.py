@@ -385,7 +385,8 @@ class Vera(nn.Module):
             hidden_states = hidden_states * self.scaling
 
         return hidden_states, gate
-    
+
+
 class DoRA(nn.Module):
     def __init__(
         self,
@@ -483,6 +484,7 @@ class DoRA(nn.Module):
 
         return hidden_states, gate
 
+
 def init_shared_vera_parameters(lora_A_shape, lora_B_shape, adapter_config, device):
     """
     This function creates the shared random matrices A and B that are used across all Vera layers.
@@ -526,6 +528,7 @@ def init_shared_vera_parameters(lora_A_shape, lora_B_shape, adapter_config, devi
         raise ValueError("Unknown init_weights type: {}".format(adapter_config["init_weights"]))
 
     return parameters
+
 
 class LoRALayer(AdapterLayerBase):
     adapter_modules_name = "loras"
