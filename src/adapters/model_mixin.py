@@ -933,7 +933,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
         self.apply_to_basemodel_childs(lambda i, child: child.delete_adapter(adapter_name))
         del self.adapters_config.adapters[adapter_name]
-        # PHM Layer and Vera
+        # Delete from shared parameters (PHM Layer and Vera)
         if adapter_name in self.base_model.shared_parameters:
             del self.base_model.shared_parameters[adapter_name]
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
@@ -1758,6 +1758,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             # PHM Layer
             if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):
                 self._average_shared_parameters(adapter_name, input_adapters, combine_strategy)
+
+            # Vera Initialization
+            if self.adapters_config.match(adapter_name, LoRAConfig):
+                # in above line - we need to check for LoRAConfig since adapter reinitilization
+                # depends on the architecture field of the adapter config
+                adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+                if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+                    self._average_shared_parameters(adapter_name, input_adapters, combine_strategy)
+
             # Prefix Tuning
             for module in self.modules():
                 if isinstance(module, PrefixTuningPool):

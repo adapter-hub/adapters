@@ -114,8 +114,15 @@ class AdapterMethodBaseTestMixin:
 
         # compare averaged weights to collected weights
         this_filter_keys = [k.format(name=name) for k in filter_keys]
+        collected_keys = set()
         for k, v in self._filter_parameters(model, this_filter_keys).items():
+            self.assertTrue(k in averaged_weights, f"Unexpected key {k} found in averaged adapter.")
             self.assertTrue(torch.allclose(v, averaged_weights[k]), k)
+            collected_keys.add(k)
+
+        # Check that the averaged weights are the same as the collected weights.
+        # If something is missing here, have a look at where in the model we add weights for the averaged adapter vs where we added weights for the individual adapters.
+        self.assertEqual(set(averaged_weights.keys()), collected_keys)
 
     def run_delete_test(self, model, adapter_config, filter_keys):
         model.eval()

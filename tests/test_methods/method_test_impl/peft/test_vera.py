@@ -7,6 +7,7 @@ from transformers.testing_utils import require_torch
 class VeraTestMixin(AdapterMethodBaseTestMixin):
     def test_add_Vera(self):
         model = self.get_model()
+        # don't include "shared_parameters.{name}." here since they are frozen and this test checks if the adapter weights are active.
         self.run_add_test(model, VeraConfig(), ["loras.{name}."])
 
     def test_leave_out_Vera(self):
@@ -15,11 +16,11 @@ class VeraTestMixin(AdapterMethodBaseTestMixin):
 
     def test_linear_average_Vera(self):
         model = self.get_model()
-        self.run_linear_average_test(model, VeraConfig(), ["loras.{name}."])
+        self.run_linear_average_test(model, VeraConfig(), ["loras.{name}.", "shared_parameters.{name}."])
 
     def test_delete_Vera(self):
         model = self.get_model()
-        self.run_delete_test(model, VeraConfig(), ["loras.{name}."])
+        self.run_delete_test(model, VeraConfig(), ["loras.{name}.", "shared_parameters.{name}."])
 
     def test_get_Vera(self):
         model = self.get_model()
@@ -39,7 +40,7 @@ class VeraTestMixin(AdapterMethodBaseTestMixin):
         self.run_full_model_load_test(VeraConfig(init_weights="vera"))
 
     def test_train_Vera(self):
-        self.run_train_test(VeraConfig(init_weights="vera"), ["loras.{name}."])
+        self.run_train_test(VeraConfig(init_weights="vera"), ["loras.{name}.", "shared_parameters.{name}."])
 
     def test_merge_Vera(self):
         self.run_merge_test(VeraConfig(init_weights="vera"))
@@ -52,4 +53,32 @@ class VeraTestMixin(AdapterMethodBaseTestMixin):
 
     def test_same_weights_after_adding_adapter(self):
         # setting init_weights_seed should leed to every adapter layer having the same weights after initialization
-        self.run_same_weights_test(VeraConfig(init_weights_seed=42), ["loras.{name}."])
+        self.run_same_weights_test(VeraConfig(init_weights_seed=42), ["loras.{name}.", "shared_parameters.{name}."])
+
+    def test_vera_unsupported_combine_strategies(self):
+        # VeRA only supports linear averaging. (see https://docs.adapterhub.ml/merging_adapters.html)
+
+        model = self.get_model()
+        model.eval()
+
+        model.add_adapter("test_adapter_1", config=VeraConfig(init_weights="vera"))
+        model.add_adapter("test_adapter_2", config=VeraConfig(init_weights="vera"))
+
+        # First, check "lora_linear_only_negate_b"
+        with self.assertRaisesRegex(ValueError, "VeRA only supports linear averaging"):
+            model.average_adapter(
+                "merged_adapter_name",
+                ["test_adapter_1", "test_adapter_2"],
+                weights=[0.1, 0.9],
+                combine_strategy="lora_linear_only_negate_b",
+            )
+
+        # Next, check "lora_delta_w_svd"
+        with self.assertRaisesRegex(ValueError, "VeRA only supports linear averaging"):
+            model.average_adapter(
+                "merged_adapter_name",
+                ["test_adapter_1", "test_adapter_2"],
+                weights=[0.1, 0.9],
+                combine_strategy="lora_delta_w_svd",
+                svd_rank=1,
+            )

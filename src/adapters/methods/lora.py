@@ -405,6 +405,9 @@ def init_shared_vera_parameters(lora_A_shape, lora_B_shape, adapter_config, devi
     """
     parameters = nn.ParameterDict()
 
+    # Set seed for reproducibility if specified in config
+    fix_seed(adapter_config.init_weights_seed)
+
     # initialize frozen, random tensors A, B
     dtype = getattr(torch, adapter_config.dtype) if adapter_config.dtype else None
     parameters["lora_A"] = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype).to(device), requires_grad=False)
@@ -541,6 +544,13 @@ class LoRALayer(AdapterLayerBase):
                 if name not in self.loras:
                     self.delete_adapter(adapter_name)  # clean up before raising error
                     raise ValueError("Adapter {} not found.".format(name))
+
+            # VeRA only supports linear averaging.
+            if isinstance(self.loras[list(input_adapters.keys())[0]], Vera):
+                if combine_strategy != "linear":
+                    raise ValueError(
+                        "VeRA only supports linear averaging. The combine_strategy must be 'linear'. See https://docs.adapterhub.ml/merging_adapters.html for more information."
+                    )
 
             # Now, combine the weights according to the strategy
             if combine_strategy == "linear":
