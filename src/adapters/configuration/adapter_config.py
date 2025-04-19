@@ -501,7 +501,7 @@ class LoRAConfig(AdapterConfig):
             (addition of decomposed matrix, as in LoRA) or "scale" (element-wise multiplication of vector, as in
             (IA)^3). "scale" can only be used together with r=1. Defaults to "add".
         init_weights (:obj:`str`, optional): Initialization method for the weights of the LoRA modules.
-            Currently, this can be either "lora" (default) or "bert".
+            Currently, this can be either "lora" (default) or "bert", or "vera".
         init_weights_seed (:obj:`int`, optional): The seed to use for the initialization of the adapter weights per layer.
             Important:  set, the seed will be reset for all adapter modules, meaning that all adapter modules will have the same
             initialization. If not set, the seed will be set once and each adapter module has random weights initialization. Defaults to None.
@@ -509,6 +509,15 @@ class LoRAConfig(AdapterConfig):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
             `merge_adapter()`.
+        vera_d (:obj:`float`, optional):
+            The value of d used in the VeraConfig. Defaults to None. Places a trainable
+            scaling parameter `d` before the decomposition matrix A to allow scaling of the
+            internal weights.
+
+        vera_b (:obj:`float`, optional):
+            The value of b used in the VeraConfig. Defaults to None. Places a trainable
+            scaling parameter `b` before the decomposition matrix B to allow scaling of the
+            internal weights.
         dtype (str, optional): torch dtype for reparametrization tensors. Defaults to None.
     """
 
@@ -527,6 +536,8 @@ class LoRAConfig(AdapterConfig):
     init_weights: str = "lora"
     init_weights_seed: Optional[int] = None
     use_gating: bool = False
+    vera_d: Optional[float] = None
+    vera_b: Optional[float] = None
     dtype: Optional[str] = None
 
 
@@ -554,6 +565,28 @@ class IA3Config(LoRAConfig):
 
 
 @dataclass(eq=False)
+class VeraConfig(LoRAConfig):
+    """
+    Lora Config that applies vector-based random matrix adaptation. It adds
+    trainable matrices 'd' and 'b' while keeping the original LoRA matrices
+    frozen, random, and shared across layers. See more through their paper:
+    https://arxiv.org/pdf/2310.11454. Note that `r` will still be supplied
+    since we are still initializing decomposition matrices A and B.
+    The `composition_mode` parameter should also be set to `add`.
+    """
+
+    selfattn_lora: bool = True
+    intermediate_lora: bool = False
+    output_lora: bool = False
+
+    r: int = 8
+    vera_d: Optional[float] = 0.1
+    vera_b: Optional[float] = 0.0
+    init_weights: str = "vera"
+    composition_mode: str = "add"
+    dtype: Optional[str] = None
+
+
 class MultiTaskConfig(AdapterConfig):
     """
     Flag class for all multi task adaptation methods.
@@ -835,6 +868,7 @@ ADAPTER_CONFIG_MAP = {
     "mtl_lora": MTLLoRAConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
+    "vera": VeraConfig(),
     "loreft": LoReftConfig(),
     "noreft": NoReftConfig(),
     "direft": DiReftConfig(),

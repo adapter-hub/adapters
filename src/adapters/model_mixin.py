@@ -30,7 +30,7 @@ from .loading import AdapterFusionLoader, AdapterLoader, PredictionHeadLoader, W
 from .methods import METHOD_INIT_MAPPING
 from .methods.adapter_layer_base import AdapterLayerBase
 from .methods.bottleneck import BottleneckLayer
-from .methods.lora import LoRALayer
+from .methods.lora import LoRALayer, init_shared_vera_parameters
 from .methods.modeling import Adapter, GLOWCouplingBlock, NICECouplingBlock, init_shared_parameters
 from .methods.prefix_tuning import PrefixTuningLayer, PrefixTuningPool
 from .methods.prompt_tuning import PromptTuningLayer
@@ -553,7 +553,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         Applies a function to all direct childs of the model if they are a instance of AdapterLayerBase.
         """
-        if self.add_base_adapters:
+        if self.base_model.add_base_adapters:
             for module in self.base_model.children():
                 if isinstance(module, AdapterLayerBase):
                     # These childs don't have a layer index so we pass -1
@@ -572,8 +572,18 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.apply_to_basemodel_childs(lambda i, child: child.enable_adapters(adapter_setup, True, False))
         for adapter_name in adapter_setup:
             if adapter_name in self.base_model.shared_parameters:
-                for param in self.base_model.shared_parameters[adapter_name].values():
-                    param.requires_grad = True
+                # if the adapter being used is a Vera adapter, we need to keep the shared params disabled
+                if self.adapters_config.match(adapter_name, LoRAConfig):
+                    adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+                    if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+                        for param in self.base_model.shared_parameters[adapter_name].values():
+                            param.requires_grad = False
+                    else:
+                        for param in self.base_model.shared_parameters[adapter_name].values():
+                            param.requires_grad = True
+                else:
+                    for param in self.base_model.shared_parameters[adapter_name].values():
+                        param.requires_grad = True
 
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
             self.enable_invertible_adapters(adapter_setup.flatten())
@@ -686,6 +696,20 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if set_active:
             self.set_active_adapters(adapter_name)
 
+        # For VeRA adapters, register tied weights patterns
+        if self.adapters_config.match(adapter_name, LoRAConfig):
+            adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+            if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+                vera_tied_weights_keys = [
+                    f"shared_parameters\\.{adapter_name}\\.lora_A",
+                    f"shared_parameters\\.{adapter_name}\\.lora_B",
+                ]
+
+                if self._tied_weights_keys is not None:
+                    self._tied_weights_keys += vera_tied_weights_keys
+                else:
+                    self._tied_weights_keys = vera_tied_weights_keys
+
     def _add_adapter_weights(self, adapter_name: str):
         """Helper method that performs the actual parameter additions when adding a new adapter."""
         self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
@@ -705,13 +729,40 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
                         )
                     else:
                         raise ValueError(
-                            "The model has different hidden sizes {}. Sharing comapcter weights is only possible if"
+                            "The model has different hidden sizes {}. Sharing compacter weights is only possible if"
                             " the hidden_sizes match.".format(hidden_sizes)
                         )
                 else:
                     self.base_model.shared_parameters[adapter_name] = init_shared_parameters(
                         adapter_config, self.config.hidden_size, self.device
                     )
+
+        # Vera Initialization
+        if self.adapters_config.match(adapter_name, LoRAConfig):
+            # in above line - we need to check for LoRAConfig since adapter reinitilization
+            # depends on the architecture field of the adapter config
+            adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+            if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+                # First, we need to check that the hidden size is the same for all submodels
+                if self.config.model_type in SUBMODEL_NAMES:
+                    hidden_sizes = [
+                        getattr(self.config, key).hidden_size for key in SUBMODEL_NAMES[self.config.model_type]
+                    ]
+                    if not (all(hidden_sizes[0] == h for h in hidden_sizes)):
+                        raise ValueError(
+                            "The model has different hidden sizes {}. Vera uses shared LoRA A and B matrices and thus initialization is only possible if the hidden_sizes match.".format(
+                                hidden_sizes
+                            )
+                        )
+
+                # Next, init the shared parameters of Vera
+                shapes_info = self.adapters_config._vera_init_shapes[adapter_name]
+                lora_A_shape = shapes_info["lora_A_shape"]
+                lora_B_shape = shapes_info["lora_B_shape"]
+                self.base_model.shared_parameters[adapter_name] = init_shared_vera_parameters(
+                    lora_A_shape, lora_B_shape, adapter_config, self.device
+                )
+
         # Prefix Tuning
         for module in self.modules():
             if isinstance(module, PrefixTuningPool):
@@ -896,7 +947,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         self.apply_to_adapter_layers(lambda i, layer: layer.delete_adapter(adapter_name))
         self.apply_to_basemodel_childs(lambda i, child: child.delete_adapter(adapter_name))
         del self.adapters_config.adapters[adapter_name]
-        # PHM Layer
+        # Delete from shared parameters (PHM Layer and Vera)
         if adapter_name in self.base_model.shared_parameters:
             del self.base_model.shared_parameters[adapter_name]
         if isinstance(self, InvertibleAdaptersMixin) or isinstance(self, InvertibleAdaptersWrapperMixin):
@@ -1721,6 +1772,15 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             # PHM Layer
             if self.adapters_config.match(adapter_name, BnConfig, location_key="phm_layer"):
                 self._average_shared_parameters(adapter_name, input_adapters, combine_strategy)
+
+            # Vera Initialization
+            if self.adapters_config.match(adapter_name, LoRAConfig):
+                # in above line - we need to check for LoRAConfig since adapter reinitilization
+                # depends on the architecture field of the adapter config
+                adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+                if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+                    self._average_shared_parameters(adapter_name, input_adapters, combine_strategy)
+
             # Prefix Tuning
             for module in self.modules():
                 if isinstance(module, PrefixTuningPool):
@@ -1752,18 +1812,27 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Args:
             name (str): LoRA module to merge.
         """
-        for module in self.modules():
-            if isinstance(module, LoRALayer):
-                if name in module.loras:
-                    module.merge_adapter(name)
+        with ForwardContext(self, torch.empty(0, 1)):
+            # check if there are shared parameters between adapter weights
+            if self.base_model.shared_parameters:
+                ForwardContext.get_context().shared_parameters = self.base_model.shared_parameters
+
+            for module in self.modules():
+                if isinstance(module, LoRALayer):
+                    if name in module.loras:
+                        module.merge_adapter(name)
 
     def reset_adapter(self):
         """
         Resets weights of a LoRA module merged using `model.merge_adapter(name)`.
         """
-        for module in self.modules():
-            if isinstance(module, LoRALayer):
-                module.reset_adapter()
+        with ForwardContext(self, torch.empty(0, 1)):
+            if self.base_model.shared_parameters:
+                ForwardContext.get_context().shared_parameters = self.base_model.shared_parameters
+
+            for module in self.modules():
+                if isinstance(module, LoRALayer):
+                    module.reset_adapter()
 
     # HACK Copied from transformers/generation/utils.py
     def _prepare_encoder_decoder_kwargs_for_generation(

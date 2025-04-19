@@ -76,7 +76,7 @@ class CLIPAdapterTestBase(TextAdapterTestBase):
 
 method_tests = generate_method_tests(
     model_test_base=CLIPAdapterTestBase,
-    not_supported=["Embeddings", "Heads", "Composition", "ClassConversion", "PromptTuning", "ConfigUnion"],
+    not_supported=["Embeddings", "Heads", "Composition", "ClassConversion", "PromptTuning", "ConfigUnion", "Vera"],
 )
 
 

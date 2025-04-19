@@ -217,6 +217,7 @@ class WeightsLoaderHelper:
         )
 
         missing_keys = [k for k in missing_keys if filter_func(k)]
+
         if len(missing_keys) > 0:
             logger.info(
                 "Some module weights could not be found in loaded weights file: {}".format(", ".join(missing_keys))
