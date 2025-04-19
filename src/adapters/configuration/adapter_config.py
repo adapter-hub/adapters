@@ -564,6 +564,27 @@ class IA3Config(LoRAConfig):
     dtype: Optional[str] = None
 
 
+class DoRAConfig(LoRAConfig):
+    """
+    The 'Weight-Decomposed Low-Rank Adaptation' DoRA method was preposed by Liu et al. (2022). See https://arxiv.org/pdf/2402.09353.
+    The DoRA method proposes that the weight matrix of a layer can be decomposed into magnitude and directional components, and finetunes both.
+    The directional component is then decomposed further via two LoRA low-rank matrices.
+    During training, the directional matrix is scaled to unit norm by the vector-wise columns of the matrix and multiplied
+    by the magnutude matrix to obtain the final weights.
+    """
+
+    selfattn_lora: bool = True
+    intermediate_lora: bool = False
+    output_lora: bool = False
+
+    r: int = 8
+    alpha: int = 8
+    dropout: float = 0.0
+    composition_mode: str = "dora"
+    use_gating: bool = False
+    dtype: Optional[str] = None
+
+
 @dataclass(eq=False)
 class VeraConfig(LoRAConfig):
     """
@@ -868,6 +889,7 @@ ADAPTER_CONFIG_MAP = {
     "mtl_lora": MTLLoRAConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
+    "dora": DoRAConfig(),
     "vera": VeraConfig(),
     "loreft": LoReftConfig(),
     "noreft": NoReftConfig(),
