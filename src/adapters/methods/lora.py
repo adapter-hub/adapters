@@ -385,6 +385,103 @@ class Vera(nn.Module):
             hidden_states = hidden_states * self.scaling
 
         return hidden_states, gate
+    
+class DoRA(nn.Module):
+    def __init__(
+        self,
+        lora_A_shape,
+        lora_B_shape,
+        config: LoRAConfig,
+        gating_heads: int = 1,
+    ):
+        super().__init__()
+        assert config.composition_mode == "dora", "DoRA module only supports composition_mode='dora'."
+        self.r = config.r
+        self.lora_alpha = config.alpha
+        self.composition_mode = config.composition_mode
+        self.attn_matrices = config.attn_matrices
+        self.use_gating = config.use_gating
+        # Optional dropout
+        if config.dropout > 0.0:
+            self.lora_dropout = nn.Dropout(p=config.dropout)
+        else:
+            self.lora_dropout = lambda x: x
+
+        dtype = getattr(torch, config.dtype) if config.dtype else None
+
+        # Actual trainable parameters
+        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
+        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
+        self.scaling = self.lora_alpha / self.r
+        self.m = nn.Linear(1, self.lora_B.shape[0], bias=False, dtype=dtype)
+
+        if config.init_weights == "lora":
+            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_B)
+        elif config.init_weights == "bert":
+            nn.init.normal_(self.lora_A, std=0.02)
+            nn.init.normal_(self.lora_B, std=0.02)
+        elif config.init_weights == "ia3":
+            nn.init.ones_(self.lora_A)
+            nn.init.ones_(self.lora_B)
+        else:
+            raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
+
+        if self.use_gating:
+            self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
+            nn.init.normal_(self.gate.weight, std=0.02)
+
+    @property
+    def delta_w(self) -> torch.Tensor:
+        # TODO need to figure this out as well
+        return self.lora_B @ self.lora_A
+
+    def com(
+        self,
+        weights: torch.Tensor,
+        added: torch.Tensor,
+        input_states: torch.Tensor,
+        weight: torch.Tensor,
+        scaling=None,
+    ) -> torch.Tensor:
+        """Performs the composition operation between existing and injected weights.
+        Requires the original pretrained weights (W_o) of the layer as well to calculate the unit norm.
+        Also requires the input_states `x` in order to do further calculations
+        """
+        if scaling is None:
+            scaling = self.scaling
+
+        # v = W_o + BA used to calculate norm_scale
+        v = weight + (self.lora_B @ self.lora_A) * self.scaling
+        # norm_scale = m / ||W_o + BA||c
+        norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
+
+        input_states_with_dropout = self.lora_dropout(input_states)
+
+        scaled_weights = norm_scale * F.linear(input_states_with_dropout, weight)
+        scaled_lora = norm_scale * added
+        # result = W_ox + norm_scale * W_ox + norm_scale * BA * scaling
+        result = (weights + scaled_weights + scaled_lora) * self.scaling
+        return result
+
+    def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
+        """Inverts the composition operation between existing and injected weights."""
+
+        # TODO: figure out how to invert the composition operation
+        return weights - added * self.scaling
+
+    def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
+        if hidden_states is None:
+            hidden_states = layer_input
+        hidden_states = self.lora_dropout(hidden_states) @ torch.t(self.lora_A) @ torch.t(self.lora_B)
+        if self.use_gating:
+            gate = torch.sigmoid(self.gate(layer_input))
+            gate = torch.mean(gate, dim=1).unsqueeze(-1)
+            hidden_states = hidden_states * gate
+        else:
+            gate = None
+
+        return hidden_states, gate
 
 def init_shared_vera_parameters(lora_A_shape, lora_B_shape, adapter_config, device):
     """
