@@ -102,7 +102,10 @@ class AdapterMethodBaseTestMixin:
 
         # average adapters
         model.average_adapter(
-            name, [name + f"_{i}" for i in range(len(weights))], weights=weights, combine_strategy="linear"
+            name,
+            [name + f"_{i}" for i in range(len(weights))],
+            weights=weights,
+            combine_strategy="linear",
         )
 
         # adapter is correctly added to config
@@ -111,8 +114,15 @@ class AdapterMethodBaseTestMixin:
 
         # compare averaged weights to collected weights
         this_filter_keys = [k.format(name=name) for k in filter_keys]
+        collected_keys = set()
         for k, v in self._filter_parameters(model, this_filter_keys).items():
+            self.assertTrue(k in averaged_weights, f"Unexpected key {k} found in averaged adapter.")
             self.assertTrue(torch.allclose(v, averaged_weights[k]), k)
+            collected_keys.add(k)
+
+        # Check that the averaged weights are the same as the collected weights.
+        # If something is missing here, have a look at where in the model we add weights for the averaged adapter vs where we added weights for the individual adapters.
+        self.assertEqual(set(averaged_weights.keys()), collected_keys)
 
     def run_delete_test(self, model, adapter_config, filter_keys):
         model.eval()
@@ -154,25 +164,26 @@ class AdapterMethodBaseTestMixin:
 
         model.delete_adapter("first")
 
-    def run_forward_test(self, model, adapter_config, dtype=torch.float32):
+    def run_forward_test(self, model, adapter_config, dtype=torch.float32, **kwargs):
         model.eval()
 
         name = adapter_config.__class__.__name__
+        adapter_setup = kwargs.get("adapter_setup") or name
         if name not in model.adapters_config:
             model.add_adapter(name, config=adapter_config)
         model.to(torch_device).to(dtype)
 
-        input_data = self.get_input_samples(config=model.config, dtype=dtype)
+        input_data = self.get_input_samples(config=model.config, dtype=dtype, **kwargs)
 
         # pass 1: set adapter via property
-        model.set_active_adapters(name)
+        model.set_active_adapters(adapter_setup)
         output_1 = model(**input_data)
 
         # pass 2: set via context
         # unset and make sure it's unset
         model.set_active_adapters(None)
         self.assertEqual(None, model.active_adapters)
-        with AdapterSetup(name):
+        with AdapterSetup(adapter_setup):
             output_2 = model(**input_data)
 
         # pass 3: base output
@@ -201,7 +212,11 @@ class AdapterMethodBaseTestMixin:
             model1.save_adapter(temp_dir, name)
 
             # Check that there are actually weights saved
-            weights = torch.load(os.path.join(temp_dir, WEIGHTS_NAME), map_location="cpu", weights_only=True)
+            weights = torch.load(
+                os.path.join(temp_dir, WEIGHTS_NAME),
+                map_location="cpu",
+                weights_only=True,
+            )
             self.assertTrue(len(weights) > 0)
 
             # also tests that set_active works
@@ -237,7 +252,11 @@ class AdapterMethodBaseTestMixin:
 
         # check if all weights were loaded
         self.assertEqual(0, len(loading_info["missing_keys"]), loading_info["missing_keys"])
-        self.assertEqual(0, len(loading_info["unexpected_keys"]), loading_info["unexpected_keys"])
+        self.assertEqual(
+            0,
+            len(loading_info["unexpected_keys"]),
+            loading_info["unexpected_keys"],
+        )
 
         # check if adapter was correctly loaded
         self.assertTrue(name in model2.adapters_config)
@@ -252,7 +271,14 @@ class AdapterMethodBaseTestMixin:
         self.assertEqual(len(output1), len(output2))
         self.assertTrue(torch.allclose(output1[0], output2[0], atol=1e-4))
 
-    def trainings_run(self, model, lr=1.0, steps=8, batch_size=2, gradient_accumulation_steps=1):
+    def trainings_run(
+        self,
+        model,
+        lr=1.0,
+        steps=8,
+        batch_size=2,
+        gradient_accumulation_steps=1,
+    ):
         # setup dataset
         train_dataset = self.get_dataset()
 
@@ -411,10 +437,14 @@ class AdapterMethodBaseTestMixin:
 
         # Check that the state dicts are the same (we know that normal training works as expected, so we only need to check that gradient checkpointing produces the same results.)
         for (k1, v1), (k2, v2) in zip(
-            state_dict_after_training[True].items(), state_dict_after_training[False].items()
+            state_dict_after_training[True].items(),
+            state_dict_after_training[False].items(),
         ):
             v1 = v1.to(v2.device)
-            self.assertTrue(torch.equal(v1, v2), msg=f"Key {k1} is not equal:\nv1: {v1}\nv2: {v2}")
+            self.assertTrue(
+                torch.equal(v1, v2),
+                msg=f"Key {k1} is not equal:\nv1: {v1}\nv2: {v2}",
+            )
 
     def run_gradient_checkpointing_single_adapter_test(self, adapter_config):
         def adapter_setup_fn(model):
@@ -438,7 +468,10 @@ class AdapterMethodBaseTestMixin:
         model.to(torch_device)
         generate_input = self.build_generate_input(self.input_shape).to(torch_device)
         generated = model.generate(generate_input, max_new_tokens=max_new_tokens)
-        self.assertLessEqual(generated.shape, (self.input_shape[0], self.input_shape[1] + max_new_tokens))
+        self.assertLessEqual(
+            generated.shape,
+            (self.input_shape[0], self.input_shape[1] + max_new_tokens),
+        )
 
     def run_same_weights_test(self, adapter_config, filter_keys):
 

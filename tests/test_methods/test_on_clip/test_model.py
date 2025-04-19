@@ -36,6 +36,7 @@ class CLIPAdapterTestBase(TextAdapterTestBase):
     def get_input_samples(self, vocab_size=5000, config=None, dtype=torch.float, **kwargs):
         # text inputs
         shape = self.default_text_input_samples_shape
+        in_data = super().get_input_samples(shape, vocab_size, config, **kwargs)
         total_dims = 1
         for dim in shape:
             total_dims *= dim
@@ -47,7 +48,7 @@ class CLIPAdapterTestBase(TextAdapterTestBase):
         if config and config.eos_token_id is not None and config.eos_token_id < vocab_size:
             input_ids[input_ids == config.eos_token_id] = random.randint(0, config.eos_token_id - 1)
             input_ids[:, -1] = config.eos_token_id
-        in_data = {"input_ids": input_ids}
+        in_data["input_ids"] = input_ids
 
         # vision inputs
         shape = self.default_vision_input_samples_shape
@@ -75,7 +76,7 @@ class CLIPAdapterTestBase(TextAdapterTestBase):
 
 method_tests = generate_method_tests(
     model_test_base=CLIPAdapterTestBase,
-    not_supported=["Embeddings", "Heads", "Composition", "ClassConversion", "PromptTuning", "ConfigUnion"],
+    not_supported=["Embeddings", "Heads", "Composition", "ClassConversion", "PromptTuning", "ConfigUnion", "Vera"],
 )
 
 

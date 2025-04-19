@@ -5,17 +5,20 @@
 #  ------------------------------------------------------------------------------------------
 import logging
 import math
+from copy import deepcopy
 from typing import Dict, List, NamedTuple, Optional, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from adapters.configuration.adapter_config import MTLLoRAConfig
 from transformers.configuration_utils import PretrainedConfig
 from transformers.pytorch_utils import Conv1D
 
-from ..composition import Average, BatchSplit, Parallel, Stack
+from ..composition import Average, BatchSplit, MultiTask, Parallel, Stack
 from ..configuration import LoRAConfig, ModelAdaptersConfig
+from ..context import ForwardContext
 from ..utils import multigetattr, multisetattr
 from .adapter_layer_base import AdapterLayerBase, ComposableAdapterLayerBase
 from .utils import dequantize_bnb_weight, fix_seed
@@ -31,13 +34,47 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+class TaskSpecificSingularValue(nn.Module):
+    def __init__(self, rank: int, dtype: Optional[str] = None):
+        super().__init__()
+        self.rank = rank
+        self.dtype = dtype
+        self.values = nn.Parameter(torch.ones(rank, dtype=dtype))
+
+    def forward(self):
+        return torch.diag(self.values)
+
+
+class TaskSpecificLinear(nn.Module):
+    def __init__(self, rank: int, dtype: Optional[str] = None):
+        self.rank = (rank,)
+        self.dtype = dtype
+        self.values = nn.Parameter(torch.ones(rank, rank, dtype=dtype))
+
+    def forward(self):
+        return self.values
+
+
+TASK_SPECIFIC_MATRIX_CLS = {
+    "singular_values": TaskSpecificSingularValue,
+    "linear": TaskSpecificLinear,
+}
+
+
 class LoRA(nn.Module):
+    sharable_parameters = [
+        "lora_A",
+        "lora_B",
+    ]
+
     def __init__(
         self,
         lora_A_shape,
         lora_B_shape,
         config: LoRAConfig,
         gating_heads: int = 1,
+        name: str = None,
+        **kwargs,
     ):
         super().__init__()
         assert config.composition_mode == "add", "LoRA module only supports composition_mode='add'."
@@ -46,16 +83,18 @@ class LoRA(nn.Module):
         self.composition_mode = config.composition_mode
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
+        self.name = name
         # Optional dropout
         if config.dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=config.dropout)
         else:
             self.lora_dropout = lambda x: x
 
-        dtype = getattr(torch, config.dtype) if config.dtype else None
+        self.dtype = getattr(torch, config.dtype) if config.dtype else None
         # Actual trainable parameters
-        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
-        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
+        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=self.dtype))
+
+        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=self.dtype))
         self.scaling = self.lora_alpha / self.r
 
         # Set seed for reproducibility if specified in config
@@ -73,6 +112,9 @@ class LoRA(nn.Module):
         elif config.init_weights == "ia3":
             nn.init.ones_(self.lora_A)
             nn.init.ones_(self.lora_B)
+        elif config.init_weights == "vera":
+            nn.init.kaiming_uniform_(self.lora_A)
+            nn.init.kaiming_uniform_(self.lora_B)
         else:
             raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
 
@@ -94,10 +136,84 @@ class LoRA(nn.Module):
         """Inverts the composition operation between existing and injected weights."""
         return weights - added * self.scaling
 
+    def get_parameters(self, parameters_names=None):
+        parameters_names = parameters_names or self.sharable_parameters
+        return nn.ParameterDict(
+            {
+                param_name: deepcopy(getattr(self, param_name))
+                for param_name in parameters_names
+                if hasattr(self, param_name) and param_name in self.sharable_parameters
+            }
+        )
+
+    def set_parameters(self, parameters):
+        for name, param in parameters.items():
+            if name in self.sharable_parameters:
+                setattr(self, name, param)
+
     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
         if hidden_states is None:
             hidden_states = layer_input
         hidden_states = self.lora_dropout(hidden_states) @ torch.t(self.lora_A) @ torch.t(self.lora_B)
+        if self.use_gating:
+            gate = torch.sigmoid(self.gate(layer_input))
+            gate = torch.mean(gate, dim=1).unsqueeze(-1)
+            hidden_states = hidden_states * gate
+        else:
+            gate = None
+            hidden_states = hidden_states * self.scaling
+
+        return hidden_states, gate
+
+
+class MTLLoRA(LoRA):
+    def __init__(
+        self,
+        lora_A_shape,
+        lora_B_shape,
+        config: MTLLoRAConfig,
+        gating_heads: int = 1,
+        **kwargs,
+    ):
+        super().__init__(
+            lora_A_shape,
+            lora_B_shape,
+            config,
+            gating_heads,
+        )
+        self.lora_B = nn.Parameter(torch.zeros(config.n_up_projection, *lora_B_shape, dtype=self.dtype))
+        if config.init_weights == "lora":
+            nn.init.zeros_(self.lora_B)
+        elif config.init_weights == "bert":
+            nn.init.normal_(self.lora_B, std=0.02)
+
+        self.task_specific = TASK_SPECIFIC_MATRIX_CLS[config.task_specific_matrix_type](config.r)
+
+        self.weights = nn.Parameter(torch.ones(config.n_up_projection))
+        self.weights_sharpness = config.weights_sharpness
+
+    def apply_weights(self, hidden_states: torch.Tensor):
+        w = (self.weights / self.weights_sharpness).exp()
+        # hidden_states : n_up_projection x bsz x seq_len x dim
+        return torch.sum(((w[:, None, None, None] * hidden_states) / w.sum()), 0)
+
+    def forward(
+        self,
+        hidden_states: Optional[torch.Tensor],
+        layer_input: torch.Tensor,
+    ):
+        if hidden_states is None:
+            hidden_states = layer_input
+
+        hidden_states = (
+            self.lora_dropout(hidden_states)
+            @ torch.t(self.lora_A)
+            @ self.task_specific()
+            @ torch.transpose(self.lora_B.unsqueeze(1), -1, -2)
+        )
+        # apply weights
+        hidden_states = self.apply_weights(hidden_states)
+
         if self.use_gating:
             gate = torch.sigmoid(self.gate(layer_input))
             gate = torch.mean(gate, dim=1).unsqueeze(-1)
@@ -116,6 +232,8 @@ class IA3(nn.Module):
         lora_B_shape,
         config: LoRAConfig,
         gating_heads: int = 1,
+        name: str = None,
+        **kwargs,
     ):
         super().__init__()
         assert config.composition_mode == "scale", "IA3 module only supports composition_mode='scale'."
@@ -126,6 +244,7 @@ class IA3(nn.Module):
         self.composition_mode = config.composition_mode
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
+        self.name = name
         # Optional dropout
         if config.dropout > 0.0:
             raise ValueError("IA3 module does not support dropout.")
@@ -140,7 +259,7 @@ class IA3(nn.Module):
         # For compatibility with LoRA, allow all init_weights types here.
         # Usually should be "ia3".
         if config.init_weights == "lora":
-            logger.warning("(IA)^3 module initialized with LoRA zeo init. Ignore if this is intended.")
+            logger.warning("(IA)^3 module initialized with LoRA zero init. Ignore if this is intended.")
             nn.init.zeros_(self.lora_B)
         elif config.init_weights == "bert":
             nn.init.normal_(self.lora_B, std=0.02)
@@ -184,46 +303,44 @@ class IA3(nn.Module):
         return hidden_states, gate
 
 
-class DoRA(nn.Module):
+class Vera(nn.Module):
     def __init__(
         self,
         lora_A_shape,
         lora_B_shape,
         config: LoRAConfig,
         gating_heads: int = 1,
+        name: str = None,
+        **kwargs,
     ):
         super().__init__()
-        assert config.composition_mode == "dora", "DoRA module only supports composition_mode='dora'."
+        self.d = config.vera_d
+        self.b = config.vera_b
         self.r = config.r
-        self.lora_alpha = config.alpha
-        self.composition_mode = config.composition_mode
-        self.attn_matrices = config.attn_matrices
+        self.alpha = config.alpha
         self.use_gating = config.use_gating
+        self.name = name
+
+        # check to make sure that the `composition_mode` is set to `add`
+        self.composition_mode = config.composition_mode
+        if self.composition_mode != "add":
+            raise ValueError("Vera module only supports composition_mode='add'.")
+
         # Optional dropout
         if config.dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=config.dropout)
         else:
             self.lora_dropout = lambda x: x
 
-        dtype = getattr(torch, config.dtype) if config.dtype else None
+        self.lora_A_shape = lora_A_shape
+        self.lora_B_shape = lora_B_shape
+        self.d_shape = self.lora_A_shape[0]
+        self.b_shape = self.lora_B_shape[0]
 
         # Actual trainable parameters
-        self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
-        self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
-        self.scaling = self.lora_alpha / self.r
-        self.m = nn.Linear(1, self.lora_B.shape[0], bias=False, dtype=dtype)
-
-        if config.init_weights == "lora":
-            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_B)
-        elif config.init_weights == "bert":
-            nn.init.normal_(self.lora_A, std=0.02)
-            nn.init.normal_(self.lora_B, std=0.02)
-        elif config.init_weights == "ia3":
-            nn.init.ones_(self.lora_A)
-            nn.init.ones_(self.lora_B)
-        else:
-            raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
+        self.vera_D = nn.Parameter(torch.diag(torch.ones(self.d_shape) * self.d))
+        self.vera_B = nn.Parameter(torch.diag(torch.ones(self.b_shape) * self.b))
+        self.scaling = self.alpha / self.r
 
         if self.use_gating:
             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
@@ -231,64 +348,101 @@ class DoRA(nn.Module):
 
     @property
     def delta_w(self) -> torch.Tensor:
-        # TODO need to figure this out as well
-        return self.lora_B @ self.lora_A
+        parameters = ForwardContext.get_context().shared_parameters[self.name]
+        lora_A = parameters["lora_A"]
+        lora_B = parameters["lora_B"]
+        return self.vera_B @ lora_B @ self.vera_D @ lora_A
 
-    def com(
-        self,
-        weights: torch.Tensor,
-        added: torch.Tensor,
-        input_states: torch.Tensor,
-        weight: torch.Tensor,
-        scaling=None,
-    ) -> torch.Tensor:
-        """Performs the composition operation between existing and injected weights.
-        Requires the original pretrained weights (W_o) of the layer as well to calculate the unit norm.
-        Also requires the input_states `x` in order to do further calculations
-        """
+    def com(self, weights: torch.Tensor, added: torch.Tensor, scaling=None) -> torch.Tensor:
+        """Performs the composition operation between existing and injected weights."""
         if scaling is None:
             scaling = self.scaling
-
-        # v = W_o + BA used to calculate norm_scale
-        v = weight + (self.lora_B @ self.lora_A) * self.scaling
-        # norm_scale = m / ||W_o + BA||c
-        norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
-
-        input_states_with_dropout = self.lora_dropout(input_states)
-
-        scaled_weights = norm_scale * F.linear(input_states_with_dropout, weight)
-        scaled_lora = norm_scale * added
-        # result = W_ox + norm_scale * W_ox + norm_scale * BA * scaling
-        result = (weights + scaled_weights + scaled_lora) * self.scaling
-        return result
+        return weights + added * scaling
 
     def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
         """Inverts the composition operation between existing and injected weights."""
-
-        # TODO: figure out how to invert the composition operation
         return weights - added * self.scaling
 
     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
+        parameters = ForwardContext.get_context().shared_parameters[self.name]
+        lora_A = parameters["lora_A"]
+        lora_B = parameters["lora_B"]
+
         if hidden_states is None:
             hidden_states = layer_input
-        hidden_states = self.lora_dropout(hidden_states) @ torch.t(self.lora_A) @ torch.t(self.lora_B)
+
+        if getattr(self, "lora_dropout"):
+            hidden_states = self.lora_dropout(hidden_states)
+
+        hidden_states = hidden_states @ torch.t(self.vera_B @ lora_B @ self.vera_D @ lora_A)
+
         if self.use_gating:
             gate = torch.sigmoid(self.gate(layer_input))
             gate = torch.mean(gate, dim=1).unsqueeze(-1)
             hidden_states = hidden_states * gate
         else:
             gate = None
+            hidden_states = hidden_states * self.scaling
 
         return hidden_states, gate
 
+def init_shared_vera_parameters(lora_A_shape, lora_B_shape, adapter_config, device):
+    """
+    This function creates the shared random matrices A and B that are used across all Vera layers.
+    These matrices are frozen and initialized according to the specified initialization strategy.
+
+    Args:
+        lora_A_shape: The shape of the A matrix
+        lora_B_shape: The shape of the B matrix
+        adapter_config (dict): The adapter configuration
+        device: The device to place the parameters on
+
+    Returns:
+        nn.ParameterDict: Dictionary containing:
+            - lora_A: Parameter of shape lora_A_shape
+            - lora_B: Parameter of shape lora_B_shape
+    """
+    parameters = nn.ParameterDict()
+
+    # Set seed for reproducibility if specified in config
+    fix_seed(adapter_config.init_weights_seed)
+
+    # initialize frozen, random tensors A, B
+    dtype = getattr(torch, adapter_config.dtype) if adapter_config.dtype else None
+    parameters["lora_A"] = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype).to(device), requires_grad=False)
+    parameters["lora_B"] = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype).to(device), requires_grad=False)
+
+    if adapter_config["init_weights"] == "lora":
+        # initialize A the same way as the default for nn.Linear and B to zero
+        nn.init.kaiming_uniform_(parameters["lora_A"], a=math.sqrt(5))
+        nn.init.zeros_(parameters["lora_B"])
+    elif adapter_config["init_weights"] == "bert":
+        nn.init.normal_(parameters["lora_A"], std=0.02)
+        nn.init.normal_(parameters["lora_B"], std=0.02)
+    elif adapter_config["init_weights"] == "ia3":
+        nn.init.ones_(parameters["lora_A"])
+        nn.init.ones_(parameters["lora_B"])
+    elif adapter_config["init_weights"] == "vera":
+        nn.init.kaiming_uniform_(parameters["lora_A"])
+        nn.init.kaiming_uniform_(parameters["lora_B"])
+    else:
+        raise ValueError("Unknown init_weights type: {}".format(adapter_config["init_weights"]))
+
+    return parameters
 
 class LoRALayer(AdapterLayerBase):
     adapter_modules_name = "loras"
 
     def __init__(
-        self, location_key: str, model_config: PretrainedConfig, adapters_config: ModelAdaptersConfig, *args, **kwargs
+        self,
+        location_key: str,
+        model_config: PretrainedConfig,
+        adapters_config: ModelAdaptersConfig,
+        *args,
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.shared_parameters = nn.ModuleDict(dict())
         self.location_key = location_key + "_lora"
         self.model_config = model_config
         self.adapters_config = adapters_config
@@ -307,6 +461,7 @@ class LoRALayer(AdapterLayerBase):
 
     def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
         self.layer_idx = layer_idx
+
         lora_config = self.adapters_config.match(
             adapter_name,
             config_type=LoRAConfig,
@@ -314,25 +469,63 @@ class LoRALayer(AdapterLayerBase):
             location_key=self.location_key,
         )
         if lora_config is not None and self._check_lora_location(lora_config):
+            lora_args = {}
             if lora_config.composition_mode == "add":
-                lora_cls = LoRA
+                if isinstance(lora_config.vera_d, float) or isinstance(lora_config.vera_b, float):
+                    lora_cls = Vera
+                    if adapter_name not in self.adapters_config._vera_init_shapes:
+                        lora_A_shape, lora_B_shape = self._get_lora_shapes(lora_config)
+                        self.adapters_config._vera_init_shapes[adapter_name] = {
+                            "lora_A_shape": lora_A_shape,
+                            "lora_B_shape": lora_B_shape,
+                        }
+                else:
+                    lora_cls = LoRA
+                lora_cls = lora_cls if not isinstance(lora_config, MTLLoRAConfig) else MTLLoRA
             elif lora_config.composition_mode == "scale":
                 lora_cls = IA3
             elif lora_config.composition_mode == "dora":
                 lora_cls = DoRA
             else:
                 raise ValueError(f"Unknown composition_mode: {lora_config.composition_mode}")
+
             lora = lora_cls(
                 *self._get_lora_shapes(lora_config),
-                lora_config,
+                config=lora_config,
                 gating_heads=self.get_n_heads(lora_config),
+                name=adapter_name,
+                shared_parameters=self.shared_parameters,
+                **lora_args,
             )
+
             lora.train(self.training)
             lora = lora.to(self.weight.device)
             self.loras[adapter_name] = lora
             return True
 
         return False
+
+    def share_parameters(
+        self,
+        name: str,
+        adapter_names: List,
+        reference_adapter_name: Optional[str] = None,
+    ):
+        if all(name in self.loras for name in adapter_names):
+            shared_params = self.loras[reference_adapter_name].get_parameters()
+            self.shared_parameters[name] = shared_params
+            for adapter_name in adapter_names:
+                self.loras[adapter_name].set_parameters(shared_params)
+
+    def unshare_parameters(self, name: str):
+        if name in self.shared_parameters:
+            del self.shared_parameters[name]
+
+    def delete_adapter(self, adapter_name: str):
+        if adapter_name in self.shared_parameters:
+            del self.shared_parameters[adapter_name]
+        else:
+            super().delete_adapter(adapter_name)
 
     def average_adapter(
         self,
@@ -343,7 +536,7 @@ class LoRALayer(AdapterLayerBase):
         **kwargs,
     ) -> bool:
         # add new adapter
-        if self.add_adapter(adapter_name, self.layer_idx):
+        if self.add_adapter(adapter_name, self.layer_idx, **kwargs):
             avg_state_dict = {}
 
             # First, check if all input adapters are present
@@ -351,6 +544,13 @@ class LoRALayer(AdapterLayerBase):
                 if name not in self.loras:
                     self.delete_adapter(adapter_name)  # clean up before raising error
                     raise ValueError("Adapter {} not found.".format(name))
+
+            # VeRA only supports linear averaging.
+            if isinstance(self.loras[list(input_adapters.keys())[0]], Vera):
+                if combine_strategy != "linear":
+                    raise ValueError(
+                        "VeRA only supports linear averaging. The combine_strategy must be 'linear'. See https://docs.adapterhub.ml/merging_adapters.html for more information."
+                    )
 
             # Now, combine the weights according to the strategy
             if combine_strategy == "linear":
@@ -396,6 +596,19 @@ class LoRALayer(AdapterLayerBase):
             return True
 
         return False
+
+    def get_adapter(self, adapter_name: str) -> nn.Module:
+        """Returns the adapter module with the given name.
+
+        Args:
+            adapter_name (str): The name of the adapter module.
+        """
+        if adapter_name in self.adapter_modules:
+            return self.adapter_modules[adapter_name]
+        elif adapter_name in self.shared_parameters:
+            return self.shared_parameters[adapter_name]
+        else:
+            return None
 
     def _average_adapter_lora_delta_w_svd(self, input_adapters: Dict[str, float], avg_state_dict, svd_rank):
         # Weight the delta_w matrices by the input weights and then use Singular Value Decomposition to split them into A and B matrices.
@@ -475,7 +688,13 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
 
     """
 
-    supported_compositions = [Stack, BatchSplit, Average, Parallel]
+    supported_compositions = [
+        Stack,
+        BatchSplit,
+        Average,
+        Parallel,
+        MultiTask,
+    ]
     allow_multi_parallelize = True
 
     def __init__(
@@ -492,7 +711,15 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
     ):
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
-        LoRALayer.__init__(self, location_key, model_config, adapters_config, in_features, out_features, **kwargs)
+        LoRALayer.__init__(
+            self,
+            location_key,
+            model_config,
+            adapters_config,
+            in_features,
+            out_features,
+            **kwargs,
+        )
 
         self.attn_key = attn_key
         self.fan_in_fan_out = fan_in_fan_out
@@ -584,7 +811,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
     def vslice(self, state: LoRAState, slice_obj: slice) -> LoRAState:
         return LoRAState(
             state.layer_input[slice_obj],
-            state.hidden_states[slice_obj] if state.hidden_states is not None else None,
+            (state.hidden_states[slice_obj] if state.hidden_states is not None else None),
             state.layer_output[slice_obj],
             state.last,
         )
@@ -592,7 +819,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
     def pad_and_concat(self, states: List[LoRAState]) -> LoRAState:
         return LoRAState(
             torch.cat([s.layer_input for s in states], dim=0),
-            torch.cat([s.hidden_states for s in states], dim=0) if states[0].hidden_states is not None else None,
+            (torch.cat([s.hidden_states for s in states], dim=0) if states[0].hidden_states is not None else None),
             torch.cat([s.layer_output for s in states], dim=0),
             states[-1].last,
         )
@@ -600,7 +827,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
     def repeat(self, state: LoRAState, channels: int) -> LoRAState:
         return LoRAState(
             state.layer_input.repeat(channels, 1, 1),
-            state.hidden_states.repeat(channels, 1, 1) if state.hidden_states is not None else None,
+            (state.hidden_states.repeat(channels, 1, 1) if state.hidden_states is not None else None),
             state.layer_output.repeat(channels, 1, 1),
             state.last,
         )
@@ -609,7 +836,10 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
         return LoRAState(
             states[0].layer_input,
             (
-                torch.mean(torch.stack([s.hidden_states for s in states], dim=0) * weights, dim=0)
+                torch.mean(
+                    torch.stack([s.hidden_states for s in states], dim=0) * weights,
+                    dim=0,
+                )
                 if states[0].hidden_states is not None
                 else None
             ),
@@ -718,7 +948,9 @@ if bitsandbytes_available:
                     layer_weight = dequantize_bnb_weight(self.weight, state=self.state)
                     merged_weight = lora.com(layer_weight, delta_w)
                     self.weight = Int8Params(
-                        merged_weight.to("cpu"), requires_grad=False, has_fp16_weights=self.weight.has_fp16_weights
+                        merged_weight.to("cpu"),
+                        requires_grad=False,
+                        has_fp16_weights=self.weight.has_fp16_weights,
                     ).to(self.weight.device)
                     self.state.reset_grads()
                     self.merged = name
@@ -732,7 +964,9 @@ if bitsandbytes_available:
                 merged_weight = dequantize_bnb_weight(self.weight, state=self.state)
                 layer_weight = lora.com_inv(merged_weight, delta_w)
                 self.weight = Int8Params(
-                    layer_weight.to("cpu"), requires_grad=False, has_fp16_weights=self.weight.has_fp16_weights
+                    layer_weight.to("cpu"),
+                    requires_grad=False,
+                    has_fp16_weights=self.weight.has_fp16_weights,
                 ).to(self.weight.device)
                 self.state.reset_grads()
                 self.merged = None
@@ -763,7 +997,15 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
     ):
         if no_init_bias and "bias" not in kwargs:
             kwargs["bias"] = False
-        LoRALayer.__init__(self, location_key, model_config, adapters_config, in_features, out_features, **kwargs)
+        LoRALayer.__init__(
+            self,
+            location_key,
+            model_config,
+            adapters_config,
+            in_features,
+            out_features,
+            **kwargs,
+        )
 
         self.fan_in_fan_out = fan_in_fan_out
         if fan_in_fan_out:
@@ -782,11 +1024,21 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
     ):
         if isinstance(module, Conv1D):
             new_module = cls(
-                module.weight.shape[0], module.weight.shape[1], location_key, model_config, adapters_config, **kwargs
+                module.weight.shape[0],
+                module.weight.shape[1],
+                location_key,
+                model_config,
+                adapters_config,
+                **kwargs,
             )
         else:
             new_module = cls(
-                module.in_features, module.out_features, location_key, model_config, adapters_config, **kwargs
+                module.in_features,
+                module.out_features,
+                location_key,
+                model_config,
+                adapters_config,
+                **kwargs,
             )
         new_module.weight = module.weight
         if module.bias is not None:
@@ -805,8 +1057,8 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
             config.r,
         )
 
-    def add_adapter(self, adapter_name: str, layer_idx: int) -> bool:
-        is_added = super().add_adapter(adapter_name, layer_idx)
+    def add_adapter(self, adapter_name: str, layer_idx: int, **kwargs) -> bool:
+        is_added = super().add_adapter(adapter_name, layer_idx, **kwargs)
         if is_added:
             lora_config = lora_config = self.adapters_config.match(
                 adapter_name,
@@ -857,7 +1109,9 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
                     delta_w = lora.lora_B
                 else:
                     delta_w = F.conv1d(
-                        lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
+                        lora.lora_A.data.unsqueeze(0),
+                        lora.lora_B.data.unsqueeze(-1),
+                        groups=sum(lora.enable_lora),
                     ).squeeze(0)
                 # shape after transpose: <head_dim> x <head_dim * n_heads>
                 delta_w = delta_w.transpose(-2, -1)
@@ -874,7 +1128,9 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
                 delta_w = lora.lora_B
             else:
                 delta_w = F.conv1d(
-                    lora.lora_A.data.unsqueeze(0), lora.lora_B.data.unsqueeze(-1), groups=sum(lora.enable_lora)
+                    lora.lora_A.data.unsqueeze(0),
+                    lora.lora_B.data.unsqueeze(-1),
+                    groups=sum(lora.enable_lora),
                 ).squeeze(0)
             # shape after transpose: <head_dim> x <head_dim * n_heads>
             delta_w = delta_w.transpose(-2, -1)
@@ -911,7 +1167,9 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
                         else:
                             after_A = F.linear(lora.lora_dropout(x), lora.lora_A)
                             after_B = F.conv1d(
-                                after_A.transpose(-2, -1), lora.lora_B.unsqueeze(-1), groups=sum(lora.enable_lora)
+                                after_A.transpose(-2, -1),
+                                lora.lora_B.unsqueeze(-1),
+                                groups=sum(lora.enable_lora),
                             ).transpose(-2, -1)
                             delta_w = after_B
                         if lora.use_gating:
@@ -919,7 +1177,9 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
                             gate = torch.mean(gate, dim=1)
                             self._store_gating_score(adapter_setup[0], gate)
                             gate = self.pad(
-                                gate.repeat_interleave(self.out_features // 3, dim=-1), lora, fill_value=1
+                                gate.repeat_interleave(self.out_features // 3, dim=-1),
+                                lora,
+                                fill_value=1,
                             ).unsqueeze(1)
                         else:
                             gate = None
@@ -934,21 +1194,57 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
 
 def init_lora(model):
     model = model.base_model
+
+    # First, check if we should use merged linear layer instead of individual q,k,v projections
+    use_merged_linear = model.adapter_interface.attn_qkv_proj is not None
+
     for _, _, attention in model.iter_attentions():
-        if q_proj := multigetattr(attention, model.adapter_interface.attn_q_proj, None):
-            lora_proj = LoRALinear.wrap(q_proj, "selfattn", model.config, model.adapters_config, attn_key="q")
-            multisetattr(attention, model.adapter_interface.attn_q_proj, lora_proj)
-        if k_proj := multigetattr(attention, model.adapter_interface.attn_k_proj, None):
-            lora_proj = LoRALinear.wrap(k_proj, "selfattn", model.config, model.adapters_config, attn_key="k")
-            multisetattr(attention, model.adapter_interface.attn_k_proj, lora_proj)
-        if v_proj := multigetattr(attention, model.adapter_interface.attn_v_proj, None):
-            lora_proj = LoRALinear.wrap(v_proj, "selfattn", model.config, model.adapters_config, attn_key="v")
-            multisetattr(attention, model.adapter_interface.attn_v_proj, lora_proj)
+        if use_merged_linear:
+            if qkv_proj := multigetattr(attention, model.adapter_interface.attn_qkv_proj, None):
+                lora_proj = LoRAMergedLinear.wrap(qkv_proj, "selfattn", model.config, model.adapters_config)
+                multisetattr(attention, model.adapter_interface.attn_qkv_proj, lora_proj)
+        else:
+            if q_proj := multigetattr(attention, model.adapter_interface.attn_q_proj, None):
+                lora_proj = LoRALinear.wrap(
+                    q_proj,
+                    "selfattn",
+                    model.config,
+                    model.adapters_config,
+                    attn_key="q",
+                )
+                multisetattr(attention, model.adapter_interface.attn_q_proj, lora_proj)
+            if k_proj := multigetattr(attention, model.adapter_interface.attn_k_proj, None):
+                lora_proj = LoRALinear.wrap(
+                    k_proj,
+                    "selfattn",
+                    model.config,
+                    model.adapters_config,
+                    attn_key="k",
+                )
+                multisetattr(attention, model.adapter_interface.attn_k_proj, lora_proj)
+            if v_proj := multigetattr(attention, model.adapter_interface.attn_v_proj, None):
+                lora_proj = LoRALinear.wrap(
+                    v_proj,
+                    "selfattn",
+                    model.config,
+                    model.adapters_config,
+                    attn_key="v",
+                )
+                multisetattr(attention, model.adapter_interface.attn_v_proj, lora_proj)
 
     for _, layer in model.iter_layers():
         if intermediate_proj := multigetattr(layer, model.adapter_interface.layer_intermediate_proj):
-            lora_proj = LoRALinear.wrap(intermediate_proj, "intermediate", model.config, model.adapters_config)
-            multisetattr(layer, model.adapter_interface.layer_intermediate_proj, lora_proj)
+            lora_proj = LoRALinear.wrap(
+                intermediate_proj,
+                "intermediate",
+                model.config,
+                model.adapters_config,
+            )
+            multisetattr(
+                layer,
+                model.adapter_interface.layer_intermediate_proj,
+                lora_proj,
+            )
         if output_proj := multigetattr(layer, model.adapter_interface.layer_output_proj):
             lora_proj = LoRALinear.wrap(output_proj, "output", model.config, model.adapters_config)
             multisetattr(layer, model.adapter_interface.layer_output_proj, lora_proj)

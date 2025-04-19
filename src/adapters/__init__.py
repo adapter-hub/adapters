@@ -16,10 +16,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "1.1.0"
+__version__ = "1.2.0.dev0"
 
 from typing import TYPE_CHECKING
 
+from adapters.configuration.adapter_config import MultiTaskConfig
 from transformers.utils import _LazyModule
 
 
@@ -28,6 +29,7 @@ _import_structure = {
         "AdapterCompositionBlock",
         "BatchSplit",
         "Fuse",
+        "MultiTask",
         "Parallel",
         "Split",
         "Stack",
@@ -56,6 +58,8 @@ _import_structure = {
         "LoReftConfig",
         "MAMConfig",
         "ModelAdaptersConfig",
+        "MTLLoRAConfig",
+        "MultiTaskConfig",
         "NoReftConfig",
         "ParBnConfig",
         "PrefixTuningConfig",
@@ -65,6 +69,7 @@ _import_structure = {
         "SeqBnInvConfig",
         "StaticAdapterFusionConfig",
         "UniPELTConfig",
+        "VeraConfig",
     ],
     "context": [
         "AdapterSetup",
@@ -86,7 +91,10 @@ _import_structure = {
         "TaggingHead",
     ],
     "interface": ["AdapterMethod", "AdapterModelInterface"],
-    "methods.adapter_layer_base": ["AdapterLayerBase", "ComposableAdapterLayerBase"],
+    "methods.adapter_layer_base": [
+        "AdapterLayerBase",
+        "ComposableAdapterLayerBase",
+    ],
     "model_mixin": [
         "EmbeddingAdaptersMixin",
         "InvertibleAdaptersMixin",
@@ -147,6 +155,7 @@ if TYPE_CHECKING:
         AdapterCompositionBlock,
         BatchSplit,
         Fuse,
+        MultiTask,
         Parallel,
         Split,
         Stack,
@@ -175,6 +184,8 @@ if TYPE_CHECKING:
         LoReftConfig,
         MAMConfig,
         ModelAdaptersConfig,
+        MTLLoRAConfig,
+        MultiTaskConfig,
         NoReftConfig,
         ParBnConfig,
         PrefixTuningConfig,
@@ -184,6 +195,7 @@ if TYPE_CHECKING:
         SeqBnInvConfig,
         StaticAdapterFusionConfig,
         UniPELTConfig,
+        VeraConfig,
     )
     from .context import AdapterSetup, ForwardContext
     from .heads import (

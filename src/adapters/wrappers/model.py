@@ -1,10 +1,10 @@
 import importlib
-import inspect
 import os
 from typing import Any, Optional, Type, Union
 
 from torch import nn
 
+from adapters.context import ForwardContext
 from transformers import PreTrainedModel
 from transformers.models.auto.auto_factory import getattribute_from_module
 from transformers.models.auto.configuration_auto import model_type_to_module_name
@@ -22,6 +22,7 @@ from ..model_mixin import (
 from ..models import MODEL_MIXIN_MAPPING
 from ..utils import multigetattr, multihasattr
 from .configuration import init_adapters_config
+from .interfaces import get_adapter_interface
 
 
 SPECIAL_MODEL_TYPE_TO_MODULE_NAME = {
@@ -44,14 +45,19 @@ def replace_with_adapter_class(module: nn.Module, modules_with_adapters) -> None
     if module.__class__.__name__ in MODEL_MIXIN_MAPPING:
         # Create new wrapper model class
         model_class = type(
-            module.__class__.__name__, (MODEL_MIXIN_MAPPING[module.__class__.__name__], module.__class__), {}
+            module.__class__.__name__,
+            (MODEL_MIXIN_MAPPING[module.__class__.__name__], module.__class__),
+            {},
         )
         module.__class__ = model_class
     elif module.__class__.__module__.startswith("transformers.models") or module.__class__.__module__.startswith(
         "adapters.wrappers.model"
     ):
         try:
-            module_class = getattribute_from_module(modules_with_adapters, module.__class__.__name__ + "WithAdapters")
+            module_class = getattribute_from_module(
+                modules_with_adapters,
+                module.__class__.__name__ + "WithAdapters",
+            )
             module.__class__ = module_class
         except ValueError:
             # Silently fail and keep original module class
@@ -66,13 +72,23 @@ def init(
     if isinstance(model, ModelAdaptersMixin):
         return model
 
+    model_name = get_module_name(model.config.model_type)
+
+    # If interface is None, have a look at our pre-supported interfaces
+    if interface is None:
+        interface = get_adapter_interface(model_name)
+
     if interface is not None:
         base_model = model.base_model
         _validate_interface_values(base_model, interface)
         model_class_name = base_model.__class__.__name__
         model_class = type(
             model_class_name,
-            (EmbeddingAdaptersMixin, ModelBaseAdaptersMixin, base_model.__class__),
+            (
+                EmbeddingAdaptersMixin,
+                ModelBaseAdaptersMixin,
+                base_model.__class__,
+            ),
             {},
         )
         base_model.__class__ = model_class
@@ -80,7 +96,6 @@ def init(
         base_model.support_prompt_tuning = False  # HACK: will be set to true if init_prompt_tuning() is called
     else:
         # First, replace original module classes with their adapters counterparts
-        model_name = get_module_name(model.config.model_type)
         try:
             modules_with_adapters = importlib.import_module(f".{model_name}.modeling_{model_name}", "adapters.models")
         except ImportError:
@@ -111,12 +126,16 @@ def init(
             base_model = getattr(model, model.base_model_prefix)
             if isinstance(base_model, ModelAdaptersMixin):
                 # HACK to preserve original forward method signature (e.g. for Trainer label names)
-                temp_signature = inspect.signature(model.forward.__func__)
+                temp_signature = ForwardContext.add_context_args_in_signature(model.forward.__func__)
                 # Create new wrapper model class
                 model_class_name = model.__class__.__name__
                 model_class = type(
                     model_class_name,
-                    (EmbeddingAdaptersWrapperMixin, ModelWithHeadsAdaptersMixin, model.__class__),
+                    (
+                        EmbeddingAdaptersWrapperMixin,
+                        ModelWithHeadsAdaptersMixin,
+                        model.__class__,
+                    ),
                     {},
                 )
                 model.__class__ = model_class
@@ -189,7 +208,9 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
     if not multihasattr(base_model, interface.model_embeddings):
         raise ValueError(
             _INTERFACE_ERROR_TEMPLATE.format(
-                layer_name="model_embeddings", layer_value=interface.model_embeddings, parent_name="base_model"
+                layer_name="model_embeddings",
+                layer_value=interface.model_embeddings,
+                parent_name="base_model",
             )
         )
     # All other values are layer specific => Get the first layer and check if all values are present
@@ -197,7 +218,9 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
     if not layers:
         raise ValueError(
             _INTERFACE_ERROR_TEMPLATE.format(
-                layer_name="model_layers", layer_value=interface.model_layers, parent_name="base_model"
+                layer_name="model_layers",
+                layer_value=interface.model_layers,
+                parent_name="base_model",
             )
         )
 
@@ -227,12 +250,20 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
         if not multihasattr(layer, layer_value):
             raise ValueError(
                 _INTERFACE_ERROR_TEMPLATE.format(
-                    layer_name=layer_name, layer_value=layer_value, parent_name="model layer"
+                    layer_name=layer_name,
+                    layer_value=layer_value,
+                    parent_name="model layer",
                 )
             )
 
     # Check attention-specific attributes if self-attention or cross-attention is defined
-    attention_attributes = ["attn_q_proj", "attn_k_proj", "attn_v_proj", "attn_o_proj"]
+    attention_attributes = ["attn_o_proj"]
+
+    if getattr(interface, "attn_q_proj") is not None:
+        attention_attributes += ["attn_q_proj", "attn_k_proj", "attn_v_proj"]
+    else:
+        # If q,k,v are not specified on their own, they must be specified combined in attn_qkv_proj
+        attention_attributes += ["attn_qkv_proj"]
 
     if interface.layer_self_attn is not None:
         self_attn_module = multigetattr(layer, interface.layer_self_attn)
@@ -241,7 +272,9 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
             if not multihasattr(self_attn_module, attn_value):
                 raise ValueError(
                     _INTERFACE_ERROR_TEMPLATE.format(
-                        layer_name=attn_name, layer_value=attn_value, parent_name="self-attention layer"
+                        layer_name=attn_name,
+                        layer_value=attn_value,
+                        parent_name="self-attention layer",
                     )
                 )
 
@@ -252,6 +285,8 @@ def _validate_interface_values(base_model: PreTrainedModel, interface: AdapterMo
             if not multihasattr(cross_attn_module, attn_value):
                 raise ValueError(
                     _INTERFACE_ERROR_TEMPLATE.format(
-                        layer_name=attn_name, layer_value=attn_value, parent_name="cross-attention layer"
+                        layer_name=attn_name,
+                        layer_value=attn_value,
+                        parent_name="cross-attention layer",
                     )
                 )

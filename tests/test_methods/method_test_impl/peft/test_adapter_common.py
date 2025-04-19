@@ -43,7 +43,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
 
         for adapter_config, filter_keys in self.adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_add_test(model, adapter_config, filter_keys)
 
     def test_leave_out_adapter(self):
@@ -51,7 +54,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
 
         for adapter_config, _ in self.adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_leave_out_test(model, adapter_config, self.leave_out_layers)
 
     def test_linear_average_adapter(self):
@@ -59,7 +65,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
 
         for adapter_config, filter_keys in self.adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_linear_average_test(model, adapter_config, filter_keys)
 
     def test_delete_adapter(self):
@@ -67,7 +76,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         model.eval()
 
         for adapter_config, filter_keys in self.adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_delete_test(model, adapter_config, filter_keys)
 
     def test_add_adapter_with_invertible(self):
@@ -77,7 +89,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             self.skipTest("Model does not support invertible adapters.")
 
         for adapter_config in [SeqBnInvConfig(), DoubleSeqBnInvConfig()]:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
                 model.set_active_adapters(name)
@@ -88,7 +103,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
                 # invertible adapter is correctly added and returned
                 self.assertTrue(name in model.invertible_adapters)
-                self.assertEqual(model.invertible_adapters[name], model.get_invertible_adapter())
+                self.assertEqual(
+                    model.invertible_adapters[name],
+                    model.get_invertible_adapter(),
+                )
 
                 # all invertible adapter weights should be activated for training
                 for param in model.invertible_adapters[name].parameters():
@@ -126,7 +144,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
         # iterate through all adapter invertible adapter configs
         for adapter_config, filter_keys in self.inv_adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
                 model.set_active_adapters(name)
@@ -165,7 +186,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             (DoubleSeqBnConfig(), n_layers * 2),
             (MAMConfig(), n_layers + n_prefix_layers),
         ]:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_get_test(model, adapter_config, n_expected)
 
     def test_add_adapter_multiple_reduction_factors(self):
@@ -176,7 +200,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             SeqBnConfig(reduction_factor=reduction_factor),
             DoubleSeqBnConfig(reduction_factor=reduction_factor),
         ]:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 name = adapter_config.__class__.__name__
                 model.add_adapter(name, config=adapter_config)
                 model.set_active_adapters(name)
@@ -206,7 +233,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             SeqBnConfig(reduction_factor=reduction_factor),
             DoubleSeqBnConfig(reduction_factor=reduction_factor),
         ]:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 name = adapter_config.__class__.__name__
                 with self.assertRaises(KeyError):
                     model.add_adapter(name, config=adapter_config)
@@ -218,7 +248,9 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         for adapter_config, _ in self.adapter_configs_to_test:
             for dtype in self.dtypes_to_test:
                 with self.subTest(
-                    model_class=model.__class__.__name__, config=adapter_config.__class__.__name__, dtype=dtype
+                    model_class=model.__class__.__name__,
+                    config=adapter_config.__class__.__name__,
+                    dtype=dtype,
                 ):
                     self.run_forward_test(model, adapter_config, dtype=dtype)
 
@@ -229,7 +261,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             self.skipTest("Model does not support invertible adapters.")
 
         for adapter_config, _ in self.inv_adapter_configs_to_test:
-            with self.subTest(model_class=model.__class__.__name__, config=adapter_config.__class__.__name__):
+            with self.subTest(
+                model_class=model.__class__.__name__,
+                config=adapter_config.__class__.__name__,
+            ):
                 self.run_forward_test(model, adapter_config)
 
     def test_load_adapter(self):
@@ -472,7 +507,6 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
             self.assertFalse(v.requires_grad, k)
 
         state_dict_pre = copy.deepcopy(model.state_dict())
-
         self.trainings_run(model)
 
         # check that the adapters have changed, but the base model has not

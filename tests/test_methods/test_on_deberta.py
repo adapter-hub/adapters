@@ -22,8 +22,14 @@ class DebertaAdapterTestBase(TextAdapterTestBase):
     def test_parallel_training_lora(self):
         self.skipTest("Not supported for DeBERTa")
 
+    def test_mtl_forward_mtl_lora(self):
+        self.skipTest("Not supported for DeBERTa")
 
-method_tests = generate_method_tests(DebertaAdapterTestBase)
+    def test_mtl_train_mtl_lora(self):
+        self.skipTest("Not supported for DeBERTa")
+
+
+method_tests = generate_method_tests(DebertaAdapterTestBase, not_supported=["MTLLoRA", "Vera"])
 
 for test_class_name, test_class in method_tests.items():
     globals()[test_class_name] = test_class

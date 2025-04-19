@@ -70,6 +70,9 @@ model.average_adapter(
 For both output and parameter averaging, passed weights are normalized by default. To disable normalization, pass `normalize_weights=False`.
 For more detailed examples and explanations, refer to our [Task Arithmetic notebook](https://github.com/adapter-hub/adapters/tree/main/notebooks/task_arithmetics_in_adapter.ipynb).
 
+#### Merging Other LoRA Variants
+- **IA3**: The merging methods for LoRA also work with IA3 adapters.
+- **VeRA**: Since VeRA contains both frozen LoRA weight matrices and normal weight matrices, only linear merging is supported.
 
 ```{eval-rst}
 .. tip::
