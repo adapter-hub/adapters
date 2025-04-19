@@ -696,6 +696,20 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         if set_active:
             self.set_active_adapters(adapter_name)
 
+        # For VeRA adapters, register tied weights patterns
+        if self.adapters_config.match(adapter_name, LoRAConfig):
+            adapter_config = self.adapters_config.match(adapter_name, LoRAConfig)
+            if isinstance(adapter_config.vera_d, float) or isinstance(adapter_config.vera_b, float):
+                vera_tied_weights_keys = [
+                    f"shared_parameters\\.{adapter_name}\\.lora_A",
+                    f"shared_parameters\\.{adapter_name}\\.lora_B",
+                ]
+
+                if self._tied_weights_keys is not None:
+                    self._tied_weights_keys += vera_tied_weights_keys
+                else:
+                    self._tied_weights_keys = vera_tied_weights_keys
+
     def _add_adapter_weights(self, adapter_name: str):
         """Helper method that performs the actual parameter additions when adding a new adapter."""
         self.apply_to_adapter_layers(lambda i, layer: layer.add_adapter(adapter_name, i))
