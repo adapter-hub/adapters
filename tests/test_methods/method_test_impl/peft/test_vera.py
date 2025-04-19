@@ -40,7 +40,8 @@ class VeraTestMixin(AdapterMethodBaseTestMixin):
         self.run_full_model_load_test(VeraConfig(init_weights="vera"))
 
     def test_train_Vera(self):
-        self.run_train_test(VeraConfig(init_weights="vera"), ["loras.{name}.", "shared_parameters.{name}."])
+        # don't include "shared_parameters.{name}." here since they are frozen and this test checks if the adapter weights are active.
+        self.run_train_test(VeraConfig(init_weights="vera"), ["loras.{name}."])
 
     def test_merge_Vera(self):
         self.run_merge_test(VeraConfig(init_weights="vera"))
@@ -74,7 +75,12 @@ class VeraTestMixin(AdapterMethodBaseTestMixin):
             )
 
         # Next, check "lora_delta_w_svd"
-        with self.assertRaisesRegex(ValueError, "VeRA only supports linear averaging"):
+        expected_error = (
+            "This model specifically does not support 'lora_delta_w_svd' as a merging method. Please use a different combine_strategy or a different model."
+            if model.config.model_type == "deberta-v2"
+            else "VeRA only supports linear averaging"
+        )
+        with self.assertRaisesRegex(ValueError, expected_error):
             model.average_adapter(
                 "merged_adapter_name",
                 ["test_adapter_1", "test_adapter_2"],

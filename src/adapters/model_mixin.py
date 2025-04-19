@@ -553,7 +553,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         """
         Applies a function to all direct childs of the model if they are a instance of AdapterLayerBase.
         """
-        if self.add_base_adapters:
+        if self.base_model.add_base_adapters:
             for module in self.base_model.children():
                 if isinstance(module, AdapterLayerBase):
                     # These childs don't have a layer index so we pass -1
