@@ -494,24 +494,21 @@ class DoRA(nn.Module):
     ) -> torch.Tensor:
         """Performs the composition operation between existing and injected weights.
 
-        This compose method requires the frozen pretrained weights (W_o) of the layer
-        in order to calculate the norm, as well as the input_states `x` to calculate the
-        updated hidden states.
+        During training, the compose method requires the frozen pretrained weights (W_o) 
+        of the layer in order to calculate the norm, as well as the input_states `x` 
+        to calculate the updated hidden states.
 
         In the case where `input_states` and `frozen_pretrained_weights` are not passed,
         we will return the magnitude component multiplied with the direction component
         (used for merging).
-
         """
         if scaling is None:
             scaling = self.scaling
 
         # if input_states `x` and the frozen_pretrained_weights is passed, we are training
         if input_states is not None and frozen_pretrained_weights is not None:
-            # v = W_o + BA used to calculate norm_scale
             # we save the current state v in case we need v to calculate the com_inv
             v = frozen_pretrained_weights + (self.lora_B @ self.lora_A) * self.scaling
-            self.v = v
             # norm_scale = m / ||W_o + BA||c
             norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
 
@@ -536,17 +533,12 @@ class DoRA(nn.Module):
         If the com_inv is called without training, the function will utilize the passed weights
         to calculate the norm_scale
         """
-
-        if not self.v:
-            v = weights + added * self.scaling
-        else:
-            v = self.v
-
+        v = weights + added * self.scaling
         norm_scale = torch.linalg.norm(v, dim=1)
 
         z = weights * norm_scale
         z = z / self.m.weight.view(-1)
-        result = z - self.lora_B @ self.lora_A * self.scaling
+        result = z - added * self.scaling
         return result
 
     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
