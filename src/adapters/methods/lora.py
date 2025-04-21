@@ -496,51 +496,50 @@ class DoRA(nn.Module):
         weights: torch.Tensor,
         added: torch.Tensor,
         input_states: torch.Tensor = None,
-        frozen_pretrained_weights: torch.Tensor = None,
         scaling=None,
     ) -> torch.Tensor:
         """Performs the composition operation between existing and injected weights.
 
-        This compose method requires the frozen pretrained weights (W_o) of the layer
-        in order to calculate the norm, as well as the input_states `x` to calculate the
-        updated hidden states.
+        During training, the compose method requires the frozen pretrained weights (W_o)
+        of the layer in order to calculate the norm, as well as the input_states `x`
+        to calculate the updated hidden states.
 
         In the case where `input_states` and `frozen_pretrained_weights` are not passed,
         we will return the magnitude component multiplied with the direction component
         (used for merging).
-
         """
         if scaling is None:
             scaling = self.scaling
 
         # if input_states `x` and the frozen_pretrained_weights is passed, we are training
-        if input_states is not None and frozen_pretrained_weights is not None:
-            # v = W_o + BA used to calculate norm_scale
+        if input_states is not None:
+            self.w_o = self.w_o.to(self.lora_B.device)
             # we save the current state v in case we need v to calculate the com_inv
-            v = frozen_pretrained_weights + (self.lora_B @ self.lora_A) * self.scaling
-            self.v = v
+            v = self.w_o + (self.lora_B @ self.lora_A) * self.scaling
             # norm_scale = m / ||W_o + BA||c
             norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
 
             input_states_with_dropout = self.lora_dropout(input_states)
 
-            scaled_weights = norm_scale * F.linear(input_states_with_dropout, frozen_pretrained_weights)
+            scaled_weights = (norm_scale - 1) * F.linear(input_states_with_dropout, self.w_o)
             scaled_lora = norm_scale * added
-            # result = W_ox + norm_scale * W_ox + norm_scale * BA
+            # result = W_ox + norm_scale * W_ox + norm_scale * BAx
             result = weights + scaled_weights + scaled_lora * self.scaling
         else:
             # we are merging
             v = weights + added * self.scaling
-            norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
-            result = v * norm_scale
+            norm_scale = self.m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
+            result = norm_scale * v
         return result
 
     def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
-        """Inverts the composition operation between existing and injected weights."""
-        v = weights + added * self.scaling
-        norm_scale = self.m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
-
-        result = norm_scale / v
+        """Inverts the composition operation between existing and injected weights.
+        Requires the frozen pretrained weights (W_o) of the layer in order to calculate the norm.
+        """
+        self.w_o = self.w_o.to(added.device)
+        v = self.w_o + added * self.scaling
+        result = weights * torch.linalg.norm(v, dim=1).unsqueeze(1) / self.m.weight
+        result = result - added * self.scaling
         return result
 
     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
@@ -1002,8 +1001,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 last_lora = self.loras[last]
                 # if we're using dora, we need original pretrained weights and input states `x`` as well
                 if last_lora.composition_mode == "dora":
-                    weight = torch.transpose(self.weight, -2, -1) if self.fan_in_fan_out else self.weight
-                    layer_output = last_lora.com(layer_output, hidden_states, input_states, weight, scaling=1.0)
+                    layer_output = last_lora.com(layer_output, hidden_states, input_states, scaling=1.0)
                 else:
                     layer_output = last_lora.com(
                         layer_output, hidden_states, scaling=1.0
