@@ -42,6 +42,7 @@ MODEL_CONFIGS = {
             "hidden_size": 32,
             "num_hidden_layers": 4,
             "num_attention_heads": 4,
+            "num_key_value_heads": 2,
             "intermediate_size": 64,
             "pad_token_id": 0,
         },
