@@ -21,6 +21,7 @@ MODEL_CONFIGS = {
             "num_attention_heads": 4,
             "intermediate_size": 64,
             "pad_token_id": 0,
+            "reference_compile": False,
         },
         "test_base": TextAdapterTestBase,
     },
@@ -149,7 +150,7 @@ for model_name, model_config in MODEL_CONFIGS.items():
         {
             "config_class": model_config["config_class"],
             "config": staticmethod(
-                lambda params=model_config["config_params"]: model_config["config_class"](**params)
+                lambda params=model_config["config_params"], cls=model_config["config_class"]: cls(**params)
             ),
         },
     )
