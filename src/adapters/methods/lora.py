@@ -505,9 +505,8 @@ class DoRA(nn.Module):
         of the layer in order to calculate the norm, as well as the input_states `x`
         to calculate the updated hidden states.
 
-        In the case where `input_states` and `frozen_pretrained_weights` are not passed,
-        we will return the magnitude component multiplied with the direction component
-        (used for merging).
+        In the case where `input_states` are not passed, we will return the 
+        magnitude component multiplied with the direction component (used for merging).
         """
         if scaling is None:
             scaling = self.scaling
@@ -533,13 +532,7 @@ class DoRA(nn.Module):
         return result
 
     def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
-        """Inverts the composition operation between existing and injected weights.
-        This function requires the current state v in order to calculate the inverse
-        via the parameter `self.v` which is set during training of the adapter.
-
-        If the com_inv is called without training, the function will utilize the passed weights
-        to calculate the norm_scale
-        """
+        """Inverts the composition operation between existing and injected weights."""
         v = weights + added * self.scaling
         norm_scale = self.m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
 
