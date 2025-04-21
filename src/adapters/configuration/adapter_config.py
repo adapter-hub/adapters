@@ -563,6 +563,7 @@ class IA3Config(LoRAConfig):
     use_gating: bool = False
     dtype: Optional[str] = None
 
+
 @dataclass(eq=False)
 class DoraConfig(LoRAConfig):
     """

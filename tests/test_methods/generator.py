@@ -215,7 +215,7 @@ def generate_method_tests(
             pass
 
         test_classes["Vera"] = Vera
-        
+
     if "Dora" not in redundant and "Dora" not in not_supported:
 
         @require_torch

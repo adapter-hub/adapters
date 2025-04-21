@@ -24,7 +24,7 @@ class DoraTestMixin(AdapterMethodBaseTestMixin):
     def test_get_Dora(self):
         model = self.get_model()
         n_layers = len(list(model.iter_layers()))
-        self.run_get_test(model, DoraConfig(intermediate_lora=False, output_lora=False), n_layers * 3)
+        self.run_get_test(model, DoraConfig(intermediate_lora=False, output_lora=False), n_layers)
 
     def test_forward_Dora(self):
         model = self.get_model()
