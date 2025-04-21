@@ -470,7 +470,6 @@ class DoRA(nn.Module):
         self.w_o = kwargs["w_o"] if "w_o" in kwargs else None
         if self.w_o is not None:
             self.w_o = torch.transpose(self.w_o, -2, -1) if kwargs["fan_in_fan_out"] else self.w_o
-        print(self.w_o.shape)
 
         if config.init_weights == "lora":
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
@@ -517,7 +516,7 @@ class DoRA(nn.Module):
             v = self.w_o + (self.lora_B @ self.lora_A) * self.scaling
             # norm_scale = m / ||W_o + BA||c
             norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
-            # print(input_states.shape, frozen_pretrained_weights.shape, weights.shape, added.shape)
+            
             input_states_with_dropout = self.lora_dropout(input_states)
 
             scaled_weights = (norm_scale - 1) * F.linear(input_states_with_dropout, self.w_o)
