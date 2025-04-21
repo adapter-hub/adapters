@@ -320,7 +320,7 @@ class Vera(nn.Module):
         self.alpha = config.alpha
         self.use_gating = config.use_gating
         self.name = name
-        
+
         fix_seed(config.init_weights_seed)
 
         # check to make sure that the `composition_mode` is set to `add`
@@ -505,22 +505,22 @@ class DoRA(nn.Module):
         of the layer in order to calculate the norm, as well as the input_states `x`
         to calculate the updated hidden states.
 
-        In the case where `input_states` are not passed, we will return the 
+        In the case where `input_states` are not passed, we will return the
         magnitude component multiplied with the direction component (used for merging).
         """
         if scaling is None:
             scaling = self.scaling
-            
+
         # if input_states `x` and the frozen_pretrained_weights is passed, we are training
         if input_states is not None:
             # we save the current state v in case we need v to calculate the com_inv
             v = self.w_o + (self.lora_B @ self.lora_A) * self.scaling
             # norm_scale = m / ||W_o + BA||c
             norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
-            #print(input_states.shape, frozen_pretrained_weights.shape, weights.shape, added.shape)
+            # print(input_states.shape, frozen_pretrained_weights.shape, weights.shape, added.shape)
             input_states_with_dropout = self.lora_dropout(input_states)
 
-            scaled_weights = (norm_scale-1) * F.linear(input_states_with_dropout, self.w_o)
+            scaled_weights = (norm_scale - 1) * F.linear(input_states_with_dropout, self.w_o)
             scaled_lora = norm_scale * added
             # result = W_ox + norm_scale * W_ox + norm_scale * BAx
             result = weights + scaled_weights + scaled_lora * self.scaling
@@ -528,7 +528,7 @@ class DoRA(nn.Module):
             # we are merging
             v = weights + added * self.scaling
             norm_scale = self.m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
-            result = norm_scale * v 
+            result = norm_scale * v
         return result
 
     def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
