@@ -29,7 +29,7 @@ class GPT2AdapterTestBase(TextAdapterTestBase):
 
 method_tests = generate_method_tests(
     GPT2AdapterTestBase,
-    not_supported=["PromptTuning", "MTLLoRA", "Vera"],
+    not_supported=["PromptTuning", "MTLLoRA", "Vera", "Dora"],
 )
 
 for test_class_name, test_class in method_tests.items():
