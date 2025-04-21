@@ -495,7 +495,6 @@ class DoRA(nn.Module):
         self,
         weights: torch.Tensor,
         added: torch.Tensor,
-        input_states: torch.Tensor = None,
         scaling=None,
     ) -> torch.Tensor:
         """Performs the composition operation between existing and injected weights.
@@ -511,25 +510,12 @@ class DoRA(nn.Module):
         if scaling is None:
             scaling = self.scaling
 
-        # if input_states `x` and the frozen_pretrained_weights is passed, we are training
-        if input_states is not None:
-            self.w_o = self.w_o.to(self.lora_B.device)
-            # we save the current state v in case we need v to calculate the com_inv
-            v = self.w_o + (self.lora_B @ self.lora_A) * self.scaling
-            # norm_scale = m / ||W_o + BA||c
-            norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
-
-            input_states_with_dropout = self.lora_dropout(input_states)
-
-            scaled_weights = (norm_scale - 1) * F.linear(input_states_with_dropout, self.w_o)
-            scaled_lora = norm_scale * added
-            # result = W_ox + norm_scale * W_ox + norm_scale * BAx
-            result = weights + scaled_weights + scaled_lora * self.scaling
-        else:
-            # we are merging
-            v = weights + added * self.scaling
-            norm_scale = self.m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
-            result = norm_scale * v
+        self.w_o = self.w_o.to(self.lora_B.device)
+        v = self.w_o + (self.lora_B @ self.lora_A) * self.scaling
+        norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
+        scaled_weights = (norm_scale - 1) * weights
+        scaled_lora = norm_scale * added
+        result = weights + scaled_weights + scaled_lora * self.scaling
         return result
 
     def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
@@ -540,6 +526,13 @@ class DoRA(nn.Module):
         v = self.w_o + added * self.scaling
         result = weights * torch.linalg.norm(v, dim=1).unsqueeze(1) / self.m.weight
         result = result - added * self.scaling
+        return result
+
+    def merge(self, weights: torch.Tensor, added: torch.Tensor):
+        v = weights + added * self.scaling
+        norm_scale = self.m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
+        result = norm_scale * v
+
         return result
 
     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
@@ -923,7 +916,10 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 if lora.use_gating:
                     raise ValueError("Cannot merge LoRA layer with gating.")
                 delta_w = self.maybe_t(lora.delta_w)
-                self.weight.data = lora.com(self.weight.data, delta_w)
+                if lora.composition_mode == "dora":
+                    self.weight.data = lora.merge(self.weight.data, delta_w)
+                else:
+                    self.weight.data = lora.com(self.weight.data, delta_w)
                 self.merged = name
             elif self.merged != name:
                 raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
@@ -999,13 +995,9 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 _, hidden_states, layer_output, last = state
 
                 last_lora = self.loras[last]
-                # if we're using dora, we need original pretrained weights and input states `x`` as well
-                if last_lora.composition_mode == "dora":
-                    layer_output = last_lora.com(layer_output, hidden_states, input_states, scaling=1.0)
-                else:
-                    layer_output = last_lora.com(
-                        layer_output, hidden_states, scaling=1.0
-                    )  # scaling already applied in compose
+                layer_output = last_lora.com(
+                    layer_output, hidden_states, scaling=1.0
+                )  # scaling already applied in compose
 
         return layer_output
 

@@ -15,8 +15,8 @@ from tests.test_methods.method_test_impl.heads.test_adapter_heads import Predict
 from tests.test_methods.method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
 from tests.test_methods.method_test_impl.peft.test_compacter import CompacterTestMixin
 from tests.test_methods.method_test_impl.peft.test_config_union import ConfigUnionAdapterTest
-from tests.test_methods.method_test_impl.peft.test_ia3 import IA3TestMixin
 from tests.test_methods.method_test_impl.peft.test_dora import DoraTestMixin
+from tests.test_methods.method_test_impl.peft.test_ia3 import IA3TestMixin
 from tests.test_methods.method_test_impl.peft.test_lora import LoRATestMixin
 from tests.test_methods.method_test_impl.peft.test_mtllora import MTLLoRATestMixin
 from tests.test_methods.method_test_impl.peft.test_prefix_tuning import PrefixTuningTestMixin
