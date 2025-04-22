@@ -452,6 +452,10 @@ class DoRA(nn.Module):
         self.composition_mode = config.composition_mode
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
+        self.w_o = kwargs["w_o"] if "w_o" in kwargs else None
+        if self.w_o is not None:
+            self.w_o = torch.transpose(self.w_o, -2, -1) if kwargs["fan_in_fan_out"] else self.w_o
+        
         # Optional dropout
         if config.dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=config.dropout)
@@ -465,12 +469,9 @@ class DoRA(nn.Module):
         # Actual trainable parameters
         self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
         self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
-        self.scaling = self.lora_alpha / self.r
         self.m = nn.Linear(1, self.lora_B.shape[0], bias=False, dtype=dtype)
-        self.w_o = kwargs["w_o"] if "w_o" in kwargs else None
-        if self.w_o is not None:
-            self.w_o = torch.transpose(self.w_o, -2, -1) if kwargs["fan_in_fan_out"] else self.w_o
-
+        self.scaling = self.lora_alpha / self.r
+        
         if config.init_weights == "lora":
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
             nn.init.zeros_(self.lora_B)
@@ -502,10 +503,6 @@ class DoRA(nn.Module):
         During training, the compose method requires the frozen pretrained weights (W_o)
         of the layer in order to calculate the norm, as well as the input_states `x`
         to calculate the updated hidden states.
-
-        In the case where `input_states` and `frozen_pretrained_weights` are not passed,
-        we will return the magnitude component multiplied with the direction component
-        (used for merging).
         """
         if scaling is None:
             scaling = self.scaling
@@ -529,6 +526,7 @@ class DoRA(nn.Module):
         return result
 
     def merge(self, weights: torch.Tensor, added: torch.Tensor):
+        """Returns the merged weights of the Dora layer."""
         v = weights + added * self.scaling
         norm_scale = self.m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
         result = norm_scale * v
@@ -666,11 +664,16 @@ class LoRALayer(AdapterLayerBase):
                     self.delete_adapter(adapter_name)  # clean up before raising error
                     raise ValueError("Adapter {} not found.".format(name))
 
-            # VeRA only supports linear averaging.
+            # VeRA and DoRA only supports linear averaging.
             if isinstance(self.loras[list(input_adapters.keys())[0]], Vera):
                 if combine_strategy != "linear":
                     raise ValueError(
                         "VeRA only supports linear averaging. The combine_strategy must be 'linear'. See https://docs.adapterhub.ml/merging_adapters.html for more information."
+                    )
+            elif isinstance(self.loras[list(input_adapters.keys())[0]], DoRA):
+                if combine_strategy != "linear":
+                    raise ValueError(
+                        "DoRA only supports linear averaging. The combine_strategy must be 'linear'. See https://docs.adapterhub.ml/merging_adapters.html for more information."
                     )
 
             # Now, combine the weights according to the strategy
@@ -678,6 +681,7 @@ class LoRALayer(AdapterLayerBase):
                 for name, weight in input_adapters.items():
                     module = self.loras[name]
                     for k, v in module.state_dict().items():
+                        print(k, v)
                         if k in avg_state_dict:
                             avg_state_dict[k] += weight * v
                         else:
