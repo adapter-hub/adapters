@@ -295,6 +295,26 @@ Using the `VeraConfig`, you can specify the initialization of the scaling vector
 _Papers:_
 - [VeRA: Vector-based Random Matrix Adaptation](https://arxiv.org/pdf/2310.11454) (Kopiczko et al., 2024)
 
+
+## DoRA
+
+DoRA refers to Weight-Decomposed Low-Rank Adaptation, and is a LoRA based fine-tuning method proposed by Liu et al. (2024). Using the DoRA method, we decompose the pre-trained weights W_{0} into a magnitude $m$ and directional $d$ and fine-tunes both. The magnitude component $m$ is a vector while the $d$ directional component is a matrix that is uses LoRA matrices $B$ and $A$. Furthermore, we keep the columns of the directional component unit vectors by dividing the matrix by its norm. During training, we calculate the hidden_states using both the magnitude component and directional component via the equation:
+
+$$ h = W_{0}x + $m$\frac_{W_{0}x + BAx}{\norm{W_{0} + BA}} $$
+
+where $\Lambda_{b}$ and $\Lambda_{d}$ receive updates during training.
+
+_Example_:
+```python
+from adapters import DoraConfig
+
+config = DoraConfig()
+model.add_adapter("dora_config", config=config)
+```
+
+_Papers:_
+- [DoRA: Weight-Decomposed Low-Rank Adaptation](https://arxiv.org/pdf/2402.09353) (Liu et al., 2024)
+
 ## Prompt Tuning
 Prompt Tuning is an efficient fine-tuning technique proposed by Lester et al. (2021). Prompt tuning adds tunable tokens, called soft-prompts, that are prepended to the input text.
 First, the input sequence ${x_1, x_2, \dots, x_n }$ gets embedded, resulting in the matrix $X_e \in \mathbb{R}^{n \times e}$ where $e$ is the dimension of

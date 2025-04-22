@@ -57,7 +57,7 @@ Identifiers and configuration classes are explained in more detail in the [next 
 | `lora` | `LoRAConfig()` | [LoRA](methods.html#lora) |
 | `vera` | `VeraConfig()` | [Vera](methods.html#vera) |
 | `ia3` | `IA3Config()` | [IA³](methods.html#ia-3) |
-| `dora` | `DoRAConfig()` | [DoRA](methods.html#dora) |
+| `dora` | `DoraConfig()` | [DoRA](methods.html#dora) |
 | `mam` | `MAMConfig()` | [Mix-and-Match Adapters](method_combinations.html#mix-and-match-adapters) |
 | `unipelt` | `UniPELTConfig()` | [UniPELT](method_combinations.html#unipelt) |
 | `prompt_tuning` | `PromptTuningConfig()` | [Prompt Tuning](methods.html#prompt-tuning) |
