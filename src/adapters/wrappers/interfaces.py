@@ -71,7 +71,7 @@ CUSTOM_INTERFACES = {
         layer_pre_ffn=None,
         layer_ln_1=None,
         layer_ln_2=None,
-    )
+    ),
 }
 
 

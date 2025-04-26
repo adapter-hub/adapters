@@ -5,7 +5,7 @@ import unittest
 import adapters
 from adapters import CompacterPlusPlusConfig, IA3Config, LoRAConfig
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
-from transformers import AutoModel, Gemma2Config, ModernBertConfig, Qwen2Config, PhiConfig
+from transformers import AutoModel, Gemma2Config, ModernBertConfig, PhiConfig, Qwen2Config
 from transformers.testing_utils import torch_device
 
 from .base import TextAdapterTestBase
@@ -48,7 +48,7 @@ MODEL_CONFIGS = {
         },
         "test_base": TextAdapterTestBase,
     },
-        "Phi": {
+    "Phi": {
         "config_class": PhiConfig,
         "config_params": {
             "hidden_size": 32,
