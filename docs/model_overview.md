@@ -34,6 +34,7 @@ The table below further shows which model architectures support which adaptation
 | [Mistral](classes/models/mistral.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [MT5](classes/models/mt5.html)          | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [PLBart](classes/models/plbart.html)      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
+| Qwen2<br>Qwen2.5<sup>◊</sup>                    | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
 | [RoBERTa](classes/models/roberta.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [T5](classes/models/t5.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [ViT](classes/models/vit.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
