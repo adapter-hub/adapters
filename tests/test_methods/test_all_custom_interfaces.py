@@ -21,7 +21,6 @@ MODEL_CONFIGS = {
             "num_attention_heads": 4,
             "intermediate_size": 64,
             "pad_token_id": 0,
-            "reference_compile": False,
         },
         "test_base": TextAdapterTestBase,
     },
