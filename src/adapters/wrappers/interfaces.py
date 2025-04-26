@@ -68,7 +68,9 @@ CUSTOM_INTERFACES = {
         layer_output_proj="mlp.fc2",
         layer_pre_self_attn="input_layernorm",
         layer_pre_cross_attn=None,
-        # Phi applies layer norm only before attention; no layer norm before or after feedforward
+        # Phi applies one layer norm only before attention
+        # these normalized hidden_states are then input to both the attention and the FFN
+        # -> No layer_pre_ffn needed and also no normalization after the attention or FFN
         layer_pre_ffn=None,
         layer_ln_1=None,
         layer_ln_2=None,
