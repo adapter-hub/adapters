@@ -1011,6 +1011,10 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         loader.save(save_directory, adapter_name, meta_dict)
         # save additional custom weights
 
+        # save interface in case it is a custom model
+        if interface := getattr(self.base_model, "adapter_interface", None):
+            interface._save(save_directory, self.config)
+
         if custom_weights_loaders:
             for weights_loader in custom_weights_loaders:
                 weights_loader.save(save_directory, adapter_name)
