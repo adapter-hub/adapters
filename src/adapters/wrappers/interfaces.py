@@ -54,6 +54,27 @@ CUSTOM_INTERFACES = {
         layer_ln_1=None,
         layer_ln_2=None,
     ),
+    "phi": AdapterModelInterface(
+        adapter_methods=["bottleneck", "lora", "reft", "invertible"],
+        model_embeddings="embed_tokens",
+        model_layers="layers",
+        layer_self_attn="self_attn",
+        layer_cross_attn=None,
+        attn_k_proj="k_proj",
+        attn_q_proj="q_proj",
+        attn_v_proj="v_proj",
+        attn_o_proj="dense",
+        layer_intermediate_proj="mlp.fc1",
+        layer_output_proj="mlp.fc2",
+        layer_pre_self_attn="input_layernorm",
+        layer_pre_cross_attn=None,
+        # Phi applies one layer norm only before attention
+        # these normalized hidden_states are then input to both the attention and the FFN
+        # -> No layer_pre_ffn needed and also no normalization after the attention or FFN
+        layer_pre_ffn=None,
+        layer_ln_1=None,
+        layer_ln_2=None,
+    ),
 }
 
 
