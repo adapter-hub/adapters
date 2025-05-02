@@ -4,6 +4,7 @@ import torch.nn as nn
 
 from ...composition import adjust_tensors_for_parallel_
 from ...methods.reft import ReftLayer, hook_fn
+from ...methods.prefix_tuning import PrefixTuningPool
 from ...model_mixin import (
     EmbeddingAdaptersMixin,
     EmbeddingAdaptersWrapperMixin,
@@ -62,7 +63,7 @@ class MllamaVisionEncoderAdaptersMixin:
         layer.register_forward_pre_hook(hook, with_kwargs=True)
 
 
-class MllamaVisionModelAdaptersMixin:
+class MllamaVisionModelAdaptersMixin(ModelBaseAdaptersMixin):
     """Adds adapters to the a MllamaVisionModel class."""
 
     support_prompt_tuning = False
@@ -77,10 +78,11 @@ class MllamaVisionModelAdaptersMixin:
             yield i, layer
 
 
-class MllamaTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin):
+class MllamaTextModelAdaptersMixin(EmbeddingAdaptersMixin, InvertibleAdaptersMixin, ModelBaseAdaptersMixin):
     """Adds adapters to the a MllamaTextModel class."""
 
     support_prompt_tuning = False
+    invertible_adapters_base_name = "language_model"
 
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         for i, layer in enumerate(self.layers):
@@ -109,7 +111,6 @@ class MllamaAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWrapp
     def iter_layers(self) -> Iterable[Tuple[int, nn.Module]]:
         layer_idx = 0
 
-        # First iterate through vision model's local transformer layers
         for _, layer in self.vision_model.iter_layers():
             yield layer_idx, layer
             layer_idx += 1
@@ -133,19 +134,18 @@ class MllamaAdaptersMixin(EmbeddingAdaptersWrapperMixin, InvertibleAdaptersWrapp
             if hasattr(module, "init_adapters"):
                 module.init_adapters(model_config.text_config, adapters_config)
 
-        # Initialize ReFT for all layers if needed
-        self._init_reft_layers(model_config, adapters_config)
-
-    def _init_reft_layers(self, model_config, adapters_config):
-        """Initialize ReFT layers for both vision and language components."""
-        # Vision local transformer
+    def _default_init_adapter_methods(self, model_config, adapters_config):
+        # Patch for ReFT initialization
         for _, layer in self.vision_model.iter_layers():
             if not hasattr(layer, "reft_layer"):
                 layer.reft_layer = ReftLayer("output", model_config.vision_config, adapters_config)
                 layer.register_forward_hook(hook_fn)
 
-        # Language model layers
         for _, layer in self.language_model.iter_layers():
             if not hasattr(layer, "reft_layer"):
                 layer.reft_layer = ReftLayer("output", model_config.text_config, adapters_config)
                 layer.register_forward_hook(hook_fn)
+                
+        # Add prefix tuning
+        self.base_model.prefix_tuning = PrefixTuningPool(model_config, adapters_config)
+
