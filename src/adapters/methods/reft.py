@@ -151,11 +151,17 @@ class ReftModule(nn.Module):
 
         if self.prefix_positions > 0:
             hidden_states = torch.scatter(
-                hidden_states, 1, context.pref_idx, adapted_output[:, : self.prefix_positions, :]
+                hidden_states,
+                1,
+                context.pref_idx,
+                adapted_output[:, : self.prefix_positions, :],
             )
         if self.suffix_positions > 0:
             hidden_states = torch.scatter(
-                hidden_states, 1, context.suff_idx, adapted_output[:, -self.suffix_positions :, :]
+                hidden_states,
+                1,
+                context.suff_idx,
+                adapted_output[:, -self.suffix_positions :, :],
             )
 
         return hidden_states
@@ -229,6 +235,7 @@ def hook_fn(module, args, output):
 
 
 def init_reft(model):
+    model = model.base_model
     for _, layer in model.iter_layers():
         if not hasattr(layer, "reft_layer"):
             layer.reft_layer = ReftLayer("output", model.config, model.adapters_config)

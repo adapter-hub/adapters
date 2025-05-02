@@ -51,6 +51,7 @@ LoRAConfig
     :members:
     :inherited-members: Mapping
 
+
 IA3Config
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -113,3 +114,14 @@ Adapter Setup
 
 .. autoclass:: adapters.AdapterSetup
     :members:
+
+MultiTask Configurations
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: adapters.MultiTaskConfig
+    :members:
+    :inherited-members: Mapping
+
+.. autoclass:: adapters.MTLLoRAConfig
+    :members:
+    :inherited-members: Mapping

@@ -158,8 +158,8 @@ class AdapterTrainer(Trainer):
                 self.model.save_all_adapter_fusions(output_dir)
             if hasattr(self.model, "heads"):
                 self.model.save_all_heads(output_dir)
-        if self.tokenizer is not None:
-            self.tokenizer.save_pretrained(output_dir)
+        if self.processing_class is not None:
+            self.processing_class.save_pretrained(output_dir)
 
         # Good practice: save your training arguments together with the trained model
         torch.save(self.args, os.path.join(output_dir, "training_args.bin"))

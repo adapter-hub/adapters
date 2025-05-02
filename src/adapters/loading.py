@@ -43,7 +43,12 @@ class WeightsLoaderHelper:
     """
 
     def __init__(
-        self, model, weights_name, config_name, use_safetensors: bool = False, safe_weights_name: Optional[str] = None
+        self,
+        model,
+        weights_name,
+        config_name,
+        use_safetensors: bool = False,
+        safe_weights_name: Optional[str] = None,
     ):
         self.model = model
         self.weights_name = weights_name
@@ -127,7 +132,13 @@ class WeightsLoaderHelper:
         def load(module, prefix=""):
             local_metadata = {} if metadata is None else metadata.get(prefix[:-1], {})
             module._load_from_state_dict(
-                state_dict, prefix, local_metadata, True, missing_keys, unexpected_keys, error_msgs
+                state_dict,
+                prefix,
+                local_metadata,
+                True,
+                missing_keys,
+                unexpected_keys,
+                error_msgs,
             )
             for name, child in module._modules.items():
                 if child is not None:
@@ -169,11 +180,21 @@ class WeightsLoaderHelper:
         logger.info("Loading module weights from {}".format(weights_file))
 
         return self.load_weights_from_state_dict(
-            state_dict, filter_func, rename_func=rename_func, loading_info=loading_info, in_base_model=in_base_model
+            state_dict,
+            filter_func,
+            rename_func=rename_func,
+            loading_info=loading_info,
+            in_base_model=in_base_model,
         )
 
     def load_weights_from_state_dict(
-        self, state_dict, filter_func, rename_func=None, loading_info=None, in_base_model=False, start_prefix=""
+        self,
+        state_dict,
+        filter_func,
+        rename_func=None,
+        loading_info=None,
+        in_base_model=False,
+        start_prefix="",
     ):
         # Rename weights if needed
         if rename_func:
@@ -196,6 +217,7 @@ class WeightsLoaderHelper:
         )
 
         missing_keys = [k for k in missing_keys if filter_func(k)]
+
         if len(missing_keys) > 0:
             logger.info(
                 "Some module weights could not be found in loaded weights file: {}".format(", ".join(missing_keys))
@@ -225,11 +247,20 @@ class WeightsLoader(ABC):
     """
 
     def __init__(
-        self, model, weights_name, config_name, use_safetensors: bool = False, safe_weights_name: Optional[str] = None
+        self,
+        model,
+        weights_name,
+        config_name,
+        use_safetensors: bool = False,
+        safe_weights_name: Optional[str] = None,
     ):
         self.model = model
         self.weights_helper = WeightsLoaderHelper(
-            model, weights_name, config_name, use_safetensors=use_safetensors, safe_weights_name=safe_weights_name
+            model,
+            weights_name,
+            config_name,
+            use_safetensors=use_safetensors,
+            safe_weights_name=safe_weights_name,
         )
 
     @abstractmethod
@@ -321,7 +352,10 @@ class WeightsLoader(ABC):
         else:
             rename_func = None
         self.weights_helper.load_weights(
-            save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
+            save_directory,
+            filter_func,
+            rename_func=rename_func,
+            loading_info=loading_info,
         )
 
         return save_directory, load_as or config["name"]
@@ -336,7 +370,11 @@ class AdapterLoader(WeightsLoader):
 
     def __init__(self, model, adapter_type=None, use_safetensors: bool = False):
         super().__init__(
-            model, WEIGHTS_NAME, CONFIG_NAME, use_safetensors=use_safetensors, safe_weights_name=SAFE_WEIGHTS_NAME
+            model,
+            WEIGHTS_NAME,
+            CONFIG_NAME,
+            use_safetensors=use_safetensors,
+            safe_weights_name=SAFE_WEIGHTS_NAME,
         )
         self.adapter_type = adapter_type
         if adapter_type and not AdapterType.has(self.adapter_type):
@@ -351,6 +389,7 @@ class AdapterLoader(WeightsLoader):
             or ".loras.{}.".format(adapter_name) in x
             or ".refts.{}.".format(adapter_name) in x
             or ".prompt_tunings.{}.".format(adapter_name) in x
+            or ".shared_parameters.{}.".format(adapter_name) in x
         )
 
     # This dict maps the original weight names to the currently used equivalents.
@@ -409,9 +448,19 @@ class AdapterLoader(WeightsLoader):
         return (
             lambda k: self._rename_legacy_weights(k)
             .replace("adapters.{}.".format(old_name), "adapters.{}.".format(new_name))
-            .replace(".prefix_tunings.{}.".format(old_name), ".prefix_tunings.{}.".format(new_name))
-            .replace(".prefix_gates.{}.".format(old_name), ".prefix_gates.{}.".format(new_name))
+            .replace(
+                ".prefix_tunings.{}.".format(old_name),
+                ".prefix_tunings.{}.".format(new_name),
+            )
+            .replace(
+                ".prefix_gates.{}.".format(old_name),
+                ".prefix_gates.{}.".format(new_name),
+            )
             .replace(".loras.{}.".format(old_name), ".loras.{}.".format(new_name))
+            .replace(
+                ".shared_parameters.{}.".format(old_name),
+                ".shared_parameters.{}.".format(new_name),
+            )
             .replace(".refts.{}.".format(old_name), ".refts.{}.".format(new_name))
         )
 
@@ -592,7 +641,11 @@ class AdapterLoader(WeightsLoader):
         filter_func = self.filter_func(adapter_name)
         rename_func = self.rename_func(config["name"], adapter_name)
         missing_keys, _ = self.weights_helper.load_weights(
-            resolved_folder, filter_func, rename_func=rename_func, loading_info=loading_info, in_base_model=True
+            resolved_folder,
+            filter_func,
+            rename_func=rename_func,
+            loading_info=loading_info,
+            in_base_model=True,
         )
         missing_keys = self._fix_legacy_config(adapter_name, missing_keys)
         if isinstance(loading_info, Mapping):
@@ -622,7 +675,8 @@ class AdapterFusionLoader(WeightsLoader):
 
     def rename_func(self, old_name, new_name):
         return lambda k: k.replace(
-            "adapter_fusion_layer.{}".format(old_name), "adapter_fusion_layer.{}".format(new_name)
+            "adapter_fusion_layer.{}".format(old_name),
+            "adapter_fusion_layer.{}".format(new_name),
         )
 
     def save_to_state_dict(self, name: str):
@@ -766,7 +820,10 @@ class AdapterFusionLoader(WeightsLoader):
         else:
             rename_func = None
         self.weights_helper.load_weights(
-            save_directory, filter_func, rename_func=rename_func, loading_info=loading_info
+            save_directory,
+            filter_func,
+            rename_func=rename_func,
+            loading_info=loading_info,
         )
 
         return save_directory, adapter_fusion_name
@@ -780,7 +837,13 @@ class PredictionHeadLoader(WeightsLoader):
     `model.heads` and a method `add_prediction_head(head_name, config)`.
     """
 
-    def __init__(self, model, error_on_missing=True, convert_to_flex_head=False, use_safetensors: bool = False):
+    def __init__(
+        self,
+        model,
+        error_on_missing=True,
+        convert_to_flex_head=False,
+        use_safetensors: bool = False,
+    ):
         super().__init__(
             model,
             HEAD_WEIGHTS_NAME,
@@ -960,7 +1023,10 @@ class PredictionHeadLoader(WeightsLoader):
                     head_config["label2id"] = {label: int(id_) for label, id_ in custom_label2id.items()}
 
                 self.model.add_prediction_head_from_config(
-                    head_name, head_config, overwrite_ok=True, set_active=kwargs.pop("set_active", True)
+                    head_name,
+                    head_config,
+                    overwrite_ok=True,
+                    set_active=kwargs.pop("set_active", True),
                 )
             # model with static head
             else:
@@ -979,7 +1045,10 @@ class PredictionHeadLoader(WeightsLoader):
         if conversion_rename_func:
             rename_funcs.append(conversion_rename_func)
         self.weights_helper.load_weights(
-            save_directory, filter_func, rename_func=rename_funcs, loading_info=loading_info
+            save_directory,
+            filter_func,
+            rename_func=rename_funcs,
+            loading_info=loading_info,
         )
 
         return save_directory, head_name

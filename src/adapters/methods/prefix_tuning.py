@@ -1,4 +1,4 @@
-from typing import Dict, List, NamedTuple, Optional
+from typing import Dict, List, NamedTuple, Optional, Union
 
 import torch
 import torch.nn.functional as F
@@ -37,7 +37,10 @@ class PrefixTuning(nn.Module, ModuleUtilsMixin):
         self.control_trans = nn.Sequential(
             nn.Linear(self.input_size, self.config.bottleneck_size),
             Activation_Function_Class(self.config.non_linearity.lower()),
-            nn.Linear(self.config.bottleneck_size, self.n_layers * 2 * self.n_heads * self.n_embd_per_head),
+            nn.Linear(
+                self.config.bottleneck_size,
+                self.n_layers * 2 * self.n_heads * self.n_embd_per_head,
+            ),
         )
         self.dropout = nn.Dropout(self.config.dropout)
 
@@ -58,7 +61,11 @@ class PrefixTuning(nn.Module, ModuleUtilsMixin):
         embs = self.wte(input_tokens)
         key_values = self.control_trans(embs)  # batch_size x prefix_length x n_layers*2*input_size
         key_values = key_values.view(
-            batch_size, self.config.prefix_length, self.n_layers * 2, self.n_heads, self.n_embd_per_head
+            batch_size,
+            self.config.prefix_length,
+            self.n_layers * 2,
+            self.n_heads,
+            self.n_embd_per_head,
         )  # *2 for key and value
         key_values = self.dropout(key_values)
         # n_layers * (2 x batch_size x n_heads x prefix_length x n_embd_per_head)
@@ -96,7 +103,13 @@ class FlatPrefixTuning(nn.Module, ModuleUtilsMixin):
         key_values = (
             self.control_trans.unsqueeze(0)
             .expand(batch_size, -1)
-            .view(batch_size, self.config.prefix_length, self.n_layers * 2, self.n_heads, self.n_embd_per_head)
+            .view(
+                batch_size,
+                self.config.prefix_length,
+                self.n_layers * 2,
+                self.n_heads,
+                self.n_embd_per_head,
+            )
             .to(self.device)
         )  # *2 for key and value
         key_values = self.dropout(key_values)
@@ -151,7 +164,11 @@ class PrefixTuningPool(nn.Module):
         config (:class:`~transformers.PretrainedConfig`): The model config.
     """
 
-    def __init__(self, model_config: PretrainedConfig, adapters_config: ModelAdaptersConfig):
+    def __init__(
+        self,
+        model_config: PretrainedConfig,
+        adapters_config: ModelAdaptersConfig,
+    ):
         super().__init__()
         self.model_config = model_config
         self.adapters_config = adapters_config
@@ -163,7 +180,10 @@ class PrefixTuningPool(nn.Module):
         if prefix_name not in self.prefix_counts:
             self.prefix_counts[prefix_name] = {location_key: {"count": 1, **kwargs}}
         elif location_key not in self.prefix_counts[prefix_name]:
-            self.prefix_counts[prefix_name][location_key] = {"count": 1, **kwargs}
+            self.prefix_counts[prefix_name][location_key] = {
+                "count": 1,
+                **kwargs,
+            }
         else:
             # TODO-AH: Check if kwargs are the same
             self.prefix_counts[prefix_name][location_key]["count"] += 1
@@ -194,7 +214,11 @@ class PrefixTuningPool(nn.Module):
         return True
 
     def average_prefix(
-        self, prefix_name: str, input_adapters: Dict[str, float], combine_strategy: str, **kwargs
+        self,
+        prefix_name: str,
+        input_adapters: Dict[str, float],
+        combine_strategy: str,
+        **kwargs,
     ) -> bool:
         if self.confirm_prefix(prefix_name):
             # Prefix Tuning only support linear combination
@@ -358,7 +382,11 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         return False
 
     def average_adapter(
-        self, adapter_name: str, input_adapters: Dict[str, float], combine_strategy: str, **kwargs
+        self,
+        adapter_name: str,
+        input_adapters: Dict[str, float],
+        combine_strategy: str,
+        **kwargs,
     ) -> bool:
         # add new adapter
         if self.add_adapter(adapter_name, self.layer_idx):
@@ -393,7 +421,12 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         if adapter_name in self.prefix_gates:
             del self.prefix_gates[adapter_name]
 
-    def enable_adapters(self, adapter_setup: AdapterCompositionBlock, unfreeze_adapters: bool, unfreeze_fusion: bool):
+    def enable_adapters(
+        self,
+        adapter_setup: AdapterCompositionBlock,
+        unfreeze_adapters: bool,
+        unfreeze_fusion: bool,
+    ):
         if unfreeze_adapters:
             for prefix_tuning_name in adapter_setup.flatten():
                 self.pool.enable_prefix(prefix_tuning_name)
@@ -424,8 +457,10 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
 
         return None
 
-    def vslice(self, state: PrefixTuningState, slice_obj: slice) -> PrefixTuningState:
-        if state.idx_slice is None:
+    def vslice(self, state: PrefixTuningState, slice_obj: Union[slice, torch.Tensor]) -> PrefixTuningState:
+        if isinstance(slice_obj, torch.Tensor):
+            split_idx_slice = None
+        elif state.idx_slice is None:
             split_idx_slice = slice_obj
         else:
             split_idx_slice = slice(
@@ -436,7 +471,7 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
             key_states=state.key_states[slice_obj],
             value_states=state.value_states[slice_obj],
             residual_input=state.residual_input[slice_obj],
-            attention_mask=state.attention_mask[slice_obj] if state.attention_mask is not None else None,
+            attention_mask=(state.attention_mask[slice_obj] if state.attention_mask is not None else None),
             invert_mask=state.invert_mask,
             idx_slice=split_idx_slice,
         )
@@ -446,14 +481,24 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         This is required e.g. for stacked prefix tunings.
         """
         max_prefix_length = max([state.key_states.shape[-2] for state in states])
-        all_key_states, all_value_states, all_residual_input, all_attention_mask = [], [], [], []
+        (
+            all_key_states,
+            all_value_states,
+            all_residual_input,
+            all_attention_mask,
+        ) = ([], [], [], [])
         for state in states:
             key_states, value_states, residual_input, attention_mask = state[:4]
             # pad sizes
             pad_length = max_prefix_length - key_states.shape[-2]
             pad_size = (0, 0, pad_length, 0)
             key_states = F.pad(key_states, pad_size, "constant", self.model_config.pad_token_id)
-            value_states = F.pad(value_states, pad_size, "constant", self.model_config.pad_token_id)
+            value_states = F.pad(
+                value_states,
+                pad_size,
+                "constant",
+                self.model_config.pad_token_id,
+            )
 
             # pad attention mask
             if pad_length > 0 and attention_mask is not None:
@@ -543,11 +588,18 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         if state.attention_mask is not None:
             if state.attention_mask.dim() == 2:  # e.g. for DistilBERT, attention_mask has shape (batch_size, seq_len)
                 prefix_mask = torch.ones(batch_size, prefix_keys.size(2)).to(
-                    device=state.attention_mask.device, dtype=state.attention_mask.dtype
+                    device=state.attention_mask.device,
+                    dtype=state.attention_mask.dtype,
                 )
             else:
-                prefix_mask = torch.ones(batch_size, 1, state.attention_mask.size(2), prefix_keys.size(2)).to(
-                    device=state.attention_mask.device, dtype=state.attention_mask.dtype
+                prefix_mask = torch.ones(
+                    batch_size,
+                    1,
+                    state.attention_mask.size(2),
+                    prefix_keys.size(2),
+                ).to(
+                    device=state.attention_mask.device,
+                    dtype=state.attention_mask.dtype,
                 )
             if state.invert_mask:
                 prefix_mask = 1.0 - prefix_mask
@@ -556,12 +608,29 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
         else:
             attention_mask = None
 
-        return state._replace(key_states=key_states, value_states=value_states, attention_mask=attention_mask)
+        return state._replace(
+            key_states=key_states,
+            value_states=value_states,
+            attention_mask=attention_mask,
+        )
 
-    def forward(self, key_states, value_states, residual_input, attention_mask=None, invert_mask=True):
+    def forward(
+        self,
+        key_states,
+        value_states,
+        residual_input,
+        attention_mask=None,
+        invert_mask=True,
+    ):
         adapter_setup = self.get_active_setup()
         if adapter_setup is not None:
-            state = PrefixTuningState(key_states, value_states, residual_input, attention_mask, invert_mask)
+            state = PrefixTuningState(
+                key_states,
+                value_states,
+                residual_input,
+                attention_mask,
+                invert_mask,
+            )
             state = self.compose(adapter_setup, state)
             key_states, value_states, residual_input, attention_mask = state[:4]
 
