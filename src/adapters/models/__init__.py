@@ -20,6 +20,13 @@ from .gpt2.mixin_gpt2 import GPT2ModelAdapterMixin
 from .gptj.mixin_gptj import GPTJMLPAdaptersMixin, GPTJModelAdapterMixin
 from .llama.mixin_llama import LlamaForQuestionAnsweringAdapterMixin, LlamaModelAdapterMixin
 from .mistral.mixin_mistral import MistralModelAdapterMixin
+from .mllama.mixin_mllama import (
+    MllamaAdaptersMixin,
+    MllamaTextModelAdaptersMixin,
+    MllamaVisionEncoderAdaptersMixin,
+    MllamaVisionEncoderLayerAdaptersMixin,
+    MllamaVisionModelAdaptersMixin,
+)
 from .plbart.mixin_plbart import (
     PLBartDecoderAdaptersMixin,
     PLBartDecoderWrapperAdaptersMixin,
@@ -109,4 +116,10 @@ MODEL_MIXIN_MAPPING = {
     "WhisperForAudioClassification": WhisperForAudioClassificationWithHeadsMixin,
     "LlamaForQuestionAnswering": LlamaForQuestionAnsweringAdapterMixin,
     "MistralModel": MistralModelAdapterMixin,
+    # Mulitmodal Llama
+    "MllamaModel": MllamaAdaptersMixin,
+    "MllamaVisionModel": MllamaVisionModelAdaptersMixin,
+    "MllamaTextModel": MllamaTextModelAdaptersMixin,
+    "MllamaVisionEncoder": MllamaVisionEncoderAdaptersMixin,
+    "MllamaVisionEncoderLayer": MllamaVisionEncoderLayerAdaptersMixin,
 }
