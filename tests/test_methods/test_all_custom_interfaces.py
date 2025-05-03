@@ -5,7 +5,7 @@ import unittest
 import adapters
 from adapters import CompacterPlusPlusConfig, IA3Config, LoRAConfig
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
-from transformers import AutoModel, Gemma2Config, ModernBertConfig, PhiConfig, Qwen2Config
+from transformers import AutoModel, Gemma2Config, Gemma3TextConfig, ModernBertConfig, PhiConfig, Qwen2Config
 from transformers.testing_utils import torch_device
 
 from .base import TextAdapterTestBase
@@ -26,6 +26,18 @@ MODEL_CONFIGS = {
     },
     "Gemma2": {
         "config_class": Gemma2Config,
+        "config_params": {
+            "hidden_size": 32,
+            "num_hidden_layers": 4,
+            "num_attention_heads": 4,
+            "num_key_value_heads": 4,
+            "intermediate_size": 64,
+            "pad_token_id": 0,
+        },
+        "test_base": TextAdapterTestBase,
+    },
+    "Gemma3Text": {
+        "config_class": Gemma3TextConfig,
         "config_params": {
             "hidden_size": 32,
             "num_hidden_layers": 4,
@@ -77,7 +89,7 @@ class CustomInterfaceTestBase(AdapterMethodBaseTestMixin):
     def test_bottleneck_forward(self):
         """Test that bottleneck forward pass works."""
         model = self.get_model()
-        adapter_methods = model.adapter_interface.adapter_methods
+        adapter_methods = model.base_model.adapter_interface.adapter_methods
         if "bottleneck" not in adapter_methods:
             self.skipTest("Bottleneck not supported by this model.")
         self.run_forward_test(model, "seq_bn")
@@ -85,7 +97,7 @@ class CustomInterfaceTestBase(AdapterMethodBaseTestMixin):
     def test_invertible_forward(self):
         """Test that invertible forward pass works."""
         model = self.get_model()
-        adapter_methods = model.adapter_interface.adapter_methods
+        adapter_methods = model.base_model.adapter_interface.adapter_methods
         if "invertible" not in adapter_methods:
             self.skipTest("Invertible not supported by this model.")
         self.run_forward_test(model, "double_seq_bn")
@@ -93,7 +105,7 @@ class CustomInterfaceTestBase(AdapterMethodBaseTestMixin):
     def test_prompt_tuning_forward(self):
         """Test that prompt tuning forward pass works."""
         model = self.get_model()
-        adapter_methods = model.adapter_interface.adapter_methods
+        adapter_methods = model.base_model.adapter_interface.adapter_methods
         if "prompt_tuning" not in adapter_methods:
             self.skipTest("Prompt tuning not supported by this model.")
         self.run_forward_test(model, "prompt_tuning")
@@ -101,7 +113,7 @@ class CustomInterfaceTestBase(AdapterMethodBaseTestMixin):
     def test_reft_forward(self):
         """Test that reft forward pass works."""
         model = self.get_model()
-        adapter_methods = model.adapter_interface.adapter_methods
+        adapter_methods = model.base_model.adapter_interface.adapter_methods
         if "reft" not in adapter_methods:
             self.skipTest("Reft not supported by this model.")
         self.run_forward_test(model, "loreft")
@@ -109,7 +121,7 @@ class CustomInterfaceTestBase(AdapterMethodBaseTestMixin):
     def test_lora_forward(self):
         """Test that lora forward pass works."""
         model = self.get_model()
-        adapter_methods = model.adapter_interface.adapter_methods
+        adapter_methods = model.base_model.adapter_interface.adapter_methods
         if "lora" not in adapter_methods:
             self.skipTest("LoRA not supported by this model.")
         self.run_forward_test(model, LoRAConfig(init_weights="bert", intermediate_lora=True, output_lora=True))
@@ -117,7 +129,7 @@ class CustomInterfaceTestBase(AdapterMethodBaseTestMixin):
     def test_ia3_forward(self):
         """Test that IA3 forward pass works."""
         model = self.get_model()
-        adapter_methods = model.adapter_interface.adapter_methods
+        adapter_methods = model.base_model.adapter_interface.adapter_methods
         if "lora" not in adapter_methods:
             self.skipTest("IA3 not supported by this model.")
         self.run_forward_test(model, IA3Config(init_weights="bert", intermediate_lora=True, output_lora=True))
@@ -125,7 +137,7 @@ class CustomInterfaceTestBase(AdapterMethodBaseTestMixin):
     def test_compacter_forward(self):
         """Test that compacter forward pass works."""
         model = self.get_model()
-        adapter_methods = model.adapter_interface.adapter_methods
+        adapter_methods = model.base_model.adapter_interface.adapter_methods
         if "bottleneck" not in adapter_methods:
             self.skipTest("Compacter not supported by this model.")
         self.run_forward_test(model, CompacterPlusPlusConfig(phm_dim=2, reduction_factor=8))
