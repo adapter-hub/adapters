@@ -1070,11 +1070,13 @@ class LoRAMergedLinear(LoRALayer, nn.Linear):
             # Actual trainable parameters
             if any(lora.enable_lora):
                 # Compute the indices
-                lora.lora_ind = self.weight.new_zeros((self.out_features,), dtype=torch.bool).view(
+                # Ensure we're not creating a meta tensor
+                device = self.weight.device if self.weight.device.type != "meta" else torch.device("cpu")
+                lora_ind = torch.zeros((self.out_features,), dtype=torch.bool, device=device).view(
                     len(lora.enable_lora), -1
                 )
-                lora.lora_ind[lora.enable_lora, :] = True
-                lora.lora_ind = lora.lora_ind.view(-1)
+                lora_ind[lora.enable_lora, :] = True
+                lora.lora_ind = lora_ind.view(-1)
             return True
         else:
             return False
