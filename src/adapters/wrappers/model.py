@@ -76,9 +76,12 @@ def init(
 
     # If interface is None, have a look at our pre-supported interfaces
     if interface is None:
-        interface = get_adapter_interface(model_name)
+        interface = get_adapter_interface(model.config.model_type)
 
     if interface is not None:
+        # Override the default base_model_prefix
+        if base_model_prefix := interface.base_model:
+            model.base_model_prefix = base_model_prefix
         base_model = model.base_model
         _validate_interface_values(base_model, interface)
         model_class_name = base_model.__class__.__name__

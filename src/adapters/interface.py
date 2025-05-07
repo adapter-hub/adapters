@@ -84,6 +84,8 @@ class AdapterModelInterface:
         layer_ln_1 (Optional[str]): Layer norm *after* the self-attention layer. Used for extended bottleneck adapter support.
         layer_ln_2 (Optional[str]): Layer norm *after* the feed forward layer. Used for extended bottleneck adapter support.
 
+        base_model (Optional[str]): Name of the base transformers model holding the layer modules. By default, this uses the model class' base_model_prefix attribute.
+
     Note:
         You must specify either all three of the individual projection layers (attn_k_proj, attn_q_proj, attn_v_proj) OR the combined projection layer (attn_qkv_proj).
     """
@@ -117,6 +119,8 @@ class AdapterModelInterface:
     layer_pre_ffn: Optional[str] = None
     layer_ln_1: Optional[str] = None
     layer_ln_2: Optional[str] = None
+
+    base_model: Optional[str] = None
 
     def to_dict(self):
         return asdict(self)

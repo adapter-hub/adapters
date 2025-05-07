@@ -26,6 +26,7 @@ The table below further shows which model architectures support which adaptation
 | [Electra](classes/models/electra.html) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [Encoder Decoder](classes/models/encoderdecoder.html) | (*) | (*) | (*) | (*) | (*) | (*) | | | (*) |
 | Gemma 2<sup>◊</sup>                    | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
+| Gemma 3 (Text)<sup>◊</sup>                    | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
 | [GPT-2](classes/models/gpt2.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [GPT-J](classes/models/gptj.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [Llama<br>Llama 2<br>Llama 3](classes/models/llama.html)       | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
