@@ -15,6 +15,7 @@ from tests.test_methods.method_test_impl.heads.test_adapter_heads import Predict
 from tests.test_methods.method_test_impl.peft.test_adapter_common import BottleneckAdapterTestMixin
 from tests.test_methods.method_test_impl.peft.test_compacter import CompacterTestMixin
 from tests.test_methods.method_test_impl.peft.test_config_union import ConfigUnionAdapterTest
+from tests.test_methods.method_test_impl.peft.test_dora import DoraTestMixin
 from tests.test_methods.method_test_impl.peft.test_ia3 import IA3TestMixin
 from tests.test_methods.method_test_impl.peft.test_lora import LoRATestMixin
 from tests.test_methods.method_test_impl.peft.test_mtllora import MTLLoRATestMixin
@@ -214,6 +215,19 @@ def generate_method_tests(
             pass
 
         test_classes["Vera"] = Vera
+
+    if "Dora" not in redundant and "Dora" not in not_supported:
+
+        @require_torch
+        @pytest.mark.dora
+        class Dora(
+            model_test_base,
+            DoraTestMixin,
+            unittest.TestCase,
+        ):
+            pass
+
+        test_classes["Dora"] = Dora
 
     if "LoRA" not in redundant and "LoRA" not in not_supported:
 
