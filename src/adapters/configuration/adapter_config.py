@@ -871,7 +871,6 @@ ADAPTER_CONFIG_MAP = {
     "mtl_lora": MTLLoRAConfig(),
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
-    "dora": DoraConfig(),
     "vera": VeraConfig(),
     "loreft": LoReftConfig(),
     "noreft": NoReftConfig(),

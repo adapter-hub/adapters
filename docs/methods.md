@@ -306,9 +306,7 @@ where $\Lambda_{b}$ and $\Lambda_{d}$ receive updates during training.
 
 _Example_:
 ```python
-from adapters import DoraConfig
-
-config = DoraConfig()
+config = LoRAConfig(use_dora = True)
 model.add_adapter("dora_config", config=config)
 ```
 
