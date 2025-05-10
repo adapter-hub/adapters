@@ -325,7 +325,7 @@ class Vera(nn.Module):
         self.alpha = config.alpha
         self.use_gating = config.use_gating
         self.name = name
-
+        self.dtype = getattr(torch, config.dtype) if config.dtype else None
         fix_seed(config.init_weights_seed)
 
         # check to make sure that the `composition_mode` is set to `add`
@@ -348,6 +348,9 @@ class Vera(nn.Module):
         self.vera_D = nn.Parameter(torch.diag(torch.ones(self.d_shape) * self.d))
         self.vera_B = nn.Parameter(torch.diag(torch.ones(self.b_shape) * self.b))
         self.scaling = self.alpha / self.r
+
+        if config.use_dora:
+            self.m = init_m_dora_weight(lora_B_shape, self.dtype)
 
         if self.use_gating:
             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
@@ -473,7 +476,6 @@ def compute_dora_deltaw(
     scaled_weights = (norm_scale - 1) * weights
     scaled_lora = norm_scale * added
     result = scaled_weights + scaled_lora
-    result = 1
     return result
 
 

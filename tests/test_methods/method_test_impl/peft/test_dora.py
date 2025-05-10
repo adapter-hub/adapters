@@ -2,7 +2,7 @@ import random
 
 import torch
 
-from adapters import AdapterConfig, LoRAConfig
+from adapters import LoRAConfig, VeraConfig
 from adapters.methods.lora import LoRALayer
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch
@@ -297,3 +297,50 @@ class DoraTestMixin(AdapterMethodBaseTestMixin):
                                     original_lora = module.loras[f"{name}_0"]
                                     merged_lora = module.loras[f"{combine_strategy}_merged"]
                                     self._check_svd_weights(original_lora.delta_w, merged_lora, svd_rank)
+
+    def test_add_Dora_with_Vera(self):
+        model = self.get_model()
+        # don't include "shared_parameters.{name}." here since they are frozen and this test checks if the adapter weights are active.
+        self.run_add_test(model, VeraConfig(use_dora=True), ["loras.{name}."])
+
+    def test_leave_out_Dora_with_Vera(self):
+        model = self.get_model()
+        self.run_leave_out_test(model, VeraConfig(use_dora=True), self.leave_out_layers)
+
+    def test_linear_average_Dora_with_Vera(self):
+        model = self.get_model()
+        self.run_linear_average_test(model, VeraConfig(use_dora=True), ["loras.{name}.", "shared_parameters.{name}."])
+
+    def test_delete_Dora_with_Vera(self):
+        model = self.get_model()
+        self.run_delete_test(model, VeraConfig(use_dora=True), ["loras.{name}.", "shared_parameters.{name}."])
+
+    def test_get_Dora_with_Vera(self):
+        model = self.get_model()
+        n_layers = len(list(model.iter_layers()))
+        self.run_get_test(model, VeraConfig(intermediate_lora=False, output_lora=False, use_dora=True), n_layers + 1)
+
+    def test_forward_Dora_with_Vera(self):
+        model = self.get_model()
+        self.run_forward_test(
+            model,
+            VeraConfig(
+                init_weights="vera", intermediate_lora=False, output_lora=False, vera_b=0.5, vera_d=0.5, use_dora=True
+            ),
+        )
+
+    def test_load_Dora_with_Vera(self):
+        self.run_load_test(VeraConfig(use_dora=True))
+
+    def test_load_full_model_Dora_with_Vera(self):
+        self.run_full_model_load_test(VeraConfig(init_weights="vera", use_dora=True))
+
+    def test_train_Dora_with_Vera(self):
+        # don't include "shared_parameters.{name}." here since they are frozen and this test checks if the adapter weights are active.
+        self.run_train_test(VeraConfig(init_weights="vera", use_dora=True), ["loras.{name}."])
+
+    def test_merge_Dora_with_Vera(self):
+        self.run_merge_test(VeraConfig(init_weights="vera", use_dora=True))
+
+    def test_reset_Dora_with_Vera(self):
+        self.run_reset_test(VeraConfig(init_weights="vera", use_dora=True))
