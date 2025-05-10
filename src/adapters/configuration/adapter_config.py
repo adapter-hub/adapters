@@ -509,11 +509,13 @@ class LoRAConfig(AdapterConfig):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
             `merge_adapter()`.
+        use_dora (:obj:`bool`, optional):
+            If True, use the DoRA method to decompose the weight matrix into a magnitude and directional component.
+            Note that supports only the LoRA and VeRA configurations. Defaults to False.
         vera_d (:obj:`float`, optional):
             The value of d used in the VeraConfig. Defaults to None. Places a trainable
             scaling parameter `d` before the decomposition matrix A to allow scaling of the
             internal weights.
-
         vera_b (:obj:`float`, optional):
             The value of b used in the VeraConfig. Defaults to None. Places a trainable
             scaling parameter `b` before the decomposition matrix B to allow scaling of the
@@ -536,6 +538,7 @@ class LoRAConfig(AdapterConfig):
     init_weights: str = "lora"
     init_weights_seed: Optional[int] = None
     use_gating: bool = False
+    use_dora: bool = True
     vera_d: Optional[float] = None
     vera_b: Optional[float] = None
     dtype: Optional[str] = None
