@@ -8,63 +8,62 @@ from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch
 
 
-
 @require_torch
 class DoraTestMixin(AdapterMethodBaseTestMixin):
-    def test_add_Dora(self):
+    def test_add_Dora_with_LoRA(self):
         model = self.get_model()
         self.run_add_test(model, LoRAConfig(use_dora=True), ["loras.{name}."])
 
-    def test_leave_out_Dora(self):
+    def test_leave_out_Dora_with_LoRA(self):
         model = self.get_model()
         self.run_leave_out_test(model, LoRAConfig(use_dora=True), self.leave_out_layers)
 
-    def test_linear_average_Dora(self):
+    def test_linear_average_Dora_with_LoRA(self):
         model = self.get_model()
         self.run_linear_average_test(model, LoRAConfig(use_dora=True), ["loras.{name}."])
 
-    def test_delete_Dora(self):
+    def test_delete_Dora_with_LoRA(self):
         model = self.get_model()
         self.run_delete_test(model, LoRAConfig(use_dora=True), ["loras.{name}."])
 
-    def test_get_Dora(self):
+    def test_get_Dora_with_LoRA(self):
         model = self.get_model()
         n_layers = len(list(model.iter_layers()))
         self.run_get_test(model, LoRAConfig(intermediate_lora=False, output_lora=False, use_dora=True), n_layers)
 
-    def test_forward_Dora(self):
+    def test_forward_Dora_with_LoRA(self):
         model = self.get_model()
         self.run_forward_test(
             model, LoRAConfig(init_weights="lora", intermediate_lora=False, output_lora=False, use_dora=True)
         )
 
-    def test_load_Dora(self):
+    def test_load_Dora_with_LoRA(self):
         self.run_load_test(LoRAConfig(use_dora=True))
 
-    def test_load_full_model_Dora(self):
+    def test_load_full_model_Dora_with_LoRA(self):
         self.run_full_model_load_test(LoRAConfig(init_weights="lora"))
 
-    def test_train_Dora(self):
+    def test_train_Dora_with_LoRA(self):
         self.run_train_test(LoRAConfig(init_weights="lora", use_dora=True), ["loras.{name}."])
 
-    def test_merge_Dora(self):
+    def test_merge_Dora_with_LoRA(self):
         self.run_merge_test(LoRAConfig(init_weights="lora", use_dora=True))
 
-    def test_reset_Dora(self):
+    def test_reset_Dora_with_LoRA(self):
         self.run_reset_test(LoRAConfig(init_weights="lora", use_dora=True))
 
-    def test_Dora_gradient_checkpointing_single_adapter(self):
+    def test_Dora_gradient_checkpointing_single_adapter_with_LoRA(self):
         self.run_gradient_checkpointing_single_adapter_test(LoRAConfig(use_dora=True))
 
     def test_same_weights_after_adding_adapter(self):
         # setting init_weights_seed should leed to every adapter layer having the same weights after initialization
         self.run_same_weights_test(LoRAConfig(init_weights_seed=42, use_dora=True), ["loras.{name}."])
 
-    def test_linear_average_lora(self):
+    def test_linear_average_lora_with_dora(self):
         model = self.get_model()
         self.run_linear_average_test(model, LoRAConfig(use_dora=True), ["loras.{name}."])
 
-    def test_linear_average_only_negate_b_lora(self):
+    def test_linear_average_only_negate_b_lora_with_dora(self):
         # This method tests that the linear average following the Zhang et al. 2023 paper works as expected.
         # Paper: https://proceedings.neurips.cc/paper_files/paper/2023/hash/299a08ee712d4752c890938da99a77c6-Abstract-Conference.html
         # This method is an adapted version of the `run_linear_average_test` method.
@@ -128,7 +127,7 @@ class DoraTestMixin(AdapterMethodBaseTestMixin):
         self.assertTrue(torch.allclose(expected_A, merged_lora.lora_A, atol=atol))
         self.assertTrue(torch.allclose(expected_B, merged_lora.lora_B, atol=atol))
 
-    def test_linear_delta_w_svd_average_lora(self):
+    def test_linear_delta_w_svd_average_lora_with_dora(self):
         model = self.get_model()
         model.eval()
         model_supports_lora_delta_w_svd = model.base_model.support_lora_delta_w_svd
@@ -193,7 +192,7 @@ class DoraTestMixin(AdapterMethodBaseTestMixin):
 
                     self._check_svd_weights(delta_w, module.loras["averaged_adapter"], svd_rank)
 
-    def test_edge_case_average_adapters_single_adapter(self):
+    def test_edge_case_average_adapters_single_adapter_with_dora(self):
         # If we merge only one adapter, the weights of the new adapter should be the same as the original adapter
         model = self.get_model()
         model.eval()
@@ -245,7 +244,7 @@ class DoraTestMixin(AdapterMethodBaseTestMixin):
                                     merged_lora = module.loras[f"{combine_strategy}_merged"]
                                     self._check_svd_weights(original_lora.delta_w, merged_lora, svd_rank)
 
-    def test_edge_case_average_adapters_multiple_adapters(self):
+    def test_edge_case_average_adapters_multiple_adapters_with_dora(self):
         # If we merge multiple adapters with weight 0 except one adapter with weight 1, the resulting adapter should be the same as the adapter with weight 1
         model = self.get_model()
         model.eval()

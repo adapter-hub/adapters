@@ -241,6 +241,7 @@ class IA3(nn.Module):
     ):
         super().__init__()
         assert config.composition_mode == "scale", "IA3 module only supports composition_mode='scale'."
+        assert config.use_dora is False, "IA3 module does not support DoRA."
         if config.r > 1:
             raise ValueError("Can only use composition_mode='scale' when r == 1.")
         self.r = config.r
@@ -472,7 +473,7 @@ def compute_dora_deltaw(
     scaled_weights = (norm_scale - 1) * weights
     scaled_lora = norm_scale * added
     result = scaled_weights + scaled_lora
-
+    result = 1
     return result
 
 
@@ -609,17 +610,12 @@ class LoRALayer(AdapterLayerBase):
                     self.delete_adapter(adapter_name)  # clean up before raising error
                     raise ValueError("Adapter {} not found.".format(name))
 
-            # VeRA and DoRA only support linear averaging.
+            # VeRA only supports linear averaging.
             if isinstance(self.loras[list(input_adapters.keys())[0]], Vera):
                 if combine_strategy != "linear":
                     raise ValueError(
                         "VeRA only supports linear averaging. The combine_strategy must be 'linear'. See https://docs.adapterhub.ml/merging_adapters.html for more information."
                     )
-            # if isinstance(self.loras[list(input_adapters.keys())[0]], DoRA):
-            #     if combine_strategy != "linear":
-            #         raise ValueError(
-            #             "DoRA only supports linear averaging. The combine_strategy must be 'linear'. See https://docs.adapterhub.ml/merging_adapters.html for more information."
-            #         )
 
             # Now, combine the weights according to the strategy
             if combine_strategy == "linear":
