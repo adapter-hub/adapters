@@ -511,7 +511,7 @@ class LoRAConfig(AdapterConfig):
             `merge_adapter()`.
         use_dora (:obj:`bool`, optional):
             If True, use the DoRA method to decompose the weight matrix into a magnitude and directional component.
-            Note that currently only supports `composition_mode` = 'add'. Defaults to False.
+            Note that currently only supports configs with `composition_mode` = 'add'. Defaults to False.
         vera_d (:obj:`float`, optional):
             The value of d used in the VeraConfig. Defaults to None. Places a trainable
             scaling parameter `d` before the decomposition matrix A to allow scaling of the

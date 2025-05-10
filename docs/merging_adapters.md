@@ -73,7 +73,6 @@ For more detailed examples and explanations, refer to our [Task Arithmetic noteb
 #### Merging Other LoRA Variants
 - **IA3**: The merging methods for LoRA also work with IA3 adapters.
 - **VeRA**: Since VeRA contains both frozen LoRA weight matrices and normal weight matrices, only linear merging is supported.
-- **DoRA**: Only linear merging is supported for DoRA, since the magnitude component cannot be utilized in other merging strategies.
 
 ```{eval-rst}
 .. tip::

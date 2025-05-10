@@ -448,29 +448,23 @@ def init_m_dora_weight(lora_b_shape, dtype):
     return m
 
 
+# DoRA Methods
 def compute_dora_norm(weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
-    """Computes the norm of the Dora layer.
+    """This function calculates the column-wise norm of the pre-trained weights
+    and the LoRA matrices
 
-    This function calculates the column-wise norm of the weights and added weights.
-    eg: for lora, it would be ||w_0 + BA||c
-    where w_0 is the original weights and delta_w is the added weights.
-
-    Args:
-        weights (torch.Tensor): The original weights of the layer i.e w_0
-        added (torch.Tensor): The added weights of the layer i.e delta_w
-
+    eg: for LoRA, it would be ||w_0 + BA||c
     """
     return torch.linalg.norm(weights + added, dim=1)
 
 
-# DoRA Methods
 def compute_dora_deltaw(
     weights: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor
 ) -> torch.Tensor:
-    """This function computes the dora update.
+    """This function calculates the dora update.
 
-    In the paper, the dora update is calculated as follows:
-    m * (w_0 + BA) / ||w_0 + BA||c
+    In the paper, the dora update delta_w is calculated as follows:
+    m * (w_0x + BAx) / ||w_0 + BA||c
     """
     norm_scale = m.weight.view(-1) / norm
     scaled_weights = (norm_scale - 1) * weights
@@ -479,23 +473,26 @@ def compute_dora_deltaw(
     return result
 
 
-def compute_dora_inverse(
-    weights: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor
-) -> torch.Tensor:
-    """This function computes the inverse of the dora update."""
-    result = weights - weights * norm.unsqueeze(1) / m.weight - added
-    return result
-
-
 def dora_merge(
     weights: torch.Tensor,
     added: torch.Tensor,
     m: torch.Tensor,
 ) -> torch.Tensor:
+    """This function calculates the weights required to merge with the original pretrained weight matrices."""
     v = weights + added
     norm_scale = m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
     result = norm_scale * v
 
+    return result
+
+
+def compute_dora_add_com_inv(
+    weights: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor
+) -> torch.Tensor:
+    """This function returns the required weights necessary
+    to compute the inverse composition where `composition_mode` == add.
+    """
+    result = weights - weights * norm.unsqueeze(1) / m.weight - added
     return result
 
 
@@ -862,7 +859,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 if lora.use_gating:
                     raise ValueError("Cannot merge LoRA layer with gating.")
                 delta_w = self.maybe_t(lora.delta_w)
-                # if we're using dora, we need to use the dora merge function
+                # we check if the lora module has 'm', if so then we're using dora
                 if hasattr(lora, "m"):
                     setattr(lora, "dora_w_o", self.weight.data)
                     self.weight.data = dora_merge(self.weight.data, delta_w, lora.m)
@@ -878,11 +875,11 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
             # Make sure that the weights are not merged
             delta_w = self.maybe_t(lora.delta_w)
 
-            # if we're using dora, we need to use the dora reset function
+            # we check if the lora module has 'm', if so then we're using dora
             if hasattr(lora, "m"):
                 w_o = getattr(lora, "dora_w_o", None)
                 norm = compute_dora_norm(w_o, delta_w)
-                delta_w = compute_dora_inverse(self.weight.data, delta_w, lora.m, norm)
+                delta_w = compute_dora_add_com_inv(self.weight.data, delta_w, lora.m, norm)
 
             self.weight.data = lora.com_inv(self.weight.data, delta_w)
             self.merged = None
@@ -950,14 +947,15 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 _, hidden_states, layer_output, last = state
 
                 last_lora = self.loras[last]
+
+                # we check if the last_lora module has 'm', if so then we're using dora
                 if hasattr(last_lora, "m"):
                     norm = compute_dora_norm(self.weight, last_lora.delta_w)
-                    dora_delta_w = compute_dora_deltaw(layer_output, hidden_states, last_lora.m, norm)
-                    layer_output = last_lora.com(layer_output, dora_delta_w, scaling=1.0)
-                else:
-                    layer_output = last_lora.com(
-                        layer_output, hidden_states, scaling=1.0
-                    )  # scaling already applied in compose
+                    hidden_states = compute_dora_deltaw(layer_output, hidden_states, last_lora.m, norm)
+
+                layer_output = last_lora.com(
+                    layer_output, hidden_states, scaling=1.0
+                )  # scaling already applied in compose
 
         return layer_output
 
