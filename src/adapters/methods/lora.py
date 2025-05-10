@@ -438,120 +438,6 @@ def init_shared_vera_parameters(lora_A_shape, lora_B_shape, adapter_config, devi
     return parameters
 
 
-# class DoRA(nn.Module):
-#     def __init__(
-#         self,
-#         lora_A_shape,
-#         lora_B_shape,
-#         config: LoRAConfig,
-#         gating_heads: int = 1,
-#         name: str = None,
-#         **kwargs,
-#     ):
-#         super().__init__()
-#         assert config.composition_mode == "dora", "DoRA module only supports composition_mode='dora'."
-#         self.r = config.r
-#         self.name = name
-#         self.lora_alpha = config.alpha
-#         self.composition_mode = config.composition_mode
-#         self.attn_matrices = config.attn_matrices
-#         self.use_gating = config.use_gating
-#         self.w_o = kwargs["w_o"] if "w_o" in kwargs else None
-#         if self.w_o is not None:
-#             self.w_o = torch.transpose(self.w_o, -2, -1) if kwargs["fan_in_fan_out"] else self.w_o
-
-#         # Optional dropout
-#         if config.dropout > 0.0:
-#             self.lora_dropout = nn.Dropout(p=config.dropout)
-#         else:
-#             self.lora_dropout = lambda x: x
-
-#         dtype = getattr(torch, config.dtype) if config.dtype else None
-
-#         fix_seed(config.init_weights_seed)
-
-#         # Actual trainable parameters
-#         self.lora_A = nn.Parameter(torch.zeros(lora_A_shape, dtype=dtype))
-#         self.lora_B = nn.Parameter(torch.zeros(lora_B_shape, dtype=dtype))
-#         self.m = nn.Linear(1, self.lora_B.shape[0], bias=False, dtype=dtype)
-#         self.scaling = self.lora_alpha / self.r
-
-#         if config.init_weights == "lora":
-#             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-#             nn.init.zeros_(self.lora_B)
-#         elif config.init_weights == "bert":
-#             nn.init.normal_(self.lora_A, std=0.02)
-#             nn.init.normal_(self.lora_B, std=0.02)
-#         elif config.init_weights == "ia3":
-#             nn.init.ones_(self.lora_A)
-#             nn.init.ones_(self.lora_B)
-#         else:
-#             raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
-
-#         if self.use_gating:
-#             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
-#             nn.init.normal_(self.gate.weight, std=0.02)
-
-#     @property
-#     def delta_w(self) -> torch.Tensor:
-#         return self.lora_B @ self.lora_A
-
-#     def com(
-#         self,
-#         weights: torch.Tensor,
-#         added: torch.Tensor,
-#         scaling=None,
-#     ) -> torch.Tensor:
-#         """Performs the composition operation between existing and injected weights.
-
-#         During training, the compose method requires the frozen pretrained weights (W_o)
-#         of the layer in order to calculate the norm, as well as the input_states `x`
-#         to calculate the updated hidden states.
-#         """
-#         if scaling is None:
-#             scaling = self.scaling
-
-#         self.w_o = self.w_o.to(self.lora_B.device)
-#         v = self.w_o + (self.lora_B @ self.lora_A) * self.scaling
-#         norm_scale = self.m.weight.view(-1) / torch.linalg.norm(v, dim=1)
-
-#         scaled_weights = (norm_scale - 1) * weights
-#         scaled_lora = norm_scale * added
-#         result = weights + scaled_weights + scaled_lora * self.scaling
-#         return result
-
-#     def com_inv(self, weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
-#         """Inverts the composition operation between existing and injected weights.
-#         Requires the frozen pretrained weights (W_o) of the layer in order to calculate the norm.
-#         """
-#         self.w_o = self.w_o.to(added.device)
-#         v = self.w_o + added * self.scaling
-#         result = weights * torch.linalg.norm(v, dim=1).unsqueeze(1) / self.m.weight
-#         result = result - added * self.scaling
-#         return result
-
-#     def merge(self, weights: torch.Tensor, added: torch.Tensor):
-#         """Returns the merged weights of the Dora layer."""
-#         v = weights + added * self.scaling
-#         norm_scale = self.m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
-#         result = norm_scale * v
-
-#         return result
-
-#     def forward(self, hidden_states: Optional[torch.Tensor], layer_input: torch.Tensor):
-#         if hidden_states is None:
-#             hidden_states = layer_input
-#         hidden_states = self.lora_dropout(hidden_states) @ torch.t(self.lora_A) @ torch.t(self.lora_B)
-#         if self.use_gating:
-#             gate = torch.sigmoid(self.gate(layer_input))
-#             gate = torch.mean(gate, dim=1).unsqueeze(-1)
-#             hidden_states = hidden_states * gate
-#         else:
-#             gate = None
-
-#         return hidden_states, gate
-
-
 def init_m_dora_weight(lora_b_shape, dtype):
     m = nn.Linear(1, lora_b_shape[0], bias=False, dtype=dtype)
 
@@ -573,6 +459,7 @@ def compute_dora_norm(weights: torch.Tensor, added: torch.Tensor) -> torch.Tenso
     return torch.linalg.norm(weights + added, dim=1)
 
 
+# DoRA Methods
 def compute_dora_deltaw(
     weights: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor
 ) -> torch.Tensor:
@@ -663,13 +550,8 @@ class LoRALayer(AdapterLayerBase):
                 lora_cls = lora_cls if not isinstance(lora_config, MTLLoRAConfig) else MTLLoRA
             elif lora_config.composition_mode == "scale":
                 lora_cls = IA3
-            elif lora_config.composition_mode == "dora":
-                lora_cls = LoRA
             else:
                 raise ValueError(f"Unknown composition_mode: {lora_config.composition_mode}")
-
-            if lora_config.use_dora:
-                lora_args["use_dora"] = True
 
             lora = lora_cls(
                 *self._get_lora_shapes(lora_config),
@@ -733,11 +615,11 @@ class LoRALayer(AdapterLayerBase):
                     raise ValueError(
                         "VeRA only supports linear averaging. The combine_strategy must be 'linear'. See https://docs.adapterhub.ml/merging_adapters.html for more information."
                     )
-            if isinstance(self.loras[list(input_adapters.keys())[0]], DoRA):
-                if combine_strategy != "linear":
-                    raise ValueError(
-                        "DoRA only supports linear averaging. The combine_strategy must be 'linear'. See https://docs.adapterhub.ml/merging_adapters.html for more information."
-                    )
+            # if isinstance(self.loras[list(input_adapters.keys())[0]], DoRA):
+            #     if combine_strategy != "linear":
+            #         raise ValueError(
+            #             "DoRA only supports linear averaging. The combine_strategy must be 'linear'. See https://docs.adapterhub.ml/merging_adapters.html for more information."
+            #         )
 
             # Now, combine the weights according to the strategy
             if combine_strategy == "linear":
