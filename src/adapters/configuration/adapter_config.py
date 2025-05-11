@@ -842,6 +842,28 @@ class UniPELTConfig(ConfigUnion):
         ]
 
         super().__init__(*[c.replace(use_gating=True) for c in components])
+        
+
+class AdaMixConfig(AdapterConfig):
+    """
+    The 'Mixture of Adapter Experts' AdaMix method was proposed by Zhang et al. (2022).
+    See https://arxiv.org/abs/2205.12410.
+    """
+    mh_adapter = True
+    output_adapter = True
+    reduction_factor = 16
+    non_linearity = "relu" 
+    
+    num_experts = 4
+    expert_dropout = 0.1 
+    routing_algorithm = "linear"
+    use_load_balancing = True
+    load_balancing_weight = 0.01
+    selection_mode = "top_k"
+    k = 2
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 
 # IMPORTANT: When adding a new config here, also add it to docs/overview.md!
@@ -874,6 +896,7 @@ ADAPTER_CONFIG_MAP = {
     "direft": DiReftConfig(),
     "mam": MAMConfig(),
     "unipelt": UniPELTConfig(),
+    "adamix": AdaMixConfig(),
 }
 
 DEFAULT_ADAPTER_CONFIG = "seq_bn"
