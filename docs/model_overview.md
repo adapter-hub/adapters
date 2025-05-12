@@ -33,7 +33,9 @@ The table below further shows which model architectures support which adaptation
 | ModernBERT<sup>◊</sup>                 | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
 | [Mistral](classes/models/mistral.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [MT5](classes/models/mt5.html)          | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
+| Phi-1<br>Phi-2<sup>◊</sup>                 | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
 | [PLBart](classes/models/plbart.html)      | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
+| Qwen2<br>Qwen2.5<sup>◊</sup>                    | ✅ |  | ✅ | ✅ | ✅ | ✅ |  |  | ✅ |
 | [RoBERTa](classes/models/roberta.html)  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [T5](classes/models/t5.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ |
 | [ViT](classes/models/vit.html)            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |

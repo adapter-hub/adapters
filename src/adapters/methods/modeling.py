@@ -187,7 +187,17 @@ class Adapter(nn.Module):
                     residual = hidden_states
                 hidden_states = layer_norm(hidden_states)
             else:
-                hidden_states = hidden_states + input_tensor
+                # Some models like Phi use a parallel architecture where attention and FFN operate
+                # independently on the same normalized hidden_states. In this case, the residual connection
+                # is applied only once at the end by combining:
+                #     output = original_input + attention_output + ffn_output
+                #
+                # In our standard adapter implementation, we expect input_tensor to contain intermediate
+                # residuals between components. However, for parallel architectures like Phi, there are
+                # no intermediate residuals, so input_tensor will be None when the adapter is attached
+                # to the FFN. Therefore, this additional check is needed to prevent errors.
+                if input_tensor is not None:
+                    hidden_states = hidden_states + input_tensor
 
         if not self.residual_before_ln:
             residual = hidden_states
