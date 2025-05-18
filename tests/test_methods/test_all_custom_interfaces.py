@@ -5,7 +5,15 @@ import unittest
 import adapters
 from adapters import CompacterPlusPlusConfig, IA3Config, LoRAConfig
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
-from transformers import AutoModel, Gemma2Config, Gemma3TextConfig, ModernBertConfig, PhiConfig, Qwen2Config, Qwen3Config
+from transformers import (
+    AutoModel,
+    Gemma2Config,
+    Gemma3TextConfig,
+    ModernBertConfig,
+    PhiConfig,
+    Qwen2Config,
+    Qwen3Config,
+)
 from transformers.testing_utils import torch_device
 
 from .base import TextAdapterTestBase
