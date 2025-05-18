@@ -42,6 +42,8 @@ class ReftUnit(nn.Module):
                     UserWarning,
                 )
                 projection = projection.to(dtype=torch.float32)
+            if projection.weight.device == torch.device("meta"):
+                projection = projection.to_empty(device="cpu")
             self.projection = nn.utils.parametrizations.orthogonal(projection)
         else:
             self.projection = projection

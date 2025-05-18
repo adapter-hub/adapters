@@ -392,8 +392,17 @@ class BertFusion(nn.Module):
             self.value = nn.Linear(self.dense_size, self.dense_size, bias=False)
             self.value.apply(Adapter.init_bert_weights)
             if self.config["value_initialized"]:
-                self.value.weight.data = (torch.zeros(self.dense_size, self.dense_size) + 0.000001).fill_diagonal_(1.0)
-
+                init_tensor = (
+                    torch.zeros(
+                        self.dense_size,
+                        self.dense_size,
+                        device=self.value.weight.device,
+                        dtype=self.value.weight.dtype,
+                    )
+                    + 0.000001
+                )
+                init_tensor.fill_diagonal_(1.0)
+                self.value.weight.data = init_tensor
         if self.config["temperature"]:
             self.T = 50.0
         else:
