@@ -84,6 +84,7 @@ class LoRA(nn.Module):
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
         self.name = name
+        self.use_dora = config.use_dora
 
         # Optional dropout
         if config.dropout > 0.0:
@@ -119,7 +120,7 @@ class LoRA(nn.Module):
         else:
             raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
 
-        if config.use_dora:
+        if self.use_dora:
             self.m = init_m_dora_weight(lora_B_shape, self.dtype)
 
         if self.use_gating:
@@ -250,6 +251,7 @@ class IA3(nn.Module):
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
         self.name = name
+        self.use_dora = config.use_dora
         # Optional dropout
         if config.dropout > 0.0:
             raise ValueError("IA3 module does not support dropout.")
@@ -327,6 +329,7 @@ class Vera(nn.Module):
         self.name = name
         self.dtype = getattr(torch, config.dtype) if config.dtype else None
         fix_seed(config.init_weights_seed)
+        self.use_dora = config.use_dora
 
         # check to make sure that the `composition_mode` is set to `add`
         self.composition_mode = config.composition_mode
@@ -349,7 +352,7 @@ class Vera(nn.Module):
         self.vera_B = nn.Parameter(torch.diag(torch.ones(self.b_shape) * self.b))
         self.scaling = self.alpha / self.r
 
-        if config.use_dora:
+        if self.use_dora:
             self.m = init_m_dora_weight(lora_B_shape, self.dtype)
 
         if self.use_gating:
