@@ -860,7 +860,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                     raise ValueError("Cannot merge LoRA layer with gating.")
                 delta_w = self.maybe_t(lora.delta_w)
                 # we check if the lora module has 'm', if so then we're using dora
-                if hasattr(lora, "m"):
+                if lora.use_dora:
                     setattr(lora, "dora_w_o", self.weight.data)
                     self.weight.data = dora_merge(self.weight.data, delta_w, lora.m)
                 else:
@@ -876,11 +876,12 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
             delta_w = self.maybe_t(lora.delta_w)
 
             # we check if the lora module has 'm', if so then we're using dora
-            if hasattr(lora, "m"):
+            if lora.use_dora:
                 w_o = getattr(lora, "dora_w_o", None)
                 norm = compute_dora_norm(w_o, delta_w)
                 delta_w = compute_dora_add_com_inv(self.weight.data, delta_w, lora.m, norm)
-
+                # remove the dora_w_o attribute we set in the merge_adapter method
+                del lora.dora_w_o
             self.weight.data = lora.com_inv(self.weight.data, delta_w)
             self.merged = None
 
@@ -949,7 +950,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 last_lora = self.loras[last]
 
                 # we check if the last_lora module has 'm', if so then we're using dora
-                if hasattr(last_lora, "m"):
+                if last_lora.use_dora:
                     norm = compute_dora_norm(self.weight, last_lora.delta_w)
                     hidden_states = compute_dora_deltaw(layer_output, hidden_states, last_lora.m, norm)
 
