@@ -589,17 +589,15 @@ class VeraConfig(LoRAConfig):
     composition_mode: str = "add"
     dtype: Optional[str] = None
 
+
 @dataclass(eq=False)
 class DoRAConfig(LoRAConfig):
     """
-    Lora Config that applies vector-based random matrix adaptation. It adds
-    trainable matrices 'd' and 'b' while keeping the original LoRA matrices
-    frozen, random, and shared across layers. See more through their paper:
-    https://arxiv.org/pdf/2310.11454. Note that `r` will still be supplied
-    since we are still initializing decomposition matrices A and B.
-    The `composition_mode` parameter should also be set to `add`.
+    LoRA Config that applies DoRA, which is a variant of LoRA that
+    decomposes the weight matrix into a magnitude and directional component.
+    See more through their paper: https://arxiv.org/pdf/2402.09353.
     """
-    
+
     selfattn_lora: bool = True
     intermediate_lora: bool = False
     output_lora: bool = False
@@ -614,7 +612,8 @@ class DoRAConfig(LoRAConfig):
     init_weights_seed: Optional[int] = None
     use_gating: bool = False
     use_dora: bool = True
-    
+
+
 @dataclass(eq=False)
 class DvoRAConfig(LoRAConfig):
     """
@@ -624,8 +623,11 @@ class DvoRAConfig(LoRAConfig):
     https://arxiv.org/pdf/2310.11454. Note that `r` will still be supplied
     since we are still initializing decomposition matrices A and B.
     The `composition_mode` parameter should also be set to `add`.
+    This configuration utilizes DoRA, which is a variant of LoRA that
+    decomposes the weight matrix into a magnitude and directional component.
+    See more through their paper: https://arxiv.org/pdf/2402.09353.
     """
-    
+
     selfattn_lora: bool = True
     intermediate_lora: bool = False
     output_lora: bool = False
@@ -640,6 +642,7 @@ class DvoRAConfig(LoRAConfig):
     composition_mode: str = "add"
     use_gating: bool = False
     use_dora: bool = True
+
 
 class MultiTaskConfig(AdapterConfig):
     """

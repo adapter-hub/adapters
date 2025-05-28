@@ -2,7 +2,7 @@ import random
 
 import torch
 
-from adapters import LoRAConfig, VeraConfig, DoRAConfig, DvoRAConfig
+from adapters import DoRAConfig, DvoRAConfig, LoRAConfig, VeraConfig
 from adapters.methods.lora import LoRALayer
 from tests.test_methods.method_test_impl.base import AdapterMethodBaseTestMixin
 from transformers.testing_utils import require_torch
@@ -345,33 +345,6 @@ class DoraTestMixin(AdapterMethodBaseTestMixin):
     def test_reset_Dora_with_Vera(self):
         self.run_reset_test(VeraConfig(init_weights="vera", use_dora=True))
 
-    def test_add_Dora_with_LoRA(self):
-        model = self.get_model()
-        self.run_add_test(model, LoRAConfig(use_dora=True), ["loras.{name}."])
-
-    def test_leave_out_Dora_with_LoRA(self):
-        model = self.get_model()
-        self.run_leave_out_test(model, LoRAConfig(use_dora=True), self.leave_out_layers)
-
-    def test_linear_average_Dora_with_LoRA(self):
-        model = self.get_model()
-        self.run_linear_average_test(model, LoRAConfig(use_dora=True), ["loras.{name}."])
-
-    def test_delete_Dora_with_LoRA(self):
-        model = self.get_model()
-        self.run_delete_test(model, LoRAConfig(use_dora=True), ["loras.{name}."])
-
-    def test_get_Dora_with_LoRA(self):
-        model = self.get_model()
-        n_layers = len(list(model.iter_layers()))
-        self.run_get_test(model, LoRAConfig(intermediate_lora=False, output_lora=False, use_dora=True), n_layers)
-
-    def test_forward_Dora_with_LoRA(self):
-        model = self.get_model()
-        self.run_forward_test(
-            model, LoRAConfig(init_weights="bert", intermediate_lora=False, output_lora=False, use_dora=True)
-        )
-
     def test_add_Dora_with_DoRA(self):
         model = self.get_model()
         # don't include "shared_parameters.{name}." here since they are frozen and this test checks if the adapter weights are active.
@@ -392,7 +365,7 @@ class DoraTestMixin(AdapterMethodBaseTestMixin):
     def test_get_Dora_with_DoRA(self):
         model = self.get_model()
         n_layers = len(list(model.iter_layers()))
-        self.run_get_test(model, DoRAConfig(intermediate_lora=False, output_lora=False), n_layers + 1)
+        self.run_get_test(model, DoRAConfig(intermediate_lora=False, output_lora=False), n_layers)
 
     def test_forward_Dora_with_DoRA(self):
         model = self.get_model()
