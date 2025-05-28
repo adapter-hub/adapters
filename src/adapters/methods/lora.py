@@ -122,7 +122,10 @@ class LoRA(nn.Module):
 
         if self.use_dora:
             weights = kwargs["w_o"].clone().detach()
-            self.m = nn.Parameter(torch.linalg.norm(weights, dim=1).unsqueeze(0).to(dtype=self.dtype))
+            weights = torch.linalg.norm(weights, dim=1).unsqueeze(1).to(dtype=self.dtype)
+            self.m = nn.Linear(1, lora_B_shape[0], bias=False, dtype=self.dtype)
+            with torch.no_grad():
+                self.m.weight.copy_(weights)
         if self.use_gating:
             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
             nn.init.normal_(self.gate.weight, std=0.02)
@@ -354,8 +357,10 @@ class Vera(nn.Module):
 
         if self.use_dora:
             weights = kwargs["w_o"].clone().detach()
-            self.m = nn.Parameter(torch.linalg.norm(weights, dim=1).unsqueeze(0).to(dtype=self.dtype))
-
+            weights = torch.linalg.norm(weights, dim=1).unsqueeze(1).to(dtype=self.dtype)
+            self.m = nn.Linear(1, lora_B_shape[0], bias=False, dtype=self.dtype)
+            with torch.no_grad():
+                self.m.weight.copy_(weights)
         if self.use_gating:
             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
             nn.init.normal_(self.gate.weight, std=0.02)
