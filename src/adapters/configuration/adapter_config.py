@@ -589,6 +589,57 @@ class VeraConfig(LoRAConfig):
     composition_mode: str = "add"
     dtype: Optional[str] = None
 
+@dataclass(eq=False)
+class DoRAConfig(LoRAConfig):
+    """
+    Lora Config that applies vector-based random matrix adaptation. It adds
+    trainable matrices 'd' and 'b' while keeping the original LoRA matrices
+    frozen, random, and shared across layers. See more through their paper:
+    https://arxiv.org/pdf/2310.11454. Note that `r` will still be supplied
+    since we are still initializing decomposition matrices A and B.
+    The `composition_mode` parameter should also be set to `add`.
+    """
+    
+    selfattn_lora: bool = True
+    intermediate_lora: bool = False
+    output_lora: bool = False
+    leave_out: List[int] = field(default_factory=list)
+
+    r: int = 8
+    alpha: int = 8
+    dropout: float = 0.0
+    attn_matrices: List[str] = field(default_factory=lambda: ["q", "v"])
+    composition_mode: str = "add"
+    init_weights: str = "lora"
+    init_weights_seed: Optional[int] = None
+    use_gating: bool = False
+    use_dora: bool = True
+    
+@dataclass(eq=False)
+class DvoRAConfig(LoRAConfig):
+    """
+    Lora Config that applies vector-based random matrix adaptation. It adds
+    trainable matrices 'd' and 'b' while keeping the original LoRA matrices
+    frozen, random, and shared across layers. See more through their paper:
+    https://arxiv.org/pdf/2310.11454. Note that `r` will still be supplied
+    since we are still initializing decomposition matrices A and B.
+    The `composition_mode` parameter should also be set to `add`.
+    """
+    
+    selfattn_lora: bool = True
+    intermediate_lora: bool = False
+    output_lora: bool = False
+    leave_out: List[int] = field(default_factory=list)
+
+    r: int = 8
+    alpha: int = 8
+    dropout: float = 0.0
+    vera_d: Optional[float] = 0.1
+    vera_b: Optional[float] = 0.0
+    init_weights: str = "vera"
+    composition_mode: str = "add"
+    use_gating: bool = False
+    use_dora: bool = True
 
 class MultiTaskConfig(AdapterConfig):
     """
@@ -872,6 +923,8 @@ ADAPTER_CONFIG_MAP = {
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
     "vera": VeraConfig(),
+    "dora": DoRAConfig(),
+    "dvora": DvoRAConfig(),
     "loreft": LoReftConfig(),
     "noreft": NoReftConfig(),
     "direft": DiReftConfig(),
