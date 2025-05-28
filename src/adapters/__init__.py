@@ -118,6 +118,7 @@ _import_structure = {
     "models.gpt2": ["GPT2AdapterModel"],
     "models.gptj": ["GPTJAdapterModel"],
     "models.llama": ["LlamaAdapterModel"],
+    "models.m2m_100": ["M2M100AdapterModel"],
     "models.mbart": ["MBartAdapterModel"],
     "models.mistral": ["MistralAdapterModel"],
     "models.mt5": ["MT5AdapterModel"],
@@ -234,6 +235,7 @@ if TYPE_CHECKING:
     from .models.gpt2 import GPT2AdapterModel
     from .models.gptj import GPTJAdapterModel
     from .models.llama import LlamaAdapterModel
+    from .models.m2m_100 import M2M100AdapterModel
     from .models.mbart import MBartAdapterModel
     from .models.mistral import MistralAdapterModel
     from .models.mt5 import MT5AdapterModel
