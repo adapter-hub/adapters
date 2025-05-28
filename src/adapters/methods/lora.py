@@ -122,7 +122,7 @@ class LoRA(nn.Module):
 
         if self.use_dora:
             weights = kwargs["w_o"].clone().detach()
-            self.m = nn.Parameter(torch.linalg.norm(weights,dim=1).unsqueeze(0).to(dtype = self.dtype))
+            self.m = nn.Parameter(torch.linalg.norm(weights, dim=1).unsqueeze(0).to(dtype=self.dtype))
         if self.use_gating:
             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
             nn.init.normal_(self.gate.weight, std=0.02)
@@ -354,7 +354,7 @@ class Vera(nn.Module):
 
         if self.use_dora:
             weights = kwargs["w_o"].clone().detach()
-            self.m = nn.Parameter(torch.linalg.norm(weights,dim=1).unsqueeze(0).to(dtype = self.dtype))
+            self.m = nn.Parameter(torch.linalg.norm(weights, dim=1).unsqueeze(0).to(dtype=self.dtype))
 
         if self.use_gating:
             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
@@ -444,6 +444,7 @@ def init_shared_vera_parameters(lora_A_shape, lora_B_shape, adapter_config, devi
         raise ValueError("Unknown init_weights type: {}".format(adapter_config["init_weights"]))
 
     return parameters
+
 
 # DoRA Methods
 def compute_dora_norm(weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
@@ -558,11 +559,11 @@ class LoRALayer(AdapterLayerBase):
                 lora_cls = IA3
             else:
                 raise ValueError(f"Unknown composition_mode: {lora_config.composition_mode}")
-            
+
             # if we're using dora, pass the original weight matrix to initialize the magnitude parameter
             if lora_config.use_dora:
                 lora_args["w_o"] = self.weight.data
-            
+
             lora = lora_cls(
                 *self._get_lora_shapes(lora_config),
                 config=lora_config,
