@@ -303,12 +303,12 @@ DoRA refers to Weight-Decomposed Low-Rank Adaptation, and is a LoRA based fine-t
 $$ h = W_{0}x + $m$\frac_{W_{0}x + BAx}{\norm{W_{0} + BA}} $$
 
 .. note::
-    Unlike the previous LoRA tuning methods, DoRA is a method *does not* have its own config but instead is accessed via the parameter `use_dora` in other LoRA-like configs. See below for a quick example.
+    the `DoRA` Method can work in tangent with both `LoRA` and `Vera`. You can utilize `DoRA` with `LoRA` either by using the `DoRAConfig` or by using a `LoRAConfig` with the `use_dora` parameter set to `True`. Similarly, the `DvoRAConfig` is a a shortcut for the `VeraConfig` that utilizes `DoRA` via the `use_dora` parameter.
 ```
 
 _Example_:
 ```python
-config = LoRAConfig(use_dora = True)
+config = DoRAConfig()
 model.add_adapter("dora_adapter", config=config)
 ```
 

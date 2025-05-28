@@ -371,24 +371,24 @@ class DoraTestMixin(AdapterMethodBaseTestMixin):
         model = self.get_model()
         self.run_forward_test(
             model,
-            DoRAConfig(init_weights="bert", intermediate_lora=False, output_lora=False, vera_b=0.5, vera_d=0.5),
+            DoRAConfig(init_weights="bert", intermediate_lora=False, output_lora=False),
         )
 
     def test_load_Dora_with_DoRA(self):
         self.run_load_test(DoRAConfig())
 
     def test_load_full_model_Dora_with_DoRA(self):
-        self.run_full_model_load_test(DoRAConfig(init_weights="vera"))
+        self.run_full_model_load_test(DoRAConfig())
 
     def test_train_Dora_with_DoRA(self):
         # don't include "shared_parameters.{name}." here since they are frozen and this test checks if the adapter weights are active.
-        self.run_train_test(DoRAConfig(init_weights="vera"), ["loras.{name}."])
+        self.run_train_test(DoRAConfig(), ["loras.{name}."])
 
     def test_merge_Dora_with_DoRA(self):
-        self.run_merge_test(DoRAConfig(init_weights="vera"))
+        self.run_merge_test(DoRAConfig())
 
     def test_reset_Dora_with_DoRA(self):
-        self.run_reset_test(DoRAConfig(init_weights="vera"))
+        self.run_reset_test(DoRAConfig())
 
     def test_add_Dora_with_DvoRA(self):
         model = self.get_model()
