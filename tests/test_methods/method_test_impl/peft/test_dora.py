@@ -34,7 +34,7 @@ class DoraTestMixin(AdapterMethodBaseTestMixin):
     def test_forward_Dora_with_LoRA(self):
         model = self.get_model()
         self.run_forward_test(
-            model, LoRAConfig(init_weights="lora", intermediate_lora=False, output_lora=False, use_dora=True)
+            model, LoRAConfig(init_weights="bert", intermediate_lora=False, output_lora=False, use_dora=True)
         )
 
     def test_load_Dora_with_LoRA(self):
