@@ -469,10 +469,7 @@ def compute_dora_deltaw(
     In the paper, the dora update delta_w is calculated as follows:
     m * (w_0x + BAx) / ||w_0 + BA||c
     """
-    if not isinstance(m, nn.Linear):
-        norm_scale = m.view(-1) / norm
-    else:
-        norm_scale = m.weight.view(-1) / norm
+    norm_scale = m.weight.view(-1) / norm
     scaled_weights = (norm_scale - 1) * weights
     scaled_lora = norm_scale * added
     result = scaled_weights + scaled_lora
@@ -486,10 +483,7 @@ def dora_merge(
 ) -> torch.Tensor:
     """This function calculates the weights required to merge with the original pretrained weight matrices."""
     v = weights + added
-    if not isinstance(m, nn.Linear):
-        norm_scale = m / torch.linalg.norm(v, dim=1).unsqueeze(1)
-    else:
-        norm_scale = m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
+    norm_scale = m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
     result = norm_scale * v
 
     return result
@@ -501,10 +495,7 @@ def compute_dora_add_com_inv(
     """This function returns the required weights necessary
     to compute the inverse composition where `composition_mode` == add.
     """
-    if not isinstance(m, nn.Linear):
-        result = weights - weights * norm.unsqueeze(1) / m - added
-    else:
-        result = weights - weights * norm.unsqueeze(1) / m.weight - added
+    result = weights - weights * norm.unsqueeze(1) / m.weight - added
     return result
 
 
@@ -897,7 +888,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 norm = compute_dora_norm(w_o, delta_w)
                 delta_w = compute_dora_add_com_inv(self.weight.data, delta_w, lora.m, norm)
                 # remove the dora_w_o attribute we set in the merge_adapter method
-                del lora.dora_w_o
+                del lora["dora_w_o"]
             self.weight.data = lora.com_inv(self.weight.data, delta_w)
             self.merged = None
 
