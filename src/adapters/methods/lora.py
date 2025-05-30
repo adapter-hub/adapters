@@ -470,12 +470,13 @@ def compute_dora_deltaw(
     m * (w_0x + BAx) / ||w_0 + BA||c
     """
     norm_scale = m.weight.view(-1) / norm
-    # scaled_weights = (norm_scale - 1) * orig_result
-    # scaled_lora = norm_scale * added
-    # result = scaled_weights + scaled_lora
+    scaled_weights = (norm_scale - 1) * orig_result
+    scaled_lora = norm_scale * added
+    result = scaled_weights + scaled_lora
 
-    results = orig_result + (norm_scale - 1) * orig_result
-    results += (norm_scale * added) * scaling
+    # results = orig_result + (norm_scale - 1) * orig_result
+    # results += (norm_scale * added) * scaling
+    results = orig_result + result
     return results
 
 
