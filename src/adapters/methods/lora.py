@@ -474,7 +474,7 @@ def compute_dora_deltaw(
     # scaled_lora = norm_scale * added
     # result = scaled_weights + scaled_lora
 
-    result = orig_result + (norm_scale - 1) * orig_result
+    results = orig_result + (norm_scale - 1) * orig_result
     results += (norm_scale * added) * scaling
     return results
 
