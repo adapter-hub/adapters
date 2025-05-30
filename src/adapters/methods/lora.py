@@ -476,7 +476,7 @@ def compute_dora_deltaw(
 
     result = orig_result + (norm_scale - 1) * orig_result
     results += (norm_scale * added) * scaling
-    return result
+    return results
 
 
 def dora_merge(
