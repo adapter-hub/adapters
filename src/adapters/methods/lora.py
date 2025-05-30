@@ -888,7 +888,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 norm = compute_dora_norm(w_o, delta_w)
                 delta_w = compute_dora_add_com_inv(self.weight.data, delta_w, lora.m, norm)
                 # remove the dora_w_o attribute we set in the merge_adapter method
-                del lora["dora_w_o"]
+                del lora.dora_w_o
             self.weight.data = lora.com_inv(self.weight.data, delta_w)
             self.merged = None
 
