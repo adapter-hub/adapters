@@ -468,7 +468,7 @@ def compute_dora_deltaw(
 
     In the paper, the dora update delta_w is calculated as follows:
     m * (w_0x + BAx) / ||w_0 + BA||c
-    where: 
+    where:
         - m is the magnitude parameter
         - norm is the column-wise norm i.e ||w_0 + BA||c
         - orig_result is the layer output w_0x
@@ -498,7 +498,7 @@ def compute_dora_add_com_inv(
 ) -> torch.Tensor:
     """This function computes the inverse of the DoRA composition operation
     i.e the `compute_dora_deltaw` function with the equation
-    w_0'x = m * (w_0 + BA) / ||w_0 + BA||c
+    w_0' = m * (w_0 + BA) / ||w_0 + BA||c
     """
     result = weights * norm.unsqueeze(1) / m.weight - added
     return result
