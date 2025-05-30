@@ -966,7 +966,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 # we check if the last_lora module has 'm', if so then we're using dora
                 if last_lora.use_dora:
                     norm = compute_dora_norm(self.weight, last_lora.delta_w)
-                    hidden_states = compute_dora_deltaw(layer_output, hidden_states, last_lora.m, norm, scaling=1.0)
+                    layer_output = compute_dora_deltaw(layer_output, hidden_states, last_lora.m, norm, scaling=1.0)
                 else:
                     layer_output = last_lora.com(
                         layer_output, hidden_states, scaling=1.0
