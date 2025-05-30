@@ -468,15 +468,15 @@ def compute_dora_deltaw(
 
     In the paper, the dora update delta_w is calculated as follows:
     m * (w_0x + BAx) / ||w_0 + BA||c
+    where: 
+        - m is the magnitude parameter
+        - norm is the column-wise norm i.e ||w_0 + BA||c
+        - orig_result is the layer output w_0x
+        - added is the LoRA update BAx
     """
     norm_scale = m.weight.view(-1) / norm
-    # scaled_weights = (norm_scale - 1) * orig_result
-    # scaled_lora = norm_scale * added
-    # result = scaled_weights + scaled_lora
-
     results = orig_result + (norm_scale - 1) * orig_result
     results += (norm_scale * added) * scaling
-    results = orig_result + results
     return results
 
 
@@ -497,10 +497,9 @@ def compute_dora_add_com_inv(
     weights: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor
 ) -> torch.Tensor:
     """This function computes the inverse of the DoRA composition operation
-    i.e the `compute_dora_deltaw` function.
+    i.e the `compute_dora_deltaw` function with the equation
+    w_0'x = m * (w_0 + BA) / ||w_0 + BA||c
     """
-    # result = weights - weights * norm.unsqueeze(1) / m.weight - added
-    # return weights - result
     result = weights * norm.unsqueeze(1) / m.weight - added
     return result
 
