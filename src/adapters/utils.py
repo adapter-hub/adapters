@@ -174,6 +174,21 @@ def inherit_doc(cls):
     return cls
 
 
+def inherit_doc_for_function(source_func):
+    """
+    Decorator factory that returns a decorator to update the __doc__ attribute of the target function with the __doc__ attribute of the source_func.
+    """
+
+    def actual_decorator(target_func):
+        if callable(source_func) and hasattr(source_func, "__doc__"):
+            source_doc = source_func.__doc__
+            if source_doc is not None:
+                target_func.__doc__ = source_doc
+        return target_func
+
+    return actual_decorator
+
+
 def multigetattr(o: object, name: str, default=None) -> Optional[object]:
     if not name:
         return default

@@ -1,15 +1,14 @@
-from transformers.file_utils import add_start_docstrings
 from transformers.models.deberta.modeling_deberta import DebertaModel, DebertaPreTrainedModel
+from transformers.utils import auto_docstring
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    """Deberta Model transformer with the option to add multiple flexible heads on top.""",
-)
+@auto_docstring(custom_intro="""Deberta Model transformer with the option to add multiple flexible heads on top.""")
 class DebertaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, DebertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"cls.predictions.bias"]
 
@@ -32,6 +31,7 @@ class DebertaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
 
         self.init_weights()
 
+    @inherit_doc_for_function(DebertaModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

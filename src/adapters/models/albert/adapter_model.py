@@ -1,21 +1,14 @@
-from transformers.models.albert.modeling_albert import (
-    ALBERT_INPUTS_DOCSTRING,
-    ALBERT_START_DOCSTRING,
-    AlbertModel,
-    AlbertPreTrainedModel,
-)
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.albert.modeling_albert import AlbertModel, AlbertPreTrainedModel
+from transformers.utils import auto_docstring
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    """Albert Model transformer with the option to add multiple flexible heads on top.""",
-    ALBERT_START_DOCSTRING,
-)
+@auto_docstring(custom_intro="""Albert Model transformer with the option to add multiple flexible heads on top.""")
 class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, AlbertPreTrainedModel):
     head_types = [
         "classification",
@@ -37,7 +30,7 @@ class AlbertAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAd
 
         self.init_weights()
 
-    @add_start_docstrings_to_model_forward(ALBERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @inherit_doc_for_function(AlbertModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

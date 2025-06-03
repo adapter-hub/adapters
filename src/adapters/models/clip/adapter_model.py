@@ -2,21 +2,17 @@ from typing import Optional
 
 import torch
 
-from transformers.models.clip.modeling_clip import (
-    CLIP_INPUTS_DOCSTRING,
-    CLIP_START_DOCSTRING,
-    CLIPModel,
-    CLIPPreTrainedModel,
-)
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.clip.modeling_clip import CLIPModel, CLIPPreTrainedModel
+from transformers.utils import auto_docstring
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(CLIP_START_DOCSTRING)
+@auto_docstring(custom_intro="""CLIP Model with the option to add multiple flexible heads on top.""")
 class CLIPAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, CLIPPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
@@ -28,7 +24,7 @@ class CLIPAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdap
 
         self.post_init()
 
-    @add_start_docstrings_to_model_forward(CLIP_INPUTS_DOCSTRING)
+    @inherit_doc_for_function(CLIPModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

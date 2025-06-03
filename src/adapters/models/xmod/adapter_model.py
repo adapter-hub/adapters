@@ -3,24 +3,17 @@ from typing import Optional
 import torch
 
 from transformers.generation import GenerationMixin
-from transformers.models.xmod.modeling_xmod import (
-    XMOD_INPUTS_DOCSTRING,
-    XMOD_START_DOCSTRING,
-    XmodModel,
-    XmodPreTrainedModel,
-)
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.xmod.modeling_xmod import XmodModel, XmodPreTrainedModel
+from transformers.utils import auto_docstring
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    """X-MOD Model transformer with the option to add multiple flexible heads on top.""",
-    XMOD_START_DOCSTRING,
-)
+@auto_docstring(custom_intro="""X-MOD Model transformer with the option to add multiple flexible heads on top.""")
 class XmodAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, XmodPreTrainedModel, GenerationMixin
 ):
@@ -46,7 +39,7 @@ class XmodAdapterModel(
 
         self.init_weights()
 
-    @add_start_docstrings_to_model_forward(XMOD_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @inherit_doc_for_function(XmodModel.forward)
     @ForwardContext.wrap
     def forward(
         self,
