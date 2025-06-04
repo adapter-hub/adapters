@@ -3,15 +3,17 @@ from typing import Optional
 import torch
 
 from transformers.models.vit.modeling_vit import ViTModel, ViTPreTrainedModel
-from transformers.utils import auto_docstring
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
-from ...utils import inherit_doc_for_function
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@auto_docstring(custom_intro="""ViT Model transformer with the option to add multiple flexible heads on top.""")
+@inherit_doc_for_adapter_model(
+    model=ViTModel,
+    custom_intro="""ViT Model transformer with the option to add multiple flexible heads on top.""",
+)
 class ViTAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, ViTPreTrainedModel):
 
     head_types = [

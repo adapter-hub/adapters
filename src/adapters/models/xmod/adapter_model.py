@@ -4,16 +4,18 @@ import torch
 
 from transformers.generation import GenerationMixin
 from transformers.models.xmod.modeling_xmod import XmodModel, XmodPreTrainedModel
-from transformers.utils import auto_docstring
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...utils import inherit_doc_for_function
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@auto_docstring(custom_intro="""X-MOD Model transformer with the option to add multiple flexible heads on top.""")
+@inherit_doc_for_adapter_model(
+    model=XmodModel,
+    custom_intro="""X-MOD Model transformer with the option to add multiple flexible heads on top.""",
+)
 class XmodAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, XmodPreTrainedModel, GenerationMixin
 ):

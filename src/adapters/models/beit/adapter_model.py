@@ -3,15 +3,17 @@ from typing import Optional
 import torch
 
 from transformers.models.beit.modeling_beit import BeitModel, BeitPreTrainedModel
-from transformers.utils import auto_docstring
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
-from ...utils import inherit_doc_for_function
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@auto_docstring(custom_intro="""Beit Model transformer with the option to add multiple flexible heads on top.""")
+@inherit_doc_for_adapter_model(
+    model=BeitModel,
+    custom_intro="""Beit Model transformer with the option to add multiple flexible heads on top.""",
+)
 class BeitAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BeitPreTrainedModel):
     head_types = [
         "image_classification",

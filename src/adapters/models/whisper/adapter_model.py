@@ -8,16 +8,18 @@ from transformers.models.whisper.modeling_whisper import (
     WhisperPreTrainedModel,
     shift_tokens_right,
 )
-from transformers.utils import auto_docstring
 
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...utils import inherit_doc_for_function
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@auto_docstring(custom_intro="""WHISPER Model with the option to add multiple flexible prediction heads on top.""")
+@inherit_doc_for_adapter_model(
+    model=WhisperModel,
+    custom_intro="""WHISPER Model with the option to add multiple flexible prediction heads on top.""",
+)
 class WhisperAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, WhisperPreTrainedModel, GenerationMixin
 ):

@@ -4,20 +4,22 @@ import torch
 
 from transformers.generation import GenerationMixin
 from transformers.models.t5.modeling_t5 import T5Model, T5PreTrainedModel
-from transformers.utils import auto_docstring
 
 from ...composition import adjust_tensors_for_parallel
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin, Seq2SeqLMHead
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...utils import inherit_doc_for_function
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
 logger = logging.getLogger(__name__)
 
 
-@auto_docstring(custom_intro="""T5 Model with the option to add multiple flexible prediction heads on top.""")
+@inherit_doc_for_adapter_model(
+    model=T5Model,
+    custom_intro="""T5 Model with the option to add multiple flexible prediction heads on top.""",
+)
 class T5AdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, T5PreTrainedModel, GenerationMixin
 ):

@@ -1,15 +1,17 @@
 from transformers.generation import GenerationMixin
 from transformers.models.electra.modeling_electra import ElectraModel, ElectraPreTrainedModel
-from transformers.utils import auto_docstring
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...utils import inherit_doc_for_function
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@auto_docstring(custom_intro="""Electra Model transformer with the option to add multiple flexible heads on top.""")
+@inherit_doc_for_adapter_model(
+    model=ElectraModel,
+    custom_intro="""Electra Model transformer with the option to add multiple flexible heads on top.""",
+)
 class ElectraAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, ElectraPreTrainedModel, GenerationMixin
 ):

@@ -4,20 +4,20 @@ import torch
 
 from transformers.generation import GenerationMixin
 from transformers.models.gpt2.modeling_gpt2 import GPT2Model, GPT2PreTrainedModel
-from transformers.utils import auto_docstring
 
 from ...composition import adjust_tensors_for_parallel
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
-from ...utils import inherit_doc_for_function
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
 logger = logging.getLogger(__name__)
 
 
-@auto_docstring(
+@inherit_doc_for_adapter_model(
+    model=GPT2Model,
     custom_intro="""
 The GPT2 Model that allows the loading of different heads dor different tasks. This enables a flexible use of the
 models and adpters. Since this class does classification on the last token, it requires to know the position of the
@@ -25,7 +25,7 @@ last token. If a :obj:`pad_token_id` is defined in the configuration, it finds t
 token in each row. If no :obj:`pad_token_id` is defined, it simply takes the last value in each row of the batch. Since
 it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead of :obj:`input_ids`, it does the same
 (take the last value in each row of the batch).
-"""
+""",
 )
 class GPT2AdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel, GenerationMixin
