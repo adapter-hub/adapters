@@ -475,8 +475,7 @@ def compute_dora_deltaw(
         - added is the LoRA update BAx
     """
     norm_scale = m.weight.view(-1) / norm
-    results = orig_result + (norm_scale - 1) * orig_result
-    results += (norm_scale * added) * scaling
+    results = norm_scale * (orig_result + added)
     return results
 
 
