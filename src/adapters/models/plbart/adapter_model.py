@@ -2,23 +2,22 @@ import torch
 
 from transformers.generation import GenerationMixin
 from transformers.models.plbart.modeling_plbart import (
-    PLBART_INPUTS_DOCSTRING,
-    PLBART_START_DOCSTRING,
     PLBartConfig,
     PLBartModel,
     PLBartPreTrainedModel,
     shift_tokens_right,
 )
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    "PLBART Model with the option to add multiple flexible prediction heads on top.", PLBART_START_DOCSTRING
+@inherit_doc_for_adapter_model(
+    model=PLBartModel,
+    custom_intro="""PLBART Model with the option to add multiple flexible prediction heads on top.""",
 )
 class PLBartAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, PLBartPreTrainedModel, GenerationMixin
@@ -50,7 +49,7 @@ class PLBartAdapterModel(
     def get_decoder(self):
         return self.model.get_decoder()
 
-    @add_start_docstrings_to_model_forward(PLBART_INPUTS_DOCSTRING)
+    @inherit_doc_for_function(PLBartModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

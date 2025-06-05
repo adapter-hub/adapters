@@ -20,6 +20,7 @@ from typing import Callable, Optional, Tuple, Union
 import torch
 import torch.utils.checkpoint
 
+from transformers.cache_utils import Cache, EncoderDecoderCache
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Block, eager_attention_forward
 from transformers.utils import logging
@@ -35,16 +36,17 @@ class GPT2AttentionWithAdapters(GPT2AttentionAdaptersMixin, GPT2Attention):
     def forward(
         self,
         hidden_states: Optional[Tuple[torch.FloatTensor]],
-        layer_past: Optional[Tuple[torch.Tensor]] = None,
+        past_key_value: Optional[Cache] = None,
+        cache_position: Optional[torch.LongTensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        use_cache: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
         **kwargs,
     ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]], ...]:
-        if encoder_hidden_states is not None:
+        is_cross_attention = encoder_hidden_states is not None
+        if is_cross_attention:
             if not hasattr(self, "q_attn"):
                 raise ValueError(
                     "If class is used as cross attention, the weights `q_attn` have to be defined. "
@@ -64,15 +66,16 @@ class GPT2AttentionWithAdapters(GPT2AttentionAdaptersMixin, GPT2Attention):
         key_states = key_states.view(shape_kv).transpose(1, 2)
         value_states = value_states.view(shape_kv).transpose(1, 2)
 
-        if layer_past is not None:
-            past_key, past_value = layer_past
-            key_states = torch.cat((past_key, key_states), dim=-2)
-            value_states = torch.cat((past_value, value_states), dim=-2)
-
-        if use_cache is True:
-            present = (key_states, value_states)
-        else:
-            present = None
+        if past_key_value is not None:
+            if isinstance(past_key_value, EncoderDecoderCache):
+                if is_cross_attention:
+                    past_key_value = past_key_value.cross_attention_cache
+                else:
+                    past_key_value = past_key_value.self_attention_cache
+            cache_kwargs = {"cache_position": cache_position}
+            key_states, value_states = past_key_value.update(
+                key_states, value_states, self.layer_idx, cache_kwargs=cache_kwargs
+            )
 
         # >>> START AH Changes <<<
         key_states, value_states, attention_mask = self.prefix_tuning(
@@ -81,7 +84,6 @@ class GPT2AttentionWithAdapters(GPT2AttentionAdaptersMixin, GPT2Attention):
         (query_states,) = adjust_tensors_for_parallel(key_states, query_states)
         # >>> END AH Changes <<<
 
-        is_cross_attention = encoder_hidden_states is not None
         is_causal = attention_mask is None and query_states.shape[-2] > 1 and not is_cross_attention
 
         using_eager = self.config._attn_implementation == "eager"
@@ -96,7 +98,7 @@ class GPT2AttentionWithAdapters(GPT2AttentionAdaptersMixin, GPT2Attention):
             else:
                 # Attention functions are consistent with previous equivalent attention classes, however they do not support some options
                 # (e.g. layer scaling, head mask) that eager supports. These implementations are thus equivalent to previous code, but
-                # not necessarily to eager (if mentionned options are provided).
+                # not necessarily to eager (if mentioned options are provided).
                 attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
 
         if using_eager and self.reorder_and_upcast_attn:
@@ -120,38 +122,39 @@ class GPT2AttentionWithAdapters(GPT2AttentionAdaptersMixin, GPT2Attention):
         attn_output = self.c_proj(attn_output)
         attn_output = self.resid_dropout(attn_output)
 
-        outputs = (attn_output, present)
-        if output_attentions:
-            outputs += (attn_weights,)
-
-        return outputs  # a, present, (attentions)
+        return attn_output, attn_weights
 
 
 class GPT2BlockWithAdapters(GPT2DecoderBlockAdaptersMixin, GPT2Block):
     def forward(
         self,
         hidden_states: Optional[Tuple[torch.FloatTensor]],
-        layer_past: Optional[Tuple[torch.Tensor]] = None,
+        past_key_value: Optional[Cache] = None,
+        cache_position: Optional[torch.LongTensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
         use_cache: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
+        **kwargs,
     ) -> Union[Tuple[torch.Tensor], Optional[Tuple[torch.Tensor, Tuple[torch.FloatTensor, ...]]]]:
+        # >>> START AH Changes <<<
         adjust_tensors_for_parallel_(hidden_states, attention_mask)
+        # >>> END AH Changes <<<
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
-        attn_outputs = self.attn(
+        attn_output, self_attn_weights = self.attn(
             hidden_states,
-            layer_past=layer_past,
+            past_key_value=past_key_value,
+            cache_position=cache_position,
             attention_mask=attention_mask,
             head_mask=head_mask,
             use_cache=use_cache,
             output_attentions=output_attentions,
+            **kwargs,
         )
-        attn_output = attn_outputs[0]  # output_attn: a, present, (attentions)
-        outputs = attn_outputs[1:]
+        # residual connection
         hidden_states = self.attention_adapters(attn_output, residual, None)
 
         if encoder_hidden_states is not None:
@@ -163,28 +166,31 @@ class GPT2BlockWithAdapters(GPT2DecoderBlockAdaptersMixin, GPT2Block):
                 )
             residual = hidden_states
             hidden_states = self.ln_cross_attn(hidden_states)
-            cross_attn_outputs = self.crossattention(
+            cross_attn_output, cross_attn_weights = self.crossattention(
                 hidden_states,
+                past_key_value=past_key_value,
                 attention_mask=attention_mask,
                 head_mask=head_mask,
                 encoder_hidden_states=encoder_hidden_states,
                 encoder_attention_mask=encoder_attention_mask,
                 output_attentions=output_attentions,
             )
-            attn_output = cross_attn_outputs[0]
             # residual connection
-            hidden_states = residual + attn_output
-            outputs = outputs + cross_attn_outputs[2:]  # add cross attentions if we output attention weights
+            hidden_states = residual + cross_attn_output
 
         residual = hidden_states
         hidden_states = self.ln_2(hidden_states)
         feed_forward_hidden_states = self.mlp(hidden_states)
-        # residual connection
+
+        # >>> START AH Changes <<<
+        # Replaced: hidden_states = residual + feed_forward_hidden_states
         hidden_states = self.output_adapters(feed_forward_hidden_states, residual, None)
+        # >>> END AH Changes <<<
 
-        if use_cache:
-            outputs = (hidden_states,) + outputs
-        else:
-            outputs = (hidden_states,) + outputs[1:]
+        outputs = (hidden_states,)
+        if output_attentions:
+            outputs += (self_attn_weights,)
+            if encoder_hidden_states is not None:
+                outputs += (cross_attn_weights,)
 
-        return outputs  # hidden_states, present, (attentions, cross_attentions)
+        return outputs

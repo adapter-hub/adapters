@@ -3,23 +3,22 @@ import torch
 from transformers import EncoderDecoderCache, StaticCache
 from transformers.generation import GenerationMixin
 from transformers.models.whisper.modeling_whisper import (
-    WHISPER_INPUTS_DOCSTRING,
-    WHISPER_START_DOCSTRING,
     WhisperConfig,
     WhisperModel,
     WhisperPreTrainedModel,
     shift_tokens_right,
 )
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    "WHISPER Model with the option to add multiple flexible prediction heads on top.", WHISPER_START_DOCSTRING
+@inherit_doc_for_adapter_model(
+    model=WhisperModel,
+    custom_intro="""WHISPER Model with the option to add multiple flexible prediction heads on top.""",
 )
 class WhisperAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, WhisperPreTrainedModel, GenerationMixin
@@ -52,7 +51,7 @@ class WhisperAdapterModel(
         # test_modeling_whisper.py require the functionality to freeze the encoder
         self.model.encoder._freeze_parameters()
 
-    @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
+    @inherit_doc_for_function(WhisperModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

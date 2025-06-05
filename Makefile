@@ -13,7 +13,7 @@ quality:
 	python utils/custom_init_isort.py --check_only
 	python utils/sort_auto_mappings.py --check_only
 	flake8 $(check_dirs)
-	python utils/check_inits.py
+#   python utils/check_inits.py       # Currently not working: "This entire files needs an overhaul" https://github.com/huggingface/transformers/blob/v4.52.4/utils/check_inits.py#L354
 
 # Format source code automatically and check is there are any problems left that need manual fixing
 

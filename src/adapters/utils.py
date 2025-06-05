@@ -163,17 +163,6 @@ def get_adapter_config_hash(config, length=16, ignore_params=[]):
     return h.hexdigest()[:length]
 
 
-def inherit_doc(cls):
-    for name, func in vars(cls).items():
-        if isinstance(func, Callable) and not func.__doc__:
-            for parent in cls.__bases__:
-                parfunc = getattr(parent, name, None)
-                if parfunc and getattr(parfunc, "__doc__", None):
-                    func.__doc__ = parfunc.__doc__
-                    break
-    return cls
-
-
 def multigetattr(o: object, name: str, default=None) -> Optional[object]:
     if not name:
         return default
@@ -884,3 +873,52 @@ def patch_forward(module: torch.nn.Module):
     # The `add_hook_to_module()` method is e.g. used for `device_map="auto"` in the `PreTrainedModel.from_pretrained()` method.
     if hasattr(module, "_old_forward"):
         module._old_forward = module.__class__.forward.__get__(module, module.__class__)
+
+
+# ######################################### DOCSTRINGS FUNCTIONS ##########################################
+def inherit_doc(cls):
+    for name, func in vars(cls).items():
+        if isinstance(func, Callable) and not func.__doc__:
+            for parent in cls.__bases__:
+                parfunc = getattr(parent, name, None)
+                if parfunc and getattr(parfunc, "__doc__", None):
+                    func.__doc__ = parfunc.__doc__
+                    break
+    return cls
+
+
+def inherit_doc_for_function(source_func):
+    """
+    Decorator factory that returns a decorator to update the __doc__ attribute of the target function with the __doc__ attribute of the source_func.
+    """
+
+    def actual_decorator(target_func):
+        if callable(source_func) and hasattr(source_func, "__doc__"):
+            source_doc = source_func.__doc__
+            if source_doc is not None:
+                target_func.__doc__ = source_doc
+        return target_func
+
+    return actual_decorator
+
+
+def inherit_doc_for_adapter_model(model, custom_intro: str = None, **kwargs):
+    """
+    Decorator for XAdapterModel classes to set their docstring based on an original model's docstring, prefixed with a custom introduction.
+    """
+
+    def actual_decorator(target_class):
+        if custom_intro is not None and custom_intro != "":
+            intro_text = custom_intro + " Docstring of the original model:"
+            intro_text = inspect.cleandoc(intro_text) + "\n\n"
+        else:
+            intro_text = ""
+
+        base_doc_text = ""
+        if hasattr(model, "__doc__") and model.__doc__:
+            base_doc_text = inspect.cleandoc(model.__doc__)
+
+        target_class.__doc__ = intro_text + base_doc_text
+        return target_class
+
+    return actual_decorator

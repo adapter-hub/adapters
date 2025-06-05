@@ -2,22 +2,17 @@ from typing import Optional
 
 import torch
 
-from transformers.models.vit.modeling_vit import (
-    VIT_INPUTS_DOCSTRING,
-    VIT_START_DOCSTRING,
-    ViTModel,
-    ViTPreTrainedModel,
-)
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.vit.modeling_vit import ViTModel, ViTPreTrainedModel
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    """ViT Model transformer with the option to add multiple flexible heads on top.""",
-    VIT_START_DOCSTRING,
+@inherit_doc_for_adapter_model(
+    model=ViTModel,
+    custom_intro="""ViT Model transformer with the option to add multiple flexible heads on top.""",
 )
 class ViTAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, ViTPreTrainedModel):
 
@@ -36,7 +31,7 @@ class ViTAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, ViTPreTrainedModel):
         # Initialize weights and apply final processing
         self.post_init()
 
-    @add_start_docstrings_to_model_forward(VIT_INPUTS_DOCSTRING)
+    @inherit_doc_for_function(ViTModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

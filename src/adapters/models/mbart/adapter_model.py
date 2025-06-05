@@ -1,25 +1,19 @@
 import torch
 
 from transformers.generation import GenerationMixin
-from transformers.models.mbart.modeling_mbart import (
-    MBART_INPUTS_DOCSTRING,
-    MBART_START_DOCSTRING,
-    MBartConfig,
-    MBartModel,
-    MBartPreTrainedModel,
-    shift_tokens_right,
-)
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.mbart.modeling_mbart import MBartConfig, MBartModel, MBartPreTrainedModel, shift_tokens_right
 
 from ...composition import adjust_tensors_for_parallel
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    "MBART Model with the option to add multiple flexible prediction heads on top.", MBART_START_DOCSTRING
+@inherit_doc_for_adapter_model(
+    model=MBartModel,
+    custom_intro="""MBART Model with the option to add multiple flexible prediction heads on top.""",
 )
 class MBartAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MBartPreTrainedModel, GenerationMixin
@@ -51,7 +45,7 @@ class MBartAdapterModel(
     def get_decoder(self):
         return self.model.get_decoder()
 
-    @add_start_docstrings_to_model_forward(MBART_INPUTS_DOCSTRING)
+    @inherit_doc_for_function(MBartModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

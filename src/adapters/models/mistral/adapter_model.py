@@ -3,21 +3,22 @@ import logging
 import torch
 
 from transformers.generation import GenerationMixin
-from transformers.models.mistral.modeling_mistral import MISTRAL_START_DOCSTRING, MistralModel, MistralPreTrainedModel
-from transformers.utils import add_start_docstrings
+from transformers.models.mistral.modeling_mistral import MistralModel, MistralPreTrainedModel
 
 from ...composition import adjust_tensors_for_parallel
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
 logger = logging.getLogger(__name__)
 
 
-@add_start_docstrings(
-    """
+@inherit_doc_for_adapter_model(
+    model=MistralModel,
+    custom_intro="""
 The Mistal Model that allows the loading of different heads for different tasks. This enables a flexible use of the
 models and adpters. Since this class does classification on the last token, it requires to know the position of the
 last token. If a :obj:`pad_token_id` is defined in the configuration, it finds the last token that is not a padding
@@ -25,7 +26,6 @@ token in each row. If no :obj:`pad_token_id` is defined, it simply takes the las
 it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead of :obj:`input_ids`, it does the same
 (take the last value in each row of the batch).
 """,
-    MISTRAL_START_DOCSTRING,
 )
 class MistralAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, MistralPreTrainedModel, GenerationMixin
@@ -52,6 +52,7 @@ class MistralAdapterModel(
         self.device_map = None
         self.post_init()
 
+    @inherit_doc_for_function(MistralModel.forward)
     @ForwardContext.wrap
     def forward(
         self,
