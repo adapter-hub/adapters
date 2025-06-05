@@ -38,7 +38,7 @@ logger = logging.get_logger(__name__)
 
 
 class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMixin):
-    # Copied from adapters/models/bart/modeling_bart.py
+    # Adapted like adapters/models/bart/modeling_bart.py
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -56,6 +56,11 @@ class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMix
         is_cross_attention = key_value_states is not None
         bsz, tgt_len, _ = hidden_states.size()
 
+        # get query proj
+        query_states = self.q_proj(hidden_states) * self.scaling
+        query_states = query_states.view(bsz, tgt_len, self.num_heads, self.head_dim)
+        query_states = query_states.transpose(1, 2).contiguous()
+
         if past_key_value is not None:
             is_updated = past_key_value.is_updated.get(self.layer_idx)
             if is_cross_attention:
@@ -72,10 +77,10 @@ class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMix
             key_states = past_key_value.key_cache[self.layer_idx]
             value_states = past_key_value.value_cache[self.layer_idx]
         else:
-            # Do self_attention
-            # -> use hidden_states as current_states for key and value multi-head projections
-            key_states = self._shape(self.k_proj(current_states), -1, bsz)
-            value_states = self._shape(self.v_proj(current_states), -1, bsz)
+            key_states = self.k_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
+            value_states = self.v_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
+            key_states = key_states.transpose(1, 2).contiguous()
+            value_states = value_states.transpose(1, 2).contiguous()
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
                 cache_position = cache_position if not is_cross_attention else None
@@ -84,9 +89,6 @@ class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMix
                 )
 
         # >>> START AH Changes <<<
-        # get query proj
-        query_states = self.q_proj(hidden_states)
-
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -99,18 +101,14 @@ class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMix
         # if we are in a parallel setting we need to adjust the batch size
         # when reshaping the query_states to multi-head format
         bsz = query_states.size(0)
-
-        query_states = self._shape(query_states, tgt_len, bsz)
         # >>> END AH Changes <<<
 
-        # Compute the attention weights
         attn_weights = torch.matmul(query_states, key_states.transpose(2, 3))
 
         if attention_mask is not None:  # no matter the length, we just slice it
             causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
             attn_weights = attn_weights + causal_mask
 
-        # Normalize the attention weights
         attn_weights = nn.functional.softmax(attn_weights, dim=-1)
 
         if layer_head_mask is not None:
@@ -132,7 +130,7 @@ class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMix
 
         attn_output = attn_output.transpose(1, 2)
         # Use the `embed_dim` from the config (stored in the class) rather than `hidden_state` because `attn_output` can be
-        # partitioned aross GPUs when using tensor-parallelism.
+        # partitioned across GPUs when using tensor-parallelism.
         attn_output = attn_output.reshape(bsz, tgt_len, self.embed_dim)
 
         attn_output = self.out_proj(attn_output)
@@ -141,7 +139,7 @@ class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMix
 
 
 class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperAttention):
-    # Copied from adapters/models/bart/modeling_bart.py
+    # Adapted like adapters/models/bart/modeling_bart.py
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -157,9 +155,6 @@ class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperA
                 "The `static` cache implementation is not compatible with `attn_implementation='flash_attention_2'`. "
                 "Use `attn_implementation='sdpa'` in the meantime, and open an issue at https://github.com/huggingface/transformers"
             )
-        # WhisperFlashAttention2 attention does not support output_attentions
-        if output_attentions:
-            raise ValueError("WhisperFlashAttention2 attention does not support output_attentions")
 
         # if key_value_states are provided this layer is used as a cross-attention layer
         # for the decoder
@@ -185,8 +180,10 @@ class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperA
             key_states = past_key_value.key_cache[self.layer_idx]
             value_states = past_key_value.value_cache[self.layer_idx]
         else:
-            key_states = self._shape(self.k_proj(current_states), -1, bsz)
-            value_states = self._shape(self.v_proj(current_states), -1, bsz)
+            key_states = self.k_proj(current_states).view(bsz, tgt_len, self.num_heads, self.head_dim)
+            value_states = self.v_proj(current_states).view(bsz, tgt_len, self.num_heads, self.head_dim)
+            key_states = key_states.transpose(1, 2).contiguous()
+            value_states = value_states.transpose(1, 2).contiguous()
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
                 cache_position = cache_position if not is_cross_attention else None
@@ -213,7 +210,7 @@ class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperA
 
         causal_mask = attention_mask
         if attention_mask is not None:  # no matter the length, we just slice it
-            causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
+            causal_mask = attention_mask[:, : key_states.shape[1]]
 
         # In PEFT, usually we cast the layer norms in float32 for training stability reasons
         # therefore the input hidden states gets silently casted in float32. Hence, we need
@@ -223,15 +220,17 @@ class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperA
 
         input_dtype = query_states.dtype
         if input_dtype == torch.float32:
+            if torch.is_autocast_enabled():
+                target_dtype = torch.get_autocast_gpu_dtype()
             # Handle the case where the model is quantized
-            if hasattr(self.config, "_pre_quantization_dtype"):
+            elif hasattr(self.config, "_pre_quantization_dtype"):
                 target_dtype = self.config._pre_quantization_dtype
             else:
                 target_dtype = self.q_proj.weight.dtype
 
             logger.warning_once(
-                "The input hidden states seems to be silently casted in float32, this might be related to the fact"
-                " you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
+                f"The input hidden states seems to be silently casted in float32, this might be related to"
+                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
                 f" {target_dtype}."
             )
 
@@ -245,7 +244,7 @@ class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperA
             value_states,
             causal_mask,
             tgt_len,
-            dropout=self.dropout,
+            dropout=self.dropout if self.training else 0.0,
             is_causal=self.is_causal,
             use_top_left_mask=self._flash_attn_uses_top_left_mask,
         )
@@ -260,8 +259,7 @@ class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperA
 
 
 class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAttention):
-    # Copied from adapters/models/bart/modeling_bart.py
-    # and transformers/models/whisper/modeling_whisper.py
+    # Adapted like adapters/models/bart/modeling_bart.py
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -273,10 +271,11 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
         cache_position: Optional[torch.LongTensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
-        if output_attentions or layer_head_mask is not None:
+
+        if output_attentions:
             # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "WhisperModel is using WhisperSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True` or `layer_head_mask` not None. Falling back to the manual attention"
+                "WhisperModel is using WhisperSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention"
                 ' implementation, but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
@@ -284,7 +283,6 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
                 key_value_states=key_value_states,
                 past_key_value=past_key_value,
                 attention_mask=attention_mask,
-                layer_head_mask=layer_head_mask,
                 output_attentions=output_attentions,
                 cache_position=cache_position,
             )
@@ -293,6 +291,10 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
         # for the decoder
         is_cross_attention = key_value_states is not None
         bsz, tgt_len, _ = hidden_states.size()
+
+        # get query proj
+        query_states = self.q_proj(hidden_states).view(bsz, tgt_len, self.num_heads, self.head_dim)
+        query_states = query_states.transpose(1, 2).contiguous()
 
         if past_key_value is not None:
             is_updated = past_key_value.is_updated.get(self.layer_idx)
@@ -310,18 +312,18 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
             key_states = past_key_value.key_cache[self.layer_idx]
             value_states = past_key_value.value_cache[self.layer_idx]
         else:
-            key_states = self._shape(self.k_proj(current_states), -1, bsz)
-            value_states = self._shape(self.v_proj(current_states), -1, bsz)
+            key_states = self.k_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
+            value_states = self.v_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
+            key_states = key_states.transpose(1, 2).contiguous()
+            value_states = value_states.transpose(1, 2).contiguous()
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
                 cache_position = cache_position if not is_cross_attention else None
                 key_states, value_states = past_key_value.update(
                     key_states, value_states, self.layer_idx, {"cache_position": cache_position}
                 )
-        # >>> START AH Changes <<<
-        # get query proj
-        query_states = self.q_proj(hidden_states)
 
+        # >>> START AH Changes <<<
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -335,7 +337,6 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
         # when reshaping the query_states to multi-head format
         bsz = query_states.size(0)
 
-        query_states = self._shape(query_states, tgt_len, bsz)
         # >>> END AH Changes <<<
 
         causal_mask = attention_mask
@@ -376,7 +377,7 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
 
 
 class WhisperEncoderLayerWithAdapters(WhisperEncoderLayer, WhisperEncoderLayerAdaptersMixin):
-    # Copied from adapters/models/mbart/modeling_mbart.py
+    # Adapted like adapters/models/mbart/modeling_mbart.py
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -386,7 +387,7 @@ class WhisperEncoderLayerWithAdapters(WhisperEncoderLayer, WhisperEncoderLayerAd
     ) -> torch.Tensor:
         """
         Args:
-            hidden_states (`torch.FloatTensor`): input to the layer of shape `(seq_len, batch, embed_dim)`
+            hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
             attention_mask (`torch.FloatTensor`): attention mask of size
                 `(batch, 1, tgt_len, src_len)` where padding elements are indicated by very large negative values.
             layer_head_mask (`torch.FloatTensor`): mask for attention heads in a given layer of size
@@ -395,7 +396,9 @@ class WhisperEncoderLayerWithAdapters(WhisperEncoderLayer, WhisperEncoderLayerAd
                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
                 returned tensors for more detail.
         """
+        # >>> START AH Changes <<<
         adjust_tensors_for_parallel_(hidden_states, attention_mask)
+        # >>> END AH Changes <<<
 
         residual = hidden_states
         hidden_states = self.self_attn_layer_norm(hidden_states)
@@ -406,20 +409,25 @@ class WhisperEncoderLayerWithAdapters(WhisperEncoderLayer, WhisperEncoderLayerAd
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+        # >>> START AH Changes <<<
+        # Replaced:
+        # hidden_states = residual + hidden_states
         hidden_states = self.attention_adapters(hidden_states, residual, None)
+        # >>> END AH Changes <<<
 
-        # Fully Connected
         residual = hidden_states
         hidden_states = self.final_layer_norm(hidden_states)
         hidden_states = self.activation_fn(self.fc1(hidden_states))
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+        # >>> START AH Changes <<<
+        # Replaced:
+        # hidden_states = residual + hidden_states
         hidden_states = self.output_adapters(hidden_states, residual, None)
+        # >>> END AH Changes <<<
 
-        if hidden_states.dtype == torch.float16 and (
-            torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()
-        ):
+        if hidden_states.dtype == torch.float16:
             clamp_value = torch.finfo(hidden_states.dtype).max - 1000
             hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
 
@@ -432,7 +440,7 @@ class WhisperEncoderLayerWithAdapters(WhisperEncoderLayer, WhisperEncoderLayerAd
 
 
 class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAdaptersMixin):
-    # Copied from adapters/models/mbart/modeling_mbart.py
+    # Adapted like adapters/models/mbart/modeling_mbart.py
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -448,11 +456,11 @@ class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAd
     ) -> torch.Tensor:
         """
         Args:
-            hidden_states (`torch.FloatTensor`): input to the layer of shape `(seq_len, batch, embed_dim)`
+            hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
             attention_mask (`torch.FloatTensor`): attention mask of size
                 `(batch, 1, tgt_len, src_len)` where padding elements are indicated by very large negative values.
             encoder_hidden_states (`torch.FloatTensor`):
-                cross attention input to the layer of shape `(seq_len, batch, embed_dim)`
+                cross attention input to the layer of shape `(batch, seq_len, embed_dim)`
             encoder_attention_mask (`torch.FloatTensor`): encoder attention mask of size
                 `(batch, 1, tgt_len, src_len)` where padding elements are indicated by very large negative values.
             layer_head_mask (`torch.FloatTensor`): mask for attention heads in a given layer of size
@@ -464,7 +472,10 @@ class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAd
                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
                 returned tensors for more detail.
         """
+
+        # >>> START AH Changes <<<
         adjust_tensors_for_parallel_(hidden_states, attention_mask, encoder_attention_mask)
+        # >>> END AH Changes <<<
 
         residual = hidden_states
         hidden_states = self.self_attn_layer_norm(hidden_states)
@@ -479,7 +490,11 @@ class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAd
             cache_position=cache_position,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+        # >>> START AH Changes <<<
+        # Replaced:
+        # hidden_states = residual + hidden_states
         hidden_states = self.attention_adapters(hidden_states, residual, None)
+        # >>> END AH Changes <<<
 
         # Cross-Attention Block
         cross_attn_weights = None
@@ -495,7 +510,11 @@ class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAd
                 output_attentions=output_attentions,
             )
             hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+            # >>> START AH Changes <<<
+            # Replaced:
+            # hidden_states = residual + hidden_states
             hidden_states = self.cross_attention_adapters(hidden_states, residual, None)
+            # >>> END AH Changes <<<
 
             # add cross-attn to positions 1 of present_key_value tuple
             present_key_value = (present_key_value, cross_attn_present_key_value)
@@ -507,7 +526,11 @@ class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAd
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+        # >>> START AH Changes <<<
+        # Replaced:
+        # hidden_states = residual + hidden_states
         hidden_states = self.output_adapters(hidden_states, residual, None)
+        # >>> END AH Changes <<<
 
         outputs = (hidden_states,)
 
