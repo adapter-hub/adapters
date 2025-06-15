@@ -462,7 +462,7 @@ def compute_dora_norm(weights: torch.Tensor, added: torch.Tensor) -> torch.Tenso
 
 
 def compute_dora_deltaw(
-    orig_result: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor
+    orig_result: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor, scaling: float = 1.0
 ) -> torch.Tensor:
     """This function calculates the dora update.
 
@@ -964,7 +964,7 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 # we check if the last_lora module has 'm', if so then we're using dora
                 if last_lora.use_dora:
                     norm = compute_dora_norm(self.weight, last_lora.delta_w)
-                    layer_output = compute_dora_deltaw(layer_output, hidden_states, last_lora.m, norm, scaling=1.0)
+                    layer_output = compute_dora_deltaw(layer_output, hidden_states, last_lora.m, norm)
                 else:
                     layer_output = last_lora.com(
                         layer_output, hidden_states, scaling=1.0
