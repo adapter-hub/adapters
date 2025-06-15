@@ -515,6 +515,16 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         else:
             types = [type_or_config]
 
+        # if the model does not support the adapter config, return False
+        if hasattr(self, "not_supported_adapter_configs"):
+            for k, v in self.not_supported_adapter_configs.items():
+                if isinstance(type_or_config, str):
+                    if k == type_or_config:
+                        return False
+                elif isinstance(type_or_config, AdapterConfig):
+                    if isinstance(type_or_config, v):
+                        return False
+
         supported = []
         for _type in types:
             if getattr(self.base_model, "adapter_interface", None) is not None:
