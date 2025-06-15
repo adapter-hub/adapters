@@ -509,11 +509,13 @@ class LoRAConfig(AdapterConfig):
             Place a trainable gating module besides the added parameter module to control module activation. This is
             e.g. used for UniPELT. Defaults to False. Note that modules with use_gating=True cannot be merged using
             `merge_adapter()`.
+        use_dora (:obj:`bool`, optional):
+            If True, use the DoRA method to decompose the weight matrix into a magnitude and directional component.
+            Note that currently only supports configs with `composition_mode` = 'add'. Defaults to False.
         vera_d (:obj:`float`, optional):
             The value of d used in the VeraConfig. Defaults to None. Places a trainable
             scaling parameter `d` before the decomposition matrix A to allow scaling of the
             internal weights.
-
         vera_b (:obj:`float`, optional):
             The value of b used in the VeraConfig. Defaults to None. Places a trainable
             scaling parameter `b` before the decomposition matrix B to allow scaling of the
@@ -536,6 +538,7 @@ class LoRAConfig(AdapterConfig):
     init_weights: str = "lora"
     init_weights_seed: Optional[int] = None
     use_gating: bool = False
+    use_dora: bool = False
     vera_d: Optional[float] = None
     vera_b: Optional[float] = None
     dtype: Optional[str] = None
@@ -585,6 +588,60 @@ class VeraConfig(LoRAConfig):
     init_weights: str = "vera"
     composition_mode: str = "add"
     dtype: Optional[str] = None
+
+
+@dataclass(eq=False)
+class DoRAConfig(LoRAConfig):
+    """
+    LoRA Config that applies DoRA, which is a variant of LoRA that
+    decomposes the weight matrix into a magnitude and directional component.
+    See more through their paper: https://arxiv.org/pdf/2402.09353.
+    """
+
+    selfattn_lora: bool = True
+    intermediate_lora: bool = False
+    output_lora: bool = False
+    leave_out: List[int] = field(default_factory=list)
+
+    r: int = 8
+    alpha: int = 8
+    dropout: float = 0.0
+    attn_matrices: List[str] = field(default_factory=lambda: ["q", "v"])
+    composition_mode: str = "add"
+    init_weights: str = "lora"
+    init_weights_seed: Optional[int] = None
+    use_gating: bool = False
+    use_dora: bool = True
+
+
+@dataclass(eq=False)
+class DvoRAConfig(LoRAConfig):
+    """
+    Lora Config that applies vector-based random matrix adaptation. It adds
+    trainable matrices 'd' and 'b' while keeping the original LoRA matrices
+    frozen, random, and shared across layers. See more through their paper:
+    https://arxiv.org/pdf/2310.11454. Note that `r` will still be supplied
+    since we are still initializing decomposition matrices A and B.
+    The `composition_mode` parameter should also be set to `add`.
+    This configuration utilizes DoRA, which is a variant of LoRA that
+    decomposes the weight matrix into a magnitude and directional component.
+    See more through their paper: https://arxiv.org/pdf/2402.09353.
+    """
+
+    selfattn_lora: bool = True
+    intermediate_lora: bool = False
+    output_lora: bool = False
+    leave_out: List[int] = field(default_factory=list)
+
+    r: int = 8
+    alpha: int = 8
+    dropout: float = 0.0
+    vera_d: Optional[float] = 0.1
+    vera_b: Optional[float] = 0.0
+    init_weights: str = "vera"
+    composition_mode: str = "add"
+    use_gating: bool = False
+    use_dora: bool = True
 
 
 class MultiTaskConfig(AdapterConfig):
@@ -869,6 +926,8 @@ ADAPTER_CONFIG_MAP = {
     "lora": LoRAConfig(),
     "ia3": IA3Config(),
     "vera": VeraConfig(),
+    "dora": DoRAConfig(),
+    "dvora": DvoRAConfig(),
     "loreft": LoReftConfig(),
     "noreft": NoReftConfig(),
     "direft": DiReftConfig(),

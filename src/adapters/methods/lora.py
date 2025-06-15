@@ -84,6 +84,8 @@ class LoRA(nn.Module):
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
         self.name = name
+        self.use_dora = config.use_dora
+
         # Optional dropout
         if config.dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=config.dropout)
@@ -118,6 +120,12 @@ class LoRA(nn.Module):
         else:
             raise ValueError("Unknown init_weights type: {}".format(config.init_weights))
 
+        if self.use_dora:
+            weights = kwargs["w_o"].clone().detach()
+            weights = torch.linalg.norm(weights, dim=1).unsqueeze(1).to(dtype=self.dtype)
+            self.m = nn.Linear(1, lora_B_shape[0], bias=False, dtype=self.dtype)
+            with torch.no_grad():
+                self.m.weight.copy_(weights)
         if self.use_gating:
             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
             nn.init.normal_(self.gate.weight, std=0.02)
@@ -237,6 +245,7 @@ class IA3(nn.Module):
     ):
         super().__init__()
         assert config.composition_mode == "scale", "IA3 module only supports composition_mode='scale'."
+        assert config.use_dora is False, "IA3 module does not support DoRA."
         if config.r > 1:
             raise ValueError("Can only use composition_mode='scale' when r == 1.")
         self.r = config.r
@@ -245,6 +254,7 @@ class IA3(nn.Module):
         self.attn_matrices = config.attn_matrices
         self.use_gating = config.use_gating
         self.name = name
+        self.use_dora = config.use_dora
         # Optional dropout
         if config.dropout > 0.0:
             raise ValueError("IA3 module does not support dropout.")
@@ -320,6 +330,9 @@ class Vera(nn.Module):
         self.alpha = config.alpha
         self.use_gating = config.use_gating
         self.name = name
+        self.dtype = getattr(torch, config.dtype) if config.dtype else None
+        fix_seed(config.init_weights_seed)
+        self.use_dora = config.use_dora
 
         # check to make sure that the `composition_mode` is set to `add`
         self.composition_mode = config.composition_mode
@@ -342,6 +355,12 @@ class Vera(nn.Module):
         self.vera_B = nn.Parameter(torch.diag(torch.ones(self.b_shape) * self.b))
         self.scaling = self.alpha / self.r
 
+        if self.use_dora:
+            weights = kwargs["w_o"].clone().detach()
+            weights = torch.linalg.norm(weights, dim=1).unsqueeze(1).to(dtype=self.dtype)
+            self.m = nn.Linear(1, lora_B_shape[0], bias=False, dtype=self.dtype)
+            with torch.no_grad():
+                self.m.weight.copy_(weights)
         if self.use_gating:
             self.gate = nn.Linear(lora_A_shape[-1], gating_heads)
             nn.init.normal_(self.gate.weight, std=0.02)
@@ -432,6 +451,58 @@ def init_shared_vera_parameters(lora_A_shape, lora_B_shape, adapter_config, devi
     return parameters
 
 
+# DoRA Methods
+def compute_dora_norm(weights: torch.Tensor, added: torch.Tensor) -> torch.Tensor:
+    """This function calculates the column-wise norm of the pre-trained weights
+    and the LoRA matrices
+
+    eg: for LoRA, it would be ||w_0 + BA||c
+    """
+    return torch.linalg.norm(weights + added, dim=1)
+
+
+def compute_dora_deltaw(
+    orig_result: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor, scaling: float = 1.0
+) -> torch.Tensor:
+    """This function calculates the dora update.
+
+    In the paper, the dora update delta_w is calculated as follows:
+    m * (w_0x + BAx) / ||w_0 + BA||c
+    where:
+        - m is the magnitude parameter
+        - norm is the column-wise norm i.e ||w_0 + BA||c
+        - orig_result is the layer output w_0x
+        - added is the LoRA update BAx
+    """
+    norm_scale = m.weight.view(-1) / norm
+    results = norm_scale * (orig_result + added)
+    return results
+
+
+def dora_merge(
+    weights: torch.Tensor,
+    added: torch.Tensor,
+    m: torch.Tensor,
+) -> torch.Tensor:
+    """This function calculates the weights required to merge with the original pretrained weight matrices."""
+    v = weights + added
+    norm_scale = m.weight / torch.linalg.norm(v, dim=1).unsqueeze(1)
+    result = norm_scale * v
+
+    return result
+
+
+def compute_dora_add_com_inv(
+    weights: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor
+) -> torch.Tensor:
+    """This function computes the inverse of the DoRA composition operation
+    i.e the `compute_dora_deltaw` function with the equation
+    w_0' = m * (w_0 + BA) / ||w_0 + BA||c
+    """
+    result = weights * norm.unsqueeze(1) / m.weight - added
+    return result
+
+
 class LoRALayer(AdapterLayerBase):
     adapter_modules_name = "loras"
 
@@ -488,6 +559,10 @@ class LoRALayer(AdapterLayerBase):
                 lora_cls = IA3
             else:
                 raise ValueError(f"Unknown composition_mode: {lora_config.composition_mode}")
+
+            # if we're using dora, pass the original weight matrix to initialize the magnitude parameter
+            if lora_config.use_dora:
+                lora_args["w_o"] = self.weight.data
 
             lora = lora_cls(
                 *self._get_lora_shapes(lora_config),
@@ -795,7 +870,12 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 if lora.use_gating:
                     raise ValueError("Cannot merge LoRA layer with gating.")
                 delta_w = self.maybe_t(lora.delta_w)
-                self.weight.data = lora.com(self.weight.data, delta_w)
+                # we check if the lora module has 'm', if so then we're using dora
+                if lora.use_dora:
+                    setattr(lora, "dora_w_o", self.weight.data)
+                    self.weight.data = dora_merge(self.weight.data, delta_w, lora.m)
+                else:
+                    self.weight.data = lora.com(self.weight.data, delta_w)
                 self.merged = name
             elif self.merged != name:
                 raise ValueError("LoRALayer already has a merged LoRA module. Please reset it first.")
@@ -805,7 +885,16 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
             lora = self.loras[self.merged]
             # Make sure that the weights are not merged
             delta_w = self.maybe_t(lora.delta_w)
-            self.weight.data = lora.com_inv(self.weight.data, delta_w)
+
+            # we check if the lora module has 'm', if so then we're using dora
+            if lora.use_dora:
+                w_o = getattr(lora, "dora_w_o", None)
+                norm = compute_dora_norm(w_o, delta_w)
+                delta_w = compute_dora_add_com_inv(self.weight.data, delta_w, lora.m, norm)
+                # remove the dora_w_o attribute we set in the merge_adapter method
+                del lora.dora_w_o
+            else:
+                self.weight.data = lora.com_inv(self.weight.data, delta_w)
             self.merged = None
 
     def vslice(self, state: LoRAState, slice_obj: slice) -> LoRAState:
@@ -871,9 +960,15 @@ class LoRALinear(LoRALayer, ComposableAdapterLayerBase):
                 _, hidden_states, layer_output, last = state
 
                 last_lora = self.loras[last]
-                layer_output = last_lora.com(
-                    layer_output, hidden_states, scaling=1.0
-                )  # scaling already applied in compose
+
+                # we check if the last_lora module has 'm', if so then we're using dora
+                if last_lora.use_dora:
+                    norm = compute_dora_norm(self.weight, last_lora.delta_w)
+                    layer_output = compute_dora_deltaw(layer_output, hidden_states, last_lora.m, norm)
+                else:
+                    layer_output = last_lora.com(
+                        layer_output, hidden_states, scaling=1.0
+                    )  # scaling already applied in compose
 
         return layer_output
 

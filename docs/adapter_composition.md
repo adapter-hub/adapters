@@ -40,16 +40,16 @@ The basic building blocks of the more advanced setups are objects derived from `
 each representing a different possibility to combine single adapters.
 The following table gives an overview on the supported composition blocks and their support by different adapter methods.
 
-| Block                                       | Bottleneck<br> Adapters | Prefix<br> Tuning | Compacter | LoRA | (IA)³ | Vera | Prompt Tuning |
-| ------------------------------------------- | ----------------------- | ----------------- | --------- | ---- | ----- | ---- |------------- |
-| [`Stack`](#stack)                           | ✅                      | ✅              | ✅         | ✅(*) | ✅(*) | ✅(*) |               |
-| [`Fuse`](#fuse)                             | ✅                      |                 | ✅         |      |         |        |               |
-| [`Split`](#split)                           | ✅                      |                 | ✅         |      |       |          |            |
-| [`BatchSplit`](#batchsplit)                 | ✅                      | ✅              | ✅         | ✅(*) | ✅(*)  | ✅(*)|               |
-| [`MultiTask`](#multitask)                   | ✅                      | ✅              | ✅         | ✅(*) | ✅(*)  | ✅(*)|               |
-| [`Parallel`](#parallel)                     | ✅                      | ✅              | ✅         | ✅(*) | ✅(*)  | ✅(*)|               |
-| [Output averaging](#output-averaging)       | ✅                      |                 | ✅         | ✅(*) | ✅(*) | ✅(*) |              |
-| [Parameter averaging](#parameter-averaging) | ✅                      | ✅              | ✅         | ✅    | ✅     |      | ✅             |
+| Block                                       | Bottleneck<br> Adapters | Prefix<br> Tuning | Compacter | LoRA | (IA)³ | Vera | Dora |Prompt Tuning |
+| ------------------------------------------- | ----------------------- | ----------------- | --------- | ---- | ----- | ---- | ---- |------------- |
+| [`Stack`](#stack)                           | ✅                      | ✅              | ✅         | ✅(*) | ✅(*) | ✅(*) | ✅(*) |              |
+| [`Fuse`](#fuse)                             | ✅                      |                 | ✅         |      |         |        | |               |
+| [`Split`](#split)                           | ✅                      |                 | ✅         |      |       |          | |            |
+| [`BatchSplit`](#batchsplit)                 | ✅                      | ✅              | ✅         | ✅(*) | ✅(*)  | ✅(*)| ✅(*) |              |
+| [`MultiTask`](#multitask)                   | ✅                      | ✅              | ✅         | ✅(*) | ✅(*)  | ✅(*)| ✅(*) |              |
+| [`Parallel`](#parallel)                     | ✅                      | ✅              | ✅         | ✅(*) | ✅(*)  | ✅(*)| ✅(*)|              |
+| [Output averaging](#output-averaging)       | ✅                      |                 | ✅         | ✅(*) | ✅(*) | ✅(*) |  ✅(*)|             |
+| [Parameter averaging](#parameter-averaging) | ✅                      | ✅              | ✅         | ✅    | ✅     |      | |✅             |
 
 (*) except for Deberta, GPT-2 and ModernBERT.
 
