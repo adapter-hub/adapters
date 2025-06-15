@@ -462,7 +462,7 @@ def compute_dora_norm(weights: torch.Tensor, added: torch.Tensor) -> torch.Tenso
 
 
 def compute_dora_deltaw(
-    orig_result: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor, scaling: float = 1.0
+    orig_result: torch.Tensor, added: torch.Tensor, m: torch.Tensor, norm: torch.Tensor
 ) -> torch.Tensor:
     """This function calculates the dora update.
 
