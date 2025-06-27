@@ -2,7 +2,7 @@
 # There's no way to ignore "F401 '...' imported but unused" warnings in this
 # module, but to preserve other warnings. So, don't check this module at all.
 
-# Copyright 2020 The Adapter-Hub Team. All rights reserved.
+# Copyright 2020-2025 The Adapter-Hub Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "1.2.0.dev0"
+__version__ = "1.2.0"
 
 from typing import TYPE_CHECKING
 

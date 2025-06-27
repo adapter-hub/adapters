@@ -22,13 +22,8 @@ from typing import Dict, List, Optional
 from torch.utils.data import Dataset
 
 from adapters import AdapterTrainer
-from transformers import Seq2SeqTrainer, is_torch_tpu_available
+from transformers import Seq2SeqTrainer
 from transformers.trainer_utils import PredictionOutput, speed_metrics
-
-
-if is_torch_tpu_available(check_device=False):
-    import torch_xla.core.xla_model as xm
-    import torch_xla.debug.metrics as met
 
 
 class QuestionAnsweringSeq2SeqTrainer(Seq2SeqTrainer):
@@ -105,10 +100,6 @@ class QuestionAnsweringSeq2SeqTrainer(Seq2SeqTrainer):
         if self.args.should_log:
             # Only the main node log the results by default
             self.log(metrics)
-
-        if self.args.tpu_metrics_debug or self.args.debug:
-            # tpu-comment: Logging debug metrics for PyTorch/XLA (compile, execute times, ops, etc.)
-            xm.master_print(met.metrics_report())
 
         self.control = self.callback_handler.on_evaluate(self.args, self.state, self.control, metrics)
         return metrics
