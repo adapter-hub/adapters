@@ -46,13 +46,10 @@ class CLIPAttentionWithAdapters(CLIPAttentionAdaptersMixin, CLIPAttention):
         keys = self.k_proj(hidden_states)
         values = self.v_proj(hidden_states)
 
-        # >>> START AH Changes <<<
-        keys, values, attention_mask = self.prefix_tuning(keys, values, hidden_states, attention_mask)
-        # >>> END AH Changes <<<
-
         queries = queries.view(batch_size, seq_length, -1, self.head_dim).transpose(1, 2)
         keys = keys.view(batch_size, seq_length, -1, self.head_dim).transpose(1, 2)
         values = values.view(batch_size, seq_length, -1, self.head_dim).transpose(1, 2)
+
         # CLIP text model uses both `causal_attention_mask` and `attention_mask`
         # in case FA2 kernel is called, `is_causal` should be inferred from `causal_attention_mask`
         if self.config._attn_implementation == "flash_attention_2":
@@ -72,6 +69,10 @@ class CLIPAttentionWithAdapters(CLIPAttentionAdaptersMixin, CLIPAttention):
                 )
             else:
                 attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
+
+        # >>> START AH Changes <<<
+        keys, values, attention_mask = self.prefix_tuning(keys, values, hidden_states, attention_mask)
+        # >>> END AH Changes <<<
 
         attn_output, attn_weights = attention_interface(
             self,
