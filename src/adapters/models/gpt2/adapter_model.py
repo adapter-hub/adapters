@@ -40,12 +40,22 @@ class GPT2AdapterModel(
 
     def __init__(self, config):
         super().__init__(config)
-        self.transformer = GPT2Model(config)
+
+        # ---- begin: GPT2Model without post_init ----
+        # Issue: GPT2's __init__ calls post_init() which applies special scaling to 'c_proj' layers. Then adapters replace these layers, and we call post_init() again.
+        # Calling post_init() twice, loses the scaling. This leads to different init weights and thus `tests/test_models/test_gpt2_model.py::GPT2AdapterModelTest::test_can_init_all_missing_weights` fails.
+        # Solution: Disable post_init() during base model creation -> add adapters to uninitialized structure -> call post_init() once on complete adapted architecture.
+        no_post_init_GPT2Model = type(GPT2Model.__name__, (GPT2Model,), {})
+        no_post_init_GPT2Model.post_init = lambda self: None
+        self.transformer = no_post_init_GPT2Model(config)
+        no_post_init_GPT2Model.post_init = GPT2Model.post_init
+        # ---- end: GPT2Model without post_init ----
+
         init(self.transformer)
 
         self._init_head_modules()
 
-        self.init_weights()
+        self.post_init()
 
         # Model parallel
         self.model_parallel = False
