@@ -515,7 +515,7 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
             if isinstance(type_or_config, str):
                 if type_or_config in self.not_supported_adapter_configs:
                     return False
-            elif isinstance(type_or_config, AdapterConfig):
+            else:  # assumes we have an AdapterConfig instance or an AdapterConfig import
                 for k, v in ADAPTER_CONFIG_MAP.items():
                     if type_or_config == v or isinstance(type_or_config, type(v)):
                         if k in self.not_supported_adapter_configs:
