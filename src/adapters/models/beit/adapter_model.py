@@ -2,22 +2,17 @@ from typing import Optional
 
 import torch
 
-from transformers.models.beit.modeling_beit import (
-    BEIT_INPUTS_DOCSTRING,
-    BEIT_START_DOCSTRING,
-    BeitModel,
-    BeitPreTrainedModel,
-)
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.beit.modeling_beit import BeitModel, BeitPreTrainedModel
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    """Beit Model transformer with the option to add multiple flexible heads on top.""",
-    BEIT_START_DOCSTRING,
+@inherit_doc_for_adapter_model(
+    model=BeitModel,
+    custom_intro="""Beit Model transformer with the option to add multiple flexible heads on top.""",
 )
 class BeitAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BeitPreTrainedModel):
     head_types = [
@@ -50,7 +45,7 @@ class BeitAdapterModel(ModelWithFlexibleHeadsAdaptersMixin, BeitPreTrainedModel)
 
         self._require_grads_hook = self.get_input_embeddings().register_forward_hook(make_inputs_require_grads)
 
-    @add_start_docstrings_to_model_forward(BEIT_INPUTS_DOCSTRING)
+    @inherit_doc_for_function(BeitModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

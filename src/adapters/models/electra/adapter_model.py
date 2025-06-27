@@ -1,21 +1,16 @@
 from transformers.generation import GenerationMixin
-from transformers.models.electra.modeling_electra import (
-    ELECTRA_INPUTS_DOCSTRING,
-    ELECTRA_START_DOCSTRING,
-    ElectraModel,
-    ElectraPreTrainedModel,
-)
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.electra.modeling_electra import ElectraModel, ElectraPreTrainedModel
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    """Electra Model transformer with the option to add multiple flexible heads on top.""",
-    ELECTRA_START_DOCSTRING,
+@inherit_doc_for_adapter_model(
+    model=ElectraModel,
+    custom_intro="""Electra Model transformer with the option to add multiple flexible heads on top.""",
 )
 class ElectraAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, ElectraPreTrainedModel, GenerationMixin
@@ -42,7 +37,7 @@ class ElectraAdapterModel(
 
         self.init_weights()
 
-    @add_start_docstrings_to_model_forward(ELECTRA_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @inherit_doc_for_function(ElectraModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

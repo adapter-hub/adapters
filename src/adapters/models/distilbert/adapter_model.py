@@ -1,23 +1,18 @@
 import torch.nn as nn
 
 from transformers.generation import GenerationMixin
-from transformers.models.distilbert.modeling_distilbert import (
-    DISTILBERT_INPUTS_DOCSTRING,
-    DISTILBERT_START_DOCSTRING,
-    DistilBertModel,
-    DistilBertPreTrainedModel,
-)
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.distilbert.modeling_distilbert import DistilBertModel, DistilBertPreTrainedModel
 
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    """DistilBert Model transformer with the option to add multiple flexible heads on top.""",
-    DISTILBERT_START_DOCSTRING,
+@inherit_doc_for_adapter_model(
+    model=DistilBertModel,
+    custom_intro="""DistilBert Model transformer with the option to add multiple flexible heads on top.""",
 )
 class DistilBertAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, DistilBertPreTrainedModel, GenerationMixin
@@ -63,7 +58,7 @@ class DistilBertAdapterModel(
         """
         self.distilbert.resize_position_embeddings(new_num_position_embeddings)
 
-    @add_start_docstrings_to_model_forward(DISTILBERT_INPUTS_DOCSTRING.format("batch_size, num_choices"))
+    @inherit_doc_for_function(DistilBertModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

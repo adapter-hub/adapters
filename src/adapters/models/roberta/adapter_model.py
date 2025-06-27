@@ -1,21 +1,16 @@
 from transformers.generation import GenerationMixin
-from transformers.models.roberta.modeling_roberta import (
-    ROBERTA_INPUTS_DOCSTRING,
-    ROBERTA_START_DOCSTRING,
-    RobertaModel,
-    RobertaPreTrainedModel,
-)
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.roberta.modeling_roberta import RobertaModel, RobertaPreTrainedModel
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    """Roberta Model transformer with the option to add multiple flexible heads on top.""",
-    ROBERTA_START_DOCSTRING,
+@inherit_doc_for_adapter_model(
+    model=RobertaModel,
+    custom_intro="""Roberta Model transformer with the option to add multiple flexible heads on top.""",
 )
 class RobertaAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, RobertaPreTrainedModel, GenerationMixin
@@ -41,7 +36,7 @@ class RobertaAdapterModel(
 
         self.init_weights()
 
-    @add_start_docstrings_to_model_forward(ROBERTA_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @inherit_doc_for_function(RobertaModel.forward)
     @ForwardContext.wrap
     def forward(
         self,

@@ -177,8 +177,10 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         n_layers = len(list(model.iter_layers()))
         if model.config.is_encoder_decoder:
             n_prefix_layers = 3
-        elif model.config.is_composition or isinstance(model.config, CLIPConfig):
+        elif isinstance(model.config, CLIPConfig):
             n_prefix_layers = 2
+        elif hasattr(model.config, "sub_configs") and model.config.sub_configs:
+            n_prefix_layers = len(model.config.sub_configs)
         else:
             n_prefix_layers = 1
 

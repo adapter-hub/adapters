@@ -1,21 +1,19 @@
 from transformers.generation import GenerationMixin
 from transformers.models.bert_generation.modeling_bert_generation import (
-    BERT_GENERATION_INPUTS_DOCSTRING,
-    BERT_GENERATION_START_DOCSTRING,
     BertGenerationEncoder,
     BertGenerationPreTrainedModel,
 )
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
 
 from ...context import AdapterSetup, ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
-@add_start_docstrings(
-    """Bert Model transformer with the option to add multiple flexible heads on top.""",
-    BERT_GENERATION_START_DOCSTRING,
+@inherit_doc_for_adapter_model(
+    model=BertGenerationEncoder,
+    custom_intro="""Bert Model transformer with the option to add multiple flexible heads on top.""",
 )
 class BertGenerationAdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, BertGenerationPreTrainedModel, GenerationMixin
@@ -37,7 +35,7 @@ class BertGenerationAdapterModel(
 
         self.init_weights()
 
-    @add_start_docstrings_to_model_forward(BERT_GENERATION_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    @inherit_doc_for_function(BertGenerationEncoder.forward)
     @ForwardContext.wrap
     def forward(
         self,

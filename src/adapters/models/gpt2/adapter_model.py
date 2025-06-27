@@ -3,21 +3,22 @@ import logging
 import torch
 
 from transformers.generation import GenerationMixin
-from transformers.models.gpt2.modeling_gpt2 import GPT2_START_DOCSTRING, GPT2Model, GPT2PreTrainedModel
-from transformers.utils import add_start_docstrings
+from transformers.models.gpt2.modeling_gpt2 import GPT2Model, GPT2PreTrainedModel
 
 from ...composition import adjust_tensors_for_parallel
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
 logger = logging.getLogger(__name__)
 
 
-@add_start_docstrings(
-    """
+@inherit_doc_for_adapter_model(
+    model=GPT2Model,
+    custom_intro="""
 The GPT2 Model that allows the loading of different heads dor different tasks. This enables a flexible use of the
 models and adpters. Since this class does classification on the last token, it requires to know the position of the
 last token. If a :obj:`pad_token_id` is defined in the configuration, it finds the last token that is not a padding
@@ -25,7 +26,6 @@ token in each row. If no :obj:`pad_token_id` is defined, it simply takes the las
 it cannot guess the padding tokens when :obj:`inputs_embeds` are passed instead of :obj:`input_ids`, it does the same
 (take the last value in each row of the batch).
 """,
-    GPT2_START_DOCSTRING,
 )
 class GPT2AdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, GPT2PreTrainedModel, GenerationMixin
@@ -40,17 +40,28 @@ class GPT2AdapterModel(
 
     def __init__(self, config):
         super().__init__(config)
-        self.transformer = GPT2Model(config)
+
+        # ---- begin: GPT2Model without post_init ----
+        # Issue: GPT2's __init__ calls post_init() which applies special scaling to 'c_proj' layers. Then adapters replace these layers, and we call post_init() again.
+        # Calling post_init() twice, loses the scaling. This leads to different init weights and thus `tests/test_models/test_gpt2_model.py::GPT2AdapterModelTest::test_can_init_all_missing_weights` fails.
+        # Solution: Disable post_init() during base model creation -> add adapters to uninitialized structure -> call post_init() once on complete adapted architecture.
+        no_post_init_GPT2Model = type(GPT2Model.__name__, (GPT2Model,), {})
+        no_post_init_GPT2Model.post_init = lambda self: None
+        self.transformer = no_post_init_GPT2Model(config)
+        no_post_init_GPT2Model.post_init = GPT2Model.post_init
+        # ---- end: GPT2Model without post_init ----
+
         init(self.transformer)
 
         self._init_head_modules()
 
-        self.init_weights()
+        self.post_init()
 
         # Model parallel
         self.model_parallel = False
         self.device_map = None
 
+    @inherit_doc_for_function(GPT2Model.forward)
     @ForwardContext.wrap
     def forward(
         self,

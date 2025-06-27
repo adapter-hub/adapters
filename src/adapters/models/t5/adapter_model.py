@@ -3,20 +3,23 @@ import logging
 import torch
 
 from transformers.generation import GenerationMixin
-from transformers.models.t5.modeling_t5 import T5_INPUTS_DOCSTRING, T5_START_DOCSTRING, T5Model, T5PreTrainedModel
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward
+from transformers.models.t5.modeling_t5 import T5Model, T5PreTrainedModel
 
 from ...composition import adjust_tensors_for_parallel
 from ...context import ForwardContext
 from ...heads import ModelWithFlexibleHeadsAdaptersMixin, Seq2SeqLMHead
 from ...model_mixin import EmbeddingAdaptersWrapperMixin
+from ...utils import inherit_doc_for_adapter_model, inherit_doc_for_function
 from ...wrappers import init
 
 
 logger = logging.getLogger(__name__)
 
 
-@add_start_docstrings("T5 Model with the option to add multiple flexible prediction heads on top.", T5_START_DOCSTRING)
+@inherit_doc_for_adapter_model(
+    model=T5Model,
+    custom_intro="""T5 Model with the option to add multiple flexible prediction heads on top.""",
+)
 class T5AdapterModel(
     EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsAdaptersMixin, T5PreTrainedModel, GenerationMixin
 ):
@@ -56,7 +59,7 @@ class T5AdapterModel(
     def get_decoder(self):
         return self.transformer.decoder
 
-    @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
+    @inherit_doc_for_function(T5Model.forward)  # Apply new decorator here
     @ForwardContext.wrap
     def forward(
         self,
