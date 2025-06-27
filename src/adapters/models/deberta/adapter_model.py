@@ -1,4 +1,3 @@
-from adapters import DoRAConfig, DvoRAConfig
 from transformers.file_utils import add_start_docstrings
 from transformers.models.deberta.modeling_deberta import DebertaModel, DebertaPreTrainedModel
 
@@ -23,10 +22,7 @@ class DebertaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         "masked_lm",
     ]
 
-    not_supported_adapter_configs = {
-        "dora": DoRAConfig,
-        "dvora": DvoRAConfig,
-    }
+    not_supported_adapter_configs = ["dora", "dvora"]
 
     def __init__(self, config):
         super().__init__(config)

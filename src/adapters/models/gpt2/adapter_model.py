@@ -2,7 +2,6 @@ import logging
 
 import torch
 
-from adapters import DoRAConfig, DvoRAConfig
 from transformers.generation import GenerationMixin
 from transformers.models.gpt2.modeling_gpt2 import GPT2_START_DOCSTRING, GPT2Model, GPT2PreTrainedModel
 from transformers.utils import add_start_docstrings
@@ -39,10 +38,7 @@ class GPT2AdapterModel(
         "causal_lm",
     ]
 
-    not_supported_adapter_configs = {
-        "dora": DoRAConfig,
-        "dvora": DvoRAConfig,
-    }
+    not_supported_adapter_configs = ["dora", "dvora"]
 
     def __init__(self, config):
         super().__init__(config)
