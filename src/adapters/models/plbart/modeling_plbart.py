@@ -39,7 +39,7 @@ class PLBartAttentionWithAdapters(PLBartAttentionAdaptersMixin, PLBartAttention)
 
     # Loosen constraint on batch_size to allow parallel adapter composition
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
-        return tensor.view(tensor.shape[0], seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
+        return tensor.view(tensor.shape[0], seq_len, self.num_heads, self.head_dim).transpose(1, 2)
 
     def forward(
         self,
@@ -59,7 +59,10 @@ class PLBartAttentionWithAdapters(PLBartAttentionAdaptersMixin, PLBartAttention)
         bsz, tgt_len, _ = hidden_states.size()
 
         # get query proj
-        query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        # >>> START AH Changes <<<
+        # query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        query_states = self._shape(self.q_proj(hidden_states), -1, bsz)
+        # >>> END AH Changes <<<
         query_states = query_states * self.scaling
 
         if past_key_value is not None:
@@ -81,8 +84,12 @@ class PLBartAttentionWithAdapters(PLBartAttentionAdaptersMixin, PLBartAttention)
         else:
             key_states = self.k_proj(current_states)
             value_states = self.v_proj(current_states)
-            key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
-            value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            # >>> START AH Changes <<<
+            # key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            # value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            key_states = self._shape(key_states, -1, bsz)
+            value_states = self._shape(value_states, -1, bsz)
+            # >>> END AH Changes <<<
 
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation

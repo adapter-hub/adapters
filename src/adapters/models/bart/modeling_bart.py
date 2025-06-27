@@ -66,7 +66,10 @@ class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
         bsz, tgt_len, _ = hidden_states.size()
 
         # get query proj
-        query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        # >>> START AH Changes <<<
+        # query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        query_states = self._shape(self.q_proj(hidden_states), -1, bsz)
+        # >>> END AH Changes <<<
         query_states = query_states * self.scaling
 
         if past_key_value is not None:
@@ -88,8 +91,12 @@ class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
         else:
             key_states = self.k_proj(current_states)
             value_states = self.v_proj(current_states)
-            key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
-            value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            # >>> START AH Changes <<<
+            # key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            # value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            key_states = self._shape(key_states, -1, bsz)
+            value_states = self._shape(value_states, -1, bsz)
+            # >>> END AH Changes <<<
 
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
@@ -205,7 +212,10 @@ class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartFlashAtten
         bsz, q_len, _ = hidden_states.size()
 
         # get query proj
-        query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim)
+        # >>> START AH Changes <<<
+        # query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim)
+        query_states = self._shape(self.q_proj(hidden_states), -1, bsz)
+        # >>> END AH Changes <<<
 
         if past_key_value is not None:
             if isinstance(past_key_value, EncoderDecoderCache):
@@ -226,8 +236,12 @@ class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartFlashAtten
         else:
             key_states = self.k_proj(current_states)
             value_states = self.v_proj(current_states)
-            key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
-            value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            # >>> START AH Changes <<<
+            # key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            # value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            key_states = self._shape(key_states, -1, bsz)
+            value_states = self._shape(value_states, -1, bsz)
+            # >>> END AH Changes <<<
 
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
@@ -338,7 +352,10 @@ class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartSdpaAttentio
         bsz, tgt_len, _ = hidden_states.size()
 
         # get query proj
-        query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        # >>> START AH Changes <<<
+        # query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        query_states = self._shape(self.q_proj(hidden_states), -1, bsz)
+        # >>> END AH Changes <<<
 
         if past_key_value is not None:
             if isinstance(past_key_value, EncoderDecoderCache):
@@ -359,8 +376,12 @@ class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartSdpaAttentio
         else:
             key_states = self.k_proj(current_states)
             value_states = self.v_proj(current_states)
-            key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
-            value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            # >>> START AH Changes <<<
+            # key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            # value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
+            key_states = self._shape(key_states, -1, bsz)
+            value_states = self._shape(value_states, -1, bsz)
+            # >>> END AH Changes <<<
 
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
