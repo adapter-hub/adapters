@@ -22,6 +22,8 @@ class DebertaAdapterModel(EmbeddingAdaptersWrapperMixin, ModelWithFlexibleHeadsA
         "masked_lm",
     ]
 
+    not_supported_adapter_configs = ["dora", "dvora"]
+
     def __init__(self, config):
         super().__init__(config)
 

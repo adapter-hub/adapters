@@ -510,6 +510,17 @@ class ModelAdaptersMixin(PushAdapterToHubMixin, ABC):
         Returns:
             bool: True if the adapter type is supported, False otherwise.
         """
+        # if the model does not support the adapter config, return False
+        if hasattr(self, "not_supported_adapter_configs"):
+            if isinstance(type_or_config, str):
+                if type_or_config in self.not_supported_adapter_configs:
+                    return False
+            else:  # assumes we have an AdapterConfig instance or an AdapterConfig import
+                for k, v in ADAPTER_CONFIG_MAP.items():
+                    if isinstance(type_or_config, type(v)):
+                        if k in self.not_supported_adapter_configs:
+                            return False
+
         if isinstance(type_or_config, AdapterConfig):
             types = AdapterMethod.get_from_config(type_or_config)
         else:

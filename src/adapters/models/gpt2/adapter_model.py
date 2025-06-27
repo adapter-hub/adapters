@@ -38,6 +38,8 @@ class GPT2AdapterModel(
         "causal_lm",
     ]
 
+    not_supported_adapter_configs = ["dora", "dvora"]
+
     def __init__(self, config):
         super().__init__(config)
         self.transformer = GPT2Model(config)
