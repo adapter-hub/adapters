@@ -19,13 +19,8 @@ import math
 import time
 
 from adapters.trainer import AdapterTrainer
-from transformers import Trainer, is_torch_tpu_available
+from transformers import Trainer
 from transformers.trainer_utils import PredictionOutput, speed_metrics
-
-
-if is_torch_tpu_available(check_device=False):
-    import torch_xla.core.xla_model as xm
-    import torch_xla.debug.metrics as met
 
 
 class QuestionAnsweringTrainer(Trainer):
@@ -83,10 +78,6 @@ class QuestionAnsweringTrainer(Trainer):
         if self.args.should_log:
             # Only the main node log the results by default
             self.log(metrics)
-
-        if self.args.tpu_metrics_debug or self.args.debug:
-            # tpu-comment: Logging debug metrics for PyTorch/XLA (compile, execute times, ops, etc.)
-            xm.master_print(met.metrics_report())
 
         self.control = self.callback_handler.on_evaluate(self.args, self.state, self.control, metrics)
         return metrics
