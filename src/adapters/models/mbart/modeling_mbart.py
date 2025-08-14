@@ -101,6 +101,7 @@ class MBartAttentionWithAdapters(BartAttentionAdaptersMixin, MBartAttention):
                     past_key_value.is_updated[self.layer_idx] = True
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -244,6 +245,7 @@ class MBartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, MBartFlashAtt
         value_states = value_states.transpose(1, 2)
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -367,6 +369,7 @@ class MBartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, MBartSdpaAttent
                     past_key_value.is_updated[self.layer_idx] = True
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -436,6 +439,7 @@ class MBartEncoderLayerWithAdapters(BartEncoderLayerAdaptersMixin, MBartEncoderL
                 returned tensors for more detail.
         """
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         adjust_tensors_for_parallel_(hidden_states, attention_mask)
         # >>> END AH Changes <<<
 
@@ -515,6 +519,7 @@ class MBartDecoderLayerWithAdapters(BartDecoderLayerAdaptersMixin, MBartDecoderL
         """
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         adjust_tensors_for_parallel_(hidden_states, attention_mask, encoder_attention_mask)
         # >>> END AH Changes <<<
 

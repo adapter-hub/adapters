@@ -67,6 +67,7 @@ class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
 
         # get query proj
         # >>> START AH Changes <<<
+        # Replaced:
         # query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
         query_states = self._shape(self.q_proj(hidden_states), -1, bsz)
         # >>> END AH Changes <<<
@@ -92,6 +93,7 @@ class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
             key_states = self.k_proj(current_states)
             value_states = self.v_proj(current_states)
             # >>> START AH Changes <<<
+            # Replaced:
             # key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
             # value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
             key_states = self._shape(key_states, -1, bsz)
@@ -109,6 +111,7 @@ class BartAttentionWithAdapters(BartAttentionAdaptersMixin, BartAttention):
                     past_key_value.is_updated[self.layer_idx] = True
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -213,6 +216,7 @@ class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartFlashAtten
 
         # get query proj
         # >>> START AH Changes <<<
+        # Replaced:
         # query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim)
         query_states = self._shape(self.q_proj(hidden_states), -1, bsz)
         # >>> END AH Changes <<<
@@ -237,6 +241,7 @@ class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartFlashAtten
             key_states = self.k_proj(current_states)
             value_states = self.v_proj(current_states)
             # >>> START AH Changes <<<
+            # Replaced:
             # key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
             # value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
             key_states = self._shape(key_states, -1, bsz)
@@ -259,6 +264,7 @@ class BartFlashAttention2WithAdapters(BartAttentionAdaptersMixin, BartFlashAtten
         value_states = value_states.transpose(1, 2)
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -353,6 +359,7 @@ class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartSdpaAttentio
 
         # get query proj
         # >>> START AH Changes <<<
+        # Replaced:
         # query_states = self.q_proj(hidden_states).view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
         query_states = self._shape(self.q_proj(hidden_states), -1, bsz)
         # >>> END AH Changes <<<
@@ -377,6 +384,7 @@ class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartSdpaAttentio
             key_states = self.k_proj(current_states)
             value_states = self.v_proj(current_states)
             # >>> START AH Changes <<<
+            # Replaced:
             # key_states = key_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
             # value_states = value_states.view(bsz, -1, self.num_heads, self.head_dim).transpose(1, 2)
             key_states = self._shape(key_states, -1, bsz)
@@ -394,6 +402,7 @@ class BartSdpaAttentionWithAdapters(BartAttentionAdaptersMixin, BartSdpaAttentio
                     past_key_value.is_updated[self.layer_idx] = True
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -463,6 +472,7 @@ class BartEncoderLayerWithAdapters(BartEncoderLayerAdaptersMixin, BartEncoderLay
                 returned tensors for more detail.
         """
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         adjust_tensors_for_parallel_(hidden_states, attention_mask)
         # >>> END AH Changes <<<
 
@@ -543,6 +553,7 @@ class BartDecoderLayerWithAdapters(BartDecoderLayerAdaptersMixin, BartDecoderLay
                 cache in the correct position and to infer the complete sequence length.
         """
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         adjust_tensors_for_parallel_(hidden_states, attention_mask, encoder_attention_mask)
         # >>> END AH Changes <<<
 

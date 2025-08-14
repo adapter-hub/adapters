@@ -71,6 +71,7 @@ class CLIPAttentionWithAdapters(CLIPAttentionAdaptersMixin, CLIPAttention):
                 attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         keys, values, attention_mask = self.prefix_tuning(keys, values, hidden_states, attention_mask)
         # >>> END AH Changes <<<
 

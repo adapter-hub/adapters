@@ -78,6 +78,7 @@ class GPT2AttentionWithAdapters(GPT2AttentionAdaptersMixin, GPT2Attention):
             )
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         key_states, value_states, attention_mask = self.prefix_tuning(
             key_states, value_states, hidden_states, attention_mask
         )
@@ -140,6 +141,7 @@ class GPT2BlockWithAdapters(GPT2DecoderBlockAdaptersMixin, GPT2Block):
         **kwargs,
     ) -> Union[Tuple[torch.Tensor], Optional[Tuple[torch.Tensor, Tuple[torch.FloatTensor, ...]]]]:
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         adjust_tensors_for_parallel_(hidden_states, attention_mask)
         # >>> END AH Changes <<<
         residual = hidden_states

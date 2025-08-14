@@ -89,6 +89,7 @@ class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMix
                 )
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -197,6 +198,7 @@ class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperA
         value_states = value_states.transpose(1, 2)
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -324,6 +326,7 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
                 )
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         query_states, key_states, value_states = match_attn_matrices_for_parallel(
             query_states, key_states, value_states
         )
@@ -397,6 +400,7 @@ class WhisperEncoderLayerWithAdapters(WhisperEncoderLayer, WhisperEncoderLayerAd
                 returned tensors for more detail.
         """
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         adjust_tensors_for_parallel_(hidden_states, attention_mask)
         # >>> END AH Changes <<<
 
@@ -474,6 +478,7 @@ class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAd
         """
 
         # >>> START AH Changes <<<
+        # Inserted (replaced nothing):
         adjust_tensors_for_parallel_(hidden_states, attention_mask, encoder_attention_mask)
         # >>> END AH Changes <<<
 
