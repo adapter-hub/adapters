@@ -893,10 +893,12 @@ def inherit_doc_for_function(source_func):
     """
 
     def actual_decorator(target_func):
-        if callable(source_func) and hasattr(source_func, "__doc__"):
+        if callable(source_func) and hasattr(source_func, "__doc__") and source_func.__doc__ is not None:
             source_doc = source_func.__doc__
-            if source_doc is not None:
-                target_func.__doc__ = source_doc
+            target_func.__doc__ = source_doc
+        else:
+            raise ValueError(f"Source function {source_func} has no __doc__ attribute. This should not happen.")
+
         return target_func
 
     return actual_decorator
@@ -917,6 +919,8 @@ def inherit_doc_for_adapter_model(model, custom_intro: str = None, **kwargs):
         base_doc_text = ""
         if hasattr(model, "__doc__") and model.__doc__:
             base_doc_text = inspect.cleandoc(model.__doc__)
+        else:
+            raise ValueError(f"Model {model} has no __doc__ attribute. This should not happen.")
 
         target_class.__doc__ = intro_text + base_doc_text
         return target_class
