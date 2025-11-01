@@ -1,3 +1,4 @@
 [submodule "hf_transformers"]
 	path = hf_transformers
 	url = https://github.com/huggingface/transformers.git
+	branch = v4.55.2
