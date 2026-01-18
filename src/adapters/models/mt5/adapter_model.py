@@ -53,30 +53,6 @@ class MT5AdapterModel(
         self.model_parallel = False
         self.device_map = None
 
-    def load_state_dict(self, state_dict, strict=True):
-        """
-        Custom state_dict loading to handle compatibility between MT5ForConditionalGeneration
-        (which has encoder/decoder directly) and MT5AdapterModel (which wraps them in transformer).
-        """
-        # Check if state_dict keys need to be prefixed with 'transformer.'
-        has_transformer_prefix = any(k.startswith('transformer.') for k in state_dict.keys())
-        has_encoder_prefix = any(k.startswith('encoder.') or k.startswith('decoder.') or k.startswith('shared.') 
-                                  for k in state_dict.keys())
-        
-        if has_encoder_prefix and not has_transformer_prefix:
-            # Keys are from a model like MT5ForConditionalGeneration - need to add transformer. prefix
-            new_state_dict = {}
-            for key, value in state_dict.items():
-                if key.startswith(('encoder.', 'decoder.', 'shared.')):
-                    new_key = f'transformer.{key}'
-                    new_state_dict[new_key] = value
-                else:
-                    # Keep other keys as-is (e.g., lm_head, heads, adapters)
-                    new_state_dict[key] = value
-            state_dict = new_state_dict
-        
-        return super().load_state_dict(state_dict, strict=strict)
-
     def get_encoder(self):
         return self.transformer.encoder
 
