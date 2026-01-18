@@ -53,6 +53,30 @@ class MT5AdapterModel(
         self.model_parallel = False
         self.device_map = None
 
+    def load_state_dict(self, state_dict, strict=True):
+        """
+        Custom state_dict loading to handle compatibility between MT5ForConditionalGeneration
+        (which has encoder/decoder directly) and MT5AdapterModel (which wraps them in transformer).
+        """
+        # Check if state_dict keys need to be prefixed with 'transformer.'
+        has_transformer_prefix = any(k.startswith('transformer.') for k in state_dict.keys())
+        has_encoder_prefix = any(k.startswith('encoder.') or k.startswith('decoder.') or k.startswith('shared.') 
+                                  for k in state_dict.keys())
+        
+        if has_encoder_prefix and not has_transformer_prefix:
+            # Keys are from a model like MT5ForConditionalGeneration - need to add transformer. prefix
+            new_state_dict = {}
+            for key, value in state_dict.items():
+                if key.startswith(('encoder.', 'decoder.', 'shared.')):
+                    new_key = f'transformer.{key}'
+                    new_state_dict[new_key] = value
+                else:
+                    # Keep other keys as-is (e.g., lm_head, heads, adapters)
+                    new_state_dict[key] = value
+            state_dict = new_state_dict
+        
+        return super().load_state_dict(state_dict, strict=strict)
+
     def get_encoder(self):
         return self.transformer.encoder
 
@@ -122,7 +146,14 @@ class MT5AdapterModel(
                 model_output["last_hidden_state"] = new_hidden_state
 
         # sequence classification based on last token in sequence
-        if input_ids is not None and sequence_output.shape[1] == input_ids.shape[1]:
+        # Only extract cls_representation for classification heads, not for seq2seq_lm or qa heads
+        used_heads = self._get_used_heads(head)
+        is_classification = any([
+            head_module.__class__.__name__ in ["ClassificationHead", "MultiLabelClassificationHead"]
+            for head_module in used_heads
+        ])
+        
+        if is_classification and input_ids is not None and sequence_output.shape[1] == input_ids.shape[1]:
             eos_mask = input_ids.eq(self.config.eos_token_id)
             (eos_mask,) = adjust_tensors_for_parallel(sequence_output, eos_mask)
             if len(torch.unique(eos_mask.sum(1))) > 1:
