@@ -79,11 +79,11 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
     def load_state_dict(self, state_dict, strict=True, assign=False):
         """
         Override load_state_dict to handle key remapping between static and flex models.
-        
+
         Static models (e.g., BartForConditionalGeneration, T5ForConditionalGeneration) use keys like
         encoder.*, decoder.*, shared.* directly, while flex models wrap the base model in an attribute
         (e.g., model.encoder.*, transformer.encoder.*) based on base_model_prefix.
-        
+
         This method automatically detects when remapping is needed and applies the transformation.
         """
         # Get the base model prefix (e.g., "model" for BART, "transformer" for T5)
@@ -93,20 +93,19 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             if hasattr(self, attr_name):
                 base_model_attr = attr_name
                 break
-        
+
         if base_model_attr is None:
             # No wrapper attribute found, use default behavior
             return super().load_state_dict(state_dict, strict=strict, assign=assign)
-        
+
         # Check if we need to remap keys (detect static model state dict)
         # Look for keys that should be wrapped but aren't
         wrapper_prefix = f"{base_model_attr}."
         needs_remapping = any(
-            key.startswith(("encoder.", "decoder.", "shared."))
-            and not key.startswith(wrapper_prefix)
+            key.startswith(("encoder.", "decoder.", "shared.")) and not key.startswith(wrapper_prefix)
             for key in state_dict.keys()
         )
-        
+
         if needs_remapping:
             # Create new state dict with remapped keys
             new_state_dict = {}
@@ -118,7 +117,7 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
                 else:
                     new_state_dict[key] = value
             state_dict = new_state_dict
-        
+
         return super().load_state_dict(state_dict, strict=strict, assign=assign)
 
     def _init_head_modules(self):

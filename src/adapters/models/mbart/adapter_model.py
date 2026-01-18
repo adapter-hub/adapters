@@ -97,13 +97,13 @@ class MBartAdapterModel(
         # sequence classification based on last token in sequence
         # Only extract cls_representation for classification heads to avoid IndexError for other head types
         from ...heads import ClassificationHead, MultiLabelClassificationHead
-        
+
         active_head = list(self.heads.keys())[0] if head is None and len(self.heads) > 0 else head
         needs_cls = active_head and isinstance(
             self.heads[active_head] if isinstance(active_head, str) and active_head in self.heads else None,
-            (ClassificationHead, MultiLabelClassificationHead)
+            (ClassificationHead, MultiLabelClassificationHead),
         )
-        
+
         if needs_cls:
             x = outputs[0]  # last hidden state
             if input_ids is not None and x.shape[1] == input_ids.shape[1]:

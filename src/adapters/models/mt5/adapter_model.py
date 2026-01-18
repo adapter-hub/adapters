@@ -124,11 +124,13 @@ class MT5AdapterModel(
         # sequence classification based on last token in sequence
         # Only extract cls_representation for classification heads, not for seq2seq_lm or qa heads
         used_heads = self._get_used_heads(head)
-        is_classification = any([
-            head_module.__class__.__name__ in ["ClassificationHead", "MultiLabelClassificationHead"]
-            for head_module in used_heads
-        ])
-        
+        is_classification = any(
+            [
+                head_module.__class__.__name__ in ["ClassificationHead", "MultiLabelClassificationHead"]
+                for head_module in used_heads
+            ]
+        )
+
         if is_classification and input_ids is not None and sequence_output.shape[1] == input_ids.shape[1]:
             eos_mask = input_ids.eq(self.config.eos_token_id)
             (eos_mask,) = adjust_tensors_for_parallel(sequence_output, eos_mask)
