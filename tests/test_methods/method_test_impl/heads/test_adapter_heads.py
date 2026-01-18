@@ -368,9 +368,8 @@ class PredictionHeadModelTestMixin:
             self.skipTest("No classification head available")
         static_head_model = AutoModelForSequenceClassification.from_config(self.config())
         adapters.init(static_head_model)
-        flex_head_model = AutoAdapterModel.from_pretrained(
-            None, config=self.config(), state_dict=static_head_model.state_dict()
-        )
+        flex_head_model = AutoAdapterModel.from_config(self.config())
+        flex_head_model.load_state_dict(static_head_model.state_dict(), strict=False)
         static_head_model.eval()
         flex_head_model.eval()
 

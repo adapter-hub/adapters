@@ -166,8 +166,4 @@ class MistralDecoderLayerWithAdapters(MistralDecoderLayerMixin, MistralDecoderLa
         hidden_states = self.mlp(hidden_states)
         hidden_states = self.output_adapters(hidden_states, residual, None)
 
-        outputs = (hidden_states,)
-        if output_attentions:
-            outputs += (self_attn_weights,)
-
-        return outputs
+        return hidden_states

@@ -80,8 +80,8 @@ class PLBartAttentionWithAdapters(PLBartAttentionAdaptersMixin, PLBartAttention)
         current_states = key_value_states if is_cross_attention else hidden_states
         if is_cross_attention and past_key_value is not None and is_updated:
             # reuse k,v, cross_attentions
-            key_states = curr_past_key_value.key_cache[self.layer_idx]
-            value_states = curr_past_key_value.value_cache[self.layer_idx]
+            key_states = curr_past_key_value.layers[self.layer_idx].keys
+            value_states = curr_past_key_value.layers[self.layer_idx].values
         else:
             key_states = self.k_proj(current_states)
             value_states = self.v_proj(current_states)
@@ -253,7 +253,7 @@ class PLBartDecoderLayerWithAdapters(PLBartDecoderLayerAdaptersMixin, PLBartDeco
         encoder_attention_mask: Optional[torch.Tensor] = None,
         layer_head_mask: Optional[torch.Tensor] = None,
         cross_attn_layer_head_mask: Optional[torch.Tensor] = None,
-        past_key_value: Optional[Cache] = None,
+        past_key_values: Optional[Cache] = None,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = True,
         cache_position: Optional[torch.Tensor] = None,
@@ -284,9 +284,9 @@ class PLBartDecoderLayerWithAdapters(PLBartDecoderLayerAdaptersMixin, PLBartDeco
         residual = hidden_states
 
         # Self Attention
-        hidden_states, self_attn_weights, past_key_value = self.self_attn(
+        hidden_states, self_attn_weights, past_key_values = self.self_attn(
             hidden_states=hidden_states,
-            past_key_value=past_key_value,
+            past_key_value=past_key_values,
             attention_mask=attention_mask,
             layer_head_mask=layer_head_mask,
             output_attentions=output_attentions,
@@ -305,12 +305,12 @@ class PLBartDecoderLayerWithAdapters(PLBartDecoderLayerAdaptersMixin, PLBartDeco
         if encoder_hidden_states is not None:
             residual = hidden_states
 
-            hidden_states, cross_attn_weights, past_key_value = self.encoder_attn(
+            hidden_states, cross_attn_weights, past_key_values = self.encoder_attn(
                 hidden_states=hidden_states,
                 key_value_states=encoder_hidden_states,
                 attention_mask=encoder_attention_mask,
                 layer_head_mask=cross_attn_layer_head_mask,
-                past_key_value=past_key_value,
+                past_key_value=past_key_values,
                 output_attentions=output_attentions,
             )
             hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
@@ -340,6 +340,6 @@ class PLBartDecoderLayerWithAdapters(PLBartDecoderLayerAdaptersMixin, PLBartDeco
             outputs += (self_attn_weights, cross_attn_weights)
 
         if use_cache:
-            outputs += (past_key_value,)
+            outputs += (past_key_values,)
 
         return outputs

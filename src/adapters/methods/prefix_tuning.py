@@ -606,7 +606,11 @@ class PrefixTuningLayer(ComposableAdapterLayerBase, nn.Module):
                     dtype=state.attention_mask.dtype,
                 )
             if state.invert_mask:
-                prefix_mask = 1.0 - prefix_mask
+                # Handle both boolean and numeric masks
+                if prefix_mask.dtype == torch.bool:
+                    prefix_mask = ~prefix_mask
+                else:
+                    prefix_mask = 1.0 - prefix_mask
             (prefix_mask,) = adjust_tensors_for_parallel(state.attention_mask, prefix_mask)
             attention_mask = torch.cat([prefix_mask, state.attention_mask], dim=-1)
         else:

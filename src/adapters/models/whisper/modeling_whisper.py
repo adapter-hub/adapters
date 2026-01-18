@@ -74,8 +74,8 @@ class WhisperAttentionWithAdapters(WhisperAttention, WhisperAttentionAdaptersMix
         current_states = key_value_states if key_value_states is not None else hidden_states
         if is_cross_attention and past_key_value and is_updated:
             # reuse k,v, cross_attentions
-            key_states = past_key_value.key_cache[self.layer_idx]
-            value_states = past_key_value.value_cache[self.layer_idx]
+            key_states = past_key_value.layers[self.layer_idx].keys
+            value_states = past_key_value.layers[self.layer_idx].values
         else:
             key_states = self.k_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
             value_states = self.v_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
@@ -178,8 +178,8 @@ class WhisperFlashAttention2WithAdapters(WhisperAttentionAdaptersMixin, WhisperA
         current_states = key_value_states if key_value_states is not None else hidden_states
         if is_cross_attention and past_key_value and is_updated:
             # reuse k,v, cross_attentions
-            key_states = past_key_value.key_cache[self.layer_idx]
-            value_states = past_key_value.value_cache[self.layer_idx]
+            key_states = past_key_value.layers[self.layer_idx].keys
+            value_states = past_key_value.layers[self.layer_idx].values
         else:
             key_states = self.k_proj(current_states).view(bsz, tgt_len, self.num_heads, self.head_dim)
             value_states = self.v_proj(current_states).view(bsz, tgt_len, self.num_heads, self.head_dim)
@@ -311,8 +311,8 @@ class WhisperSdpaAttentionWithAdapters(WhisperAttentionAdaptersMixin, WhisperAtt
         current_states = key_value_states if key_value_states is not None else hidden_states
         if is_cross_attention and past_key_value and is_updated:
             # reuse k,v, cross_attentions
-            key_states = past_key_value.key_cache[self.layer_idx]
-            value_states = past_key_value.value_cache[self.layer_idx]
+            key_states = past_key_value.layers[self.layer_idx].keys
+            value_states = past_key_value.layers[self.layer_idx].values
         else:
             key_states = self.k_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
             value_states = self.v_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
@@ -453,7 +453,7 @@ class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAd
         encoder_attention_mask: Optional[torch.Tensor] = None,
         layer_head_mask: Optional[torch.Tensor] = None,
         cross_attn_layer_head_mask: Optional[torch.Tensor] = None,
-        past_key_value: Optional[EncoderDecoderCache] = None,
+        past_key_values: Optional[EncoderDecoderCache] = None,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = True,
         cache_position: Optional[torch.LongTensor] = None,
@@ -488,7 +488,7 @@ class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAd
         # Self Attention
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
             hidden_states=hidden_states,
-            past_key_value=past_key_value,
+            past_key_value=past_key_values,
             attention_mask=attention_mask,
             layer_head_mask=layer_head_mask,
             output_attentions=output_attentions,
@@ -511,7 +511,7 @@ class WhisperDecoderLayerWithAdapters(WhisperDecoderLayer, WhisperDecoderLayerAd
                 key_value_states=encoder_hidden_states,
                 attention_mask=encoder_attention_mask,
                 layer_head_mask=cross_attn_layer_head_mask,
-                past_key_value=past_key_value,
+                past_key_value=past_key_values,
                 output_attentions=output_attentions,
             )
             hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)

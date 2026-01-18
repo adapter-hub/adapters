@@ -409,7 +409,6 @@ class AdapterMethodBaseTestMixin:
         if self.config_class not in ADAPTER_MODEL_MAPPING:
             self.skipTest("Does not support flex heads.")
 
-        config = self.config()
         state_dict_after_training = {}
 
         # Run training twice (with & without gradient checkpointing) to verify both produce identical results (i.e. the same state dict)
@@ -417,7 +416,8 @@ class AdapterMethodBaseTestMixin:
             # Set random seed
             torch.manual_seed(42)
 
-            # Initialize model
+            # Initialize model with a fresh config each time
+            config = self.config()
             model = adapters.AutoAdapterModel.from_config(config)
 
             # if model doesn't support gradient checkpointing, skip the test

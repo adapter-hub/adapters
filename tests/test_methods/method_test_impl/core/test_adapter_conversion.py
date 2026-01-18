@@ -28,7 +28,8 @@ from transformers.testing_utils import require_torch, torch_device
 @require_torch
 class ModelClassConversionTestMixin:
     def run_test(self, static_model, input_shape=None, label_dict=None):
-        flex_model = AutoAdapterModel.from_pretrained(None, config=self.config(), state_dict=static_model.state_dict())
+        flex_model = AutoAdapterModel.from_config(self.config())
+        flex_model.load_state_dict(static_model.state_dict(), strict=False)
         static_model.eval()
         flex_model.eval()
         if (
@@ -183,7 +184,8 @@ class ModelClassConversionTestMixin:
 
         static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
         adapters.init(static_model)
-        flex_model = AutoAdapterModel.from_pretrained(None, config=self.config(), state_dict=static_model.state_dict())
+        flex_model = AutoAdapterModel.from_config(self.config())
+        flex_model.load_state_dict(static_model.state_dict(), strict=False)
         static_model.add_adapter("dummy")
         static_model.set_active_adapters("dummy")
         static_model.eval()

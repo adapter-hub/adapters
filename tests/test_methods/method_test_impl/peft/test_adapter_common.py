@@ -377,7 +377,8 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
 
         static_model = MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING[self.config_class](self.config())
         adapters.init(static_model)
-        flex_model = AutoAdapterModel.from_pretrained(None, config=self.config(), state_dict=static_model.state_dict())
+        flex_model = AutoAdapterModel.from_config(self.config())
+        flex_model.load_state_dict(static_model.state_dict(), strict=False)
 
         static_model.add_adapter("dummy")
         static_model.set_active_adapters("dummy")
