@@ -21,17 +21,19 @@ import torch
 
 from adapters.composition import adjust_tensors_for_parallel, match_attn_matrices_for_parallel
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
-from transformers.models.vit.modeling_vit import ViTLayer, ViTOutput, ViTSelfAttention, eager_attention_forward
+from transformers.models.vit.modeling_vit import (
+    ViTAttention,
+    ViTLayer,
+    ViTOutput,
+    ViTSelfAttention,
+    eager_attention_forward,
+)
 from transformers.utils import logging
 
 from .mixin_vit import ViTLayerAdaptersMixin, ViTOutputAdaptersMixin, ViTSelfAttentionAdaptersMixin
 
 
 logger = logging.get_logger(__name__)
-
-
-# Import ViTAttention for wrapping
-from transformers.models.vit.modeling_vit import ViTAttention
 
 
 class ViTSelfAttentionWithAdapters(ViTSelfAttentionAdaptersMixin, ViTSelfAttention):

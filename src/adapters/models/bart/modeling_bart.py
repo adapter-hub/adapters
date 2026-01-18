@@ -20,7 +20,6 @@ import torch.utils.checkpoint
 from torch import nn
 
 from transformers.cache_utils import Cache, EncoderDecoderCache
-from transformers.modeling_flash_attention_utils import is_flash_attn_available
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
 from transformers.models.bart.modeling_bart import (
     BartAttention,
@@ -32,10 +31,6 @@ from transformers.utils import logging
 
 from ...composition import adjust_tensors_for_parallel, adjust_tensors_for_parallel_, match_attn_matrices_for_parallel
 from .mixin_bart import BartAttentionAdaptersMixin, BartDecoderLayerAdaptersMixin, BartEncoderLayerAdaptersMixin
-
-
-if is_flash_attn_available():
-    from ...modeling_flash_attention_utils import _flash_attention_forward
 
 
 logger = logging.get_logger(__name__)
