@@ -65,6 +65,8 @@ jobs:
           pip install torch==2.3
           pip install .[sklearn,testing,sentencepiece,torchvision]
       - name: Test
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           make test-adapter-methods
   test_adapter_models:
@@ -88,6 +90,8 @@ jobs:
           pip install torch==2.3
           pip install .[sklearn,testing,sentencepiece,torchvision]
       - name: Test
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           make test-adapter-models
   test_adapter_examples:
@@ -112,5 +116,7 @@ jobs:
           pip install .[sklearn,testing,sentencepiece,torchvision]
           pip install conllu seqeval
       - name: Test Examples
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           make test-examples
