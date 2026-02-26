@@ -59,7 +59,7 @@ class BertGenerationSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, Be
         batch_size, seq_length, _ = hidden_states.shape
         mixed_query_layer = self.query(hidden_states)
         query_layer = mixed_query_layer.view(
-            batch_size, -1, self.num_attention_heads, self.attention_head_size
+            mixed_query_layer.shape[0], -1, self.num_attention_heads, self.attention_head_size
         ).transpose(1, 2)
 
         # If this is instantiated as a cross-attention module, the keys
@@ -75,12 +75,12 @@ class BertGenerationSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, Be
             attention_mask = encoder_attention_mask
         else:
             key_layer = self.key(current_states)
-            key_layer = key_layer.view(batch_size, -1, self.num_attention_heads, self.attention_head_size).transpose(
-                1, 2
-            )
+            key_layer = key_layer.view(
+                key_layer.shape[0], -1, self.num_attention_heads, self.attention_head_size
+            ).transpose(1, 2)
             value_layer = self.value(current_states)
             value_layer = value_layer.view(
-                batch_size, -1, self.num_attention_heads, self.attention_head_size
+                value_layer.shape[0], -1, self.num_attention_heads, self.attention_head_size
             ).transpose(1, 2)
 
             if past_key_values is not None and not is_cross_attention:

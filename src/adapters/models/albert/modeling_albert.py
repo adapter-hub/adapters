@@ -48,13 +48,15 @@ class AlbertAttentionWithAdapters(AlbertAttentionAdaptersMixin, AlbertAttention)
         query_layer = self.query(hidden_states)
         key_layer = self.key(hidden_states)
         value_layer = self.value(hidden_states)
-        query_layer = query_layer.view(batch_size, -1, self.num_attention_heads, self.attention_head_size).transpose(
-            1, 2
-        )
-        key_layer = key_layer.view(batch_size, -1, self.num_attention_heads, self.attention_head_size).transpose(1, 2)
-        value_layer = value_layer.view(batch_size, -1, self.num_attention_heads, self.attention_head_size).transpose(
-            1, 2
-        )
+        query_layer = query_layer.view(
+            query_layer.shape[0], -1, self.num_attention_heads, self.attention_head_size
+        ).transpose(1, 2)
+        key_layer = key_layer.view(
+            key_layer.shape[0], -1, self.num_attention_heads, self.attention_head_size
+        ).transpose(1, 2)
+        value_layer = value_layer.view(
+            value_layer.shape[0], -1, self.num_attention_heads, self.attention_head_size
+        ).transpose(1, 2)
         # >>> START AH Changes <<<
         query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
         (attention_mask,) = adjust_tensors_for_parallel(query_layer, attention_mask)
@@ -132,21 +134,18 @@ class AlbertSdpaAttentionWithAdapters(AlbertAttentionAdaptersMixin, AlbertSdpaAt
             )
             return super().forward(hidden_states, attention_mask, head_mask, output_attentions)
         batch_size, seq_len, _ = hidden_states.size()
-        query_layer = (
-            self.query(hidden_states)
-            .view(batch_size, -1, self.num_attention_heads, self.attention_head_size)
-            .transpose(1, 2)
-        )
-        key_layer = (
-            self.key(hidden_states)
-            .view(batch_size, -1, self.num_attention_heads, self.attention_head_size)
-            .transpose(1, 2)
-        )
-        value_layer = (
-            self.value(hidden_states)
-            .view(batch_size, -1, self.num_attention_heads, self.attention_head_size)
-            .transpose(1, 2)
-        )
+        query_layer = self.query(hidden_states)
+        query_layer = query_layer.view(
+            query_layer.shape[0], -1, self.num_attention_heads, self.attention_head_size
+        ).transpose(1, 2)
+        key_layer = self.key(hidden_states)
+        key_layer = key_layer.view(
+            key_layer.shape[0], -1, self.num_attention_heads, self.attention_head_size
+        ).transpose(1, 2)
+        value_layer = self.value(hidden_states)
+        value_layer = value_layer.view(
+            value_layer.shape[0], -1, self.num_attention_heads, self.attention_head_size
+        ).transpose(1, 2)
         # >>> START AH Changes <<<
         query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
         (attention_mask,) = adjust_tensors_for_parallel(query_layer, attention_mask)

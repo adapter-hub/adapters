@@ -396,11 +396,11 @@ class BottleneckAdapterTestMixin(AdapterMethodBaseTestMixin):
         flex_model.eval()
         static_model.to(torch_device)
         flex_model.to(torch_device)
-        output = static_model(**input_data)
-
-        input_data["past_key_values"] = output["past_key_values"]
-        output_base = static_model(**input_data)
-        output_with_head = flex_model(**input_data)
+        # Generate separate past_key_values for each model to avoid in-place cache mutation
+        past_for_static = static_model(**input_data)["past_key_values"]
+        past_for_flex = static_model(**input_data)["past_key_values"]
+        output_base = static_model(**{**input_data, "past_key_values": past_for_static})
+        output_with_head = flex_model(**{**input_data, "past_key_values": past_for_flex})
         self.assertTrue(torch.allclose(output_base["logits"], output_with_head["logits"]))
 
     def test_train_single_adapter(self):

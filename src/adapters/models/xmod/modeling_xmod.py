@@ -47,7 +47,7 @@ class XmodSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, XmodSelfAtte
 
         # Inline transpose_for_scores: reshape and transpose for multi-head attention
         query_layer = mixed_query_layer.view(
-            batch_size, -1, self.num_attention_heads, self.attention_head_size
+            mixed_query_layer.shape[0], -1, self.num_attention_heads, self.attention_head_size
         ).transpose(1, 2)
 
         # If this is instantiated as a cross-attention module, the keys
@@ -67,32 +67,32 @@ class XmodSelfAttentionWithAdapters(BertSelfAttentionAdaptersMixin, XmodSelfAtte
         elif is_cross_attention:
             key_states = self.key(encoder_hidden_states)
             value_states = self.value(encoder_hidden_states)
-            key_layer = key_states.view(batch_size, -1, self.num_attention_heads, self.attention_head_size).transpose(
-                1, 2
-            )
+            key_layer = key_states.view(
+                key_states.shape[0], -1, self.num_attention_heads, self.attention_head_size
+            ).transpose(1, 2)
             value_layer = value_states.view(
-                batch_size, -1, self.num_attention_heads, self.attention_head_size
+                value_states.shape[0], -1, self.num_attention_heads, self.attention_head_size
             ).transpose(1, 2)
             attention_mask = encoder_attention_mask
         elif past_key_value is not None:
             key_states = self.key(hidden_states)
             value_states = self.value(hidden_states)
-            key_layer = key_states.view(batch_size, -1, self.num_attention_heads, self.attention_head_size).transpose(
-                1, 2
-            )
+            key_layer = key_states.view(
+                key_states.shape[0], -1, self.num_attention_heads, self.attention_head_size
+            ).transpose(1, 2)
             value_layer = value_states.view(
-                batch_size, -1, self.num_attention_heads, self.attention_head_size
+                value_states.shape[0], -1, self.num_attention_heads, self.attention_head_size
             ).transpose(1, 2)
             key_layer = torch.cat([past_key_value[0], key_layer], dim=2)
             value_layer = torch.cat([past_key_value[1], value_layer], dim=2)
         else:
             key_states = self.key(hidden_states)
             value_states = self.value(hidden_states)
-            key_layer = key_states.view(batch_size, -1, self.num_attention_heads, self.attention_head_size).transpose(
-                1, 2
-            )
+            key_layer = key_states.view(
+                key_states.shape[0], -1, self.num_attention_heads, self.attention_head_size
+            ).transpose(1, 2)
             value_layer = value_states.view(
-                batch_size, -1, self.num_attention_heads, self.attention_head_size
+                value_states.shape[0], -1, self.num_attention_heads, self.attention_head_size
             ).transpose(1, 2)
 
         query_layer, key_layer, value_layer = match_attn_matrices_for_parallel(query_layer, key_layer, value_layer)
