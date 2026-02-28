@@ -692,6 +692,19 @@ class ModelWithFlexibleHeadsAdaptersMixin(ModelWithHeadsAdaptersMixin):
             for attr in ForwardContext.context_attributes:
                 if attr not in return_output and attr in all_outputs:
                     return_output[attr] = all_outputs[attr]
+            if isinstance(all_outputs, ModelOutput):
+                for attr in (
+                    "hidden_states",
+                    "attentions",
+                    "encoder_hidden_states",
+                    "encoder_attentions",
+                    "decoder_hidden_states",
+                    "decoder_attentions",
+                    "cross_attentions",
+                    "past_key_values",
+                ):
+                    if attr not in return_output and attr in all_outputs:
+                        return_output[attr] = all_outputs[attr]
         return return_output
 
     def get_labels_dict(self, head_name=None):

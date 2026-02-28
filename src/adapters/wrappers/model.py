@@ -8,6 +8,7 @@ from adapters.context import ForwardContext
 from transformers import PreTrainedModel
 from transformers.models.auto.auto_factory import getattribute_from_module
 from transformers.models.auto.configuration_auto import model_type_to_module_name
+from transformers.utils.generic import _CAN_RECORD_REGISTRY
 
 from ..configuration import ModelAdaptersConfig
 from ..interface import AdapterModelInterface
@@ -40,6 +41,19 @@ def get_module_name(model_type: str) -> str:
     return model_type_to_module_name(model_type)
 
 
+def _reregister_can_record_outputs(module: nn.Module) -> None:
+    """Re-register _can_record_outputs in _CAN_RECORD_REGISTRY after dynamic class replacement.
+
+    HuggingFace's @check_model_inputs decorator looks up _CAN_RECORD_REGISTRY[str(self.__class__)]
+    to decide which intermediate outputs to capture. The registry key is set during __init__ but
+    becomes stale when adapters.init() replaces __class__ with a dynamically created type whose
+    str() differs (different __module__). This re-registers under the new class key.
+    """
+    can_record = getattr(module, "_can_record_outputs", None)
+    if can_record is not None:
+        _CAN_RECORD_REGISTRY[str(module.__class__)] = can_record
+
+
 def replace_with_adapter_class(module: nn.Module, modules_with_adapters) -> None:
     # Check if module is a base model class
     if module.__class__.__name__ in MODEL_MIXIN_MAPPING:
@@ -50,6 +64,7 @@ def replace_with_adapter_class(module: nn.Module, modules_with_adapters) -> None
             {},
         )
         module.__class__ = model_class
+        _reregister_can_record_outputs(module)
     elif module.__class__.__module__.startswith("transformers.models") or module.__class__.__module__.startswith(
         "adapters.wrappers.model"
     ):
@@ -95,6 +110,7 @@ def init(
             {},
         )
         base_model.__class__ = model_class
+        _reregister_can_record_outputs(base_model)
         base_model.adapter_interface = interface
         base_model.support_prompt_tuning = False  # HACK: will be set to true if init_prompt_tuning() is called
     else:
@@ -142,6 +158,7 @@ def init(
                     {},
                 )
                 model.__class__ = model_class
+                _reregister_can_record_outputs(model)
                 model.forward.__func__.__signature__ = temp_signature
 
     # Finally, initialize adapters
