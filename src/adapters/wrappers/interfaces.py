@@ -112,6 +112,21 @@ CUSTOM_INTERFACES = {
         layer_ln_1=None,
         layer_ln_2=None,
     ),
+    "eat": AdapterModelInterface(
+        adapter_methods=["lora"],
+        model_embeddings="model.local_encoder",
+        model_layers="model.blocks",
+        layer_self_attn="attn",
+        layer_cross_attn=None,
+        attn_qkv_proj="qkv",
+        attn_o_proj="proj",
+        layer_intermediate_proj="mlp.fc1",
+        layer_output_proj="mlp.fc2",
+        layer_pre_self_attn="norm1",
+        layer_pre_ffn="norm2",
+        layer_ln_1=None,
+        layer_ln_2=None,
+    ),
 }
 
 
